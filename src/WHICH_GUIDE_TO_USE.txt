@@ -1,0 +1,135 @@
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║     WHICH GUIDE SHOULD YOU USE? - DECISION TREE          ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝
+
+Answer these questions to find the right guide:
+
+═══════════════════════════════════════════════════════════
+
+QUESTION 1: Where is your ProSpaces CRM?
+═══════════════════════════════════════════════════════════
+
+[ ] A. On my computer (local files)
+    → Read: DEPLOY_NOW.txt
+    → Quick deployment from your computer
+
+[ ] B. In the cloud (Replit, StackBlitz, etc.)
+    → Go to Question 2
+
+[ ] C. I don't know / I'm not sure
+    → If you can see files on your computer: Choose A
+    → If you only access it via web browser: Choose B
+
+═══════════════════════════════════════════════════════════
+
+QUESTION 2: Can you access a terminal in your cloud platform?
+═══════════════════════════════════════════════════════════
+
+[ ] A. Yes, I see a terminal/console/shell
+    → Read: CLOUD_APP_DEPLOYMENT.md → Option 1
+    → Use terminal commands directly in cloud
+
+[ ] B. No, I don't see any terminal
+    → Go to Question 3
+
+[ ] C. I'm not sure where to find it
+    → Read: CLOUD_TERMINAL_ACCESS.md
+    → Find terminal for your specific platform
+
+═══════════════════════════════════════════════════════════
+
+QUESTION 3: Can you download the project to your computer?
+═══════════════════════════════════════════════════════════
+
+[ ] A. Yes, I can download/export files
+    → Read: CLOUD_APP_DEPLOYMENT.md → Option 3
+    → Deploy once from computer, then forget it
+
+[ ] B. No, I can't download files
+    → Read: CLOUD_DEPLOYMENT_DASHBOARD.md
+    → Use Supabase Dashboard (partial deployment)
+    → Note: Still need terminal for Edge Functions
+
+[ ] C. I'd prefer not to download
+    → Read: CLOUD_TERMINAL_ACCESS.md
+    → Find terminal in your cloud platform
+    → Most platforms have one!
+
+═══════════════════════════════════════════════════════════
+
+QUICK RECOMMENDATIONS BY PLATFORM:
+═══════════════════════════════════════════════════════════
+
+🔷 REPLIT
+   → Read: CLOUD_APP_DEPLOYMENT.md → Option 1
+   → Click "Shell" tab → Run commands
+
+🔶 STACKBLITZ
+   → Read: CLOUD_APP_DEPLOYMENT.md → Option 1
+   → Click Terminal icon (>_) → Run commands
+
+🔷 CODESANDBOX
+   → Read: CLOUD_APP_DEPLOYMENT.md → Option 1
+   → Click "Terminal" tab → Run commands
+
+🔶 GITHUB CODESPACES
+   → Read: CLOUD_APP_DEPLOYMENT.md → Option 1
+   → Terminal → New Terminal → Run commands
+
+🔷 GITPOD
+   → Read: CLOUD_APP_DEPLOYMENT.md → Option 1
+   → Terminal at bottom → Run commands
+
+🔶 VERCEL / NETLIFY (Deployment only, no IDE)
+   → Read: CLOUD_APP_DEPLOYMENT.md → Option 3
+   → Deploy from local computer once
+
+═══════════════════════════════════════════════════════════
+
+WHAT IF I JUST WANT TO TEST THE UI?
+═══════════════════════════════════════════════════════════
+
+No deployment needed!
+
+→ Open ProSpaces CRM in browser
+→ Click "Email" → "Add Account"
+→ Click "Try Demo Mode"
+→ ✅ Done! (Sample data only, no real email)
+
+═══════════════════════════════════════════════════════════
+
+SUMMARY - PICK YOUR GUIDE:
+═══════════════════════════════════════════════════════════
+
+┌───────────────────────────────────────────────────────┐
+│ YOUR SITUATION          │ READ THIS FILE             │
+├───────────────────────────────────────────────────────┤
+│ App on my computer      │ DEPLOY_NOW.txt             │
+│ Cloud + have terminal   │ CLOUD_APP_DEPLOYMENT.md    │
+│ Cloud + no terminal     │ CLOUD_APP_DEPLOYMENT.md    │
+│ Need to find terminal   │ CLOUD_TERMINAL_ACCESS.md   │
+│ Just test UI (demo)     │ No guide needed!           │
+│ Complete IMAP guide     │ IMAP_SMTP_SETUP_GUIDE.md   │
+│ Connect email after     │ CONNECT_YOUR_EMAIL.md      │
+└───────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════
+
+STILL NOT SURE?
+═══════════════════════════════════════════════════════════
+
+Tell me:
+1. Where do you edit your ProSpaces CRM code?
+   (Website name, e.g., "Replit.com" or "On my PC")
+
+2. Can you see a black window or "terminal" or "console"?
+   (Yes / No / Not sure)
+
+3. Is your code on GitHub?
+   (Yes / No / Not sure)
+
+I'll tell you exactly which guide to use! 🎯
+
+═══════════════════════════════════════════════════════════

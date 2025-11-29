@@ -1,0 +1,214 @@
+═══════════════════════════════════════════════════════════
+  LIVE IMAP/SMTP EMAIL - DEPLOYMENT CHECKLIST
+═══════════════════════════════════════════════════════════
+
+📋 Follow this checklist step-by-step. Check off each item.
+
+
+PART 1: DEPLOY BACKEND (One-time, 10 minutes)
+───────────────────────────────────────────────────────────
+
+[ ] Step 1: Open Command Prompt
+    → Windows Key + R → type "cmd" → Enter
+
+[ ] Step 2: Navigate to project folder
+    → cd C:\Path\To\Your\ProSpacesCRM
+
+[ ] Step 3: Install Supabase CLI
+    → npm install -g supabase
+    → Wait for completion
+
+[ ] Step 4: Login to Supabase
+    → supabase login
+    → Browser opens → Click "Authorize"
+
+[ ] Step 5: Link your project
+    → supabase link --project-ref usorqldwroecyxucmtuw
+    → Enter database password when asked
+
+[ ] Step 6: Create database tables
+    → supabase db push
+    → Wait for "Finished supabase db push"
+
+[ ] Step 7: Set API key
+    → supabase secrets set NYLAS_API_KEY=nyk_v0_c66Qn575iBdA2TPQzA4Dpa2qmK5XG4ID3rfF57FGb4kKutfWgpg4DtD5LugO6vJv
+    → Wait for "Finished supabase secrets set"
+
+[ ] Step 8a: Deploy nylas-connect
+    → supabase functions deploy nylas-connect
+    → Wait for ✓ Deployed
+
+[ ] Step 8b: Deploy nylas-callback
+    → supabase functions deploy nylas-callback
+    → Wait for ✓ Deployed
+
+[ ] Step 8c: Deploy nylas-send-email
+    → supabase functions deploy nylas-send-email
+    → Wait for ✓ Deployed
+
+[ ] Step 8d: Deploy nylas-sync-emails
+    → supabase functions deploy nylas-sync-emails
+    → Wait for ✓ Deployed
+
+[ ] Step 9: Verify deployment
+    → supabase functions list
+    → Should show all 4 functions
+
+✅ BACKEND DEPLOYED!
+
+
+PART 2: GET APP PASSWORD (5 minutes)
+───────────────────────────────────────────────────────────
+
+Choose your email provider:
+
+[ ] GMAIL:
+    → Go to: myaccount.google.com/apppasswords
+    → Enable 2-Step Verification (if not enabled)
+    → Generate app password for "Mail" → "Other"
+    → Name it "ProSpaces CRM"
+    → Copy the 16-character password
+    → Save it: _______________________________
+
+[ ] OUTLOOK:
+    → Use your regular account password
+    → Save it: _______________________________
+
+[ ] YAHOO:
+    → Go to: login.yahoo.com/account/security
+    → Generate app password
+    → Name it "ProSpaces CRM"
+    → Copy the password
+    → Save it: _______________________________
+
+[ ] OTHER:
+    → Contact your email provider for IMAP settings
+    → Get IMAP server: _______________________________
+    → Get port (usually 993): _______________________________
+    → Get password: _______________________________
+
+✅ APP PASSWORD READY!
+
+
+PART 3: CONNECT IN PROSPACE CRM (2 minutes)
+───────────────────────────────────────────────────────────
+
+[ ] Open ProSpaces CRM in browser
+
+[ ] Click "Email" in left sidebar
+
+[ ] Click "Add Account" button (top right)
+
+[ ] Click "IMAP/SMTP (Recommended)" tab
+
+[ ] Click "Configure" button
+
+[ ] Fill in form:
+
+    For GMAIL:
+    [ ] IMAP Server: imap.gmail.com
+    [ ] Port: 993
+    [ ] Username: yourname@gmail.com
+    [ ] Password: [paste 16-char app password - NO SPACES]
+
+    For OUTLOOK:
+    [ ] IMAP Server: outlook.office365.com
+    [ ] Port: 993
+    [ ] Username: yourname@outlook.com
+    [ ] Password: [paste your account password]
+
+    For YAHOO:
+    [ ] IMAP Server: imap.mail.yahoo.com
+    [ ] Port: 993
+    [ ] Username: yourname@yahoo.com
+    [ ] Password: [paste app password]
+
+[ ] Click "Connect Account" button
+
+[ ] Wait for "Account Connected!" message
+
+✅ EMAIL CONNECTED!
+
+
+PART 4: TEST IT (2 minutes)
+───────────────────────────────────────────────────────────
+
+[ ] Test 1: Sync emails
+    → Click "Sync" button in email module
+    → Wait a few seconds
+    → Recent emails should appear
+    → ✅ Working!
+
+[ ] Test 2: Send email
+    → Click "Compose" button
+    → Send email to yourself
+    → Check if it arrives
+    → ✅ Working!
+
+[ ] Test 3: Link to contact
+    → Open any email
+    → Click "Link to Contact"
+    → Select a contact
+    → ✅ Working!
+
+✅ ALL TESTS PASSED!
+
+
+═══════════════════════════════════════════════════════════
+                      🎉 SUCCESS!
+═══════════════════════════════════════════════════════════
+
+You now have live IMAP/SMTP email in ProSpaces CRM!
+
+You can:
+✅ Send & receive real emails
+✅ Sync your inbox
+✅ Link emails to contacts, bids, tasks
+✅ Track all email conversations
+✅ Use email templates
+✅ Search and filter emails
+
+
+═══════════════════════════════════════════════════════════
+                    TROUBLESHOOTING
+═══════════════════════════════════════════════════════════
+
+If something doesn't work:
+
+❌ "Backend not deployed"
+   → Go back to PART 1 and run all commands
+   → Verify with: supabase functions list
+
+❌ "Authentication failed"
+   → Gmail: Use app password, not regular password
+   → Remove spaces from password
+   → Check 2-Step Verification is enabled
+   → Enable IMAP: Gmail Settings → Forwarding/POP/IMAP
+
+❌ "Failed to connect"
+   → Double-check IMAP server address (no typos)
+   → Port must be 993
+   → Username is your FULL email address
+   → Password is correct
+
+❌ "Command not found"
+   → Install Node.js: nodejs.org
+   → Restart Command Prompt
+   → Try again
+
+❌ Still stuck?
+   → Check logs: supabase functions logs nylas-connect --tail
+   → Read: CONNECT_YOUR_EMAIL.md
+   → Or let me know the error!
+
+
+═══════════════════════════════════════════════════════════
+
+Print this checklist and check off items as you complete them!
+
+TOTAL TIME: ~20 minutes
+DIFFICULTY: Easy (just follow the steps!)
+
+Ready? Start with PART 1! 🚀
+
+═══════════════════════════════════════════════════════════
