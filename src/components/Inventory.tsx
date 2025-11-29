@@ -26,10 +26,14 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 import { inventoryAPI } from '../utils/api';
 import type { User } from '../App';
 import { DatabaseInit } from './DatabaseInit';
+import { advancedSearch, getSearchSuggestions } from '../utils/advanced-search';
+import { InventorySearchHelp } from './InventorySearchHelp';
 
 interface InventoryProps {
   user: User;
@@ -81,6 +85,11 @@ export function Inventory({ user }: InventoryProps) {
   // ✅ Pagination state to prevent rendering all 14k+ items at once
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50); // Made this state so user can change it
+  
+  // 🔮 Advanced search features
+  const [useAdvancedSearch, setUseAdvancedSearch] = useState(true);
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -118,26 +127,11 @@ export function Inventory({ user }: InventoryProps) {
   // ✅ Use deferred value to prevent search input from blocking during large renders
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
-  // 🔄 FORCE REFRESH: Updated at 2025-11-23 (Loads all 14k+ items, pagination active)
-  // ✅ INSTANT client-side filtering with useMemo (NO server calls on search)
+  // 🔮 Advanced search with fuzzy matching, semantic search, and NLP
   const filteredItems = useMemo(() => {
     let result = items;
 
-    // Apply search filter with deferred value
-    if (deferredSearchQuery.trim()) {
-      const query = deferredSearchQuery.toLowerCase();
-      result = result.filter(item =>
-        item.name?.toLowerCase().includes(query) ||
-        item.sku?.toLowerCase().includes(query) ||
-        item.description?.toLowerCase().includes(query) ||
-        item.category?.toLowerCase().includes(query) ||
-        item.barcode?.toLowerCase().includes(query) ||
-        item.location?.toLowerCase().includes(query) ||
-        item.supplier?.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply category filter
+    // Apply category filter first
     if (categoryFilter !== 'all') {
       result = result.filter(item => item.category === categoryFilter);
     }
@@ -147,8 +141,52 @@ export function Inventory({ user }: InventoryProps) {
       result = result.filter(item => item.status === statusFilter);
     }
 
+    // Apply search
+    if (deferredSearchQuery.trim()) {
+      if (useAdvancedSearch) {
+        // 🌟 Advanced Search with fuzzy matching, semantic understanding, and NLP
+        const searchResults = advancedSearch(result, deferredSearchQuery, {
+          fuzzyThreshold: 0.7,
+          includeInactive: statusFilter !== 'active',
+          minScore: 0.2,
+          maxResults: 1000,
+          sortBy: 'relevance',
+        });
+        
+        // Return items with their relevance scores
+        return searchResults.map(r => ({
+          ...r.item,
+          _searchScore: r.score,
+          _matchedFields: r.matchedFields,
+          _matchType: r.matchType,
+        }));
+      } else {
+        // Basic search (original)
+        const query = deferredSearchQuery.toLowerCase();
+        return result.filter(item =>
+          item.name?.toLowerCase().includes(query) ||
+          item.sku?.toLowerCase().includes(query) ||
+          item.description?.toLowerCase().includes(query) ||
+          item.category?.toLowerCase().includes(query) ||
+          item.barcode?.toLowerCase().includes(query) ||
+          item.location?.toLowerCase().includes(query) ||
+          item.supplier?.toLowerCase().includes(query)
+        );
+      }
+    }
+
     return result;
-  }, [items, deferredSearchQuery, categoryFilter, statusFilter]);
+  }, [items, deferredSearchQuery, categoryFilter, statusFilter, useAdvancedSearch]);
+  
+  // 🔮 Generate search suggestions
+  useEffect(() => {
+    if (searchQuery.length >= 2) {
+      const suggestions = getSearchSuggestions(items, searchQuery, 5);
+      setSearchSuggestions(suggestions);
+    } else {
+      setSearchSuggestions([]);
+    }
+  }, [searchQuery, items]);
 
   const loadInventory = async () => {
     try {
@@ -414,18 +452,77 @@ export function Inventory({ user }: InventoryProps) {
           {/* Filters */}
           <Card>
             <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search by name, SKU, or description..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
+              <div className="space-y-4">
+                {/* Search Mode Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-gray-700">Search</h3>
+                    {useAdvancedSearch && (
+                      <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        AI-Powered
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {useAdvancedSearch && (
+                      <InventorySearchHelp onExampleClick={(query) => setSearchQuery(query)} />
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setUseAdvancedSearch(!useAdvancedSearch)}
+                      className="text-xs"
+                    >
+                      {useAdvancedSearch ? (
+                        <>
+                          <Zap className="h-3 w-3 mr-1" />
+                          Advanced: ON
+                        </>
+                      ) : (
+                        'Basic Search'
+                      )}
+                    </Button>
                   </div>
                 </div>
+                
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder={useAdvancedSearch 
+                        ? "Try: 'tools under $50', 'red paint in stock', 'screws or bolts'..." 
+                        : "Search by name, SKU, or description..."
+                      }
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setShowSuggestions(true);
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                      className="pl-10"
+                    />
+                    
+                    {/* Search Suggestions */}
+                    {showSuggestions && searchSuggestions.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                        {searchSuggestions.map((suggestion, idx) => (
+                          <button
+                            key={idx}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-md last:rounded-b-md"
+                            onClick={() => {
+                              setSearchQuery(suggestion);
+                              setShowSuggestions(false);
+                            }}
+                          >
+                            <Search className="h-3 w-3 inline mr-2 text-gray-400" />
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="w-full sm:w-48">
                     <SelectValue placeholder="All Categories" />
@@ -449,8 +546,42 @@ export function Inventory({ user }: InventoryProps) {
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Search Info */}
+              {useAdvancedSearch && searchQuery && (
+                <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-md">
+                  <p className="text-sm text-purple-900">
+                    <Sparkles className="h-4 w-4 inline mr-1" />
+                    <strong>AI Search Active:</strong> Using fuzzy matching, semantic understanding, and natural language processing
+                  </p>
+                  <p className="text-xs text-purple-700 mt-1">
+                    Try: "tools under $50" • "red paint" • "low stock items" • "screws or bolts" • "cheap materials"
+                  </p>
+                </div>
+              )}
+            </div>
             </CardContent>
           </Card>
+
+          {/* Search Results Summary */}
+          {searchQuery && filteredItems.length > 0 && (
+            <div className="flex items-center justify-between text-sm text-gray-600 px-2">
+              <span>
+                Found <strong>{filteredItems.length}</strong> {filteredItems.length === 1 ? 'item' : 'items'}
+                {useAdvancedSearch && ' (sorted by relevance)'}
+              </span>
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSearchQuery('')}
+                  className="text-xs"
+                >
+                  Clear search
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Items List */}
           <div className="grid grid-cols-1 gap-4">
@@ -464,7 +595,20 @@ export function Inventory({ user }: InventoryProps) {
               <Card>
                 <CardContent className="py-12 text-center">
                   <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-gray-500">No inventory items found</p>
+                  <p className="text-gray-500">
+                    {searchQuery ? 'No items match your search' : 'No inventory items found'}
+                  </p>
+                  {searchQuery && (
+                    <p className="text-sm text-gray-400 mt-2">
+                      Try using different keywords or{' '}
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="text-purple-600 hover:underline"
+                      >
+                        clear your search
+                      </button>
+                    </p>
+                  )}
                   <Button className="mt-4" onClick={() => handleOpenDialog()}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Your First Item
@@ -472,8 +616,12 @@ export function Inventory({ user }: InventoryProps) {
                 </CardContent>
               </Card>
             ) : (
-              filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map(item => (
-                <Card key={item.id} className={item.quantityOnHand <= item.reorderLevel ? 'border-yellow-300' : ''}>
+              filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item: any) => (
+                <Card key={item.id} className={
+                  item.quantityOnHand <= item.reorderLevel 
+                    ? 'border-yellow-300' 
+                    : (item._searchScore && item._searchScore > 0.8 ? 'border-purple-200' : '')
+                }>
                   <CardContent className="pt-6">
                     <div className="flex flex-col lg:flex-row lg:items-start gap-4">
                       {/* Left Section - Item Info */}
@@ -495,10 +643,36 @@ export function Inventory({ user }: InventoryProps) {
                                   Low Stock
                                 </Badge>
                               )}
+                              {/* Search Match Indicators */}
+                              {useAdvancedSearch && item._matchType && searchQuery && (
+                                <Badge variant="outline" className={
+                                  item._matchType === 'exact' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                                  item._matchType === 'fuzzy' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                  item._matchType === 'semantic' ? 'bg-green-100 text-green-800 border-green-300' :
+                                  'bg-gray-100 text-gray-800 border-gray-300'
+                                }>
+                                  {item._matchType === 'exact' && '🎯 Exact'}
+                                  {item._matchType === 'fuzzy' && '✨ Fuzzy'}
+                                  {item._matchType === 'semantic' && '🧠 Smart'}
+                                  {item._matchType === 'partial' && '📝 Match'}
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-sm text-gray-600 mt-1">SKU: {item.sku}</p>
                             {item.description && (
                               <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+                            )}
+                            {/* Show matched fields for advanced search */}
+                            {useAdvancedSearch && item._matchedFields && item._matchedFields.length > 0 && searchQuery && (
+                              <p className="text-xs text-purple-600 mt-2">
+                                <Sparkles className="h-3 w-3 inline mr-1" />
+                                Matched in: {item._matchedFields.join(', ')}
+                                {item._searchScore && (
+                                  <span className="ml-2 text-purple-500">
+                                    ({Math.round(item._searchScore * 100)}% relevant)
+                                  </span>
+                                )}
+                              </p>
                             )}
                           </div>
                           <div className="flex gap-2">
