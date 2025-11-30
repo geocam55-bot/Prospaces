@@ -18,13 +18,23 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: false,
+    // Ensure CSS is extracted
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
           supabase: ['@supabase/supabase-js'],
         },
+        // Ensure consistent naming for assets
+        assetFileNames: 'assets/[name]-[hash][extname]',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
       },
     },
+  },
+  // Explicitly configure CSS processing
+  css: {
+    postcss: './postcss.config.cjs',
   },
 })
