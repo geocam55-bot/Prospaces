@@ -1,20 +1,10 @@
-/**
- * Advanced Search Engine for Inventory
- * 
- * Features:
- * - Fuzzy Search: Handles misspellings and approximate matches
- * - Semantic Search: Understands meaning behind words
- * - Full-Text Search: Searches across all fields
- * - Natural Language: Conversational queries, flexible word order
- */
-
 // ============================================
 // 1. FUZZY MATCHING - Levenshtein Distance
 // ============================================
 
 /**
- * Calculate Levenshtein distance between two strings
- * Returns the minimum number of single-character edits needed
+Calculate Levenshtein distance between two strings
+Returns the minimum number of single-character edits needed
  */
 function levenshteinDistance(str1: string, str2: string): number {
   const len1 = str1.length;
@@ -48,7 +38,7 @@ function levenshteinDistance(str1: string, str2: string): number {
 }
 
 /**
- * Calculate similarity score (0-1) based on Levenshtein distance
+Calculate similarity score (0-1) based on Levenshtein distance
  */
 function similarityScore(str1: string, str2: string): number {
   const maxLen = Math.max(str1.length, str2.length);
@@ -58,10 +48,10 @@ function similarityScore(str1: string, str2: string): number {
 }
 
 /**
- * Check if two strings are fuzzy matches
- * @param str1 - First string
- * @param str2 - Second string
- * @param threshold - Similarity threshold (0-1), default 0.7
+Check if two strings are fuzzy matches
+@param str1 - First string
+@param str2 - Second string
+@param threshold - Similarity threshold (0-1), default 0.7
  */
 function isFuzzyMatch(str1: string, str2: string, threshold: number = 0.7): boolean {
   return similarityScore(str1, str2) >= threshold;
@@ -72,8 +62,8 @@ function isFuzzyMatch(str1: string, str2: string, threshold: number = 0.7): bool
 // ============================================
 
 /**
- * Semantic word mappings for inventory-related terms
- * Maps synonyms and related words to common concepts
+Semantic word mappings for inventory-related terms
+Maps synonyms and related words to common concepts
  */
 const semanticMappings: Record<string, string[]> = {
   // Product types
@@ -110,7 +100,7 @@ const semanticMappings: Record<string, string[]> = {
 };
 
 /**
- * Expand query with semantic equivalents
+Expand query with semantic equivalents
  */
 function expandSemanticQuery(query: string): string[] {
   const words = query.toLowerCase().split(/\s+/);
@@ -137,8 +127,8 @@ function expandSemanticQuery(query: string): string[] {
 // ============================================
 
 /**
- * Extract meaningful terms from natural language query
- * Removes common words (stop words) and focuses on important terms
+Extract meaningful terms from natural language query
+Removes common words (stop words) and focuses on important terms
  */
 function extractSearchTerms(query: string): string[] {
   const stopWords = new Set([
@@ -157,7 +147,7 @@ function extractSearchTerms(query: string): string[] {
 }
 
 /**
- * Parse natural language queries for specific intents
+Parse natural language queries for specific intents
  */
 interface QueryIntent {
   type: 'price' | 'quantity' | 'category' | 'status' | 'general';
@@ -175,7 +165,7 @@ function parseQueryIntent(query: string): QueryIntent[] {
     { pattern: /(?:under|less\s+than|below|cheaper\s+than)\s*\$?(\d+(?:\.\d+)?)/i, operator: 'less' as const },
     { pattern: /(?:over|more\s+than|above|expensive\s+than)\s*\$?(\d+(?:\.\d+)?)/i, operator: 'greater' as const },
     { pattern: /(?:around|about|approximately)\s*\$?(\d+(?:\.\d+)?)/i, operator: 'equal' as const },
-    { pattern: /(?:between)\s*\$?(\d+(?:\.\d+)?)\s*(?:and|to)\s*\$?(\d+(?:\.\d+)?)/i, operator: 'between' as const },
+    { pattern: /(?:between)\s\$?(\d+(?:\.\d+)?)\s(?:and|to)\s*\$?(\d+(?:\.\d+)?)/i, operator: 'between' as const },
   ];
   
   for (const { pattern, operator } of pricePatterns) {
@@ -259,7 +249,7 @@ export interface SearchOptions {
 }
 
 /**
- * Advanced search function with fuzzy matching, semantic understanding, and NLP
+Advanced search function with fuzzy matching, semantic understanding, and NLP
  */
 export function advancedSearch<T extends SearchableItem>(
   items: T[],
@@ -477,7 +467,7 @@ export function advancedSearch<T extends SearchableItem>(
 // ============================================
 
 /**
- * Highlight matching text in a string
+Highlight matching text in a string
  */
 export function highlightMatches(text: string, query: string): string {
   if (!query) return text;
@@ -487,7 +477,7 @@ export function highlightMatches(text: string, query: string): string {
 }
 
 /**
- * Get search suggestions based on partial input
+Get search suggestions based on partial input
  */
 export function getSearchSuggestions<T extends SearchableItem>(
   items: T[],
