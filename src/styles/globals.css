@@ -1,3 +1,4 @@
+```css
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -40,7 +41,7 @@
   --foreground: var(--color-text);
   --card: var(--color-card);
   --card-foreground: var(--color-text);
-  --popover: var(--color-card);
+  --popover: var(--card);
   --popover-foreground: var(--color-text);
   --primary: var(--color-primary);
   --primary-foreground: var(--color-primary-text);
@@ -158,7 +159,7 @@
 }
 
 @layer base {
-  * {
+{
     @apply border-border outline-ring/50;
   }
 
@@ -168,11 +169,11 @@
 }
 
 /**
- * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
  */
 @layer base {
   :where(
-    :not(:has([class*=" text-"]), :not(:has([class^="text-"])))
+    :not(:has([class*=" text-"]), :not(:has([class^="text-"]))
   ) {
     h1 {
       font-size: var(--text-2xl);
@@ -227,3 +228,4 @@
 html {
   font-size: var(--font-size);
 }
+```
