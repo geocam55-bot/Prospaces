@@ -35,3 +35,12 @@ Editor directories and files
 *.njsproj
 *.sln
 *.sw?
+
+Capacitor (iOS/Android builds)
+android
+ios
+.capacitor
+
+Misc
+*.tsbuildinfo
+.vercel
