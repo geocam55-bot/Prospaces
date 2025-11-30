@@ -5,6 +5,8 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Set root to current directory (files are at root, not in src/)
+  root: '.',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
