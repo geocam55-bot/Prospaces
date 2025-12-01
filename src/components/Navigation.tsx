@@ -50,10 +50,6 @@ interface NavigationProps {
 export function Navigation({ user, organization, currentView, onNavigate, onLogout }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Debug: Log organization state
-  console.log('🔍 Navigation - Organization:', organization);
-  console.log('🔍 Navigation - AI Suggestions Enabled:', organization?.ai_suggestions_enabled);
-
   // Base navigation items (organization-specific - hidden from SUPER_ADMIN and filtered for ADMIN)
   const baseNavItems = user.role !== 'super_admin' ? [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -117,7 +113,6 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
   ].filter(item => canView(item.id, user.role)); // Filter based on permissions
 
   const handleNavClick = (view: string) => {
-    console.log('🔍 Navigation clicked:', view);
     onNavigate(view);
     setIsMobileMenuOpen(false);
   };

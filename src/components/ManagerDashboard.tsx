@@ -230,8 +230,6 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
     try {
       const supabase = createClient();
       
-      console.log('=== Loading metrics for user:', userId, userEmail, '===');
-      
       // Fetch data FILTERED by the selected user
       // Contacts use 'account_owner_number' (email) for ownership tracking
       // Opportunities use 'owner_id' (UUID)
@@ -246,65 +244,13 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
         supabase.from('appointments').select('*').eq('created_by', userId),
       ]);
 
-      // Log what we got back
-      console.log('Contacts query result:', contactsResult.error || `${contactsResult.data?.length} records`);
-      console.log('Tasks query result:', tasksResult.error || `${tasksResult.data?.length} records`);
-      console.log('Bids query result:', bidsResult.error || `${bidsResult.data?.length} records`);
-      console.log('Quotes query result:', quotesResult.error || `${quotesResult.data?.length} records`);
-      console.log('Opportunities query result:', opportunitiesResult.error || `${opportunitiesResult.data?.length} records`);
-      console.log('Appointments query result:', appointmentsResult.error || `${appointmentsResult.data?.length} records`);
-
-      // Sample a record from each to see field names
-      if (contactsResult.data && contactsResult.data.length > 0) {
-        console.log('Sample contact:', contactsResult.data[0]);
-      }
-      if (tasksResult.data && tasksResult.data.length > 0) {
-        console.log('Sample task:', tasksResult.data[0]);
-      }
-      if (bidsResult.data && bidsResult.data.length > 0) {
-        console.log('Sample bid:', bidsResult.data[0]);
-      }
-      if (quotesResult.data && quotesResult.data.length > 0) {
-        console.log('Sample quote:', quotesResult.data[0]);
-      }
-      
       // Merge bids and quotes into a single array
       const userBids = [...(bidsResult.data || []), ...(quotesResult.data || [])];
-      console.log('📊 MERGED BIDS + QUOTES:', userBids.map((b: any) => ({
-        id: b.id,
-        title: b.title,
-        status: b.status,
-        created_by: b.created_by,
-        source: bidsResult.data?.some((bid: any) => bid.id === b.id) ? 'bids' : 'quotes'
-      })));
-
-      if (opportunitiesResult.data && opportunitiesResult.data.length > 0) {
-        console.log('Sample opportunity:', opportunitiesResult.data[0]);
-      }
-      if (appointmentsResult.data && appointmentsResult.data.length > 0) {
-        console.log('Sample appointment:', appointmentsResult.data[0]);
-      }
-
-      // If we got 0 contacts/tasks, it might be RLS blocking access
-      // Log a warning about this
-      if (contactsResult.data?.length === 0) {
-        console.log('[ManagerDashboard] ℹ️ No contacts found for team members');
-      }
-      if (tasksResult.data?.length === 0) {
-        console.log('[ManagerDashboard] ℹ️ No tasks found for team members');
-      }
 
       const userContacts = contactsResult.data || [];
       const userTasks = tasksResult.data || [];
       const userOpportunities = opportunitiesResult.data || [];
       const userAppointments = appointmentsResult.data || [];
-
-      console.log('=== Filtered results for user ===');
-      console.log('User contacts:', userContacts.length);
-      console.log('User tasks:', userTasks.length);
-      console.log('User bids (merged):', userBids.length);
-      console.log('User opportunities:', userOpportunities.length);
-      console.log('User appointments:', userAppointments.length);
 
       const activeTasks = userTasks.filter((t: any) => t.status !== 'completed');
       const completedTasks = userTasks.filter((t: any) => t.status === 'completed');
@@ -360,7 +306,6 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
         appointments: userAppointments,
       });
 
-      console.log('=== Metrics set successfully ===');
     } catch (error) {
       console.error('Failed to load user metrics:', error);
       // Set zero metrics on error
@@ -786,13 +731,15 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
                       </CardHeader>
                       <CardContent>
                         <Tabs defaultValue="contacts" className="w-full">
-                          <TabsList className="grid w-full grid-cols-5">
-                            <TabsTrigger value="contacts">Contacts</TabsTrigger>
-                            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-                            <TabsTrigger value="bids">Bids</TabsTrigger>
-                            <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
-                            <TabsTrigger value="appointments">Appointments</TabsTrigger>
-                          </TabsList>
+                          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                            <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-5 h-auto md:h-10">
+                              <TabsTrigger value="contacts" className="text-xs md:text-sm px-2 py-2 whitespace-nowrap">Contacts</TabsTrigger>
+                              <TabsTrigger value="tasks" className="text-xs md:text-sm px-2 py-2 whitespace-nowrap">Tasks</TabsTrigger>
+                              <TabsTrigger value="bids" className="text-xs md:text-sm px-2 py-2 whitespace-nowrap">Bids</TabsTrigger>
+                              <TabsTrigger value="opportunities" className="text-xs md:text-sm px-2 py-2 whitespace-nowrap">Opps</TabsTrigger>
+                              <TabsTrigger value="appointments" className="text-xs md:text-sm px-2 py-2 whitespace-nowrap">Appts</TabsTrigger>
+                            </TabsList>
+                          </div>
 
                           <TabsContent value="contacts" className="space-y-3 mt-4">
                             {userData.contacts.length === 0 ? (
@@ -801,15 +748,15 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
                               <div className="space-y-2 max-h-96 overflow-y-auto">
                                 {userData.contacts.map((contact: any) => (
                                   <div key={contact.id} className="p-3 border rounded-lg hover:bg-gray-50">
-                                    <div className="flex justify-between items-start">
-                                      <div>
-                                        <p className="text-sm text-gray-900">{contact.name}</p>
-                                        <p className="text-xs text-gray-600">{contact.email}</p>
+                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-gray-900 truncate">{contact.name}</p>
+                                        <p className="text-xs text-gray-600 truncate">{contact.email}</p>
                                         {contact.company && (
-                                          <p className="text-xs text-gray-500">{contact.company}</p>
+                                          <p className="text-xs text-gray-500 truncate">{contact.company}</p>
                                         )}
                                       </div>
-                                      <Badge variant="outline" className="text-xs">
+                                      <Badge variant="outline" className="text-xs self-start sm:self-auto">
                                         {contact.status}
                                       </Badge>
                                     </div>
@@ -826,41 +773,43 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
                               <div className="space-y-2 max-h-96 overflow-y-auto">
                                 {userData.tasks.map((task: any) => (
                                   <div key={task.id} className="p-3 border rounded-lg hover:bg-gray-50">
-                                    <div className="flex justify-between items-start">
-                                      <div className="flex-1">
-                                        <p className="text-sm text-gray-900">{task.title}</p>
-                                        {task.description && (
-                                          <p className="text-xs text-gray-600 mt-1">{task.description}</p>
-                                        )}
-                                        <p className="text-xs text-gray-500 mt-1">
-                                          Due: {new Date(task.dueDate).toLocaleDateString()}
-                                        </p>
+                                    <div className="flex flex-col gap-2">
+                                      <div className="flex justify-between items-start gap-2">
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm text-gray-900 break-words">{task.title}</p>
+                                          {task.description && (
+                                            <p className="text-xs text-gray-600 mt-1 break-words line-clamp-2">{task.description}</p>
+                                          )}
+                                        </div>
+                                        <div className="flex flex-col gap-1 items-end shrink-0">
+                                          <Badge 
+                                            className={
+                                              task.status === 'completed' 
+                                                ? 'bg-green-100 text-green-700 border-green-200' 
+                                                : task.status === 'in_progress'
+                                                ? 'bg-blue-100 text-blue-700 border-blue-200'
+                                                : 'bg-gray-100 text-gray-700 border-gray-200'
+                                            }
+                                          >
+                                            {task.status}
+                                          </Badge>
+                                          <Badge 
+                                            variant="outline"
+                                            className={
+                                              task.priority === 'high' 
+                                                ? 'border-red-300 text-red-700' 
+                                                : task.priority === 'medium'
+                                                ? 'border-yellow-300 text-yellow-700'
+                                                : 'border-gray-300 text-gray-700'
+                                            }
+                                          >
+                                            {task.priority}
+                                          </Badge>
+                                        </div>
                                       </div>
-                                      <div className="flex flex-col gap-1 items-end">
-                                        <Badge 
-                                          className={
-                                            task.status === 'completed' 
-                                              ? 'bg-green-100 text-green-700 border-green-200' 
-                                              : task.status === 'in_progress'
-                                              ? 'bg-blue-100 text-blue-700 border-blue-200'
-                                              : 'bg-gray-100 text-gray-700 border-gray-200'
-                                          }
-                                        >
-                                          {task.status}
-                                        </Badge>
-                                        <Badge 
-                                          variant="outline"
-                                          className={
-                                            task.priority === 'high' 
-                                              ? 'border-red-300 text-red-700' 
-                                              : task.priority === 'medium'
-                                              ? 'border-yellow-300 text-yellow-700'
-                                              : 'border-gray-300 text-gray-700'
-                                          }
-                                        >
-                                          {task.priority}
-                                        </Badge>
-                                      </div>
+                                      <p className="text-xs text-gray-500">
+                                        Due: {new Date(task.dueDate).toLocaleDateString()}
+                                      </p>
                                     </div>
                                   </div>
                                 ))}
@@ -875,11 +824,11 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
                               <div className="space-y-2 max-h-96 overflow-y-auto">
                                 {userData.bids.map((bid: any) => (
                                   <div key={bid.id} className="p-3 border rounded-lg hover:bg-gray-50">
-                                    <div className="flex justify-between items-start">
-                                      <div>
-                                        <p className="text-sm text-gray-900">{bid.title}</p>
+                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-gray-900 break-words">{bid.title}</p>
                                         {bid.description && (
-                                          <p className="text-xs text-gray-600 mt-1">{bid.description}</p>
+                                          <p className="text-xs text-gray-600 mt-1 break-words line-clamp-2">{bid.description}</p>
                                         )}
                                         <p className="text-sm text-gray-900 mt-2">
                                           ${parseFloat(bid.total || bid.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -910,11 +859,11 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
                               <div className="space-y-2 max-h-96 overflow-y-auto">
                                 {userData.opportunities.map((opp: any) => (
                                   <div key={opp.id} className="p-3 border rounded-lg hover:bg-gray-50">
-                                    <div className="flex justify-between items-start">
-                                      <div>
-                                        <p className="text-sm text-gray-900">{opp.name}</p>
+                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-gray-900 break-words">{opp.name}</p>
                                         {opp.description && (
-                                          <p className="text-xs text-gray-600 mt-1">{opp.description}</p>
+                                          <p className="text-xs text-gray-600 mt-1 break-words line-clamp-2">{opp.description}</p>
                                         )}
                                         {opp.value && (
                                           <p className="text-sm text-gray-900 mt-2">
@@ -947,11 +896,11 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
                               <div className="space-y-2 max-h-96 overflow-y-auto">
                                 {userData.appointments.map((appt: any) => (
                                   <div key={appt.id} className="p-3 border rounded-lg hover:bg-gray-50">
-                                    <div className="flex justify-between items-start">
-                                      <div>
-                                        <p className="text-sm text-gray-900">{appt.title}</p>
+                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-gray-900 break-words">{appt.title}</p>
                                         {appt.description && (
-                                          <p className="text-xs text-gray-600 mt-1">{appt.description}</p>
+                                          <p className="text-xs text-gray-600 mt-1 break-words line-clamp-2">{appt.description}</p>
                                         )}
                                         <p className="text-xs text-gray-500 mt-2">
                                           {new Date(appt.start_time).toLocaleString()}
@@ -1005,31 +954,33 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
                 />
               </div>
               
-              <div className="flex gap-2">
-                <Button
-                  variant={statusFilter === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setStatusFilter('all')}
-                  className="flex-1"
-                >
-                  All
-                </Button>
-                <Button
-                  variant={statusFilter === 'active' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setStatusFilter('active')}
-                  className="flex-1"
-                >
-                  Active
-                </Button>
-                <Button
-                  variant={statusFilter === 'on_leave' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setStatusFilter('on_leave')}
-                  className="flex-1"
-                >
-                  Leave
-                </Button>
+              <div className="overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0">
+                <div className="flex gap-2 min-w-max sm:min-w-0">
+                  <Button
+                    variant={statusFilter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setStatusFilter('all')}
+                    className="flex-1 whitespace-nowrap"
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={statusFilter === 'active' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setStatusFilter('active')}
+                    className="flex-1 whitespace-nowrap"
+                  >
+                    Active
+                  </Button>
+                  <Button
+                    variant={statusFilter === 'on_leave' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setStatusFilter('on_leave')}
+                    className="flex-1 whitespace-nowrap"
+                  >
+                    Leave
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

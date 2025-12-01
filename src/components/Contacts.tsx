@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, UserPlus, MapPin, Eye } from 'lucide-react';
+import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, MapPin, Eye } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,8 +64,6 @@ export function Contacts({ user }: ContactsProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [showContactDetail, setShowContactDetail] = useState(false);
-  const [showMyContactsOnly, setShowMyContactsOnly] = useState(false); // Filter toggle
-  const [isAssigningOwner, setIsAssigningOwner] = useState(false); // Bulk update state
   
   // ⚡ Performance: Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -106,14 +104,12 @@ export function Contacts({ user }: ContactsProps) {
 
   useEffect(() => {
     loadContacts();
-  }, [showMyContactsOnly]); // Reload when filter changes
+  }, []);
 
   const loadContacts = async () => {
     try {
       setIsLoading(true);
-      // If showMyContactsOnly is true, filter by logged-in user's email
-      const filterValue = showMyContactsOnly ? user.email : undefined;
-      const { contacts: loadedContacts } = await contactsAPI.getAll(filterValue);
+      const { contacts: loadedContacts } = await contactsAPI.getAll();
       setContacts(loadedContacts || []);
     } catch (error) {
       console.error('Failed to load contacts:', error);
@@ -169,8 +165,6 @@ export function Contacts({ user }: ContactsProps) {
         lyrSales: newContact.lyrSales ? parseFloat(newContact.lyrSales) : undefined,
         lyrGpPercent: newContact.lyrGpPercent ? parseFloat(newContact.lyrGpPercent) : undefined
       };
-      
-      console.log('Submitting contact data:', contactData); // Debug log
       
       const { contact } = await contactsAPI.create(contactData);
       setContacts([...contacts, contact]);
@@ -288,20 +282,6 @@ export function Contacts({ user }: ContactsProps) {
       alert('Failed to update project manager. Please try again.');
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleClaimUnassignedContacts = async () => {
-    setIsAssigningOwner(true);
-
-    try {
-      const { contacts: updatedContacts } = await contactsAPI.claimUnassigned(user.email);
-      setContacts(updatedContacts);
-    } catch (error) {
-      console.error('Failed to claim unassigned contacts:', error);
-      alert('Failed to claim unassigned contacts. Please try again.');
-    } finally {
-      setIsAssigningOwner(false);
     }
   };
 
@@ -731,40 +711,6 @@ export function Contacts({ user }: ContactsProps) {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={showMyContactsOnly ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setShowMyContactsOnly(!showMyContactsOnly)}
-                  className="flex items-center gap-2"
-                >
-                  <Eye className="h-4 w-4" />
-                  {showMyContactsOnly ? 'My Contacts' : 'All Contacts'}
-                </Button>
-                {showMyContactsOnly && (
-                  <span className="text-sm text-gray-600">
-                    Showing contacts assigned to: <span className="font-medium">{user.email}</span>
-                  </span>
-                )}
-                {!showMyContactsOnly && canChange('contacts', user.role) && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleClaimUnassignedContacts}
-                      disabled={isAssigningOwner}
-                      className="flex items-center gap-2"
-                    >
-                      {isAssigningOwner ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <UserPlus className="h-4 w-4" />
-                      )}
-                      {isAssigningOwner ? 'Assigning...' : 'Claim Unassigned Contacts'}
-                    </Button>
-                  </>
-                )}
               </div>
             </div>
           </CardHeader>

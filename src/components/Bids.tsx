@@ -201,13 +201,6 @@ export function Bids({ user }: BidsProps) {
         contactsAPI.getAll(),
       ]);
 
-      console.log('🔍 [Bids LoadData] Loading data...', {
-        quotesCount: quotesData.quotes?.length || 0,
-        bidsCount: bidsData.bids?.length || 0,
-        firstQuote: quotesData.quotes?.[0],
-        firstBid: bidsData.bids?.[0]
-      });
-
       // Parse quotes if they have stringified lineItems
       const parsedQuotes = (quotesData.quotes || []).map((q: any) => {
         // Handle both line_items (snake_case from DB) and lineItems (camelCase)
@@ -293,14 +286,6 @@ export function Bids({ user }: BidsProps) {
       const allQuotes = [...parsedQuotes, ...parsedBids].sort((a, b) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
-      
-      console.log('✅ [Bids LoadData] Data loaded successfully:', {
-        totalQuotes: parsedQuotes.length,
-        totalBids: parsedBids.length,
-        totalMerged: allQuotes.length,
-        allStatuses: allQuotes.map(q => ({ id: q.id, title: q.title, status: q.status }))
-      });
-
       setQuotes(allQuotes);
       setContacts(contactsData.contacts || []);
       
@@ -324,8 +309,6 @@ export function Bids({ user }: BidsProps) {
       
       setInventory((inventoryData.items || []).filter((item: InventoryItem) => item.status === 'active'));
       setProjectManagers(projectManagersData.projectManagers || []);
-      
-      console.log('✅ [Bids] Inventory and project managers loaded in background');
     } catch (error) {
       console.error('Failed to load inventory/managers:', error);
       // Don't show error alert - this is background loading
@@ -374,10 +357,7 @@ export function Bids({ user }: BidsProps) {
   };
 
   const handleOpenDialog = (quote?: Quote) => {
-    console.log('🔵 [Bids] handleOpenDialog called', { quote });
     if (quote) {
-      console.log('📝 [Bids] Editing existing quote:', quote.id);
-      console.log('📋 [Bids] Line items:', quote.lineItems);
       setEditingQuote(quote);
       setFormData({
         title: quote.title,
@@ -395,9 +375,7 @@ export function Bids({ user }: BidsProps) {
         cost: item.cost ?? 0
       }));
       setCurrentLineItems(lineItemsWithCost);
-      console.log('✅ [Bids] Set current line items:', lineItemsWithCost.length);
     } else {
-      console.log('➕ [Bids] Creating new quote');
       setEditingQuote(null);
       const defaultDate = new Date();
       defaultDate.setDate(defaultDate.getDate() + 30);
@@ -414,7 +392,6 @@ export function Bids({ user }: BidsProps) {
       setCurrentLineItems([]);
     }
     setShowDialog(true);
-    console.log('🔵 [Bids] Dialog opened, showDialog:', true);
   };
 
   const handleContactChange = (contactId: string) => {
@@ -449,10 +426,6 @@ export function Bids({ user }: BidsProps) {
   };
 
   const handleAddLineItem = () => {
-    console.log('handleAddLineItem called');
-    console.log('selectedInventoryId:', selectedInventoryId);
-    console.log('formData.contactId:', formData.contactId);
-    
     if (!selectedInventoryId) {
       showAlert('error', 'Please select a product');
       return;
@@ -461,7 +434,6 @@ export function Bids({ user }: BidsProps) {
     // Search in filteredInventory first (from search results), then fall back to full inventory
     const item = filteredInventory.find(i => i.id === selectedInventoryId) || 
                  inventory.find(i => i.id === selectedInventoryId);
-    console.log('Found item:', item);
     
     if (!item) {
       showAlert('error', 'Product not found in inventory');
@@ -470,8 +442,6 @@ export function Bids({ user }: BidsProps) {
 
     // Use the custom unit price (already set via useEffect or manually edited)
     const total = lineItemQuantity * lineItemUnitPrice;
-
-    console.log('Creating line item with:', { unitPrice: lineItemUnitPrice, cost: item.cost, total, quantity: lineItemQuantity });
 
     const lineItem: LineItem = {
       id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -486,7 +456,6 @@ export function Bids({ user }: BidsProps) {
       total,
     };
 
-    console.log('Adding line item:', lineItem);
     setCurrentLineItems([...currentLineItems, lineItem]);
     setSelectedInventoryId('');
     setLineItemQuantity(1);
@@ -588,12 +557,7 @@ export function Bids({ user }: BidsProps) {
 
   // ⚡ Performance: Memoize filtered quotes to avoid re-filtering on every render
   const filteredQuotes = useMemo(() => {
-    console.log('🔍 [Bids] Filtering quotes:', { 
-      totalQuotes: quotes.length, 
-      searchQuery, 
-      statusFilter 
-    });
-    const filtered = quotes.filter(quote => {
+    return quotes.filter(quote => {
       const matchesSearch =
         quote.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         quote.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -606,8 +570,6 @@ export function Bids({ user }: BidsProps) {
 
       return matchesSearch && matchesStatus;
     });
-    console.log('✅ [Bids] Filtered result:', filtered.length, 'quotes');
-    return filtered;
   }, [quotes, searchQuery, statusFilter]);
 
   // ⚡ Performance: Paginate filtered quotes - only render current page
@@ -651,14 +613,6 @@ export function Bids({ user }: BidsProps) {
       return isOpen;
     }).length,
   };
-  
-  if (quotes.length > 0) {
-    console.log('📊 [Bids Page] Stats calculated:', {
-      ...stats,
-      allBids: quotes.map(q => ({ id: q.id, title: q.title, status: q.status })),
-      openBids: openBidsDetails
-    });
-  }
 
   return (
     <div className="space-y-6">

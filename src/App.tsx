@@ -81,16 +81,13 @@ export default function App() {
   // Check for existing session on mount
   useEffect(() => {
     // Initialize mobile app features (iOS/Android)
-    initializeMobileApp().catch(err => {
-      console.debug('Mobile initialization:', err);
-    });
+    initializeMobileApp().catch(() => {});
     
     checkSession();
     
     // Load debug utilities immediately (not after 5 seconds)
     import('./utils/fix-ai-suggestions-column').then(module => {
       (window as any).fixAISuggestionsColumn = module.fixAISuggestionsColumn;
-      console.log('✅ Debug utility loaded: window.fixAISuggestionsColumn()');
     }).catch(() => {});
     
     // Load other debug utilities asynchronously after a delay (non-blocking)
@@ -124,11 +121,6 @@ export default function App() {
     }
   }, [appState.isAuthenticated, appState.currentUser?.id]); // Only re-run when user ID changes
 
-  // DEBUG: Log organization state whenever it changes
-  useEffect(() => {
-    console.log('🔵 [App.tsx] Organization state changed:', appState.currentOrganization);
-  }, [appState.currentOrganization]);
-
   // Reload organization data when viewing the tenants module (in case logo was updated)
   useEffect(() => {
     if (currentView === 'tenants' && appState.isAuthenticated && appState.currentUser) {
@@ -141,29 +133,21 @@ export default function App() {
   }, [currentView]);
 
   const checkSession = async () => {
-    const startTime = performance.now();
-    console.log('🔍 Checking session...');
-    
     try {
       // Try to get session from localStorage
       const storedToken = localStorage.getItem('access_token');
       if (!storedToken) {
         // No token found - skip API call and show login immediately
-        console.log('ℹ️ No stored token found - showing login');
         setAppState({
           currentUser: null,
           currentOrganization: null,
           isAuthenticated: false,
           isLoading: false,
         });
-        console.log(`✅ Login screen ready in ${(performance.now() - startTime).toFixed(0)}ms`);
         return;
       }
       
-      console.log('✓ Found stored token');
       setAccessToken(storedToken);
-      
-      const sessionStart = performance.now();
       
       // ⚡ Reduced timeout to 2s for faster startup - if backend is slow, show login faster
       const sessionCheckTimeout = new Promise((_, reject) => {
@@ -175,7 +159,6 @@ export default function App() {
       try {
         const result = await Promise.race([sessionCheckPromise, sessionCheckTimeout]);
         const { user } = result as any;
-        console.log(`✓ Session validated in ${(performance.now() - sessionStart).toFixed(0)}ms`);
         
         if (user) {
           // Load profile picture from localStorage
@@ -210,15 +193,10 @@ export default function App() {
             setPermissionsReady(true); // Still set ready even on error
           });
           
-          console.log(`✅ App loaded in ${(performance.now() - startTime).toFixed(0)}ms`);
-          
           // Sync user profile to database after successful session check (non-blocking)
           // This is a non-critical background operation - errors are silently logged
           setTimeout(() => {
-            syncCurrentUserProfile().catch(err => {
-              // Silently log - don't show to user as this is non-critical
-              console.debug('[App] Profile sync skipped (non-critical):', err?.message);
-            });
+            syncCurrentUserProfile().catch(() => {});
           }, 100);
           
           return;
@@ -245,7 +223,6 @@ export default function App() {
       isAuthenticated: false,
       isLoading: false,
     });
-    console.log(`✅ Login screen ready in ${(performance.now() - startTime).toFixed(0)}ms`);
   };
 
   const checkDatabaseTables = async () => {
@@ -261,14 +238,12 @@ export default function App() {
         // PGRST205 = table not found in schema cache
         // 42P01 = table does not exist
         if (error.code === 'PGRST205' || error.code === '42P01' || error.message.includes('does not exist') || error.message.includes('schema cache')) {
-          console.log('ℹ️ Database tables not found - setup required');
           setDatabaseReady(false);
         } else {
           // Log unexpected errors
           console.error('Database check failed:', error);
         }
       } else {
-        console.log('✅ Database tables found');
         setDatabaseReady(true);
       }
     } catch (error) {
@@ -282,8 +257,6 @@ export default function App() {
     if (!currentUser?.organizationId) return;
 
     try {
-      console.log('🔍 loadOrganization - Starting for org:', currentUser.organizationId);
-      
       // Query Supabase directly to get organization/tenant data including logo
       const supabase = createClient();
       const { data: org, error } = await supabase
@@ -298,45 +271,30 @@ export default function App() {
       }
 
       if (org) {
-        console.log('✅ loadOrganization - Raw data from DB:', JSON.stringify(org, null, 2));
-        console.log('🔍 ai_suggestions_enabled value:', org.ai_suggestions_enabled, 'Type:', typeof org.ai_suggestions_enabled);
-        
         // If the name looks like an auto-generated ID (starts with "org-"), use default name
         const displayName = org.name && !org.name.startsWith('org-') ? org.name : 'ProSpaces CRM';
         
-        console.log('🏢 Organization loaded:', {
-          id: org.id,
-          name: displayName,
-          ai_suggestions_enabled: org.ai_suggestions_enabled
-        });
-        
-        setAppState(prev => {
-          const newState = {
-            ...prev,
-            currentUser: prev.currentUser ? {
-              ...prev.currentUser,
-              organizationName: displayName,
-            } : prev.currentUser,
-            currentOrganization: {
-              id: org.id,
-              name: displayName,
-              logo: org.logo, // Include the logo from the organization record
-              ai_suggestions_enabled: org.ai_suggestions_enabled,
-              marketing_enabled: org.marketing_enabled,
-              inventory_enabled: org.inventory_enabled,
-              import_export_enabled: org.import_export_enabled,
-              documents_enabled: org.documents_enabled,
-            },
-          };
-          
-          console.log('🔄 loadOrganization - Setting new state:', JSON.stringify(newState.currentOrganization, null, 2));
-          return newState;
-        });
+        setAppState(prev => ({
+          ...prev,
+          currentUser: prev.currentUser ? {
+            ...prev.currentUser,
+            organizationName: displayName,
+          } : prev.currentUser,
+          currentOrganization: {
+            id: org.id,
+            name: displayName,
+            logo: org.logo, // Include the logo from the organization record
+            ai_suggestions_enabled: org.ai_suggestions_enabled,
+            marketing_enabled: org.marketing_enabled,
+            inventory_enabled: org.inventory_enabled,
+            import_export_enabled: org.import_export_enabled,
+            documents_enabled: org.documents_enabled,
+          },
+        }));
       }
     } catch (error) {
       // Silently fail - organization was already set from user data in checkSession
       // This is fine - we use defaults
-      console.debug('Could not load organization logo:', error);
     }
   };
 

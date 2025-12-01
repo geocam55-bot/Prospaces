@@ -38,32 +38,34 @@ export function Marketing({ user }: MarketingProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
-          <TabsTrigger value="dashboard" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </TabsTrigger>
-          <TabsTrigger value="campaigns" className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            <span className="hidden sm:inline">Campaigns</span>
-          </TabsTrigger>
-          <TabsTrigger value="leads" className="flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            <span className="hidden sm:inline">Lead Scoring</span>
-          </TabsTrigger>
-          <TabsTrigger value="journeys" className="flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            <span className="hidden sm:inline">Journeys</span>
-          </TabsTrigger>
-          <TabsTrigger value="pages" className="flex items-center gap-2">
-            <Globe className="h-4 w-4" />
-            <span className="hidden sm:inline">Landing Pages</span>
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            <span className="hidden sm:inline">Analytics</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-6">
+            <TabsTrigger value="dashboard" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <BarChart3 className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="campaigns" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <Mail className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Campaigns</span>
+            </TabsTrigger>
+            <TabsTrigger value="leads" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <Target className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Lead Scoring</span>
+            </TabsTrigger>
+            <TabsTrigger value="journeys" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <Zap className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Journeys</span>
+            </TabsTrigger>
+            <TabsTrigger value="pages" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <Globe className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Landing Pages</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <TrendingUp className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Analytics</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="dashboard" className="mt-6">
           <MarketingDashboard user={user} />

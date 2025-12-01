@@ -249,13 +249,15 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
         <PermissionsTableSetup />
       ) : (
         <Tabs value={selectedRole} onValueChange={(value) => setSelectedRole(value as UserRole)}>
-          <TabsList className={`grid w-full grid-cols-${visibleRoles.length}`}>
-            {visibleRoles.map(role => (
-              <TabsTrigger key={role.value} value={role.value}>
-                {role.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className={`inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-${visibleRoles.length}`}>
+              {visibleRoles.map(role => (
+                <TabsTrigger key={role.value} value={role.value} className="whitespace-nowrap">
+                  {role.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
           {visibleRoles.map(role => (
             <TabsContent key={role.value} value={role.value} className="space-y-4">

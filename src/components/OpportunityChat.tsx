@@ -465,20 +465,22 @@ export function OpportunityChat({ opportunityId, user, opportunity, onClose, onE
 
       {/* Tabs for Discussion and Bid Comparison */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="discussion" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            Discussion
-          </TabsTrigger>
-          <TabsTrigger value="comparison" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Bid Comparison
-          </TabsTrigger>
-          <TabsTrigger value="analysis" className="flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            Analysis
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-3">
+            <TabsTrigger value="discussion" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">
+              <MessageSquare className="h-4 w-4 flex-shrink-0" />
+              Discussion
+            </TabsTrigger>
+            <TabsTrigger value="comparison" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">
+              <BarChart3 className="h-4 w-4 flex-shrink-0" />
+              Bid Comparison
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">
+              <Target className="h-4 w-4 flex-shrink-0" />
+              Analysis
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Discussion Tab */}
         <TabsContent value="discussion" className="mt-6">
