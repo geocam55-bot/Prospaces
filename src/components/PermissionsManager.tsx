@@ -6,7 +6,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Shield, Save, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { PermissionsTableSetup } from './PermissionsTableSetup';
 import type { UserRole } from '../App';
 
