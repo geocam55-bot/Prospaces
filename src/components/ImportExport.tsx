@@ -27,7 +27,7 @@ import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import type { User } from '../App';
 import { contactsAPI, inventoryAPI, bidsAPI } from '../utils/api';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { createClient } from '../utils/supabase/client';
 
