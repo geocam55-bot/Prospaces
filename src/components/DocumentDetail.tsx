@@ -16,7 +16,7 @@ import {
   Tag,
   Loader2
 } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import type { User as UserType } from '../App';
 import type { Document } from '../utils/documents-client';
 import { 
