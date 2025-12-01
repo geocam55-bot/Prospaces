@@ -38,7 +38,7 @@ import {
   SelectValue,
 } from './ui/select';
 import { Badge } from './ui/badge';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import type { User as UserType } from '../App';
 import { PermissionButton } from './PermissionGate';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
