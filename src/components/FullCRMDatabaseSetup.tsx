@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { Copy, Database, CheckCircle, AlertTriangle, ExternalLink, RefreshCw, Download } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface FullCRMDatabaseSetupProps {
   onSetupComplete?: () => void;
