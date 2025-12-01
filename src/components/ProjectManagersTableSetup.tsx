@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertCircle, Database, CheckCircle, Copy } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function ProjectManagersTableSetup() {
   const [showScript, setShowScript] = useState(false);
