@@ -420,14 +420,16 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          {canManageSettings && <TabsTrigger value="organization">Organization</TabsTrigger>}
-          {canAccessSecurity && <TabsTrigger value="permissions">Permissions</TabsTrigger>}
-          <TabsTrigger value="appearance">Appearance</TabsTrigger>
-          {canManageSettings && <TabsTrigger value="testdata">Test Data</TabsTrigger>}
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-6">
+            <TabsTrigger value="profile" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Profile</TabsTrigger>
+            <TabsTrigger value="notifications" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Notifications</TabsTrigger>
+            {canManageSettings && <TabsTrigger value="organization" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Organization</TabsTrigger>}
+            {canAccessSecurity && <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Permissions</TabsTrigger>}
+            <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
+            {canManageSettings && <TabsTrigger value="testdata" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Test Data</TabsTrigger>}
+          </TabsList>
+        </div>
 
         <TabsContent value="profile" className="space-y-4">
           <Card>

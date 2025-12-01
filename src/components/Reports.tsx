@@ -63,36 +63,38 @@ export function Reports({ user }: ReportsProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-7">
-          <TabsTrigger value="summary" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Summary</span>
-          </TabsTrigger>
-          <TabsTrigger value="sales" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            <span className="hidden sm:inline">Sales</span>
-          </TabsTrigger>
-          <TabsTrigger value="bids" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Bids</span>
-          </TabsTrigger>
-          <TabsTrigger value="contacts" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Contacts</span>
-          </TabsTrigger>
-          <TabsTrigger value="tasks" className="flex items-center gap-2">
-            <CheckSquare className="h-4 w-4" />
-            <span className="hidden sm:inline">Tasks</span>
-          </TabsTrigger>
-          <TabsTrigger value="marketing" className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            <span className="hidden sm:inline">Marketing</span>
-          </TabsTrigger>
-          <TabsTrigger value="activity" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            <span className="hidden sm:inline">Activity</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-7">
+            <TabsTrigger value="summary" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <BarChart3 className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Summary</span>
+            </TabsTrigger>
+            <TabsTrigger value="sales" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <TrendingUp className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Sales</span>
+            </TabsTrigger>
+            <TabsTrigger value="bids" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <FileText className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Bids</span>
+            </TabsTrigger>
+            <TabsTrigger value="contacts" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <Users className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Contacts</span>
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <CheckSquare className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Tasks</span>
+            </TabsTrigger>
+            <TabsTrigger value="marketing" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <Mail className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Marketing</span>
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <MessageSquare className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Activity</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="summary" className="mt-6">
           <ManagerSummaryReports user={user} showCost={showCost} />

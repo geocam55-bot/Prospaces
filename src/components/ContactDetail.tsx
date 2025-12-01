@@ -1050,43 +1050,6 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
           <div className="flex items-center justify-between">
             <CardTitle>Opportunities & Bids</CardTitle>
             <div className="flex items-center gap-2">
-              {/* Debug button for checking opportunities */}
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={async () => {
-                  const { createClient } = await import('../utils/supabase/client');
-                  const supabase = createClient();
-                  
-                  console.log('=== DEBUG: Checking opportunities for contact ===');
-                  console.log('Contact ID:', contact.id);
-                  console.log('Contact Name:', contact.name);
-                  console.log('Contact Account Owner:', contact.accountOwnerNumber);
-                  
-                  // Check all opportunities for this contact (bypassing our app logic)
-                  const { data: allOpps, error: oppError } = await supabase
-                    .from('opportunities')
-                    .select('*')
-                    .eq('customer_id', contact.id);
-                  
-                  console.log('All opportunities for this contact:', allOpps);
-                  console.log('Error:', oppError);
-                  
-                  // Check current user info
-                  const { data: { user: authUser } } = await supabase.auth.getUser();
-                  const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', authUser?.id)
-                    .single();
-                  
-                  console.log('Current user profile:', profile);
-                  
-                  alert(`Found ${allOpps?.length || 0} opportunities. Check console for details.`);
-                }}
-              >
-                🔍 Debug
-              </Button>
               {canAdd('contacts', user.role) && (
                 <Button size="sm" onClick={() => setIsAddOppDialogOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />

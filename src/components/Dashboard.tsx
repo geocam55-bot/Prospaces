@@ -59,11 +59,8 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(0);
 
   useEffect(() => {
-    console.log('📊 Dashboard mounted - permissions ready');
-    
     // Subscribe to permission changes
     const unsubscribe = onPermissionsChanged(() => {
-      console.log('🔔 Permissions changed - updating Dashboard');
       setPermissionsVersion(v => v + 1);
     });
     

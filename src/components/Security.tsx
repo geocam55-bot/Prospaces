@@ -367,11 +367,13 @@ export function Security({ user }: SecurityProps) {
       )}
 
       <Tabs defaultValue="permissions">
-        <TabsList>
-          <TabsTrigger value="permissions">Permissions Matrix</TabsTrigger>
-          <TabsTrigger value="bulk">Bulk Operations</TabsTrigger>
-          <TabsTrigger value="audit">Audit Logs</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="permissions" className="whitespace-nowrap">Permissions Matrix</TabsTrigger>
+            <TabsTrigger value="bulk" className="whitespace-nowrap">Bulk Operations</TabsTrigger>
+            <TabsTrigger value="audit" className="whitespace-nowrap">Audit Logs</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="permissions" className="space-y-6 mt-6">
           {/* Search and Filter */}

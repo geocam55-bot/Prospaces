@@ -190,11 +190,13 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="builder">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="builder">Builder</TabsTrigger>
-                <TabsTrigger value="settings">Settings</TabsTrigger>
-                <TabsTrigger value="preview">Preview</TabsTrigger>
-              </TabsList>
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full sm:grid-cols-3">
+                  <TabsTrigger value="builder" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Builder</TabsTrigger>
+                  <TabsTrigger value="settings" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Settings</TabsTrigger>
+                  <TabsTrigger value="preview" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Preview</TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="builder" className="space-y-4 mt-4">
                 {/* Element Palette */}

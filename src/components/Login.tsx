@@ -74,7 +74,6 @@ export function Login({ onLogin }: LoginProps) {
       const supabase = createClient();
       
       // Try to sign in first (in case account already exists)
-      console.log('Attempting direct Supabase sign in...');
       let { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
         email: superUserEmail,
         password: superUserPassword,
@@ -82,7 +81,6 @@ export function Login({ onLogin }: LoginProps) {
 
       if (signInError && signInError.message.includes('Invalid login credentials')) {
         // Account doesn't exist, create it
-        console.log('Account does not exist, creating via Supabase...');
         
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: superUserEmail,
@@ -126,7 +124,6 @@ export function Login({ onLogin }: LoginProps) {
 
         if (profileError || !profile) {
           // Create profile if it doesn't exist
-          console.log('Creating profile for super user...');
           
           // First, create or get organization
           const orgId = crypto.randomUUID();
@@ -203,18 +200,13 @@ export function Login({ onLogin }: LoginProps) {
       });
 
       if (signInError) {
-        console.log('🔐 Sign in failed:', signInError.message);
-        
         // Check if this is an email confirmation error
         if (signInError.message.toLowerCase().includes('email not confirmed')) {
-          console.log('📧 Reason: Email not confirmed');
           throw new Error('EMAIL_NOT_CONFIRMED');
         }
         
         // Check if this is an "Invalid login credentials" error
         if (signInError.message.includes('Invalid login credentials')) {
-          console.log('💡 Checking if account exists and email is confirmed...')
-          
           // Check if user exists in profiles table (regardless of Auth status)
           try {
             const { data: existingProfile, error: profileCheckError } = await supabase
@@ -224,23 +216,16 @@ export function Login({ onLogin }: LoginProps) {
               .maybeSingle();
             
             if (existingProfile) {
-              console.log('✅ User found in profiles');
-              
               if (!existingProfile.email_confirmed) {
-                console.log('📧 Email not confirmed - user needs to click confirmation link');
                 throw new Error('EMAIL_NOT_CONFIRMED');
               } else {
-                console.log('⚠️ Email confirmed but sign-in failed - likely wrong password');
                 throw new Error('INVALID_CREDENTIALS');
               }
-            } else {
-              console.log('ℹ️ User not found in profiles');
             }
           } catch (checkError: any) {
             if (checkError.message === 'EMAIL_NOT_CONFIRMED' || checkError.message === 'INVALID_CREDENTIALS') {
               throw checkError;
             }
-            console.log('Profile check error:', checkError);
           }
           
           throw new Error('INVALID_CREDENTIALS');

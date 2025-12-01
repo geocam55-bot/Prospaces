@@ -709,47 +709,51 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       {/* Filter Tabs */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-2">
-            <Button
-              variant={selectedFilter === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedFilter('all')}
-            >
-              All ({suggestions.length})
-            </Button>
-            <Button
-              variant={selectedFilter === 'critical' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedFilter('critical')}
-              className={selectedFilter === 'critical' ? 'bg-red-600 hover:bg-red-700' : ''}
-            >
-              <Flame className="h-4 w-4 mr-1" />
-              Critical ({suggestions.filter(s => s.priority === 'critical').length})
-            </Button>
-            <Button
-              variant={selectedFilter === 'high' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedFilter('high')}
-              className={selectedFilter === 'high' ? 'bg-orange-600 hover:bg-orange-700' : ''}
-            >
-              <Zap className="h-4 w-4 mr-1" />
-              High ({suggestions.filter(s => s.priority === 'high').length})
-            </Button>
-            <Button
-              variant={selectedFilter === 'medium' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedFilter('medium')}
-              className={selectedFilter === 'medium' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}
-            >
-              Medium ({suggestions.filter(s => s.priority === 'medium').length})
-            </Button>
-            <Button
-              variant={selectedFilter === 'low' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSelectedFilter('low')}
-            >
-              Low ({suggestions.filter(s => s.priority === 'low').length})
-            </Button>
+          <div className="overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0">
+            <div className="flex gap-2 min-w-max sm:min-w-0">
+              <Button
+                variant={selectedFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedFilter('all')}
+                className="whitespace-nowrap"
+              >
+                All ({suggestions.length})
+              </Button>
+              <Button
+                variant={selectedFilter === 'critical' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedFilter('critical')}
+                className={`whitespace-nowrap ${selectedFilter === 'critical' ? 'bg-red-600 hover:bg-red-700' : ''}`}
+              >
+                <Flame className="h-4 w-4 mr-1" />
+                Critical ({suggestions.filter(s => s.priority === 'critical').length})
+              </Button>
+              <Button
+                variant={selectedFilter === 'high' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedFilter('high')}
+                className={`whitespace-nowrap ${selectedFilter === 'high' ? 'bg-orange-600 hover:bg-orange-700' : ''}`}
+              >
+                <Zap className="h-4 w-4 mr-1" />
+                High ({suggestions.filter(s => s.priority === 'high').length})
+              </Button>
+              <Button
+                variant={selectedFilter === 'medium' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedFilter('medium')}
+                className={`whitespace-nowrap ${selectedFilter === 'medium' ? 'bg-yellow-600 hover:bg-yellow-700' : ''}`}
+              >
+                Medium ({suggestions.filter(s => s.priority === 'medium').length})
+              </Button>
+              <Button
+                variant={selectedFilter === 'low' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedFilter('low')}
+                className="whitespace-nowrap"
+              >
+                Low ({suggestions.filter(s => s.priority === 'low').length})
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

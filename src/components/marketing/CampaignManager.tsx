@@ -159,11 +159,11 @@ export function CampaignManager({ user }: CampaignManagerProps) {
               <DialogDescription>Choose the type of campaign you want to create.</DialogDescription>
             </DialogHeader>
             <Tabs value={selectedCampaignType} onValueChange={setSelectedCampaignType}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="email">Email</TabsTrigger>
-                <TabsTrigger value="sms">SMS</TabsTrigger>
-                <TabsTrigger value="social">Social</TabsTrigger>
-                <TabsTrigger value="multi">Multi-channel</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+                <TabsTrigger value="email" className="text-xs sm:text-sm">Email</TabsTrigger>
+                <TabsTrigger value="sms" className="text-xs sm:text-sm">SMS</TabsTrigger>
+                <TabsTrigger value="social" className="text-xs sm:text-sm">Social</TabsTrigger>
+                <TabsTrigger value="multi" className="text-xs sm:text-sm">Multi-channel</TabsTrigger>
               </TabsList>
 
               <TabsContent value="email" className="space-y-4 mt-4">

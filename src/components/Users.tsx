@@ -101,13 +101,6 @@ export function Users({ user }: UsersProps) {
 
 
   const loadUsers = async () => {
-    console.log('[Users Component] 🔄 Loading users from Supabase profiles table...');
-    console.log('[Users Component] 👤 Current user:', { 
-      id: user.id, 
-      email: user.email, 
-      role: user.role, 
-      organizationId: user.organizationId 
-    });
     setIsLoadingUsers(true);
     setError(null); // Clear previous errors
     
@@ -119,21 +112,10 @@ export function Users({ user }: UsersProps) {
       
       // Only filter by organization if NOT super_admin
       if (user.role !== 'super_admin') {
-        console.log('[Users Component] 🔒 Filtering by organization:', user.organizationId);
         query = query.eq('organization_id', user.organizationId);
-      } else {
-        console.log('[Users Component] 👑 SUPER_ADMIN: Loading ALL users from ALL organizations');
       }
       
       const { data, error } = await query.order('created_at', { ascending: false });
-
-      console.log('[Users Component] Raw Supabase response:', { data, error, dataLength: data?.length });
-      
-      // Log organization IDs of returned users
-      if (data && data.length > 0) {
-        const orgIds = data.map(u => ({ email: u.email, org_id: u.organization_id }));
-        console.log('[Users Component] 📊 Organization IDs in results:', orgIds);
-      }
 
       if (error) {
         console.error('[Users Component] ❌ Error loading users:', error);
@@ -149,32 +131,19 @@ export function Users({ user }: UsersProps) {
         setUsers([]);
         return;
       }
-
-      console.log('[Users Component] ✅ Loaded', data?.length || 0, 'users');
-      console.log('[Users Component] 📋 User data:', data);
       
       if (!data || data.length === 0) {
         // No users found - sync helper will be shown
-        console.log('[Users Component] 🔧 No users found in organization:', user.organizationId);
         setUsers([]);
         setShowDebug(false); // Don't show debug, show sync helper instead
         return;
       }
-
-      // Successfully loaded users
-      console.log('[Users Component] ✅ Successfully loaded', data.length, 'user(s) from organization');
 
       // Map snake_case column names to camelCase for consistency
       const mappedUsers = data.map(user => ({
         ...user,
         organizationId: user.organization_id,
       }));
-
-      console.log('[Users Component] 📋 Mapped users:', mappedUsers.map(u => ({ 
-        email: u.email, 
-        organizationId: u.organizationId,
-        role: u.role 
-      })));
 
       setUsers(mappedUsers);
       setError(null);
@@ -209,7 +178,6 @@ export function Users({ user }: UsersProps) {
         logo: org.logo,
       })) || [];
       
-      console.log('[Users] 🏢 Loaded Organizations:', loadedTenants.map(t => ({ id: t.id, name: t.name })));
       setTenants(loadedTenants);
     } catch (error) {
       console.error('Failed to load tenants:', error);
@@ -234,19 +202,6 @@ export function Users({ user }: UsersProps) {
 
   // Check if user has invalid timestamp-based org ID
   const hasInvalidOrgId = /^org-[0-9]+$/.test(user.organizationId);
-
-  // Debug logging
-  useEffect(() => {
-    if (users.length > 0) {
-      console.log('[Users Component] 🔍 Organization Mismatch Check:');
-      console.log('  - Current user org:', user.organizationId);
-      console.log('  - Current user role:', user.role);
-      console.log('  - Users count:', users.length);
-      console.log('  - User org IDs:', users.map(u => u.organizationId));
-      console.log('  - Has mismatch?', hasOrgMismatch);
-      console.log('  - Is loading?', isLoadingUsers);
-    }
-  }, [users, hasOrgMismatch, isLoadingUsers]);
 
   // Helper to get organization name
   const getOrgName = (organizationId: string) => {
@@ -388,8 +343,6 @@ export function Users({ user }: UsersProps) {
 
       // If we get a column not found error for manager_id, retry without it
       if (error && error.code === 'PGRST204' && error.message?.includes('manager_id')) {
-        console.log('manager_id column not found, retrying without it...');
-        
         // Show migration helper
         setError('MANAGER_COLUMN_MISSING');
         
@@ -582,11 +535,13 @@ export function Users({ user }: UsersProps) {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="users">User Management</TabsTrigger>
-          <TabsTrigger value="permissions">Role Permissions</TabsTrigger>
-          <TabsTrigger value="recovery">User Recovery</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-3">
+            <TabsTrigger value="users" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">User Management</TabsTrigger>
+            <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Role Permissions</TabsTrigger>
+            <TabsTrigger value="recovery" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">User Recovery</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="users" className="space-y-6">
           {/* Invalid Organization ID Alert - Shows prominently if user has timestamp-based org ID */}

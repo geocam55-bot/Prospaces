@@ -438,15 +438,17 @@ export function Inventory({ user }: InventoryProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="items">All Items</TabsTrigger>
-          <TabsTrigger value="low-stock">
-            Low Stock
-            {lowStockItems.length > 0 && (
-              <Badge className="ml-2 bg-yellow-100 text-yellow-700">{lowStockItems.length}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="items" className="whitespace-nowrap">All Items</TabsTrigger>
+            <TabsTrigger value="low-stock" className="whitespace-nowrap">
+              Low Stock
+              {lowStockItems.length > 0 && (
+                <Badge className="ml-2 bg-yellow-100 text-yellow-700">{lowStockItems.length}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="items" className="space-y-4 mt-6">
           {/* Filters */}

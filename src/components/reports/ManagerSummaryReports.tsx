@@ -328,19 +328,6 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
 
   return (
     <div className="space-y-6">
-      {/* Debug Info - Remove after testing */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card className="bg-yellow-50 border-yellow-200">
-          <CardContent className="pt-4">
-            <p className="text-sm"><strong>Debug Info:</strong></p>
-            <p className="text-xs">Org ID: {user.organizationId}</p>
-            <p className="text-xs">Opportunities: {stats.totalOpportunities}</p>
-            <p className="text-xs">Tasks: {stats.tasksCompleted}</p>
-            <p className="text-xs">Appointments: {stats.upcomingAppointments}</p>
-          </CardContent>
-        </Card>
-      )}
-
       {/* KPI Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {kpis.map((kpi) => {
