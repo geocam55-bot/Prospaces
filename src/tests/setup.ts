@@ -54,7 +54,7 @@ vi.mock('../utils/supabase', () => ({
 }));
 
 // Mock toast notifications
-vi.mock('sonner@2.0.3', () => ({
+vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
