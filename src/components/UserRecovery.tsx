@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Search, UserCheck, AlertTriangle, RefreshCw } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { RLSSetupGuide } from './RLSSetupGuide';
 import { copyToClipboard } from '../utils/clipboard';
 
