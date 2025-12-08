@@ -1,19 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Card, CardContent } from './ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { Plus, Calendar as CalendarIcon, Clock, MapPin, MoreVertical, Trash2 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu';
-import type { User } from '../App';
 import { appointmentsAPI } from '../utils/api';
+import { CalendarAccountSetup } from './CalendarAccountSetup';
+import { createClient } from '../utils/supabase/client';
+import { toast } from 'sonner';
+import { Badge } from './ui/badge';
 
 interface Appointment {
   id: string;
@@ -37,6 +26,11 @@ export function Appointments({ user }: AppointmentsProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Calendar sync state
+  const [isCalendarSetupOpen, setIsCalendarSetupOpen] = useState(false);
+  const [calendarAccounts, setCalendarAccounts] = useState<any[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const [newAppointment, setNewAppointment] = useState({
     title: '',
@@ -50,6 +44,29 @@ export function Appointments({ user }: AppointmentsProps) {
   // Load appointments on mount
   useEffect(() => {
     loadAppointments();
+    loadCalendarAccounts();
+    
+    // Check for OAuth callback parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const calendarConnected = urlParams.get('calendar_connected');
+    const provider = urlParams.get('provider');
+    const error = urlParams.get('error');
+    
+    if (calendarConnected === 'true' && provider) {
+      toast.success(`${provider.charAt(0).toUpperCase() + provider.slice(1)} Calendar connected!`, {
+        description: 'Your calendar is now synced with ProSpaces CRM'
+      });
+      // Clean up URL
+      window.history.replaceState({}, '', '/appointments');
+      // Reload calendar accounts
+      loadCalendarAccounts();
+    } else if (error) {
+      toast.error('Failed to connect calendar', {
+        description: error
+      });
+      // Clean up URL
+      window.history.replaceState({}, '', '/appointments');
+    }
   }, []);
 
   const loadAppointments = async () => {
@@ -119,6 +136,94 @@ export function Appointments({ user }: AppointmentsProps) {
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
 
+  const loadCalendarAccounts = async () => {
+    const client = createClient();
+    try {
+      const { data, error } = await client
+        .from('calendar_accounts')
+        .select('*')
+        .eq('user_id', user.id);
+      if (error) {
+        console.error('Error fetching calendar accounts:', error);
+      } else {
+        setCalendarAccounts(data || []);
+      }
+    } catch (error) {
+      console.error('Failed to load calendar accounts:', error);
+    }
+  };
+
+  const handleSyncCalendar = async () => {
+    if (calendarAccounts.length === 0) {
+      toast.error('No calendar accounts connected');
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const supabase = createClient();
+      
+      // Sync with each connected calendar account
+      for (const account of calendarAccounts) {
+        try {
+          // Call Edge Function to sync
+          const { data, error } = await supabase.functions.invoke('calendar-sync', {
+            body: {
+              accountId: account.id,
+              direction: 'bidirectional',
+            }
+          });
+          
+          if (error) {
+            console.error('[Sync] Error syncing account:', error);
+            toast.error(`Failed to sync ${account.provider} calendar`, {
+              description: error.message || 'Please ensure Edge Functions are deployed'
+            });
+            continue;
+          }
+
+          if (!data?.success) {
+            toast.error(`Failed to sync ${account.provider} calendar`, {
+              description: 'Sync operation was not successful'
+            });
+            continue;
+          }
+
+          // Real sync successful
+          const { result } = data;
+          console.log('[Sync] Result:', result);
+          
+          if (result.errors > 0) {
+            toast.warning(`Synced ${account.provider} with ${result.errors} error(s)`, {
+              description: `Imported: ${result.imported}, Exported: ${result.exported}, Updated: ${result.updated}`
+            });
+          } else {
+            toast.success(`Synced ${account.provider} calendar!`, {
+              description: `Imported: ${result.imported}, Exported: ${result.exported}, Updated: ${result.updated}`
+            });
+          }
+        } catch (accountError: any) {
+          console.error('[Sync] Error syncing account:', accountError);
+          toast.error(`Failed to sync ${account.provider} calendar`, {
+            description: accountError.message || 'Please ensure Edge Functions are deployed'
+          });
+        }
+      }
+      
+      // Reload appointments to show newly imported ones
+      await loadAppointments();
+      await loadCalendarAccounts(); // Refresh last sync time
+      
+    } catch (error: any) {
+      console.error('Failed to sync calendar:', error);
+      toast.error('Failed to sync calendar', {
+        description: error.message || 'Please try again'
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -126,91 +231,115 @@ export function Appointments({ user }: AppointmentsProps) {
           <h1 className="text-3xl text-gray-900">Appointments</h1>
           <p className="text-gray-600 mt-1">Schedule and manage your meetings</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add Appointment
+        <div className="flex items-center gap-2">
+          {calendarAccounts.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSyncCalendar}
+              disabled={isSyncing}
+            >
+              {isSyncing ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Syncing...</>
+              ) : (
+                <><RefreshCw className="h-4 w-4 mr-2" />Sync</>
+              )}
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Schedule New Appointment</DialogTitle>
-              <DialogDescription>
-                Create a new appointment with date, time, and location details.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleAddAppointment} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={newAppointment.title}
-                  onChange={(e) => setNewAppointment({ ...newAppointment, title: e.target.value })}
-                  placeholder="Meeting title"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={newAppointment.description}
-                  onChange={(e) => setNewAppointment({ ...newAppointment, description: e.target.value })}
-                  rows={3}
-                  placeholder="Meeting details..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="date">Date</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={newAppointment.date}
-                  onChange={(e) => setNewAppointment({ ...newAppointment, date: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCalendarSetupOpen(true)}
+          >
+            <Link2 className="h-4 w-4 mr-2" />
+            {calendarAccounts.length > 0 ? 'Manage Calendars' : 'Connect Calendar'}
+          </Button>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add Appointment
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Schedule New Appointment</DialogTitle>
+                <DialogDescription>
+                  Create a new appointment with date, time, and location details.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleAddAppointment} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="startTime">Start Time</Label>
+                  <Label htmlFor="title">Title</Label>
                   <Input
-                    id="startTime"
-                    type="time"
-                    value={newAppointment.startTime}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, startTime: e.target.value })}
+                    id="title"
+                    value={newAppointment.title}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, title: e.target.value })}
+                    placeholder="Meeting title"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="endTime">End Time</Label>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={newAppointment.description}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, description: e.target.value })}
+                    rows={3}
+                    placeholder="Meeting details..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date</Label>
                   <Input
-                    id="endTime"
-                    type="time"
-                    value={newAppointment.endTime}
-                    onChange={(e) => setNewAppointment({ ...newAppointment, endTime: e.target.value })}
+                    id="date"
+                    type="date"
+                    value={newAppointment.date}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, date: e.target.value })}
                     required
                   />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input
-                  id="location"
-                  value={newAppointment.location}
-                  onChange={(e) => setNewAppointment({ ...newAppointment, location: e.target.value })}
-                  placeholder="Meeting location"
-                />
-              </div>
-              <div className="flex gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1">
-                  Cancel
-                </Button>
-                <Button type="submit" className="flex-1">Add Appointment</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startTime">Start Time</Label>
+                    <Input
+                      id="startTime"
+                      type="time"
+                      value={newAppointment.startTime}
+                      onChange={(e) => setNewAppointment({ ...newAppointment, startTime: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endTime">End Time</Label>
+                    <Input
+                      id="endTime"
+                      type="time"
+                      value={newAppointment.endTime}
+                      onChange={(e) => setNewAppointment({ ...newAppointment, endTime: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    value={newAppointment.location}
+                    onChange={(e) => setNewAppointment({ ...newAppointment, location: e.target.value })}
+                    placeholder="Meeting location"
+                  />
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1">
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="flex-1">Add Appointment</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card>
@@ -294,6 +423,15 @@ export function Appointments({ user }: AppointmentsProps) {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isCalendarSetupOpen} onOpenChange={setIsCalendarSetupOpen}>
+        <CalendarAccountSetup
+          isOpen={isCalendarSetupOpen}
+          onClose={() => setIsCalendarSetupOpen(false)}
+          onAccountAdded={loadCalendarAccounts}
+          existingAccounts={calendarAccounts}
+        />
+      </Dialog>
     </div>
   );
 }
