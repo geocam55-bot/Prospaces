@@ -1,19 +1,14 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
-  content: {
-    files: [
-      './index.html',
-      './*/.{js,jsx,ts,tsx}',
-      '!./node_modules/**',
-      '!./build/**',
-      '!./dist/**',
-      '!./supabase/**',
-    ],
-    options: {
-      safelist: []
-    }
-  },
+  content: [
+    './index.html',
+    './src/*/.{js,ts,jsx,tsx}',
+    './components/*/.{js,ts,jsx,tsx}',
+    './utils/*/.{js,ts,jsx,tsx}',
+    './lib/*/.{js,ts,jsx,tsx}',
+    './*.{js,ts,jsx,tsx}',
+  ],
   prefix: "",
   theme: {
     container: {
