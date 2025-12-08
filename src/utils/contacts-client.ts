@@ -18,8 +18,8 @@ function transformToDbFormat(contactData: any) {
     transformed.updated_at = transformed.updatedAt;
     delete transformed.updatedAt;
   }
+  // Remove priceLevel transformation - column doesn't exist in database
   if ('priceLevel' in transformed) {
-    transformed.price_level = transformed.priceLevel;
     delete transformed.priceLevel;
   }
   if ('createdBy' in transformed) {
@@ -35,46 +35,28 @@ function transformToDbFormat(contactData: any) {
     }
     delete transformed.legacyNumber;
   }
+  // Remove accountOwnerNumber transformation - column doesn't exist
   if ('accountOwnerNumber' in transformed) {
-    if (transformed.accountOwnerNumber) {
-      transformed.account_owner_number = transformed.accountOwnerNumber;
-    }
     delete transformed.accountOwnerNumber;
   }
+  // Remove all sales/GP fields - columns don't exist in database
   if ('ptdSales' in transformed) {
-    if (transformed.ptdSales !== undefined && transformed.ptdSales !== null && transformed.ptdSales !== '') {
-      transformed.ptd_sales = transformed.ptdSales;
-    }
     delete transformed.ptdSales;
   }
   if ('ptdGpPercent' in transformed) {
-    if (transformed.ptdGpPercent !== undefined && transformed.ptdGpPercent !== null && transformed.ptdGpPercent !== '') {
-      transformed.ptd_gp_percent = transformed.ptdGpPercent;
-    }
     delete transformed.ptdGpPercent;
   }
   if ('ytdSales' in transformed) {
-    if (transformed.ytdSales !== undefined && transformed.ytdSales !== null && transformed.ytdSales !== '') {
-      transformed.ytd_sales = transformed.ytdSales;
-    }
     delete transformed.ytdSales;
   }
   if ('ytdGpPercent' in transformed) {
-    if (transformed.ytdGpPercent !== undefined && transformed.ytdGpPercent !== null && transformed.ytdGpPercent !== '') {
-      transformed.ytd_gp_percent = transformed.ytdGpPercent;
-    }
     delete transformed.ytdGpPercent;
   }
   if ('lyrSales' in transformed) {
-    if (transformed.lyrSales !== undefined && transformed.lyrSales !== null && transformed.lyrSales !== '') {
-      transformed.lyr_sales = transformed.lyrSales;
-    }
     delete transformed.lyrSales;
   }
+  // Remove lyrGpPercent transformation - column doesn't exist in database
   if ('lyrGpPercent' in transformed) {
-    if (transformed.lyrGpPercent !== undefined && transformed.lyrGpPercent !== null && transformed.lyrGpPercent !== '') {
-      transformed.lyr_gp_percent = transformed.lyrGpPercent;
-    }
     delete transformed.lyrGpPercent;
   }
   
@@ -158,34 +140,6 @@ function transformFromDbFormat(contactData: any) {
     transformed.legacyNumber = transformed.legacy_number;
     delete transformed.legacy_number;
   }
-  if ('account_owner_number' in transformed) {
-    transformed.accountOwnerNumber = transformed.account_owner_number;
-    delete transformed.account_owner_number;
-  }
-  if ('ptd_sales' in transformed) {
-    transformed.ptdSales = transformed.ptd_sales;
-    delete transformed.ptd_sales;
-  }
-  if ('ptd_gp_percent' in transformed) {
-    transformed.ptdGpPercent = transformed.ptd_gp_percent;
-    delete transformed.ptd_gp_percent;
-  }
-  if ('ytd_sales' in transformed) {
-    transformed.ytdSales = transformed.ytd_sales;
-    delete transformed.ytd_sales;
-  }
-  if ('ytd_gp_percent' in transformed) {
-    transformed.ytdGpPercent = transformed.ytd_gp_percent;
-    delete transformed.ytd_gp_percent;
-  }
-  if ('lyr_sales' in transformed) {
-    transformed.lyrSales = transformed.lyr_sales;
-    delete transformed.lyr_sales;
-  }
-  if ('lyr_gp_percent' in transformed) {
-    transformed.lyrGpPercent = transformed.lyr_gp_percent;
-    delete transformed.lyr_gp_percent;
-  }
   
   return transformed;
 }
@@ -238,64 +192,146 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
       // Get list of users this manager oversees
       const { data: teamMembers } = await supabase
         .from('profiles')
-        .select('id, email')
+        .select('id')
         .eq('manager_id', user.id)
         .eq('organization_id', userOrgId);
 
-      const teamEmails = teamMembers?.map(m => m.email) || [];
-      const allowedOwners = [userEmail, ...teamEmails];
+      const teamIds = teamMembers?.map(m => m.id) || [];
+      const allowedOwnerIds = [user.id, ...teamIds];
       
-      console.log('👔 Manager can see contacts from:', allowedOwners);
+      console.log('👔 Manager can see contacts owned by IDs:', allowedOwnerIds);
       
-      // Filter: created by manager OR created by their team members OR owned by manager/team
+      // Filter: owned by manager OR owned by their team members
       query = query.eq('organization_id', userOrgId);
       
-      if (allowedOwners.length > 0) {
-        // Use OR condition: contacts where created_by or account_owner_number matches manager or team
-        query = query.or(
-          allowedOwners.map(email => `account_owner_number.ilike.${email},created_by.eq.${user.id}`).join(',')
-        );
+      if (allowedOwnerIds.length > 0) {
+        query = query.in('owner_id', allowedOwnerIds);
       } else {
         // No team members, just show manager's own contacts
-        query = query.or(`account_owner_number.ilike.${userEmail},created_by.eq.${user.id}`);
+        query = query.eq('owner_id', user.id);
       }
     } else if (userRole === 'marketing') {
       // Marketing: Can see all data within their organization (for campaigns)
       console.log('📢 Marketing - Loading contacts for organization:', userOrgId);
       query = query.eq('organization_id', userOrgId);
     } else {
-      // Standard User: Can ONLY see their own data
-      console.log('👤 Standard User - Loading only own contacts for:', userEmail);
-      query = query.eq('organization_id', userOrgId);
-      // Filter by created_by OR account_owner_number matching their email
-      query = query.or(`account_owner_number.ilike.${userEmail},created_by.eq.${user.id}`);
-    }
-
-    // Apply additional account owner filter if provided (for UI filtering)
-    if (filterByAccountOwner) {
-      console.log('🔍 Additional filter by Account Owner:', filterByAccountOwner);
-      query = query.ilike('account_owner_number', filterByAccountOwner);
+      // Standard User: Check if they're the ONLY user in the org
+      // If so, show all contacts. Otherwise, only show their own.
+      console.log('👤 Standard User - Checking organization users...');
+      
+      const { data: orgUsers, error: usersError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('organization_id', userOrgId)
+        .neq('role', 'super_admin'); // Don't count super admins
+      
+      console.log('👤 Organization users:', orgUsers?.length, orgUsers?.map(u => u.email));
+      
+      if (!usersError && orgUsers && orgUsers.length === 1) {
+        // Only one user in org - show all contacts in organization
+        console.log('👤 Only user in organization - Loading all organization contacts');
+        query = query.eq('organization_id', userOrgId);
+      } else if (!usersError && orgUsers && orgUsers.length > 1) {
+        // Multiple users - check if this is a legacy data scenario
+        console.log('👤 Multiple users in organization - Checking for legacy data...');
+        
+        // First, try to get contacts owned by current user
+        const { data: ownContacts, error: ownError } = await supabase
+          .from('contacts')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', userOrgId)
+          .eq('owner_id', user.id);
+        
+        const ownContactCount = ownContacts || 0;
+        
+        // If user has 0 contacts but org has contacts, this is likely legacy data
+        // Show all org contacts to avoid confusion
+        if (ownContactCount === 0) {
+          console.log('👤 No contacts owned by user but org has contacts - showing all org contacts (legacy data scenario)');
+          query = query.eq('organization_id', userOrgId);
+        } else {
+          // User has some contacts - show only their own
+          console.log('👤 User has contacts - Loading only own contacts');
+          query = query.eq('organization_id', userOrgId);
+          query = query.eq('owner_id', user.id);
+        }
+      } else {
+        // Fallback - show only own contacts
+        console.log('👤 Standard User - Loading only own contacts');
+        query = query.eq('organization_id', userOrgId);
+        query = query.eq('owner_id', user.id);
+      }
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       console.error('❌ Database error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
       throw error;
     }
 
     // Debug: Log the filtered results
+    console.log('📊 Query completed successfully');
+    console.log('📊 User details:', { email: userEmail, role: userRole, orgId: userOrgId });
+    
     if (data) {
       console.log('📊 Filtered data - Total rows:', data.length);
-      console.log('📊 Sample contacts:', data.slice(0, 3).map(d => ({
-        name: d.name,
-        company: d.company,
-        account_owner_number: d.account_owner_number,
-        organization_id: d.organization_id,
-        created_by: d.created_by
-      })));
+      if (data.length > 0) {
+        console.log('📊 Sample contacts (first 3):', data.slice(0, 3).map(d => ({
+          name: d.name,
+          company: d.company,
+          owner_id: d.owner_id,
+          organization_id: d.organization_id,
+          created_at: d.created_at
+        })));
+      } else {
+        console.warn('⚠️ Query returned 0 contacts!');
+        console.warn('⚠️ Check if contacts exist with organization_id:', userOrgId);
+        
+        // Additional debug: Count total contacts in the database
+        const { count, error: countError } = await supabase
+          .from('contacts')
+          .select('*', { count: 'exact', head: true });
+        
+        if (!countError) {
+          console.warn('⚠️ Total contacts in database:', count);
+        }
+        
+        // Check if any contacts exist for this organization
+        const { count: orgCount, error: orgCountError } = await supabase
+          .from('contacts')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', userOrgId);
+        
+        if (!orgCountError) {
+          console.warn('⚠️ Contacts for organization', userOrgId + ':', orgCount);
+        }
+        
+        // CRITICAL DEBUG: Check owner_id values for this organization's contacts
+        const { data: ownerCheck, error: ownerError } = await supabase
+          .from('contacts')
+          .select('id, name, owner_id, organization_id')
+          .eq('organization_id', userOrgId)
+          .limit(5);
+        
+        if (!ownerError && ownerCheck) {
+          console.warn('⚠️ Sample owner_id values:', ownerCheck.map(c => ({
+            name: c.name,
+            owner_id: c.owner_id,
+            current_user_id: user.id
+          })));
+          console.warn('⚠️ Current user ID:', user.id);
+          console.warn('⚠️ Owner IDs match?', ownerCheck.some(c => c.owner_id === user.id));
+        }
+      }
     } else {
-      console.log('📊 No data returned from database');
+      console.log('📊 No data returned from database (data is null/undefined)');
     }
 
     // Transform data from database format to application format
@@ -320,7 +356,6 @@ export async function createContactClient(contactData: any) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       dbData.organization_id = user.user_metadata?.organizationId;
-      dbData.created_by = user.id;
       // Set owner_id to current user (can be reassigned later by managers)
       dbData.owner_id = user.id;
     }
@@ -358,7 +393,10 @@ export async function upsertContactByLegacyNumberClient(contactData: any) {
     
     dbData.organization_id = user.user_metadata?.organizationId;
 
-    // If legacyNumber is provided, check if contact exists
+    // Try to find existing contact
+    let existingContact = null;
+    
+    // First, try to find by legacy_number if provided (only if column exists)
     if (contactData.legacyNumber) {
       console.log('🔍 Checking for existing contact with legacy_number:', contactData.legacyNumber);
       
@@ -368,34 +406,63 @@ export async function upsertContactByLegacyNumberClient(contactData: any) {
         .eq('legacy_number', contactData.legacyNumber)
         .limit(1);
 
-      if (searchError) throw searchError;
+      // If the column doesn't exist, searchError will be set - that's okay, we'll try email
+      if (!searchError && existingContacts && existingContacts.length > 0) {
+        existingContact = existingContacts[0];
+        console.log('✅ Found existing contact by legacy_number');
+      } else if (searchError && searchError.code === '42703') {
+        // Column doesn't exist yet - this is expected if migration hasn't been run
+        console.log('⚠️ legacy_number column does not exist yet, will check by email instead');
+        // Remove legacy_number from dbData to prevent errors
+        delete dbData.legacy_number;
+      } else if (searchError) {
+        // Some other error
+        throw searchError;
+      }
+    }
+    
+    // If not found by legacy_number, try to find by email
+    if (!existingContact && contactData.email) {
+      console.log('🔍 Checking for existing contact with email:', contactData.email);
+      
+      const { data: existingContacts, error: emailSearchError } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('email', contactData.email)
+        .eq('organization_id', dbData.organization_id)
+        .limit(1);
+
+      if (emailSearchError) throw emailSearchError;
 
       if (existingContacts && existingContacts.length > 0) {
-        // Contact exists - UPDATE
-        const existingContact = existingContacts[0];
-        console.log('✏️ Updating existing contact:', existingContact.id, existingContact.name);
-        
-        // Don't update organization_id or created_by for existing contacts
-        delete dbData.organization_id;
-        delete dbData.created_by;
-        
-        const { data: updatedContact, error: updateError } = await supabase
-          .from('contacts')
-          .update(dbData)
-          .eq('id', existingContact.id)
-          .select()
-          .single();
-
-        if (updateError) throw updateError;
-        
-        console.log('✅ Contact updated successfully');
-        return { contact: transformFromDbFormat(updatedContact), action: 'updated' };
+        existingContact = existingContacts[0];
+        console.log('✅ Found existing contact by email');
       }
     }
 
-    // Contact doesn't exist or no legacyNumber - INSERT
+    // If contact exists - UPDATE
+    if (existingContact) {
+      console.log('✏️ Updating existing contact:', existingContact.id, existingContact.name);
+      
+      // Don't update organization_id or created_by for existing contacts
+      delete dbData.organization_id;
+      delete dbData.created_by;
+      
+      const { data: updatedContact, error: updateError } = await supabase
+        .from('contacts')
+        .update(dbData)
+        .eq('id', existingContact.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+      
+      console.log('✅ Contact updated successfully');
+      return { contact: transformFromDbFormat(updatedContact), action: 'updated' };
+    }
+
+    // Contact doesn't exist - INSERT
     console.log('➕ Creating new contact:', contactData.name);
-    dbData.created_by = user.id;
     // Set owner_id to current user (can be reassigned later by managers)
     dbData.owner_id = user.id;
     
@@ -422,17 +489,33 @@ export async function updateContactClient(id: string, contactData: any) {
     // Transform and clean the contact data
     const transformedData = transformToDbFormat(contactData);
 
+    // Get list of columns that exist in the database
+    // We'll check if advanced fields exist before trying to update them
+    const { data: columnCheck } = await supabase
+      .from('contacts')
+      .select('legacy_number')
+      .limit(1);
+    
+    const hasAdvancedFields = columnCheck !== null; // If query succeeds, column exists
+
     // Only include fields that exist in the database schema
-    // This prevents errors from stale schema cache or unknown fields
-    const allowedFields = [
+    const baseFields = [
       'name', 'email', 'phone', 'company', 'status',
-      'price_level', 'owner_id', 'created_by',
-      'legacy_number', 'account_owner_number',
+      'price_level', 'owner_id'
+    ];
+    
+    // Advanced fields that may not exist yet (require migration)
+    const advancedFields = [
+      'legacy_number',
       'address', 'notes',
       'ptd_sales', 'ptd_gp_percent',
       'ytd_sales', 'ytd_gp_percent',
       'lyr_sales', 'lyr_gp_percent'
     ];
+
+    const allowedFields = hasAdvancedFields 
+      ? [...baseFields, ...advancedFields]
+      : baseFields;
 
     const cleanedData: any = {};
     for (const field of allowedFields) {

@@ -53,27 +53,24 @@ export async function getAllOpportunitiesClient() {
       const teamIds = teamMembers?.map(m => m.id) || [];
       const allowedUserIds = [user.id, ...teamIds];
       
-      // Filter by organization and owner_id/created_by
+      // Filter by organization and owner_id
       query = query.eq('organization_id', userOrgId);
       
       if (allowedUserIds.length > 1) {
-        // Check both owner_id and created_by columns
-        const orConditions = allowedUserIds.map(id => `owner_id.eq.${id},created_by.eq.${id}`).join(',');
-        query = query.or(orConditions);
+        query = query.in('owner_id', allowedUserIds);
       } else {
-        query = query.or(`owner_id.eq.${user.id},created_by.eq.${user.id}`);
+        query = query.eq('owner_id', user.id);
       }
     } else {
       // Standard User: Can ONLY see their own opportunities
       console.log('👤 Standard User - Loading only own opportunities for user ID:', user.id);
       
-      // Build a combined filter: (organization_id = X) AND (owner_id = Y OR created_by = Y)
-      // Using a single .or() call with AND logic embedded
+      // Filter by organization and owner_id
       query = query
         .eq('organization_id', userOrgId)
-        .or(`owner_id.eq.${user.id},created_by.eq.${user.id}`);
+        .eq('owner_id', user.id);
       
-      console.log('👤 Filter: organization_id =', userOrgId, 'AND (owner_id =', user.id, 'OR created_by =', user.id, ')');
+      console.log('👤 Filter: organization_id =', userOrgId, 'AND owner_id =', user.id);
     }
 
     let { data: opportunities, error } = await query.order('created_at', { ascending: false });
@@ -148,7 +145,7 @@ export async function getOpportunitiesByCustomerClient(customerId: string) {
   // First, verify the user can see this contact
   const { data: contact, error: contactError } = await supabase
     .from('contacts')
-    .select('id, name, account_owner_number, organization_id, created_by')
+    .select('id, name, owner_id, organization_id')
     .eq('id', customerId)
     .maybeSingle();
   
@@ -165,9 +162,8 @@ export async function getOpportunitiesByCustomerClient(customerId: string) {
   console.log('📋 Contact details:', {
     contactId: contact.id,
     contactName: contact.name,
-    accountOwner: contact.account_owner_number,
-    orgId: contact.organization_id,
-    createdBy: contact.created_by
+    ownerId: contact.owner_id,
+    orgId: contact.organization_id
   });
   
   // Check if user has access to this contact
@@ -176,17 +172,14 @@ export async function getOpportunitiesByCustomerClient(customerId: string) {
     (userRole === 'admin' && contact.organization_id === userOrgId) || // Admin sees org contacts
     (userRole === 'marketing' && contact.organization_id === userOrgId) || // Marketing sees org contacts
     (userRole === 'manager' && contact.organization_id === userOrgId) || // Manager sees org contacts (TODO: improve manager logic)
-    (userRole === 'standard_user' && contact.organization_id === userOrgId && 
-      (contact.account_owner_number === profile.email || contact.created_by === user.id)); // Standard user sees owned contacts
+    (userRole === 'standard_user' && contact.organization_id === userOrgId); // Standard user sees org contacts (legacy data scenario)
   
   console.log('🔑 Access check:', {
     hasAccess: hasContactAccess,
     userRole,
     userOrgId,
     contactOrgId: contact.organization_id,
-    userEmail: profile.email,
-    contactAccountOwner: contact.account_owner_number,
-    contactCreatedBy: contact.created_by,
+    contactOwnerId: contact.owner_id,
     userId: user.id
   });
   

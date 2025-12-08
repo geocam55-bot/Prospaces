@@ -111,7 +111,7 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
     // First, get the opportunity to check which contact it belongs to
     const { data: opportunity, error: oppError } = await supabase
       .from('opportunities')
-      .select('id, customer_id, organization_id, owner_id, created_by')
+      .select('id, customer_id, organization_id')
       .eq('id', opportunityId)
       .maybeSingle();
     

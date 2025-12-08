@@ -29,6 +29,7 @@ import {
   MoreVertical, 
   RefreshCw 
 } from 'lucide-react';
+import { useDebounce } from '../utils/useDebounce';
 
 interface LineItem {
   id: string;
@@ -153,15 +154,18 @@ export function Bids({ user }: BidsProps) {
     loadData();
   }, []);
 
+  // 🚀 Debounce search query (200ms delay for fast typing)
+  const debouncedInventorySearch = useDebounce(inventorySearchQuery, 200);
+
   // Instant client-side inventory search with useMemo (no useState needed for filtered results)
   const filteredInventory = useMemo(() => {
-    if (!inventorySearchQuery.trim()) {
+    if (!debouncedInventorySearch.trim()) {
       // Show all active inventory items when search is empty
       return inventory.filter((item: InventoryItem) => item.status === 'active').slice(0, 100);
     }
 
     // Instant client-side filter
-    const query = inventorySearchQuery.toLowerCase();
+    const query = debouncedInventorySearch.toLowerCase();
     const filtered = inventory.filter((item: InventoryItem) => 
       item.status === 'active' &&
       (item.name?.toLowerCase().includes(query) ||
@@ -170,7 +174,7 @@ export function Bids({ user }: BidsProps) {
     );
     
     return filtered.slice(0, 100); // Show up to 100 results
-  }, [inventorySearchQuery, inventory]);
+  }, [debouncedInventorySearch, inventory]);
 
   // Initialize when dialog opens
   useEffect(() => {

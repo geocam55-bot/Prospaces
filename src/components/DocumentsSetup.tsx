@@ -1,6 +1,3 @@
-import { useState, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { CheckCircle, AlertCircle, Database, FolderOpen, Copy, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';

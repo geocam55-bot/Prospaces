@@ -26,7 +26,8 @@ import {
   XCircle,
   Clock,
   Eye,
-  ArrowRight
+  ArrowRight,
+  Receipt
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -616,6 +617,14 @@ export function Opportunities({ user }: OpportunitiesProps) {
                         }}>
                           <FileText className="h-4 w-4 mr-2" />
                           View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          // Open the OpportunityDetail component which shows bids
+                          setSelectedOpportunity(opportunity);
+                        }}>
+                          <Receipt className="h-4 w-4 mr-2" />
+                          View &{'&'} Manage Bids
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={(e) => {
                           e.stopPropagation();

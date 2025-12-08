@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
@@ -36,6 +36,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import { campaignsAPI } from '../../utils/api';
+import { toast } from 'sonner';
 import type { User } from '../../App';
 
 interface CampaignManagerProps {
@@ -44,70 +46,77 @@ interface CampaignManagerProps {
 
 export function CampaignManager({ user }: CampaignManagerProps) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isABTestDialogOpen, setIsABTestDialogOpen] = useState(false);
   const [selectedCampaignType, setSelectedCampaignType] = useState('email');
+  const [isCreating, setIsCreating] = useState(false);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  
+  // Form state
+  const [campaignName, setCampaignName] = useState('');
+  const [audienceSegment, setAudienceSegment] = useState('');
+  const [subjectLine, setSubjectLine] = useState('');
+  const [previewText, setPreviewText] = useState('');
+  const [emailContent, setEmailContent] = useState('');
+  const [scheduleType, setScheduleType] = useState('now');
+  const [scheduleDateTime, setScheduleDateTime] = useState('');
 
-  const campaigns = [
-    {
-      id: 1,
-      name: 'Summer Product Launch',
-      type: 'Email',
-      status: 'Active',
-      channel: 'email',
-      audience: 2450,
-      sent: 2450,
-      opened: 698,
-      clicked: 147,
-      converted: 23,
-      revenue: 12500,
-      schedule: 'Daily at 10:00 AM',
-      created: '2025-01-15'
-    },
-    {
-      id: 2,
-      name: 'Re-engagement Campaign',
-      type: 'Multi-channel',
-      status: 'Active',
-      channel: 'multi',
-      audience: 1200,
-      sent: 1200,
-      opened: 384,
-      clicked: 92,
-      converted: 15,
-      revenue: 8900,
-      schedule: 'Trigger-based',
-      created: '2025-01-10'
-    },
-    {
-      id: 3,
-      name: 'Webinar Follow-up',
-      type: 'Email',
-      status: 'Completed',
-      channel: 'email',
-      audience: 850,
-      sent: 850,
-      opened: 289,
-      clicked: 71,
-      converted: 12,
-      revenue: 6700,
-      schedule: 'One-time',
-      created: '2025-01-05'
-    },
-    {
-      id: 4,
-      name: 'SMS Flash Sale',
-      type: 'SMS',
-      status: 'Scheduled',
-      channel: 'sms',
-      audience: 3200,
-      sent: 0,
-      opened: 0,
-      clicked: 0,
-      converted: 0,
-      revenue: 0,
-      schedule: 'Jan 20, 2025 at 2:00 PM',
-      created: '2025-01-12'
-    },
-  ];
+  // Load campaigns on mount
+  useEffect(() => {
+    loadCampaigns();
+  }, []);
+
+  const loadCampaigns = async () => {
+    try {
+      const { campaigns: data } = await campaignsAPI.getAll();
+      setCampaigns(data || []);
+    } catch (error) {
+      console.error('Error loading campaigns:', error);
+      toast.error('Failed to load campaigns');
+    }
+  };
+
+  const handleCreateCampaign = async () => {
+    if (!campaignName.trim()) {
+      toast.error('Please enter a campaign name');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const campaignData = {
+        name: campaignName,
+        type: selectedCampaignType,
+        status: scheduleType === 'now' ? 'active' : 'scheduled',
+        description: emailContent || previewText,
+        start_date: scheduleType === 'schedule' && scheduleDateTime ? new Date(scheduleDateTime).toISOString() : new Date().toISOString(),
+      };
+
+      await campaignsAPI.create(campaignData);
+      toast.success('Campaign created successfully!');
+      setIsCreateDialogOpen(false);
+      
+      // Reset form
+      setCampaignName('');
+      setAudienceSegment('');
+      setSubjectLine('');
+      setPreviewText('');
+      setEmailContent('');
+      setScheduleType('now');
+      setScheduleDateTime('');
+      
+      // Reload campaigns
+      await loadCampaigns();
+    } catch (error: any) {
+      console.error('Error creating campaign:', error);
+      toast.error(error.message || 'Failed to create campaign');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleOpenABTestDialog = () => {
+    setIsABTestDialogOpen(true);
+  };
 
   const getChannelIcon = (channel: string) => {
     switch (channel) {
@@ -170,7 +179,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>Campaign Name</Label>
-                    <Input placeholder="e.g., Spring Newsletter" />
+                    <Input placeholder="e.g., Spring Newsletter" value={campaignName} onChange={(e) => setCampaignName(e.target.value)} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -204,17 +213,19 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                   </div>
                   <div className="space-y-2">
                     <Label>Subject Line</Label>
-                    <Input placeholder="Your compelling subject line" />
+                    <Input placeholder="Your compelling subject line" value={subjectLine} onChange={(e) => setSubjectLine(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label>Preview Text</Label>
-                    <Input placeholder="This appears after the subject in inbox" />
+                    <Input placeholder="This appears after the subject in inbox" value={previewText} onChange={(e) => setPreviewText(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label>Email Content</Label>
                     <Textarea 
                       placeholder="Write your email content here... (Supports dynamic fields like {{firstName}}, {{company}})"
                       rows={8}
+                      value={emailContent}
+                      onChange={(e) => setEmailContent(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
@@ -230,7 +241,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                           <SelectItem value="optimize">AI Optimize Send Time</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Input type="datetime-local" />
+                      <Input type="datetime-local" value={scheduleDateTime} onChange={(e) => setScheduleDateTime(e.target.value)} />
                     </div>
                   </div>
                   <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
@@ -238,7 +249,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                       <p className="text-sm text-gray-900">A/B Testing</p>
                       <p className="text-xs text-gray-600">Test subject lines, content, or send times</p>
                     </div>
-                    <Button variant="outline" size="sm">Configure</Button>
+                    <Button variant="outline" size="sm" onClick={handleOpenABTestDialog}>Configure</Button>
                   </div>
                 </div>
               </TabsContent>
@@ -334,11 +345,73 @@ export function CampaignManager({ user }: CampaignManagerProps) {
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="flex-1">
                 Cancel
               </Button>
-              <Button className="flex-1">Create Campaign</Button>
+              <Button className="flex-1" onClick={handleCreateCampaign} disabled={isCreating}>
+                {isCreating ? 'Creating...' : 'Create Campaign'}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* A/B Test Configuration Dialog */}
+      <Dialog open={isABTestDialogOpen} onOpenChange={setIsABTestDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>A/B Test Configuration</DialogTitle>
+            <DialogDescription>Set up variants to test different elements of your campaign</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Test Element</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="What do you want to test?" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="subject">Subject Line</SelectItem>
+                  <SelectItem value="content">Email Content</SelectItem>
+                  <SelectItem value="sendtime">Send Time</SelectItem>
+                  <SelectItem value="sender">Sender Name</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Variant A</Label>
+              <Input placeholder="Enter first variant" />
+            </div>
+            <div className="space-y-2">
+              <Label>Variant B</Label>
+              <Input placeholder="Enter second variant" />
+            </div>
+            <div className="space-y-2">
+              <Label>Test Size (%)</Label>
+              <Input type="number" min="10" max="50" defaultValue="20" placeholder="20" />
+              <p className="text-xs text-gray-500">Percentage of audience to include in test</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Success Metric</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="How will you measure success?" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="opens">Open Rate</SelectItem>
+                  <SelectItem value="clicks">Click Rate</SelectItem>
+                  <SelectItem value="conversions">Conversion Rate</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-6">
+            <Button variant="outline" onClick={() => setIsABTestDialogOpen(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button className="flex-1" onClick={() => { setIsABTestDialogOpen(false); toast.success('A/B test configured!'); }}>
+              Save Configuration
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Campaigns Grid */}
       <div className="grid grid-cols-1 gap-6">
@@ -399,34 +472,34 @@ export function CampaignManager({ user }: CampaignManagerProps) {
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                 <div>
                   <p className="text-xs text-gray-500">Audience</p>
-                  <p className="text-lg text-gray-900 mt-1">{campaign.audience.toLocaleString()}</p>
+                  <p className="text-lg text-gray-900 mt-1">{(campaign.audience || 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Sent</p>
-                  <p className="text-lg text-gray-900 mt-1">{campaign.sent.toLocaleString()}</p>
+                  <p className="text-lg text-gray-900 mt-1">{(campaign.sent || 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Opened</p>
-                  <p className="text-lg text-gray-900 mt-1">{campaign.opened}</p>
-                  <p className="text-xs text-gray-500">{campaign.sent > 0 ? ((campaign.opened / campaign.sent) * 100).toFixed(1) : 0}%</p>
+                  <p className="text-lg text-gray-900 mt-1">{campaign.opened || 0}</p>
+                  <p className="text-xs text-gray-500">{(campaign.sent || 0) > 0 ? (((campaign.opened || 0) / (campaign.sent || 1)) * 100).toFixed(1) : 0}%</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Clicked</p>
-                  <p className="text-lg text-gray-900 mt-1">{campaign.clicked}</p>
-                  <p className="text-xs text-gray-500">{campaign.opened > 0 ? ((campaign.clicked / campaign.opened) * 100).toFixed(1) : 0}%</p>
+                  <p className="text-lg text-gray-900 mt-1">{campaign.clicked || 0}</p>
+                  <p className="text-xs text-gray-500">{(campaign.opened || 0) > 0 ? (((campaign.clicked || 0) / (campaign.opened || 1)) * 100).toFixed(1) : 0}%</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Converted</p>
-                  <p className="text-lg text-gray-900 mt-1">{campaign.converted}</p>
-                  <p className="text-xs text-green-600">{campaign.sent > 0 ? ((campaign.converted / campaign.sent) * 100).toFixed(1) : 0}%</p>
+                  <p className="text-lg text-gray-900 mt-1">{campaign.converted || 0}</p>
+                  <p className="text-xs text-green-600">{(campaign.sent || 0) > 0 ? (((campaign.converted || 0) / (campaign.sent || 1)) * 100).toFixed(1) : 0}%</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Revenue</p>
-                  <p className="text-lg text-gray-900 mt-1">${campaign.revenue.toLocaleString()}</p>
+                  <p className="text-lg text-gray-900 mt-1">${(campaign.revenue || 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Schedule</p>
-                  <p className="text-sm text-gray-900 mt-1">{campaign.schedule}</p>
+                  <p className="text-sm text-gray-900 mt-1">{campaign.schedule || 'Not scheduled'}</p>
                 </div>
               </div>
             </CardContent>

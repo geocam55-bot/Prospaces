@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { getGlobalTaxRate, priceLevelToTier } from '../lib/global-settings';
+import { useDebounce } from '../utils/useDebounce';
 import { 
   ArrowLeft, 
   Edit, 
@@ -127,6 +128,7 @@ interface LineItem {
   sku: string;
   quantity: number;
   unitPrice: number;
+  cost: number;
   discount: number;
   total: number;
 }
@@ -136,6 +138,7 @@ interface InventoryItem {
   name: string;
   sku: string;
   description: string;
+  cost: number;
   priceTier1: number;
   price_tier_1: number;
 }
@@ -210,13 +213,16 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
   const [lineItemDiscount, setLineItemDiscount] = useState(0);
   const [lineItemUnitPrice, setLineItemUnitPrice] = useState(0);
 
+  // 🚀 Debounce search query (200ms delay for fast typing)
+  const debouncedInventorySearch = useDebounce(inventorySearchQuery, 200);
+
   // Filtered inventory for search
   const filteredInventory = useMemo(() => {
-    if (!inventorySearchQuery.trim()) {
+    if (!debouncedInventorySearch.trim()) {
       return inventoryItems.slice(0, 100); // Show first 100 items
     }
     
-    const query = inventorySearchQuery.toLowerCase();
+    const query = debouncedInventorySearch.toLowerCase();
     const filtered = inventoryItems.filter(item => 
       item.name?.toLowerCase().includes(query) ||
       item.sku?.toLowerCase().includes(query) ||
@@ -224,7 +230,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     );
     
     return filtered.slice(0, 100);
-  }, [inventorySearchQuery, inventoryItems]);
+  }, [debouncedInventorySearch, inventoryItems]);
 
   // Auto-populate unit price when inventory item is selected
   useEffect(() => {
@@ -434,6 +440,8 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
   const loadBids = async (opportunityId: string) => {
     try {
       setIsLoadingBids(true);
+      console.log('[ContactDetail.loadBids] Loading bids for opportunity:', opportunityId);
+      console.log('[ContactDetail.loadBids] Current contact:', contact?.id, contact?.name);
       
       // Load both bids and quotes
       const [bidsResult, quotesResult] = await Promise.all([
@@ -467,6 +475,11 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             } else if (Array.isArray(bid.line_items)) {
               parsedLineItems = bid.line_items;
             }
+            // Ensure cost field exists for backward compatibility
+            parsedLineItems = parsedLineItems.map(item => ({
+              ...item,
+              cost: item.cost ?? 0,
+            }));
           } catch (error) {
             console.error('Failed to parse line items for bid:', bid.id, error);
           }
@@ -490,6 +503,11 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             } else if (Array.isArray(rawLineItems)) {
               parsedLineItems = rawLineItems;
             }
+            // Ensure cost field exists for backward compatibility
+            parsedLineItems = parsedLineItems.map(item => ({
+              ...item,
+              cost: item.cost ?? 0,
+            }));
           } catch (error) {
             console.error('Failed to parse line items for quote:', quote.id, error);
           }
@@ -586,8 +604,12 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         discount_percent: 0,
         discount_amount: 0,
       });
-      // Ensure line_items are included in the bid
-      setBids([...bids, { ...bid, line_items: lineItems }]);
+      
+      // Reload bids from server to ensure we have the latest data
+      if (selectedOpportunity?.id) {
+        await loadBids(selectedOpportunity.id);
+      }
+      
       setNewBid({ title: '', amount: '', status: 'draft', validUntil: '', notes: '', projectManagerId: '' });
       setLineItems([]);
       setBidSubtotal('');
@@ -633,6 +655,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       sku: item.sku,
       quantity: lineItemQuantity,
       unitPrice: lineItemUnitPrice, // Use editable unit price
+      cost: item.cost || 0, // Include cost from inventory
       discount: lineItemDiscount,
       total,
     };
@@ -678,8 +701,11 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         discount_amount: totals.discountAmount,
       });
       
-      // Update the bid in the list, preserving the line items we edited
-      setBids(bids.map(b => (b.id === bid.id ? { ...bid, line_items: editingBidLineItems } : b)));
+      // Reload bids from server to ensure we have the latest data
+      if (selectedOpportunity?.id) {
+        await loadBids(selectedOpportunity.id);
+      }
+      
       setEditingBid(null);
       setEditingBidLineItems([]);
       setIsEditBidDialogOpen(false);
@@ -696,7 +722,10 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
     try {
       await bidsAPI.delete(id);
-      setBids(bids.filter(b => b.id !== id));
+      // Reload bids from server to ensure we have the latest data
+      if (selectedOpportunity?.id) {
+        await loadBids(selectedOpportunity.id);
+      }
     } catch (error) {
       console.error('Failed to delete bid:', error);
       alert('Failed to delete bid. Please try again.');

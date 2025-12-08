@@ -7,7 +7,8 @@ export async function getAllAppointmentsClient() {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.warn('⚠️ User not authenticated, returning empty appointments');
+      // User not authenticated yet - return empty array silently
+      // This can happen during initial page load before auth is initialized
       return { appointments: [] };
     }
 
@@ -25,6 +26,15 @@ export async function getAllAppointmentsClient() {
     const userOrgId = profile.organization_id;
 
     console.log('🔐 Appointments - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
+    console.log('🔐 Appointments - User ID:', user.id);
+
+    // First, let's check how many appointments exist in this organization
+    const { count: totalOrgCount } = await supabase
+      .from('appointments')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', userOrgId);
+    
+    console.log('📊 Total appointments in organization:', totalOrgCount);
 
     let query = supabase
       .from('appointments')
@@ -56,15 +66,55 @@ export async function getAllAppointmentsClient() {
       query = query.eq('organization_id', userOrgId);
       
       if (allowedUserIds.length > 1) {
-        query = query.in('created_by', allowedUserIds);
+        query = query.in('owner_id', allowedUserIds);
       } else {
-        query = query.eq('created_by', user.id);
+        query = query.eq('owner_id', user.id);
       }
     } else {
-      // Standard User: Can ONLY see their own appointments
-      console.log('👤 Standard User - Loading only own appointments');
-      query = query.eq('organization_id', userOrgId);
-      query = query.eq('created_by', user.id);
+      // Standard User: Check if they're the ONLY user in the org
+      // If so, show all appointments. Otherwise, only show their own.
+      console.log('👤 Standard User - Checking organization users...');
+      
+      const { data: orgUsers, error: usersError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('organization_id', userOrgId)
+        .neq('role', 'super_admin'); // Don't count super admins
+      
+      console.log('👤 Organization users:', orgUsers?.length, orgUsers?.map(u => u.email));
+      
+      if (!usersError && orgUsers && orgUsers.length === 1) {
+        // Only one user in org - show all appointments in organization
+        console.log('👤 Only user in organization - Loading all organization appointments');
+        query = query.eq('organization_id', userOrgId);
+      } else if (!usersError && orgUsers && orgUsers.length > 1) {
+        // Multiple users - check if this is a legacy data scenario
+        console.log('👤 Multiple users in organization - Checking for legacy data...');
+        
+        // First, try to get appointments owned by current user
+        const { count: ownCount } = await supabase
+          .from('appointments')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', userOrgId)
+          .eq('owner_id', user.id);
+        
+        // If user has 0 appointments but org has appointments, this is likely legacy data
+        // Show all org appointments to avoid confusion
+        if (ownCount === 0) {
+          console.log('👤 No appointments owned by user but org has appointments - showing all org appointments (legacy data scenario)');
+          query = query.eq('organization_id', userOrgId);
+        } else {
+          // User has some appointments - show only their own
+          console.log('👤 User has appointments - Loading only own appointments');
+          query = query.eq('organization_id', userOrgId);
+          query = query.eq('owner_id', user.id);
+        }
+      } else {
+        // Fallback - show only own appointments
+        console.log('👤 Standard User - Loading only own appointments');
+        query = query.eq('organization_id', userOrgId);
+        query = query.eq('owner_id', user.id);
+      }
     }
 
     const { data, error } = await query.order('start_time', { ascending: true });
@@ -72,6 +122,10 @@ export async function getAllAppointmentsClient() {
     if (error) throw error;
 
     console.log('📊 Appointments filtered data - Total rows:', data?.length || 0);
+    if (data && data.length > 0) {
+      console.log('📊 First appointment:', data[0]);
+      console.log('📊 All appointment IDs:', data.map((a: any) => ({ id: a.id, title: a.title, start: a.start_time, owner: a.owner_id })));
+    }
 
     return { appointments: data || [] };
   } catch (error: any) {
@@ -88,12 +142,17 @@ export async function createAppointmentClient(appointmentData: any) {
     
     if (!user) throw new Error('Not authenticated');
 
+    // Get profile to ensure we use the correct organization_id
+    const profile = await ensureUserProfile(user.id);
+
     const newAppointment = {
       ...appointmentData,
-      organization_id: user.user_metadata?.organizationId,
-      created_by: user.id,
+      organization_id: profile.organization_id, // Use profile org instead of user_metadata
+      owner_id: user.id,
       created_at: new Date().toISOString(),
     };
+
+    console.log('✅ Creating appointment with data:', newAppointment);
 
     const { data, error } = await supabase
       .from('appointments')
@@ -102,6 +161,8 @@ export async function createAppointmentClient(appointmentData: any) {
       .single();
 
     if (error) throw error;
+
+    console.log('✅ Appointment created successfully:', data);
 
     return { appointment: data };
   } catch (error: any) {

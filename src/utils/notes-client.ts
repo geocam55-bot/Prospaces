@@ -56,9 +56,9 @@ export async function getAllNotesClient() {
       query = query.eq('organization_id', userOrgId);
       
       if (allowedUserIds.length > 1) {
-        query = query.in('created_by', allowedUserIds);
+        query = query.in('owner_id', allowedUserIds);
       } else {
-        query = query.eq('created_by', user.id);
+        query = query.eq('owner_id', user.id);
       }
     } else if (userRole === 'marketing') {
       // Marketing: Can see all notes within their organization
@@ -68,7 +68,7 @@ export async function getAllNotesClient() {
       // Standard User: Can ONLY see their own notes
       console.log('👤 Standard User - Loading only own notes');
       query = query.eq('organization_id', userOrgId);
-      query = query.eq('created_by', user.id);
+      query = query.eq('owner_id', user.id);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -109,14 +109,14 @@ export async function createNoteClient(noteData: any) {
     }
 
     // Map incoming data to match actual schema
-    // Based on NUCLEAR-FIX.sql, the notes table has:
-    // - id, contact_id, content, organization_id, created_by, created_at, updated_at
+    // Based on the actual database schema, the notes table has:
+    // - id, title, content, contact_id, owner_id, organization_id, created_at, updated_at
     const newNote = {
+      title: noteData.title || 'Note',
       content: noteData.text || noteData.content || noteData.message || '', // Map text/message to content
       contact_id: noteData.contact_id || null,
       organization_id: user.user_metadata?.organizationId,
-      created_by: user.id,
-      created_at: new Date().toISOString(),
+      owner_id: user.id,
     };
 
     console.log('📝 Attempting to insert note:', newNote);

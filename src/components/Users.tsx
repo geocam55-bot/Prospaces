@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Search, Plus, UserPlus, Edit, Trash2, MoreVertical, Building2, Shield, AlertCircle, Key, Copy } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
+import { copyToClipboard } from '../utils/clipboard';
 import { ProfilesSyncFixer } from './ProfilesSyncFixer';
 import { QuickOrgFix } from './QuickOrgFix';
 import { PermissionsManager } from './PermissionsManager';
@@ -63,6 +64,9 @@ export function Users({ user }: UsersProps) {
   const [newPassword, setNewPassword] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState<OrgUser | null>(null);
+  const [showOrgChangeWarning, setShowOrgChangeWarning] = useState(false);
+  const [originalOrganizationId, setOriginalOrganizationId] = useState('');
+  const [pendingOrgChange, setPendingOrgChange] = useState<string | null>(null);
 
   // Check if user has permission to manage users
   const canManageUsers = user.role === 'super_admin' || user.role === 'admin';
@@ -307,6 +311,7 @@ export function Users({ user }: UsersProps) {
     }
     
     setSelectedUser(orgUser);
+    setOriginalOrganizationId(orgUser.organizationId); // Store original for comparison
     setEditUser({
       name: orgUser.name,
       email: orgUser.email,
@@ -321,6 +326,44 @@ export function Users({ user }: UsersProps) {
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
+
+    // Check if organization changed
+    const orgChanged = editUser.organizationId !== originalOrganizationId;
+    
+    // If organization changed, show warning and require confirmation
+    if (orgChanged && user.role === 'super_admin') {
+      const oldOrgName = getOrgName(originalOrganizationId);
+      const newOrgName = getOrgName(editUser.organizationId);
+      
+      const confirmed = confirm(
+        `⚠️ ORGANIZATION CHANGE WARNING\n\n` +
+        `You are about to move ${selectedUser.name} from:\n` +
+        `  "${oldOrgName}"\n` +
+        `to:\n` +
+        `  "${newOrgName}"\n\n` +
+        `This will affect their access to data and may cause issues.\n\n` +
+        `Are you absolutely sure you want to do this?`
+      );
+      
+      if (!confirmed) {
+        toast.info('User update cancelled');
+        return;
+      }
+      
+      // Log the organization change for audit purposes
+      console.log('🔄 ORGANIZATION CHANGE:', {
+        user: selectedUser.name,
+        email: selectedUser.email,
+        oldOrg: oldOrgName,
+        newOrg: newOrgName,
+        oldOrgId: originalOrganizationId,
+        newOrgId: editUser.organizationId,
+        changedBy: user.email,
+        timestamp: new Date().toISOString()
+      });
+      
+      toast.success(`User organization changed from "${oldOrgName}" to "${newOrgName}"`);
+    }
 
     try {
       // First, try to update with manager_id
@@ -408,73 +451,69 @@ export function Users({ user }: UsersProps) {
     setNewPassword(tempPassword);
     
     try {
-      // Send password reset email via Supabase Auth
-      console.log('📧 Sending password reset email to:', orgUser.email);
-      const { data, error } = await supabase.auth.resetPasswordForEmail(orgUser.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
+      // Set the temporary password using SQL function
+      console.log('🔐 Setting temporary password in database...');
+      const { data: functionResult, error: functionError } = await supabase.rpc(
+        'set_user_temporary_password',
+        {
+          user_email: orgUser.email,
+          temp_password: tempPassword
+        }
+      );
 
-      if (error) {
-        console.error('❌ Failed to send reset email:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
-      } else {
-        console.log('✅ Password reset email sent successfully');
+      if (functionError) {
+        console.error('❌ Failed to set password:', functionError);
+        
+        // Check if function doesn't exist
+        if (functionError.code === 'PGRST202' || functionError.message?.includes('Could not find the function')) {
+          console.error('❌ SQL function not created yet!');
+          throw new Error('⚠️ DATABASE SETUP REQUIRED: The password reset function has not been created yet. Please run the SQL script in /ADD_PASSWORD_CHANGE_SUPPORT.sql first. See console for details.');
+        }
+        
+        throw new Error(`Failed to set password: ${functionError.message}`);
       }
 
-      // Always show the dialog with the generated password
+      if (!functionResult?.success) {
+        console.error('❌ Function returned error:', functionResult?.error);
+        throw new Error(functionResult?.error || 'Failed to set password');
+      }
+
+      console.log('✅ Temporary password set successfully!');
+      
+      // Try to send password reset email (optional - not critical)
+      try {
+        console.log('📧 Attempting to send password reset email...');
+        await supabase.auth.resetPasswordForEmail(orgUser.email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        console.log('✅ Password reset email sent');
+      } catch (emailError) {
+        console.log('⚠️  Email not sent (non-critical):', emailError);
+      }
+
+      // Show the dialog with the generated password
       setIsResetPasswordDialogOpen(true);
-      toast.success('Password reset email sent! Copy the password to share with the user.');
+      toast.success('✅ Temporary password set! User can now log in.');
     } catch (error: any) {
       console.error('❌ Exception during password reset:', error);
       console.error('Exception details:', JSON.stringify(error, null, 2));
-      // Still show the dialog with the generated password
-      setIsResetPasswordDialogOpen(true);
-      toast.warning('Password generated. See dialog for setup instructions.');
+      toast.error(error.message || 'Failed to set temporary password');
     } finally {
       setIsResettingPassword(false);
     }
   };
 
   const handleCopyPassword = async () => {
-    try {
-      // Try the modern Clipboard API first
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(newPassword);
-        toast.success('Password copied to clipboard!');
-        return;
-      }
-    } catch (error) {
-      console.log('Clipboard API failed, trying fallback method...', error);
+    if (!newPassword) {
+      toast.error('No password to copy');
+      return;
     }
 
-    // Fallback method using textarea
-    try {
-      const textarea = document.createElement('textarea');
-      textarea.value = newPassword;
-      textarea.style.position = 'fixed';
-      textarea.style.top = '0';
-      textarea.style.left = '0';
-      textarea.style.width = '2em';
-      textarea.style.height = '2em';
-      textarea.style.padding = '0';
-      textarea.style.border = 'none';
-      textarea.style.outline = 'none';
-      textarea.style.boxShadow = 'none';
-      textarea.style.background = 'transparent';
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      
-      const successful = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      
-      if (successful) {
-        toast.success('Password copied to clipboard!');
-      } else {
-        throw new Error('Copy command was unsuccessful');
-      }
-    } catch (error) {
-      console.error('Failed to copy password:', error);
+    const success = await copyToClipboard(newPassword);
+    
+    if (success) {
+      toast.success('Password copied to clipboard!');
+    } else {
       toast.error('Could not copy automatically. Please select and copy the password manually.');
     }
   };
@@ -933,12 +972,19 @@ export function Users({ user }: UsersProps) {
                 {/* Organization selector - only for super admins */}
                 {user.role === 'super_admin' && (
                   <div className="space-y-2">
-                    <Label htmlFor="organization">Organization *</Label>
+                    <Label htmlFor="organization" className="flex items-center gap-2">
+                      Organization *
+                      {editUser.organizationId !== originalOrganizationId && (
+                        <span className="text-xs text-orange-600 font-semibold bg-orange-100 px-2 py-0.5 rounded">
+                          ⚠️ CHANGED
+                        </span>
+                      )}
+                    </Label>
                     <Select 
                       value={editUser.organizationId} 
                       onValueChange={(value) => setEditUser({ ...editUser, organizationId: value })}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={editUser.organizationId !== originalOrganizationId ? 'border-orange-500 border-2' : ''}>
                         <SelectValue placeholder={isLoadingTenants ? "Loading..." : "Select organization"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -960,9 +1006,18 @@ export function Users({ user }: UsersProps) {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-gray-500">
-                      Select which organization this user will belong to
-                    </p>
+                    {editUser.organizationId !== originalOrganizationId ? (
+                      <Alert className="border-orange-500 bg-orange-50">
+                        <AlertCircle className="h-4 w-4 text-orange-600" />
+                        <AlertDescription className="text-orange-900 text-xs">
+                          <strong>⚠️ Warning:</strong> Changing organization will affect this user's access to data. You will be asked to confirm before saving.
+                        </AlertDescription>
+                      </Alert>
+                    ) : (
+                      <p className="text-xs text-gray-500">
+                        Select which organization this user will belong to
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -1081,52 +1136,28 @@ export function Users({ user }: UsersProps) {
                   </p>
                 </div>
 
-                {/* Critical Warning */}
-                <Alert className="bg-red-50 border-red-300 border-2">
-                  <AlertCircle className="h-5 w-5 text-red-600" />
-                  <AlertDescription className="text-red-900">
-                    <strong className="text-base">⚠️ CRITICAL: This Password Does NOT Work Yet!</strong>
-                    <p className="mt-2 text-sm">The user <strong>CANNOT login</strong> with this password until you complete ONE of the setup methods below.</p>
+                {/* Success Notice */}
+                <Alert className="bg-green-50 border-green-300 border-2">
+                  <AlertCircle className="h-5 w-5 text-green-600" />
+                  <AlertDescription className="text-green-900">
+                    <strong className="text-base">✅ Password is Active!</strong>
+                    <p className="mt-2 text-sm">The user can now <strong>login immediately</strong> with the temporary password shown above. They will be prompted to change it on first login.</p>
                   </AlertDescription>
                 </Alert>
 
-                {/* Setup Methods */}
+                {/* Instructions */}
                 <div className="space-y-3">
-                  {/* Method 1: SQL (BEST when no email) */}
-                  <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
-                    <h5 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
-                      <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">1</span>
-                      ✅ Quick Method: Copy & Run SQL (No Email Required!)
+                  <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+                    <h5 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                      <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">1</span>
+                      📋 Share the Password
                     </h5>
-                    <div className="text-sm text-green-900 space-y-2 ml-8">
-                      <p className="font-medium">This SQL is ready to copy - all values are filled in:</p>
-                      <div className="bg-gray-900 text-green-400 p-3 rounded font-mono text-xs overflow-x-auto">
-                        <pre className="select-all whitespace-pre">{`-- Set password for ${resetPasswordUser?.name}
--- User ID: ${resetPasswordUser?.id}
--- Email: ${resetPasswordUser?.email}
-
-UPDATE auth.users 
-SET 
-  encrypted_password = crypt('${newPassword}', gen_salt('bf')),
-  email_confirmed_at = now(),
-  updated_at = now()
-WHERE id = '${resetPasswordUser?.id}';
-
--- Verify it worked (should show 1 row updated)
-SELECT id, email, email_confirmed_at, confirmed_at, updated_at 
-FROM auth.users 
-WHERE id = '${resetPasswordUser?.id}';`}</pre>
+                    <div className="text-sm text-blue-900 space-y-2 ml-8">
+                      <p>Send this temporary password to <strong>{resetPasswordUser?.email}</strong>:</p>
+                      <div className="bg-white border border-blue-300 rounded p-3">
+                        <p className="font-mono text-lg font-bold text-blue-900">{newPassword}</p>
                       </div>
-                      <div className="bg-green-100 border border-green-300 rounded p-3 mt-2">
-                        <p className="font-semibold text-green-900 text-xs mb-2">📋 Quick Steps:</p>
-                        <ol className="list-decimal list-inside space-y-1 text-xs">
-                          <li>Click the SQL code above to select it</li>
-                          <li>Copy it (Ctrl+C or Cmd+C)</li>
-                          <li>Go to Supabase Dashboard → SQL Editor</li>
-                          <li>Paste and click "Run"</li>
-                          <li>✅ Password is now active! User can login with: <code className="bg-green-200 px-1 py-0.5 rounded font-mono">{newPassword}</code></li>
-                        </ol>
-                      </div>
+                      <p className="text-xs text-blue-700 mt-2">⚠️ They will be required to change this password on first login.</p>
                     </div>
                   </div>
 

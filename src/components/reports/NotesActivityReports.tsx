@@ -62,13 +62,13 @@ export function NotesActivityReports({ user }: NotesActivityReportsProps) {
         .select('*')
         .eq('tenant_id', user.organizationId);
 
-      let mostActiveUser = '';
+      let mostActiveUser = 'N/A';
       let maxActivity = 0;
 
       if (users && notes && appointments) {
         users.forEach(u => {
           const userNotes = notes.filter(n => n.created_by === u.id).length;
-          const userAppts = appointments.filter(a => a.created_by === u.id).length;
+          const userAppts = appointments.filter(a => a.owner_id === u.id).length;
           const total = userNotes + userAppts;
           
           if (total > maxActivity) {
@@ -99,7 +99,7 @@ export function NotesActivityReports({ user }: NotesActivityReportsProps) {
       if (users && notes && appointments) {
         const teamStats = users.map(u => {
           const userNotes = notes.filter(n => n.created_by === u.id).length;
-          const userAppts = appointments.filter(a => n.created_by === u.id).length;
+          const userAppts = appointments.filter(a => a.owner_id === u.id).length;
           
           return {
             name: u.name,

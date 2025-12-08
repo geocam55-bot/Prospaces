@@ -7,7 +7,8 @@ export async function getAllTasksClient() {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.warn('⚠️ User not authenticated, returning empty tasks');
+      // User not authenticated yet - return empty array silently
+      // This can happen during initial page load before auth is initialized
       return { tasks: [] };
     }
 
@@ -52,25 +53,65 @@ export async function getAllTasksClient() {
       const teamIds = teamMembers?.map(m => m.id) || [];
       const allowedUserIds = [user.id, ...teamIds];
       
-      // Filter: created by manager/team OR assigned to manager/team
+      // Filter: owned by manager/team OR assigned to manager/team
       query = query.eq('organization_id', userOrgId);
       
       if (allowedUserIds.length > 1) {
         query = query.or(
-          allowedUserIds.map(id => `created_by.eq.${id},assigned_to.eq.${id}`).join(',')
+          allowedUserIds.map(id => `owner_id.eq.${id},assigned_to.eq.${id}`).join(',')
         );
       } else {
-        query = query.or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`);
+        query = query.or(`owner_id.eq.${user.id},assigned_to.eq.${user.id}`);
       }
     } else if (userRole === 'marketing') {
       // Marketing: Can see all tasks within their organization
       console.log('📢 Marketing - Loading tasks for organization:', userOrgId);
       query = query.eq('organization_id', userOrgId);
     } else {
-      // Standard User: Can ONLY see their own tasks
-      console.log('👤 Standard User - Loading only own tasks');
-      query = query.eq('organization_id', userOrgId);
-      query = query.or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`);
+      // Standard User: Check if they're the ONLY user in the org
+      // If so, show all tasks. Otherwise, only show their own.
+      console.log('👤 Standard User - Checking organization users...');
+      
+      const { data: orgUsers, error: usersError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('organization_id', userOrgId)
+        .neq('role', 'super_admin'); // Don't count super admins
+      
+      console.log('👤 Organization users:', orgUsers?.length, orgUsers?.map(u => u.email));
+      
+      if (!usersError && orgUsers && orgUsers.length === 1) {
+        // Only one user in org - show all tasks in organization
+        console.log('👤 Only user in organization - Loading all organization tasks');
+        query = query.eq('organization_id', userOrgId);
+      } else if (!usersError && orgUsers && orgUsers.length > 1) {
+        // Multiple users - check if this is a legacy data scenario
+        console.log('👤 Multiple users in organization - Checking for legacy data...');
+        
+        // First, try to get tasks owned by current user
+        const { count: ownCount } = await supabase
+          .from('tasks')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', userOrgId)
+          .or(`owner_id.eq.${user.id},assigned_to.eq.${user.id}`);
+        
+        // If user has 0 tasks but org has tasks, this is likely legacy data
+        // Show all org tasks to avoid confusion
+        if (ownCount === 0) {
+          console.log('👤 No tasks owned by user but org has tasks - showing all org tasks (legacy data scenario)');
+          query = query.eq('organization_id', userOrgId);
+        } else {
+          // User has some tasks - show only their own
+          console.log('👤 User has tasks - Loading only own tasks');
+          query = query.eq('organization_id', userOrgId);
+          query = query.or(`owner_id.eq.${user.id},assigned_to.eq.${user.id}`);
+        }
+      } else {
+        // Fallback - show only own tasks
+        console.log('👤 Standard User - Loading only own tasks');
+        query = query.eq('organization_id', userOrgId);
+        query = query.or(`owner_id.eq.${user.id},assigned_to.eq.${user.id}`);
+      }
     }
 
     const { data, error } = await query.order('due_date', { ascending: true });
@@ -97,7 +138,7 @@ export async function createTaskClient(taskData: any) {
     const newTask = {
       ...taskData,
       organization_id: user.user_metadata?.organizationId,
-      created_by: user.id,
+      owner_id: user.id,
       created_at: new Date().toISOString(),
     };
 

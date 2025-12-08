@@ -49,6 +49,8 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
   const [stats, setStats] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<{ action: string; details: string; time: string; module: string }[]>([]);
   const [bidsChartData, setBidsChartData] = useState<any[]>([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<any[]>([]);
+  const [upcomingTasks, setUpcomingTasks] = useState<any[]>([]);
   const [showDatabaseSetup, setShowDatabaseSetup] = useState(false);
   const [hasCheckedDatabase, setHasCheckedDatabase] = useState(false);
   const [permissionsVersion, setPermissionsVersion] = useState(0);
@@ -296,12 +298,11 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
           try {
             const supabase = createClient();
             
-            // Standard users see only their own contacts (by account_owner_number OR created_by)
-            // This ensures we show contacts assigned to the user even if they didn't create them
+            // Standard users see contacts in their organization
+            // Note: account_owner_number and created_by columns don't exist in current schema
             const { data: contacts, error } = await supabase
               .from('contacts')
-              .select('*')
-              .or(`account_owner_number.eq.${user.email},created_by.eq.${user.id}`)
+              .select('id, name, email, phone, company, status, organization_id, created_at')
               .eq('organization_id', user.organizationId);
             
             if (error) throw error;
@@ -313,8 +314,7 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
               totalContacts: contactsList.length,
               sampleContacts: contactsList.slice(0, 3).map(c => ({
                 name: c.name,
-                account_owner: c.account_owner_number,
-                created_by: c.created_by
+                company: c.company
               }))
             });
             
@@ -352,8 +352,8 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
             const supabase = createClient();
             const { data: tasks, error } = await supabase
               .from('tasks')
-              .select('*')
-              .eq('created_by', user.id); // Filter by current user only
+              .select('id, title, description, status, priority, due_date, assigned_to, organization_id, created_at, updated_at')
+              .eq('assigned_to', user.id); // Filter by assigned user
             
             if (error) throw error;
             
@@ -393,8 +393,8 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
             const supabase = createClient();
             const { data: appointments, error } = await supabase
               .from('appointments')
-              .select('*')
-              .eq('created_by', user.id); // Filter by current user only
+              .select('id, title, description, start_time, end_time, location, organization_id, created_at')
+              .eq('organization_id', user.organizationId); // Filter by organization
             
             if (error) throw error;
             
@@ -494,8 +494,8 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
             const supabase = createClient();
             const { data: opportunities, error } = await supabase
               .from('opportunities')
-              .select('*')
-              .or(`created_by.eq.${user.id},owner_id.eq.${user.id}`); // Check both created_by and owner_id
+              .select('id, title, status, value, owner_id, expected_close_date, organization_id, created_at, updated_at')
+              .eq('owner_id', user.id); // Filter by owner_id
             
             if (error) throw error;
             
@@ -559,10 +559,84 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
       
       // Load Recent Activity
       await loadRecentActivity();
+      
+      // Load Upcoming Appointments and Tasks
+      await loadUpcomingItems();
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadUpcomingItems = async () => {
+    try {
+      const now = new Date();
+      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      // Load upcoming appointments
+      if (hasModuleAccess('appointments')) {
+        try {
+          const appointmentsData = await withTimeout(appointmentsAPI.getAll(), 5000);
+          const appointments = appointmentsData.appointments || [];
+          
+          console.log('🗓️ Dashboard - Appointments from API:', appointments.length);
+          console.log('🗓️ Dashboard - Time range:', { now, nextWeek });
+          
+          // Filter to user's appointments that are upcoming (within next 7 days)
+          // Note: appointmentsAPI.getAll() already filters by role/ownership
+          const upcoming = appointments
+            .filter((apt: any) => {
+              const startTime = new Date(apt.start_time);
+              const isUpcoming = startTime >= now && startTime <= nextWeek;
+              console.log('🗓️ Checking appointment:', { 
+                title: apt.title, 
+                start: apt.start_time, 
+                startTime: startTime.toISOString(), 
+                isUpcoming,
+                now: now.toISOString(),
+                nextWeek: nextWeek.toISOString()
+              });
+              return isUpcoming;
+            })
+            .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+            .slice(0, 5); // Show only first 5
+          
+          console.log('🗓️ Dashboard - Upcoming appointments filtered:', upcoming.length);
+          setUpcomingAppointments(upcoming);
+        } catch (error) {
+          console.error('Failed to load upcoming appointments:', error);
+          setUpcomingAppointments([]);
+        }
+      }
+      
+      // Load upcoming tasks
+      if (hasModuleAccess('tasks')) {
+        try {
+          const tasksData = await withTimeout(tasksAPI.getAll(), 5000);
+          const tasks = tasksData.tasks || [];
+          
+          // Filter to user's incomplete tasks that are due soon (within next 7 days)
+          // Note: tasksAPI.getAll() already filters by role/ownership
+          const upcoming = tasks
+            .filter((task: any) => {
+              if (task.status === 'completed') return false;
+              if (!task.due_date) return false;
+              
+              const dueDate = new Date(task.due_date);
+              return dueDate <= nextWeek;
+            })
+            .sort((a: any, b: any) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+            .slice(0, 5); // Show only first 5
+          
+          setUpcomingTasks(upcoming);
+        } catch (error) {
+          console.error('Failed to load upcoming tasks:', error);
+          setUpcomingTasks([]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load upcoming items:', error);
     }
   };
 
@@ -628,8 +702,8 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
                 const supabase = createClient();
                 const { data, error } = await supabase
                   .from('contacts')
-                  .select('id, name, company, created_at, created_by')
-                  .eq('created_by', user.id) // Only show contacts created by current user
+                  .select('id, name, company, created_at')
+                  .eq('organization_id', user.organizationId)
                   .order('created_at', { ascending: false })
                   .limit(3);
                 
@@ -803,28 +877,28 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
     <div className="space-y-6">
       {/* Header with User Info */}
       <div>
-        <h1 className="text-3xl text-gray-900 mb-2">Welcome back, {user.name}!</h1>
-        <p className="text-gray-600">Here's what's happening with your workspace today.</p>
+        <h1 className="mb-2">Welcome back, {user.name}!</h1>
+        <p className="text-muted-foreground">Here's what's happening with your workspace today.</p>
       </div>
 
       {/* Admin/Manager - Redirect to Team Dashboard */}
       {(user.role === 'admin' || user.role === 'manager') && (
-        <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50">
+        <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950 dark:to-indigo-950 dark:border-purple-800">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-purple-900">
+            <CardTitle className="flex items-center gap-2 text-purple-900 dark:text-purple-100">
               <UsersRound className="h-6 w-6" />
               Team Management Dashboard
             </CardTitle>
-            <CardDescription className="text-purple-700">
+            <CardDescription className="text-purple-700 dark:text-purple-300">
               As a {user.role === 'admin' ? 'Administrator' : 'Manager'}, you have access to the Team Dashboard for managing your team's performance and activities.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
                 <strong>Team Dashboard includes:</strong>
               </p>
-              <ul className="text-sm text-gray-600 space-y-1 ml-4">
+              <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 ml-4">
                 <li>• Team member performance metrics</li>
                 <li>• Revenue tracking across all team members</li>
                 <li>• Task completion rates and productivity</li>
@@ -844,18 +918,18 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
 
       {/* Permission-Based Notice */}
       {user.role === 'marketing' && (
-        <Alert className="border-green-200 bg-green-50">
-          <BarChart3 className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-900">
+        <Alert className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
+          <BarChart3 className="h-4 w-4 text-green-600 dark:text-green-400" />
+          <AlertDescription className="text-green-900 dark:text-green-100">
             <strong>Marketing Dashboard:</strong> You have full access to Marketing, Contacts, and Email modules. Your dashboard shows relevant metrics for campaign management and lead generation.
           </AlertDescription>
         </Alert>
       )}
 
       {user.role === 'standard_user' && (
-        <Alert className="border-blue-200 bg-blue-50">
-          <AlertCircle className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-900">
+        <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+          <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+          <AlertDescription className="text-blue-900 dark:text-blue-100">
             <strong>Personal Workspace:</strong> Your dashboard shows your personal contacts, tasks, and notes. Contact your administrator for additional access.
           </AlertDescription>
         </Alert>
@@ -869,11 +943,11 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
               {[1, 2, 3, 4].map((i) => (
                 <Card key={i} className="animate-pulse">
                   <CardHeader className="pb-2">
-                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                    <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                   </CardContent>
                 </Card>
               ))}
@@ -885,11 +959,11 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
                 return (
                   <Card 
                     key={stat.title}
-                    className="hover:shadow-lg hover:scale-105 transition-all cursor-pointer border-2 hover:border-blue-300"
+                    className="hover:shadow-lg hover:scale-105 transition-all cursor-pointer border-2 hover:border-blue-300 dark:hover:border-blue-700"
                     onClick={() => onNavigate && onNavigate(stat.module)}
                   >
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-600">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
                         {stat.title}
                       </CardTitle>
                       <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${getStatColorClasses(stat.color)}`}>
@@ -897,11 +971,11 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl text-gray-900 mb-1">{stat.value}</div>
+                      <div className="text-2xl mb-1">{stat.value}</div>
                       <p className={`text-xs ${
-                        stat.changeType === 'positive' ? 'text-green-600' : 
-                        stat.changeType === 'negative' ? 'text-red-600' : 
-                        'text-gray-600'
+                        stat.changeType === 'positive' ? 'text-green-600 dark:text-green-400' : 
+                        stat.changeType === 'negative' ? 'text-red-600 dark:text-red-400' : 
+                        'text-muted-foreground'
                       }`}>
                         {stat.change} {stat.changeType !== 'neutral' && 'from last month'}
                       </p>
@@ -962,6 +1036,192 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
         </Card>
       )}
 
+      {/* Upcoming Appointments and Tasks */}
+      {user.role !== 'admin' && user.role !== 'manager' && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Upcoming Appointments */}
+          {hasModuleAccess('appointments') && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  Upcoming Appointments
+                </CardTitle>
+                <CardDescription>Next 7 days</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {upcomingAppointments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">No upcoming appointments</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Schedule an appointment to see it here
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-4"
+                      onClick={() => onNavigate && onNavigate('appointments')}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Schedule Appointment
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {upcomingAppointments.map((appointment: any) => {
+                      const startTime = new Date(appointment.start_time);
+                      const isToday = startTime.toDateString() === new Date().toDateString();
+                      const isTomorrow = startTime.toDateString() === new Date(Date.now() + 86400000).toDateString();
+                      
+                      let dateLabel = startTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      if (isToday) dateLabel = 'Today';
+                      if (isTomorrow) dateLabel = 'Tomorrow';
+                      
+                      const timeLabel = startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                      
+                      return (
+                        <div key={appointment.id} className="flex items-start gap-3 p-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors">
+                          <div className={`flex flex-col items-center justify-center min-w-[60px] px-2 py-1 rounded ${
+                            isToday ? 'bg-purple-600 text-white' : 
+                            isTomorrow ? 'bg-purple-500 text-white' : 
+                            'bg-purple-200 dark:bg-purple-800 text-purple-900 dark:text-purple-100'
+                          }`}>
+                            <span className="text-xs font-medium">{dateLabel}</span>
+                            <span className="text-xs">{timeLabel}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {appointment.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {appointment.contact_name || 'No contact'}
+                            </p>
+                            {appointment.location && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                📍 {appointment.location}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => onNavigate && onNavigate('appointments')}
+                    >
+                      View All Appointments →
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Upcoming Tasks */}
+          {hasModuleAccess('tasks') && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  Upcoming Tasks
+                </CardTitle>
+                <CardDescription>Due within 7 days</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {upcomingTasks.length === 0 ? (
+                  <div className="text-center py-8">
+                    <CheckSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">No upcoming tasks</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Create a task to see it here
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-4"
+                      onClick={() => onNavigate && onNavigate('tasks')}
+                    >
+                      <CheckSquare className="h-4 w-4 mr-2" />
+                      Create Task
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {upcomingTasks.map((task: any) => {
+                      const dueDate = new Date(task.due_date);
+                      const isOverdue = dueDate < new Date();
+                      const isToday = dueDate.toDateString() === new Date().toDateString();
+                      const isTomorrow = dueDate.toDateString() === new Date(Date.now() + 86400000).toDateString();
+                      
+                      let dateLabel = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      if (isOverdue) dateLabel = 'Overdue';
+                      if (isToday) dateLabel = 'Today';
+                      if (isTomorrow) dateLabel = 'Tomorrow';
+                      
+                      const priorityColors = {
+                        low: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+                        medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
+                        high: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+                      };
+                      
+                      const priority = (task.priority || 'medium').toLowerCase();
+                      
+                      return (
+                        <div key={task.id} className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                          isOverdue 
+                            ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-900/30' 
+                            : 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-900/30'
+                        }`}>
+                          <div className={`flex flex-col items-center justify-center min-w-[60px] px-2 py-1 rounded ${
+                            isOverdue ? 'bg-red-600 text-white' :
+                            isToday ? 'bg-green-600 text-white' :
+                            isTomorrow ? 'bg-green-500 text-white' :
+                            'bg-green-200 dark:bg-green-800 text-green-900 dark:text-green-100'
+                          }`}>
+                            <span className="text-xs font-medium">{dateLabel}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                              {task.title}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className={`text-xs ${priorityColors[priority as keyof typeof priorityColors] || priorityColors.medium}`}>
+                                {priority}
+                              </Badge>
+                              {task.status && (
+                                <Badge variant="outline" className="text-xs">
+                                  {task.status}
+                                </Badge>
+                              )}
+                            </div>
+                            {task.description && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                                {task.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => onNavigate && onNavigate('tasks')}
+                    >
+                      View All Tasks →
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
       {/* Recent Activity and Quick Actions */}
       {user.role !== 'admin' && user.role !== 'manager' && (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -976,9 +1236,9 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
             <CardContent>
               {recentActivity.length === 0 ? (
                 <div className="text-center py-8">
-                  <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-sm text-gray-500">No recent activity</p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">No recent activity</p>
+                  <p className="text-xs text-muted-foreground mt-1">
                     Your recent actions will appear here
                   </p>
                 </div>
@@ -986,11 +1246,11 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
                 <div className="space-y-4">
                   {recentActivity.map((activity, index) => (
                     <div key={index} className="flex items-start gap-3">
-                      <div className="w-2 h-2 rounded-full bg-blue-600 mt-2" />
+                      <div className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 mt-2" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900">{activity.action}</p>
-                        <p className="text-sm text-gray-600">{activity.details}</p>
-                        <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
+                        <p className="text-sm">{activity.action}</p>
+                        <p className="text-sm text-muted-foreground">{activity.details}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
                       </div>
                     </div>
                   ))}

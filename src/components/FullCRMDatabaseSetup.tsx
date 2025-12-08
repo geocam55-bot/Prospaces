@@ -49,6 +49,11 @@ CREATE TABLE public.organizations (
   name text NOT NULL,
   status text DEFAULT 'active',
   logo text,
+  ai_suggestions_enabled boolean DEFAULT false,
+  marketing_enabled boolean DEFAULT true,
+  inventory_enabled boolean DEFAULT true,
+  import_export_enabled boolean DEFAULT true,
+  documents_enabled boolean DEFAULT true,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );

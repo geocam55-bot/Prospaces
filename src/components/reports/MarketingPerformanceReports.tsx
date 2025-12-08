@@ -37,7 +37,7 @@ export function MarketingPerformanceReports({ user }: MarketingPerformanceReport
       // Fetch contacts to calculate conversion metrics
       const { data: contacts } = await supabase
         .from('contacts')
-        .select('*, opportunities(id, stage, value)')
+        .select('*, opportunities(id, status, value)')
         .eq('tenant_id', user.organizationId);
 
       // Fetch opportunities
@@ -53,7 +53,7 @@ export function MarketingPerformanceReports({ user }: MarketingPerformanceReport
           activeCampaigns: active,
           totalLeads: contacts?.length || 0,
           conversionRate: contacts && opportunities 
-            ? Math.round((opportunities.filter(o => o.stage === 'Closed Won').length / contacts.length) * 100)
+            ? Math.round((opportunities.filter(o => o.status === 'Closed Won').length / contacts.length) * 100)
             : 0,
           avgROI: 245, // Placeholder
         });

@@ -72,6 +72,41 @@ function isFuzzyMatch(str1: string, str2: string, threshold: number = 0.7): bool
 // ============================================
 
 /**
+ * Simple stemmer to handle plurals and common word variations
+ * Converts words to their root form for better matching
+ */
+function stem(word: string): string {
+  const lower = word.toLowerCase();
+  
+  // Handle common plural forms
+  if (lower.endsWith('ies') && lower.length > 4) {
+    return lower.slice(0, -3) + 'y'; // batteries -> battery
+  }
+  if (lower.endsWith('es') && lower.length > 3) {
+    // Check for -ches, -shes, -xes, -zes, -sses
+    if (lower.endsWith('ches') || lower.endsWith('shes') || 
+        lower.endsWith('xes') || lower.endsWith('zes') || 
+        lower.endsWith('sses')) {
+      return lower.slice(0, -2); // boxes -> box, brushes -> brush
+    }
+    return lower.slice(0, -2); // tries to handle -es plurals
+  }
+  if (lower.endsWith('s') && lower.length > 3 && !lower.endsWith('ss')) {
+    return lower.slice(0, -1); // hammers -> hammer, tools -> tool
+  }
+  
+  // Handle common verb forms
+  if (lower.endsWith('ing') && lower.length > 5) {
+    return lower.slice(0, -3); // painting -> paint
+  }
+  if (lower.endsWith('ed') && lower.length > 4) {
+    return lower.slice(0, -2); // painted -> paint
+  }
+  
+  return lower;
+}
+
+/**
  * Semantic word mappings for inventory-related terms
  * Maps synonyms and related words to common concepts
  */
@@ -110,7 +145,7 @@ const semanticMappings: Record<string, string[]> = {
 };
 
 /**
- * Expand query with semantic equivalents
+ * Expand query with semantic equivalents AND word stems
  */
 function expandSemanticQuery(query: string): string[] {
   const words = query.toLowerCase().split(/\s+/);
@@ -120,11 +155,19 @@ function expandSemanticQuery(query: string): string[] {
     // Add the word itself
     expanded.add(word);
     
-    // Add semantic equivalents
+    // Add stemmed version (handles plurals)
+    const stemmed = stem(word);
+    expanded.add(stemmed);
+    
+    // Add semantic equivalents for both original and stemmed
     for (const [key, synonyms] of Object.entries(semanticMappings)) {
-      if (word === key || synonyms.includes(word)) {
+      if (word === key || stemmed === key || synonyms.includes(word) || synonyms.includes(stemmed)) {
         expanded.add(key);
-        synonyms.forEach(syn => expanded.add(syn));
+        expanded.add(stem(key)); // Also add stemmed version of key
+        synonyms.forEach(syn => {
+          expanded.add(syn);
+          expanded.add(stem(syn)); // Add stemmed version of synonym
+        });
       }
     }
   }

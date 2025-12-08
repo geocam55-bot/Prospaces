@@ -18,6 +18,8 @@ export default defineConfig({
     outDir: 'build',
     emptyOutDir: true,
     sourcemap: false,
+    // Increase chunk size warning limit for large enterprise CRM
+    chunkSizeWarningLimit: 1000,
     // Ensure CSS is extracted
     cssCodeSplit: true,
     rollupOptions: {
@@ -25,6 +27,8 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           supabase: ['@supabase/supabase-js'],
+          charts: ['recharts'],
+          ui: ['lucide-react'],
         },
         // Ensure consistent naming for assets
         assetFileNames: 'assets/[name]-[hash][extname]',

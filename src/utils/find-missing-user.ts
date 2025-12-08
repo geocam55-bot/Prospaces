@@ -49,7 +49,7 @@ export async function findMissingUser(email: string): Promise<UserDiagnostic> {
       diagnostic.details = profiles;
 
       console.log('✅ Found in profiles table');
-      console.log('   User ID:', profiles.user_id);
+      console.log('   User ID:', profiles.id);
       console.log('   Organization:', profiles.organization_id || '❌ NONE');
       console.log('   Status:', profiles.status);
       console.log('   Role:', profiles.role);
@@ -157,11 +157,11 @@ export async function recoverMissingUser(email: string, orgId: string = 'rona-at
     // First check if user exists in profiles
     const { data: profile } = await supabase
       .from('profiles')
-      .select('user_id')
+      .select('id')
       .eq('email', email)
       .maybeSingle();
 
-    if (profile?.user_id) {
+    if (profile?.id) {
       // User exists, just assign to organization
       console.log('✅ User found, assigning to organization...');
       
@@ -182,7 +182,7 @@ export async function recoverMissingUser(email: string, orgId: string = 'rona-at
             status: 'active',
             updated_at: new Date().toISOString()
           })
-          .eq('user_id', profile.user_id);
+          .eq('id', profile.id);
 
         if (updateError) {
           console.error('❌ Fallback also failed:', updateError.message);

@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Plus, Trash2, ShoppingCart, Search } from 'lucide-react';
+import { useDebounce } from '../utils/useDebounce';
 
 interface LineItem {
   id: string;
@@ -13,6 +14,7 @@ interface LineItem {
   sku: string;
   quantity: number;
   unitPrice: number;
+  cost: number;
   discount: number;
   total: number;
 }
@@ -22,6 +24,7 @@ interface InventoryItem {
   name: string;
   sku: string;
   description: string;
+  cost: number;
   priceTier1: number;
   price_tier_1?: number;
   priceTier2?: number;
@@ -49,20 +52,24 @@ export function BidLineItems({ isOpen, onClose, inventoryItems, currentItems, on
   const [discount, setDiscount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [unitPrice, setUnitPrice] = useState(0);
+  const [cost, setCost] = useState(0);
+
+  // 🚀 Debounce search query (200ms delay for fast typing)
+  const debouncedSearchQuery = useDebounce(searchQuery, 200);
 
   // Instant client-side filtering
   const filteredInventory = useMemo(() => {
-    if (!searchQuery.trim()) {
+    if (!debouncedSearchQuery.trim()) {
       return inventoryItems.slice(0, 100); // Limit to first 100 items for performance
     }
-    const query = searchQuery.toLowerCase();
+    const query = debouncedSearchQuery.toLowerCase();
     const filtered = inventoryItems.filter(item => (
       item.name.toLowerCase().includes(query) ||
       item.sku.toLowerCase().includes(query) ||
       item.description?.toLowerCase().includes(query)
     ));
     return filtered.slice(0, 100); // Limit results to 100 items for performance
-  }, [searchQuery, inventoryItems]);
+  }, [debouncedSearchQuery, inventoryItems]);
 
   // Helper function to get price for the given tier
   const getPriceForTier = (item: InventoryItem): number => {
@@ -85,6 +92,7 @@ export function BidLineItems({ isOpen, onClose, inventoryItems, currentItems, on
       const item = inventoryItems.find(i => i.id === selectedInventoryId);
       if (item) {
         setUnitPrice(getPriceForTier(item));
+        setCost(item.cost || 0);
       }
     }
   }, [selectedInventoryId, inventoryItems, priceTier]);
@@ -104,6 +112,7 @@ export function BidLineItems({ isOpen, onClose, inventoryItems, currentItems, on
       sku: selectedItem.sku,
       quantity,
       unitPrice, // Use the editable unitPrice state
+      cost,
       discount,
       total,
     };
@@ -114,6 +123,7 @@ export function BidLineItems({ isOpen, onClose, inventoryItems, currentItems, on
     setDiscount(0);
     setSearchQuery('');
     setUnitPrice(0);
+    setCost(0);
   };
 
   const selectedItem = inventoryItems.find(i => i.id === selectedInventoryId);
@@ -198,7 +208,24 @@ export function BidLineItems({ isOpen, onClose, inventoryItems, currentItems, on
               />
             </div>
             <div>
-              <Label>Unit Price *</Label>
+              <Label>Cost</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={cost}
+                onChange={(e) => setCost(Number(e.target.value))}
+                placeholder="From inventory"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Reference only - not shown to customer
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Selling Price (Unit Price) *</Label>
               <Input
                 type="number"
                 min="0"
@@ -211,9 +238,6 @@ export function BidLineItems({ isOpen, onClose, inventoryItems, currentItems, on
                 Auto-populated, but you can override
               </p>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Line Discount (%)</Label>
               <Input

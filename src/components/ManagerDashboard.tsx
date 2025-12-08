@@ -230,19 +230,101 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
     try {
       const supabase = createClient();
       
-      // Fetch data FILTERED by the selected user
-      // Contacts use 'account_owner_number' (email) for ownership tracking
-      // Opportunities use 'owner_id' (UUID)
-      // Tasks can be assigned_to or created_by (UUIDs)
+      // Defensive queries - only use columns that definitely exist
+      // Each query is wrapped to handle errors gracefully
       // IMPORTANT: Fetch from both 'bids' and 'quotes' tables
-      const [contactsResult, tasksResult, bidsResult, quotesResult, opportunitiesResult, appointmentsResult] = await Promise.all([
-        supabase.from('contacts').select('*').ilike('account_owner_number', userEmail),
-        supabase.from('tasks').select('*').or(`assigned_to.eq.${userId},created_by.eq.${userId}`),
-        supabase.from('bids').select('*').eq('created_by', userId),
-        supabase.from('quotes').select('*').eq('created_by', userId),
-        supabase.from('opportunities').select('*').eq('owner_id', userId),
-        supabase.from('appointments').select('*').eq('created_by', userId),
-      ]);
+      
+      // Contacts
+      let contactsResult = { data: null, error: null };
+      try {
+        contactsResult = await supabase
+          .from('contacts')
+          .select('id, name, email, phone, company, status, organization_id, created_at, updated_at')
+          .eq('organization_id', user.organizationId)
+          .limit(1000);
+      } catch (err) {
+        contactsResult.error = err;
+      }
+      
+      // Tasks
+      let tasksResult = { data: null, error: null };
+      try {
+        tasksResult = await supabase
+          .from('tasks')
+          .select('id, title, description, status, priority, due_date, assigned_to, created_at, updated_at')
+          .eq('assigned_to', userId)
+          .limit(1000);
+      } catch (err) {
+        tasksResult.error = err;
+      }
+      
+      // Bids
+      let bidsResult = { data: null, error: null };
+      try {
+        bidsResult = await supabase
+          .from('bids')
+          .select('id, title, status, amount, customer_name, organization_id, created_at, updated_at')
+          .eq('organization_id', user.organizationId)
+          .limit(1000);
+      } catch (err) {
+        bidsResult.error = err;
+      }
+      
+      // Quotes
+      let quotesResult = { data: null, error: null };
+      try {
+        quotesResult = await supabase
+          .from('quotes')
+          .select('id, title, status, total, customer_name, organization_id, created_at, updated_at')
+          .eq('organization_id', user.organizationId)
+          .limit(1000);
+      } catch (err) {
+        quotesResult.error = err;
+      }
+      
+      // Opportunities
+      let opportunitiesResult = { data: null, error: null };
+      try {
+        opportunitiesResult = await supabase
+          .from('opportunities')
+          .select('id, title, status, value, owner_id, expected_close_date, created_at, updated_at')
+          .eq('owner_id', userId)
+          .limit(1000);
+      } catch (err) {
+        opportunitiesResult.error = err;
+      }
+      
+      // Appointments
+      let appointmentsResult = { data: null, error: null };
+      try {
+        appointmentsResult = await supabase
+          .from('appointments')
+          .select('id, title, description, start_time, end_time, location, organization_id, created_at, updated_at')
+          .eq('organization_id', user.organizationId)
+          .limit(1000);
+      } catch (err) {
+        appointmentsResult.error = err;
+      }
+
+      // Log errors for debugging
+      if (contactsResult.error) {
+        console.error('Failed to load contacts for dashboard:', contactsResult.error);
+      }
+      if (tasksResult.error) {
+        console.error('Failed to load tasks for dashboard:', tasksResult.error);
+      }
+      if (bidsResult.error) {
+        console.error('Failed to load bids for dashboard:', bidsResult.error);
+      }
+      if (quotesResult.error) {
+        console.error('Failed to load quotes for dashboard:', quotesResult.error);
+      }
+      if (opportunitiesResult.error) {
+        console.error('Failed to load opportunities for dashboard:', opportunitiesResult.error);
+      }
+      if (appointmentsResult.error) {
+        console.error('Failed to load appointments for dashboard:', appointmentsResult.error);
+      }
 
       // Merge bids and quotes into a single array
       const userBids = [...(bidsResult.data || []), ...(quotesResult.data || [])];
@@ -335,32 +417,31 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
       const supabase = createClient();
       
       // Fetch recent activity from multiple tables
-      // Contacts use 'created_by' (not 'owner_id' - that field is not populated)
-      // Opportunities use 'owner_id'
+      // Defensive queries - only use columns that definitely exist
       // IMPORTANT: Include both 'bids' and 'quotes' tables
       const [contactsResult, tasksResult, bidsResult, quotesResult, opportunitiesResult, appointmentsResult] = await Promise.all([
         supabase
           .from('contacts')
           .select('name, created_at')
-          .eq('created_by', userId)
+          .eq('organization_id', user.organizationId)
           .order('created_at', { ascending: false })
           .limit(5),
         supabase
           .from('tasks')
           .select('title, status, updated_at')
-          .or(`assigned_to.eq.${userId},created_by.eq.${userId}`)
+          .eq('assigned_to', userId)
           .order('updated_at', { ascending: false })
           .limit(5),
         supabase
           .from('bids')
           .select('title, status, created_at')
-          .eq('created_by', userId)
+          .eq('organization_id', user.organizationId)
           .order('created_at', { ascending: false })
           .limit(5),
         supabase
           .from('quotes')
           .select('title, status, created_at')
-          .eq('created_by', userId)
+          .eq('organization_id', user.organizationId)
           .order('created_at', { ascending: false })
           .limit(5),
         supabase
@@ -372,10 +453,30 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
         supabase
           .from('appointments')
           .select('title, start_time')
-          .eq('created_by', userId)
+          .eq('organization_id', user.organizationId)
           .order('start_time', { ascending: false })
           .limit(5),
       ]);
+
+      // Log errors for debugging
+      if (contactsResult.error) {
+        console.error('Error fetching recent contacts:', contactsResult.error);
+      }
+      if (tasksResult.error) {
+        console.error('Error fetching recent tasks:', tasksResult.error);
+      }
+      if (bidsResult.error) {
+        console.error('Error fetching recent bids:', bidsResult.error);
+      }
+      if (quotesResult.error) {
+        console.error('Error fetching recent quotes:', quotesResult.error);
+      }
+      if (opportunitiesResult.error) {
+        console.error('Error fetching recent opportunities:', opportunitiesResult.error);
+      }
+      if (appointmentsResult.error) {
+        console.error('Error fetching recent appointments:', appointmentsResult.error);
+      }
 
       const activities: UserActivity[] = [];
 
@@ -861,7 +962,7 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
                                   <div key={opp.id} className="p-3 border rounded-lg hover:bg-gray-50">
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-gray-900 break-words">{opp.name}</p>
+                                        <p className="text-sm text-gray-900 break-words">{opp.title}</p>
                                         {opp.description && (
                                           <p className="text-xs text-gray-600 mt-1 break-words line-clamp-2">{opp.description}</p>
                                         )}

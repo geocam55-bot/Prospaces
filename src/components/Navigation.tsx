@@ -59,11 +59,12 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
     ...(user.role !== 'admin' ? [
       { id: 'contacts', label: 'Contacts', icon: Users },
       { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-      { id: 'appointments', label: 'Appointments', icon: Calendar },
       { id: 'opportunities', label: 'Opportunities', icon: Target },
       { id: 'bids', label: 'Bids', icon: FileText },
       { id: 'notes', label: 'Notes', icon: StickyNote },
     ] : []),
+    // Show Appointments for all users (including Admin for calendar sync testing)
+    ...(organization?.appointments_enabled !== false ? [{ id: 'appointments', label: 'Appointments', icon: Calendar }] : []),
     // Only show Documents if enabled for the organization
     ...(organization?.documents_enabled !== false ? [{ id: 'documents', label: 'Documents', icon: Folder }] : []),
     // Admin users don't need Email - they use Team Dashboard

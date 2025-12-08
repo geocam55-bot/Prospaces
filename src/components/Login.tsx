@@ -11,6 +11,7 @@ import { authAPI } from '../utils/api';
 import { createClient } from '../utils/supabase/client';
 import type { User, UserRole } from '../App';
 import { CompleteDatabaseSetup } from './CompleteDatabaseSetup';
+import { ChangePasswordDialog } from './ChangePasswordDialog';
 
 interface LoginProps {
   onLogin: (user: User, token: string) => void;
@@ -31,6 +32,8 @@ export function Login({ onLogin }: LoginProps) {
   const [lastSignUpAttempt, setLastSignUpAttempt] = useState<number>(0);
   const [successMessage, setSuccessMessage] = useState('');
   const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [pendingUser, setPendingUser] = useState<{ user: User; token: string } | null>(null);
 
   const handleResendConfirmationEmail = async () => {
     if (!email) {
@@ -59,6 +62,14 @@ export function Login({ onLogin }: LoginProps) {
       setError(`Failed to resend confirmation email: ${err.message}`);
     } finally {
       setIsResendingEmail(false);
+    }
+  };
+
+  const handlePasswordChanged = () => {
+    setShowChangePassword(false);
+    if (pendingUser) {
+      onLogin(pendingUser.user, pendingUser.token);
+      setPendingUser(null);
     }
   };
 
@@ -347,15 +358,38 @@ export function Login({ onLogin }: LoginProps) {
             }
           } else if (newProfileError.code === 'PGRST205' || newProfileError.code === '23503') {
             // Check if it's a database structure error
+            console.error('❌ Database structure error creating profile:', newProfileError);
             setShowDatabaseSetup(true);
             throw new Error('Failed to create user profile. Please try again or contact support.');
           } else {
-            throw new Error('Failed to create user profile. Please try again or contact support.');
+            // Log the full error details for debugging
+            console.error('❌ Error creating profile:', newProfileError);
+            console.error('Error code:', newProfileError.code);
+            console.error('Error message:', newProfileError.message);
+            console.error('Error details:', newProfileError.details);
+            console.error('Error hint:', newProfileError.hint);
+            throw new Error(`Failed to create user profile: ${newProfileError.message || 'Unknown error'}. Please try again or contact support.`);
           }
         } else {
           profile = newProfile;
           console.log('✅ Profile created successfully:', profile);
         }
+      }
+
+      // Check if user needs to change password
+      if (profile.needs_password_change) {
+        console.log('⚠️ User needs to change password');
+        const user: User = {
+          id: signInData.user.id,
+          email: signInData.user.email || email,
+          name: profile.name || 'User',
+          role: (profile.role as UserRole) || 'standard_user',
+          organizationId: profile.organization_id || 'default',
+        };
+        setPendingUser({ user, token: signInData.session.access_token });
+        setShowChangePassword(true);
+        setIsLoading(false);
+        return;
       }
 
       // Map to User object
@@ -596,7 +630,7 @@ export function Login({ onLogin }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 px-4 py-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 px-4 py-8 light">
       <div className="absolute inset-0 bg-black/10"></div>
       
       <div className="w-full max-w-4xl space-y-6 relative z-10">
@@ -791,6 +825,15 @@ export function Login({ onLogin }: LoginProps) {
           © 2025 ProSpaces CRM. All rights reserved.
         </div>
       </div>
+
+      {/* Change Password Dialog */}
+      {showChangePassword && pendingUser && (
+        <ChangePasswordDialog
+          open={showChangePassword}
+          onClose={handlePasswordChanged}
+          userId={pendingUser.user.id}
+        />
+      )}
     </div>
   );
 }

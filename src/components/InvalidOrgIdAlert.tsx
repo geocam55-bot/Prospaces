@@ -25,7 +25,7 @@ UPDATE auth.users
 SET raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || 
   jsonb_build_object('organizationId', '${correctOrgId}')
 WHERE id IN (
-  SELECT user_id FROM profiles WHERE organization_id = '${correctOrgId}'
+  SELECT id FROM profiles WHERE organization_id = '${correctOrgId}'
 );`;
 
   const handleCopySQL = async () => {

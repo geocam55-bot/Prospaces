@@ -4,6 +4,8 @@ import { TestDataGenerator } from './TestDataGenerator';
 import { ThemeSelector } from './ThemeSelector';
 import { FindLarryContacts } from './FindLarryContacts';
 import { BidsTableMigration } from './BidsTableMigration';
+import { FullCRMDatabaseSetup } from './FullCRMDatabaseSetup';
+import { OrganizationFeatureMigration } from './OrganizationFeatureMigration';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -790,6 +792,12 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
             
             {/* Diagnostic Tool for Finding Lost Contacts */}
             <FindLarryContacts />
+            
+            {/* Full CRM Database Setup */}
+            <FullCRMDatabaseSetup />
+            
+            {/* Organization Feature Migration */}
+            <OrganizationFeatureMigration />
           </TabsContent>
         )}
       </Tabs>

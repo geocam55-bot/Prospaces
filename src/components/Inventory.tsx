@@ -34,6 +34,7 @@ import type { User } from '../App';
 import { DatabaseInit } from './DatabaseInit';
 import { advancedSearch, getSearchSuggestions } from '../utils/advanced-search';
 import { InventorySearchHelp } from './InventorySearchHelp';
+import { useDebounce } from '../utils/useDebounce';
 
 interface InventoryProps {
   user: User;
@@ -126,6 +127,9 @@ export function Inventory({ user }: InventoryProps) {
 
   // ✅ Use deferred value to prevent search input from blocking during large renders
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  
+  // 🚀 Debounce search query for suggestions (300ms delay)
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // 🔮 Advanced search with fuzzy matching, semantic search, and NLP
   const filteredItems = useMemo(() => {
@@ -178,15 +182,15 @@ export function Inventory({ user }: InventoryProps) {
     return result;
   }, [items, deferredSearchQuery, categoryFilter, statusFilter, useAdvancedSearch]);
   
-  // 🔮 Generate search suggestions
+  // 🔮 Generate search suggestions (debounced to reduce calculations)
   useEffect(() => {
-    if (searchQuery.length >= 2) {
-      const suggestions = getSearchSuggestions(items, searchQuery, 5);
+    if (debouncedSearchQuery.length >= 2) {
+      const suggestions = getSearchSuggestions(items, debouncedSearchQuery, 5);
       setSearchSuggestions(suggestions);
     } else {
       setSearchSuggestions([]);
     }
-  }, [searchQuery, items]);
+  }, [debouncedSearchQuery, items]);
 
   const loadInventory = async () => {
     try {

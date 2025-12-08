@@ -3,13 +3,74 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { createClient } from '../utils/supabase/client';
-import { CheckCircle2, XCircle, Loader2, Database } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, Database, Copy, Check } from 'lucide-react';
 
 export function BidsTableMigration() {
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const supabase = createClient();
+
+  // SQL to add missing columns to bids table
+  const migrations = [
+    {
+      name: 'Add notes column',
+      sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS notes TEXT;`
+    },
+    {
+      name: 'Add line_items column',
+      sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS line_items JSONB;`
+    },
+    {
+      name: 'Add subtotal column',
+      sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS subtotal NUMERIC(12,2);`
+    },
+    {
+      name: 'Add discount_percent column',
+      sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS discount_percent NUMERIC(5,2);`
+    },
+    {
+      name: 'Add discount_amount column',
+      sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12,2);`
+    },
+    {
+      name: 'Add tax_percent column',
+      sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS tax_percent NUMERIC(5,2);`
+    },
+    {
+      name: 'Add tax_amount column',
+      sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(12,2);`
+    },
+    {
+      name: 'Add total column',
+      sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS total NUMERIC(12,2);`
+    },
+    {
+      name: 'Add valid_until column',
+      sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS valid_until TIMESTAMPTZ;`
+    },
+    {
+      name: 'Add project_manager_id column',
+      sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS project_manager_id UUID REFERENCES public.project_managers(id);`
+    },
+    {
+      name: 'Add created_by column',
+      sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id);`
+    }
+  ];
+
+  const fullMigrationSQL = migrations.map(m => `-- ${m.name}\n${m.sql}`).join('\n\n');
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(fullMigrationSQL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   const runMigration = async () => {
     setIsRunning(true);
@@ -30,56 +91,9 @@ export function BidsTableMigration() {
         setResults(prev => [...prev, `📋 Current columns: ${columns.join(', ')}`]);
       }
 
-      // SQL to add missing columns to bids table
-      const migrations = [
-        {
-          name: 'Add notes column',
-          sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS notes TEXT;`
-        },
-        {
-          name: 'Add line_items column',
-          sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS line_items JSONB;`
-        },
-        {
-          name: 'Add subtotal column',
-          sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS subtotal NUMERIC(12,2);`
-        },
-        {
-          name: 'Add discount_percent column',
-          sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS discount_percent NUMERIC(5,2);`
-        },
-        {
-          name: 'Add discount_amount column',
-          sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(12,2);`
-        },
-        {
-          name: 'Add tax_percent column',
-          sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS tax_percent NUMERIC(5,2);`
-        },
-        {
-          name: 'Add tax_amount column',
-          sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(12,2);`
-        },
-        {
-          name: 'Add total column',
-          sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS total NUMERIC(12,2);`
-        },
-        {
-          name: 'Add valid_until column',
-          sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS valid_until TIMESTAMPTZ;`
-        },
-        {
-          name: 'Add project_manager_id column',
-          sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS project_manager_id UUID REFERENCES public.project_managers(id);`
-        },
-        {
-          name: 'Add created_by column',
-          sql: `ALTER TABLE public.bids ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id);`
-        }
-      ];
-
       setResults(prev => [...prev, '\n📝 Running migrations...']);
       
+      // Try using the exec_sql RPC function (if it exists)
       for (const migration of migrations) {
         try {
           const { error: migrationError } = await supabase.rpc('exec_sql', {
@@ -87,15 +101,17 @@ export function BidsTableMigration() {
           });
 
           if (migrationError) {
-            // If the RPC doesn't exist, show instructions
-            if (migrationError.code === '42883') {
-              setResults(prev => [...prev, `\n⚠️ Cannot run migrations automatically.`]);
-              setResults(prev => [...prev, `\n📋 Please run these SQL commands manually in the Supabase SQL Editor:\n`]);
+            // If the RPC doesn't exist (42883 = function not found)
+            if (migrationError.code === '42883' || migrationError.message?.includes('could not find')) {
+              setResults(prev => [...prev, `\n⚠️ Automatic migration not available - exec_sql function not found.`]);
+              setResults(prev => [...prev, `\n📋 Please run the SQL commands manually in Supabase SQL Editor:\n`]);
+              setResults(prev => [...prev, `Go to: Supabase Dashboard → SQL Editor → New Query\n`]);
               migrations.forEach(m => {
                 setResults(prev => [...prev, `-- ${m.name}`]);
                 setResults(prev => [...prev, m.sql]);
                 setResults(prev => [...prev, '']);
               });
+              setResults(prev => [...prev, '\n💡 Use the "Copy SQL" button below for easy copying.']);
               break;
             }
             throw migrationError;
@@ -107,7 +123,7 @@ export function BidsTableMigration() {
         }
       }
 
-      setResults(prev => [...prev, '\n✨ Migration complete! Please refresh the page.']);
+      setResults(prev => [...prev, '\n✨ Migration process complete! Please refresh the page.']);
     } catch (err: any) {
       setError(err.message);
       setResults(prev => [...prev, `\n❌ Migration failed: ${err.message}`]);
@@ -135,6 +151,13 @@ export function BidsTableMigration() {
           </Alert>
         )}
 
+        <Alert>
+          <AlertDescription className="text-sm">
+            <strong>⚠️ Important:</strong> The automatic migration requires the <code>exec_sql</code> RPC function in Supabase.
+            {' '}<strong>Recommended approach:</strong> Copy the SQL below and run it manually in Supabase SQL Editor.
+          </AlertDescription>
+        </Alert>
+
         <div className="space-y-2">
           <p className="text-sm text-gray-600">
             This migration will add the following columns to the bids table:
@@ -154,10 +177,39 @@ export function BidsTableMigration() {
           </ul>
         </div>
 
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">SQL Migration Script:</p>
+            <Button
+              onClick={copyToClipboard}
+              variant="outline"
+              size="sm"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-4 w-4 mr-2" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy SQL
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="bg-gray-900 rounded-lg p-4 max-h-64 overflow-y-auto">
+            <pre className="text-xs text-gray-100 font-mono whitespace-pre-wrap">
+              {fullMigrationSQL}
+            </pre>
+          </div>
+        </div>
+
         <Button 
           onClick={runMigration} 
           disabled={isRunning}
           className="w-full"
+          variant="secondary"
         >
           {isRunning ? (
             <>
@@ -167,7 +219,7 @@ export function BidsTableMigration() {
           ) : (
             <>
               <CheckCircle2 className="h-4 w-4 mr-2" />
-              Run Migration
+              Try Automatic Migration
             </>
           )}
         </Button>
@@ -184,9 +236,7 @@ export function BidsTableMigration() {
 
         <Alert>
           <AlertDescription className="text-sm">
-            <strong>Manual Alternative:</strong> If the automatic migration doesn't work, 
-            copy and run the SQL commands shown above in your Supabase SQL Editor 
-            (Settings → Database → SQL Editor).
+            <strong>Manual Steps:</strong> (1) Click "Copy SQL" button above, (2) Go to Supabase Dashboard → SQL Editor, (3) Click "New Query", (4) Paste the SQL and click "Run", (5) Refresh this page.
           </AlertDescription>
         </Alert>
       </CardContent>

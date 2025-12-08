@@ -1,35 +1,32 @@
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Alert, AlertDescription } from './ui/alert';
-import { 
-  Upload, 
-  Download, 
-  Users, 
-  Package, 
-  FileText, 
-  CheckCircle, 
-  AlertCircle,
-  FileSpreadsheet,
-  Loader2,
-  ArrowRight,
-  X,
-  Clock,
-  Calendar as CalendarIcon,
-  Trash2,
-  PlayCircle,
-  History
-} from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Label } from './ui/label';
-import { Input } from './ui/input';
-import { Badge } from './ui/badge';
 import type { User } from '../App';
 import { contactsAPI, inventoryAPI, bidsAPI } from '../utils/api';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { createClient } from '../utils/supabase/client';
+import { Button } from './ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Alert, AlertDescription } from './ui/alert';
+import { 
+  Users, 
+  Package, 
+  FileText, 
+  FileSpreadsheet, 
+  Upload, 
+  Download, 
+  Loader2, 
+  CheckCircle, 
+  AlertCircle, 
+  ArrowRight, 
+  X, 
+  Clock, 
+  History,
+  Calendar as CalendarIcon
+} from 'lucide-react';
 
 interface ImportExportProps {
   user: User;
@@ -468,36 +465,71 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
             failed += batch.length;
           }
         }
-      } else {
-        // Use sequential processing for other types (contacts, bids)
-        for (const row of data) {
-          try {
-            // Map file columns to database fields
-            const mappedRow: any = {};
-            Object.entries(mapping).forEach(([fileCol, dbField]) => {
-              if (dbField && row[fileCol] !== undefined) {
-                mappedRow[dbField] = row[fileCol];
-              }
-            });
+      } else if (type === 'contacts') {
+        // Use batch processing for contacts
+        const BATCH_SIZE = 25; // Slightly smaller batches for contacts
+        const totalBatches = Math.ceil(mappedData.length / BATCH_SIZE);
+        
+        console.log(`🚀 Processing ${mappedData.length} contacts in ${totalBatches} batches of ${BATCH_SIZE}`);
 
-            // Import based on type
-            if (type === 'contacts') {
-              const result = await importContact(mappedRow, data.indexOf(row) + 2, errors);
-              if (result.action === 'updated') {
+        for (let i = 0; i < mappedData.length; i += BATCH_SIZE) {
+          const batch = mappedData.slice(i, i + BATCH_SIZE);
+          const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+          
+          console.log(`📦 Processing batch ${batchNum}/${totalBatches} (${batch.length} contacts)`);
+          
+          // Process contacts in parallel within the batch
+          const batchPromises = batch.map(async (contact, idx) => {
+            try {
+              const rowNum = i + idx + 2;
+              const result = await importContact(contact, rowNum, errors);
+              return { success: true, result };
+            } catch (error: any) {
+              const rowNum = i + idx + 2;
+              errors.push(`Row ${rowNum}: ${error.message}`);
+              return { success: false, error };
+            }
+          });
+          
+          const batchResults = await Promise.all(batchPromises);
+          
+          // Tally results
+          batchResults.forEach(result => {
+            if (result.success) {
+              if (result.result?.action === 'updated') {
                 updated++;
               } else {
                 created++;
               }
               success++;
-            } else if (type === 'bids') {
-              await importBid(mappedRow, data.indexOf(row) + 2, errors);
+            } else {
+              failed++;
+            }
+          });
+          
+          // Update progress
+          setImportProgress({ current: Math.min(i + BATCH_SIZE, mappedData.length), total: mappedData.length });
+          
+          // Small delay between batches
+          if (i + BATCH_SIZE < mappedData.length) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        }
+      } else {
+        // Use sequential processing for bids
+        for (let i = 0; i < mappedData.length; i++) {
+          const mappedRow = mappedData[i];
+          try {
+            if (type === 'bids') {
+              await importBid(mappedRow, i + 2, errors);
+              created++;
               success++;
             }
             
             // Update progress
-            setImportProgress({ current: data.indexOf(row) + 1, total: data.length });
+            setImportProgress({ current: i + 1, total: mappedData.length });
           } catch (error: any) {
-            errors.push(`Row ${data.indexOf(row) + 2}: ${error.message}`);
+            errors.push(`Row ${i + 2}: ${error.message}`);
             failed++;
           }
         }
@@ -834,7 +866,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               ) : (
                 <>
                   <Upload className="h-4 w-4 mr-2" />
-                  Import {data.length} Records Now
+                  Import {mappingState.data.length} Records Now
                 </>
               )}
             </Button>

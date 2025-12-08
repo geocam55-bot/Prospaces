@@ -1,14 +1,42 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Alert, AlertDescription } from './ui/alert';
 import { Search, UserCheck, AlertTriangle, RefreshCw } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
+import { Button } from './ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Alert, AlertDescription } from './ui/alert';
 import { RLSSetupGuide } from './RLSSetupGuide';
-import { copyToClipboard } from '../utils/clipboard';
+
+// Helper function to copy text to clipboard
+const copyToClipboard = async (text: string) => {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+  } catch (error) {
+    console.log('Clipboard API failed, trying fallback method...', error);
+  }
+
+  // Fallback method using textarea
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  } catch (error) {
+    console.error('Failed to copy:', error);
+    throw error;
+  }
+};
 
 const supabase = createClient();
 
