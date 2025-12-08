@@ -1,11 +1,13 @@
 /** @type {import('tailwindcss').Config} */
-// Force rebuild - updated content paths for src directory
 module.exports = {
   darkMode: ["class"],
-  content: [
-    './index.html',
-    './src/*/.{js,ts,jsx,tsx}',
-  ],
+  content: {
+    relative: true,
+    files: [
+      "./index.html",
+      "./src/*/.{js,ts,jsx,tsx}",
+    ],
+  },
   prefix: "",
   theme: {
     container: {
