@@ -90,6 +90,13 @@ export default function App() {
       (window as any).fixAISuggestionsColumn = module.fixAISuggestionsColumn;
     }).catch(() => {});
     
+    // Load contact owner fix utility
+    import('./utils/fix-contact-owners').then(module => {
+      (window as any).fixContactOwners = module.fixContactOwners;
+      (window as any).claimAllOrganizationContacts = module.claimAllOrganizationContacts;
+      console.log('🔧 Contact fix utilities loaded. Use fixContactOwners() or claimAllOrganizationContacts()');
+    }).catch(() => {});
+    
     // Load other debug utilities asynchronously after a delay (non-blocking)
     setTimeout(() => {
       import('./utils/debug-users').catch(() => {});
@@ -261,18 +268,49 @@ export default function App() {
       const supabase = createClient();
       const { data: org, error } = await supabase
         .from('organizations')
-        .select('id, name, logo, ai_suggestions_enabled, marketing_enabled, inventory_enabled, import_export_enabled, documents_enabled')
+        .select('id, name, logo')
         .eq('id', currentUser.organizationId)
         .single();
 
       if (error) {
         console.error('❌ loadOrganization - Error:', error);
-        throw error;
+        // Don't throw - use defaults instead
+        return;
       }
 
       if (org) {
         // If the name looks like an auto-generated ID (starts with "org-"), use default name
         const displayName = org.name && !org.name.startsWith('org-') ? org.name : 'ProSpaces CRM';
+        
+        // Try to get feature flags, but use defaults if columns don't exist
+        let featureFlags = {
+          ai_suggestions_enabled: false,
+          marketing_enabled: true,
+          inventory_enabled: true,
+          import_export_enabled: true,
+          documents_enabled: true,
+        };
+        
+        try {
+          const { data: orgFeatures } = await supabase
+            .from('organizations')
+            .select('ai_suggestions_enabled, marketing_enabled, inventory_enabled, import_export_enabled, documents_enabled')
+            .eq('id', currentUser.organizationId)
+            .single();
+          
+          if (orgFeatures) {
+            featureFlags = {
+              ai_suggestions_enabled: orgFeatures.ai_suggestions_enabled ?? false,
+              marketing_enabled: orgFeatures.marketing_enabled ?? true,
+              inventory_enabled: orgFeatures.inventory_enabled ?? true,
+              import_export_enabled: orgFeatures.import_export_enabled ?? true,
+              documents_enabled: orgFeatures.documents_enabled ?? true,
+            };
+          }
+        } catch (featureError) {
+          // Feature columns don't exist yet - use defaults
+          console.log('ℹ️ Using default feature flags (columns not yet created)');
+        }
         
         setAppState(prev => ({
           ...prev,
@@ -284,17 +322,14 @@ export default function App() {
             id: org.id,
             name: displayName,
             logo: org.logo, // Include the logo from the organization record
-            ai_suggestions_enabled: org.ai_suggestions_enabled,
-            marketing_enabled: org.marketing_enabled,
-            inventory_enabled: org.inventory_enabled,
-            import_export_enabled: org.import_export_enabled,
-            documents_enabled: org.documents_enabled,
+            ...featureFlags,
           },
         }));
       }
     } catch (error) {
       // Silently fail - organization was already set from user data in checkSession
       // This is fine - we use defaults
+      console.log('ℹ️ Using default organization settings');
     }
   };
 
