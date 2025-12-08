@@ -6,7 +6,7 @@ module.exports = {
   content: {
     files: [
       './index.html',
-      './src/**/*.{js,jsx,ts,tsx}',
+      './src/*/.{js,jsx,ts,tsx}',
     ],
     options: {
       safelist: []
