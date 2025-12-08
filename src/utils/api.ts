@@ -8,6 +8,7 @@ import { getAllTasksClient, createTaskClient, updateTaskClient, deleteTaskClient
 import { getAllNotesClient, createNoteClient, deleteNoteClient } from './notes-client';
 import { getAllInventoryClient, createInventoryClient, updateInventoryClient, deleteInventoryClient, upsertInventoryBySKUClient, bulkUpsertInventoryBySKUClient, searchInventoryClient } from './inventory-client';
 import { getAllOpportunitiesClient, getOpportunitiesByCustomerClient, createOpportunityClient, updateOpportunityClient, deleteOpportunityClient } from './opportunities-client';
+import { getAllCampaignsClient, createCampaignClient, updateCampaignClient, deleteCampaignClient } from './campaigns-client';
 import { 
   getAllProjectManagersClient, 
   getProjectManagersByCustomerClient, 
@@ -75,7 +76,35 @@ export const authAPI = {
   getSession: async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error) throw error;
-    return { session };
+    
+    // If we have a session, fetch the user's profile from the database
+    if (session?.user) {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        // Return session without profile data if profile fetch fails
+        return { session, user: null };
+      }
+      
+      // Construct user object with profile data
+      const user = {
+        id: profile.id,
+        email: profile.email || session.user.email,
+        name: profile.name || session.user.user_metadata?.name || '',
+        role: profile.role || 'standard_user',
+        organizationId: profile.organization_id,
+        managerId: profile.manager_id,
+      };
+      
+      return { session, user };
+    }
+    
+    return { session, user: null };
   },
 };
 
@@ -169,6 +198,10 @@ export const tenantsAPI = {
         maxContacts: org.max_contacts || 1000,
         features: org.features ? (typeof org.features === 'string' ? JSON.parse(org.features) : org.features) : [],
         ai_suggestions_enabled: org.ai_suggestions_enabled || false,
+        marketing_enabled: org.marketing_enabled ?? true,
+        inventory_enabled: org.inventory_enabled ?? true,
+        import_export_enabled: org.import_export_enabled ?? true,
+        documents_enabled: org.documents_enabled ?? true,
         createdAt: org.created_at,
         updatedAt: org.updated_at,
         userCount: userCount || 0,
@@ -215,8 +248,8 @@ export const tenantsAPI = {
       return name
         .toLowerCase()
         .trim()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9\\s-]/g, '')
+        .replace(/\\s+/g, '-')
         .replace(/-+/g, '-')
         .substring(0, 50); // Limit length
     };
@@ -241,6 +274,11 @@ export const tenantsAPI = {
       name: data.name,
       status: data.status,
       logo: data.logo,
+      ai_suggestions_enabled: data.ai_suggestions_enabled ?? false,
+      marketing_enabled: data.marketing_enabled ?? true,
+      inventory_enabled: data.inventory_enabled ?? true,
+      import_export_enabled: data.import_export_enabled ?? true,
+      documents_enabled: data.documents_enabled ?? true,
     };
     
     // Note: 'domain' field removed - it doesn't exist in the database schema
@@ -264,6 +302,10 @@ export const tenantsAPI = {
       status: data.status,
       logo: data.logo,
       ai_suggestions_enabled: data.ai_suggestions_enabled,
+      marketing_enabled: data.marketing_enabled,
+      inventory_enabled: data.inventory_enabled,
+      import_export_enabled: data.import_export_enabled,
+      documents_enabled: data.documents_enabled,
     };
     
     // Note: 'domain' field removed - it doesn't exist in the database schema
@@ -499,4 +541,12 @@ export const settingsAPI = {
   upsertOrganizationSettings: (data: any) => upsertOrganizationSettingsClient(data),
   updateOrganizationName: (organizationId: string, name: string) => updateOrganizationNameClient(organizationId, name),
   updateUserProfile: (userId: string, data: any) => updateUserProfileClient(userId, data),
+};
+
+// Campaigns APIs - use direct Supabase client
+export const campaignsAPI = {
+  getAll: () => getAllCampaignsClient(),
+  create: (data: any) => createCampaignClient(data),
+  update: (id: string, data: any) => updateCampaignClient(id, data),
+  delete: (id: string) => deleteCampaignClient(id),
 };
