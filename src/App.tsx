@@ -86,16 +86,22 @@ export default function App() {
     checkSession();
     
     // Load debug utilities immediately (not after 5 seconds)
+    // Commented for production build - uncomment in dev if needed
+    /*
     import('./utils/fix-ai-suggestions-column').then(module => {
       (window as any).fixAISuggestionsColumn = module.fixAISuggestionsColumn;
     }).catch(() => {});
+    */
     
-    // Load contact owner fix utility
+    // Load contact owner fix utility (dev only - commented for production build)
+    // Uncomment in dev if you need contact owner fix utilities
+    /*
     import('./utils/fix-contact-owners').then(module => {
       (window as any).fixContactOwners = module.fixContactOwners;
       (window as any).claimAllOrganizationContacts = module.claimAllOrganizationContacts;
       console.log('🔧 Contact fix utilities loaded. Use fixContactOwners() or claimAllOrganizationContacts()');
     }).catch(() => {});
+    */
     
     // Load other debug utilities asynchronously after a delay (non-blocking)
     setTimeout(() => {
