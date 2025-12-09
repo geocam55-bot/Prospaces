@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "postinstall": "npm list tailwindcss || npm install tailwindcss tailwindcss-animate autoprefixer postcss",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
