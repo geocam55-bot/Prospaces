@@ -2,12 +2,9 @@
 module.exports = {
   darkMode: ["class"],
   content: [
-  './index.html',
-  './*/.{js,jsx,ts,tsx}',      // Scan ALL tsx files in root and subdirectories
-  '!./node_modules/**',          // Exclude node_modules
-  '!./build/**',                 // Exclude build output
-  '!./supabase/**',              // Exclude supabase functions
-],
+    './index.html',
+    './src/**/*.{js,jsx,ts,tsx}',
+  ],
   prefix: "",
   theme: {
     container: {
