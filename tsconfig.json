@@ -28,11 +28,11 @@
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.config.ts",
-    "src/supabase/functions/**/*",
-    "src/tests/**/*"
-  ],
+  "node_modules",
+  "dist",
+  "*/.config.ts",
+  "src/supabase/functions/*/",
+  "src/tests/*/"
+],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
