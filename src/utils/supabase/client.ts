@@ -1,7 +1,8 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { projectId, publicAnonKey } from './info';
+import type { Database } from '../../src/types/database.types';
 
-let supabaseClient: ReturnType<typeof createSupabaseClient> | null = null;
+let supabaseClient: ReturnType<typeof createSupabaseClient<Database>> | null = null;
 
 export function createClient() {
   if (supabaseClient) {
@@ -10,7 +11,7 @@ export function createClient() {
 
   const supabaseUrl = `https://${projectId}.supabase.co`;
 
-  supabaseClient = createSupabaseClient(supabaseUrl, publicAnonKey, {
+  supabaseClient = createSupabaseClient<Database>(supabaseUrl, publicAnonKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
