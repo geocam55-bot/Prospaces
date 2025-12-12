@@ -25,7 +25,7 @@ import { FindMissingUser } from './FindMissingUser';
 import { FixInvalidOrgIds } from './FixInvalidOrgIds';
 import { InvalidOrgIdAlert } from './InvalidOrgIdAlert';
 import { createClient } from '../utils/supabase/client';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 const supabase = createClient();
 
