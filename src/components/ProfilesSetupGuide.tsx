@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { CheckCircle2, Copy, ExternalLink, AlertCircle, Database } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { copyToClipboard } from '../utils/clipboard';
 
 const supabase = createClient();
