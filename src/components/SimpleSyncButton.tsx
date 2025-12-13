@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { Button } from './ui/button';
 import { RefreshCw, CheckCircle, AlertCircle, Copy, ExternalLink } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { copyToClipboard } from '../utils/clipboard';
