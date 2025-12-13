@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Copy, Check, ExternalLink, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { createClient } from '../utils/supabase/client';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 const supabase = createClient();
 
