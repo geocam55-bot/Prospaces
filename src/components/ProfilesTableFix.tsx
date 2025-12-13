@@ -1,10 +1,6 @@
-import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/card';
-import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { Copy, CheckCircle2, ExternalLink } from 'lucide-react';
-import { toast } from 'react-toastify';
-import { copyToClipboard } from '../utils/clipboard';
+import { toast } from 'sonner';
 
 export function ProfilesTableFix() {
   const [copied, setCopied] = useState(false);
