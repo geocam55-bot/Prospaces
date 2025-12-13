@@ -1,8 +1,6 @@
-import { useState } from 'react';
-import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Database, ExternalLink, RefreshCw } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
 
 const supabase = createClient();
