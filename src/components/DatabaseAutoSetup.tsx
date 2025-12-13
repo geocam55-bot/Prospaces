@@ -1,11 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Alert, AlertDescription } from './ui/alert';
 import { CheckCircle2, AlertCircle, Database, Copy, Loader2 } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
-import { toast } from 'react-toastify';
-import { copyToClipboard } from '../utils/clipboard';
+import { toast } from 'sonner';
 
 const supabase = createClient();
 
