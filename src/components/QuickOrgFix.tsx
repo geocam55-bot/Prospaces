@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
-import { toast } from 'react-toastify';
+import { toast } from 'sonner';
 
 const supabase = createClient();
 
