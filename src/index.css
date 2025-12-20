@@ -4759,6 +4759,14 @@
   }
 }
 
+body {
+  background-color: red !important;
+}
+
+#root {
+  border: 10px solid #ff0 !important;
+}
+
 @property --tw-translate-x {
   syntax: "*";
   inherits: false;
