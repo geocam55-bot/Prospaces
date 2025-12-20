@@ -1,41 +1,27 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
 
-// https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './'),
-    },
-  },
-  server: {
-    port: 5173,
-    host: true,
-  },
-  build: {
-    outDir: 'build',
-    emptyOutDir: true,
-    sourcemap: false,
-    rollupOptions: {
-      // Exclude Capacitor mobile packages from web build
-      external: [
-        '@capacitor/core',
-        '@capacitor/app',
-        '@capacitor/browser',
-        '@capacitor/keyboard',
-        '@capacitor/preferences',
-        '@capacitor/share',
-        '@capacitor/splash-screen',
-        '@capacitor/status-bar'
-      ],
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          supabase: ['@supabase/supabase-js'],
-        },
+  import { defineConfig } from 'vite';
+  import react from '@vitejs/plugin-react-swc';
+  import path from 'path';
+
+  export default defineConfig({
+    plugins: [react()],
+    resolve: {
+      extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
+      alias: {
+        'sonner@2.0.3': 'sonner',
+        'react@18.2.0': 'react',
+        'react-hook-form@7.55.0': 'react-hook-form',
+        '@jsr/supabase__supabase-js@2.49.8': '@jsr/supabase__supabase-js',
+        '@jsr/supabase__supabase-js@2': '@jsr/supabase__supabase-js',
+        '@': path.resolve(__dirname, './src'),
       },
     },
-  },
-})
+    build: {
+      target: 'esnext',
+      outDir: 'build',
+    },
+    server: {
+      port: 3000,
+      open: true,
+    },
+  });
