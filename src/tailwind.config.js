@@ -6,7 +6,6 @@ export default {
     './src/**/*.{js,jsx,ts,tsx}',
     './components/**/*.{js,jsx,ts,tsx}',
     './utils/**/*.{js,jsx,ts,tsx}',
-    './lib/**/*.{js,jsx,ts,tsx}',
     './App.tsx',
     './main.tsx',
   ],
@@ -76,5 +75,5 @@ export default {
       },
     },
   },
-  plugins: [await import("tailwindcss-animate").then(m => m.default || m)],
+  plugins: [require("tailwindcss-animate")],
 }

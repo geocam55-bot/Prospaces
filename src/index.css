@@ -4759,15 +4759,6 @@
   }
 }
 
-body {
-  color: #fff !important;
-  background: green !important;
-}
-
-* {
-  border: 2px solid #ff0 !important;
-}
-
 @property --tw-translate-x {
   syntax: "*";
   inherits: false;
