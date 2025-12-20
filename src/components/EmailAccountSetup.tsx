@@ -143,12 +143,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
   const handleOAuthConnect = async () => {
     if (!selectedProvider || selectedProvider === 'imap') return;
 
-    // Only Gmail OAuth is implemented currently
-    if (selectedProvider !== 'gmail') {
-      setError('Only Gmail OAuth is currently supported. Please use IMAP/SMTP for other providers.');
-      return;
-    }
-
     setIsConnecting(true);
     setError('');
 
@@ -165,7 +159,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       console.log('Attempting to connect to:', `${supabaseUrl}/functions/v1/nylas-connect`);
       console.log('Using access token:', accessToken.substring(0, 20) + '...');
 
-      // Call Nylas connect function for OAuth using fetch
+      // Call Nylas connect function for OAuth using fetch (don't map provider names - Edge Function handles it)
       const response = await fetch(`${supabaseUrl}/functions/v1/nylas-connect`, {
         method: 'POST',
         headers: {
@@ -173,8 +167,8 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          provider: 'gmail',
-          email: email || 'user@gmail.com', // Email will be determined after OAuth
+          provider: selectedProvider, // Send original provider name: 'gmail', 'outlook', 'apple'
+          email: email || `user@${selectedProvider}.com`, // Email will be determined after OAuth
         }),
       }).catch((fetchError) => {
         console.error('Fetch error details:', fetchError);
@@ -190,14 +184,24 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         const errorText = await response.text();
         console.error('OAuth init error response:', errorText);
         
+        let errorMessage = '';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorText;
+        } catch {
+          errorMessage = errorText;
+        }
+        
         if (response.status === 404) {
           throw new Error(
             'Email integration backend not found. The Edge Functions need to be deployed.'
           );
         } else if (response.status === 401) {
           throw new Error('Unauthorized. Please log out and log back in.');
+        } else if (response.status === 403) {
+          throw new Error('Access denied. Please ensure your account has email permissions enabled.');
         } else {
-          throw new Error(`Failed to initialize OAuth (${response.status}): ${errorText}`);
+          throw new Error(`Failed to initialize OAuth (${response.status}): ${errorMessage}`);
         }
       }
 
@@ -214,9 +218,10 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       const left = window.screen.width / 2 - width / 2;
       const top = window.screen.height / 2 - height / 2;
       
+      const providerName = getProviderInfo()?.name || 'Email';
       const popup = window.open(
         data.authUrl,
-        'Gmail OAuth',
+        `${providerName} OAuth`,
         `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no`
       );
 
@@ -229,7 +234,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         // Only accept messages from our Supabase domain
         if (!event.origin.includes('supabase.co')) return;
 
-        if (event.data.type === 'gmail-oauth-success' || event.data.type === 'nylas-oauth-success') {
+        if (event.data.type === 'gmail-oauth-success' || event.data.type === 'nylas-oauth-success' || event.data.type === 'outlook-oauth-success' || event.data.type === 'microsoft-oauth-success') {
           window.removeEventListener('message', handleMessage);
           setIsConnecting(false);
           setStep('success');
@@ -237,7 +242,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
           // Convert Supabase account to EmailAccount format
           const account: EmailAccount = {
             id: event.data.account.id,
-            provider: 'gmail',
+            provider: selectedProvider,
             email: event.data.account.email,
             connected: true,
             lastSync: event.data.account.last_sync,
@@ -246,12 +251,12 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
           setTimeout(() => {
             onAccountAdded(account);
             handleClose();
-            toast.success('Gmail account connected successfully!');
+            toast.success(`${providerName} account connected successfully!`);
           }, 1500);
-        } else if (event.data.type === 'gmail-oauth-error' || event.data.type === 'nylas-oauth-error') {
+        } else if (event.data.type === 'gmail-oauth-error' || event.data.type === 'nylas-oauth-error' || event.data.type === 'outlook-oauth-error') {
           window.removeEventListener('message', handleMessage);
           setIsConnecting(false);
-          setError(event.data.error || 'Failed to connect Gmail account');
+          setError(event.data.error || `Failed to connect ${providerName} account`);
         }
       };
 

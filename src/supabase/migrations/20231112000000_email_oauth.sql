@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS email_accounts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+  organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
   provider TEXT NOT NULL CHECK (provider IN ('gmail', 'outlook', 'apple', 'imap')),
   email TEXT NOT NULL,
   
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS email_accounts (
 CREATE TABLE IF NOT EXISTS email_messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   account_id UUID REFERENCES email_accounts(id) ON DELETE CASCADE NOT NULL,
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
+  organization_id TEXT REFERENCES organizations(id) ON DELETE CASCADE NOT NULL,
   
   -- Email data
   message_id TEXT NOT NULL, -- Provider's message ID
@@ -88,8 +88,8 @@ CREATE POLICY "Users can view their own email accounts"
   USING (
     user_id = auth.uid() AND
     organization_id IN (
-      SELECT organization_id FROM user_organizations 
-      WHERE user_id = auth.uid()
+      SELECT organization_id FROM profiles 
+      WHERE id = auth.uid()
     )
   );
 
@@ -98,8 +98,8 @@ CREATE POLICY "Users can insert their own email accounts"
   WITH CHECK (
     user_id = auth.uid() AND
     organization_id IN (
-      SELECT organization_id FROM user_organizations 
-      WHERE user_id = auth.uid()
+      SELECT organization_id FROM profiles 
+      WHERE id = auth.uid()
     )
   );
 
@@ -116,8 +116,8 @@ CREATE POLICY "Users can view emails from their accounts"
   ON email_messages FOR SELECT
   USING (
     organization_id IN (
-      SELECT organization_id FROM user_organizations 
-      WHERE user_id = auth.uid()
+      SELECT organization_id FROM profiles 
+      WHERE id = auth.uid()
     ) AND
     account_id IN (
       SELECT id FROM email_accounts WHERE user_id = auth.uid()

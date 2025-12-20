@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(__dirname, './'),
     },
   },
   server: {
@@ -18,27 +18,24 @@ export default defineConfig({
     outDir: 'build',
     emptyOutDir: true,
     sourcemap: false,
-    // Increase chunk size warning limit for large enterprise CRM
-    chunkSizeWarningLimit: 1000,
-    // Ensure CSS is extracted
-    cssCodeSplit: true,
     rollupOptions: {
+      // Exclude Capacitor mobile packages from web build
+      external: [
+        '@capacitor/core',
+        '@capacitor/app',
+        '@capacitor/browser',
+        '@capacitor/keyboard',
+        '@capacitor/preferences',
+        '@capacitor/share',
+        '@capacitor/splash-screen',
+        '@capacitor/status-bar'
+      ],
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
           supabase: ['@supabase/supabase-js'],
-          charts: ['recharts'],
-          ui: ['lucide-react'],
         },
-        // Ensure consistent naming for assets
-        assetFileNames: 'assets/[name]-[hash][extname]',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js',
       },
     },
-  },
-  // Explicitly configure CSS processing
-  css: {
-    postcss: './postcss.config.cjs',
   },
 })

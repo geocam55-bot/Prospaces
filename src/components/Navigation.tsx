@@ -67,10 +67,8 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
     ...(organization?.appointments_enabled !== false ? [{ id: 'appointments', label: 'Appointments', icon: Calendar }] : []),
     // Only show Documents if enabled for the organization
     ...(organization?.documents_enabled !== false ? [{ id: 'documents', label: 'Documents', icon: Folder }] : []),
-    // Admin users don't need Email - they use Team Dashboard
-    ...(user.role !== 'admin' ? [
-      { id: 'email', label: 'Email', icon: Mail },
-    ] : []),
+    // Show Email for all authenticated users
+    { id: 'email', label: 'Email', icon: Mail },
     // Only show Marketing if enabled for the organization
     ...(organization?.marketing_enabled !== false ? [{ id: 'marketing', label: 'Marketing', icon: TrendingUp }] : []),
     // Only show Inventory if enabled for the organization

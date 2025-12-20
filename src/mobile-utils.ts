@@ -1,40 +1,62 @@
 // Mobile utilities for Capacitor iOS app
-
-import { Capacitor } from '@capacitor/core';
+// All Capacitor imports are dynamic to avoid issues in web builds
 
 /**
  * Check if app is running as native mobile app
  */
 export const isMobileApp = (): boolean => {
-  return Capacitor.isNativePlatform();
+  // In browser, Capacitor won't exist
+  if (typeof window === 'undefined') return false;
+  try {
+    // Check if running in Capacitor native environment
+    return !!(window as any).Capacitor?.isNativePlatform?.();
+  } catch {
+    return false;
+  }
 };
 
 /**
  * Check if running on iOS
  */
 export const isIOS = (): boolean => {
-  return Capacitor.getPlatform() === 'ios';
+  try {
+    return (window as any).Capacitor?.getPlatform?.() === 'ios';
+  } catch {
+    return false;
+  }
 };
 
 /**
  * Check if running on Android
  */
 export const isAndroid = (): boolean => {
-  return Capacitor.getPlatform() === 'android';
+  try {
+    return (window as any).Capacitor?.getPlatform?.() === 'android';
+  } catch {
+    return false;
+  }
 };
 
 /**
  * Check if running in web browser
  */
 export const isWeb = (): boolean => {
-  return Capacitor.getPlatform() === 'web';
+  try {
+    return (window as any).Capacitor?.getPlatform?.() === 'web' || !isMobileApp();
+  } catch {
+    return true;
+  }
 };
 
 /**
  * Get platform name
  */
 export const getPlatform = (): string => {
-  return Capacitor.getPlatform();
+  try {
+    return (window as any).Capacitor?.getPlatform?.() || 'web';
+  } catch {
+    return 'web';
+  }
 };
 
 /**
@@ -88,7 +110,7 @@ export const setupBackButton = (handler: () => void) => {
 
   import('@capacitor/app').then(({ App }) => {
     App.addListener('backButton', handler);
-  });
+  }).catch(() => {});
 };
 
 /**
@@ -103,13 +125,17 @@ export const shareContent = async (title: string, text: string, url?: string) =>
     return;
   }
 
-  const { Share } = await import('@capacitor/share');
-  await Share.share({
-    title,
-    text,
-    url,
-    dialogTitle: 'Share with',
-  });
+  try {
+    const { Share } = await import('@capacitor/share');
+    await Share.share({
+      title,
+      text,
+      url,
+      dialogTitle: 'Share with',
+    });
+  } catch (error) {
+    console.warn('Share not available:', error);
+  }
 };
 
 /**
@@ -121,8 +147,12 @@ export const storeData = async (key: string, value: string) => {
     return;
   }
 
-  const { Preferences } = await import('@capacitor/preferences');
-  await Preferences.set({ key, value });
+  try {
+    const { Preferences } = await import('@capacitor/preferences');
+    await Preferences.set({ key, value });
+  } catch {
+    localStorage.setItem(key, value);
+  }
 };
 
 /**
@@ -133,9 +163,13 @@ export const getData = async (key: string): Promise<string | null> => {
     return localStorage.getItem(key);
   }
 
-  const { Preferences } = await import('@capacitor/preferences');
-  const { value } = await Preferences.get({ key });
-  return value;
+  try {
+    const { Preferences } = await import('@capacitor/preferences');
+    const { value } = await Preferences.get({ key });
+    return value;
+  } catch {
+    return localStorage.getItem(key);
+  }
 };
 
 /**
@@ -147,8 +181,12 @@ export const removeData = async (key: string) => {
     return;
   }
 
-  const { Preferences } = await import('@capacitor/preferences');
-  await Preferences.remove({ key });
+  try {
+    const { Preferences } = await import('@capacitor/preferences');
+    await Preferences.remove({ key });
+  } catch {
+    localStorage.removeItem(key);
+  }
 };
 
 /**
@@ -160,8 +198,12 @@ export const openInBrowser = async (url: string) => {
     return;
   }
 
-  const { Browser } = await import('@capacitor/browser');
-  await Browser.open({ url });
+  try {
+    const { Browser } = await import('@capacitor/browser');
+    await Browser.open({ url });
+  } catch {
+    window.open(url, '_blank');
+  }
 };
 
 /**
@@ -172,8 +214,12 @@ export const getAppInfo = async () => {
     return { version: 'web', build: 'web' };
   }
 
-  const { App } = await import('@capacitor/app');
-  return await App.getInfo();
+  try {
+    const { App } = await import('@capacitor/app');
+    return await App.getInfo();
+  } catch {
+    return { version: 'web', build: 'web' };
+  }
 };
 
 // Export platform constants
