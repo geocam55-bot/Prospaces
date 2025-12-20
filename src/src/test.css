@@ -1,0 +1,9 @@
+/* DIAGNOSTIC TEST CSS - Should turn background green */
+body {
+  background: green !important;
+  color: white !important;
+}
+
+* {
+  border: 2px solid yellow !important;
+}
