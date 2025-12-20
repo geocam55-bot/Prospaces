@@ -1,39 +1,39 @@
 import { useState, useEffect, Suspense, lazy } from 'react';
-import { Login } from './components/Login';
-import { LandingPage } from './components/LandingPage';
-import { Navigation } from './components/Navigation';
-import { TopBar } from './components/TopBar';
-import { ThemeProvider } from './components/ThemeProvider';
-import ErrorBoundary from './components/ErrorBoundary';
-import { authAPI, setAccessToken, securityAPI, tenantsAPI } from './utils/api';
-import { initializePermissions, clearPermissions, canView } from './utils/permissions';
-import { createClient } from './utils/supabase/client';
-import { syncCurrentUserProfile, syncUserProfile } from './utils/sync-profile';
-import { FullCRMDatabaseSetup } from './components/FullCRMDatabaseSetup';
+import { Login } from '../components/Login';
+import { LandingPage } from '../components/LandingPage';
+import { Navigation } from '../components/Navigation';
+import { TopBar } from '../components/TopBar';
+import { ThemeProvider } from '../components/ThemeProvider';
+import ErrorBoundary from '../components/ErrorBoundary';
+import { authAPI, setAccessToken, securityAPI, tenantsAPI } from '../utils/api';
+import { initializePermissions, clearPermissions, canView } from '../utils/permissions';
+import { createClient } from '../utils/supabase/client';
+import { syncCurrentUserProfile, syncUserProfile } from '../utils/sync-profile';
+import { FullCRMDatabaseSetup } from '../components/FullCRMDatabaseSetup';
 // import { initializeMobileApp, isMobileApp } from './src/mobile-utils';
 
 // Lazy load all page components for faster initial load
-const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
-const ManagerDashboard = lazy(() => import('./components/ManagerDashboard').then(m => ({ default: m.ManagerDashboard })));
-const AITaskSuggestions = lazy(() => import('./components/AITaskSuggestions').then(m => ({ default: m.AITaskSuggestions })));
-const Contacts = lazy(() => import('./components/Contacts').then(m => ({ default: m.Contacts })));
-const Tasks = lazy(() => import('./components/Tasks').then(m => ({ default: m.Tasks })));
-const Appointments = lazy(() => import('./components/Appointments').then(m => ({ default: m.Appointments })));
-const Bids = lazy(() => import('./components/Bids').then(m => ({ default: m.Bids })));
-const Opportunities = lazy(() => import('./components/Opportunities').then(m => ({ default: m.Opportunities })));
-const Notes = lazy(() => import('./components/Notes').then(m => ({ default: m.Notes })));
-const Users = lazy(() => import('./components/Users').then(m => ({ default: m.Users })));
-const Settings = lazy(() => import('./components/Settings').then(m => ({ default: m.Settings })));
-const Email = lazy(() => import('./components/Email').then(m => ({ default: m.Email })));
-const Marketing = lazy(() => import('./components/Marketing').then(m => ({ default: m.Marketing })));
-const Inventory = lazy(() => import('./components/Inventory').then(m => ({ default: m.Inventory })));
-const Tenants = lazy(() => import('./components/Tenants').then(m => ({ default: m.Tenants })));
-const Security = lazy(() => import('./components/Security').then(m => ({ default: m.Security })));
-const ImportExport = lazy(() => import('./components/ImportExport').then(m => ({ default: m.ImportExport })));
-const ScheduledJobs = lazy(() => import('./components/ScheduledJobs').then(m => ({ default: m.ScheduledJobs })));
-const Documents = lazy(() => import('./components/Documents').then(m => ({ default: m.Documents })));
-const Reports = lazy(() => import('./components/Reports').then(m => ({ default: m.Reports })));
-const AdminFixUsers = lazy(() => import('./components/AdminFixUsers').then(m => ({ default: m.AdminFixUsers })));
+const Dashboard = lazy(() => import('../components/Dashboard').then(m => ({ default: m.Dashboard })));
+const ManagerDashboard = lazy(() => import('../components/ManagerDashboard').then(m => ({ default: m.ManagerDashboard })));
+const AITaskSuggestions = lazy(() => import('../components/AITaskSuggestions').then(m => ({ default: m.AITaskSuggestions })));
+const Contacts = lazy(() => import('../components/Contacts').then(m => ({ default: m.Contacts })));
+const Tasks = lazy(() => import('../components/Tasks').then(m => ({ default: m.Tasks })));
+const Appointments = lazy(() => import('../components/Appointments').then(m => ({ default: m.Appointments })));
+const Bids = lazy(() => import('../components/Bids').then(m => ({ default: m.Bids })));
+const Opportunities = lazy(() => import('../components/Opportunities').then(m => ({ default: m.Opportunities })));
+const Notes = lazy(() => import('../components/Notes').then(m => ({ default: m.Notes })));
+const Users = lazy(() => import('../components/Users').then(m => ({ default: m.Users })));
+const Settings = lazy(() => import('../components/Settings').then(m => ({ default: m.Settings })));
+const Email = lazy(() => import('../components/Email').then(m => ({ default: m.Email })));
+const Marketing = lazy(() => import('../components/Marketing').then(m => ({ default: m.Marketing })));
+const Inventory = lazy(() => import('../components/Inventory').then(m => ({ default: m.Inventory })));
+const Tenants = lazy(() => import('../components/Tenants').then(m => ({ default: m.Tenants })));
+const Security = lazy(() => import('../components/Security').then(m => ({ default: m.Security })));
+const ImportExport = lazy(() => import('../components/ImportExport').then(m => ({ default: m.ImportExport })));
+const ScheduledJobs = lazy(() => import('../components/ScheduledJobs').then(m => ({ default: m.ScheduledJobs })));
+const Documents = lazy(() => import('../components/Documents').then(m => ({ default: m.Documents })));
+const Reports = lazy(() => import('../components/Reports').then(m => ({ default: m.Reports })));
+const AdminFixUsers = lazy(() => import('../components/AdminFixUsers').then(m => ({ default: m.AdminFixUsers })));
 
 export type UserRole = 'super_admin' | 'admin' | 'manager' | 'marketing' | 'standard_user';
 
@@ -105,12 +105,12 @@ export default function App() {
     
     // Load other debug utilities asynchronously after a delay (non-blocking)
     setTimeout(() => {
-      import('./utils/debug-users').catch(() => {});
-      import('./utils/diagnose-super-admin').catch(() => {});
-      import('./utils/check-user-org').catch(() => {});
-      import('./utils/update-user-org').catch(() => {});
-      import('./utils/fix-user-tenant').catch(() => {});
-      import('./utils/diagnose-invalid-orgs').catch(() => {});
+      import('../utils/debug-users').catch(() => {});
+      import('../utils/diagnose-super-admin').catch(() => {});
+      import('../utils/check-user-org').catch(() => {});
+      import('../utils/update-user-org').catch(() => {});
+      import('../utils/fix-user-tenant').catch(() => {});
+      import('../utils/diagnose-invalid-orgs').catch(() => {});
     }, 5000); // Load after 5 seconds - not critical for startup
   }, []);
 
