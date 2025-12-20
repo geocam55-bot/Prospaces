@@ -10,7 +10,7 @@ import { initializePermissions, clearPermissions, canView } from './utils/permis
 import { createClient } from './utils/supabase/client';
 import { syncCurrentUserProfile, syncUserProfile } from './utils/sync-profile';
 import { FullCRMDatabaseSetup } from './components/FullCRMDatabaseSetup';
-import { initializeMobileApp, isMobileApp } from './mobile-utils';
+import { initializeMobileApp, isMobileApp } from './src/mobile-utils';
 
 // Lazy load all page components for faster initial load
 const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
