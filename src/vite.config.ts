@@ -10,36 +10,15 @@ export default defineConfig({
       '@': path.resolve(__dirname, './'),
     },
   },
-  css: {
-    postcss: './postcss.config.cjs',
-  },
   server: {
     port: 5173,
-    host: true,
+    strictPort: true,
   },
   build: {
     outDir: 'build',
     emptyOutDir: true,
     sourcemap: false,
+    assetsInlineLimit: 0, // Force all assets to be external files
     cssCodeSplit: true,
-    rollupOptions: {
-      // Exclude Capacitor mobile packages from web build
-      external: [
-        '@capacitor/core',
-        '@capacitor/app',
-        '@capacitor/browser',
-        '@capacitor/keyboard',
-        '@capacitor/preferences',
-        '@capacitor/share',
-        '@capacitor/splash-screen',
-        '@capacitor/status-bar'
-      ],
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          supabase: ['@supabase/supabase-js'],
-        },
-      },
-    },
   },
 })
