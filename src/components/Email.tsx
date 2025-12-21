@@ -1,8 +1,3 @@
-import { useState, useEffect } from 'react';
-import { emailAPI } from '../utils/api';
-import { toast } from 'sonner';
-import { createClient } from '../utils/supabase/client';
-import { publicAnonKey } from '../utils/supabase/info.tsx';
 import {
   Mail,
   Send,
@@ -19,36 +14,10 @@ import {
   Info,
   CheckCircle,
   XCircle,
+  TestTube,
 } from 'lucide-react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Textarea } from './ui/textarea';
-import { Card, CardContent, CardHeader } from './ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
-import { Label } from './ui/label';
-import { Badge } from './ui/badge';
-import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
-import { Alert, AlertDescription } from './ui/alert';
 import { EmailAccountSetup } from './EmailAccountSetup';
+import { EmailTester } from './EmailTester';
 import type { User } from '../types';
 
 // Cache backend availability check to avoid repeated failed requests
@@ -188,6 +157,7 @@ export function Email({ user }: EmailProps) {
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTesterOpen, setIsTesterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [backendStatus, setBackendStatus] = useState<'checking' | 'available' | 'unavailable' | null>(null);
@@ -934,6 +904,10 @@ export function Email({ user }: EmailProps) {
               )}
             </>
           )}
+          <Button variant="secondary" onClick={() => setIsTesterOpen(true)}>
+            <TestTube className="h-4 w-4 mr-2" />
+            Test Email
+          </Button>
           <Button variant="outline" onClick={() => setIsSettingsOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Account
@@ -1268,6 +1242,14 @@ export function Email({ user }: EmailProps) {
         onAccountAdded={handleAccountAdded}
         editingAccount={editingAccount}
       />
+
+      {/* Email Tester Dialog */}
+      {isTesterOpen && (
+        <EmailTester
+          user={user}
+          onClose={() => setIsTesterOpen(false)}
+        />
+      )}
     </div>
   );
 }
