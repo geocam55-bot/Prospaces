@@ -10,6 +10,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './'),
     },
   },
+  css: {
+    postcss: './postcss.config.mjs',
+  },
   server: {
     port: 5173,
     strictPort: true,
@@ -18,7 +21,7 @@ export default defineConfig({
     outDir: 'build',
     emptyOutDir: true,
     sourcemap: false,
-    assetsInlineLimit: 0, // Force all assets to be external files
+    assetsInlineLimit: 0,
     cssCodeSplit: true,
   },
 })
