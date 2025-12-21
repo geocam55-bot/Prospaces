@@ -1,29 +1,15 @@
 /** @type {import('tailwindcss').Config} */
-// FORCE REBUILD v2 - Updated content paths
-export default {
+module.exports = {
   darkMode: ["class"],
   content: [
     "./index.html",
     "./main.tsx",
     "./App.tsx",
+    "./src/**/*.{js,ts,jsx,tsx}",
     "./components/**/*.{js,ts,jsx,tsx}",
     "./lib/**/*.{js,ts,jsx,tsx}",
     "./utils/**/*.{js,ts,jsx,tsx}",
   ],
-  safelist: [
-    'bg-red-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-blue-500',
-    'text-white',
-    'p-4',
-    'mt-4',
-    'rounded-lg',
-    'shadow-xl',
-    'border-4',
-    'border-yellow-400',
-  ],
-  prefix: "",
   theme: {
     container: {
       center: true,
@@ -89,5 +75,5 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 }

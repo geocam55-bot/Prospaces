@@ -10,7 +10,6 @@ export default defineConfig({
       '@': path.resolve(__dirname, './'),
     },
   },
-  // Remove explicit postcss path - let Vite auto-discover it
   server: {
     port: 5173,
     strictPort: true,
@@ -20,6 +19,7 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false,
     assetsInlineLimit: 0,
-    cssCodeSplit: true,
+    cssCodeSplit: false,
+    minify: 'esbuild',
   },
 })
