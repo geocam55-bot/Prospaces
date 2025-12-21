@@ -1,8 +1,0 @@
-/* Simple test CSS - no Tailwind */
-body {
-  background-color: red !important;
-}
-
-#root {
-  border: 10px solid yellow !important;
-}
