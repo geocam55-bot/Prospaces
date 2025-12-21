@@ -21,5 +21,15 @@ export default defineConfig({
     assetsInlineLimit: 0,
     cssCodeSplit: false,
     minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        assetFileNames: 'assets/[name]-[hash][extname]',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+      },
+    },
+  },
+  css: {
+    postcss: './postcss.config.js',
   },
 })

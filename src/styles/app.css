@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* New CSS file to force complete cache invalidation */
+/* FIGMA MAKE CACHE INVALIDATION TEST - This line MUST appear in build output */
+/* BUILD FINGERPRINT: ZXCVBNMASDFGHJKL1234567890 */
 
 @layer base {
   :root {
