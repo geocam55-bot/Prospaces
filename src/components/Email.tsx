@@ -21,6 +21,34 @@ import {
   XCircle,
   TestTube,
 } from 'lucide-react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
+import { Card, CardContent, CardHeader } from './ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { Label } from './ui/label';
+import { Badge } from './ui/badge';
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
+import { Alert, AlertDescription } from './ui/alert';
 import { EmailAccountSetup } from './EmailAccountSetup';
 import { EmailTester } from './EmailTester';
 import type { User } from '../types';
