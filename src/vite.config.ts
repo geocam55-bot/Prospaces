@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   css: {
-    postcss: './postcss.config.mjs',
+    postcss: './postcss.config.js',
   },
   server: {
     port: 5173,
