@@ -1,5 +1,5 @@
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   darkMode: ["class"],
   content: [
     './pages/**/*.{ts,tsx}',
@@ -7,7 +7,9 @@ export default {
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
     './index.html',
-    './*.{ts,tsx}', // Include root-level .tsx files like /main.tsx and /App.tsx
+    './*.{ts,tsx}',
+    './main.tsx',
+    './App.tsx',
   ],
   prefix: "",
   theme: {
