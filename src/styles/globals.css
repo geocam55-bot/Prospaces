@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Force Tailwind to include common utilities */
+@layer utilities {
+  .force-tailwind-utilities {
+    @apply flex grid hidden block inline-block;
+    @apply items-center justify-center justify-between;
+    @apply p-0 p-1 p-2 p-3 p-4 p-5 p-6 p-8;
+    @apply m-0 m-1 m-2 m-3 m-4 m-5 m-6 m-8;
+    @apply w-full h-full max-w-full;
+    @apply text-sm text-base text-lg text-xl text-2xl;
+    @apply font-normal font-medium font-semibold font-bold;
+    @apply bg-white bg-gray-100 bg-blue-500 bg-red-500;
+    @apply text-black text-white text-gray-500;
+    @apply border border-gray-200 border-gray-300;
+    @apply rounded rounded-md rounded-lg rounded-full;
+    @apply shadow shadow-md shadow-lg;
+    @apply hover:bg-gray-100 focus:outline-none;
+    @apply transition-all duration-200;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

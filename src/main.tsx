@@ -3,7 +3,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 
-// NUCLEAR REBUILD v7 - ES MODULE FIX! package.json has "type": "module"
+// NUCLEAR REBUILD v8 - FORCE UTILITIES IN CSS!
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
