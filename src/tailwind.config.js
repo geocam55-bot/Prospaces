@@ -7,6 +7,7 @@ export default {
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
     './index.html',
+    './*.{ts,tsx}', // Include root-level .tsx files like /main.tsx and /App.tsx
   ],
   prefix: "",
   theme: {
