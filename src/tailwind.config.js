@@ -1,15 +1,10 @@
-// CACHE BUST v1 - Force Vite to rebuild with proper content scanning
+// CACHE BUST v2 - Nuclear option: scan ALL files
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
   content: [
-    "./index.html",
-    "./App.tsx",
-    "./main.tsx",
-    "./force-tailwind-classes.tsx",
-    "./components/**/*.{js,ts,jsx,tsx}",
-    "./lib/**/*.{js,ts,jsx,tsx}",
-    "./utils/**/*.{js,ts,jsx,tsx}",
+    "./**/*.{js,ts,jsx,tsx,html}",
+    "!./node_modules/**",
   ],
   theme: {
     container: {
