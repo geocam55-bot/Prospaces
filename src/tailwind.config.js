@@ -1,3 +1,5 @@
+import tailwindcssAnimate from 'tailwindcss-animate'
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ["class"],
@@ -8,6 +10,8 @@ export default {
     "./src/main.tsx",
     "./App.tsx",
     "./src/App.tsx",
+    "./force-tailwind-classes.tsx",
+    "./src/force-tailwind-classes.tsx",
     // Figma Make structure (root level)
     "./components/**/*.{js,ts,jsx,tsx}",
     "./lib/**/*.{js,ts,jsx,tsx}",
@@ -82,5 +86,5 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [tailwindcssAnimate],
 }
