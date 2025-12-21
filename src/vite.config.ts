@@ -10,9 +10,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, './'),
     },
   },
-  css: {
-    postcss: './postcss.config.js',
-  },
+  // Remove explicit postcss path - let Vite auto-discover it
   server: {
     port: 5173,
     strictPort: true,
