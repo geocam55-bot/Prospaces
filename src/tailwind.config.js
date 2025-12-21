@@ -1,10 +1,16 @@
-// CACHE BUST v2 - Nuclear option: scan ALL files
+// ESM syntax for type:module project
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
   darkMode: ["class"],
   content: [
-    "./**/*.{js,ts,jsx,tsx,html}",
-    "!./node_modules/**",
+    "./index.html",
+    "./App.tsx",
+    "./main.tsx",
+    "./force-tailwind-classes.tsx",
+    "./src/**/*.{js,ts,jsx,tsx}",
+    "./components/**/*.{js,ts,jsx,tsx}",
+    "./lib/**/*.{js,ts,jsx,tsx}",
+    "./utils/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     container: {
@@ -71,5 +77,5 @@ module.exports = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [],
 }

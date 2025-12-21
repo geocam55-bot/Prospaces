@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CACHE BUST v2 - Test with wildcard content scanning */
+/* CACHE BUST v3 - Fixed CommonJS/ESM mismatch! */
 
 @layer base {
   :root {
