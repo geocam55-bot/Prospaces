@@ -1,3 +1,4 @@
+// CACHE BUST v1 - Force Vite to rebuild with proper content scanning
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
