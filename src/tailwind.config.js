@@ -3,11 +3,19 @@ export default {
   darkMode: ["class"],
   content: [
     "./index.html",
+    "./src/index.html",
     "./main.tsx",
+    "./src/main.tsx",
     "./App.tsx",
+    "./src/App.tsx",
+    // Figma Make structure (root level)
     "./components/**/*.{js,ts,jsx,tsx}",
     "./lib/**/*.{js,ts,jsx,tsx}",
     "./utils/**/*.{js,ts,jsx,tsx}",
+    // GitHub/Vercel structure (src folder)
+    "./src/components/**/*.{js,ts,jsx,tsx}",
+    "./src/lib/**/*.{js,ts,jsx,tsx}",
+    "./src/utils/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     container: {
