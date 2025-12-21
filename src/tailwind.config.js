@@ -5,7 +5,9 @@ export default {
     "./index.html",
     "./main.tsx",
     "./App.tsx",
-    "./**/*.{js,ts,jsx,tsx}",  // Scan ALL files in root and subdirectories
+    "./components/**/*.{js,ts,jsx,tsx}",
+    "./lib/**/*.{js,ts,jsx,tsx}",
+    "./utils/**/*.{js,ts,jsx,tsx}",
   ],
   safelist: [
     'bg-red-500',
