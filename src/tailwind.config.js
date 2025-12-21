@@ -1,4 +1,5 @@
 import tailwindcssAnimate from 'tailwindcss-animate'
+import defaultTheme from 'tailwindcss/defaultTheme'
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -31,6 +32,9 @@ export default {
     },
     extend: {
       colors: {
+        // Keep all default Tailwind colors (gray, blue, red, etc.)
+        ...defaultTheme.colors,
+        // Add custom colors
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
