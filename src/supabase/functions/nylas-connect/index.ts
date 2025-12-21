@@ -173,6 +173,13 @@ serve(async (req) => {
       if (!nylasResponse.ok) {
         const errorText = await nylasResponse.text();
         console.error("Nylas API error:", errorText);
+        console.error("Request details:", {
+          endpoint: "https://api.us.nylas.com/v3/connect/auth",
+          provider: nylasProvider,
+          apiKeyPrefix: NYLAS_API_KEY.substring(0, 10) + "...",
+          redirectUri: `${Deno.env.get("SUPABASE_URL")}/functions/v1/nylas-callback`,
+          scopes: scopes,
+        });
         throw new Error(`Nylas API error: ${errorText}`);
       }
 
