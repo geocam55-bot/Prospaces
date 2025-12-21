@@ -2,6 +2,7 @@ import './index.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 
+// FORCE REBUILD - v3.0 - timestamp: 2025-12-21-21:05
 // MINIMAL TEST - Just render a simple div
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
