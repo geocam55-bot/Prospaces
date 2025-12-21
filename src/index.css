@@ -2,7 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Force rebuild test */
-.test-tailwind {
-  @apply bg-red-500 text-white p-4;
+/* Force cache bust - v2 */
+@layer utilities {
+  .force-rebuild {
+    display: block;
+  }
 }

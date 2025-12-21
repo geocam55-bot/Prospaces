@@ -10,6 +10,19 @@ export default {
     "./lib/**/*.{js,ts,jsx,tsx}",
     "./utils/**/*.{js,ts,jsx,tsx}",
   ],
+  safelist: [
+    'bg-red-500',
+    'bg-green-500',
+    'bg-purple-500',
+    'bg-blue-500',
+    'text-white',
+    'p-4',
+    'mt-4',
+    'rounded-lg',
+    'shadow-xl',
+    'border-4',
+    'border-yellow-400',
+  ],
   prefix: "",
   theme: {
     container: {
