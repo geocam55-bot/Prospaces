@@ -11,6 +11,7 @@ import { createClient } from './utils/supabase/client';
 import { syncCurrentUserProfile, syncUserProfile } from './utils/sync-profile';
 import { FullCRMDatabaseSetup } from './components/FullCRMDatabaseSetup';
 // import { initializeMobileApp, isMobileApp } from './src/mobile-utils';
+// TAILWIND CSS FIX v3 - Force rebuild to regenerate CSS with all classes
 
 // Lazy load all page components for faster initial load
 const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));

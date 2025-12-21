@@ -1,4 +1,5 @@
 /** @type {import('tailwindcss').Config} */
+// FORCE REBUILD v2 - Updated content paths
 export default {
   darkMode: ["class"],
   content: [
