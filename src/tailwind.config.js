@@ -1,26 +1,14 @@
-import tailwindcssAnimate from 'tailwindcss-animate'
-import defaultTheme from 'tailwindcss/defaultTheme'
-
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   darkMode: ["class"],
   content: [
     "./index.html",
-    "./src/index.html",
-    "./main.tsx",
-    "./src/main.tsx",
     "./App.tsx",
-    "./src/App.tsx",
+    "./main.tsx",
     "./force-tailwind-classes.tsx",
-    "./src/force-tailwind-classes.tsx",
-    // Figma Make structure (root level)
     "./components/**/*.{js,ts,jsx,tsx}",
     "./lib/**/*.{js,ts,jsx,tsx}",
     "./utils/**/*.{js,ts,jsx,tsx}",
-    // GitHub/Vercel structure (src folder)
-    "./src/components/**/*.{js,ts,jsx,tsx}",
-    "./src/lib/**/*.{js,ts,jsx,tsx}",
-    "./src/utils/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     container: {
@@ -32,9 +20,6 @@ export default {
     },
     extend: {
       colors: {
-        // Keep all default Tailwind colors (gray, blue, red, etc.)
-        ...defaultTheme.colors,
-        // Add custom colors
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -90,5 +75,5 @@ export default {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  plugins: [require("tailwindcss-animate")],
 }

@@ -53,8 +53,6 @@
           "recharts": "*",
           "sonner": "^2.0.3",
           "tailwind-merge": "*",
-          "tailwindcss": "*",
-          "tailwindcss-animate": "*",
           "vaul": "*",
           "vite": "*",
           "vitest": "*",
