@@ -1,9 +1,9 @@
-import './styles/globals.css'
+import './styles/app.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 
-// TAILWIND FIX v14 - Force CSS rebuild by updating import timestamp
+// TAILWIND FIX v15 - Changed CSS file name to force cache invalidation
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
