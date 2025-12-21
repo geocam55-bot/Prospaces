@@ -402,6 +402,8 @@ export default function App() {
   if (appState.isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        {/* TAILWIND TEST v14 - This should force CSS regeneration */}
+        <div className="hidden bg-orange-500 text-purple-900 p-96 m-96 border-pink-700 shadow-2xl rounded-3xl w-screen h-screen"></div>
         <div className="text-center">
           <div className="relative">
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 mx-auto mb-4"></div>
