@@ -113,10 +113,10 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         throw new Error('Organization not found. Please ensure you are part of an organization.');
       }
 
-      // Call Edge Function to initiate OAuth
-      const { data: oauthData, error: oauthError } = await supabase.functions.invoke('calendar-oauth-init', {
+      // Call Edge Function to initiate OAuth (Nylas unified auth)
+      const { data: oauthData, error: oauthError } = await supabase.functions.invoke('nylas-connect', {
         body: {
-          provider: selectedProvider,
+          provider: selectedProvider === 'google' ? 'gmail' : 'outlook',
           email: email.trim(),
         }
       });
@@ -156,9 +156,9 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
     try {
       const supabase = createClient();
       
-      // Delete calendar account
+      // Delete from email_accounts (Nylas unified table)
       const { error } = await supabase
-        .from('calendar_accounts')
+        .from('email_accounts')
         .delete()
         .eq('id', accountId);
 
