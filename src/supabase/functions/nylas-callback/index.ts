@@ -2,6 +2,9 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 serve(async (req) => {
+  // Parse returnUrl early in case we need it for error redirects
+  let returnUrl: string | null = null;
+  
   try {
     const url = new URL(req.url);
     
@@ -13,6 +16,16 @@ serve(async (req) => {
     const success = url.searchParams.get('success');
     const error = url.searchParams.get('error');
 
+    // Try to extract returnUrl from state for error handling
+    if (state) {
+      try {
+        const stateData = JSON.parse(state);
+        returnUrl = stateData.returnUrl || null;
+      } catch (e) {
+        // Ignore state parse errors here
+      }
+    }
+    
     // Log ALL parameters to debug
     const allParams: Record<string, string> = {};
     url.searchParams.forEach((value, key) => {
@@ -62,9 +75,14 @@ serve(async (req) => {
 
     // Parse state to get user info
     const stateData = JSON.parse(state);
-    const { userId, orgId } = stateData;
+    const { userId, orgId, returnUrl: stateReturnUrl } = stateData;
 
-    console.log('State data:', { userId, orgId });
+    // Use returnUrl from state if available
+    if (stateReturnUrl) {
+      returnUrl = stateReturnUrl;
+    }
+
+    console.log('State data:', { userId, orgId, returnUrl });
     console.log('Grant details:', { grant_id, email, provider });
 
     // Nylas Hosted Auth already completed the OAuth flow
@@ -105,7 +123,12 @@ serve(async (req) => {
       throw new Error(`Failed to save email account: ${insertError.message}`);
     }
 
-    // Return success HTML that closes the popup and sends message to parent
+    // Return success HTML that redirects back to app
+    const appUrl = returnUrl || 
+                   Deno.env.get('SUPABASE_URL')?.replace('/supabase', '') || 
+                   req.headers.get('origin') || 
+                   'https://your-app-url.com';
+    
     return new Response(
       `
       <!DOCTYPE html>
@@ -113,6 +136,7 @@ serve(async (req) => {
         <head><title>Connection Successful</title></head>
         <body>
           <script>
+            // Try to close if opened as popup
             if (window.opener) {
               window.opener.postMessage({
                 type: 'nylas-oauth-success',
@@ -124,11 +148,14 @@ serve(async (req) => {
                 }
               }, '*');
               window.close();
+            } else {
+              // Otherwise redirect back to app with success message
+              window.location.href = '${appUrl}?calendar_connected=success&email=${encodeURIComponent(account.email)}';
             }
           </script>
           <div style="font-family: system-ui; padding: 2rem; text-align: center;">
             <h1 style="color: #10b981;">✓ Connected Successfully!</h1>
-            <p>Your email account has been connected. This window will close automatically.</p>
+            <p>Your email account has been connected. Redirecting back to app...</p>
           </div>
         </body>
       </html>
@@ -138,6 +165,13 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in nylas-callback:', error);
+    
+    // Get app URL for redirect
+    const appUrl = returnUrl || 
+                   Deno.env.get('SUPABASE_URL')?.replace('/supabase', '') || 
+                   req.headers.get('origin') || 
+                   'https://your-app-url.com';
+    
     return new Response(
       `
       <!DOCTYPE html>
@@ -151,12 +185,17 @@ serve(async (req) => {
                 error: '${error.message}'
               }, '*');
               setTimeout(() => window.close(), 2000);
+            } else {
+              // Redirect back to app with error
+              setTimeout(() => {
+                window.location.href = '${appUrl}?calendar_connected=error&message=${encodeURIComponent(error.message)}';
+              }, 2000);
             }
           </script>
           <div style="font-family: system-ui; padding: 2rem; text-align: center;">
             <h1 style="color: #ef4444;">✗ Connection Failed</h1>
             <p>Error: ${error.message}</p>
-            <p>This window will close automatically.</p>
+            <p>Redirecting back to app...</p>
           </div>
         </body>
       </html>

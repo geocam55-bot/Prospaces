@@ -43,12 +43,13 @@ serve(async (req) => {
 
     // Get the request body
     const body = await req.json();
-    const { provider, email, imapConfig } = body;
+    const { provider, email, imapConfig, returnUrl } = body;
 
     console.log("Connect request:", {
       provider,
       email,
       hasImapConfig: !!imapConfig,
+      returnUrl,
     });
 
     // For IMAP connections
@@ -160,6 +161,7 @@ serve(async (req) => {
           orgId:
             user.user_metadata?.organizationId ||
             "default_org",
+          returnUrl: returnUrl || req.headers.get('origin') || req.headers.get('referer'),
         }),
         scope: scopes,
       };

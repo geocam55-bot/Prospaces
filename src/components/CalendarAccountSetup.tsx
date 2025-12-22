@@ -118,6 +118,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         body: {
           provider: selectedProvider === 'google' ? 'gmail' : 'outlook',
           email: email.trim(),
+          returnUrl: window.location.origin, // Pass current app URL for redirect after OAuth
         }
       });
 

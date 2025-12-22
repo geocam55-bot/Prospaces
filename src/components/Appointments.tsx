@@ -65,23 +65,23 @@ export function Appointments({ user }: AppointmentsProps) {
     // Check for OAuth callback parameters
     const urlParams = new URLSearchParams(window.location.search);
     const calendarConnected = urlParams.get('calendar_connected');
-    const provider = urlParams.get('provider');
-    const error = urlParams.get('error');
+    const email = urlParams.get('email');
+    const errorMessage = urlParams.get('message');
     
-    if (calendarConnected === 'true' && provider) {
-      toast.success(`${provider.charAt(0).toUpperCase() + provider.slice(1)} Calendar connected!`, {
-        description: 'Your calendar is now synced with ProSpaces CRM'
+    if (calendarConnected === 'success' && email) {
+      toast.success('Calendar connected!', {
+        description: `${email} has been successfully connected`
       });
       // Clean up URL
-      window.history.replaceState({}, '', '/appointments');
-      // Reload calendar accounts
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Reload accounts
       loadCalendarAccounts();
-    } else if (error) {
+    } else if (calendarConnected === 'error') {
       toast.error('Failed to connect calendar', {
-        description: error
+        description: errorMessage || 'An error occurred during connection'
       });
       // Clean up URL
-      window.history.replaceState({}, '', '/appointments');
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
