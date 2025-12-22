@@ -131,18 +131,20 @@ serve(async (req) => {
       let scopes: string[];
       
       if (nylasProvider === "google") {
-        // Google requires actual Gmail API scopes
+        // Google requires actual Gmail API scopes + Calendar scopes
         scopes = [
           "https://www.googleapis.com/auth/gmail.readonly",
           "https://www.googleapis.com/auth/gmail.send",
           "https://www.googleapis.com/auth/gmail.modify",
+          "https://www.googleapis.com/auth/calendar",
+          "https://www.googleapis.com/auth/calendar.events",
         ];
       } else if (nylasProvider === "microsoft") {
         // Microsoft uses simplified Nylas scopes
-        scopes = ["email"];
+        scopes = ["email", "calendar"];
       } else if (nylasProvider === "icloud") {
         // Apple iCloud
-        scopes = ["email"];
+        scopes = ["email", "calendar"];
       } else {
         // Default fallback
         scopes = ["email"];

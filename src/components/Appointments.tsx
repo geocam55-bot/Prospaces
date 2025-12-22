@@ -1,8 +1,24 @@
+import { useState, useEffect } from 'react';
 import { appointmentsAPI } from '../utils/api';
 import { CalendarAccountSetup } from './CalendarAccountSetup';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Card, CardContent } from './ui/card';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { Plus, Trash2, Clock, MapPin, Calendar as CalendarIcon, MoreVertical, Link2, RefreshCw, Loader2 } from 'lucide-react';
+
+interface User {
+  id: string;
+  email: string;
+  organizationId: string;
+  role: string;
+}
 
 interface Appointment {
   id: string;
@@ -139,10 +155,12 @@ export function Appointments({ user }: AppointmentsProps) {
   const loadCalendarAccounts = async () => {
     const client = createClient();
     try {
+      // Nylas uses email_accounts table for both email and calendar
       const { data, error } = await client
-        .from('calendar_accounts')
+        .from('email_accounts')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .eq('connected', true);
       if (error) {
         console.error('Error fetching calendar accounts:', error);
       } else {
@@ -166,11 +184,10 @@ export function Appointments({ user }: AppointmentsProps) {
       // Sync with each connected calendar account
       for (const account of calendarAccounts) {
         try {
-          // Call Edge Function to sync
-          const { data, error } = await supabase.functions.invoke('calendar-sync', {
+          // Call Nylas calendar sync Edge Function
+          const { data, error } = await supabase.functions.invoke('nylas-sync-calendar', {
             body: {
               accountId: account.id,
-              direction: 'bidirectional',
             }
           });
           
@@ -184,24 +201,17 @@ export function Appointments({ user }: AppointmentsProps) {
 
           if (!data?.success) {
             toast.error(`Failed to sync ${account.provider} calendar`, {
-              description: 'Sync operation was not successful'
+              description: data?.error || 'Sync operation was not successful'
             });
             continue;
           }
 
-          // Real sync successful
-          const { result } = data;
-          console.log('[Sync] Result:', result);
+          // Nylas sync response format: { success, syncedCount, calendarsCount, lastSync }
+          console.log('[Sync] Calendar sync result:', data);
           
-          if (result.errors > 0) {
-            toast.warning(`Synced ${account.provider} with ${result.errors} error(s)`, {
-              description: `Imported: ${result.imported}, Exported: ${result.exported}, Updated: ${result.updated}`
-            });
-          } else {
-            toast.success(`Synced ${account.provider} calendar!`, {
-              description: `Imported: ${result.imported}, Exported: ${result.exported}, Updated: ${result.updated}`
-            });
-          }
+          toast.success(`Synced ${account.provider} calendar!`, {
+            description: `${data.syncedCount || 0} new event(s) imported`
+          });
         } catch (accountError: any) {
           console.error('[Sync] Error syncing account:', accountError);
           toast.error(`Failed to sync ${account.provider} calendar`, {

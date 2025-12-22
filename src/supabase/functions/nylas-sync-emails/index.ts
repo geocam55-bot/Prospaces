@@ -58,6 +58,15 @@ serve(async (req) => {
       throw new Error('Email account not found');
     }
 
+    console.log('Retrieved account:', {
+      id: account.id,
+      email: account.email,
+      provider: account.provider,
+      hasNylasGrantId: !!account.nylas_grant_id,
+      nylasGrantId: account.nylas_grant_id,
+      hasNylasAccessToken: !!account.nylas_access_token,
+    });
+
     let syncedCount = 0;
 
     // Sync via IMAP
@@ -73,13 +82,15 @@ serve(async (req) => {
       syncedCount = 0;
       console.log('IMAP sync would happen here for', account.email);
     } 
-    // Sync via Nylas OAuth
-    else if (account.nylas_grant_id && account.nylas_access_token) {
+    // Sync via Nylas OAuth (Hosted Auth uses grant_id only, no access_token needed)
+    else if (account.nylas_grant_id) {
       const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
       
       if (!NYLAS_API_KEY) {
         throw new Error('NYLAS_API_KEY not configured');
       }
+
+      console.log('Syncing via Nylas for account:', account.email, 'grant_id:', account.nylas_grant_id);
 
       // Fetch emails using Nylas API
       const nylasResponse = await fetch(

@@ -64,9 +64,12 @@ serve(async (req) => {
       throw new Error('Email account not found');
     }
 
-    if (!account.nylas_grant_id || !account.nylas_access_token) {
+    // Nylas Hosted Auth only needs grant_id, not access_token
+    if (!account.nylas_grant_id) {
       throw new Error('Account not connected via Nylas');
     }
+
+    console.log('📅 Syncing calendar for:', account.email, 'grant_id:', account.nylas_grant_id);
 
     const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
     if (!NYLAS_API_KEY) {
