@@ -4,8 +4,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 serve(async (req) => {
   try {
     const url = new URL(req.url);
-    const code = url.searchParams.get('code');
+    
+    // Nylas Hosted Auth sends grant_id directly (no code exchange needed)
+    const grant_id = url.searchParams.get('grant_id');
+    const email = url.searchParams.get('email');
+    const provider = url.searchParams.get('provider');
     const state = url.searchParams.get('state');
+    const success = url.searchParams.get('success');
     const error = url.searchParams.get('error');
 
     // Log ALL parameters to debug
@@ -15,9 +20,11 @@ serve(async (req) => {
     });
 
     console.log('Callback received:', {
-      hasCode: !!code,
+      hasGrantId: !!grant_id,
+      hasEmail: !!email,
       hasState: !!state,
       hasError: !!error,
+      success,
       url: req.url,
       allParams
     });
@@ -48,8 +55,9 @@ serve(async (req) => {
       );
     }
 
-    if (!code || !state) {
-      throw new Error('Missing code or state parameter');
+    // Check for required parameters
+    if (!grant_id || !state || !email) {
+      throw new Error(`Missing required parameters. grant_id: ${!!grant_id}, state: ${!!state}, email: ${!!email}`);
     }
 
     // Parse state to get user info
@@ -57,45 +65,18 @@ serve(async (req) => {
     const { userId, orgId } = stateData;
 
     console.log('State data:', { userId, orgId });
+    console.log('Grant details:', { grant_id, email, provider });
 
-    const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
-    if (!NYLAS_API_KEY) {
-      throw new Error('NYLAS_API_KEY not configured');
-    }
-    
-    const NYLAS_CLIENT_ID = Deno.env.get('NYLAS_CLIENT_ID') || NYLAS_API_KEY;
-    const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/nylas-callback`;
+    // Nylas Hosted Auth already completed the OAuth flow
+    // We have the grant_id, email, and provider directly
+    console.log('Using Nylas Hosted Auth grant - no token exchange needed');
 
-    console.log('Exchanging code for token...');
+    // Map Nylas provider names to our database values
+    const dbProvider = provider === 'google' ? 'gmail' : 
+                      provider === 'microsoft' ? 'outlook' : 
+                      provider || 'gmail';
 
-    // Exchange code for access token
-    const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${NYLAS_API_KEY}`,
-      },
-      body: JSON.stringify({
-        client_id: NYLAS_CLIENT_ID,
-        code: code,
-        redirect_uri: redirectUri,
-      }),
-    });
-
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('Token exchange failed:', errorText);
-      throw new Error(`Failed to exchange token: ${errorText}`);
-    }
-
-    const tokenData = await tokenResponse.json();
-    console.log('Token exchange successful:', {
-      hasAccessToken: !!tokenData.access_token,
-      hasGrantId: !!tokenData.grant_id,
-      email: tokenData.email
-    });
-
-    const { access_token, grant_id, email, provider } = tokenData;
+    console.log('Mapped provider:', { nylasProvider: provider, dbProvider });
 
     // Create a Supabase client with service role key to insert data
     const supabaseClient = createClient(
@@ -109,10 +90,10 @@ serve(async (req) => {
       .insert({
         user_id: userId,
         organization_id: orgId,
-        provider: provider || 'gmail',
+        provider: dbProvider,
         email: email,
         nylas_grant_id: grant_id,
-        nylas_access_token: access_token, // In production, encrypt this!
+        nylas_access_token: null, // Hosted auth uses grant_id directly
         connected: true,
         last_sync: new Date().toISOString(),
       })
