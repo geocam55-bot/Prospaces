@@ -183,7 +183,7 @@ export function EmailTester({ user, onClose }: EmailTesterProps) {
         .from('emails')
         .select('*')
         .eq('account_id', selectedAccountId)
-        .order('date', { ascending: false })
+        .order('received_at', { ascending: false })
         .limit(10);
 
       if (cacheError) {
@@ -196,7 +196,7 @@ export function EmailTester({ user, onClose }: EmailTesterProps) {
           'fetch-emails', 
           'success', 
           `Fetched ${cachedEmails.length} cached email(s)`,
-          `Most recent: "${cachedEmails[0].subject}" from ${cachedEmails[0].from}`
+          `Most recent: "${cachedEmails[0].subject}" from ${cachedEmails[0].from_email}`
         );
         return;
       }
@@ -252,7 +252,7 @@ export function EmailTester({ user, onClose }: EmailTesterProps) {
         .from('emails')
         .select('*')
         .eq('account_id', selectedAccountId)
-        .or(`subject.ilike.%${searchQuery}%,body.ilike.%${searchQuery}%,from.ilike.%${searchQuery}%`)
+        .or(`subject.ilike.%${searchQuery}%,body.ilike.%${searchQuery}%,from_email.ilike.%${searchQuery}%`)
         .limit(10);
 
       if (error) {
@@ -400,7 +400,12 @@ export function EmailTester({ user, onClose }: EmailTesterProps) {
       }
 
       // Try to find matching contact by email domain
-      const emailDomain = emails.from.split('@')[1];
+      const emailDomain = emails.from_email?.split('@')[1];
+      if (!emailDomain) {
+        updateTestResult('email-linking', 'warning', 'Invalid email format', 'Email has no domain');
+        return;
+      }
+      
       const { data: contacts } = await supabase
         .from('contacts')
         .select('*')
