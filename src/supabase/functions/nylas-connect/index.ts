@@ -112,6 +112,10 @@ serve(async (req) => {
       if (!NYLAS_API_KEY) {
         throw new Error("NYLAS_API_KEY not configured");
       }
+      
+      // For Nylas v3, we might also need the client_id (also called API Key in Nylas UI)
+      // In Nylas v3, the "API Key" shown in dashboard is actually the client_id
+      const NYLAS_CLIENT_ID = Deno.env.get("NYLAS_CLIENT_ID") || NYLAS_API_KEY;
 
       // Map provider names to Nylas provider names
       const nylasProviderMap: Record<string, string> = {
@@ -122,32 +126,33 @@ serve(async (req) => {
       const nylasProvider =
         nylasProviderMap[provider] || provider;
 
-      // Determine scopes based on provider
-      let scopes: string[] = [];
-      if (provider === "gmail") {
-        scopes = [
-          // Email scopes
-          "https://www.googleapis.com/auth/gmail.readonly",
-          "https://www.googleapis.com/auth/gmail.send",
-          "https://www.googleapis.com/auth/gmail.modify",
-          // Calendar scopes
-          "https://www.googleapis.com/auth/calendar",
-          "https://www.googleapis.com/auth/calendar.events",
-        ];
-      } else if (provider === "outlook") {
-        scopes = [
-          // Email scopes
-          "https://outlook.office.com/Mail.Read",
-          "https://outlook.office.com/Mail.Send",
-          "https://outlook.office.com/Mail.ReadWrite",
-          // Calendar scopes
-          "https://outlook.office.com/Calendars.ReadWrite",
-        ];
-      } else if (provider === "apple") {
-        scopes = ["email", "name"];
-      }
+      // Start with only email scope - calendar and contacts need to be enabled separately
+      // https://developer.nylas.com/docs/api/v3/ecc/#overview-authentication-scopes
+      const scopes = [
+        "email",       // Maps to Mail.Read, Mail.ReadWrite, Mail.Send
+      ];
 
       // Generate OAuth authorization URL using Nylas API
+      const requestBody = {
+        client_id: NYLAS_CLIENT_ID,
+        provider: nylasProvider,
+        redirect_uri: `${Deno.env.get("SUPABASE_URL")}/functions/v1/nylas-callback`,
+        state: JSON.stringify({
+          userId: user.id,
+          orgId:
+            user.user_metadata?.organizationId ||
+            "default_org",
+        }),
+        scope: scopes,
+      };
+      
+      console.log("Nylas API request:", {
+        endpoint: "https://api.us.nylas.com/v3/connect/auth",
+        provider: nylasProvider,
+        redirectUri: requestBody.redirect_uri,
+        scopes: requestBody.scope,
+      });
+
       const nylasResponse = await fetch(
         "https://api.us.nylas.com/v3/connect/auth",
         {
@@ -156,17 +161,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${NYLAS_API_KEY}`,
           },
-          body: JSON.stringify({
-            provider: nylasProvider,
-            redirect_uri: `${Deno.env.get("SUPABASE_URL")}/functions/v1/nylas-callback`,
-            state: JSON.stringify({
-              userId: user.id,
-              orgId:
-                user.user_metadata?.organizationId ||
-                "default_org",
-            }),
-            scope: scopes,
-          }),
+          body: JSON.stringify(requestBody),
         },
       );
 
@@ -180,10 +175,32 @@ serve(async (req) => {
           redirectUri: `${Deno.env.get("SUPABASE_URL")}/functions/v1/nylas-callback`,
           scopes: scopes,
         });
-        throw new Error(`Nylas API error: ${errorText}`);
+        
+        // Parse Nylas error for better user feedback
+        let userMessage = errorText;
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error) {
+            userMessage = errorJson.error;
+          }
+          if (errorJson.message) {
+            userMessage = errorJson.message;
+          }
+        } catch (e) {
+          // Use text as-is
+        }
+        
+        throw new Error(`Nylas API error (${nylasResponse.status}): ${userMessage}`);
       }
 
       const nylasData = await nylasResponse.json();
+      
+      console.log("Nylas auth response:", nylasData);
+      
+      if (!nylasData.auth_url) {
+        console.error("Missing auth_url in Nylas response:", nylasData);
+        throw new Error(`Nylas didn't return an auth URL. This usually means the ${nylasProvider} provider is not configured in your Nylas Dashboard. Response: ${JSON.stringify(nylasData)}`);
+      }
 
       return new Response(
         JSON.stringify({

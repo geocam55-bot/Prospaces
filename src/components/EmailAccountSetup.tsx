@@ -149,21 +149,22 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
     try {
       const supabaseUrl = `https://${projectId}.supabase.co`;
       
-      // Get the access token from localStorage (set during login)
-      const accessToken = localStorage.getItem('access_token');
+      // Get the access token from Supabase session (more reliable than localStorage)
+      const supabase = createClient();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (!accessToken) {
-        throw new Error('You must be logged in to connect an email account');
+      if (sessionError || !session?.access_token) {
+        throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
       console.log('Attempting to connect to:', `${supabaseUrl}/functions/v1/nylas-connect`);
-      console.log('Using access token:', accessToken.substring(0, 20) + '...');
+      console.log('Using access token:', session.access_token.substring(0, 20) + '...');
 
       // Call Nylas connect function for OAuth using fetch (don't map provider names - Edge Function handles it)
       const response = await fetch(`${supabaseUrl}/functions/v1/nylas-connect`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -293,16 +294,14 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
     try {
       const supabaseUrl = `https://${projectId}.supabase.co`;
       
-      // Get the access token from localStorage (set during login)
-      const accessToken = localStorage.getItem('access_token');
+      // Get the access token from Supabase session (more reliable than localStorage)
+      const supabase = createClient();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (!accessToken) {
-        throw new Error('You must be logged in to connect an email account');
+      if (sessionError || !session?.access_token) {
+        throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      // For demo purposes, skip the actual IMAP connection and store config locally
-      // In production, this would call the Nylas Edge Function
-      
       // Check if the backend is available (silently - errors are expected if not deployed)
       let backendAvailable = false;
       if (backendAvailabilityCache && (Date.now() - backendAvailabilityCache.timestamp < CACHE_DURATION)) {
@@ -363,7 +362,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       const response = await fetch(`${supabaseUrl}/functions/v1/nylas-connect`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

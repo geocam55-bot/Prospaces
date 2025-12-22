@@ -9,7 +9,6 @@
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
       alias: {
         'sonner@2.0.3': 'sonner',
-        'react@18.2.0': 'react',
         'react-hook-form@7.55.0': 'react-hook-form',
         '@jsr/supabase__supabase-js@2.49.8': '@jsr/supabase__supabase-js',
         '@jsr/supabase__supabase-js@2': '@jsr/supabase__supabase-js',
