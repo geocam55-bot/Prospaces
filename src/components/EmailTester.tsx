@@ -337,14 +337,19 @@ export function EmailTester({ user, onClose }: EmailTesterProps) {
       }
 
       // Try SMTP send
-      if (account.smtp_config) {
+      if (account.smtp_host && account.smtp_port && account.smtp_username && account.smtp_password) {
         const response = await supabase.functions.invoke('simple-send-email', {
           body: {
             from: account.email,
             to: testEmail,
             subject: testSubject,
             body: testBody,
-            smtpConfig: account.smtp_config,
+            smtpConfig: {
+              host: account.smtp_host,
+              port: account.smtp_port,
+              username: account.smtp_username,
+              password: account.smtp_password,
+            },
           },
         });
 
