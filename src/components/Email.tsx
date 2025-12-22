@@ -244,8 +244,9 @@ export function Email({ user }: EmailProps) {
       const { data, error } = await supabase
         .from('email_accounts')
         .select('*')
-        .eq('user_id', session.user.id)
-        .eq('organization_id', user.organizationId);
+        .eq('user_id', session.user.id);
+        // Temporarily removed organization filter to debug
+        // .eq('organization_id', user.organizationId);
 
       if (error) {
         console.error('[Email] Error loading accounts:', error);
@@ -295,7 +296,8 @@ export function Email({ user }: EmailProps) {
         .from('emails')
         .select('*')
         .eq('user_id', session.user.id)
-        .eq('organization_id', user.organizationId)
+        // Temporarily removed organization filter to debug
+        // .eq('organization_id', user.organizationId)
         .order('received_at', { ascending: false })
         .limit(100);
 
