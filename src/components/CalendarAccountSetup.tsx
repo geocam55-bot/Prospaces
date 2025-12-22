@@ -131,12 +131,77 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         throw new Error('Failed to get authorization URL from server.');
       }
 
-      toast.info('Redirecting to authorization...', {
-        description: `Opening ${selectedProvider === 'google' ? 'Google' : 'Microsoft'} login`
+      toast.info('Opening authorization window...', {
+        description: `Please sign in with ${selectedProvider === 'google' ? 'Google' : 'Microsoft'}`
       });
 
-      // Redirect to OAuth provider
-      window.location.href = oauthData.authUrl;
+      // Open OAuth in a popup window instead of redirecting
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      
+      const popup = window.open(
+        oauthData.authUrl,
+        'oauth-popup',
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+      );
+
+      if (!popup) {
+        throw new Error('Popup was blocked. Please allow popups for this site.');
+      }
+
+      // Listen for messages from the popup
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data.type === 'nylas-oauth-success') {
+          console.log('[Calendar] OAuth success:', event.data.account);
+          
+          toast.success('Calendar connected!', {
+            description: `${event.data.account.email} has been successfully connected`
+          });
+          
+          // Clean up
+          window.removeEventListener('message', handleMessage);
+          setIsConnecting(false);
+          setStep('success');
+          
+          // Notify parent to refresh accounts
+          onAccountAdded();
+          
+          // Close dialog after a moment
+          setTimeout(() => {
+            onClose();
+          }, 1500);
+          
+        } else if (event.data.type === 'nylas-oauth-error') {
+          console.error('[Calendar] OAuth error:', event.data.error);
+          
+          toast.error('Failed to connect calendar', {
+            description: event.data.error
+          });
+          
+          // Clean up
+          window.removeEventListener('message', handleMessage);
+          setError(event.data.error);
+          setIsConnecting(false);
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+
+      // Check if popup was closed without completing OAuth
+      const checkPopupClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkPopupClosed);
+          window.removeEventListener('message', handleMessage);
+          
+          // Only set error if we're still in connecting state (no success/error message received)
+          if (isConnecting) {
+            setIsConnecting(false);
+            setError('Authorization was cancelled');
+          }
+        }
+      }, 500);
 
     } catch (error: any) {
       console.error('[Calendar] Connection error:', error);
