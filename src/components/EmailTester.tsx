@@ -310,34 +310,10 @@ export function EmailTester({ user, onClose }: EmailTesterProps) {
         return;
       }
 
-      // Try Nylas send
-      if (account.nylas_grant_id) {
-        const response = await supabase.functions.invoke('nylas-send-email', {
-          body: {
-            grantId: account.nylas_grant_id,
-            to: testEmail,
-            subject: testSubject,
-            body: testBody,
-          },
-        });
-
-        if (response.error) {
-          updateTestResult('send-email', 'error', 'Failed to send via Nylas', response.error.message);
-          return;
-        }
-
-        updateTestResult(
-          'send-email', 
-          'success', 
-          'Email sent successfully!',
-          `Sent to ${testEmail} via Nylas`
-        );
-        toast.success(`Test email sent to ${testEmail}`);
-        return;
-      }
-
-      // Try SMTP send
+      // Try SMTP send first (more reliable for testing)
       if (account.smtp_host && account.smtp_port && account.smtp_username && account.smtp_password) {
+        updateTestResult('send-email', 'pending', 'Sending via SMTP...');
+        
         const response = await supabase.functions.invoke('simple-send-email', {
           body: {
             from: account.email,
@@ -363,6 +339,34 @@ export function EmailTester({ user, onClose }: EmailTesterProps) {
           'success', 
           'Email sent successfully!',
           `Sent to ${testEmail} via SMTP`
+        );
+        toast.success(`Test email sent to ${testEmail}`);
+        return;
+      }
+
+      // Try Nylas send as fallback
+      if (account.nylas_grant_id) {
+        updateTestResult('send-email', 'pending', 'Sending via Nylas...');
+        
+        const response = await supabase.functions.invoke('nylas-send-email', {
+          body: {
+            grantId: account.nylas_grant_id,
+            to: testEmail,
+            subject: testSubject,
+            body: testBody,
+          },
+        });
+
+        if (response.error) {
+          updateTestResult('send-email', 'error', 'Failed to send via Nylas', response.error.message);
+          return;
+        }
+
+        updateTestResult(
+          'send-email', 
+          'success', 
+          'Email sent successfully!',
+          `Sent to ${testEmail} via Nylas`
         );
         toast.success(`Test email sent to ${testEmail}`);
         return;
