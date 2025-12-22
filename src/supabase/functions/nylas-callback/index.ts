@@ -8,8 +8,23 @@ serve(async (req) => {
     const state = url.searchParams.get('state');
     const error = url.searchParams.get('error');
 
+    // Log ALL parameters to debug
+    const allParams: Record<string, string> = {};
+    url.searchParams.forEach((value, key) => {
+      allParams[key] = value;
+    });
+
+    console.log('Callback received:', {
+      hasCode: !!code,
+      hasState: !!state,
+      hasError: !!error,
+      url: req.url,
+      allParams
+    });
+
     // Handle OAuth errors
     if (error) {
+      console.error('OAuth error from provider:', error);
       return new Response(
         `
         <!DOCTYPE html>
@@ -41,10 +56,17 @@ serve(async (req) => {
     const stateData = JSON.parse(state);
     const { userId, orgId } = stateData;
 
+    console.log('State data:', { userId, orgId });
+
     const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
     if (!NYLAS_API_KEY) {
       throw new Error('NYLAS_API_KEY not configured');
     }
+    
+    const NYLAS_CLIENT_ID = Deno.env.get('NYLAS_CLIENT_ID') || NYLAS_API_KEY;
+    const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/nylas-callback`;
+
+    console.log('Exchanging code for token...');
 
     // Exchange code for access token
     const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
@@ -54,18 +76,26 @@ serve(async (req) => {
         'Authorization': `Bearer ${NYLAS_API_KEY}`,
       },
       body: JSON.stringify({
+        client_id: NYLAS_CLIENT_ID,
         code: code,
-        redirect_uri: `${Deno.env.get('SUPABASE_URL')}/functions/v1/nylas-callback`,
+        redirect_uri: redirectUri,
       }),
     });
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
+      console.error('Token exchange failed:', errorText);
       throw new Error(`Failed to exchange token: ${errorText}`);
     }
 
     const tokenData = await tokenResponse.json();
-    const { access_token, grant_id, email } = tokenData;
+    console.log('Token exchange successful:', {
+      hasAccessToken: !!tokenData.access_token,
+      hasGrantId: !!tokenData.grant_id,
+      email: tokenData.email
+    });
+
+    const { access_token, grant_id, email, provider } = tokenData;
 
     // Create a Supabase client with service role key to insert data
     const supabaseClient = createClient(
@@ -79,7 +109,7 @@ serve(async (req) => {
       .insert({
         user_id: userId,
         organization_id: orgId,
-        provider: 'gmail',
+        provider: provider || 'gmail',
         email: email,
         nylas_grant_id: grant_id,
         nylas_access_token: access_token, // In production, encrypt this!

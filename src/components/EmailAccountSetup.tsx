@@ -208,9 +208,13 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
       const data = await response.json();
       console.log('OAuth init response:', data);
+      console.log('OAuth init response - has authUrl?', !!data?.authUrl);
+      console.log('OAuth init response - authUrl value:', data?.authUrl);
+      console.log('OAuth init response - all keys:', Object.keys(data));
 
       if (!data?.success || !data?.authUrl) {
-        throw new Error(data?.error || 'Failed to generate authorization URL');
+        console.error('Invalid response structure:', data);
+        throw new Error(data?.error || `Failed to generate authorization URL. Nylas response: ${JSON.stringify(data)}`);
       }
 
       // Open OAuth popup

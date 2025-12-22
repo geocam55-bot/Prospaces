@@ -126,11 +126,27 @@ serve(async (req) => {
       const nylasProvider =
         nylasProviderMap[provider] || provider;
 
-      // Start with only email scope - calendar and contacts need to be enabled separately
+      // Provider-specific scopes
       // https://developer.nylas.com/docs/api/v3/ecc/#overview-authentication-scopes
-      const scopes = [
-        "email",       // Maps to Mail.Read, Mail.ReadWrite, Mail.Send
-      ];
+      let scopes: string[];
+      
+      if (nylasProvider === "google") {
+        // Google requires actual Gmail API scopes
+        scopes = [
+          "https://www.googleapis.com/auth/gmail.readonly",
+          "https://www.googleapis.com/auth/gmail.send",
+          "https://www.googleapis.com/auth/gmail.modify",
+        ];
+      } else if (nylasProvider === "microsoft") {
+        // Microsoft uses simplified Nylas scopes
+        scopes = ["email"];
+      } else if (nylasProvider === "icloud") {
+        // Apple iCloud
+        scopes = ["email"];
+      } else {
+        // Default fallback
+        scopes = ["email"];
+      }
 
       // Generate OAuth authorization URL using Nylas API
       const requestBody = {
@@ -180,14 +196,22 @@ serve(async (req) => {
         let userMessage = errorText;
         try {
           const errorJson = JSON.parse(errorText);
-          if (errorJson.error) {
+          console.error("Parsed Nylas error:", errorJson);
+          
+          // Handle different error response formats
+          if (errorJson.error_description) {
+            userMessage = errorJson.error_description;
+          } else if (errorJson.error && typeof errorJson.error === 'string') {
             userMessage = errorJson.error;
-          }
-          if (errorJson.message) {
+          } else if (errorJson.message) {
             userMessage = errorJson.message;
+          } else if (errorJson.error && typeof errorJson.error === 'object') {
+            userMessage = JSON.stringify(errorJson.error);
+          } else {
+            userMessage = JSON.stringify(errorJson);
           }
         } catch (e) {
-          // Use text as-is
+          // Use text as-is if JSON parsing fails
         }
         
         throw new Error(`Nylas API error (${nylasResponse.status}): ${userMessage}`);
@@ -197,15 +221,18 @@ serve(async (req) => {
       
       console.log("Nylas auth response:", nylasData);
       
-      if (!nylasData.auth_url) {
-        console.error("Missing auth_url in Nylas response:", nylasData);
+      // Nylas v3 returns the URL in data.url, not auth_url
+      const authUrl = nylasData.data?.url || nylasData.auth_url;
+      
+      if (!authUrl) {
+        console.error("Missing auth URL in Nylas response:", nylasData);
         throw new Error(`Nylas didn't return an auth URL. This usually means the ${nylasProvider} provider is not configured in your Nylas Dashboard. Response: ${JSON.stringify(nylasData)}`);
       }
 
       return new Response(
         JSON.stringify({
           success: true,
-          authUrl: nylasData.auth_url,
+          authUrl: authUrl,
         }),
         {
           headers: {
