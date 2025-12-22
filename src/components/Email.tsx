@@ -1159,7 +1159,18 @@ export function Email({ user }: EmailProps) {
                 </CardHeader>
                 <CardContent>
                   <div className="prose prose-sm max-w-none">
-                    <p className="text-gray-700 whitespace-pre-wrap">{selectedEmail.body}</p>
+                    {selectedEmail.body.includes('<!DOCTYPE') || selectedEmail.body.includes('<html') ? (
+                      // Render HTML emails in an iframe for isolation
+                      <iframe
+                        srcDoc={selectedEmail.body}
+                        className="w-full min-h-[400px] border-0 bg-white"
+                        sandbox="allow-same-origin"
+                        title="Email content"
+                      />
+                    ) : (
+                      // Render plain text emails
+                      <p className="text-gray-700 whitespace-pre-wrap">{selectedEmail.body}</p>
+                    )}
                   </div>
                   {selectedEmail.linkedTo && (
                     <div className="mt-4 p-3 bg-blue-50 rounded-lg">
