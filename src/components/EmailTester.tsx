@@ -310,70 +310,95 @@ export function EmailTester({ user, onClose }: EmailTesterProps) {
         return;
       }
 
+      console.log('[EmailTester] Account config:', {
+        email: account.email,
+        hasNylas: !!account.nylas_grant_id,
+        hasSMTP: !!(account.smtp_host && account.smtp_port && account.smtp_username && account.smtp_password),
+        smtpHost: account.smtp_host,
+        smtpPort: account.smtp_port,
+      });
+
       // Try SMTP send first (more reliable for testing)
       if (account.smtp_host && account.smtp_port && account.smtp_username && account.smtp_password) {
         updateTestResult('send-email', 'pending', 'Sending via SMTP...');
+        console.log('[EmailTester] Using SMTP method');
         
-        const response = await supabase.functions.invoke('simple-send-email', {
-          body: {
-            from: account.email,
-            to: testEmail,
-            subject: testSubject,
-            body: testBody,
-            smtpConfig: {
-              host: account.smtp_host,
-              port: account.smtp_port,
-              username: account.smtp_username,
-              password: account.smtp_password,
+        try {
+          const response = await supabase.functions.invoke('simple-send-email', {
+            body: {
+              from: account.email,
+              to: testEmail,
+              subject: testSubject,
+              body: testBody,
+              smtpConfig: {
+                host: account.smtp_host,
+                port: account.smtp_port,
+                username: account.smtp_username,
+                password: account.smtp_password,
+              },
             },
-          },
-        });
+          });
 
-        if (response.error) {
-          updateTestResult('send-email', 'error', 'Failed to send via SMTP', response.error.message);
+          if (response.error) {
+            console.error('[EmailTester] SMTP failed:', response.error);
+            updateTestResult('send-email', 'error', 'Failed to send via SMTP', response.error.message);
+            return;
+          }
+
+          updateTestResult(
+            'send-email', 
+            'success', 
+            'Email sent successfully!',
+            `Sent to ${testEmail} via SMTP`
+          );
+          toast.success(`Test email sent to ${testEmail}`);
+          return;
+        } catch (smtpError: any) {
+          console.error('[EmailTester] SMTP exception:', smtpError);
+          updateTestResult('send-email', 'error', 'SMTP error', smtpError.message);
           return;
         }
-
-        updateTestResult(
-          'send-email', 
-          'success', 
-          'Email sent successfully!',
-          `Sent to ${testEmail} via SMTP`
-        );
-        toast.success(`Test email sent to ${testEmail}`);
-        return;
       }
 
       // Try Nylas send as fallback
       if (account.nylas_grant_id) {
         updateTestResult('send-email', 'pending', 'Sending via Nylas...');
+        console.log('[EmailTester] Using Nylas method');
         
-        const response = await supabase.functions.invoke('nylas-send-email', {
-          body: {
-            grantId: account.nylas_grant_id,
-            to: testEmail,
-            subject: testSubject,
-            body: testBody,
-          },
-        });
+        try {
+          const response = await supabase.functions.invoke('nylas-send-email', {
+            body: {
+              grantId: account.nylas_grant_id,
+              to: testEmail,
+              subject: testSubject,
+              body: testBody,
+            },
+          });
 
-        if (response.error) {
-          updateTestResult('send-email', 'error', 'Failed to send via Nylas', response.error.message);
+          if (response.error) {
+            console.error('[EmailTester] Nylas failed:', response.error);
+            updateTestResult('send-email', 'error', 'Failed to send via Nylas', response.error.message);
+            return;
+          }
+
+          updateTestResult(
+            'send-email', 
+            'success', 
+            'Email sent successfully!',
+            `Sent to ${testEmail} via Nylas`
+          );
+          toast.success(`Test email sent to ${testEmail}`);
+          return;
+        } catch (nylasError: any) {
+          console.error('[EmailTester] Nylas exception:', nylasError);
+          updateTestResult('send-email', 'error', 'Nylas error', nylasError.message);
           return;
         }
-
-        updateTestResult(
-          'send-email', 
-          'success', 
-          'Email sent successfully!',
-          `Sent to ${testEmail} via Nylas`
-        );
-        toast.success(`Test email sent to ${testEmail}`);
-        return;
       }
 
-      updateTestResult('send-email', 'error', 'No send method available', 'Account has no Nylas grant or SMTP config');
+      updateTestResult('send-email', 'error', 'No send method available', 'Account has no Nylas grant or SMTP config. Please configure SMTP in Settings → Email & Calendar.');
     } catch (error: any) {
+      console.error('[EmailTester] Unexpected error:', error);
       updateTestResult('send-email', 'error', 'Unexpected error', error.message);
     }
   };
