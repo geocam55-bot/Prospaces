@@ -60,8 +60,16 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .single();
 
+    console.log('📅 Account query result:', { 
+      account: account?.email, 
+      accountError,
+      requestedAccountId: accountId,
+      userId: user.id 
+    });
+
     if (accountError || !account) {
-      throw new Error('Email account not found');
+      console.error('❌ Email account not found:', { accountError, accountId, userId: user.id });
+      throw new Error(`Email account not found. Account ID: ${accountId}, Error: ${accountError?.message || 'unknown'}`);
     }
 
     // Nylas Hosted Auth only needs grant_id, not access_token

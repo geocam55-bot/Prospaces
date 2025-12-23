@@ -32,6 +32,10 @@ interface Appointment {
   organization_id: string;
   created_at: string;
   created_by?: string;
+  calendar_event_id?: string; // Identifies synced calendar events
+  calendar_provider?: string; // e.g., 'google', 'microsoft'
+  status?: string; // e.g., 'scheduled', 'cancelled'
+  attendees?: string;
 }
 
 interface AppointmentsProps {
@@ -164,6 +168,12 @@ export function Appointments({ user }: AppointmentsProps) {
       if (error) {
         console.error('Error fetching calendar accounts:', error);
       } else {
+        console.log('[Appointments] Loaded calendar accounts:', data?.map(a => ({
+          id: a.id,
+          email: a.email,
+          provider: a.provider,
+          hasNylasGrant: !!a.nylas_grant_id
+        })));
         setCalendarAccounts(data || []);
       }
     } catch (error) {
@@ -239,7 +249,11 @@ export function Appointments({ user }: AppointmentsProps) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl text-gray-900">Appointments</h1>
-          <p className="text-gray-600 mt-1">Schedule and manage your meetings</p>
+          <p className="text-gray-600 mt-1">
+            {calendarAccounts.length > 0 
+              ? 'Calendar synced appointments and manual entries'
+              : 'Schedule and manage your meetings'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {calendarAccounts.length > 0 && (
@@ -252,7 +266,7 @@ export function Appointments({ user }: AppointmentsProps) {
               {isSyncing ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Syncing...</>
               ) : (
-                <><RefreshCw className="h-4 w-4 mr-2" />Sync</>
+                <><RefreshCw className="h-4 w-4 mr-2" />Sync Calendar</>
               )}
             </Button>
           )}
@@ -418,13 +432,24 @@ export function Appointments({ user }: AppointmentsProps) {
                           </div>
                         )}
                       </div>
-                      {isUpcoming && (
-                        <div className="mt-2">
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {isUpcoming && (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-green-100 text-green-800">
                             Upcoming
                           </span>
-                        </div>
-                      )}
+                        )}
+                        {appointment.calendar_event_id && appointment.calendar_provider && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">
+                            <CalendarIcon className="h-3 w-3 mr-1" />
+                            Synced from {appointment.calendar_provider === 'google' ? 'Google' : appointment.calendar_provider === 'microsoft' ? 'Outlook' : appointment.calendar_provider}
+                          </span>
+                        )}
+                        {appointment.attendees && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800">
+                            {appointment.attendees.split(',').length} attendee(s)
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
