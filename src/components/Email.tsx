@@ -638,38 +638,32 @@ export function Email({ user }: EmailProps) {
       // Demo mode fallback
       console.log('[Email] Using demo mode (backend not available)');
       
-      const shouldSimulate = confirm(
-        'Email backend not available. Would you like to save this email to your Sent folder for demo purposes?\n\n' +
-        'Note: The email will not actually be sent, but will appear in your Sent folder.\n\n' +
-        'To enable real email sending:\n' +
-        '1. Run: supabase link --project-ref usorqldwroecyxucmtuw\n' +
-        '2. Run: supabase functions deploy simple-send-email'
-      );
-      
-      if (shouldSimulate) {
-        // Add to local state for demo
-        const newEmail: Email = {
-          id: crypto.randomUUID(),
-          from: currentAccount.email,
-          to: composeEmail.to,
-          subject: composeEmail.subject,
-          body: composeEmail.body,
-          date: new Date().toISOString(),
-          read: true,
-          starred: false,
-          folder: 'sent' as const,
-          linkedTo: composeEmail.linkTo || undefined,
-          accountId: selectedAccount,
-        };
+      toast.error('Email sending failed', {
+        description: 'The simple-send-email Edge Function is not responding. Please check:\n1. Edge Function is deployed in Supabase Dashboard\n2. SMTP configuration is complete\n3. Check browser console for detailed error',
+        duration: 10000,
+      });
 
-        // Save to Supabase
-        await saveEmailToSupabase(newEmail);
+      // Save as draft instead of showing confusing confirm dialog
+      const draftEmail: Email = {
+        id: crypto.randomUUID(),
+        from: currentAccount.email,
+        to: composeEmail.to,
+        subject: composeEmail.subject,
+        body: composeEmail.body,
+        date: new Date().toISOString(),
+        read: true,
+        starred: false,
+        folder: 'drafts' as const,
+        linkedTo: composeEmail.linkTo || undefined,
+        accountId: selectedAccount,
+      };
 
-        setEmails([newEmail, ...emails]);
-        setComposeEmail({ to: '', subject: '', body: '', linkTo: '' });
-        setIsComposeOpen(false);
-        toast.success('Email saved to Sent folder (Demo mode)');
-      }
+      await saveEmailToSupabase(draftEmail);
+      setEmails([draftEmail, ...emails]);
+      setComposeEmail({ to: '', subject: '', body: '', linkTo: '' });
+      setIsComposeOpen(false);
+      toast.info('💾 Email saved as draft - please check email configuration');
+      return;
     } catch (error: any) {
       console.error('[Email] Send error:', error);
       
