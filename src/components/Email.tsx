@@ -440,12 +440,15 @@ export function Email({ user }: EmailProps) {
   };
 
   const filteredEmails = emails
-    .filter(email => email.folder === currentFolder && email.accountId === selectedAccount)
+    .filter(email => email.folder === currentFolder) // Temporarily removed accountId filter
     .filter(email =>
       email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
       email.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
       email.body.toLowerCase().includes(searchQuery.toLowerCase())
     );
+  
+  // Debug: Log filtering info
+  console.log(`[Email] Total emails: ${emails.length}, Current folder: ${currentFolder}, Filtered: ${filteredEmails.length}, Selected account: ${selectedAccount}`);
 
   const handleSendEmail = async () => {
     if (!selectedAccount) {
