@@ -151,81 +151,122 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         throw new Error('Popup was blocked. Please allow popups for this site.');
       }
 
-      // Listen for messages from the popup
-      const handleMessage = (event: MessageEvent) => {
-        console.log('[CalendarAccountSetup] Message received:', {
-          origin: event.origin,
-          type: event.data?.type,
-          hasAccount: !!event.data?.account,
-          fullData: event.data
-        });
+      console.log('[CalendarAccountSetup] Popup opened, starting to poll for new account...');
+
+      // Since COOP blocks postMessage, we'll poll the database for the new account
+      const startTime = Date.now();
+      const maxWaitTime = 5 * 60 * 1000; // 5 minutes max
+      let pollAttempts = 0;
+      
+      const pollForAccount = async () => {
+        pollAttempts++;
+        const elapsed = Date.now() - startTime;
         
-        // Accept messages from Supabase domain
-        if (!event.origin.includes('supabase.co')) {
-          console.log('[CalendarAccountSetup] Ignoring message from:', event.origin);
+        console.log(`[CalendarAccountSetup] Polling attempt ${pollAttempts} (${Math.round(elapsed/1000)}s elapsed)`);
+        
+        // Check if max time exceeded
+        if (elapsed > maxWaitTime) {
+          console.log('[CalendarAccountSetup] Max wait time exceeded');
+          clearInterval(pollInterval);
+          setIsConnecting(false);
+          setError('Connection timeout. Please try again.');
           return;
         }
-        
-        if (event.data.type === 'nylas-oauth-success') {
-          console.log('[CalendarAccountSetup] OAuth success!', event.data.account);
-          
-          toast.success('Calendar connected!', {
-            description: `${event.data.account.email} has been successfully connected`
-          });
-          
-          // Clean up
-          window.removeEventListener('message', handleMessage);
-          clearInterval(checkPopupClosed);
-          setIsConnecting(false);
-          setStep('success');
-          
-          // Notify parent to refresh accounts
-          onAccountAdded();
-          
-          // Close dialog after a moment
-          setTimeout(() => {
-            onClose();
-          }, 1500);
-          
-        } else if (event.data.type === 'nylas-oauth-error') {
-          console.error('[CalendarAccountSetup] OAuth error:', event.data.error);
-          
-          toast.error('Failed to connect calendar', {
-            description: event.data.error
-          });
-          
-          // Clean up
-          window.removeEventListener('message', handleMessage);
-          clearInterval(checkPopupClosed);
-          setError(event.data.error);
-          setIsConnecting(false);
+
+        try {
+          // Check if popup is still open (best effort, may fail due to COOP)
+          try {
+            if (popup.closed) {
+              console.log('[CalendarAccountSetup] Popup was closed by user');
+              clearInterval(pollInterval);
+              
+              // Do one final check for the account
+              const { data: accounts } = await supabase
+                .from('email_accounts')
+                .select('*')
+                .eq('user_id', session?.user?.id)
+                .eq('email', email.trim())
+                .eq('connected', true)
+                .order('created_at', { ascending: false })
+                .limit(1);
+              
+              if (accounts && accounts.length > 0 && new Date(accounts[0].created_at).getTime() > startTime) {
+                // Account was created! Success!
+                console.log('[CalendarAccountSetup] Found newly created account after popup closed!', accounts[0]);
+                toast.success('Calendar connected!', {
+                  description: `${accounts[0].email} has been successfully connected`
+                });
+                setIsConnecting(false);
+                setStep('success');
+                onAccountAdded();
+                setTimeout(() => onClose(), 1500);
+              } else {
+                // Popup closed but no account found
+                setIsConnecting(false);
+                setError('Authorization was cancelled');
+              }
+              return;
+            }
+          } catch (e) {
+            // COOP blocks this check - ignore and continue polling
+          }
+
+          // Poll database for new account
+          const { data: accounts, error: fetchError } = await supabase
+            .from('email_accounts')
+            .select('*')
+            .eq('user_id', session?.user?.id)
+            .eq('email', email.trim())
+            .eq('connected', true)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (fetchError) {
+            console.error('[CalendarAccountSetup] Error fetching accounts:', fetchError);
+            return; // Continue polling despite error
+          }
+
+          // Check if we found a newly created account (created after we started)
+          if (accounts && accounts.length > 0) {
+            const accountCreatedAt = new Date(accounts[0].created_at).getTime();
+            if (accountCreatedAt > startTime) {
+              console.log('[CalendarAccountSetup] Found newly created account!', accounts[0]);
+              
+              // Success! Stop polling
+              clearInterval(pollInterval);
+              
+              toast.success('Calendar connected!', {
+                description: `${accounts[0].email} has been successfully connected`
+              });
+              
+              setIsConnecting(false);
+              setStep('success');
+              onAccountAdded();
+              
+              // Close popup if still open
+              try {
+                popup.close();
+              } catch (e) {
+                // Ignore
+              }
+              
+              // Close dialog after showing success
+              setTimeout(() => {
+                onClose();
+              }, 1500);
+            }
+          }
+        } catch (error: any) {
+          console.error('[CalendarAccountSetup] Error in poll:', error);
+          // Continue polling despite errors
         }
       };
 
-      console.log('[CalendarAccountSetup] Adding message listener');
-      window.addEventListener('message', handleMessage);
-
-      // Check if popup was closed without completing OAuth
-      // Wrapped in try-catch to handle COOP errors
-      const checkPopupClosed = setInterval(() => {
-        try {
-          if (popup && popup.closed) {
-            console.log('[CalendarAccountSetup] Popup was closed');
-            clearInterval(checkPopupClosed);
-            window.removeEventListener('message', handleMessage);
-            
-            // Only set error if we're still in connecting state (no success/error message received)
-            if (isConnecting) {
-              setIsConnecting(false);
-              setError('Authorization was cancelled');
-            }
-          }
-        } catch (error) {
-          // COOP policy blocks popup.closed check - this is expected
-          // The postMessage should still work, so we just ignore this error
-          console.log('[CalendarAccountSetup] Cannot check popup status (COOP policy) - waiting for message');
-        }
-      }, 500);
+      // Poll every 2 seconds
+      const pollInterval = setInterval(pollForAccount, 2000);
+      
+      // Do initial poll immediately
+      pollForAccount();
 
     } catch (error: any) {
       console.error('[Calendar] Connection error:', error);

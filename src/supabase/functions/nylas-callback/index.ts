@@ -180,37 +180,24 @@ serve(async (req) => {
             <p style="font-size: 0.875rem; color: #999;">Closing window...</p>
           </div>
           <script>
-            console.log('[Nylas Callback] Success! Account:', ${JSON.stringify({
-              id: account.id,
-              email: account.email,
-              provider: account.provider
-            })});
+            console.log('[Nylas Callback] Success! Account:', {
+              id: '${account.id}',
+              email: '${account.email}',
+              provider: '${account.provider}'
+            });
             
-            // Try to close if opened as popup
-            if (window.opener) {
-              console.log('[Nylas Callback] Posting message to opener window');
-              window.opener.postMessage({
-                type: 'nylas-oauth-success',
-                account: {
-                  id: '${account.id}',
-                  email: '${account.email}',
-                  provider: '${account.provider}',
-                  last_sync: '${account.last_sync}'
-                }
-              }, '*');
+            // Google's COOP policy blocks postMessage communication
+            // Instead, we'll just close the window and let the parent poll for updates
+            setTimeout(() => {
+              console.log('[Nylas Callback] Closing popup window in 1 second...');
+              window.close();
               
-              // Close after a short delay to ensure message is sent
+              // If window.close() doesn't work (some browsers block it), redirect
               setTimeout(() => {
-                console.log('[Nylas Callback] Closing popup window');
-                window.close();
-              }, 1000);
-            } else {
-              // Otherwise redirect back to app with success message
-              console.log('[Nylas Callback] No opener, redirecting to app');
-              setTimeout(() => {
+                console.log('[Nylas Callback] Window still open, redirecting to app...');
                 window.location.href = '${appUrl}?calendar_connected=success&email=${encodeURIComponent(account.email)}';
-              }, 1500);
-            }
+              }, 1000);
+            }, 1000);
           </script>
         </body>
       </html>
