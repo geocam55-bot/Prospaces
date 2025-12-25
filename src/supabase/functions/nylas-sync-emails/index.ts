@@ -112,6 +112,20 @@ serve(async (req) => {
       const nylasData = await nylasResponse.json();
       const messages = nylasData.data || [];
 
+      // Get organization_id from the user's profile (fetch once, use for all emails)
+      const { data: profile, error: profileError } = await supabaseClient
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileError || !profile?.organization_id) {
+        console.error('Failed to get user profile for organization_id:', profileError);
+        throw new Error('Could not determine organization for email sync');
+      }
+
+      console.log('Syncing emails for user:', user.id, 'organization:', profile.organization_id);
+
       // Store emails in the database
       for (const message of messages) {
         try {
@@ -125,7 +139,7 @@ serve(async (req) => {
           if (!existing) {
             await supabaseClient.from('emails').insert({
               user_id: user.id,
-              organization_id: user.user_metadata?.organizationId || 'default_org',
+              organization_id: profile.organization_id,
               account_id: accountId,
               message_id: message.id,
               from_email: message.from?.[0]?.email || 'unknown@example.com',
