@@ -1400,7 +1400,7 @@ export function Email({ user }: EmailProps) {
                 </CardHeader>
                 <CardContent>
                   <div className="prose prose-sm max-w-none">
-                    {selectedEmail.body.includes('<!DOCTYPE') || selectedEmail.body.includes('<html') ? (
+                    {selectedEmail.body.includes('<') && selectedEmail.body.includes('>') ? (
                       // Render HTML emails in an iframe for isolation
                       <iframe
                         srcDoc={selectedEmail.body}
