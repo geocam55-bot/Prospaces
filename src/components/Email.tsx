@@ -991,6 +991,19 @@ export function Email({ user }: EmailProps) {
     }
   };
 
+  const stripHtml = (html: string) => {
+    // Remove HTML tags and decode entities for preview
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+
+  const getEmailPreview = (body: string) => {
+    // Strip HTML tags and limit to first 100 characters
+    const plainText = stripHtml(body);
+    return plainText.length > 100 ? plainText.substring(0, 100) + '...' : plainText;
+  };
+
   const getProviderIcon = (provider: string) => {
     // For display purposes - in production would use actual provider logos
     return provider.charAt(0).toUpperCase();
@@ -1157,7 +1170,7 @@ export function Email({ user }: EmailProps) {
                       <p className={`text-sm mb-1 ${!email.read ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
                         {email.subject}
                       </p>
-                      <p className="text-xs text-gray-500 line-clamp-2">{email.body}</p>
+                      <p className="text-xs text-gray-500 line-clamp-2">{getEmailPreview(email.body)}</p>
                       {email.linkedTo && (
                         <Badge variant="secondary" className="mt-2 text-xs">
                           <Link2 className="h-3 w-3 mr-1" />
@@ -1268,6 +1281,14 @@ export function Email({ user }: EmailProps) {
                     <Button variant="outline">
                       <Send className="h-4 w-4 mr-2" />
                       Forward
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => handlePermanentDelete(selectedEmail.id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
                     </Button>
                   </div>
                 </CardContent>
