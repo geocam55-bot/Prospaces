@@ -217,7 +217,13 @@ export function Appointments({ user }: AppointmentsProps) {
           }
 
           // Nylas sync response format: { success, syncedCount, calendarsCount, lastSync }
-          console.log('[Sync] Calendar sync result:', data);
+          console.log('[Sync] Calendar sync result for', account.email, ':', {
+            success: data.success,
+            syncedCount: data.syncedCount,
+            calendarsCount: data.calendarsCount,
+            lastSync: data.lastSync,
+            error: data.error
+          });
           
           toast.success(`Synced ${account.provider} calendar!`, {
             description: `${data.syncedCount || 0} new event(s) imported`
@@ -233,6 +239,16 @@ export function Appointments({ user }: AppointmentsProps) {
       // Reload appointments to show newly imported ones
       await loadAppointments();
       await loadCalendarAccounts(); // Refresh last sync time
+      
+      // Debug: Check if appointments exist with calendar_event_id
+      const { data: allCalendarAppts } = await supabase
+        .from('appointments')
+        .select('id, title, organization_id, calendar_event_id, calendar_provider')
+        .not('calendar_event_id', 'is', null);
+      
+      console.log('[Sync Debug] All calendar appointments in database:', allCalendarAppts);
+      console.log('[Sync Debug] Current user organization:', user.organizationId);
+      console.log('[Sync Debug] Appointments loaded in UI:', appointments.length);
       
     } catch (error: any) {
       console.error('Failed to sync calendar:', error);
