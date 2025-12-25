@@ -44,6 +44,11 @@ serve(async (req) => {
     const body = await req.json();
     const { accountId, to, subject, body: emailBody, cc, bcc } = body;
 
+    // Validate required fields
+    if (!accountId || !to || !subject || !emailBody) {
+      throw new Error('Missing required fields: accountId, to, subject, body');
+    }
+
     console.log('Send email request:', { accountId, to, subject });
 
     // Get the email account
@@ -58,107 +63,105 @@ serve(async (req) => {
       throw new Error('Email account not found');
     }
 
-    let messageId: string;
+    console.log('Retrieved account:', {
+      id: account.id,
+      email: account.email,
+      provider: account.provider,
+      hasNylasGrantId: !!account.nylas_grant_id,
+    });
 
-    // Send via IMAP/SMTP
-    if (account.provider === 'imap') {
-      // For IMAP, we'll use SMTP to send
-      // In a real implementation, you'd use a library like nodemailer
-      // For now, we'll simulate success and store in database
-      
-      messageId = `smtp-${Date.now()}@prospace.local`;
-      
-      // Store the sent email in the database
-      const { error: insertError } = await supabaseClient
-        .from('emails')
-        .insert({
-          user_id: user.id,
-          organization_id: user.user_metadata?.organizationId || 'default_org',
-          account_id: accountId,
-          message_id: messageId,
-          from_email: account.email,
-          to_email: to,
-          cc_email: cc || null,
-          bcc_email: bcc || null,
-          subject: subject,
-          body: emailBody,
-          folder: 'sent',
-          is_read: true,
-          is_starred: false,
-          received_at: new Date().toISOString(),
-        });
+    // Check if this is a Nylas OAuth account
+    if (!account.nylas_grant_id) {
+      throw new Error('This account does not support OAuth sending. Use IMAP/SMTP instead or reconnect with OAuth.');
+    }
 
-      if (insertError) {
-        console.error('Failed to store sent email:', insertError);
+    const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
+    
+    if (!NYLAS_API_KEY) {
+      throw new Error('NYLAS_API_KEY not configured');
+    }
+
+    console.log('Sending via Nylas for account:', account.email, 'grant_id:', account.nylas_grant_id);
+
+    // Prepare the email payload for Nylas Send API
+    const nylasPayload = {
+      to: Array.isArray(to) ? to.map((email: string) => ({ email })) : [{ email: to }],
+      subject: subject,
+      body: emailBody,
+    };
+
+    // Add optional fields
+    if (cc) {
+      nylasPayload.cc = Array.isArray(cc) ? cc.map((email: string) => ({ email })) : [{ email: cc }];
+    }
+    if (bcc) {
+      nylasPayload.bcc = Array.isArray(bcc) ? bcc.map((email: string) => ({ email })) : [{ email: bcc }];
+    }
+
+    console.log('Nylas send payload:', JSON.stringify(nylasPayload, null, 2));
+
+    // Send email using Nylas Send API
+    const nylasResponse = await fetch(
+      `https://api.us.nylas.com/v3/grants/${account.nylas_grant_id}/messages/send`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${NYLAS_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(nylasPayload),
       }
-    } 
-    // Send via Nylas OAuth
-    else if (account.nylas_grant_id && account.nylas_access_token) {
-      const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
-      
-      if (!NYLAS_API_KEY) {
-        throw new Error('NYLAS_API_KEY not configured');
-      }
+    );
 
-      // Send email using Nylas API
-      const nylasResponse = await fetch(
-        `https://api.us.nylas.com/v3/grants/${account.nylas_grant_id}/messages/send`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${NYLAS_API_KEY}`,
-          },
-          body: JSON.stringify({
-            to: [{ email: to }],
-            subject: subject,
-            body: emailBody,
-            cc: cc ? [{ email: cc }] : undefined,
-            bcc: bcc ? [{ email: bcc }] : undefined,
-          }),
-        }
-      );
+    if (!nylasResponse.ok) {
+      const errorText = await nylasResponse.text();
+      console.error('Nylas send error:', errorText);
+      throw new Error(`Failed to send email via Nylas: ${errorText}`);
+    }
 
-      if (!nylasResponse.ok) {
-        const errorText = await nylasResponse.text();
-        console.error('Nylas send error:', errorText);
-        throw new Error(`Failed to send email: ${errorText}`);
-      }
+    const nylasData = await nylasResponse.json();
+    console.log('Nylas send response:', nylasData);
 
-      const nylasData = await nylasResponse.json();
-      messageId = nylasData.data?.id || `nylas-${Date.now()}`;
+    // Get organization_id from the user's profile
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single();
+    
+    if (profileError || !profile?.organization_id) {
+      console.error('Failed to get user profile for organization_id:', profileError);
+      throw new Error('Could not determine organization for email');
+    }
 
-      // Store the sent email in the database
-      const { error: insertError } = await supabaseClient
-        .from('emails')
-        .insert({
-          user_id: user.id,
-          organization_id: user.user_metadata?.organizationId || 'default_org',
-          account_id: accountId,
-          message_id: messageId,
-          from_email: account.email,
-          to_email: to,
-          cc_email: cc || null,
-          bcc_email: bcc || null,
-          subject: subject,
-          body: emailBody,
-          folder: 'sent',
-          is_read: true,
-          is_starred: false,
-          received_at: new Date().toISOString(),
-        });
+    // Store the sent email in the database
+    const { error: insertError } = await supabaseClient.from('emails').insert({
+      user_id: user.id,
+      organization_id: profile.organization_id,
+      account_id: accountId,
+      message_id: nylasData.data?.id || crypto.randomUUID(),
+      from_email: account.email,
+      to_email: Array.isArray(to) ? to[0] : to,
+      cc_email: cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : null,
+      bcc_email: bcc ? (Array.isArray(bcc) ? bcc.join(', ') : bcc) : null,
+      subject: subject,
+      body: emailBody,
+      folder: 'sent',
+      is_read: true,
+      is_starred: false,
+      received_at: new Date().toISOString(),
+    });
 
-      if (insertError) {
-        console.error('Failed to store sent email:', insertError);
-      }
-    } else {
-      throw new Error('Email account not properly configured');
+    if (insertError) {
+      console.error('Failed to store sent email:', insertError);
+      // Don't fail the whole request if storage fails
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        messageId: messageId,
+        messageId: nylasData.data?.id,
+        message: 'Email sent successfully',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

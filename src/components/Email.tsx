@@ -176,6 +176,7 @@ interface EmailAccount {
     username: string;
     password: string;
   };
+  nylasGrantId?: string;
 }
 
 interface EmailProps {
@@ -273,6 +274,7 @@ export function Email({ user }: EmailProps) {
             username: account.smtp_username,
             password: account.smtp_password,
           } : undefined,
+          nylasGrantId: account.nylas_grant_id,
         }));
 
         setAccounts(transformedAccounts);
@@ -363,6 +365,7 @@ export function Email({ user }: EmailProps) {
         smtp_port: account.smtpConfig?.port,
         smtp_username: account.smtpConfig?.username,
         smtp_password: account.smtpConfig?.password,
+        nylas_grant_id: account.nylasGrantId,
       };
 
       const { error } = await supabase
@@ -440,7 +443,14 @@ export function Email({ user }: EmailProps) {
   };
 
   const filteredEmails = emails
-    .filter(email => email.folder === currentFolder) // Temporarily removed accountId filter
+    .filter(email => {
+      // If an account is selected, only show emails for that account
+      // Otherwise show all emails
+      if (selectedAccount) {
+        return email.folder === currentFolder && email.accountId === selectedAccount;
+      }
+      return email.folder === currentFolder;
+    })
     .filter(email =>
       email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
       email.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -485,6 +495,89 @@ export function Email({ user }: EmailProps) {
       if (!session) {
         toast.error('Please log in to send emails');
         return;
+      }
+
+      // First, check if this is a Nylas OAuth account (has grant_id)
+      // We need to fetch the full account data from Supabase to check for nylas_grant_id
+      const { data: dbAccount, error: accountError } = await supabase
+        .from('email_accounts')
+        .select('nylas_grant_id')
+        .eq('id', selectedAccount)
+        .single();
+
+      if (accountError) {
+        console.error('[Email] Failed to fetch account details:', accountError);
+      }
+
+      // If this is a Nylas OAuth account, use the Nylas Send API
+      if (dbAccount?.nylas_grant_id) {
+        console.log('[Email] Using Nylas OAuth send for account:', selectedAccount);
+        
+        try {
+          const response = await supabase.functions.invoke('nylas-send-email', {
+            body: {
+              accountId: selectedAccount,
+              to: composeEmail.to.trim(),
+              subject: composeEmail.subject.trim(),
+              body: composeEmail.body.trim(),
+            },
+          });
+
+          if (response.error) {
+            console.error('[Email] Nylas send error:', response.error);
+            throw new Error(response.error.message || 'Failed to send email via Nylas');
+          }
+
+          if (!response.data?.success) {
+            throw new Error(response.data?.error || 'Failed to send email via Nylas');
+          }
+
+          console.log('[Email] ✅ Email sent successfully via Nylas OAuth');
+          
+          // Reload emails from Supabase to get the sent email
+          await loadEmailsFromSupabase();
+          
+          setComposeEmail({ to: '', subject: '', body: '', linkTo: '' });
+          setIsComposeOpen(false);
+          toast.success('✅ Email sent successfully!');
+          return;
+        } catch (nylasError: any) {
+          console.error('[Email] Nylas send failed:', nylasError);
+          
+          // Check if Edge Function is not deployed
+          if (nylasError.message?.includes('Failed to send a request') || 
+              nylasError.message?.includes('FunctionsHttpError') ||
+              nylasError.message?.includes('404')) {
+            toast.error(
+              'Nylas send function not deployed. Deploy via: supabase functions deploy nylas-send-email',
+              { duration: 10000 }
+            );
+          } else {
+            toast.error(`Failed to send email: ${nylasError.message}`);
+          }
+          
+          // Save as draft
+          const draftEmail: Email = {
+            id: crypto.randomUUID(),
+            from: currentAccount.email,
+            to: composeEmail.to,
+            subject: composeEmail.subject,
+            body: composeEmail.body,
+            date: new Date().toISOString(),
+            read: true,
+            starred: false,
+            folder: 'drafts' as const,
+            linkedTo: composeEmail.linkTo || undefined,
+            accountId: selectedAccount,
+          };
+          
+          await saveEmailToSupabase(draftEmail);
+          setEmails([draftEmail, ...emails]);
+          setComposeEmail({ to: '', subject: '', body: '', linkTo: '' });
+          setIsComposeOpen(false);
+          toast.info('💾 Email saved as draft - sending failed');
+          return;
+        }
       }
 
       // Check if we have SMTP credentials for direct sending
