@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
 import { Badge } from '../ui/badge';
 import { 
   Plus, 
@@ -16,7 +17,8 @@ import {
   Type,
   Image as ImageIcon,
   Video,
-  FileText
+  FileText,
+  GripVertical
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -25,14 +27,42 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { toast } from 'sonner';
 import type { User } from '../../App';
 
 interface LandingPageBuilderProps {
   user: User;
 }
 
+interface PageElement {
+  id: string;
+  type: 'heading' | 'paragraph' | 'image' | 'video' | 'button' | 'form';
+  content: string;
+  styles?: {
+    alignment?: 'left' | 'center' | 'right';
+    size?: string;
+  };
+}
+
+interface PageSettings {
+  title: string;
+  slug: string;
+  metaDescription: string;
+  conversionGoal: string;
+  trackingCode: string;
+}
+
 export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
   const [selectedPage, setSelectedPage] = useState<number | null>(null);
+  const [pageElements, setPageElements] = useState<PageElement[]>([]);
+  const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [pageSettings, setPageSettings] = useState<PageSettings>({
+    title: '',
+    slug: '',
+    metaDescription: '',
+    conversionGoal: '',
+    trackingCode: ''
+  });
 
   const pages = [
     {
@@ -78,12 +108,12 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
   ];
 
   const builderElements = [
-    { icon: Type, name: 'Heading', category: 'Text' },
-    { icon: FileText, name: 'Paragraph', category: 'Text' },
-    { icon: ImageIcon, name: 'Image', category: 'Media' },
-    { icon: Video, name: 'Video', category: 'Media' },
-    { icon: Layout, name: 'Button', category: 'Interactive' },
-    { icon: FileText, name: 'Form', category: 'Interactive' },
+    { icon: Type, name: 'Heading', type: 'heading' as const, category: 'Text', defaultContent: 'Your Heading Here' },
+    { icon: FileText, name: 'Paragraph', type: 'paragraph' as const, category: 'Text', defaultContent: 'Add your paragraph text here. You can customize this content to match your message.' },
+    { icon: ImageIcon, name: 'Image', type: 'image' as const, category: 'Media', defaultContent: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800' },
+    { icon: Video, name: 'Video', type: 'video' as const, category: 'Media', defaultContent: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
+    { icon: Layout, name: 'Button', type: 'button' as const, category: 'Interactive', defaultContent: 'Click Here' },
+    { icon: FileText, name: 'Form', type: 'form' as const, category: 'Interactive', defaultContent: 'Email Signup Form' },
   ];
 
   const getStatusColor = (status: string) => {
@@ -99,6 +129,175 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
     }
   };
 
+  const handleAddElement = (type: PageElement['type'], defaultContent: string) => {
+    const newElement: PageElement = {
+      id: `element-${Date.now()}`,
+      type,
+      content: defaultContent,
+      styles: {
+        alignment: 'center',
+        size: type === 'heading' ? 'large' : 'medium'
+      }
+    };
+    setPageElements([...pageElements, newElement]);
+    toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} added to page`);
+  };
+
+  const handleUpdateElement = (id: string, content: string) => {
+    setPageElements(pageElements.map(el => 
+      el.id === id ? { ...el, content } : el
+    ));
+  };
+
+  const handleDeleteElement = (id: string) => {
+    setPageElements(pageElements.filter(el => el.id !== id));
+    setSelectedElement(null);
+    toast.success('Element removed');
+  };
+
+  const handleMoveElement = (id: string, direction: 'up' | 'down') => {
+    const index = pageElements.findIndex(el => el.id === id);
+    if (index === -1) return;
+    
+    if (direction === 'up' && index > 0) {
+      const newElements = [...pageElements];
+      [newElements[index], newElements[index - 1]] = [newElements[index - 1], newElements[index]];
+      setPageElements(newElements);
+    } else if (direction === 'down' && index < pageElements.length - 1) {
+      const newElements = [...pageElements];
+      [newElements[index], newElements[index + 1]] = [newElements[index + 1], newElements[index]];
+      setPageElements(newElements);
+    }
+  };
+
+  const renderElement = (element: PageElement, isPreview: boolean = false) => {
+    const isSelected = selectedElement === element.id;
+    const alignment = element.styles?.alignment || 'center';
+    
+    const alignmentClass = {
+      left: 'text-left',
+      center: 'text-center',
+      right: 'text-right'
+    }[alignment];
+
+    switch (element.type) {
+      case 'heading':
+        return (
+          <div className={`${alignmentClass} ${!isPreview && 'cursor-pointer hover:bg-blue-50 p-4 rounded-lg transition-colors'} ${isSelected && !isPreview ? 'bg-blue-50 ring-2 ring-blue-500' : ''}`}>
+            {!isPreview && isSelected ? (
+              <Input
+                value={element.content}
+                onChange={(e) => handleUpdateElement(element.id, e.target.value)}
+                className="text-3xl font-bold text-gray-900 text-center"
+              />
+            ) : (
+              <h1 className="text-4xl font-bold text-gray-900">{element.content}</h1>
+            )}
+          </div>
+        );
+      
+      case 'paragraph':
+        return (
+          <div className={`${alignmentClass} ${!isPreview && 'cursor-pointer hover:bg-blue-50 p-4 rounded-lg transition-colors'} ${isSelected && !isPreview ? 'bg-blue-50 ring-2 ring-blue-500' : ''}`}>
+            {!isPreview && isSelected ? (
+              <Textarea
+                value={element.content}
+                onChange={(e) => handleUpdateElement(element.id, e.target.value)}
+                className="text-gray-700 min-h-24"
+                rows={4}
+              />
+            ) : (
+              <p className="text-lg text-gray-700">{element.content}</p>
+            )}
+          </div>
+        );
+      
+      case 'image':
+        return (
+          <div className={`${alignmentClass} ${!isPreview && 'cursor-pointer hover:bg-blue-50 p-4 rounded-lg transition-colors'} ${isSelected && !isPreview ? 'bg-blue-50 ring-2 ring-blue-500' : ''}`}>
+            {!isPreview && isSelected ? (
+              <div className="space-y-2">
+                <Input
+                  value={element.content}
+                  onChange={(e) => handleUpdateElement(element.id, e.target.value)}
+                  placeholder="Image URL"
+                />
+                <img src={element.content} alt="Preview" className="w-full max-w-2xl mx-auto rounded-lg" />
+              </div>
+            ) : (
+              <img src={element.content} alt="Content" className="w-full max-w-2xl mx-auto rounded-lg" />
+            )}
+          </div>
+        );
+      
+      case 'video':
+        return (
+          <div className={`${alignmentClass} ${!isPreview && 'cursor-pointer hover:bg-blue-50 p-4 rounded-lg transition-colors'} ${isSelected && !isPreview ? 'bg-blue-50 ring-2 ring-blue-500' : ''}`}>
+            {!isPreview && isSelected ? (
+              <div className="space-y-2">
+                <Input
+                  value={element.content}
+                  onChange={(e) => handleUpdateElement(element.id, e.target.value)}
+                  placeholder="Video embed URL"
+                />
+                <iframe
+                  src={element.content}
+                  className="w-full max-w-2xl mx-auto aspect-video rounded-lg"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <iframe
+                src={element.content}
+                className="w-full max-w-2xl mx-auto aspect-video rounded-lg"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            )}
+          </div>
+        );
+      
+      case 'button':
+        return (
+          <div className={`${alignmentClass} ${!isPreview && 'cursor-pointer hover:bg-blue-50 p-4 rounded-lg transition-colors'} ${isSelected && !isPreview ? 'bg-blue-50 ring-2 ring-blue-500' : ''}`}>
+            {!isPreview && isSelected ? (
+              <Input
+                value={element.content}
+                onChange={(e) => handleUpdateElement(element.id, e.target.value)}
+                className="text-center"
+              />
+            ) : (
+              <Button size="lg" className="text-lg px-8 py-6">{element.content}</Button>
+            )}
+          </div>
+        );
+      
+      case 'form':
+        return (
+          <div className={`${alignmentClass} ${!isPreview && 'cursor-pointer hover:bg-blue-50 p-4 rounded-lg transition-colors'} ${isSelected && !isPreview ? 'bg-blue-50 ring-2 ring-blue-500' : ''}`}>
+            <div className="max-w-md mx-auto space-y-4 p-6 bg-gray-50 rounded-lg">
+              {!isPreview && isSelected ? (
+                <Input
+                  value={element.content}
+                  onChange={(e) => handleUpdateElement(element.id, e.target.value)}
+                  placeholder="Form title"
+                  className="text-center font-semibold"
+                />
+              ) : (
+                <h3 className="text-xl font-semibold text-gray-900">{element.content}</h3>
+              )}
+              <Input placeholder="Enter your email" type="email" />
+              <Button className="w-full">Submit</Button>
+            </div>
+          </div>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -106,7 +305,17 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
           <h2 className="text-xl text-gray-900">Landing Page Builder</h2>
           <p className="text-sm text-gray-600 mt-1">Create high-converting landing pages with drag-and-drop</p>
         </div>
-        <Button className="flex items-center gap-2">
+        <Button className="flex items-center gap-2" onClick={() => {
+          setPageElements([]);
+          setPageSettings({
+            title: '',
+            slug: '',
+            metaDescription: '',
+            conversionGoal: '',
+            trackingCode: ''
+          });
+          toast.success('New page created');
+        }}>
           <Plus className="h-4 w-4" />
           New Landing Page
         </Button>
@@ -139,23 +348,23 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toast.info('Opening editor...')}>
                         <Edit className="h-4 w-4 mr-2" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toast.info('Opening preview...')}>
                         <Eye className="h-4 w-4 mr-2" />
                         Preview
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toast.info('Viewing analytics...')}>
                         <BarChart3 className="h-4 w-4 mr-2" />
                         Analytics
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => toast.success('Page duplicated')}>
                         <Copy className="h-4 w-4 mr-2" />
                         Duplicate
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">
+                      <DropdownMenuItem className="text-red-600" onClick={() => toast.success('Page deleted')}>
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
                       </DropdownMenuItem>
@@ -201,62 +410,142 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
               <TabsContent value="builder" className="space-y-4 mt-4">
                 {/* Element Palette */}
                 <div className="space-y-3">
-                  <p className="text-sm text-gray-700">Drag elements to build your page</p>
+                  <p className="text-sm text-gray-700 font-medium">Add Elements</p>
                   <div className="grid grid-cols-2 gap-2">
                     {builderElements.map((element) => {
                       const Icon = element.icon;
                       return (
-                        <div
+                        <button
                           key={element.name}
-                          className="p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-move transition-colors"
+                          onClick={() => handleAddElement(element.type, element.defaultContent)}
+                          className="p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 cursor-pointer transition-colors text-left"
                         >
                           <div className="flex items-center gap-2">
                             <Icon className="h-4 w-4 text-gray-600" />
                             <div>
-                              <p className="text-sm text-gray-900">{element.name}</p>
+                              <p className="text-sm text-gray-900 font-medium">{element.name}</p>
                               <p className="text-xs text-gray-500">{element.category}</p>
                             </div>
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
                 </div>
 
                 {/* Canvas Area */}
-                <div className="border-2 border-gray-200 rounded-lg p-8 min-h-96 bg-white">
-                  <div className="text-center text-gray-400">
-                    <Layout className="h-12 w-12 mx-auto mb-4" />
-                    <p>Drag elements here to build your landing page</p>
-                  </div>
+                <div className="border-2 border-gray-200 rounded-lg p-6 min-h-96 bg-white space-y-4">
+                  {pageElements.length === 0 ? (
+                    <div className="text-center text-gray-400 py-20">
+                      <Layout className="h-12 w-12 mx-auto mb-4" />
+                      <p className="font-medium">Click elements above to build your page</p>
+                      <p className="text-sm mt-2">Elements will appear here</p>
+                    </div>
+                  ) : (
+                    pageElements.map((element) => (
+                      <div key={element.id} className="relative group">
+                        {selectedElement !== element.id && (
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => handleMoveElement(element.id, 'up')}
+                              className="h-8 w-8 p-0"
+                            >
+                              ↑
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => handleMoveElement(element.id, 'down')}
+                              className="h-8 w-8 p-0"
+                            >
+                              ↓
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteElement(element.id)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                        <div onClick={() => setSelectedElement(element.id)}>
+                          {renderElement(element)}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
+
+                {pageElements.length > 0 && (
+                  <div className="flex gap-2">
+                    <Button onClick={() => toast.success('Page saved!')}>
+                      Save Page
+                    </Button>
+                    <Button variant="outline" onClick={() => {
+                      setPageElements([]);
+                      setSelectedElement(null);
+                      toast.success('Canvas cleared');
+                    }}>
+                      Clear Canvas
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="settings" className="space-y-4 mt-4">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-700">Page Title</label>
-                    <Input placeholder="Enter page title" />
+                    <label className="text-sm text-gray-700 font-medium">Page Title</label>
+                    <Input 
+                      placeholder="Enter page title" 
+                      value={pageSettings.title}
+                      onChange={(e) => setPageSettings({...pageSettings, title: e.target.value})}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-700">URL Slug</label>
+                    <label className="text-sm text-gray-700 font-medium">URL Slug</label>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-500">/landing/</span>
-                      <Input placeholder="url-slug" />
+                      <Input 
+                        placeholder="url-slug" 
+                        value={pageSettings.slug}
+                        onChange={(e) => setPageSettings({...pageSettings, slug: e.target.value})}
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-700">SEO Meta Description</label>
-                    <Input placeholder="Brief description for search engines" />
+                    <label className="text-sm text-gray-700 font-medium">SEO Meta Description</label>
+                    <Textarea 
+                      placeholder="Brief description for search engines" 
+                      value={pageSettings.metaDescription}
+                      onChange={(e) => setPageSettings({...pageSettings, metaDescription: e.target.value})}
+                      rows={3}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-700">Conversion Goal</label>
-                    <Input placeholder="e.g., Form submission, Download" />
+                    <label className="text-sm text-gray-700 font-medium">Conversion Goal</label>
+                    <Input 
+                      placeholder="e.g., Form submission, Download" 
+                      value={pageSettings.conversionGoal}
+                      onChange={(e) => setPageSettings({...pageSettings, conversionGoal: e.target.value})}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm text-gray-700">Tracking Code</label>
-                    <Input placeholder="Google Analytics, Facebook Pixel, etc." />
+                    <label className="text-sm text-gray-700 font-medium">Tracking Code</label>
+                    <Textarea 
+                      placeholder="Google Analytics, Facebook Pixel, etc." 
+                      value={pageSettings.trackingCode}
+                      onChange={(e) => setPageSettings({...pageSettings, trackingCode: e.target.value})}
+                      rows={4}
+                    />
                   </div>
+                  <Button onClick={() => toast.success('Settings saved!')}>
+                    Save Settings
+                  </Button>
                 </div>
               </TabsContent>
 
@@ -270,20 +559,28 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                         <div className="h-3 w-3 rounded-full bg-green-500" />
                       </div>
                       <Input
-                        value="https://yoursite.com/landing/product-launch"
+                        value={`https://yoursite.com/landing/${pageSettings.slug || 'your-page'}`}
                         readOnly
                         className="text-sm bg-white"
                       />
                     </div>
                   </div>
-                  <div className="bg-white p-8 min-h-96">
-                    <div className="max-w-2xl mx-auto text-center">
-                      <h1 className="text-4xl text-gray-900 mb-4">Your Landing Page Title</h1>
-                      <p className="text-lg text-gray-600 mb-8">
-                        Compelling description that converts visitors into customers
-                      </p>
-                      <Button size="lg">Get Started</Button>
-                    </div>
+                  <div className="bg-white p-8 min-h-96 space-y-6">
+                    {pageElements.length === 0 ? (
+                      <div className="max-w-2xl mx-auto text-center py-20">
+                        <h1 className="text-4xl text-gray-900 mb-4">Your Landing Page Title</h1>
+                        <p className="text-lg text-gray-600 mb-8">
+                          Compelling description that converts visitors into customers
+                        </p>
+                        <Button size="lg">Get Started</Button>
+                      </div>
+                    ) : (
+                      pageElements.map((element) => (
+                        <div key={element.id}>
+                          {renderElement(element, true)}
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </TabsContent>
@@ -310,11 +607,24 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
               <div
                 key={template.name}
                 className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-500 cursor-pointer transition-colors"
+                onClick={() => {
+                  // Load a template
+                  if (template.name === 'Lead Capture') {
+                    setPageElements([
+                      { id: 'temp-1', type: 'heading', content: 'Get Your Free Guide', styles: { alignment: 'center' } },
+                      { id: 'temp-2', type: 'paragraph', content: 'Join thousands of professionals who have already transformed their business with our expert insights.', styles: { alignment: 'center' } },
+                      { id: 'temp-3', type: 'form', content: 'Download Now', styles: { alignment: 'center' } },
+                    ]);
+                    toast.success('Template loaded!');
+                  } else {
+                    toast.success(`${template.name} template loaded!`);
+                  }
+                }}
               >
                 <div className={`h-32 bg-${template.color}-100 rounded mb-3 flex items-center justify-center`}>
                   <Layout className={`h-12 w-12 text-${template.color}-600`} />
                 </div>
-                <h3 className="text-sm text-gray-900">{template.name}</h3>
+                <h3 className="text-sm text-gray-900 font-medium">{template.name}</h3>
                 <p className="text-xs text-gray-500 mt-1">{template.description}</p>
                 <Button variant="outline" size="sm" className="w-full mt-3">
                   Use Template

@@ -1299,6 +1299,10 @@
     min-height: calc(var(--spacing) * 16);
   }
 
+  .min-h-24 {
+    min-height: calc(var(--spacing) * 24);
+  }
+
   .min-h-96 {
     min-height: calc(var(--spacing) * 96);
   }
@@ -1704,10 +1708,6 @@
 
   .cursor-default {
     cursor: default;
-  }
-
-  .cursor-move {
-    cursor: move;
   }
 
   .cursor-not-allowed {
@@ -3188,6 +3188,10 @@
 
   .py-12 {
     padding-block: calc(var(--spacing) * 12);
+  }
+
+  .py-20 {
+    padding-block: calc(var(--spacing) * 20);
   }
 
   .py-24 {
