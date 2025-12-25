@@ -19,44 +19,58 @@ import {
   ArrowRight,
   Sparkles
 } from 'lucide-react';
+import { ModuleDetail } from './ModuleDetail';
 
 interface LandingPageProps {
   onGetStarted: () => void;
 }
 
 export function LandingPage({ onGetStarted }: LandingPageProps) {
+  const [selectedModule, setSelectedModule] = useState<string | null>(null);
+
+  // If a module is selected, show the detail page
+  if (selectedModule) {
+    return <ModuleDetail moduleId={selectedModule} onBack={() => setSelectedModule(null)} />;
+  }
+
   const features = [
     {
+      id: 'contact-management',
       icon: Users,
       title: 'Contact Management',
       description: 'Organize and track all your customer relationships in one place',
       color: 'from-blue-500 to-cyan-500',
     },
     {
+      id: 'opportunities',
       icon: Target,
       title: 'Opportunities',
       description: 'Track sales pipeline and convert leads into customers',
       color: 'from-purple-500 to-pink-500',
     },
     {
+      id: 'smart-bidding',
       icon: FileText,
       title: 'Smart Bidding',
       description: 'Create professional bids with automated tax calculations',
       color: 'from-orange-500 to-red-500',
     },
     {
+      id: 'appointments',
       icon: Calendar,
       title: 'Appointments',
       description: 'Schedule and manage meetings with integrated calendar',
       color: 'from-green-500 to-emerald-500',
     },
     {
+      id: 'inventory',
       icon: Package,
       title: 'Inventory',
       description: 'Track products, stock levels, and pricing in real-time',
       color: 'from-indigo-500 to-blue-500',
     },
     {
+      id: 'marketing',
       icon: Mail,
       title: 'Marketing Automation',
       description: 'Engage customers with automated email campaigns',
@@ -167,13 +181,20 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
-              <Card key={index} className="border-0 shadow-lg hover:shadow-xl transition-shadow group cursor-pointer">
+              <Card 
+                key={index} 
+                className="border-0 shadow-lg hover:shadow-xl transition-shadow group cursor-pointer"
+                onClick={() => setSelectedModule(feature.id)}
+              >
                 <CardContent className="pt-6">
                   <div className={`h-14 w-14 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                     <Icon className="h-7 w-7 text-white" />
                   </div>
                   <h3 className="text-xl mb-2 text-gray-900">{feature.title}</h3>
-                  <p className="text-gray-600">{feature.description}</p>
+                  <p className="text-gray-600 mb-3">{feature.description}</p>
+                  <p className="text-sm text-purple-600 group-hover:text-purple-700 font-medium flex items-center gap-1">
+                    Learn more <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </p>
                 </CardContent>
               </Card>
             );
