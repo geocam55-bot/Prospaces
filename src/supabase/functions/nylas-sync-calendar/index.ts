@@ -84,6 +84,20 @@ serve(async (req) => {
       throw new Error('NYLAS_API_KEY not configured');
     }
 
+    // Get user's organization_id from profiles table
+    const { data: userProfile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !userProfile?.organization_id) {
+      console.error('❌ User profile or organization not found:', profileError);
+      throw new Error('User organization not found. Please ensure user has an organization.');
+    }
+
+    console.log('🏢 User organization ID:', userProfile.organization_id);
+
     // Fetch calendars first
     const calendarsResponse = await fetch(
       `https://api.us.nylas.com/v3/grants/${account.nylas_grant_id}/calendars`,
@@ -162,7 +176,7 @@ serve(async (req) => {
 
             const appointmentData = {
               user_id: user.id,
-              organization_id: user.user_metadata?.organizationId || account.organization_id,
+              organization_id: userProfile.organization_id,
               owner_id: user.id,
               title: event.title || '(No Title)',
               description: event.description || null,
