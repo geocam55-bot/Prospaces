@@ -191,7 +191,6 @@ export function Email({ user }: EmailProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
-  const [backendStatus, setBackendStatus] = useState<'checking' | 'available' | 'unavailable' | null>(null);
   const [editingAccount, setEditingAccount] = useState<EmailAccount | null>(null);
   const [currentFolder, setCurrentFolder] = useState<'inbox' | 'sent' | 'archive' | 'trash'>('inbox');
 
@@ -202,31 +201,11 @@ export function Email({ user }: EmailProps) {
     linkTo: '',
   });
 
-  // Check backend status on mount
-  useEffect(() => {
-    checkBackendStatus();
-  }, []);
-
-  const checkBackendStatus = async () => {
-    setBackendStatus('checking');
-    // Clear cache to force a fresh check
-    backendAvailabilityCache = null;
-    const isAvailable = await checkEdgeFunctionAvailability();
-    setBackendStatus(isAvailable ? 'available' : 'unavailable');
-  };
-
   // Load data on mount from Supabase
   useEffect(() => {
     loadAccountsFromSupabase();
     loadEmailsFromSupabase();
   }, []);
-
-  // Update selected account when accounts load
-  useEffect(() => {
-    if (accounts.length > 0 && !selectedAccount) {
-      setSelectedAccount(accounts[0].id);
-    }
-  }, [accounts, selectedAccount]);
 
   const loadAccountsFromSupabase = async () => {
     try {
@@ -1027,43 +1006,6 @@ export function Email({ user }: EmailProps) {
           <p className="text-gray-600 mt-1">Manage emails from connected accounts</p>
         </div>
         <div className="flex gap-2 items-center">
-          {backendStatus && (
-            <>
-              <Badge 
-                variant={backendStatus === 'available' ? 'default' : backendStatus === 'checking' ? 'secondary' : 'destructive'}
-                className="h-7"
-              >
-                {backendStatus === 'checking' && (
-                  <>
-                    <RefreshCw className="h-3 w-3 mr-1.5 animate-spin" />
-                    Checking backend...
-                  </>
-                )}
-                {backendStatus === 'available' && (
-                  <>
-                    <CheckCircle className="h-3 w-3 mr-1.5" />
-                    Backend Available
-                  </>
-                )}
-                {backendStatus === 'unavailable' && (
-                  <>
-                    <XCircle className="h-3 w-3 mr-1.5" />
-                    Backend Not Deployed
-                  </>
-                )}
-              </Badge>
-              {backendStatus !== 'checking' && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={checkBackendStatus}
-                  className="h-7 px-2"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                </Button>
-              )}
-            </>
-          )}
           <Button variant="outline" onClick={() => setIsSettingsOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Account
