@@ -19,7 +19,6 @@ import {
   Info,
   CheckCircle,
   XCircle,
-  TestTube,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -50,7 +49,6 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
 import { EmailAccountSetup } from './EmailAccountSetup';
-import { EmailTester } from './EmailTester';
 import type { User } from '../types';
 
 // Cache backend availability check to avoid repeated failed requests
@@ -191,7 +189,6 @@ export function Email({ user }: EmailProps) {
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isTesterOpen, setIsTesterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [backendStatus, setBackendStatus] = useState<'checking' | 'available' | 'unavailable' | null>(null);
@@ -814,6 +811,36 @@ export function Email({ user }: EmailProps) {
     toast.success('Email moved to trash');
   };
 
+  const handlePermanentDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to permanently delete this email? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      
+      // Delete from Supabase
+      const { error } = await supabase
+        .from('emails')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('[Email] Failed to delete email from database:', error);
+        toast.error('Failed to delete email from database');
+        return;
+      }
+
+      // Remove from local state
+      setEmails(emails.filter(e => e.id !== id));
+      setSelectedEmail(null);
+      toast.success('Email permanently deleted');
+    } catch (error) {
+      console.error('[Email] Failed to delete email:', error);
+      toast.error('Failed to delete email');
+    }
+  };
+
   const handleSync = async () => {
     if (!selectedAccount) return;
     
@@ -1037,10 +1064,6 @@ export function Email({ user }: EmailProps) {
               )}
             </>
           )}
-          <Button variant="secondary" onClick={() => setIsTesterOpen(true)}>
-            <TestTube className="h-4 w-4 mr-2" />
-            Test Email
-          </Button>
           <Button variant="outline" onClick={() => setIsSettingsOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Account
@@ -1251,6 +1274,13 @@ export function Email({ user }: EmailProps) {
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={() => handlePermanentDelete(selectedEmail.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Permanently Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -1386,14 +1416,6 @@ export function Email({ user }: EmailProps) {
         onAccountAdded={handleAccountAdded}
         editingAccount={editingAccount}
       />
-
-      {/* Email Tester Dialog */}
-      {isTesterOpen && (
-        <EmailTester
-          user={user}
-          onClose={() => setIsTesterOpen(false)}
-        />
-      )}
     </div>
   );
 }
