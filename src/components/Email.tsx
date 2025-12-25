@@ -205,6 +205,27 @@ export function Email({ user }: EmailProps) {
   useEffect(() => {
     loadAccountsFromSupabase();
     loadEmailsFromSupabase();
+    
+    // Check for OAuth callback success/error
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthSuccess = urlParams.get('oauth_success');
+    const oauthError = urlParams.get('oauth_error');
+    const provider = urlParams.get('provider');
+    const email = urlParams.get('email');
+    
+    if (oauthSuccess === 'true' && provider && email) {
+      toast.success(`${provider.charAt(0).toUpperCase() + provider.slice(1)} account connected: ${decodeURIComponent(email)}`);
+      // Reload accounts to show the newly connected account
+      setTimeout(() => {
+        loadAccountsFromSupabase();
+      }, 1000);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (oauthError) {
+      toast.error(`OAuth failed: ${decodeURIComponent(oauthError)}`);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   const loadAccountsFromSupabase = async () => {
@@ -473,7 +494,78 @@ export function Email({ user }: EmailProps) {
         return;
       }
 
-      // First, check if this is a Nylas OAuth account (has grant_id)
+      // Check if this is an Outlook account with Azure OAuth
+      if (currentAccount.provider === 'outlook') {
+        console.log('[Email] Using Azure OAuth send for Outlook account:', selectedAccount);
+        
+        try {
+          const response = await supabase.functions.invoke('azure-send-email', {
+            body: {
+              accountId: selectedAccount,
+              to: composeEmail.to.trim(),
+              subject: composeEmail.subject.trim(),
+              body: composeEmail.body.trim(),
+            },
+          });
+
+          if (response.error) {
+            console.error('[Email] Azure send error:', response.error);
+            throw new Error(response.error.message || 'Failed to send email via Azure');
+          }
+
+          if (!response.data?.success) {
+            throw new Error(response.data?.error || 'Failed to send email via Azure');
+          }
+
+          console.log('[Email] ✅ Email sent successfully via Azure OAuth');
+          
+          // Reload emails from Supabase to get the sent email
+          await loadEmailsFromSupabase();
+          
+          setComposeEmail({ to: '', subject: '', body: '', linkTo: '' });
+          setIsComposeOpen(false);
+          toast.success('✅ Email sent successfully!');
+          return;
+        } catch (azureError: any) {
+          console.error('[Email] Azure send failed:', azureError);
+          
+          // Check if Edge Function is not deployed
+          if (azureError.message?.includes('Failed to send a request') || 
+              azureError.message?.includes('FunctionsHttpError') ||
+              azureError.message?.includes('404')) {
+            toast.error(
+              'Azure send function not deployed. Deploy via: supabase functions deploy azure-send-email',
+              { duration: 10000 }
+            );
+          } else {
+            toast.error(`Failed to send email: ${azureError.message}`);
+          }
+          
+          // Save as draft
+          const draftEmail: Email = {
+            id: crypto.randomUUID(),
+            from: currentAccount.email,
+            to: composeEmail.to,
+            subject: composeEmail.subject,
+            body: composeEmail.body,
+            date: new Date().toISOString(),
+            read: true,
+            starred: false,
+            folder: 'drafts' as const,
+            linkedTo: composeEmail.linkTo || undefined,
+            accountId: selectedAccount,
+          };
+          
+          await saveEmailToSupabase(draftEmail);
+          setEmails([draftEmail, ...emails]);
+          setComposeEmail({ to: '', subject: '', body: '', linkTo: '' });
+          setIsComposeOpen(false);
+          toast.info('💾 Email saved as draft - sending failed');
+          return;
+        }
+      }
+
+      // Check if this is a Nylas OAuth account (has grant_id) for Gmail
       // We need to fetch the full account data from Supabase to check for nylas_grant_id
       const { data: dbAccount, error: accountError } = await supabase
         .from('email_accounts')
@@ -821,8 +913,15 @@ export function Email({ user }: EmailProps) {
   };
 
   const handleSync = async () => {
-    if (!selectedAccount) return;
+    console.log('[Email] Sync button clicked');
     
+    if (!selectedAccount) {
+      console.log('[Email] No account selected');
+      toast.error('Please select an email account first');
+      return;
+    }
+    
+    console.log('[Email] Starting sync for account:', selectedAccount);
     setIsSyncing(true);
     
     try {
@@ -834,6 +933,8 @@ export function Email({ user }: EmailProps) {
         return;
       }
 
+      console.log('[Email] Current account:', currentAccount.email, 'Provider:', currentAccount.provider);
+
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -843,19 +944,65 @@ export function Email({ user }: EmailProps) {
         return;
       }
 
+      // Check if this is an Outlook account with Azure OAuth
+      if (currentAccount.provider === 'outlook') {
+        console.log('[Email] Using Azure sync for Outlook account');
+        
+        // Use Azure sync endpoint
+        const response = await supabase.functions.invoke('azure-sync-emails', {
+          body: {
+            accountId: selectedAccount,
+            limit: 50,
+          },
+        });
+
+        console.log('[Email] Azure sync response:', response);
+
+        if (response.error) {
+          console.error('[Email] Azure sync error:', response.error);
+          throw new Error(response.error.message || 'Failed to sync emails');
+        }
+
+        if (!response.data?.success) {
+          throw new Error(response.data?.error || 'Failed to sync emails');
+        }
+
+        // Reload emails from Supabase
+        await loadEmailsFromSupabase();
+        
+        // Update last sync time
+        setAccounts(accounts.map(account =>
+          account.id === selectedAccount
+            ? { ...account, lastSync: new Date().toISOString() }
+            : account
+        ));
+
+        const syncedCount = response.data.syncedCount || 0;
+        if (syncedCount > 0) {
+          toast.success(`Synced ${syncedCount} new email${syncedCount > 1 ? 's' : ''}!`);
+        } else {
+          toast.success('No new emails');
+        }
+        
+        setIsSyncing(false);
+        return;
+      }
+
+      console.log('[Email] Using Nylas sync for Gmail account');
+
       // Check cache to see if we already know backend is unavailable
       // This prevents repeated network errors when Edge Functions aren't deployed
       if (backendAvailabilityCache && 
           !backendAvailabilityCache.available && 
           (Date.now() - backendAvailabilityCache.timestamp < CACHE_DURATION)) {
         // We know backend is not available from a recent check - don't make any network request
+        console.log('[Email] Backend cached as unavailable, skipping sync');
         setIsSyncing(false);
-        toast.error('Email sync not available. Deploy Nylas Edge Functions to enable syncing.');
+        toast.error('Email sync not available. Deploy Edge Functions to enable syncing.');
         return;
       }
 
-      // Try to call the Edge Function
-      // If this fails, we'll cache that it's not available
+      // Try to call the Nylas Edge Function for Gmail
       const response = await supabase.functions.invoke('nylas-sync-emails', {
         body: {
           accountId: selectedAccount,
@@ -863,8 +1010,11 @@ export function Email({ user }: EmailProps) {
         },
       });
 
+      console.log('[Email] Nylas sync response:', response);
+
       // If we get here and there's an error, cache that backend is not available
       if (response.error) {
+        console.error('[Email] Nylas sync error:', response.error);
         // Cache the failure so we don't keep retrying
         backendAvailabilityCache = { checked: true, available: false, timestamp: Date.now() };
         throw new Error(response.error.message || 'Failed to sync emails');
@@ -897,24 +1047,27 @@ export function Email({ user }: EmailProps) {
       }
       
     } catch (error: any) {
-      // Log at debug level - this is a user-initiated action that may fail if backend not configured
-      console.debug('[Email] Sync error:', error);
+      // Log the full error for debugging
+      console.error('[Email] Sync error:', error);
       
       // Cache that backend is not available
       if (!backendAvailabilityCache || backendAvailabilityCache.available) {
         backendAvailabilityCache = { checked: true, available: false, timestamp: Date.now() };
       }
       
-      // Check if it's a Nylas configuration error
+      // Check if it's a configuration error
       if (error.message?.includes('Nylas') || error.message?.includes('not configured')) {
         toast.error('Email backend not configured. See DEPLOY_NYLAS.md to set up email sync.');
-      } else if (error.message?.includes('Failed to send a request') || error.message?.includes('FunctionsHttpError')) {
+      } else if (error.message?.includes('Azure') || error.message?.includes('AZURE_CLIENT_ID')) {
+        toast.error('Azure OAuth not configured. See AZURE_OAUTH_QUICK_START.md to set up Outlook sync.');
+      } else if (error.message?.includes('Failed to send a request') || error.message?.includes('FunctionsHttpError') || error.message?.includes('FunctionsRelayError')) {
         // Edge function not deployed
-        toast.error('Email sync not available. Deploy Nylas Edge Functions to enable syncing.');
+        toast.error('Email sync Edge Functions not deployed. Deploy them to enable syncing.', { duration: 5000 });
       } else {
         toast.error(`Failed to sync emails: ${error.message}`);
       }
     } finally {
+      console.log('[Email] Sync complete, resetting isSyncing state');
       setIsSyncing(false);
     }
   };

@@ -157,11 +157,15 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      console.log('Attempting to connect to:', `${supabaseUrl}/functions/v1/nylas-connect`);
+      // Use Azure OAuth for Outlook, Nylas for Gmail/Apple
+      const isOutlook = selectedProvider === 'outlook';
+      const endpoint = isOutlook ? 'azure-oauth-init' : 'nylas-connect';
+      
+      console.log('Attempting to connect to:', `${supabaseUrl}/functions/v1/${endpoint}`);
       console.log('Using access token:', session.access_token.substring(0, 20) + '...');
 
-      // Call Nylas connect function for OAuth using fetch (don't map provider names - Edge Function handles it)
-      const response = await fetch(`${supabaseUrl}/functions/v1/nylas-connect`, {
+      // Call appropriate OAuth function
+      const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -249,7 +253,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
           return;
         }
 
-        if (event.data.type === 'gmail-oauth-success' || event.data.type === 'nylas-oauth-success' || event.data.type === 'outlook-oauth-success' || event.data.type === 'microsoft-oauth-success') {
+        if (event.data.type === 'gmail-oauth-success' || event.data.type === 'nylas-oauth-success' || event.data.type === 'outlook-oauth-success' || event.data.type === 'microsoft-oauth-success' || event.data.type === 'azure-oauth-success') {
           console.log('[EmailAccountSetup] OAuth success message received!');
           window.removeEventListener('message', handleMessage);
           setIsConnecting(false);
