@@ -240,15 +240,20 @@ export function Appointments({ user }: AppointmentsProps) {
       await loadAppointments();
       await loadCalendarAccounts(); // Refresh last sync time
       
-      // Debug: Check if appointments exist with calendar_event_id
-      const { data: allCalendarAppts } = await supabase
+      // Debug: Check if appointments exist with calendar_event_id (any org)
+      const { data: allCalendarAppts, error: debugError } = await supabase
         .from('appointments')
         .select('id, title, organization_id, calendar_event_id, calendar_provider')
-        .not('calendar_event_id', 'is', null);
+        .not('calendar_event_id', 'eq', null);
       
-      console.log('[Sync Debug] All calendar appointments in database:', allCalendarAppts);
-      console.log('[Sync Debug] Current user organization:', user.organizationId);
-      console.log('[Sync Debug] Appointments loaded in UI:', appointments.length);
+      if (debugError) {
+        console.error('[Sync Debug] Error querying appointments:', debugError);
+      } else {
+        console.log('[Sync Debug] All calendar appointments in database:', allCalendarAppts);
+        console.log('[Sync Debug] Current user organization:', user.organizationId);
+        console.log('[Sync Debug] Appointments loaded in UI:', appointments.length);
+        console.log('[Sync Debug] Org ID matches:', allCalendarAppts?.filter(a => a.organization_id === user.organizationId));
+      }
       
     } catch (error: any) {
       console.error('Failed to sync calendar:', error);
