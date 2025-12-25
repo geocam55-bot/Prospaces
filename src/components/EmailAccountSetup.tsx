@@ -236,10 +236,21 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
       // Listen for OAuth callback
       const handleMessage = (event: MessageEvent) => {
+        console.log('[EmailAccountSetup] Message received:', {
+          origin: event.origin,
+          type: event.data?.type,
+          hasAccount: !!event.data?.account,
+          fullData: event.data
+        });
+        
         // Only accept messages from our Supabase domain
-        if (!event.origin.includes('supabase.co')) return;
+        if (!event.origin.includes('supabase.co')) {
+          console.log('[EmailAccountSetup] Ignoring message from non-Supabase origin:', event.origin);
+          return;
+        }
 
         if (event.data.type === 'gmail-oauth-success' || event.data.type === 'nylas-oauth-success' || event.data.type === 'outlook-oauth-success' || event.data.type === 'microsoft-oauth-success') {
+          console.log('[EmailAccountSetup] OAuth success message received!');
           window.removeEventListener('message', handleMessage);
           setIsConnecting(false);
           setStep('success');
@@ -253,23 +264,28 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
             lastSync: event.data.account.last_sync,
           };
           
+          console.log('[EmailAccountSetup] Converted account:', account);
+          
           setTimeout(() => {
             onAccountAdded(account);
             handleClose();
             toast.success(`${providerName} account connected successfully!`);
           }, 1500);
         } else if (event.data.type === 'gmail-oauth-error' || event.data.type === 'nylas-oauth-error' || event.data.type === 'outlook-oauth-error') {
+          console.log('[EmailAccountSetup] OAuth error message received:', event.data.error);
           window.removeEventListener('message', handleMessage);
           setIsConnecting(false);
           setError(event.data.error || `Failed to connect ${providerName} account`);
         }
       };
 
+      console.log('[EmailAccountSetup] Adding message listener');
       window.addEventListener('message', handleMessage);
 
       // Handle popup closed before OAuth completed
       const checkPopupClosed = setInterval(() => {
         if (popup?.closed) {
+          console.log('[EmailAccountSetup] Popup was closed');
           clearInterval(checkPopupClosed);
           window.removeEventListener('message', handleMessage);
           if (isConnecting) {

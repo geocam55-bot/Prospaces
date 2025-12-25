@@ -133,11 +133,62 @@ serve(async (req) => {
       `
       <!DOCTYPE html>
       <html>
-        <head><title>Connection Successful</title></head>
+        <head>
+          <title>Connection Successful</title>
+          <style>
+            body {
+              font-family: system-ui, -apple-system, sans-serif;
+              padding: 2rem;
+              text-align: center;
+              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0;
+            }
+            .container {
+              background: white;
+              padding: 3rem;
+              border-radius: 1rem;
+              box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+              max-width: 400px;
+            }
+            h1 { color: #10b981; margin-bottom: 1rem; }
+            p { color: #666; margin-bottom: 0.5rem; }
+            .spinner {
+              border: 3px solid #f3f3f3;
+              border-top: 3px solid #10b981;
+              border-radius: 50%;
+              width: 40px;
+              height: 40px;
+              animation: spin 1s linear infinite;
+              margin: 1.5rem auto;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          </style>
+        </head>
         <body>
+          <div class="container">
+            <h1>✓ Connected Successfully!</h1>
+            <p><strong>${account.email}</strong></p>
+            <p>Provider: ${account.provider}</p>
+            <div class="spinner"></div>
+            <p style="font-size: 0.875rem; color: #999;">Closing window...</p>
+          </div>
           <script>
+            console.log('[Nylas Callback] Success! Account:', ${JSON.stringify({
+              id: account.id,
+              email: account.email,
+              provider: account.provider
+            })});
+            
             // Try to close if opened as popup
             if (window.opener) {
+              console.log('[Nylas Callback] Posting message to opener window');
               window.opener.postMessage({
                 type: 'nylas-oauth-success',
                 account: {
@@ -147,16 +198,20 @@ serve(async (req) => {
                   last_sync: '${account.last_sync}'
                 }
               }, '*');
-              window.close();
+              
+              // Close after a short delay to ensure message is sent
+              setTimeout(() => {
+                console.log('[Nylas Callback] Closing popup window');
+                window.close();
+              }, 1000);
             } else {
               // Otherwise redirect back to app with success message
-              window.location.href = '${appUrl}?calendar_connected=success&email=${encodeURIComponent(account.email)}';
+              console.log('[Nylas Callback] No opener, redirecting to app');
+              setTimeout(() => {
+                window.location.href = '${appUrl}?calendar_connected=success&email=${encodeURIComponent(account.email)}';
+              }, 1500);
             }
           </script>
-          <div style="font-family: system-ui; padding: 2rem; text-align: center;">
-            <h1 style="color: #10b981;">✓ Connected Successfully!</h1>
-            <p>Your email account has been connected. Redirecting back to app...</p>
-          </div>
         </body>
       </html>
       `,
