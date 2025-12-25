@@ -153,8 +153,21 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
 
       // Listen for messages from the popup
       const handleMessage = (event: MessageEvent) => {
+        console.log('[CalendarAccountSetup] Message received:', {
+          origin: event.origin,
+          type: event.data?.type,
+          hasAccount: !!event.data?.account,
+          fullData: event.data
+        });
+        
+        // Accept messages from Supabase domain
+        if (!event.origin.includes('supabase.co')) {
+          console.log('[CalendarAccountSetup] Ignoring message from:', event.origin);
+          return;
+        }
+        
         if (event.data.type === 'nylas-oauth-success') {
-          console.log('[Calendar] OAuth success:', event.data.account);
+          console.log('[CalendarAccountSetup] OAuth success!', event.data.account);
           
           toast.success('Calendar connected!', {
             description: `${event.data.account.email} has been successfully connected`
@@ -162,6 +175,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
           
           // Clean up
           window.removeEventListener('message', handleMessage);
+          clearInterval(checkPopupClosed);
           setIsConnecting(false);
           setStep('success');
           
@@ -174,7 +188,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
           }, 1500);
           
         } else if (event.data.type === 'nylas-oauth-error') {
-          console.error('[Calendar] OAuth error:', event.data.error);
+          console.error('[CalendarAccountSetup] OAuth error:', event.data.error);
           
           toast.error('Failed to connect calendar', {
             description: event.data.error
@@ -182,24 +196,34 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
           
           // Clean up
           window.removeEventListener('message', handleMessage);
+          clearInterval(checkPopupClosed);
           setError(event.data.error);
           setIsConnecting(false);
         }
       };
 
+      console.log('[CalendarAccountSetup] Adding message listener');
       window.addEventListener('message', handleMessage);
 
       // Check if popup was closed without completing OAuth
+      // Wrapped in try-catch to handle COOP errors
       const checkPopupClosed = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(checkPopupClosed);
-          window.removeEventListener('message', handleMessage);
-          
-          // Only set error if we're still in connecting state (no success/error message received)
-          if (isConnecting) {
-            setIsConnecting(false);
-            setError('Authorization was cancelled');
+        try {
+          if (popup && popup.closed) {
+            console.log('[CalendarAccountSetup] Popup was closed');
+            clearInterval(checkPopupClosed);
+            window.removeEventListener('message', handleMessage);
+            
+            // Only set error if we're still in connecting state (no success/error message received)
+            if (isConnecting) {
+              setIsConnecting(false);
+              setError('Authorization was cancelled');
+            }
           }
+        } catch (error) {
+          // COOP policy blocks popup.closed check - this is expected
+          // The postMessage should still work, so we just ignore this error
+          console.log('[CalendarAccountSetup] Cannot check popup status (COOP policy) - waiting for message');
         }
       }, 500);
 
