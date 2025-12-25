@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { 
@@ -23,6 +24,11 @@ interface ModuleDetailProps {
 }
 
 export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
+  // Scroll to top when component mounts or moduleId changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [moduleId]);
+
   const modules = {
     'contact-management': {
       icon: Users,
