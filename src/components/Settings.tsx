@@ -304,15 +304,35 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
 
   const handleSaveProfile = async () => {
     try {
-      // Save to Supabase profiles table
-      await settingsAPI.updateUserProfile(user.id, {
+      // Save to Supabase profiles table - include both name AND profile picture
+      const updateData: { name: string; profile_picture?: string } = {
         name: profileData.name,
+      };
+      
+      // Include profile picture if it exists
+      if (profileData.profilePicture) {
+        updateData.profile_picture = profileData.profilePicture;
+      }
+      
+      await settingsAPI.updateUserProfile(user.id, updateData);
+      
+      // Also update user preferences to keep everything in sync
+      await settingsAPI.upsertUserPreferences({
+        user_id: user.id,
+        organization_id: user.organizationId,
+        profile_picture: profileData.profilePicture || '',
+        notifications_email: notifications.email,
+        notifications_push: notifications.push,
+        notifications_task_assignments: notifications.taskAssignments,
+        notifications_appointments: notifications.appointments,
+        notifications_bids: notifications.bids,
       });
       
       if (onUserUpdate) {
         const updatedUser: User = {
           ...user,
           name: profileData.name,
+          profilePicture: profileData.profilePicture || undefined,
         };
         onUserUpdate(updatedUser);
       }
