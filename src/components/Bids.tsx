@@ -30,6 +30,7 @@ import {
   RefreshCw 
 } from 'lucide-react';
 import { useDebounce } from '../utils/useDebounce';
+import { advancedSearch } from '../utils/advanced-search';
 
 interface LineItem {
   id: string;
@@ -155,23 +156,23 @@ export function Bids({ user }: BidsProps) {
   // 🚀 Debounce search query (200ms delay for fast typing)
   const debouncedInventorySearch = useDebounce(inventorySearchQuery, 200);
 
-  // Instant client-side inventory search with useMemo (no useState for filtered results)
+  // 🌟 Advanced inventory search with fuzzy matching, plurals, and semantic understanding
   const filteredInventory = useMemo(() => {
     if (!debouncedInventorySearch.trim()) {
       // Show all active inventory items when search is empty
       return inventory.filter((item: InventoryItem) => item.status === 'active').slice(0, 100);
     }
 
-    // Instant client-side filter
-    const query = debouncedInventorySearch.toLowerCase();
-    const filtered = inventory.filter((item: InventoryItem) => 
-      item.status === 'active' &&
-      (item.name?.toLowerCase().includes(query) ||
-       item.sku?.toLowerCase().includes(query) ||
-       item.description?.toLowerCase().includes(query))
-    );
+    // 🚀 Use advanced search with fuzzy matching, plural handling (hammer/hammers), and semantic search
+    const searchResults = advancedSearch(inventory, debouncedInventorySearch, {
+      fuzzyThreshold: 0.7,      // Allow small typos
+      includeInactive: false,   // Only show active items
+      minScore: 0.2,            // Lower threshold for more results
+      maxResults: 100,          // Limit results
+      sortBy: 'relevance',      // Sort by best match
+    });
     
-    return filtered.slice(0, 100); // Show up to 100 results
+    return searchResults.map(result => result.item);
   }, [debouncedInventorySearch, inventory]);
 
   // Initialize when dialog opens
@@ -1168,7 +1169,7 @@ export function Bids({ user }: BidsProps) {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Type to search by name or SKU..."
+                  placeholder="Search by name, SKU, description... (supports plurals & typos)"
                   value={inventorySearchQuery}
                   onChange={(e) => setInventorySearchQuery(e.target.value)}
                   className="pl-10"
