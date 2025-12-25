@@ -1169,7 +1169,7 @@ export function Bids({ user }: BidsProps) {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by name, SKU, description... (supports plurals & typos)"
+                  placeholder="Try: 'Hammers under $40', 'Screws', 'Paint red'..."
                   value={inventorySearchQuery}
                   onChange={(e) => setInventorySearchQuery(e.target.value)}
                   className="pl-10"
@@ -1180,6 +1180,9 @@ export function Bids({ user }: BidsProps) {
               )}
               {filteredInventory.length === 0 && inventorySearchQuery && !isSearchingInventory && (
                 <p className="text-xs text-red-600 mt-1">No items found. Try a different search.</p>
+              )}
+              {!inventorySearchQuery && (
+                <p className="text-xs text-gray-500 mt-1">💡 Supports natural language: plurals, typos, and price filters (e.g., "under $40")</p>
               )}
             </div>
 

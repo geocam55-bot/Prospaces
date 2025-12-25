@@ -191,6 +191,9 @@ function extractSearchTerms(query: string): string[] {
     'looking', 'need', 'want', 'get', 'have', 'i', 'we', 'you',
     'my', 'our', 'your', 'all', 'any', 'some', 'what', 'where',
     'when', 'how', 'who', 'which', 'this', 'these', 'those',
+    // Price/quantity operators (these are handled by parseQueryIntent)
+    'under', 'over', 'below', 'above', 'between', 'less', 'more',
+    'than', 'around', 'about', 'approximately', 'cheap', 'expensive',
   ]);
   
   return query
