@@ -12,6 +12,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Plus, Trash2, Clock, MapPin, Calendar as CalendarIcon, MoreVertical, Link2, RefreshCw, Loader2 } from 'lucide-react';
+import { Video } from 'lucide-react';
 
 interface User {
   id: string;
@@ -418,10 +419,45 @@ export function Appointments({ user }: AppointmentsProps) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-gray-900">{appointment.title}</h3>
                           {appointment.description && (
-                            <p className="text-sm text-gray-600 mt-1">{appointment.description}</p>
+                            <div className="text-sm text-gray-600 mt-1">
+                              {(() => {
+                                const desc = appointment.description;
+                                // Check if it's a Teams/Zoom/Webex meeting with a join link
+                                const teamsMatch = desc.match(/https:\/\/teams\.microsoft\.com\/l\/meetup-join[^\s<]+/);
+                                const zoomMatch = desc.match(/https:\/\/[\w-]+\.zoom\.us\/j\/[^\s<]+/);
+                                const webexMatch = desc.match(/https:\/\/[\w-]+\.webex\.com\/[^\s<]+/);
+                                
+                                const meetingLink = teamsMatch?.[0] || zoomMatch?.[0] || webexMatch?.[0];
+                                
+                                if (meetingLink) {
+                                  // Extract just the first line or sentence
+                                  const firstLine = desc.split(/[\r\n]+/)[0].trim();
+                                  const cleanDesc = firstLine.length > 100 ? firstLine.substring(0, 100) + '...' : firstLine;
+                                  
+                                  return (
+                                    <>
+                                      {cleanDesc && <p className="mb-2">{cleanDesc}</p>}
+                                      <a 
+                                        href={meetingLink} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 underline"
+                                      >
+                                        <Video className="h-3.5 w-3.5" />
+                                        Join Meeting
+                                      </a>
+                                    </>
+                                  );
+                                }
+                                
+                                // For regular descriptions, truncate if too long
+                                const cleanDesc = desc.length > 150 ? desc.substring(0, 150) + '...' : desc;
+                                return <p>{cleanDesc}</p>;
+                              })()}
+                            </div>
                           )}
                         </div>
                         <DropdownMenu>

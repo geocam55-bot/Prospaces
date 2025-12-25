@@ -175,7 +175,6 @@ serve(async (req) => {
             }
 
             const appointmentData = {
-              user_id: user.id,
               organization_id: userProfile.organization_id,
               owner_id: user.id,
               title: event.title || '(No Title)',
@@ -191,21 +190,35 @@ serve(async (req) => {
 
             if (existing) {
               // Update existing appointment
-              await supabaseClient
+              const { error: updateError } = await supabaseClient
                 .from('appointments')
                 .update(appointmentData)
                 .eq('id', existing.id);
+              
+              if (updateError) {
+                console.error('❌ Failed to update appointment:', event.id, updateError);
+              }
             } else {
               // Insert new appointment
-              await supabaseClient
+              const { data: insertResult, error: insertError } = await supabaseClient
                 .from('appointments')
                 .insert(appointmentData);
               
-              syncedCount++;
+              if (insertError) {
+                console.error('❌ Failed to insert appointment:', {
+                  eventId: event.id,
+                  title: event.title,
+                  error: insertError,
+                  appointmentData
+                });
+              } else {
+                console.log('✅ Successfully inserted appointment:', event.title);
+                syncedCount++;
+              }
             }
 
           } catch (error) {
-            console.error('Failed to store event:', event.id, error);
+            console.error('❌ Exception storing event:', event.id, error);
           }
         }
 
