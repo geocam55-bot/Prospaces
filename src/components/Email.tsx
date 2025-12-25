@@ -277,6 +277,10 @@ export function Email({ user }: EmailProps) {
 
         setAccounts(transformedAccounts);
         console.log(`[Email] Loaded ${transformedAccounts.length} account(s) from Supabase`);
+        
+        // Debug: Log account IDs
+        const accountIds = transformedAccounts.map(a => a.id);
+        console.log(`[Email] Account IDs:`, accountIds);
       }
     } catch (error) {
       console.error('[Email] Failed to load accounts:', error);
@@ -324,6 +328,10 @@ export function Email({ user }: EmailProps) {
 
         setEmails(transformedEmails);
         console.log(`[Email] Loaded ${transformedEmails.length} email(s) from Supabase`);
+        
+        // Debug: Log unique account IDs in emails
+        const uniqueAccountIds = [...new Set(transformedEmails.map(e => e.accountId))];
+        console.log(`[Email] Unique account IDs in emails:`, uniqueAccountIds);
       }
     } catch (error) {
       console.error('[Email] Failed to load emails:', error);
