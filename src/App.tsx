@@ -5,10 +5,13 @@ import { Navigation } from './components/Navigation';
 import { TopBar } from './components/TopBar';
 import { ThemeProvider } from './components/ThemeProvider';
 import ErrorBoundary from './components/ErrorBoundary';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { authAPI, setAccessToken, securityAPI, tenantsAPI } from './utils/api';
 import { initializePermissions, clearPermissions, canView } from './utils/permissions';
 import { createClient } from './utils/supabase/client';
 import { syncCurrentUserProfile, syncUserProfile } from './utils/sync-profile';
+import { registerServiceWorker } from './utils/pwa';
 import { FullCRMDatabaseSetup } from './components/FullCRMDatabaseSetup';
 import { ForceTailwindClasses } from './force-tailwind-classes';
 // import { initializeMobileApp, isMobileApp } from './src/mobile-utils';
@@ -82,6 +85,10 @@ export default function App() {
   // Check for existing session on mount
   useEffect(() => {
     checkSession();
+    
+    // Register service worker for PWA functionality
+    // The function handles all environment checks internally
+    registerServiceWorker();
     
     // Production: Debug utilities disabled
     // Uncomment the following in development environment only:
@@ -472,6 +479,8 @@ export default function App() {
   return (
     <ThemeProvider userId={appState.currentUser?.id}>
       <ForceTailwindClasses />
+      <OfflineIndicator />
+      <PWAInstallPrompt />
       <div className="min-h-screen bg-gray-50">
         <TopBar
           user={appState.currentUser}
