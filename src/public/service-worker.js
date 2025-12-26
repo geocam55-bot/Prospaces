@@ -184,8 +184,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'ProSpaces CRM';
   const options = {
     body: data.body || 'You have a new notification',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-72x72.png',
+    icon: '/favicon.svg',
+    badge: '/favicon.svg',
     vibrate: [200, 100, 200],
     tag: data.tag || 'default',
     data: data.url || '/',
