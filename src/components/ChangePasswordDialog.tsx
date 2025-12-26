@@ -21,6 +21,10 @@ export function ChangePasswordDialog({ open, onClose, userId }: ChangePasswordDi
   const [isChanging, setIsChanging] = useState(false);
   const [error, setError] = useState('');
 
+  console.log('🔐 ChangePasswordDialog rendered!');
+  console.log('  - open:', open);
+  console.log('  - userId:', userId);
+
   const validatePassword = (pwd: string): string | null => {
     if (pwd.length < 8) {
       return 'Password must be at least 8 characters long';

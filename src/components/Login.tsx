@@ -383,6 +383,7 @@ export function Login({ onLogin }: LoginProps) {
       // Check if user needs to change password
       if (profile.needs_password_change) {
         console.log('⚠️ User needs to change password');
+        console.log('🔄 Setting up Change Password dialog...');
         const user: User = {
           id: signInData.user.id,
           email: signInData.user.email || email,
@@ -390,9 +391,13 @@ export function Login({ onLogin }: LoginProps) {
           role: (profile.role as UserRole) || 'standard_user',
           organizationId: profile.organization_id || 'default',
         };
+        console.log('👤 Pending user object:', user);
         setPendingUser({ user, token: signInData.session.access_token });
+        console.log('🎬 Setting showChangePassword to TRUE');
         setShowChangePassword(true);
+        console.log('⏸️ Setting loading to FALSE');
         setIsLoading(false);
+        console.log('🛑 RETURNING EARLY - Should NOT call onLogin');
         return;
       }
 
