@@ -145,6 +145,38 @@ export async function upsertOrganizationSettingsClient(settings: Partial<Organiz
   console.log('[settings-client] 💾 Upserting organization settings:', settings);
   
   try {
+    // First, verify the user is authenticated and has the right role
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.error('[settings-client] ❌ User not authenticated');
+      throw new Error('You must be logged in to update organization settings');
+    }
+
+    // Check user profile and role
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role, organization_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      console.error('[settings-client] ❌ Error fetching user profile:', profileError);
+      throw new Error('Could not verify user permissions');
+    }
+
+    console.log('[settings-client] 👤 User profile:', { role: profile?.role, org: profile?.organization_id });
+
+    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
+      console.error('[settings-client] ❌ User does not have admin permissions. Role:', profile?.role);
+      throw new Error('You must be an admin or super admin to update organization settings');
+    }
+
+    if (settings.organization_id && settings.organization_id !== profile.organization_id) {
+      console.error('[settings-client] ❌ User cannot modify settings for different organization');
+      throw new Error('You can only update settings for your own organization');
+    }
+
     const { data, error } = await supabase
       .from('organization_settings')
       .upsert({
@@ -166,22 +198,24 @@ export async function upsertOrganizationSettingsClient(settings: Partial<Organiz
 
       if (error.code === 'PGRST205' || error.code === '42P01') {
         console.warn('[settings-client] ⚠️ organization_settings table does not exist. Please run the SQL setup script.');
-        return null;
+        throw new Error('Database tables not set up. Please contact your administrator.');
       }
       if (error.code === '42501') {
-        // RLS policy violation - silently fall back to localStorage (expected behavior)
-        console.error('[settings-client] ❌ RLS policy violation - user does not have permission to upsert');
-        return null;
+        console.error('[settings-client] ❌ RLS policy violation - checking diagnostics...');
+        console.error('[settings-client] 📋 User ID:', user.id);
+        console.error('[settings-client] 📋 User Role:', profile?.role);
+        console.error('[settings-client] 📋 Organization ID:', settings.organization_id);
+        throw new Error(`Permission denied. Please ensure:\n1. Your role is 'admin' or 'super_admin'\n2. You are updating your own organization's settings\n3. The RLS policies are properly configured (run SUPABASE_FIX_ORG_SETTINGS_RLS_V3.sql)`);
       }
-      console.error('[settings-client] ❌ Error upserting organization settings:', error);
-      return null;
+      
+      throw new Error(error.message || 'Failed to save organization settings');
     }
 
     console.log('[settings-client] ✅ Organization settings saved successfully:', data);
     return data;
-  } catch (error) {
-    console.error('[settings-client] ❌ Unexpected error upserting organization settings:', error);
-    return null;
+  } catch (error: any) {
+    console.error('[settings-client] ❌ Error in upsertOrganizationSettingsClient:', error);
+    throw error;
   }
 }
 

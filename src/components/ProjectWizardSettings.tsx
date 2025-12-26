@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Loader2, Save, Hammer } from 'lucide-react';
+import { Loader2, Save, Hammer, RefreshCw } from 'lucide-react';
 import {
   getProjectWizardDefaults,
   upsertProjectWizardDefault,
@@ -23,7 +23,7 @@ const PLANNER_CATEGORIES = {
   deck: {
     spruce: ['Decking Boards', 'Joists', 'Beams', 'Posts', 'Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters', 'Stair Stringers', 'Stair Treads'],
     treated: ['Decking Boards', 'Joists', 'Beams', 'Posts', 'Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters', 'Stair Stringers', 'Stair Treads'],
-    composite: ['Decking Boards', 'Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
+    composite: ['Decking Boards', 'Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters', 'Deck Clips', 'Screws', 'Plugs'],
     cedar: ['Decking Boards', 'Joists', 'Beams', 'Posts', 'Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters', 'Stair Stringers', 'Stair Treads'],
   },
   garage: {
@@ -147,15 +147,41 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Hammer className="h-5 w-5" />
-            Project Wizard Material Defaults
-          </CardTitle>
-          <p className="text-sm text-gray-600 mt-2">
-            Set default inventory items for each material category in the project wizards. These defaults will be pre-selected when creating new projects.
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Hammer className="h-5 w-5" />
+                Project Wizard Material Defaults
+              </CardTitle>
+              <p className="text-sm text-gray-600 mt-2">
+                Set default inventory items for each material category in the project wizards. These defaults will be pre-selected when creating new projects.
+              </p>
+            </div>
+            <Button
+              onClick={loadData}
+              variant="outline"
+              size="sm"
+              disabled={loading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {inventoryItems.length === 0 && !loading && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+              ⚠️ No inventory items found. Please add inventory items first before setting defaults.
+            </div>
+          )}
+
+          {inventoryItems.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+              ℹ️ Loaded {inventoryItems.length.toLocaleString()} inventory items
+            </div>
+          )}
+
           {/* Deck Planner Settings */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">

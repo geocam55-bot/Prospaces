@@ -21,15 +21,14 @@ import {
   Settings as SettingsIcon, 
   Bell, 
   Building2, 
+  Camera, 
+  Upload, 
+  X, 
   DollarSign, 
   Shield, 
-  Palette,
-  Camera,
-  Upload,
-  X,
-  CheckCircle2,
-  AlertCircle,
-  Loader2
+  Palette, 
+  CheckCircle2, 
+  AlertCircle 
 } from 'lucide-react';
 import type { User } from '../App';
 import { tenantsAPI, settingsAPI } from '../utils/api';
@@ -426,16 +425,21 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
         showAlert('success', 'Settings saved locally. Database sync may require additional setup.');
         console.info('[Settings] Settings saved to localStorage. Database tables may not exist or RLS policies may need configuration.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving global settings:', error);
       
-      // Still try to save to localStorage as fallback
-      try {
-        const orgId = localStorage.getItem('currentOrgId') || user.organizationId;
-        localStorage.setItem(`global_settings_${orgId}`, JSON.stringify(globalSettings));
-        showAlert('success', 'Global settings saved locally (offline mode)');
-      } catch (localError) {
-        showAlert('error', 'Failed to save global settings');
+      // Check if it's an RLS permission error
+      if (error?.message?.includes('Permission denied') || error?.message?.includes('RLS')) {
+        showAlert('error', `Database permission error: ${error.message}\n\nYour settings have been saved locally. Please run the SQL script: SUPABASE_FIX_ORG_SETTINGS_RLS_SIMPLE.sql in your Supabase dashboard.`);
+      } else {
+        // Still try to save to localStorage as fallback
+        try {
+          const orgId = localStorage.getItem('currentOrgId') || user.organizationId;
+          localStorage.setItem(`global_settings_${orgId}`, JSON.stringify(globalSettings));
+          showAlert('success', 'Global settings saved locally (offline mode)');
+        } catch (localError) {
+          showAlert('error', 'Failed to save global settings');
+        }
       }
     } finally {
       setIsSavingGlobal(false);

@@ -134,6 +134,23 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
           </select>
         </div>
 
+        {/* Decking Material Type */}
+        <div>
+          <label className="block text-slate-700 text-sm mb-2">
+            Decking Material Type
+          </label>
+          <select
+            value={config.deckingType}
+            onChange={(e) => updateConfig({ deckingType: e.target.value as any })}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          >
+            <option value="Spruce">Spruce</option>
+            <option value="Treated">Treated</option>
+            <option value="Cedar">Cedar</option>
+            <option value="Composite">Composite</option>
+          </select>
+        </div>
+
         {/* Stairs */}
         <div className="border-t border-slate-200 pt-4">
           <div className="flex items-center justify-between mb-3">

@@ -25,6 +25,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     railingSides: ['front', 'left', 'right'],
     deckingPattern: 'perpendicular',
     joistSpacing: 16,
+    deckingType: 'Treated',
     unit: 'feet',
   });
 

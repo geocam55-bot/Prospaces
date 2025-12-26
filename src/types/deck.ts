@@ -2,6 +2,7 @@ export type DeckShape = 'rectangle' | 'l-shape';
 export type DeckingSide = 'front' | 'back' | 'left' | 'right';
 export type DeckingPattern = 'perpendicular' | 'parallel' | 'diagonal';
 export type Unit = 'feet' | 'meters';
+export type DeckingMaterialType = 'Spruce' | 'Treated' | 'Cedar' | 'Composite';
 
 export interface DeckConfig {
   // Basic dimensions
@@ -27,6 +28,7 @@ export interface DeckConfig {
   // Construction details
   deckingPattern: DeckingPattern;
   joistSpacing: 12 | 16 | 24; // inches on center
+  deckingType: DeckingMaterialType; // Material type for decking
   
   // Unit
   unit: Unit;
@@ -45,6 +47,9 @@ export interface MaterialItem {
   unit: string;
   notes?: string;
   sku?: string;
+  cost?: number;
+  unitPrice?: number;
+  totalCost?: number;
 }
 
 export interface DeckMaterials {

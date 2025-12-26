@@ -5,7 +5,6 @@ import { Input } from './ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { ScrollArea } from './ui/scroll-area';
 import { useDebounce } from '../utils/useDebounce';
-import { advancedSearch } from '../utils/advanced-search';
 
 interface InventoryItem {
   id: string;
@@ -36,27 +35,47 @@ export function InventoryCombobox({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Debounce search query for better performance (increased to 300ms)
+  // Debounce search query for better performance
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Filter items based on search query with advanced search
+  // Simple, reliable search - no complex advanced search needed for combobox
   const filteredItems = useMemo(() => {
     if (!debouncedSearch.trim()) {
-      // 🚀 Performance: Only show first 100 items when search is empty (prevents rendering 14k+ items)
+      // Show first 100 items when search is empty (prevents rendering thousands of items)
       return items.slice(0, 100);
     }
 
-    // 🌟 Advanced Search with fuzzy matching, semantic understanding, and NLP (same as Inventory module)
-    const searchResults = advancedSearch(items, debouncedSearch, {
-      fuzzyThreshold: 0.6,  // Lower threshold for more results
-      includeInactive: true,  // Show all items in dropdown
-      minScore: 0.1,  // Lower minScore to allow more matches
-      maxResults: 100,  // Limit to 100 results for performance
-      sortBy: 'relevance',
-    });
+    const searchLower = debouncedSearch.toLowerCase().trim();
     
-    // Return items from search results
-    return searchResults.map(r => r.item);
+    // Simple but effective multi-field search
+    const matches = items.filter(item => {
+      const nameMatch = item.name?.toLowerCase().includes(searchLower);
+      const skuMatch = item.sku?.toLowerCase().includes(searchLower);
+      const categoryMatch = item.category?.toLowerCase().includes(searchLower);
+      const descriptionMatch = item.description?.toLowerCase().includes(searchLower);
+      
+      return nameMatch || skuMatch || categoryMatch || descriptionMatch;
+    });
+
+    // Sort by relevance: exact matches first, then name matches, then SKU matches
+    return matches.sort((a, b) => {
+      const aNameExact = a.name?.toLowerCase() === searchLower;
+      const bNameExact = b.name?.toLowerCase() === searchLower;
+      if (aNameExact && !bNameExact) return -1;
+      if (!aNameExact && bNameExact) return 1;
+
+      const aSkuExact = a.sku?.toLowerCase() === searchLower;
+      const bSkuExact = b.sku?.toLowerCase() === searchLower;
+      if (aSkuExact && !bSkuExact) return -1;
+      if (!aSkuExact && bSkuExact) return 1;
+
+      const aNameStarts = a.name?.toLowerCase().startsWith(searchLower);
+      const bNameStarts = b.name?.toLowerCase().startsWith(searchLower);
+      if (aNameStarts && !bNameStarts) return -1;
+      if (!aNameStarts && bNameStarts) return 1;
+
+      return a.name?.localeCompare(b.name || '') || 0;
+    }).slice(0, 100); // Limit to 100 results for performance
   }, [debouncedSearch, items]);
 
   // Find the selected item

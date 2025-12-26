@@ -49,7 +49,8 @@ export async function getProjectWizardDefaults(organizationId: string): Promise<
       return [];
     }
 
-    console.log('[project-wizard-defaults] ✅ Defaults fetched successfully:', data?.length || 0);
+    console.log('[project-wizard-defaults] ✅ Defaults fetched successfully:', data?.length || 0, 'records');
+    console.log('[project-wizard-defaults] 📋 Default records:', data);
     return data || [];
   } catch (error) {
     console.error('[project-wizard-defaults] ❌ Unexpected error fetching defaults:', error);

@@ -20,9 +20,8 @@ interface ProjectQuoteGeneratorProps {
 
 interface Contact {
   id: string;
-  first_name: string;
-  last_name: string;
-  company_name?: string;
+  name: string;
+  company?: string;
   email?: string;
 }
 
@@ -190,91 +189,85 @@ export function ProjectQuoteGenerator({
 
   return (
     <Card className="print:hidden">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="w-5 h-5" />
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <FileText className="w-4 h-4" />
           Create Quote from {projectType.charAt(0).toUpperCase() + projectType.slice(1)} Plan
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {alert && (
-          <Alert variant={alert.type === 'error' ? 'destructive' : 'default'}>
+          <Alert variant={alert.type === 'error' ? 'destructive' : 'default'} className="py-2">
             {alert.type === 'success' ? (
               <Check className="h-4 w-4" />
             ) : (
               <AlertCircle className="h-4 w-4" />
             )}
-            <AlertDescription>{alert.message}</AlertDescription>
+            <AlertDescription className="text-sm">{alert.message}</AlertDescription>
           </Alert>
         )}
 
-        {/* Customer Selection */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <Label htmlFor="customer" className="flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Customer *
-            </Label>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={loadContacts}
-              disabled={isLoading}
-              className="h-auto py-1 px-2 text-xs"
-            >
-              <RefreshCw className={`w-3 h-3 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
-          <Select value={selectedContact} onValueChange={setSelectedContact}>
-            <SelectTrigger id="customer">
-              <SelectValue placeholder="Select a customer..." />
-            </SelectTrigger>
-            <SelectContent className="bg-white" style={{ color: '#000000' }}>
-              {isLoading ? (
-                <div className="p-4 text-center text-sm text-slate-500">
-                  Loading contacts...
-                </div>
-              ) : contacts.length === 0 ? (
-                <div className="p-4 text-center text-sm text-slate-500">
-                  No contacts found
-                </div>
-              ) : (
-                contacts.map((contact) => (
-                  <SelectItem 
-                    key={contact.id} 
-                    value={contact.id} 
-                    className="hover:bg-slate-100 cursor-pointer"
-                    style={{ color: '#000000' }}
-                  >
-                    {contact.first_name} {contact.last_name}
-                    {contact.company_name && ` (${contact.company_name})`}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          {contacts.length === 0 && !isLoading && (
-            <p className="text-xs text-slate-500 mt-1">
-              No contacts found. Create a contact in the Contacts module first.
-            </p>
-          )}
-        </div>
-
-        {/* Opportunity Selection */}
-        {selectedContact && (
+        <div className="space-y-3">
+          {/* Customer Selection */}
           <div>
-            <Label htmlFor="opportunity" className="flex items-center gap-2">
-              <Target className="w-4 h-4" />
+            <div className="flex items-center justify-between mb-1.5">
+              <Label htmlFor="customer" className="flex items-center gap-1.5 text-sm">
+                <User className="w-3.5 h-3.5" />
+                Customer *
+              </Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={loadContacts}
+                disabled={isLoading}
+                className="h-6 py-0 px-2 text-xs"
+              >
+                <RefreshCw className={`w-3 h-3 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+            <Select value={selectedContact} onValueChange={setSelectedContact}>
+              <SelectTrigger id="customer" className="h-9">
+                <SelectValue placeholder="Select a customer..." />
+              </SelectTrigger>
+              <SelectContent>
+                {isLoading ? (
+                  <SelectItem value="loading" disabled>Loading contacts...</SelectItem>
+                ) : contacts.length === 0 ? (
+                  <SelectItem value="empty" disabled>No contacts found</SelectItem>
+                ) : (
+                  contacts.map((contact) => (
+                    <SelectItem key={contact.id} value={contact.id}>
+                      {contact.name}{contact.company ? ` (${contact.company})` : ''}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            {contacts.length === 0 && !isLoading && (
+              <p className="text-xs text-slate-500 mt-1">
+                No contacts found. Create a contact first.
+              </p>
+            )}
+          </div>
+
+          {/* Opportunity Selection */}
+          <div>
+            <Label htmlFor="opportunity" className="flex items-center gap-1.5 mb-1.5 text-sm">
+              <Target className="w-3.5 h-3.5" />
               Link to Opportunity (Optional)
             </Label>
-            <Select value={selectedOpportunity} onValueChange={setSelectedOpportunity}>
-              <SelectTrigger id="opportunity">
+            <Select 
+              value={selectedOpportunity} 
+              onValueChange={setSelectedOpportunity}
+              disabled={!selectedContact}
+            >
+              <SelectTrigger id="opportunity" className="h-9">
                 <SelectValue placeholder="Select an opportunity..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">None - Create standalone quote</SelectItem>
+                <SelectItem value="none">None - Standalone quote</SelectItem>
                 {opportunities.length > 0 ? (
                   opportunities.map((opp) => (
                     <SelectItem key={opp.id} value={opp.id}>
@@ -282,72 +275,91 @@ export function ProjectQuoteGenerator({
                     </SelectItem>
                   ))
                 ) : (
-                  <div className="p-4 text-center text-sm text-slate-500">
-                    No opportunities found for this customer
+                  <div className="p-2 text-center text-xs text-slate-500">
+                    No opportunities for this customer
                   </div>
                 )}
               </SelectContent>
             </Select>
           </div>
-        )}
+        </div>
 
         {/* Quote Title */}
         <div>
-          <Label htmlFor="quoteTitle">Quote Title *</Label>
+          <Label htmlFor="quoteTitle" className="text-sm mb-1.5 block">Quote Title *</Label>
           <Input
             id="quoteTitle"
             value={quoteTitle}
             onChange={(e) => setQuoteTitle(e.target.value)}
             placeholder={`${projectType.charAt(0).toUpperCase() + projectType.slice(1)} Construction Quote`}
+            className="h-9"
           />
         </div>
 
-        {/* Markup Percentage */}
-        <div>
-          <Label htmlFor="markup" className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4" />
-            Markup Percentage
-          </Label>
-          <div className="flex items-center gap-2">
-            <Input
-              id="markup"
-              type="number"
-              value={markup}
-              onChange={(e) => setMarkup(Number(e.target.value))}
-              min="0"
-              max="100"
-              className="w-24"
-            />
-            <span className="text-sm text-slate-600">%</span>
+        <div className="space-y-3">
+          {/* Markup Percentage */}
+          <div>
+            <Label htmlFor="markup" className="flex items-center gap-1.5 mb-1.5 text-sm">
+              <DollarSign className="w-3.5 h-3.5" />
+              Markup %
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="markup"
+                type="number"
+                value={markup}
+                onChange={(e) => setMarkup(Number(e.target.value))}
+                min="0"
+                max="100"
+                className="w-20 h-9"
+              />
+              <span className="text-xs text-slate-600">
+                ${totalCost.toFixed(2)} → ${finalAmount.toFixed(2)}
+              </span>
+            </div>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Materials Cost: ${totalCost.toFixed(2)} → Quote Amount: ${finalAmount.toFixed(2)}
-          </p>
+
+          {/* Materials Summary */}
+          <div>
+            <Label className="text-sm mb-1.5 block">Materials ({materials.length} items)</Label>
+            <div className="h-9 flex items-center text-xs text-slate-600 bg-slate-50 rounded-md px-3 border">
+              {materials.length > 0 ? (
+                <span className="truncate">
+                  {materials.slice(0, 2).map(m => m.name || m.item).join(', ')}
+                  {materials.length > 2 && ` +${materials.length - 2} more`}
+                </span>
+              ) : (
+                <span className="text-slate-400">No materials</span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Quote Notes */}
         <div>
-          <Label htmlFor="quoteNotes">Notes (Optional)</Label>
+          <Label htmlFor="quoteNotes" className="text-sm mb-1.5 block">Notes (Optional)</Label>
           <Textarea
             id="quoteNotes"
             value={quoteNotes}
             onChange={(e) => setQuoteNotes(e.target.value)}
             placeholder="Add any additional notes or terms..."
-            rows={3}
+            rows={2}
+            className="text-sm resize-none"
           />
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 pt-4">
+        <div className="flex gap-2 pt-2">
           <Button 
             onClick={handleGenerateQuote}
             disabled={isSaving || !selectedContact || !quoteTitle.trim()}
-            className="flex-1"
+            className="flex-1 h-9"
+            size="sm"
           >
             {isSaving ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Creating Quote...
+                Creating...
               </>
             ) : (
               <>
@@ -360,27 +372,11 @@ export function ProjectQuoteGenerator({
             onClick={() => setIsOpen(false)}
             variant="outline"
             disabled={isSaving}
+            size="sm"
+            className="h-9"
           >
             Cancel
           </Button>
-        </div>
-
-        {/* Materials Summary */}
-        <div className="border-t pt-4 mt-4">
-          <h4 className="text-sm font-medium mb-2">Materials Included ({materials.length} items)</h4>
-          <div className="max-h-40 overflow-y-auto text-sm text-slate-600 space-y-1">
-            {materials.slice(0, 5).map((material, index) => (
-              <div key={index} className="flex justify-between">
-                <span>{material.name || material.item}</span>
-                <span>{material.quantity} {material.unit || 'ea'}</span>
-              </div>
-            ))}
-            {materials.length > 5 && (
-              <p className="text-xs text-slate-500 italic">
-                + {materials.length - 5} more items...
-              </p>
-            )}
-          </div>
         </div>
       </CardContent>
     </Card>

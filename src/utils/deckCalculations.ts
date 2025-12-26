@@ -1,4 +1,12 @@
-import { DeckConfig, DeckMaterials, MaterialItem } from '../types/deck';
+import { DeckConfig, DeckMaterials, MaterialItem, DeckingMaterialType } from '../types/deck';
+
+// Mapping of decking material types to search keywords for inventory lookup
+const DECKING_TYPE_KEYWORDS: Record<DeckingMaterialType, string[]> = {
+  'Spruce': ['spruce', 'deck board', 'decking'],
+  'Treated': ['treated', 'pressure treated', 'deck board', 'decking'],
+  'Cedar': ['cedar', 'deck board', 'decking'],
+  'Composite': ['composite', 'deck board', 'decking', 'trex'],
+};
 
 /**
  * Calculate total deck area in square feet
@@ -115,9 +123,11 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
   const deckingAreaWithWaste = deckArea * 1.1;
   const deckingBoardsNeeded = Math.ceil((deckingAreaWithWaste * 12) / (5.5 * config.length)); // 5.5" wide boards
   
+  const deckingMaterialType = config.deckingType || 'Treated';
+  
   decking.push({
     category: 'Decking',
-    description: `5/4 x 6 Deck Boards (${config.length}')`,
+    description: `5/4 x 6 ${deckingMaterialType} Deck Boards (${config.length}')`,
     quantity: deckingBoardsNeeded,
     unit: 'pcs',
     notes: `Covers ${deckArea.toFixed(0)} sq ft (${deckingAreaWithWaste.toFixed(0)} sq ft with waste)`,
@@ -201,13 +211,44 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
     notes: 'For joist-to-rim connection',
   });
   
-  hardware.push({
-    category: 'Hardware',
-    description: 'Deck Screws (3")',
-    quantity: Math.ceil(deckArea / 10),
-    unit: 'lbs',
-    notes: 'For decking installation',
-  });
+  // Composite decking requires special hardware
+  if (deckingMaterialType === 'Composite') {
+    // Deck clips - 1 per square foot
+    hardware.push({
+      category: 'Hardware',
+      description: 'Composite Deck Clips',
+      quantity: Math.ceil(deckArea),
+      unit: 'pcs',
+      notes: 'Hidden fastening system - 1 per sq ft',
+    });
+    
+    // Composite screws - 1 per square foot
+    hardware.push({
+      category: 'Hardware',
+      description: 'Composite Deck Screws',
+      quantity: Math.ceil(deckArea),
+      unit: 'pcs',
+      notes: 'Color-matched screws - 1 per sq ft',
+    });
+    
+    // Composite plugs - 1 per square foot
+    hardware.push({
+      category: 'Hardware',
+      description: 'Composite Deck Plugs',
+      quantity: Math.ceil(deckArea),
+      unit: 'pcs',
+      notes: 'Color-matched plugs - 1 per sq ft',
+    });
+  } else {
+    // Standard deck screws for non-composite decking
+    hardware.push({
+      category: 'Hardware',
+      description: 'Deck Screws (3")',
+      quantity: Math.ceil(deckArea / 10),
+      unit: 'lbs',
+      notes: 'For decking installation',
+    });
+  }
   
   hardware.push({
     category: 'Hardware',

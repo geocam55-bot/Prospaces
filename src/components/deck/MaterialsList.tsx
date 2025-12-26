@@ -90,18 +90,24 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200">
+                  <th className="text-left py-2 px-3 text-sm text-slate-600">SKU</th>
                   <th className="text-left py-2 px-3 text-sm text-slate-600">Description</th>
                   <th className="text-right py-2 px-3 text-sm text-slate-600">Qty</th>
                   <th className="text-left py-2 px-3 text-sm text-slate-600">Unit</th>
+                  <th className="text-right py-2 px-3 text-sm text-slate-600">Unit Price</th>
+                  <th className="text-right py-2 px-3 text-sm text-slate-600">Total</th>
                   <th className="text-left py-2 px-3 text-sm text-slate-600">Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {materials.framing.map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                    <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.quantity}</td>
                     <td className="py-2 px-3 text-slate-600">{item.unit}</td>
+                    <td className="py-2 px-3 text-slate-900 text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
+                    <td className="py-2 px-3 text-slate-900 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.notes || '—'}</td>
                   </tr>
                 ))}
@@ -122,18 +128,24 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200">
+                  <th className="text-left py-2 px-3 text-sm text-slate-600">SKU</th>
                   <th className="text-left py-2 px-3 text-sm text-slate-600">Description</th>
                   <th className="text-right py-2 px-3 text-sm text-slate-600">Qty</th>
                   <th className="text-left py-2 px-3 text-sm text-slate-600">Unit</th>
+                  <th className="text-right py-2 px-3 text-sm text-slate-600">Unit Price</th>
+                  <th className="text-right py-2 px-3 text-sm text-slate-600">Total</th>
                   <th className="text-left py-2 px-3 text-sm text-slate-600">Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {materials.decking.map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                    <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.quantity}</td>
                     <td className="py-2 px-3 text-slate-600">{item.unit}</td>
+                    <td className="py-2 px-3 text-slate-900 text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
+                    <td className="py-2 px-3 text-slate-900 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.notes || '—'}</td>
                   </tr>
                 ))}
@@ -154,18 +166,24 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200">
+                  <th className="text-left py-2 px-3 text-sm text-slate-600">SKU</th>
                   <th className="text-left py-2 px-3 text-sm text-slate-600">Description</th>
                   <th className="text-right py-2 px-3 text-sm text-slate-600">Qty</th>
                   <th className="text-left py-2 px-3 text-sm text-slate-600">Unit</th>
+                  <th className="text-right py-2 px-3 text-sm text-slate-600">Unit Price</th>
+                  <th className="text-right py-2 px-3 text-sm text-slate-600">Total</th>
                   <th className="text-left py-2 px-3 text-sm text-slate-600">Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {materials.railing.map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                    <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.quantity}</td>
                     <td className="py-2 px-3 text-slate-600">{item.unit}</td>
+                    <td className="py-2 px-3 text-slate-900 text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
+                    <td className="py-2 px-3 text-slate-900 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.notes || '—'}</td>
                   </tr>
                 ))}
@@ -186,18 +204,24 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200">
+                  <th className="text-left py-2 px-3 text-sm text-slate-600">SKU</th>
                   <th className="text-left py-2 px-3 text-sm text-slate-600">Description</th>
                   <th className="text-right py-2 px-3 text-sm text-slate-600">Qty</th>
                   <th className="text-left py-2 px-3 text-sm text-slate-600">Unit</th>
+                  <th className="text-right py-2 px-3 text-sm text-slate-600">Unit Price</th>
+                  <th className="text-right py-2 px-3 text-sm text-slate-600">Total</th>
                   <th className="text-left py-2 px-3 text-sm text-slate-600">Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {materials.hardware.map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
+                    <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.quantity}</td>
                     <td className="py-2 px-3 text-slate-600">{item.unit}</td>
+                    <td className="py-2 px-3 text-slate-900 text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
+                    <td className="py-2 px-3 text-slate-900 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.notes || '—'}</td>
                   </tr>
                 ))}
