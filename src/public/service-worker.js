@@ -1,8 +1,8 @@
 // ProSpaces CRM Service Worker
 // Provides offline functionality and caching for PWA
 
-const CACHE_NAME = 'prospaces-crm-v4';
-const RUNTIME_CACHE = 'prospaces-runtime-v4';
+const CACHE_NAME = 'prospaces-crm-v5';
+const RUNTIME_CACHE = 'prospaces-runtime-v5';
 
 // Assets to cache immediately on install
 const PRECACHE_ASSETS = [
