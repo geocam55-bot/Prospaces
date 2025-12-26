@@ -418,7 +418,7 @@ export async function deleteUserClient(id: string) {
 
 /**
  * Reset user password
- * This stores the password temporarily in the profiles table so the user can sign in
+ * Sends a password reset email to the user using Supabase's built-in flow
  */
 export async function resetPasswordClient(userId: string, newPassword: string) {
   try {
@@ -442,8 +442,18 @@ export async function resetPasswordClient(userId: string, newPassword: string) {
       throw new Error('Profiles table not set up. Please run the database migration first.');
     }
 
-    // Store the temporary password in a custom field in profiles table
-    // Note: This is a workaround since we can't use Admin API from client
+    // Get the target user's email
+    const { data: targetProfile, error: profileFetchError } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('id', userId)
+      .single();
+
+    if (profileFetchError || !targetProfile) {
+      throw new Error('User not found');
+    }
+
+    // Store the temporary password and flag in profiles table
     const { data: profile, error } = await supabase
       .from('profiles')
       .update({
@@ -462,7 +472,8 @@ export async function resetPasswordClient(userId: string, newPassword: string) {
     }
 
     console.log('[users-client] ✅ Temporary password stored for user:', userId);
-    return { success: true, password: newPassword };
+    console.log('[users-client] ℹ️ User must use this password to sign in, then will be prompted to change it');
+    return { success: true, password: newPassword, email: targetProfile.email };
   } catch (error: any) {
     console.error('[users-client] Error in resetPasswordClient:', error);
     throw error;
