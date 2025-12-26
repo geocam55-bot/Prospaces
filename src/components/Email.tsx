@@ -19,6 +19,12 @@ import {
   Info,
   CheckCircle,
   XCircle,
+  Inbox,
+  AlertCircle,
+  Flag,
+  FolderOpen,
+  FileText,
+  Folders,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -151,9 +157,12 @@ interface Email {
   date: string;
   read: boolean;
   starred: boolean;
-  folder: 'inbox' | 'sent' | 'archive' | 'trash';
+  folder: 'inbox' | 'sent' | 'drafts' | 'archive' | 'trash' | 'spam' | 'important';
   linkedTo?: string;
   accountId: string;
+  flagged?: boolean;
+  priority?: 'low' | 'normal' | 'high';
+  hasAttachments?: boolean;
 }
 
 interface EmailAccount {
@@ -192,7 +201,9 @@ export function Email({ user }: EmailProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [editingAccount, setEditingAccount] = useState<EmailAccount | null>(null);
-  const [currentFolder, setCurrentFolder] = useState<'inbox' | 'sent' | 'archive' | 'trash'>('inbox');
+  const [currentFolder, setCurrentFolder] = useState<Email['folder']>('inbox');
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; email: Email } | null>(null);
+  const [showFoldersSidebar, setShowFoldersSidebar] = useState(true);
 
   const [composeEmail, setComposeEmail] = useState({
     to: '',
@@ -200,6 +211,18 @@ export function Email({ user }: EmailProps) {
     body: '',
     linkTo: '',
   });
+
+  // Close context menu on click outside
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    const handleScroll = () => setContextMenu(null);
+    document.addEventListener('click', handleClick);
+    document.addEventListener('scroll', handleScroll, true);
+    return () => {
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('scroll', handleScroll, true);
+    };
+  }, []);
 
   // Load data on mount from Supabase
   useEffect(() => {
@@ -320,9 +343,13 @@ export function Email({ user }: EmailProps) {
           date: email.received_at,
           read: email.is_read,
           starred: email.is_starred,
-          folder: email.folder as 'inbox' | 'sent' | 'archive' | 'trash',
+          folder: email.folder as Email['folder'],
           linkedTo: email.contact_id ? `Contact: ${email.contact_id}` : undefined,
           accountId: email.account_id,
+          // New fields - use optional chaining for backward compatibility
+          flagged: email.is_flagged ?? false,
+          priority: email.priority ?? 'normal',
+          hasAttachments: email.has_attachments ?? false,
         }));
 
         setEmails(transformedEmails);
@@ -443,9 +470,18 @@ export function Email({ user }: EmailProps) {
     .filter(email => {
       // If an account is selected, only show emails for that account
       // Otherwise show all emails
-      if (selectedAccount) {
-        return email.folder === currentFolder && email.accountId === selectedAccount;
+      if (selectedAccount && email.accountId !== selectedAccount) {
+        return false;
       }
+
+      // Handle special folders
+      if (currentFolder === 'important') {
+        return email.starred;
+      } else if (currentFolder === 'flagged') {
+        return email.flagged;
+      }
+      
+      // Regular folders
       return email.folder === currentFolder;
     })
     .filter(email =>
@@ -850,36 +886,115 @@ export function Email({ user }: EmailProps) {
     }
   };
 
-  const handleMarkAsRead = (id: string) => {
-    setEmails(emails.map(email =>
-      email.id === id ? { ...email, read: true } : email
-    ));
-  };
-
-  const handleToggleStar = (id: string) => {
+  const handleMarkAsRead = async (id: string, read: boolean = true) => {
     const email = emails.find(e => e.id === id);
     if (!email) return;
 
-    setEmails(emails.map(e =>
-      e.id === id ? { ...e, starred: !e.starred } : e
-    ));
-    toast.success(email.starred ? 'Unstarred' : 'Starred');
+    try {
+      const supabase = createClient();
+      await supabase
+        .from('emails')
+        .update({ is_read: read })
+        .eq('id', id);
+
+      setEmails(emails.map(e =>
+        e.id === id ? { ...e, read } : e
+      ));
+      toast.success(read ? 'Marked as read' : 'Marked as unread');
+    } catch (error) {
+      console.error('[Email] Failed to update read status:', error);
+    }
+  };
+
+  const handleToggleStar = async (id: string) => {
+    const email = emails.find(e => e.id === id);
+    if (!email) return;
+
+    try {
+      const supabase = createClient();
+      await supabase
+        .from('emails')
+        .update({ is_starred: !email.starred })
+        .eq('id', id);
+
+      setEmails(emails.map(e =>
+        e.id === id ? { ...e, starred: !e.starred } : e
+      ));
+      toast.success(email.starred ? 'Unstarred' : 'Starred');
+    } catch (error) {
+      console.error('[Email] Failed to toggle star:', error);
+    }
+  };
+
+  const handleToggleFlag = async (id: string) => {
+    const email = emails.find(e => e.id === id);
+    if (!email) return;
+
+    try {
+      const supabase = createClient();
+      await supabase
+        .from('emails')
+        .update({ is_flagged: !email.flagged })
+        .eq('id', id);
+
+      setEmails(emails.map(e =>
+        e.id === id ? { ...e, flagged: !e.flagged } : e
+      ));
+      toast.success(email.flagged ? 'Flag removed' : 'Flagged');
+    } catch (error) {
+      console.error('[Email] Failed to toggle flag:', error);
+    }
+  };
+
+  const handleMoveToFolder = async (id: string, folder: Email['folder']) => {
+    const email = emails.find(e => e.id === id);
+    if (!email) return;
+
+    try {
+      const supabase = createClient();
+      await supabase
+        .from('emails')
+        .update({ folder })
+        .eq('id', id);
+
+      setEmails(emails.map(e =>
+        e.id === id ? { ...e, folder } : e
+      ));
+      
+      setSelectedEmail(null);
+      
+      const folderNames: Record<Email['folder'], string> = {
+        inbox: 'Inbox',
+        sent: 'Sent',
+        drafts: 'Drafts',
+        archive: 'Archive',
+        trash: 'Trash',
+        spam: 'Spam',
+        important: 'Important'
+      };
+      
+      toast.success(`Moved to ${folderNames[folder]}`);
+    } catch (error) {
+      console.error('[Email] Failed to move email:', error);
+    }
   };
 
   const handleArchive = (id: string) => {
-    setEmails(emails.map(email =>
-      email.id === id ? { ...email, folder: 'archive' as const } : email
-    ));
-    setSelectedEmail(null);
-    toast.success('Email archived');
+    handleMoveToFolder(id, 'archive');
   };
 
   const handleDelete = (id: string) => {
-    setEmails(emails.map(email =>
-      email.id === id ? { ...email, folder: 'trash' as const } : email
-    ));
-    setSelectedEmail(null);
-    toast.success('Email moved to trash');
+    handleMoveToFolder(id, 'trash');
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, email: Email) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      email
+    });
   };
 
   const handlePermanentDelete = async (id: string) => {
@@ -1164,6 +1279,34 @@ export function Email({ user }: EmailProps) {
 
   const unreadCount = emails.filter(e => !e.read && e.folder === 'inbox' && e.accountId === selectedAccount).length;
 
+  // Folder counts
+  const folderCounts = {
+    inbox: emails.filter(e => e.folder === 'inbox' && e.accountId === selectedAccount).length,
+    sent: emails.filter(e => e.folder === 'sent' && e.accountId === selectedAccount).length,
+    drafts: emails.filter(e => e.folder === 'drafts' && e.accountId === selectedAccount).length,
+    archive: emails.filter(e => e.folder === 'archive' && e.accountId === selectedAccount).length,
+    trash: emails.filter(e => e.folder === 'trash' && e.accountId === selectedAccount).length,
+    spam: emails.filter(e => e.folder === 'spam' && e.accountId === selectedAccount).length,
+    important: emails.filter(e => e.starred && e.accountId === selectedAccount).length,
+    flagged: emails.filter(e => e.flagged && e.accountId === selectedAccount).length,
+  };
+
+  const folders: Array<{ 
+    id: Email['folder'] | 'flagged'; 
+    label: string; 
+    icon: any; 
+    count: number;
+  }> = [
+    { id: 'inbox', label: 'Inbox', icon: Inbox, count: folderCounts.inbox },
+    { id: 'important', label: 'Starred', icon: Star, count: folderCounts.important },
+    { id: 'flagged', label: 'Flagged', icon: Flag, count: folderCounts.flagged },
+    { id: 'sent', label: 'Sent', icon: Send, count: folderCounts.sent },
+    { id: 'drafts', label: 'Drafts', icon: FileText, count: folderCounts.drafts },
+    { id: 'archive', label: 'Archive', icon: Archive, count: folderCounts.archive },
+    { id: 'spam', label: 'Spam', icon: AlertCircle, count: folderCounts.spam },
+    { id: 'trash', label: 'Trash', icon: Trash2, count: folderCounts.trash },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1276,21 +1419,68 @@ export function Email({ user }: EmailProps) {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Email List */}
-          <div className={`lg:col-span-1 ${selectedEmail ? 'hidden lg:block' : ''}`}>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Folders Sidebar */}
+          <div className={`lg:col-span-2 ${selectedEmail ? 'hidden lg:block' : ''}`}>
             <Card>
               <CardHeader>
-                <div className="flex items-center justify-between mb-4">
-                  <Tabs value={currentFolder} onValueChange={(value: any) => setCurrentFolder(value)} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="inbox" className="text-xs sm:text-sm">
-                        Inbox {unreadCount > 0 && `(${unreadCount})`}
-                      </TabsTrigger>
-                      <TabsTrigger value="sent" className="text-xs sm:text-sm">Sent</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">Folders</h3>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 w-6 p-0"
+                    onClick={() => setShowFoldersSidebar(!showFoldersSidebar)}
+                  >
+                    <Folders className="h-4 w-4" />
+                  </Button>
                 </div>
+              </CardHeader>
+              <CardContent className="p-2">
+                <div className="space-y-1">
+                  {folders.map((folder) => {
+                    const Icon = folder.icon;
+                    const isActive = currentFolder === folder.id || 
+                      (currentFolder === 'important' && folder.id === 'important') ||
+                      (currentFolder === 'flagged' && folder.id === 'flagged');
+                    
+                    return (
+                      <button
+                        key={folder.id}
+                        onClick={() => {
+                          if (folder.id === 'flagged' || folder.id === 'important') {
+                            setCurrentFolder(folder.id as any);
+                          } else {
+                            setCurrentFolder(folder.id as Email['folder']);
+                          }
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
+                          isActive
+                            ? 'bg-blue-50 text-blue-700 font-medium'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-4 w-4" />
+                          <span>{folder.label}</span>
+                        </div>
+                        {folder.count > 0 && (
+                          <Badge variant={isActive ? 'default' : 'secondary'} className="text-xs">
+                            {folder.count}
+                          </Badge>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Email List */}
+          <div className={`lg:col-span-4 ${selectedEmail ? 'hidden lg:block' : ''}`}>
+            <Card>
+              <CardHeader>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
@@ -1308,8 +1498,11 @@ export function Email({ user }: EmailProps) {
                       key={email.id}
                       onClick={() => {
                         setSelectedEmail(email);
-                        handleMarkAsRead(email.id);
+                        if (!email.read) {
+                          handleMarkAsRead(email.id, true);
+                        }
                       }}
+                      onContextMenu={(e) => handleContextMenu(e, email)}
                       className={`w-full text-left p-3 sm:p-4 hover:bg-gray-50 transition-colors ${
                         selectedEmail?.id === email.id ? 'bg-blue-50' : ''
                       } ${!email.read ? 'bg-blue-50/30' : ''}`}
@@ -1319,14 +1512,16 @@ export function Email({ user }: EmailProps) {
                           {email.folder === 'sent' ? `To: ${email.to}` : email.from}
                         </span>
                         <div className="flex items-center gap-1 flex-shrink-0">
+                          {email.flagged && <Flag className="h-3 w-3 text-red-500 fill-red-500" />}
                           {email.starred && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />}
+                          {email.hasAttachments && <Paperclip className="h-3 w-3 text-gray-500" />}
                           <span className="text-xs text-gray-500 whitespace-nowrap">
                             {formatDate(email.date)}
                           </span>
                         </div>
                       </div>
                       <p className={`text-xs sm:text-sm mb-1 truncate ${!email.read ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
-                        {email.subject}
+                        {email.subject || '(No subject)'}
                       </p>
                       <p className="text-xs text-gray-500 line-clamp-2">{getEmailPreview(email.body)}</p>
                       {email.linkedTo && (
@@ -1349,7 +1544,7 @@ export function Email({ user }: EmailProps) {
           </div>
 
           {/* Email Detail */}
-          <div className={`lg:col-span-2 ${!selectedEmail ? 'hidden lg:block' : ''}`}>
+          <div className={`lg:col-span-6 ${!selectedEmail ? 'hidden lg:block' : ''}`}>
             {selectedEmail ? (
               <Card>
                 <CardHeader>
@@ -1551,6 +1746,121 @@ export function Email({ user }: EmailProps) {
         onAccountAdded={handleAccountAdded}
         editingAccount={editingAccount}
       />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[200px]"
+          style={{
+            top: contextMenu.y,
+            left: contextMenu.x,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            onClick={() => {
+              handleMarkAsRead(contextMenu.email.id, !contextMenu.email.read);
+              setContextMenu(null);
+            }}
+          >
+            {contextMenu.email.read ? (
+              <>
+                <Mail className="h-4 w-4" />
+                Mark as Unread
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                Mark as Read
+              </>
+            )}
+          </button>
+          
+          <button
+            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            onClick={() => {
+              handleToggleStar(contextMenu.email.id);
+              setContextMenu(null);
+            }}
+          >
+            <Star className="h-4 w-4" />
+            {contextMenu.email.starred ? 'Unstar' : 'Star'}
+          </button>
+
+          <button
+            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            onClick={() => {
+              handleToggleFlag(contextMenu.email.id);
+              setContextMenu(null);
+            }}
+          >
+            <Flag className="h-4 w-4" />
+            {contextMenu.email.flagged ? 'Remove Flag' : 'Flag'}
+          </button>
+
+          <div className="border-t border-gray-200 my-1" />
+
+          <div className="px-2 py-1 text-xs font-semibold text-gray-500">Move to</div>
+          
+          <button
+            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            onClick={() => {
+              handleMoveToFolder(contextMenu.email.id, 'inbox');
+              setContextMenu(null);
+            }}
+          >
+            <Inbox className="h-4 w-4" />
+            Inbox
+          </button>
+
+          <button
+            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            onClick={() => {
+              handleMoveToFolder(contextMenu.email.id, 'archive');
+              setContextMenu(null);
+            }}
+          >
+            <Archive className="h-4 w-4" />
+            Archive
+          </button>
+
+          <button
+            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            onClick={() => {
+              handleMoveToFolder(contextMenu.email.id, 'spam');
+              setContextMenu(null);
+            }}
+          >
+            <AlertCircle className="h-4 w-4" />
+            Spam
+          </button>
+
+          <button
+            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            onClick={() => {
+              handleMoveToFolder(contextMenu.email.id, 'trash');
+              setContextMenu(null);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            Trash
+          </button>
+
+          <div className="border-t border-gray-200 my-1" />
+
+          <button
+            className="w-full text-left px-4 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
+            onClick={() => {
+              handlePermanentDelete(contextMenu.email.id);
+              setContextMenu(null);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Permanently
+          </button>
+        </div>
+      )}
     </div>
   );
 }
