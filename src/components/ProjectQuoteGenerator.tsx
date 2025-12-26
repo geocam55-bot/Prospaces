@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
 import { contactsAPI, opportunitiesAPI, quotesAPI } from '../utils/api';
+import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms } from '../lib/global-settings';
 import type { User as AppUser } from '../App';
 
 interface ProjectQuoteGeneratorProps {
@@ -23,6 +24,7 @@ interface Contact {
   name: string;
   company?: string;
   email?: string;
+  priceLevel?: string; // Named price level like 'Retail', 'Wholesale', 'Contractor', 'Premium', 'Standard'
 }
 
 interface Opportunity {
@@ -46,7 +48,7 @@ export function ProjectQuoteGenerator({
   const [selectedOpportunity, setSelectedOpportunity] = useState<string>('none');
   const [quoteTitle, setQuoteTitle] = useState('');
   const [quoteNotes, setQuoteNotes] = useState('');
-  const [markup, setMarkup] = useState(20); // Default 20% markup
+  const [customerPriceLevel, setCustomerPriceLevel] = useState<string>('Retail');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -66,12 +68,20 @@ export function ProjectQuoteGenerator({
   // Load opportunities when contact is selected
   useEffect(() => {
     if (selectedContact && selectedContact !== '') {
+      // Find selected contact and get their price level
+      const contact = contacts.find(c => c.id === selectedContact);
+      if (contact) {
+        const priceLevel = contact.priceLevel || 'Retail';
+        setCustomerPriceLevel(priceLevel);
+        console.log('[ProjectQuoteGenerator] Customer price level:', priceLevel);
+      }
       loadOpportunities(selectedContact);
     } else {
       setOpportunities([]);
       setSelectedOpportunity('none');
+      setCustomerPriceLevel('Retail'); // Reset to default
     }
-  }, [selectedContact]);
+  }, [selectedContact, contacts]);
 
   const loadContacts = async () => {
     try {
@@ -102,6 +112,16 @@ export function ProjectQuoteGenerator({
     setTimeout(() => setAlert(null), 5000);
   };
 
+  // totalCost now represents T1 pricing from inventory
+  const quotePrice = totalCost;
+
+  // Get tax rates for display
+  const taxRate = getGlobalTaxRate();
+  const taxRate2 = getGlobalTaxRate2();
+  const taxAmount = (totalCost * taxRate) / 100;
+  const taxAmount2 = (totalCost * taxRate2) / 100;
+  const quoteTotalWithTax = totalCost + taxAmount + taxAmount2;
+
   const handleGenerateQuote = async () => {
     if (!selectedContact) {
       showAlert('error', 'Please select a customer');
@@ -116,35 +136,60 @@ export function ProjectQuoteGenerator({
     try {
       setIsSaving(true);
 
-      // Calculate quote amount with markup
-      const quoteAmount = totalCost * (1 + markup / 100);
+      // Use T1 pricing from inventory (totalCost is already T1 price)
+      const quoteAmount = quotePrice;
 
       // Build line items from materials
       const lineItems = materials.map((material, index) => ({
         id: `item_${index}`,
-        description: material.name || material.item,
+        itemId: material.itemId, // Add inventory item ID for linking to inventory
+        itemName: material.description || material.name || material.item || 'Material',
+        sku: material.sku || `PROJ-${projectType.toUpperCase()}-${index + 1}`,
+        description: material.description || material.name || material.item || 'Material',
         quantity: material.quantity,
         unit: material.unit || 'ea',
-        unit_price: material.costPerUnit || material.cost || 0,
-        total: (material.quantity * (material.costPerUnit || material.cost || 0)),
+        unitPrice: material.unitPrice || material.costPerUnit || material.cost || 0,
+        cost: material.cost || 0,
+        total: material.totalCost || (material.quantity * (material.unitPrice || material.costPerUnit || material.cost || 0)),
       }));
+
+      // Build enhanced notes with project and pricing information
+      const enhancedNotes = [
+        `Project Type: ${projectType.charAt(0).toUpperCase() + projectType.slice(1)}`,
+        quoteNotes ? `\\nAdditional Notes:\\n${quoteNotes}` : ''
+      ].filter(Boolean).join('\\n');
+
+      // Get global organization settings
+      const defaultTerms = getDefaultQuoteTerms();
+
+      // Calculate subtotal
+      const subtotal = quoteAmount;
+      
+      // Calculate tax amounts
+      const discountPercent = 0;
+      const discountAmount = 0;
+      const afterDiscount = subtotal - discountAmount;
+      const total = afterDiscount + taxAmount + taxAmount2;
 
       // Create quote data
       const quoteData = {
         title: quoteTitle,
         contact_id: selectedContact,
         opportunity_id: selectedOpportunity !== 'none' ? selectedOpportunity : null,
-        amount: quoteAmount,
+        subtotal: subtotal,
+        discount_percent: discountPercent,
+        discount_amount: discountAmount,
+        tax_percent: taxRate,
+        tax_percent_2: taxRate2,
+        tax_amount: taxAmount,
+        tax_amount_2: taxAmount2,
+        total: total,
+        amount: total, // Legacy field
         status: 'draft',
         valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
-        notes: quoteNotes,
+        notes: enhancedNotes,
+        terms: defaultTerms,
         line_items: lineItems,
-        metadata: {
-          project_type: projectType,
-          project_data: projectData,
-          materials_cost: totalCost,
-          markup_percentage: markup,
-        },
       };
 
       console.log('[ProjectQuoteGenerator] Creating quote:', quoteData);
@@ -169,8 +214,6 @@ export function ProjectQuoteGenerator({
       setIsSaving(false);
     }
   };
-
-  const finalAmount = totalCost * (1 + markup / 100);
 
   if (!isOpen) {
     return (
@@ -296,44 +339,51 @@ export function ProjectQuoteGenerator({
           />
         </div>
 
-        <div className="space-y-3">
-          {/* Markup Percentage */}
-          <div>
-            <Label htmlFor="markup" className="flex items-center gap-1.5 mb-1.5 text-sm">
-              <DollarSign className="w-3.5 h-3.5" />
-              Markup %
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                id="markup"
-                type="number"
-                value={markup}
-                onChange={(e) => setMarkup(Number(e.target.value))}
-                min="0"
-                max="100"
-                className="w-20 h-9"
-              />
-              <span className="text-xs text-slate-600">
-                ${totalCost.toFixed(2)} → ${finalAmount.toFixed(2)}
+        {/* Materials Summary */}
+        <div>
+          <Label className="text-sm mb-1.5 block">Materials ({materials.length} items)</Label>
+          <div className="h-9 flex items-center text-xs text-slate-600 bg-slate-50 rounded-md px-3 border">
+            {materials.length > 0 ? (
+              <span className="truncate">
+                {materials.slice(0, 2).map(m => m.description || m.name || m.item || 'Material').join(', ')}
+                {materials.length > 2 && ` +${materials.length - 2} more`}
               </span>
-            </div>
-          </div>
-
-          {/* Materials Summary */}
-          <div>
-            <Label className="text-sm mb-1.5 block">Materials ({materials.length} items)</Label>
-            <div className="h-9 flex items-center text-xs text-slate-600 bg-slate-50 rounded-md px-3 border">
-              {materials.length > 0 ? (
-                <span className="truncate">
-                  {materials.slice(0, 2).map(m => m.name || m.item).join(', ')}
-                  {materials.length > 2 && ` +${materials.length - 2} more`}
-                </span>
-              ) : (
-                <span className="text-slate-400">No materials</span>
-              )}
-            </div>
+            ) : (
+              <span className="text-slate-400">No materials</span>
+            )}
           </div>
         </div>
+
+        {/* Price Summary */}
+        {selectedContact && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1.5">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-700">Subtotal:</span>
+              <span className="text-slate-900">${totalCost.toFixed(2)}</span>
+            </div>
+            {taxRate > 0 && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-600">Tax ({taxRate}%):</span>
+                <span className="text-slate-700">${taxAmount.toFixed(2)}</span>
+              </div>
+            )}
+            {taxRate2 > 0 && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-600">Tax 2 ({taxRate2}%):</span>
+                <span className="text-slate-700">${taxAmount2.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between border-t border-blue-300 pt-2">
+              <span className="text-slate-900 font-medium">Total (incl. tax):</span>
+              <span className="text-blue-900 font-semibold">${quoteTotalWithTax.toFixed(2)}</span>
+            </div>
+            {totalCost === 0 && (
+              <div className="text-xs text-amber-600 pt-1 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                ⚠️ No pricing set. Configure Item Defaults in Organization Settings.
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Quote Notes */}
         <div>

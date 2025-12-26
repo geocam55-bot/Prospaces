@@ -18,21 +18,40 @@ export function DeckCanvas({ config }: DeckCanvasProps) {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Set up scaling
+    // Set up scaling - account for L-shape dimensions
     const padding = 60;
     const maxWidth = canvas.width - padding * 2;
     const maxHeight = canvas.height - padding * 2 - 100; // Extra space for side elevation
     
+    // Calculate total dimensions for L-shape
+    let totalWidth = config.width;
+    let totalLength = config.length;
+    
+    if (config.shape === 'l-shape') {
+      const lWidth = config.lShapeWidth || 8;
+      const lLength = config.lShapeLength || 10;
+      
+      // Calculate maximum dimensions based on L-shape position
+      const pos = config.lShapePosition || 'top-left';
+      if (pos === 'top-left' || pos === 'bottom-left') {
+        totalWidth = config.width + lWidth;
+        totalLength = Math.max(config.length, lLength);
+      } else if (pos === 'top-right' || pos === 'bottom-right') {
+        totalWidth = config.width + lWidth;
+        totalLength = Math.max(config.length, lLength);
+      }
+    }
+    
     const scale = Math.min(
-      maxWidth / config.width,
-      (maxHeight * 0.6) / config.length
+      maxWidth / totalWidth,
+      (maxHeight * 0.6) / totalLength
     );
 
     // Draw floor plan (top view)
     drawFloorPlan(ctx, config, padding, padding, scale);
     
     // Draw side elevation below floor plan
-    const elevationY = padding + config.length * scale + 80;
+    const elevationY = padding + totalLength * scale + 80;
     drawSideElevation(ctx, config, padding, elevationY, scale);
   }, [config]);
 
@@ -63,58 +82,121 @@ function drawFloorPlan(
   ctx.fillText('Floor Plan (Top View)', offsetX, offsetY - 30);
   ctx.font = '12px system-ui';
   ctx.fillStyle = '#64748b';
-  ctx.fillText(`${width}' × ${length}'`, offsetX, offsetY - 10);
+  
+  if (config.shape === 'l-shape' && config.lShapeWidth && config.lShapeLength) {
+    ctx.fillText(`${width}' × ${length}' + ${config.lShapeWidth}' × ${config.lShapeLength}' L-Extension`, offsetX, offsetY - 10);
+  } else {
+    ctx.fillText(`${width}' × ${length}'`, offsetX, offsetY - 10);
+  }
 
   const deckPixelWidth = width * scale;
   const deckPixelLength = length * scale;
 
-  // Draw deck surface
+  // Adjust offset for L-shape left positioning
+  let adjustedOffsetX = offsetX;
+  let adjustedOffsetY = offsetY;
+  
+  if (config.shape === 'l-shape' && config.lShapeWidth && config.lShapeLength) {
+    const lShapePixelWidth = config.lShapeWidth * scale;
+    const lShapePixelLength = config.lShapeLength * scale;
+    const pos = config.lShapePosition || 'top-left';
+    
+    // Shift main deck to the right if extension is on the left
+    if (pos === 'top-left' || pos === 'bottom-left') {
+      adjustedOffsetX = offsetX + lShapePixelWidth;
+    }
+  }
+
+  // Draw deck surface (handle L-shape)
   ctx.fillStyle = '#e0e7ff';
   ctx.strokeStyle = '#1e293b';
   ctx.lineWidth = 3;
-  ctx.fillRect(offsetX, offsetY, deckPixelWidth, deckPixelLength);
-  ctx.strokeRect(offsetX, offsetY, deckPixelWidth, deckPixelLength);
+  
+  console.log('[DeckCanvas] Drawing deck:', {
+    shape: config.shape,
+    lShapeWidth: config.lShapeWidth,
+    lShapeLength: config.lShapeLength,
+    lShapePosition: config.lShapePosition,
+    isLShape: config.shape === 'l-shape' && config.lShapeWidth && config.lShapeLength,
+    adjustedOffsetX,
+    offsetX
+  });
+  
+  if (config.shape === 'l-shape' && config.lShapeWidth && config.lShapeLength) {
+    // Draw L-shaped deck
+    const lShapePixelWidth = config.lShapeWidth * scale;
+    const lShapePixelLength = config.lShapeLength * scale;
+    
+    ctx.beginPath();
+    
+    // Main rectangle (always use adjusted offset)
+    ctx.rect(adjustedOffsetX, adjustedOffsetY, deckPixelWidth, deckPixelLength);
+    
+    // Extension rectangle based on position
+    switch (config.lShapePosition || 'top-left') {
+      case 'top-right':
+        ctx.rect(adjustedOffsetX + deckPixelWidth, adjustedOffsetY, lShapePixelWidth, lShapePixelLength);
+        break;
+      case 'bottom-right':
+        ctx.rect(adjustedOffsetX + deckPixelWidth, adjustedOffsetY + deckPixelLength - lShapePixelLength, lShapePixelWidth, lShapePixelLength);
+        break;
+      case 'bottom-left':
+        ctx.rect(adjustedOffsetX - lShapePixelWidth, adjustedOffsetY + deckPixelLength - lShapePixelLength, lShapePixelWidth, lShapePixelLength);
+        break;
+      case 'top-left':
+      default:
+        ctx.rect(adjustedOffsetX - lShapePixelWidth, adjustedOffsetY, lShapePixelWidth, lShapePixelLength);
+        break;
+    }
+    
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    // Draw rectangular deck
+    ctx.fillRect(adjustedOffsetX, adjustedOffsetY, deckPixelWidth, deckPixelLength);
+    ctx.strokeRect(adjustedOffsetX, adjustedOffsetY, deckPixelWidth, deckPixelLength);
+  }
 
-  // Draw joists
+  // Draw joists (use adjusted offset)
   ctx.strokeStyle = '#c7d2fe';
   ctx.lineWidth = 2;
   const joistSpacingFeet = config.joistSpacing / 12;
   const numberOfJoists = Math.floor(width / joistSpacingFeet);
   
   for (let i = 0; i <= numberOfJoists; i++) {
-    const x = offsetX + (i * joistSpacingFeet * scale);
+    const x = adjustedOffsetX + (i * joistSpacingFeet * scale);
     ctx.beginPath();
-    ctx.moveTo(x, offsetY);
-    ctx.lineTo(x, offsetY + deckPixelLength);
+    ctx.moveTo(x, adjustedOffsetY);
+    ctx.lineTo(x, adjustedOffsetY + deckPixelLength);
     ctx.stroke();
   }
 
-  // Draw decking pattern
+  // Draw decking pattern (use adjusted offset)
   ctx.strokeStyle = '#a5b4fc';
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 3]);
   
   if (config.deckingPattern === 'perpendicular') {
     const spacing = scale * 0.5;
-    for (let y = offsetY; y < offsetY + deckPixelLength; y += spacing) {
+    for (let y = adjustedOffsetY; y < adjustedOffsetY + deckPixelLength; y += spacing) {
       ctx.beginPath();
-      ctx.moveTo(offsetX, y);
-      ctx.lineTo(offsetX + deckPixelWidth, y);
+      ctx.moveTo(adjustedOffsetX, y);
+      ctx.lineTo(adjustedOffsetX + deckPixelWidth, y);
       ctx.stroke();
     }
   } else if (config.deckingPattern === 'parallel') {
     const spacing = scale * 0.5;
-    for (let x = offsetX; x < offsetX + deckPixelWidth; x += spacing) {
+    for (let x = adjustedOffsetX; x < adjustedOffsetX + deckPixelWidth; x += spacing) {
       ctx.beginPath();
-      ctx.moveTo(x, offsetY);
-      ctx.lineTo(x, offsetY + deckPixelLength);
+      ctx.moveTo(x, adjustedOffsetY);
+      ctx.lineTo(x, adjustedOffsetY + deckPixelLength);
       ctx.stroke();
     }
   }
   
   ctx.setLineDash([]);
 
-  // Draw stairs
+  // Draw stairs (use adjusted offset)
   if (hasStairs) {
     const stairWidth = (config.stairWidth || 4) * scale;
     const stairDepth = 3 * scale;
@@ -128,8 +210,8 @@ function drawFloorPlan(
 
     switch (stairSide) {
       case 'front':
-        stairX = offsetX + (deckPixelWidth - stairWidth) / 2;
-        stairY = offsetY - stairDepth;
+        stairX = adjustedOffsetX + (deckPixelWidth - stairWidth) / 2;
+        stairY = adjustedOffsetY - stairDepth;
         ctx.fillRect(stairX, stairY, stairWidth, stairDepth);
         ctx.strokeRect(stairX, stairY, stairWidth, stairDepth);
         
@@ -148,27 +230,27 @@ function drawFloorPlan(
         ctx.fillText('Stairs', stairX + stairWidth / 2 - 15, stairY + stairDepth / 2);
         break;
       case 'back':
-        stairX = offsetX + (deckPixelWidth - stairWidth) / 2;
-        stairY = offsetY + deckPixelLength;
+        stairX = adjustedOffsetX + (deckPixelWidth - stairWidth) / 2;
+        stairY = adjustedOffsetY + deckPixelLength;
         ctx.fillRect(stairX, stairY, stairWidth, stairDepth);
         ctx.strokeRect(stairX, stairY, stairWidth, stairDepth);
         break;
       case 'left':
-        stairX = offsetX - stairDepth;
-        stairY = offsetY + (deckPixelLength - stairWidth) / 2;
+        stairX = adjustedOffsetX - stairDepth;
+        stairY = adjustedOffsetY + (deckPixelLength - stairWidth) / 2;
         ctx.fillRect(stairX, stairY, stairDepth, stairWidth);
         ctx.strokeRect(stairX, stairY, stairDepth, stairWidth);
         break;
       case 'right':
-        stairX = offsetX + deckPixelWidth;
-        stairY = offsetY + (deckPixelLength - stairWidth) / 2;
+        stairX = adjustedOffsetX + deckPixelWidth;
+        stairY = adjustedOffsetY + (deckPixelLength - stairWidth) / 2;
         ctx.fillRect(stairX, stairY, stairDepth, stairWidth);
         ctx.strokeRect(stairX, stairY, stairDepth, stairWidth);
         break;
     }
   }
 
-  // Draw railings
+  // Draw railings (use adjusted offset)
   ctx.strokeStyle = '#7c3aed';
   ctx.lineWidth = 4;
   
@@ -179,64 +261,64 @@ function drawFloorPlan(
       case 'front':
         if (hasStairs && stairSide === 'front') {
           const stairWidth = (config.stairWidth || 4) * scale;
-          const leftEnd = offsetX + (deckPixelWidth - stairWidth) / 2;
+          const leftEnd = adjustedOffsetX + (deckPixelWidth - stairWidth) / 2;
           const rightStart = leftEnd + stairWidth;
           
-          ctx.moveTo(offsetX, offsetY);
-          ctx.lineTo(leftEnd, offsetY);
-          ctx.moveTo(rightStart, offsetY);
-          ctx.lineTo(offsetX + deckPixelWidth, offsetY);
+          ctx.moveTo(adjustedOffsetX, adjustedOffsetY);
+          ctx.lineTo(leftEnd, adjustedOffsetY);
+          ctx.moveTo(rightStart, adjustedOffsetY);
+          ctx.lineTo(adjustedOffsetX + deckPixelWidth, adjustedOffsetY);
         } else {
-          ctx.moveTo(offsetX, offsetY);
-          ctx.lineTo(offsetX + deckPixelWidth, offsetY);
+          ctx.moveTo(adjustedOffsetX, adjustedOffsetY);
+          ctx.lineTo(adjustedOffsetX + deckPixelWidth, adjustedOffsetY);
         }
         break;
       case 'back':
-        ctx.moveTo(offsetX, offsetY + deckPixelLength);
-        ctx.lineTo(offsetX + deckPixelWidth, offsetY + deckPixelLength);
+        ctx.moveTo(adjustedOffsetX, adjustedOffsetY + deckPixelLength);
+        ctx.lineTo(adjustedOffsetX + deckPixelWidth, adjustedOffsetY + deckPixelLength);
         break;
       case 'left':
-        ctx.moveTo(offsetX, offsetY);
-        ctx.lineTo(offsetX, offsetY + deckPixelLength);
+        ctx.moveTo(adjustedOffsetX, adjustedOffsetY);
+        ctx.lineTo(adjustedOffsetX, adjustedOffsetY + deckPixelLength);
         break;
       case 'right':
-        ctx.moveTo(offsetX + deckPixelWidth, offsetY);
-        ctx.lineTo(offsetX + deckPixelWidth, offsetY + deckPixelLength);
+        ctx.moveTo(adjustedOffsetX + deckPixelWidth, adjustedOffsetY);
+        ctx.lineTo(adjustedOffsetX + deckPixelWidth, adjustedOffsetY + deckPixelLength);
         break;
     }
     
     ctx.stroke();
   });
 
-  // Dimensions
+  // Dimensions (use adjusted offset)
   ctx.strokeStyle = '#64748b';
   ctx.fillStyle = '#475569';
   ctx.lineWidth = 1;
   ctx.font = '11px system-ui';
   
   // Width dimension (bottom)
-  const dimY = offsetY + deckPixelLength + 25;
+  const dimY = adjustedOffsetY + deckPixelLength + 25;
   ctx.beginPath();
-  ctx.moveTo(offsetX, dimY);
-  ctx.lineTo(offsetX + deckPixelWidth, dimY);
+  ctx.moveTo(adjustedOffsetX, dimY);
+  ctx.lineTo(adjustedOffsetX + deckPixelWidth, dimY);
   ctx.stroke();
   
-  drawArrow(ctx, offsetX, dimY, offsetX + 10, dimY);
-  drawArrow(ctx, offsetX + deckPixelWidth, dimY, offsetX + deckPixelWidth - 10, dimY);
-  ctx.fillText(`${width}'`, offsetX + deckPixelWidth / 2 - 10, dimY - 5);
+  drawArrow(ctx, adjustedOffsetX, dimY, adjustedOffsetX + 10, dimY);
+  drawArrow(ctx, adjustedOffsetX + deckPixelWidth, dimY, adjustedOffsetX + deckPixelWidth - 10, dimY);
+  ctx.fillText(`${width}'`, adjustedOffsetX + deckPixelWidth / 2 - 10, dimY - 5);
   
   // Length dimension (right side)
-  const dimX = offsetX + deckPixelWidth + 25;
+  const dimX = adjustedOffsetX + deckPixelWidth + 25;
   ctx.beginPath();
-  ctx.moveTo(dimX, offsetY);
-  ctx.lineTo(dimX, offsetY + deckPixelLength);
+  ctx.moveTo(dimX, adjustedOffsetY);
+  ctx.lineTo(dimX, adjustedOffsetY + deckPixelLength);
   ctx.stroke();
   
-  drawArrow(ctx, dimX, offsetY, dimX, offsetY + 10);
-  drawArrow(ctx, dimX, offsetY + deckPixelLength, dimX, offsetY + deckPixelLength - 10);
+  drawArrow(ctx, dimX, adjustedOffsetY, dimX, adjustedOffsetY + 10);
+  drawArrow(ctx, dimX, adjustedOffsetY + deckPixelLength, dimX, adjustedOffsetY + deckPixelLength - 10);
   
   ctx.save();
-  ctx.translate(dimX + 15, offsetY + deckPixelLength / 2);
+  ctx.translate(dimX + 15, adjustedOffsetY + deckPixelLength / 2);
   ctx.rotate(-Math.PI / 2);
   ctx.fillText(`${length}'`, -10, 0);
   ctx.restore();

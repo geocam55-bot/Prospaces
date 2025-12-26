@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShedConfigurator } from '../shed/ShedConfigurator';
 import { ShedCanvas } from '../shed/ShedCanvas';
 import { ShedMaterialsList } from '../shed/ShedMaterialsList';
@@ -6,6 +6,7 @@ import { ShedTemplates } from '../shed/ShedTemplates';
 import { SavedShedDesigns } from '../shed/SavedShedDesigns';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { calculateMaterials } from '../../utils/shedCalculations';
+import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { ShedConfig } from '../../types/shed';
 import { Ruler, Package, Printer, FileText } from 'lucide-react';
 import type { User } from '../../App';
@@ -56,8 +57,41 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
   });
 
   const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved'>('design');
+  const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
+  const [totalT1Price, setTotalT1Price] = useState<number>(0);
 
   const materials = calculateMaterials(config);
+
+  // Flatten materials for quote generator
+  const flatMaterials = [
+    ...materials.foundation,
+    ...materials.framing,
+    ...materials.floor,
+    ...materials.roofing,
+    ...materials.siding,
+    ...materials.door,
+    ...materials.windows,
+    ...materials.loft,
+    ...materials.electrical,
+    ...materials.shelving,
+    ...materials.accessories,
+  ];
+
+  // Enrich materials with T1 pricing whenever config changes
+  useEffect(() => {
+    const enrichMaterials = async () => {
+      if (user.organizationId && flatMaterials.length > 0) {
+        const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(
+          flatMaterials,
+          user.organizationId,
+          'shed'
+        );
+        setEnrichedMaterials(enriched);
+        setTotalT1Price(total);
+      }
+    };
+    enrichMaterials();
+  }, [config, user.organizationId]);
 
   const handleLoadTemplate = (templateConfig: ShedConfig) => {
     setConfig(templateConfig);
@@ -136,15 +170,15 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
         {activeTab === 'design' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 space-y-6 print:hidden">
-              <ShedTemplates onLoadTemplate={handleLoadTemplate} />
+              <ShedTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
               <ShedConfigurator config={config} onChange={setConfig} />
               
               {/* Quote Generator */}
               <ProjectQuoteGenerator
                 user={user}
                 projectType="shed"
-                materials={Array.isArray(materials) ? materials : []}
-                totalCost={Array.isArray(materials) ? materials.reduce((sum, m) => sum + (m.cost || 0), 0) : 0}
+                materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+                totalCost={totalT1Price > 0 ? totalT1Price : 0}
                 projectData={config}
               />
             </div>

@@ -138,6 +138,12 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
     return item?.label || 'Dashboard';
   };
 
+  // Get page icon based on current view
+  const getPageIcon = (view: string) => {
+    const item = navItems.find(item => item.id === view);
+    return item?.icon || LayoutDashboard;
+  };
+
   return (
     <>
       {/* Mobile header */}
@@ -320,9 +326,15 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
       {/* Desktop header */}
       <div className="hidden lg:block fixed top-0 left-64 right-0 border-b bg-white dark:bg-slate-900 z-40 h-16 shadow-sm">
         <div className="flex items-center justify-between h-full px-6 border-b border-slate-200 dark:border-slate-700">
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
-            {getPageTitle(currentView)}
-          </h1>
+          <div className="flex items-center gap-3">
+            {(() => {
+              const Icon = getPageIcon(currentView);
+              return <Icon className="h-6 w-6 text-blue-600 dark:text-blue-400" />;
+            })()}
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
+              {getPageTitle(currentView)}
+            </h1>
+          </div>
           <div className="flex items-center gap-4">
             {organization && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">

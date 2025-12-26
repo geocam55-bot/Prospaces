@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DeckConfigurator } from '../deck/DeckConfigurator';
 import { DeckCanvas } from '../deck/DeckCanvas';
 import { MaterialsList } from '../deck/MaterialsList';
 import { DeckTemplates } from '../deck/DeckTemplates';
 import { SavedDesigns } from '../deck/SavedDesigns';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
+import { DiagnosticPanel } from '../DiagnosticPanel';
 import { calculateMaterials } from '../../utils/deckCalculations';
+import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { DeckConfig } from '../../types/deck';
 import { Ruler, Package, Printer, FileText } from 'lucide-react';
 import type { User } from '../../App';
@@ -30,8 +32,35 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
   });
 
   const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved'>('design');
+  const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
+  const [totalT1Price, setTotalT1Price] = useState<number>(0);
 
   const materials = calculateMaterials(config);
+
+  // Flatten materials for quote generator
+  const flatMaterials = [
+    ...materials.framing,
+    ...materials.decking,
+    ...materials.railing,
+    ...materials.hardware,
+  ];
+
+  // Enrich materials with T1 pricing whenever config changes
+  useEffect(() => {
+    const enrichMaterials = async () => {
+      if (user.organizationId && flatMaterials.length > 0) {
+        const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(
+          flatMaterials,
+          user.organizationId,
+          'deck',
+          config.deckingType
+        );
+        setEnrichedMaterials(enriched);
+        setTotalT1Price(total);
+      }
+    };
+    enrichMaterials();
+  }, [config, user.organizationId]);
 
   const handleLoadTemplate = (templateConfig: DeckConfig) => {
     setConfig(templateConfig);
@@ -110,15 +139,15 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
         {activeTab === 'design' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 space-y-6 print:hidden">
-              <DeckTemplates onLoadTemplate={handleLoadTemplate} />
+              <DeckTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
               <DeckConfigurator config={config} onChange={setConfig} />
               
               {/* Quote Generator */}
               <ProjectQuoteGenerator
                 user={user}
                 projectType="deck"
-                materials={Array.isArray(materials) ? materials : []}
-                totalCost={Array.isArray(materials) ? materials.reduce((sum, m) => sum + (m.cost || 0), 0) : 0}
+                materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+                totalCost={totalT1Price > 0 ? totalT1Price : 0}
                 projectData={config}
               />
             </div>
@@ -138,8 +167,16 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
         )}
 
         {activeTab === 'materials' && (
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-            <MaterialsList materials={materials} compact={false} />
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+              <MaterialsList materials={materials} compact={false} />
+            </div>
+            
+            <DiagnosticPanel 
+              organizationId={user.organizationId}
+              plannerType="deck"
+              materialType={config.deckingType}
+            />
           </div>
         )}
 

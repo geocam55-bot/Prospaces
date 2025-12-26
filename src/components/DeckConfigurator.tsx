@@ -96,6 +96,62 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
           </div>
         </div>
 
+        {/* L-Shape Configuration */}
+        {config.shape === 'l-shape' && (
+          <div className="space-y-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
+            <div className="text-sm text-purple-900 font-medium mb-2">
+              L-Shape Extension Settings
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-700 text-sm mb-1">
+                  Extension Width (ft)
+                </label>
+                <input
+                  type="number"
+                  min="4"
+                  max="50"
+                  step="1"
+                  value={config.lShapeWidth || 8}
+                  onChange={(e) => updateConfig({ lShapeWidth: parseFloat(e.target.value) || 8 })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 text-sm mb-1">
+                  Extension Length (ft)
+                </label>
+                <input
+                  type="number"
+                  min="4"
+                  max="50"
+                  step="1"
+                  value={config.lShapeLength || 10}
+                  onChange={(e) => updateConfig({ lShapeLength: parseFloat(e.target.value) || 10 })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-700 text-sm mb-1">
+                Extension Position
+              </label>
+              <select
+                value={config.lShapePosition || 'top-left'}
+                onChange={(e) => updateConfig({ lShapePosition: e.target.value as any })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="top-left">Top Left</option>
+                <option value="top-right">Top Right</option>
+                <option value="bottom-left">Bottom Left</option>
+                <option value="bottom-right">Bottom Right</option>
+              </select>
+            </div>
+          </div>
+        )}
+
         {/* Joist Spacing */}
         <div>
           <label className="block text-slate-700 text-sm mb-2">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GarageConfigurator } from '../garage/GarageConfigurator';
 import { GarageCanvas } from '../garage/GarageCanvas';
 import { GarageMaterialsList } from '../garage/GarageMaterialsList';
@@ -6,6 +6,7 @@ import { GarageTemplates } from '../garage/GarageTemplates';
 import { SavedGarageDesigns } from '../garage/SavedGarageDesigns';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { calculateMaterials } from '../../utils/garageCalculations';
+import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { GarageConfig } from '../../types/garage';
 import { Ruler, Package, Printer, FileText } from 'lucide-react';
 import type { User } from '../../App';
@@ -70,8 +71,37 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
   });
 
   const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved'>('design');
+  const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
+  const [totalT1Price, setTotalT1Price] = useState<number>(0);
 
   const materials = calculateMaterials(config);
+
+  // Flatten materials for quote generator
+  const flatMaterials = [
+    ...materials.framing,
+    ...materials.roofing,
+    ...materials.siding,
+    ...materials.doors,
+    ...materials.windows,
+    ...materials.insulation,
+    ...materials.electrical,
+  ];
+
+  // Enrich materials with T1 pricing whenever config changes
+  useEffect(() => {
+    const enrichMaterials = async () => {
+      if (user.organizationId && flatMaterials.length > 0) {
+        const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(
+          flatMaterials,
+          user.organizationId,
+          'garage'
+        );
+        setEnrichedMaterials(enriched);
+        setTotalT1Price(total);
+      }
+    };
+    enrichMaterials();
+  }, [config, user.organizationId]);
 
   const handleLoadTemplate = (templateConfig: GarageConfig) => {
     setConfig(templateConfig);
@@ -150,15 +180,15 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
         {activeTab === 'design' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 space-y-6 print:hidden">
-              <GarageTemplates onLoadTemplate={handleLoadTemplate} />
+              <GarageTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
               <GarageConfigurator config={config} onChange={setConfig} />
               
               {/* Quote Generator */}
               <ProjectQuoteGenerator
                 user={user}
                 projectType="garage"
-                materials={Array.isArray(materials) ? materials : []}
-                totalCost={Array.isArray(materials) ? materials.reduce((sum, m) => sum + (m.cost || 0), 0) : 0}
+                materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+                totalCost={totalT1Price > 0 ? totalT1Price : 0}
                 projectData={config}
               />
             </div>

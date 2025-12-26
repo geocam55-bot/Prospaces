@@ -139,24 +139,32 @@ export function ShedConfigurator({ config, onChange }: ShedConfiguratorProps) {
             </Select>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
+            config.hasFloor
+              ? 'border-green-600 bg-green-50'
+              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+          }`}>
             <Checkbox
               id="hasFloor"
               checked={config.hasFloor}
               onCheckedChange={(checked) => updateConfig({ hasFloor: checked as boolean })}
             />
-            <Label htmlFor="hasFloor" className="text-sm font-normal cursor-pointer">
+            <Label htmlFor="hasFloor" className="text-sm font-normal cursor-pointer flex-1">
               Wooden floor (plywood decking)
             </Label>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
+            config.hasLoft
+              ? 'border-green-600 bg-green-50'
+              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+          }`}>
             <Checkbox
               id="hasLoft"
               checked={config.hasLoft}
               onCheckedChange={(checked) => updateConfig({ hasLoft: checked as boolean })}
             />
-            <Label htmlFor="hasLoft" className="text-sm font-normal cursor-pointer">
+            <Label htmlFor="hasLoft" className="text-sm font-normal cursor-pointer flex-1">
               Storage loft (overhead storage)
             </Label>
           </div>
@@ -281,46 +289,62 @@ export function ShedConfigurator({ config, onChange }: ShedConfiguratorProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
+            config.hasShutters
+              ? 'border-green-600 bg-green-50'
+              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+          }`}>
             <Checkbox
               id="hasShutters"
               checked={config.hasShutters}
               onCheckedChange={(checked) => updateConfig({ hasShutters: checked as boolean })}
             />
-            <Label htmlFor="hasShutters" className="text-sm font-normal cursor-pointer">
+            <Label htmlFor="hasShutters" className="text-sm font-normal cursor-pointer flex-1">
               Decorative shutters
             </Label>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
+            config.hasFlowerBox
+              ? 'border-green-600 bg-green-50'
+              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+          }`}>
             <Checkbox
               id="hasFlowerBox"
               checked={config.hasFlowerBox}
               onCheckedChange={(checked) => updateConfig({ hasFlowerBox: checked as boolean })}
             />
-            <Label htmlFor="hasFlowerBox" className="text-sm font-normal cursor-pointer">
+            <Label htmlFor="hasFlowerBox" className="text-sm font-normal cursor-pointer flex-1">
               Window flower box
             </Label>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
+            config.hasShelvingPackage
+              ? 'border-green-600 bg-green-50'
+              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+          }`}>
             <Checkbox
               id="hasShelvingPackage"
               checked={config.hasShelvingPackage}
               onCheckedChange={(checked) => updateConfig({ hasShelvingPackage: checked as boolean })}
             />
-            <Label htmlFor="hasShelvingPackage" className="text-sm font-normal cursor-pointer">
+            <Label htmlFor="hasShelvingPackage" className="text-sm font-normal cursor-pointer flex-1">
               Interior shelving package
             </Label>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
+            config.hasElectrical
+              ? 'border-green-600 bg-green-50'
+              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+          }`}>
             <Checkbox
               id="hasElectrical"
               checked={config.hasElectrical}
               onCheckedChange={(checked) => updateConfig({ hasElectrical: checked as boolean })}
             />
-            <Label htmlFor="hasElectrical" className="text-sm font-normal cursor-pointer flex items-center gap-1.5">
+            <Label htmlFor="hasElectrical" className="text-sm font-normal cursor-pointer flex-1 flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5" />
               Electrical (light & outlet)
             </Label>

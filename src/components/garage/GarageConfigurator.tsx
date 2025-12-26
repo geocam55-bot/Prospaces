@@ -153,13 +153,17 @@ export function GarageConfigurator({ config, onChange }: GarageConfiguratorProps
             </Select>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
+            config.hasAtticTrusses
+              ? 'border-blue-600 bg-blue-50'
+              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+          }`}>
             <Checkbox
               id="hasAtticTrusses"
               checked={config.hasAtticTrusses}
               onCheckedChange={(checked) => updateConfig({ hasAtticTrusses: checked as boolean })}
             />
-            <Label htmlFor="hasAtticTrusses" className="text-sm font-normal cursor-pointer">
+            <Label htmlFor="hasAtticTrusses" className="text-sm font-normal cursor-pointer flex-1">
               Attic trusses (storage space)
             </Label>
           </div>
@@ -221,35 +225,47 @@ export function GarageConfigurator({ config, onChange }: GarageConfiguratorProps
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
+            config.hasWalkDoor
+              ? 'border-blue-600 bg-blue-50'
+              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+          }`}>
             <Checkbox
               id="hasWalkDoor"
               checked={config.hasWalkDoor}
               onCheckedChange={(checked) => updateConfig({ hasWalkDoor: checked as boolean })}
             />
-            <Label htmlFor="hasWalkDoor" className="text-sm font-normal cursor-pointer">
+            <Label htmlFor="hasWalkDoor" className="text-sm font-normal cursor-pointer flex-1">
               Walk-in door
             </Label>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
+            config.isInsulated
+              ? 'border-blue-600 bg-blue-50'
+              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+          }`}>
             <Checkbox
               id="isInsulated"
               checked={config.isInsulated}
               onCheckedChange={(checked) => updateConfig({ isInsulated: checked as boolean })}
             />
-            <Label htmlFor="isInsulated" className="text-sm font-normal cursor-pointer">
+            <Label htmlFor="isInsulated" className="text-sm font-normal cursor-pointer flex-1">
               Insulated walls & ceiling
             </Label>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
+            config.hasElectrical
+              ? 'border-blue-600 bg-blue-50'
+              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+          }`}>
             <Checkbox
               id="hasElectrical"
               checked={config.hasElectrical}
               onCheckedChange={(checked) => updateConfig({ hasElectrical: checked as boolean })}
             />
-            <Label htmlFor="hasElectrical" className="text-sm font-normal cursor-pointer flex items-center gap-1.5">
+            <Label htmlFor="hasElectrical" className="text-sm font-normal cursor-pointer flex-1 flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5" />
               Electrical (lights & outlets)
             </Label>

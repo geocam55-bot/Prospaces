@@ -4,6 +4,7 @@ import { LayoutTemplate } from 'lucide-react';
 
 interface DeckTemplatesProps {
   onLoadTemplate: (config: DeckConfig) => void;
+  currentConfig?: DeckConfig;
 }
 
 const templates: Array<{ name: string; description: string; config: DeckConfig }> = [
@@ -75,7 +76,26 @@ const templates: Array<{ name: string; description: string; config: DeckConfig }
   },
 ];
 
-export function DeckTemplates({ onLoadTemplate }: DeckTemplatesProps) {
+export function DeckTemplates({ onLoadTemplate, currentConfig }: DeckTemplatesProps) {
+  // Check if a template matches the current config
+  const isTemplateSelected = (template: typeof templates[0]) => {
+    if (!currentConfig) return false;
+    
+    const t = template.config;
+    const c = currentConfig;
+    
+    // Check key properties that define a template
+    return (
+      t.width === c.width &&
+      t.length === c.length &&
+      t.shape === c.shape &&
+      t.height === c.height &&
+      t.hasStairs === c.hasStairs &&
+      t.deckingPattern === c.deckingPattern &&
+      t.joistSpacing === c.joistSpacing
+    );
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
       <div className="flex items-center gap-2 mb-4">
@@ -84,18 +104,29 @@ export function DeckTemplates({ onLoadTemplate }: DeckTemplatesProps) {
       </div>
 
       <div className="grid grid-cols-1 gap-2">
-        {templates.map((template, idx) => (
-          <button
-            key={idx}
-            onClick={() => onLoadTemplate(template.config)}
-            className="text-left p-3 border border-slate-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors group"
-          >
-            <div className="text-slate-900 group-hover:text-purple-900">
-              {template.name}
-            </div>
-            <div className="text-slate-600 text-sm mt-1">{template.description}</div>
-          </button>
-        ))}
+        {templates.map((template, idx) => {
+          const isSelected = isTemplateSelected(template);
+          return (
+            <button
+              key={idx}
+              onClick={() => onLoadTemplate(template.config)}
+              className={`text-left p-3 border-2 rounded-lg transition-colors group ${
+                isSelected
+                  ? 'border-purple-600 bg-purple-50'
+                  : 'border-slate-200 hover:border-purple-300 hover:bg-purple-50'
+              }`}
+            >
+              <div className={`${
+                isSelected 
+                  ? 'text-purple-900' 
+                  : 'text-slate-900 group-hover:text-purple-900'
+              }`}>
+                {template.name}
+              </div>
+              <div className="text-slate-600 text-sm mt-1">{template.description}</div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

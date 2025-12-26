@@ -29,15 +29,24 @@ export function DeckCanvas({ config }: DeckCanvasProps) {
     const availableWidth = canvas.width - padding * 2;
     const availableHeight = canvas.height - padding * 2;
     
-    const scaleX = availableWidth / config.width;
-    const scaleY = availableHeight / config.length;
+    // Calculate total dimensions including L-shape
+    let totalWidth = config.width;
+    let totalLength = config.length;
+    
+    if (config.shape === 'l-shape' && config.lShapeWidth && config.lShapeLength) {
+      totalWidth = Math.max(config.width, config.lShapeWidth);
+      totalLength = Math.max(config.length, config.lShapeLength);
+    }
+    
+    const scaleX = availableWidth / totalWidth;
+    const scaleY = availableHeight / totalLength;
     const scale = Math.min(scaleX, scaleY);
 
     // Center the deck
     const deckPixelWidth = config.width * scale;
     const deckPixelLength = config.length * scale;
-    const offsetX = (canvas.width - deckPixelWidth) / 2;
-    const offsetY = (canvas.height - deckPixelLength) / 2;
+    const offsetX = (canvas.width - totalWidth * scale) / 2;
+    const offsetY = (canvas.height - totalLength * scale) / 2;
 
     // Draw grid background
     ctx.strokeStyle = '#e2e8f0';
@@ -60,8 +69,49 @@ export function DeckCanvas({ config }: DeckCanvasProps) {
     ctx.fillStyle = '#cbd5e1';
     ctx.strokeStyle = '#475569';
     ctx.lineWidth = 3;
-    ctx.fillRect(offsetX, offsetY, deckPixelWidth, deckPixelLength);
-    ctx.strokeRect(offsetX, offsetY, deckPixelWidth, deckPixelLength);
+    
+    if (config.shape === 'l-shape' && config.lShapeWidth && config.lShapeLength) {
+      // Draw L-shaped deck
+      const lShapePixelWidth = config.lShapeWidth * scale;
+      const lShapePixelLength = config.lShapeLength * scale;
+      
+      ctx.beginPath();
+      
+      switch (config.lShapePosition) {
+        case 'top-right':
+          // Main rectangle (left side)
+          ctx.rect(offsetX, offsetY, deckPixelWidth, deckPixelLength);
+          // Extension (top right)
+          ctx.rect(offsetX + deckPixelWidth, offsetY, lShapePixelWidth, lShapePixelLength);
+          break;
+        case 'bottom-right':
+          // Main rectangle
+          ctx.rect(offsetX, offsetY, deckPixelWidth, deckPixelLength);
+          // Extension (bottom right)
+          ctx.rect(offsetX + deckPixelWidth, offsetY + deckPixelLength - lShapePixelLength, lShapePixelWidth, lShapePixelLength);
+          break;
+        case 'bottom-left':
+          // Main rectangle
+          ctx.rect(offsetX, offsetY, deckPixelWidth, deckPixelLength);
+          // Extension (bottom left)
+          ctx.rect(offsetX - lShapePixelWidth, offsetY + deckPixelLength - lShapePixelLength, lShapePixelWidth, lShapePixelLength);
+          break;
+        case 'top-left':
+        default:
+          // Main rectangle (right side)
+          ctx.rect(offsetX, offsetY, deckPixelWidth, deckPixelLength);
+          // Extension (top left)
+          ctx.rect(offsetX - lShapePixelWidth, offsetY, lShapePixelWidth, lShapePixelLength);
+          break;
+      }
+      
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      // Draw rectangular deck
+      ctx.fillRect(offsetX, offsetY, deckPixelWidth, deckPixelLength);
+      ctx.strokeRect(offsetX, offsetY, deckPixelWidth, deckPixelLength);
+    }
 
     // Draw joists
     ctx.strokeStyle = '#94a3b8';

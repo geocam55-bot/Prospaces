@@ -215,8 +215,22 @@ export async function createQuoteClient(data: any) {
 
     const organizationId = user.user_metadata?.organizationId;
     
+    // Generate quote number if not provided
+    const generateQuoteNumber = () => {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      return `QT-${year}${month}-${random}`;
+    };
+    
+    // Remove opportunity_id - quotes table doesn't have this column
+    // Quotes are linked to contacts, not directly to opportunities
+    const { opportunity_id, ...cleanData } = data;
+    
     const quoteData = {
-      ...data,
+      ...cleanData,
+      quote_number: cleanData.quote_number || generateQuoteNumber(),
       organization_id: organizationId,
       created_by: user.id,
       created_at: new Date().toISOString(),

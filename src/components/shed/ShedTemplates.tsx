@@ -6,9 +6,10 @@ import { Box, Home, Warehouse, Building2 } from 'lucide-react';
 
 interface ShedTemplatesProps {
   onLoadTemplate: (config: ShedConfig) => void;
+  currentConfig?: ShedConfig;
 }
 
-export function ShedTemplates({ onLoadTemplate }: ShedTemplatesProps) {
+export function ShedTemplates({ onLoadTemplate, currentConfig }: ShedTemplatesProps) {
   const templates: Array<{ name: string; description: string; icon: any; config: ShedConfig }> = [
     {
       name: 'Small Storage',
@@ -180,6 +181,24 @@ export function ShedTemplates({ onLoadTemplate }: ShedTemplatesProps) {
     },
   ];
 
+  // Check if a template matches the current config
+  const isTemplateSelected = (template: typeof templates[0]) => {
+    if (!currentConfig) return false;
+    
+    const t = template.config;
+    const c = currentConfig;
+    
+    // Check key properties that define a template
+    return (
+      t.width === c.width &&
+      t.length === c.length &&
+      t.wallHeight === c.wallHeight &&
+      t.style === c.style &&
+      t.roofPitch === c.roofPitch &&
+      t.foundationType === c.foundationType
+    );
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -188,17 +207,24 @@ export function ShedTemplates({ onLoadTemplate }: ShedTemplatesProps) {
       <CardContent className="space-y-2">
         {templates.map((template) => {
           const Icon = template.icon;
+          const isSelected = isTemplateSelected(template);
           return (
             <Button
               key={template.name}
               variant="outline"
-              className="w-full justify-start h-auto py-3"
+              className={`w-full justify-start h-auto py-3 ${
+                isSelected
+                  ? 'border-2 border-green-600 bg-green-50'
+                  : 'border-slate-200'
+              }`}
               onClick={() => onLoadTemplate(template.config)}
             >
               <div className="flex items-start gap-3 text-left">
                 <Icon className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <div className="font-medium text-slate-900">{template.name}</div>
+                  <div className={`font-medium ${
+                    isSelected ? 'text-green-900' : 'text-slate-900'
+                  }`}>{template.name}</div>
                   <div className="text-xs text-slate-500 mt-0.5">{template.description}</div>
                 </div>
               </div>

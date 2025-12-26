@@ -1015,8 +1015,8 @@ export function Bids({ user }: BidsProps) {
                               )}
                             </td>
                             <td className="py-2 px-4 text-right text-sm">{item.quantity}</td>
-                            <td className="py-2 px-4 text-right text-sm">${item.unitPrice.toFixed(2)}</td>
-                            <td className="py-2 px-4 text-right text-sm">${item.total.toFixed(2)}</td>
+                            <td className="py-2 px-4 text-right text-sm">${(item.unitPrice ?? 0).toFixed(2)}</td>
+                            <td className="py-2 px-4 text-right text-sm">${(item.total ?? 0).toFixed(2)}</td>
                             <td className="py-2 px-4">
                               <Button
                                 variant="ghost"
