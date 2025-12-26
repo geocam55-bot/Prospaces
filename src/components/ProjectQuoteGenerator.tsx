@@ -231,7 +231,7 @@ export function ProjectQuoteGenerator({
             <SelectTrigger id="customer">
               <SelectValue placeholder="Select a customer..." />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white">
               {isLoading ? (
                 <div className="p-4 text-center text-sm text-slate-500">
                   Loading contacts...
@@ -242,7 +242,11 @@ export function ProjectQuoteGenerator({
                 </div>
               ) : (
                 contacts.map((contact) => (
-                  <SelectItem key={contact.id} value={contact.id} className="text-slate-900 dark:text-slate-100">
+                  <SelectItem 
+                    key={contact.id} 
+                    value={contact.id} 
+                    className="!text-black hover:bg-slate-100 cursor-pointer"
+                  >
                     {contact.first_name} {contact.last_name}
                     {contact.company_name && ` (${contact.company_name})`}
                   </SelectItem>

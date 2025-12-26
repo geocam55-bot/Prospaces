@@ -2798,6 +2798,10 @@
     white-space: pre-wrap;
   }
 
+  .\!text-black {
+    color: var(--color-black) !important;
+  }
+
   .text-amber-600 {
     color: var(--color-amber-600);
   }
@@ -3748,6 +3752,12 @@
   @media (hover: hover) {
     .hover\:bg-slate-50:hover {
       background-color: var(--color-slate-50);
+    }
+  }
+
+  @media (hover: hover) {
+    .hover\:bg-slate-100:hover {
+      background-color: var(--color-slate-100);
     }
   }
 
@@ -5018,12 +5028,6 @@
   @media (prefers-color-scheme: dark) {
     .dark\:text-red-400 {
       color: var(--color-red-400);
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .dark\:text-slate-100 {
-      color: var(--color-slate-100);
     }
   }
 
