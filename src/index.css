@@ -2798,10 +2798,6 @@
     white-space: pre-wrap;
   }
 
-  .\!text-black {
-    color: var(--color-black) !important;
-  }
-
   .text-amber-600 {
     color: var(--color-amber-600);
   }
