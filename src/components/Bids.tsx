@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { quotesAPI, bidsAPI, contactsAPI, inventoryAPI, projectManagersAPI } from '../utils/api';
+import { quotesAPI, bidsAPI, contactsAPI, inventoryAPI, projectManagersAPI, settingsAPI } from '../utils/api';
 import type { User } from '../App';
 import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms, priceLevelToTier } from '../lib/global-settings';
 import { Button } from './ui/button';
@@ -123,6 +123,17 @@ export function Bids({ user }: BidsProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Organization settings
+  const [orgSettings, setOrgSettings] = useState<{
+    taxRate: number;
+    taxRate2: number;
+    quoteTerms: string;
+  }>({
+    taxRate: 0,
+    taxRate2: 0,
+    quoteTerms: 'Payment due within 30 days. All prices in USD.',
+  });
+
   // ⚡ Performance: Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
@@ -200,11 +211,21 @@ export function Bids({ user }: BidsProps) {
       setIsLoading(true);
       // ⚡ Performance: Load only essential data first (quotes, bids, contacts)
       // Inventory and project managers will be loaded when needed (when adding/editing)
-      const [quotesData, bidsData, contactsData] = await Promise.all([
+      const [quotesData, bidsData, contactsData, orgSettingsData] = await Promise.all([
         quotesAPI.getAll(),
         bidsAPI.getAll(), // Also load from bids table
         contactsAPI.getAll(),
+        settingsAPI.getOrganizationSettings(user.organizationId),
       ]);
+
+      // Load organization settings
+      if (orgSettingsData) {
+        setOrgSettings({
+          taxRate: orgSettingsData.tax_rate || 0,
+          taxRate2: orgSettingsData.tax_rate_2 || 0,
+          quoteTerms: orgSettingsData.quote_terms || 'Payment due within 30 days. All prices in USD.',
+        });
+      }
 
       // Parse quotes if they have stringified lineItems
       const parsedQuotes = (quotesData.quotes || []).map((q: any) => {
@@ -369,10 +390,12 @@ export function Bids({ user }: BidsProps) {
         contactId: quote.contactId,
         validUntil: quote.validUntil,
         discountPercent: quote.discountPercent,
-        taxPercent: quote.taxPercent,
-        taxPercent2: quote.taxPercent2 || 0,
+        // Use quote's tax rates if they exist (> 0), otherwise use org defaults
+        taxPercent: quote.taxPercent > 0 ? quote.taxPercent : orgSettings.taxRate,
+        taxPercent2: (quote.taxPercent2 && quote.taxPercent2 > 0) ? quote.taxPercent2 : orgSettings.taxRate2,
         notes: quote.notes || '',
-        terms: quote.terms || getDefaultQuoteTerms(),
+        // Use quote's terms if they exist, otherwise use org defaults
+        terms: quote.terms || orgSettings.quoteTerms,
       });
       // Ensure line items have cost field for backwards compatibility
       const lineItemsWithCost = quote.lineItems.map(item => ({
@@ -389,10 +412,10 @@ export function Bids({ user }: BidsProps) {
         contactId: '',
         validUntil: defaultDate.toISOString().split('T')[0],
         discountPercent: 0,
-        taxPercent: getGlobalTaxRate(),
-        taxPercent2: getGlobalTaxRate2(),
+        taxPercent: orgSettings.taxRate,
+        taxPercent2: orgSettings.taxRate2,
         notes: '',
-        terms: getDefaultQuoteTerms(),
+        terms: orgSettings.quoteTerms,
       });
       setCurrentLineItems([]);
     }

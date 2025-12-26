@@ -16,7 +16,7 @@ export async function getAllInventoryClient() {
         authUser = session.user;
         console.log('✅ Using session user for inventory (getUser failed)');
       } else {
-        console.warn('⚠️ User not authenticated, returning empty inventory');
+        // Silently return empty during initial load
         return { items: [] };
       }
     } else {

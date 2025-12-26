@@ -7,7 +7,7 @@ export async function getAllNotesClient() {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.warn('⚠️ User not authenticated, returning empty notes');
+      // Silently return empty during initial load
       return { notes: [] };
     }
 

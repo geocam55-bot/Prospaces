@@ -16,7 +16,7 @@ export async function getAllQuotesClient() {
         authUser = session.user;
         console.log('✅ Using session user for quotes (getUser failed)');
       } else {
-        console.warn('⚠️ User not authenticated, returning empty quotes');
+        // Silently return empty during initial load
         return { quotes: [] };
       }
     } else {

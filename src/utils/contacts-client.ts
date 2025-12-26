@@ -152,7 +152,7 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.warn('⚠️ User not authenticated, returning empty contacts');
+      // Silently return empty during initial load
       return { contacts: [] };
     }
 

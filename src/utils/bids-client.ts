@@ -16,7 +16,7 @@ export async function getAllBidsClient() {
         authUser = session.user;
         console.log('✅ Using session user for bids (getUser failed)');
       } else {
-        console.warn('⚠️ User not authenticated, returning empty bids');
+        // Silently return empty during initial load
         return { bids: [] };
       }
     } else {

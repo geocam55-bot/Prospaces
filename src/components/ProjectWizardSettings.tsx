@@ -18,19 +18,61 @@ interface ProjectWizardSettingsProps {
   onSave: (type: 'success' | 'error', message: string) => void;
 }
 
-// Define material categories for each planner type
+// Define material categories for each planner type - organized by category sections
 const PLANNER_CATEGORIES = {
   deck: {
-    spruce: ['Decking Boards', 'Joists', 'Beams', 'Posts', 'Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters', 'Stair Stringers', 'Stair Treads'],
-    treated: ['Decking Boards', 'Joists', 'Beams', 'Posts', 'Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters', 'Stair Stringers', 'Stair Treads'],
-    composite: ['Decking Boards', 'Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters', 'Deck Clips', 'Screws', 'Plugs'],
-    cedar: ['Decking Boards', 'Joists', 'Beams', 'Posts', 'Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters', 'Stair Stringers', 'Stair Treads'],
+    spruce: {
+      'Framing': ['Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Decking': ['Decking Boards', 'Stair Treads'],
+      'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
+      'Hardware': ['Joist Hangers', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
+    },
+    treated: {
+      'Framing': ['Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Decking': ['Decking Boards', 'Stair Treads'],
+      'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
+      'Hardware': ['Joist Hangers', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
+    },
+    composite: {
+      'Framing': ['Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Decking': ['Decking Boards'],
+      'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
+      'Hardware': ['Deck Clips', 'Screws', 'Plugs', 'Joist Hangers', 'Post Anchors', 'Concrete Mix', 'Structural Screws'],
+    },
+    cedar: {
+      'Framing': ['Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Decking': ['Decking Boards', 'Stair Treads'],
+      'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
+      'Hardware': ['Joist Hangers', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
+    },
   },
   garage: {
-    default: ['Wall Framing (2x4)', 'Wall Framing (2x6)', 'Roof Trusses', 'Roof Sheathing', 'Roof Shingles', 'Wall Sheathing', 'Siding', 'Garage Door', 'Entry Door', 'Windows', 'Foundation Blocks'],
+    default: {
+      'Foundation': ['Concrete Slab', 'Vapor Barrier', 'Gravel Base', 'Rebar', 'Wire Mesh'],
+      'Framing': ['Wall Framing (2x4)', 'Wall Framing (2x6)', 'Plates', 'Headers', 'Blocking/Bracing', 'Roof Trusses', 'Wall Sheathing', 'Roof Sheathing'],
+      'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
+      'Siding': ['House Wrap', 'Siding', 'Trim Boards', 'Fascia Boards'],
+      'Doors': ['Garage Door', 'Garage Door Opener', 'Entry Door'],
+      'Windows': ['Windows'],
+      'Hardware': ['16d Common Nails', '8d Common Nails', 'Joist Hangers', 'Hurricane Ties', 'Construction Adhesive', 'Anchor Bolts'],
+      'Electrical': ['Sub-Panel', 'Romex Wire', 'LED Shop Lights', 'Outlets (GFCI)', 'Light Switches', 'Junction Boxes'],
+      'Insulation': ['Insulation (Walls)', 'Insulation (Ceiling)', 'Vapor Barrier (Insulation)'],
+    },
   },
   shed: {
-    default: ['Floor Joists', 'Floor Decking', 'Wall Framing', 'Roof Rafters', 'Roof Sheathing', 'Roof Shingles', 'Wall Sheathing', 'Siding', 'Door', 'Windows', 'Foundation Skids'],
+    default: {
+      'Foundation': ['Foundation Skids', 'Concrete Blocks', 'Runners', 'Gravel', 'Landscape Fabric', 'Border', 'Concrete Slab', 'Wire Mesh', 'Vapor Barrier'],
+      'Framing': ['Floor Joists', 'Rim Joists', 'Wall Framing', 'Plates', 'Headers', 'Roof Rafters', 'Roof Trusses', 'Collar Ties', 'Ridge Board', 'Loft Joists', 'Wall Sheathing', 'Roof Sheathing'],
+      'Flooring': ['Floor Decking'],
+      'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
+      'Siding': ['House Wrap', 'Siding'],
+      'Doors': ['Door', 'Door Hardware', 'Hinges', 'Handle/Latch'],
+      'Windows': ['Windows', 'Shutters'],
+      'Trim': ['Corner Trim', 'Fascia Boards', 'Door/Window Trim', 'Flower Box Kit'],
+      'Hardware': ['16d Common Nails', '8d Box Nails', 'Deck Screws', 'Hurricane Ties', 'Construction Adhesive'],
+      'Electrical': ['Electrical Wire', 'Light Fixture', 'Outlet (GFCI)', 'Light Switch', 'Junction Box'],
+      'Accessories': ['Shelf Supports', 'Plywood Shelving', 'Shelf Brackets'],
+    },
   },
 };
 
@@ -199,17 +241,24 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               </Select>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-              {PLANNER_CATEGORIES.deck[selectedDeckType].map((category) => (
-                <div key={category} className="space-y-2">
-                  <Label htmlFor={`deck-${selectedDeckType}-${category}`}>{category}</Label>
-                  <InventoryCombobox
-                    id={`deck-${selectedDeckType}-${category}`}
-                    items={inventoryItems}
-                    value={getDefaultValue('deck', selectedDeckType, category)}
-                    onChange={(value) => handleDefaultChange('deck', selectedDeckType, category, value)}
-                    placeholder="Select inventory item..."
-                  />
+            <div className="space-y-6 p-4 bg-gray-50 rounded-lg">
+              {Object.entries(PLANNER_CATEGORIES.deck[selectedDeckType]).map(([sectionName, categories]) => (
+                <div key={sectionName} className="space-y-3">
+                  <h4 className="font-medium text-gray-700 border-b pb-1">{sectionName}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {categories.map((category) => (
+                      <div key={category} className="space-y-2">
+                        <Label htmlFor={`deck-${selectedDeckType}-${category}`}>{category}</Label>
+                        <InventoryCombobox
+                          id={`deck-${selectedDeckType}-${category}`}
+                          items={inventoryItems}
+                          value={getDefaultValue('deck', selectedDeckType, category)}
+                          onChange={(value) => handleDefaultChange('deck', selectedDeckType, category, value)}
+                          placeholder="Select inventory item..."
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -218,17 +267,24 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
           {/* Garage Planner Settings */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900">Garage Planner</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-              {PLANNER_CATEGORIES.garage.default.map((category) => (
-                <div key={category} className="space-y-2">
-                  <Label htmlFor={`garage-${category}`}>{category}</Label>
-                  <InventoryCombobox
-                    id={`garage-${category}`}
-                    items={inventoryItems}
-                    value={getDefaultValue('garage', null, category)}
-                    onChange={(value) => handleDefaultChange('garage', null, category, value)}
-                    placeholder="Select inventory item..."
-                  />
+            <div className="space-y-6 p-4 bg-gray-50 rounded-lg">
+              {Object.entries(PLANNER_CATEGORIES.garage.default).map(([sectionName, categories]) => (
+                <div key={sectionName} className="space-y-3">
+                  <h4 className="font-medium text-gray-700 border-b pb-1">{sectionName}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {categories.map((category) => (
+                      <div key={category} className="space-y-2">
+                        <Label htmlFor={`garage-${category}`}>{category}</Label>
+                        <InventoryCombobox
+                          id={`garage-${category}`}
+                          items={inventoryItems}
+                          value={getDefaultValue('garage', null, category)}
+                          onChange={(value) => handleDefaultChange('garage', null, category, value)}
+                          placeholder="Select inventory item..."
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -237,17 +293,24 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
           {/* Shed Planner Settings */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900">Shed Planner</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-              {PLANNER_CATEGORIES.shed.default.map((category) => (
-                <div key={category} className="space-y-2">
-                  <Label htmlFor={`shed-${category}`}>{category}</Label>
-                  <InventoryCombobox
-                    id={`shed-${category}`}
-                    items={inventoryItems}
-                    value={getDefaultValue('shed', null, category)}
-                    onChange={(value) => handleDefaultChange('shed', null, category, value)}
-                    placeholder="Select inventory item..."
-                  />
+            <div className="space-y-6 p-4 bg-gray-50 rounded-lg">
+              {Object.entries(PLANNER_CATEGORIES.shed.default).map(([sectionName, categories]) => (
+                <div key={sectionName} className="space-y-3">
+                  <h4 className="font-medium text-gray-700 border-b pb-1">{sectionName}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {categories.map((category) => (
+                      <div key={category} className="space-y-2">
+                        <Label htmlFor={`shed-${category}`}>{category}</Label>
+                        <InventoryCombobox
+                          id={`shed-${category}`}
+                          items={inventoryItems}
+                          value={getDefaultValue('shed', null, category)}
+                          onChange={(value) => handleDefaultChange('shed', null, category, value)}
+                          placeholder="Select inventory item..."
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

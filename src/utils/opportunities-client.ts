@@ -7,7 +7,7 @@ export async function getAllOpportunitiesClient() {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.warn('⚠️ User not authenticated, returning empty opportunities');
+      // Silently return empty during initial load
       return { opportunities: [] };
     }
 
