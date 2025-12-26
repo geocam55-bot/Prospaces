@@ -86,6 +86,10 @@ export async function upsertUserPreferencesClient(preferences: Partial<UserPrefe
         console.warn('[settings-client] ⚠️ user_preferences table does not exist. Please run the SQL setup script.');
         return null;
       }
+      if (error.code === '42501') {
+        // RLS policy violation - silently fall back to localStorage (expected behavior)
+        return null;
+      }
       console.error('[settings-client] ❌ Error upserting user preferences:', error);
       return null;
     }
@@ -138,7 +142,7 @@ export async function getOrganizationSettingsClient(organizationId: string): Pro
  * Upsert organization settings to Supabase
  */
 export async function upsertOrganizationSettingsClient(settings: Partial<OrganizationSettings>): Promise<OrganizationSettings | null> {
-  console.log('[settings-client] 💾 Upserting organization settings');
+  console.log('[settings-client] 💾 Upserting organization settings:', settings);
   
   try {
     const { data, error } = await supabase
@@ -153,15 +157,27 @@ export async function upsertOrganizationSettingsClient(settings: Partial<Organiz
       .single();
 
     if (error) {
+      console.error('[settings-client] ❌ Supabase error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+
       if (error.code === 'PGRST205' || error.code === '42P01') {
         console.warn('[settings-client] ⚠️ organization_settings table does not exist. Please run the SQL setup script.');
+        return null;
+      }
+      if (error.code === '42501') {
+        // RLS policy violation - silently fall back to localStorage (expected behavior)
+        console.error('[settings-client] ❌ RLS policy violation - user does not have permission to upsert');
         return null;
       }
       console.error('[settings-client] ❌ Error upserting organization settings:', error);
       return null;
     }
 
-    console.log('[settings-client] ✅ Organization settings saved successfully');
+    console.log('[settings-client] ✅ Organization settings saved successfully:', data);
     return data;
   } catch (error) {
     console.error('[settings-client] ❌ Unexpected error upserting organization settings:', error);

@@ -124,7 +124,7 @@ export function TaskProductivityReports({ user }: TaskProductivityReportsProps) 
               : 0;
             
             return {
-              name: u.name,
+              name: u.full_name || u.email || 'Unknown User',
               assigned: userTasks.length,
               completed: userCompleted,
               overdue: userOverdue,

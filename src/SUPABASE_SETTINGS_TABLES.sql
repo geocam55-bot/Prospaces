@@ -98,6 +98,12 @@ CREATE POLICY "Users can delete own preferences" ON user_preferences
 -- RLS POLICIES FOR organization_settings
 -- =====================================================
 
+-- Drop existing policies first to avoid conflicts
+DROP POLICY IF EXISTS "Users can view org settings" ON organization_settings;
+DROP POLICY IF EXISTS "Admins can insert org settings" ON organization_settings;
+DROP POLICY IF EXISTS "Admins can update org settings" ON organization_settings;
+DROP POLICY IF EXISTS "Super Admins can delete org settings" ON organization_settings;
+
 -- Policy: Users can view settings for their organization
 CREATE POLICY "Users can view org settings" ON organization_settings
   FOR SELECT
@@ -125,6 +131,14 @@ CREATE POLICY "Admins can insert org settings" ON organization_settings
 CREATE POLICY "Admins can update org settings" ON organization_settings
   FOR UPDATE
   USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.organization_id = organization_settings.organization_id
+      AND profiles.role IN ('admin', 'super_admin')
+    )
+  )
+  WITH CHECK (
     EXISTS (
       SELECT 1 FROM profiles 
       WHERE profiles.id = auth.uid() 

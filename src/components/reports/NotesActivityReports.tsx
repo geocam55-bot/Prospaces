@@ -102,7 +102,7 @@ export function NotesActivityReports({ user }: NotesActivityReportsProps) {
           const userAppts = appointments.filter(a => a.owner_id === u.id).length;
           
           return {
-            name: u.name,
+            name: u.full_name || u.email || 'Unknown User',
             notes: userNotes,
             appointments: userAppts,
             calls: 0,

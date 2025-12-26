@@ -22,7 +22,8 @@ export function TopBar({ user, organization, onNavigate, onLogout }: TopBarProps
   const { theme } = useTheme();
   
   // Get user initials for avatar fallback
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | undefined) => {
+    if (!name) return 'U';
     return name
       .split(' ')
       .map(n => n[0])
@@ -85,18 +86,18 @@ export function TopBar({ user, organization, onNavigate, onLogout }: TopBarProps
               }}
             >
               <div className="text-right">
-                <p className="text-sm font-medium">{user.name}</p>
+                <p className="text-sm font-medium">{user.full_name || user.email || 'User'}</p>
                 <p className="text-xs opacity-70">{user.role.replace('_', ' ')}</p>
               </div>
               <Avatar className="h-10 w-10">
-                <AvatarImage src={user.profilePicture} alt={user.name} />
+                <AvatarImage src={user.avatar_url} alt={user.full_name || user.email || 'User'} />
                 <AvatarFallback 
                   style={{ 
                     background: theme.colors.primary, 
                     color: theme.colors.primaryText 
                   }}
                 >
-                  {getInitials(user.name)}
+                  {getInitials(user.full_name || user.email || '')}
                 </AvatarFallback>
               </Avatar>
             </div>
@@ -104,7 +105,7 @@ export function TopBar({ user, organization, onNavigate, onLogout }: TopBarProps
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div>
-                <p className="font-medium">{user.name}</p>
+                <p className="font-medium">{user.full_name || user.email || 'User'}</p>
                 <p className="text-xs text-gray-500 font-normal mt-1">{user.email}</p>
               </div>
             </DropdownMenuLabel>

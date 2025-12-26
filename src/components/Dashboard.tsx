@@ -32,6 +32,7 @@ import type { User, UserRole } from '../App';
 
 interface DashboardProps {
   user: User;
+  organization?: any;
   onNavigate?: (view: string) => void;
 }
 
@@ -45,7 +46,7 @@ interface DashboardCache {
 
 const CACHE_DURATION = 30000; // 30 seconds in milliseconds
 
-export function Dashboard({ user, onNavigate }: DashboardProps) {
+export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
   const [stats, setStats] = useState<any[]>([]);
   const [recentActivity, setRecentActivity] = useState<{ action: string; details: string; time: string; module: string }[]>([]);
   const [bidsChartData, setBidsChartData] = useState<any[]>([]);
@@ -577,7 +578,7 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
       // Load upcoming appointments
       if (hasModuleAccess('appointments')) {
         try {
-          const appointmentsData = await withTimeout(appointmentsAPI.getAll(), 5000);
+          const appointmentsData = await withTimeout(appointmentsAPI.getAll(), 15000);
           const appointments = appointmentsData.appointments || [];
           
           console.log('🗓️ Dashboard - Appointments from API:', appointments.length);
@@ -604,8 +605,10 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
           
           console.log('🗓️ Dashboard - Upcoming appointments filtered:', upcoming.length);
           setUpcomingAppointments(upcoming);
-        } catch (error) {
-          console.error('Failed to load upcoming appointments:', error);
+        } catch (error: any) {
+          if (error?.message !== 'Request timeout') {
+            console.error('Failed to load upcoming appointments:', error);
+          }
           setUpcomingAppointments([]);
         }
       }
@@ -613,7 +616,7 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
       // Load upcoming tasks
       if (hasModuleAccess('tasks')) {
         try {
-          const tasksData = await withTimeout(tasksAPI.getAll(), 5000);
+          const tasksData = await withTimeout(tasksAPI.getAll(), 15000);
           const tasks = tasksData.tasks || [];
           
           // Filter to user's incomplete tasks that are due soon (within next 7 days)
@@ -630,8 +633,10 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
             .slice(0, 5); // Show only first 5
           
           setUpcomingTasks(upcoming);
-        } catch (error) {
-          console.error('Failed to load upcoming tasks:', error);
+        } catch (error: any) {
+          if (error?.message !== 'Request timeout') {
+            console.error('Failed to load upcoming tasks:', error);
+          }
           setUpcomingTasks([]);
         }
       }
@@ -650,7 +655,7 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
       // Load recently added appointments (only for current user)
       if (hasModuleAccess('appointments')) {
         activityPromises.push(
-          withTimeout(appointmentsAPI.getAll(), 10000) // Increased timeout to 10 seconds
+          withTimeout(appointmentsAPI.getAll(), 15000) // Increased timeout to 15 seconds
             .then((appointmentsData) => {
               const appointments = appointmentsData.appointments || [];
           
@@ -682,11 +687,8 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
               });
             })
             .catch((error) => {
-              // Silently fail - don't show error in console for timeouts in recent activity
-              // Just log a warning
-              if (error.message === 'Request timeout') {
-                console.warn('⏱️ Appointments data took too long to load for dashboard');
-              } else {
+              // Silently handle timeout errors - don't log to console
+              if (error.message !== 'Request timeout') {
                 console.error('Failed to load recent appointments:', error);
               }
             })
@@ -710,11 +712,11 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
                 if (error) throw error;
                 return { contacts: data || [] };
               } catch (err) {
-                console.error('Error fetching recent contacts:', err);
+                // Silently handle errors
                 return { contacts: [] };
               }
             })(),
-            5000
+            15000 // Increased timeout to 15 seconds
           )
             .then((contactsData) => {
               const contacts = contactsData.contacts || [];
@@ -732,7 +734,10 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
               });
             })
             .catch((error) => {
-              console.error('Failed to load recent contacts:', error);
+              // Silently handle timeout errors - don't log to console
+              if (error.message !== 'Request timeout') {
+                console.error('Failed to load recent contacts:', error);
+              }
             })
         );
       }
@@ -740,7 +745,7 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
       // Load recently added tasks (only for current user)
       if (hasModuleAccess('tasks')) {
         activityPromises.push(
-          withTimeout(tasksAPI.getAll(), 5000)
+          withTimeout(tasksAPI.getAll(), 15000) // Increased timeout to 15 seconds
             .then((tasksData) => {
               const tasks = tasksData.tasks || [];
           
@@ -773,7 +778,10 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
               });
             })
             .catch((error) => {
-              console.error('Failed to load recent tasks:', error);
+              // Silently handle timeout errors - don't log to console
+              if (error.message !== 'Request timeout') {
+                console.error('Failed to load recent tasks:', error);
+              }
             })
         );
       }
@@ -874,10 +882,10 @@ export function Dashboard({ user, onNavigate }: DashboardProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header with User Info */}
       <div>
-        <h1 className="mb-2">Welcome back, {user.name}!</h1>
+        <h1 className="mb-2">Welcome back, {user.full_name || user.email || 'User'}!</h1>
         <p className="text-muted-foreground">Here's what's happening with your workspace today.</p>
       </div>
 

@@ -254,7 +254,7 @@ export function Security({ user }: SecurityProps) {
       const logEntry: AuditLog = {
         id: Date.now().toString(),
         timestamp: new Date().toLocaleString(),
-        user: user.name,
+        user: user.full_name || user.email || 'User',
         action: 'Updated permissions',
         module: 'all',
         role: 'admin',
@@ -326,7 +326,7 @@ export function Security({ user }: SecurityProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">

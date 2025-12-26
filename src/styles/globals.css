@@ -4,6 +4,56 @@
 
 /* CACHE BUST v3 - Fixed CommonJS/ESM mismatch! */
 
+/* Print Styles for Deck Planner */
+@media print {
+  @page {
+    size: letter;
+    margin: 0.5in;
+  }
+
+  body {
+    background: white;
+  }
+
+  header {
+    background: white !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print\:border-b-2 {
+    border-bottom-width: 2px !important;
+  }
+
+  .print\:border-black {
+    border-color: black !important;
+  }
+
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+
+  .print\:border-2 {
+    border-width: 2px !important;
+  }
+
+  .print\:break-before-page {
+    break-before: page;
+  }
+
+  /* Force visibility of canvas */
+  canvas {
+    display: block !important;
+  }
+
+  /* Better table printing */
+  table {
+    page-break-inside: avoid;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

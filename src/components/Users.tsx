@@ -564,7 +564,7 @@ export function Users({ user }: UsersProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl text-gray-900">User & Permission Management</h1>

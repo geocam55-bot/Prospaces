@@ -460,25 +460,25 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       case 'follow_up':
         return {
           subject: `Following up on ${relatedEntity.name}`,
-          body: `Hi there,\n\nI wanted to follow up on the ${relatedEntity.type} "${relatedEntity.name}" that we submitted ${daysInactive} days ago.\n\nI'd love to discuss this further and answer any questions you may have. The proposal outlines a ${potentialValue ? `$${potentialValue.toLocaleString()}` : ''} solution that I believe would be a great fit for your needs.\n\nWould you be available for a quick call this week to discuss?\n\nBest regards,\n${user.name}`
+          body: `Hi there,\\n\\nI wanted to follow up on the ${relatedEntity.type} \"${relatedEntity.name}\" that we submitted ${daysInactive} days ago.\\n\\nI'd love to discuss this further and answer any questions you may have. The proposal outlines a ${potentialValue ? `$${potentialValue.toLocaleString()}` : ''} solution that I believe would be a great fit for your needs.\\n\\nWould you be available for a quick call this week to discuss?\\n\\nBest regards,\\n${user.full_name || user.email || 'User'}`
         };
       
       case 'engagement':
         return {
           subject: `New opportunity for ${relatedEntity.name}`,
-          body: `Hi there,\n\nI hope this email finds you well! I wanted to reach out regarding our previous conversation about "${relatedEntity.name}".\n\nWe've made some exciting updates to our offering, including:\n• Enhanced features and capabilities\n• Competitive pricing options\n• Flexible terms that may better suit your needs\n\nI'd love to schedule a time to reconnect and share how these changes might benefit your organization.\n\nLooking forward to hearing from you!\n\nBest regards,\n${user.name}`
+          body: `Hi there,\\n\\nI hope this email finds you well! I wanted to reach out regarding our previous conversation about \"${relatedEntity.name}\".\\n\\nWe've made some exciting updates to our offering, including:\\n• Enhanced features and capabilities\\n• Competitive pricing options\\n• Flexible terms that may better suit your needs\\n\\nI'd love to schedule a time to reconnect and share how these changes might benefit your organization.\\n\\nLooking forward to hearing from you!\\n\\nBest regards,\\n${user.full_name || user.email || 'User'}`
         };
       
       case 'inactive':
         return {
           subject: `Checking in - ${relatedEntity.name}`,
-          body: `Hi there,\n\nI hope you've been well! It's been about ${daysInactive} days since we last connected, and I wanted to reach out to see how things are going.\n\nI'd love to catch up and learn about any new projects or challenges you're currently facing. Perhaps there's an opportunity for us to collaborate again.\n\nWould you be available for a brief call or coffee sometime soon?\n\nWarm regards,\n${user.name}`
+          body: `Hi there,\\n\\nI hope you've been well! It's been about ${daysInactive} days since we last connected, and I wanted to reach out to see how things are going.\\n\\nI'd love to catch up and learn about any new projects or challenges you're currently facing. Perhaps there's an opportunity for us to collaborate again.\\n\\nWould you be available for a brief call or coffee sometime soon?\\n\\nWarm regards,\\n${user.full_name || user.email || 'User'}`
         };
       
       default:
         return {
           subject: `Regarding ${relatedEntity.name}`,
-          body: `Hi there,\n\nI wanted to reach out regarding "${relatedEntity.name}".\n\n${suggestion.suggestedAction}\n\nPlease let me know if you'd like to discuss this further.\n\nBest regards,\n${user.name}`
+          body: `Hi there,\\n\\nI wanted to reach out regarding \"${relatedEntity.name}\".\\n\\n${suggestion.suggestedAction}\\n\\nPlease let me know if you'd like to discuss this further.\\n\\nBest regards,\\n${user.full_name || user.email || 'User'}`
         };
     }
   };

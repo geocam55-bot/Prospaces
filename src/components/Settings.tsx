@@ -6,6 +6,7 @@ import { FindLarryContacts } from './FindLarryContacts';
 import { BidsTableMigration } from './BidsTableMigration';
 import { FullCRMDatabaseSetup } from './FullCRMDatabaseSetup';
 import { OrganizationFeatureMigration } from './OrganizationFeatureMigration';
+import { ProjectWizardSettings } from './ProjectWizardSettings';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -40,8 +41,8 @@ interface SettingsProps {
 export function Settings({ user, onUserUpdate }: SettingsProps) {
   const [orgName, setOrgName] = useState('ProSpaces Organization');
   const [profileData, setProfileData] = useState({
-    name: user.name,
-    profilePicture: user.profilePicture || '',
+    name: user.full_name || user.email || '',
+    profilePicture: user.avatar_url || '',
   });
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -406,9 +407,9 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
       if (result) {
         showAlert('success', 'Global settings saved successfully to database!');
       } else {
-        // Supabase save failed (likely tables don't exist), but localStorage worked
-        showAlert('success', 'Global settings saved locally. Run SQL setup script for database persistence.');
-        console.warn('[Settings] Global settings saved to localStorage only. Supabase tables may not exist.');
+        // Supabase save failed (likely tables don't exist or RLS prevents it), but localStorage worked
+        showAlert('success', 'Settings saved locally. Database sync may require additional setup.');
+        console.info('[Settings] Settings saved to localStorage. Database tables may not exist or RLS policies may need configuration.');
       }
     } catch (error) {
       console.error('Error saving global settings:', error);
@@ -435,7 +436,7 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
   const canAccessSecurity = user.role === 'super_admin' || user.role === 'admin';
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl text-gray-900">Settings</h1>
         <p className="text-gray-600 mt-1">Manage your preferences and configuration</p>
@@ -754,6 +755,14 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
                   <Button onClick={handleSaveGlobalSettings}>Save Global Settings</Button>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Project Wizard Settings Card */}
+            {(user.role === 'super_admin' || user.role === 'admin') && (
+              <ProjectWizardSettings 
+                organizationId={user.organizationId}
+                onSave={showAlert}
+              />
             )}
           </TabsContent>
         )}

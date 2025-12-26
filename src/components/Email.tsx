@@ -1316,7 +1316,7 @@ export function Email({ user }: EmailProps) {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">

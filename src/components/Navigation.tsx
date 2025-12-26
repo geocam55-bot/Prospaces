@@ -24,6 +24,7 @@ import {
   UsersRound,
   BarChart3,
   Sparkles,
+  Wand2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -73,6 +74,8 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
     ...(organization?.marketing_enabled !== false ? [{ id: 'marketing', label: 'Marketing', icon: TrendingUp }] : []),
     // Only show Inventory if enabled for the organization
     ...(organization?.inventory_enabled !== false ? [{ id: 'inventory', label: 'Inventory', icon: Package }] : []),
+    // Only show Project Wizards if enabled for the organization
+    ...(organization?.project_wizards_enabled !== false ? [{ id: 'project-wizards', label: 'Project Wizards', icon: Wand2 }] : []),
     { id: 'reports', label: 'Reports', icon: BarChart3 },
   ] : [];
 
@@ -117,7 +120,8 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
   };
 
   // Get user initials for avatar fallback
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | undefined) => {
+    if (!name) return 'U';
     return name
       .split(' ')
       .map(n => n[0])
@@ -127,6 +131,12 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
   };
 
   const { theme } = useTheme();
+
+  // Get page title based on current view
+  const getPageTitle = (view: string) => {
+    const item = navItems.find(item => item.id === view);
+    return item?.label || 'Dashboard';
+  };
 
   return (
     <>
@@ -150,17 +160,17 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
             <DropdownMenu>
               <DropdownMenuTrigger className="focus:outline-none">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.profilePicture} alt={user.name} />
+                  <AvatarImage src={user.avatar_url} alt={user.full_name || user.email || 'User'} />
                   <AvatarFallback className="bg-blue-600 text-white text-xs">
-                    {getInitials(user.name)}
+                    {getInitials(user.full_name || user.email || '')}
                   </AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div>
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-xs text-gray-500 font-normal mt-1">{user.email}</p>
+                    <p className="font-medium">{user.full_name || user.email || 'User'}</p>
+                    <p className="text-xs text-gray-500 font-normal mt-1">{user.email || 'No email'}</p>
                   </div>
                 </DropdownMenuLabel>
                 {organization && (
@@ -168,17 +178,9 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel>
                       <div className="flex items-center gap-2">
-                        {organization.logo ? (
-                          <img 
-                            src={organization.logo} 
-                            alt={`${organization.name} logo`}
-                            className="h-6 w-6 object-contain rounded"
-                          />
-                        ) : (
-                          <div className="h-6 w-6 rounded bg-gray-200 flex items-center justify-center">
-                            <Building2 className="h-4 w-4 text-gray-600" />
-                          </div>
-                        )}
+                        <div className="h-6 w-6 rounded bg-gray-200 flex items-center justify-center">
+                          <Building2 className="h-4 w-4 text-gray-600" />
+                        </div>
                         <div>
                           <p className="text-xs text-gray-500 font-normal">Organization</p>
                           <p className="text-sm font-medium">{organization.name}</p>
@@ -314,6 +316,51 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
           </div>
         </div>
       )}
+
+      {/* Desktop header */}
+      <div className="hidden lg:block fixed top-0 left-64 right-0 border-b bg-white dark:bg-slate-900 z-40 h-16 shadow-sm">
+        <div className="flex items-center justify-between h-full px-6 border-b border-slate-200 dark:border-slate-700">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
+            {getPageTitle(currentView)}
+          </h1>
+          <div className="flex items-center gap-4">
+            {organization && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
+                <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">{organization.name}</span>
+              </div>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger className="focus:outline-none">
+                <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-offset-2 ring-transparent hover:ring-blue-500 transition-all">
+                  <AvatarImage src={user.avatar_url} alt={user.full_name || user.email || 'User'} />
+                  <AvatarFallback className="bg-blue-600 text-white text-sm">
+                    {getInitials(user.full_name || user.email || '')}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div>
+                    <p className="font-medium">{user.full_name || user.email || 'User'}</p>
+                    <p className="text-xs text-gray-500 font-normal mt-1">{user.email || 'No email'}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleNavClick('settings')}>
+                  <User className="mr-2 h-4 w-4" />
+                  Profile Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onLogout} className="text-red-600">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
     </>
   );
 }

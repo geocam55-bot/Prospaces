@@ -139,7 +139,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         data_type: scheduleDataType,
         scheduled_time: scheduledTime.toISOString(),
         status: 'pending',
-        creator_name: user.name,
+        creator_name: user.full_name || user.email || 'User',
         file_name: scheduleFileName || `${scheduleJobType}_${scheduleDataType}_${scheduledTime.toISOString().split('T')[0]}.csv`,
         file_data: scheduleFileData ? { records: scheduleFileData } : null,
       };
@@ -893,7 +893,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl text-gray-900 mb-2">Import & Export</h1>
