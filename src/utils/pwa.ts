@@ -349,8 +349,8 @@ export async function showNotification(
 
   const registration = await navigator.serviceWorker.ready;
   await registration.showNotification(title, {
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-72x72.png',
+    icon: '/favicon.svg',
+    badge: '/favicon.svg',
     vibrate: [200, 100, 200],
     ...options,
   });

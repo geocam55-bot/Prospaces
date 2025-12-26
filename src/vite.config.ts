@@ -23,7 +23,13 @@ export default defineConfig({
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        assetFileNames: 'assets/[name]-[hash][extname]',
+        assetFileNames: (assetInfo) => {
+          // Don't hash service worker or manifest
+          if (assetInfo.name === 'service-worker.js' || assetInfo.name === 'manifest.json') {
+            return '[name][extname]';
+          }
+          return 'assets/[name]-[hash][extname]';
+        },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
       },
