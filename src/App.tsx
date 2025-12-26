@@ -99,6 +99,14 @@ function App() {
         .single();
 
       if (profile) {
+        // IMPORTANT: Don't load user data if they need to change password
+        // The Login component will handle showing the change password dialog
+        if (profile.needs_password_change) {
+          console.log('⏸️ User needs to change password - not loading user data yet');
+          setLoading(false);
+          return;
+        }
+
         setUser({
           id: profile.id,
           email: profile.email,

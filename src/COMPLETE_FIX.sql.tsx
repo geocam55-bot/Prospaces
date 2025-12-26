@@ -3,7 +3,7 @@
 -- Run this entire script to fix all errors
 -- =====================================================
 
--- STEP 1: Add the missing column
+-- STEP 1: Add the missing columns
 -- =====================================================
 DO $$ 
 BEGIN
@@ -20,6 +20,36 @@ BEGIN
     RAISE NOTICE '✅ Added needs_password_change column';
   ELSE
     RAISE NOTICE '✅ Column needs_password_change already exists';
+  END IF;
+  
+  -- Add temp_password column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'profiles' 
+    AND column_name = 'temp_password'
+  ) THEN
+    ALTER TABLE profiles 
+    ADD COLUMN temp_password TEXT;
+    
+    RAISE NOTICE '✅ Added temp_password column';
+  ELSE
+    RAISE NOTICE '✅ Column temp_password already exists';
+  END IF;
+  
+  -- Add temp_password_created_at column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'profiles' 
+    AND column_name = 'temp_password_created_at'
+  ) THEN
+    ALTER TABLE profiles 
+    ADD COLUMN temp_password_created_at TIMESTAMPTZ;
+    
+    RAISE NOTICE '✅ Added temp_password_created_at column';
+  ELSE
+    RAISE NOTICE '✅ Column temp_password_created_at already exists';
   END IF;
 END $$;
 
@@ -38,6 +68,8 @@ CREATE OR REPLACE FUNCTION set_user_temporary_password(
 DECLARE
   user_id UUID;
   password_hash TEXT;
+  profile_rows_updated INTEGER;
+  auth_rows_updated INTEGER;
 BEGIN
   -- Find user by email
   SELECT id INTO user_id
@@ -60,16 +92,28 @@ BEGIN
     encrypted_password = password_hash,
     updated_at = NOW()
   WHERE id = user_id;
+  
+  GET DIAGNOSTICS auth_rows_updated = ROW_COUNT;
 
-  -- Mark profile as needing password change
+  -- Mark profile as needing password change and store temp password info
   UPDATE profiles
-  SET needs_password_change = TRUE
+  SET 
+    needs_password_change = TRUE,
+    updated_at = NOW()
   WHERE id = user_id;
+  
+  GET DIAGNOSTICS profile_rows_updated = ROW_COUNT;
 
   RETURN json_build_object(
     'success', TRUE,
     'user_id', user_id,
-    'message', 'Temporary password set successfully'
+    'message', 'Temporary password set successfully',
+    'auth_rows_updated', auth_rows_updated,
+    'profile_rows_updated', profile_rows_updated,
+    'debug_info', json_build_object(
+      'user_email', user_email,
+      'user_id_found', user_id IS NOT NULL
+    )
   );
 
 EXCEPTION WHEN OTHERS THEN

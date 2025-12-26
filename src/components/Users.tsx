@@ -481,21 +481,31 @@ export function Users({ user }: UsersProps) {
       console.log('✅ Temporary password set successfully!');
       console.log('✅ Function result:', JSON.stringify(functionResult, null, 2));
       
-      // Verify the flag was set by querying the profile
-      const { data: verifyProfile, error: verifyError } = await supabase
-        .from('profiles')
-        .select('needs_password_change, temp_password, temp_password_created_at')
-        .eq('email', orgUser.email)
-        .single();
-      
-      console.log('🔍 Verification - Profile after password reset:');
-      console.log('  - needs_password_change:', verifyProfile?.needs_password_change);
-      console.log('  - temp_password exists:', !!verifyProfile?.temp_password);
-      console.log('  - temp_password_created_at:', verifyProfile?.temp_password_created_at);
-      
-      if (!verifyProfile?.needs_password_change) {
-        console.error('⚠️ WARNING: needs_password_change is NOT TRUE after reset!');
-        console.error('⚠️ This means the user will NOT be prompted to change password on login!');
+      // Verify the flag was set by querying the profile using the user_id from the function result
+      if (functionResult?.user_id) {
+        const { data: verifyProfile, error: verifyError } = await supabase
+          .from('profiles')
+          .select('needs_password_change, email, name')
+          .eq('id', functionResult.user_id)
+          .single();
+        
+        console.log('🔍 Verification - Profile after password reset:');
+        console.log('  - Profile found for user_id:', functionResult.user_id);
+        console.log('  - Email:', verifyProfile?.email);
+        console.log('  - Name:', verifyProfile?.name);
+        console.log('  - needs_password_change:', verifyProfile?.needs_password_change);
+        console.log('  - profile_rows_updated:', functionResult?.profile_rows_updated);
+        console.log('  - auth_rows_updated:', functionResult?.auth_rows_updated);
+        
+        if (!verifyProfile?.needs_password_change) {
+          console.error('⚠️ WARNING: needs_password_change is NOT TRUE after reset!');
+          console.error('⚠️ This means the user will NOT be prompted to change password on login!');
+          console.error('⚠️ SQL function may have failed silently. Check the function result:', functionResult);
+        } else {
+          console.log('✅ SUCCESS: needs_password_change flag is set correctly!');
+        }
+      } else {
+        console.error('⚠️ No user_id returned from function! Cannot verify.');
       }
       
       // Try to send password reset email (optional - not critical)
