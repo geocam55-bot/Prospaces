@@ -3,10 +3,15 @@ import { DeckPlanner } from './planners/DeckPlanner';
 import { GaragePlanner } from './planners/GaragePlanner';
 import { ShedPlanner } from './planners/ShedPlanner';
 import { Home, Warehouse, Building2 } from 'lucide-react';
+import type { User } from '../App';
 
 type PlannerModule = 'deck' | 'garage' | 'shed';
 
-export function ProjectWizards() {
+interface ProjectWizardsProps {
+  user: User;
+}
+
+export function ProjectWizards({ user }: ProjectWizardsProps) {
   const [activeModule, setActiveModule] = useState<PlannerModule>('deck');
 
   return (
@@ -66,9 +71,9 @@ export function ProjectWizards() {
 
       {/* Active Module */}
       <main className="print:p-0">
-        {activeModule === 'deck' && <DeckPlanner />}
-        {activeModule === 'garage' && <GaragePlanner />}
-        {activeModule === 'shed' && <ShedPlanner />}
+        {activeModule === 'deck' && <DeckPlanner user={user} />}
+        {activeModule === 'garage' && <GaragePlanner user={user} />}
+        {activeModule === 'shed' && <ShedPlanner user={user} />}
       </main>
 
       {/* Footer */}

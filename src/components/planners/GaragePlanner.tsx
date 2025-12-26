@@ -4,11 +4,17 @@ import { GarageCanvas } from '../garage/GarageCanvas';
 import { GarageMaterialsList } from '../garage/GarageMaterialsList';
 import { GarageTemplates } from '../garage/GarageTemplates';
 import { SavedGarageDesigns } from '../garage/SavedGarageDesigns';
+import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { calculateMaterials } from '../../utils/garageCalculations';
 import { GarageConfig } from '../../types/garage';
 import { Ruler, Package, Printer, FileText } from 'lucide-react';
+import type { User } from '../../App';
 
-export function GaragePlanner() {
+interface GaragePlannerProps {
+  user: User;
+}
+
+export function GaragePlanner({ user }: GaragePlannerProps) {
   const [config, setConfig] = useState<GarageConfig>({
     width: 20,
     length: 20,
@@ -146,6 +152,15 @@ export function GaragePlanner() {
             <div className="lg:col-span-1 space-y-6 print:hidden">
               <GarageTemplates onLoadTemplate={handleLoadTemplate} />
               <GarageConfigurator config={config} onChange={setConfig} />
+              
+              {/* Quote Generator */}
+              <ProjectQuoteGenerator
+                user={user}
+                projectType="garage"
+                materials={materials}
+                totalCost={materials.reduce((sum, m) => sum + (m.cost || 0), 0)}
+                projectData={config}
+              />
             </div>
 
             <div className="lg:col-span-2 space-y-6">

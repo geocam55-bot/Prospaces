@@ -4,11 +4,17 @@ import { DeckCanvas } from '../deck/DeckCanvas';
 import { MaterialsList } from '../deck/MaterialsList';
 import { DeckTemplates } from '../deck/DeckTemplates';
 import { SavedDesigns } from '../deck/SavedDesigns';
+import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { calculateMaterials } from '../../utils/deckCalculations';
 import { DeckConfig } from '../../types/deck';
 import { Ruler, Package, Printer, FileText } from 'lucide-react';
+import type { User } from '../../App';
 
-export function DeckPlanner() {
+interface DeckPlannerProps {
+  user: User;
+}
+
+export function DeckPlanner({ user }: DeckPlannerProps) {
   const [config, setConfig] = useState<DeckConfig>({
     width: 12,
     length: 16,
@@ -105,6 +111,15 @@ export function DeckPlanner() {
             <div className="lg:col-span-1 space-y-6 print:hidden">
               <DeckTemplates onLoadTemplate={handleLoadTemplate} />
               <DeckConfigurator config={config} onChange={setConfig} />
+              
+              {/* Quote Generator */}
+              <ProjectQuoteGenerator
+                user={user}
+                projectType="deck"
+                materials={materials}
+                totalCost={materials.reduce((sum, m) => sum + (m.cost || 0), 0)}
+                projectData={config}
+              />
             </div>
 
             <div className="lg:col-span-2 space-y-6">

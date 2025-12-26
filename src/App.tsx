@@ -195,10 +195,10 @@ function App() {
               {currentView === 'team-dashboard' && <ManagerDashboard user={user} organization={organization} />}
               {currentView === 'users' && <Users user={user} />}
               {currentView === 'tenants' && <Tenants user={user} />}
-              {currentView === 'settings' && <Settings user={user} organization={organization} />}
+              {currentView === 'settings' && <Settings user={user} onUserUpdate={setUser} />}
               {currentView === 'security' && <Security user={user} />}
               {currentView === 'import-export' && <ImportExport user={user} />}
-              {currentView === 'project-wizards' && <ProjectWizards />}
+              {currentView === 'project-wizards' && <ProjectWizards user={user} />}
             </div>
           </main>
         </div>

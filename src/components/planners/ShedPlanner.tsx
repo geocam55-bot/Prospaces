@@ -4,11 +4,17 @@ import { ShedCanvas } from '../shed/ShedCanvas';
 import { ShedMaterialsList } from '../shed/ShedMaterialsList';
 import { ShedTemplates } from '../shed/ShedTemplates';
 import { SavedShedDesigns } from '../shed/SavedShedDesigns';
+import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { calculateMaterials } from '../../utils/shedCalculations';
 import { ShedConfig } from '../../types/shed';
 import { Ruler, Package, Printer, FileText } from 'lucide-react';
+import type { User } from '../../App';
 
-export function ShedPlanner() {
+interface ShedPlannerProps {
+  user: User;
+}
+
+export function ShedPlanner({ user }: ShedPlannerProps) {
   const [config, setConfig] = useState<ShedConfig>({
     width: 10,
     length: 12,
@@ -132,6 +138,15 @@ export function ShedPlanner() {
             <div className="lg:col-span-1 space-y-6 print:hidden">
               <ShedTemplates onLoadTemplate={handleLoadTemplate} />
               <ShedConfigurator config={config} onChange={setConfig} />
+              
+              {/* Quote Generator */}
+              <ProjectQuoteGenerator
+                user={user}
+                projectType="shed"
+                materials={materials}
+                totalCost={materials.reduce((sum, m) => sum + (m.cost || 0), 0)}
+                projectData={config}
+              />
             </div>
 
             <div className="lg:col-span-2 space-y-6">
