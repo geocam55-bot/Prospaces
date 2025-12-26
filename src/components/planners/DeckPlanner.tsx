@@ -116,8 +116,8 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
               <ProjectQuoteGenerator
                 user={user}
                 projectType="deck"
-                materials={materials}
-                totalCost={materials.reduce((sum, m) => sum + (m.cost || 0), 0)}
+                materials={Array.isArray(materials) ? materials : []}
+                totalCost={Array.isArray(materials) ? materials.reduce((sum, m) => sum + (m.cost || 0), 0) : 0}
                 projectData={config}
               />
             </div>
