@@ -48,9 +48,9 @@ export function InventoryCombobox({
 
     // 🌟 Advanced Search with fuzzy matching, semantic understanding, and NLP (same as Inventory module)
     const searchResults = advancedSearch(items, debouncedSearch, {
-      fuzzyThreshold: 0.7,
+      fuzzyThreshold: 0.6,  // Lower threshold for more results
       includeInactive: true,  // Show all items in dropdown
-      minScore: 0.2,
+      minScore: 0.1,  // Lower minScore to allow more matches
       maxResults: 100,  // Limit to 100 results for performance
       sortBy: 'relevance',
     });

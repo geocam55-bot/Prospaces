@@ -28,7 +28,8 @@ import {
   Upload,
   X,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import type { User } from '../App';
 import { tenantsAPI, settingsAPI } from '../utils/api';
@@ -46,6 +47,10 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
   });
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSavingGlobal, setIsSavingGlobal] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false);
+  const [isSavingOrg, setIsSavingOrg] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showDatabaseWarning, setShowDatabaseWarning] = useState(false);
   const [notifications, setNotifications] = useState({
@@ -304,6 +309,7 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
   };
 
   const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
     try {
       // Save to Supabase profiles table - include both name AND profile picture
       const updateData: { name: string; profile_picture?: string } = {
@@ -342,11 +348,14 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
     } catch (error) {
       console.error('Error updating profile:', error);
       showAlert('error', 'Failed to update profile');
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
   const handleSaveOrg = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSavingOrg(true);
     
     try {
       // Save organization name to Supabase
@@ -364,10 +373,13 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
     } catch (error) {
       console.error('Error saving organization settings:', error);
       showAlert('error', 'Failed to save organization settings');
+    } finally {
+      setIsSavingOrg(false);
     }
   };
 
   const handleSaveNotifications = async () => {
+    setIsSavingNotifications(true);
     try {
       // Save notification preferences to Supabase
       await settingsAPI.upsertUserPreferences({
@@ -385,10 +397,13 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
     } catch (error) {
       console.error('Error saving notification preferences:', error);
       showAlert('error', 'Failed to save notification preferences');
+    } finally {
+      setIsSavingNotifications(false);
     }
   };
 
   const handleSaveGlobalSettings = async () => {
+    setIsSavingGlobal(true);
     try {
       // Save to Supabase
       const result = await settingsAPI.upsertOrganizationSettings({
@@ -422,6 +437,8 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
       } catch (localError) {
         showAlert('error', 'Failed to save global settings');
       }
+    } finally {
+      setIsSavingGlobal(false);
     }
   };
 
@@ -559,7 +576,9 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
                   </div>
                 </div>
               </div>
-              <Button onClick={handleSaveProfile}>Save Changes</Button>
+              <Button onClick={handleSaveProfile} disabled={isSavingProfile}>
+                {isSavingProfile ? 'Saving...' : 'Save Changes'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -623,7 +642,9 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
                   onCheckedChange={(checked) => setNotifications({ ...notifications, bids: checked })}
                 />
               </div>
-              <Button onClick={handleSaveNotifications}>Save Preferences</Button>
+              <Button onClick={handleSaveNotifications} disabled={isSavingNotifications}>
+                {isSavingNotifications ? 'Saving...' : 'Save Preferences'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -661,7 +682,9 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
                     <p className="text-sm text-gray-500">Configure automated workflows and statuses</p>
                     <Button type="button" variant="outline">Configure Workflows</Button>
                   </div>
-                  <Button type="submit">Save Organization Settings</Button>
+                  <Button type="submit" disabled={isSavingOrg}>
+                    {isSavingOrg ? 'Saving...' : 'Save Organization Settings'}
+                  </Button>
                 </form>
               </CardContent>
             </Card>
@@ -752,7 +775,9 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
                     </p>
                   </div>
 
-                  <Button onClick={handleSaveGlobalSettings}>Save Global Settings</Button>
+                  <Button onClick={handleSaveGlobalSettings} disabled={isSavingGlobal}>
+                    {isSavingGlobal ? 'Saving...' : 'Save Global Settings'}
+                  </Button>
                 </CardContent>
               </Card>
             )}
