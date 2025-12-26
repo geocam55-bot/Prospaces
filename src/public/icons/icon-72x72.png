@@ -1,0 +1,21 @@
+<!-- This is a placeholder - you'll need to generate actual PNG files -->
+<!-- For now, use an SVG with .png extension which some browsers accept -->
+<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72">
+  <defs>
+    <linearGradient id="bg72" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="50%" stop-color="#9333ea"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+  </defs>
+  <rect width="72" height="72" rx="14" fill="url(#bg72)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="22" y="14" width="18" height="43" rx="2"/>
+    <rect x="14" y="32" width="11" height="25" rx="2"/>
+    <rect x="43" y="25" width="11" height="32" rx="2"/>
+    <line x1="25" y1="20" x2="37" y2="20"/>
+    <line x1="25" y1="27" x2="37" y2="27"/>
+    <line x1="25" y1="34" x2="37" y2="34"/>
+    <line x1="25" y1="41" x2="37" y2="41"/>
+  </g>
+</svg>
