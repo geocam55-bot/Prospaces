@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, User, Target, DollarSign, Loader2, Check, AlertCircle } from 'lucide-react';
+import { FileText, User, Target, DollarSign, Loader2, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -57,6 +57,13 @@ export function ProjectQuoteGenerator({
     loadContacts();
   }, []);
 
+  // Reload contacts when dialog opens
+  useEffect(() => {
+    if (isOpen && contacts.length === 0) {
+      loadContacts();
+    }
+  }, [isOpen]);
+
   // Load opportunities when contact is selected
   useEffect(() => {
     if (selectedContact && selectedContact !== '') {
@@ -70,10 +77,12 @@ export function ProjectQuoteGenerator({
   const loadContacts = async () => {
     try {
       setIsLoading(true);
+      console.log('[ProjectQuoteGenerator] Loading contacts...');
       const { contacts: data } = await contactsAPI.getAll();
+      console.log('[ProjectQuoteGenerator] Loaded contacts:', data?.length || 0, data);
       setContacts(data || []);
     } catch (error) {
-      console.error('Error loading contacts:', error);
+      console.error('[ProjectQuoteGenerator] Error loading contacts:', error);
       showAlert('error', 'Failed to load contacts');
     } finally {
       setIsLoading(false);
@@ -201,10 +210,23 @@ export function ProjectQuoteGenerator({
 
         {/* Customer Selection */}
         <div>
-          <Label htmlFor="customer" className="flex items-center gap-2">
-            <User className="w-4 h-4" />
-            Customer *
-          </Label>
+          <div className="flex items-center justify-between mb-2">
+            <Label htmlFor="customer" className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Customer *
+            </Label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={loadContacts}
+              disabled={isLoading}
+              className="h-auto py-1 px-2 text-xs"
+            >
+              <RefreshCw className={`w-3 h-3 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
           <Select value={selectedContact} onValueChange={setSelectedContact}>
             <SelectTrigger id="customer">
               <SelectValue placeholder="Select a customer..." />
@@ -228,6 +250,11 @@ export function ProjectQuoteGenerator({
               )}
             </SelectContent>
           </Select>
+          {contacts.length === 0 && !isLoading && (
+            <p className="text-xs text-slate-500 mt-1">
+              No contacts found. Create a contact in the Contacts module first.
+            </p>
+          )}
         </div>
 
         {/* Opportunity Selection */}
