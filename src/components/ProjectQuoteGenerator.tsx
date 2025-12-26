@@ -242,7 +242,7 @@ export function ProjectQuoteGenerator({
                 </div>
               ) : (
                 contacts.map((contact) => (
-                  <SelectItem key={contact.id} value={contact.id}>
+                  <SelectItem key={contact.id} value={contact.id} className="text-slate-900 dark:text-slate-100">
                     {contact.first_name} {contact.last_name}
                     {contact.company_name && ` (${contact.company_name})`}
                   </SelectItem>
