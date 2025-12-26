@@ -5,17 +5,28 @@ const supabase = createClient();
 
 export async function getAllQuotesClient() {
   try {
+    // Try to get user, with fallback to session
+    let authUser;
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.warn('⚠️ User not authenticated, returning empty quotes');
-      return { quotes: [] };
+      // Fallback: check if there's a session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        authUser = session.user;
+        console.log('✅ Using session user for quotes (getUser failed)');
+      } else {
+        console.warn('⚠️ User not authenticated, returning empty quotes');
+        return { quotes: [] };
+      }
+    } else {
+      authUser = user;
     }
 
     // Get user's profile to check their role
     let profile;
     try {
-      profile = await ensureUserProfile(user.id);
+      profile = await ensureUserProfile(authUser.id);
     } catch (profileError) {
       console.error('❌ Failed to get user profile:', profileError);
       // Return empty array instead of throwing - this prevents "Error" in dashboard
@@ -47,11 +58,11 @@ export async function getAllQuotesClient() {
       const { data: teamMembers } = await supabase
         .from('profiles')
         .select('id')
-        .eq('manager_id', user.id)
+        .eq('manager_id', authUser.id)
         .eq('organization_id', userOrgId);
 
       const teamIds = teamMembers?.map(m => m.id) || [];
-      const allowedUserIds = [user.id, ...teamIds];
+      const allowedUserIds = [authUser.id, ...teamIds];
       
       // Filter by organization and created_by
       query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
@@ -59,13 +70,13 @@ export async function getAllQuotesClient() {
       if (allowedUserIds.length > 1) {
         query = query.in('created_by', allowedUserIds);
       } else {
-        query = query.eq('created_by', user.id);
+        query = query.eq('created_by', authUser.id);
       }
     } else {
       // Standard User: Can ONLY see their own quotes
       console.log('👤 Standard User - Loading only own quotes');
       query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
-      query = query.eq('created_by', user.id);
+      query = query.eq('created_by', authUser.id);
     }
     
     const { data: quotes, error } = await query.order('created_at', { ascending: false });

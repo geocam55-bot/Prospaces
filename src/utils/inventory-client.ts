@@ -4,23 +4,34 @@ import { ensureUserProfile } from './ensure-profile';
 export async function getAllInventoryClient() {
   try {
     const supabase = createClient();
+    
+    // Try to get user, with fallback to session
+    let authUser;
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.warn('⚠️ User not authenticated, returning empty inventory');
-      return { items: [] };
+      // Fallback: check if there's a session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        authUser = session.user;
+        console.log('✅ Using session user for inventory (getUser failed)');
+      } else {
+        console.warn('⚠️ User not authenticated, returning empty inventory');
+        return { items: [] };
+      }
+    } else {
+      authUser = user;
     }
 
-    console.log('🔍 getAllInventoryClient - User ID:', user.id);
-    console.log('🔍 getAllInventoryClient - User metadata:', user.user_metadata);
+    console.log('🔍 getAllInventoryClient - User ID:', authUser.id);
+    console.log('🔍 getAllInventoryClient - User metadata:', authUser.user_metadata);
 
     // Get user's profile to check their role
     let profile;
     try {
-      profile = await ensureUserProfile(user.id);
+      profile = await ensureUserProfile(authUser.id);
     } catch (profileError) {
       console.error('❌ Failed to get user profile:', profileError);
-      // Return empty array instead of throwing - this prevents "Error" in dashboard
       return { items: [] };
     }
 

@@ -156,11 +156,23 @@ export async function getInventoryItemsForDropdown(organizationId: string): Prom
   
   try {
     const supabase = createClient();
+    
+    // Try to get user, with fallback to session
+    let authUser;
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.warn('[project-wizard-defaults] ⚠️ User not authenticated, returning empty inventory');
-      return [];
+      // Fallback: check if there's a session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        authUser = session.user;
+        console.log('[project-wizard-defaults] ✅ Using session user for inventory (getUser failed)');
+      } else {
+        console.warn('[project-wizard-defaults] ⚠️ User not authenticated, returning empty inventory');
+        return [];
+      }
+    } else {
+      authUser = user;
     }
 
     // ✅ CRITICAL FIX: Load ALL items by fetching in batches (Supabase has a hard 1000 row limit per query)
