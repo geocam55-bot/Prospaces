@@ -8,9 +8,7 @@ const RUNTIME_CACHE = 'prospaces-runtime-v5';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
-  '/app-entry.tsx',
   '/manifest.json',
-  '/favicon.svg',
 ];
 
 // Install event - cache core assets
