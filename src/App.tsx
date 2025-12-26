@@ -84,6 +84,9 @@ export default function App() {
 
   // Check for existing session on mount
   useEffect(() => {
+    // Set document title explicitly
+    document.title = 'ProSpaces CRM';
+    
     checkSession();
     
     // Register service worker for PWA functionality
