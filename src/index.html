@@ -2,59 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="ProSpaces CRM - Multi-tenant CRM platform with role-based access control" />
     <meta name="theme-color" content="#9333ea" />
-    
-    <script>
-      // Generate PNG favicon dynamically
-      (function() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 64;
-        canvas.height = 64;
-        const ctx = canvas.getContext('2d');
-        
-        // Create gradient background
-        const gradient = ctx.createLinearGradient(0, 0, 64, 64);
-        gradient.addColorStop(0, '#2563eb');
-        gradient.addColorStop(0.5, '#9333ea');
-        gradient.addColorStop(1, '#ec4899');
-        
-        // Draw rounded rectangle background
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.roundRect(0, 0, 64, 64, 12);
-        ctx.fill();
-        
-        // Draw building icon in white
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
-        // Main building
-        ctx.strokeRect(20, 13, 16, 38);
-        // Left building
-        ctx.strokeRect(13, 29, 10, 22);
-        // Right building
-        ctx.strokeRect(38, 22, 10, 29);
-        
-        // Windows on main building
-        ctx.beginPath();
-        ctx.moveTo(23, 18); ctx.lineTo(33, 18);
-        ctx.moveTo(23, 24); ctx.lineTo(33, 24);
-        ctx.moveTo(23, 30); ctx.lineTo(33, 30);
-        ctx.moveTo(23, 36); ctx.lineTo(33, 36);
-        ctx.stroke();
-        
-        // Convert to PNG and set as favicon
-        const link = document.createElement('link');
-        link.rel = 'icon';
-        link.type = 'image/png';
-        link.href = canvas.toDataURL('image/png');
-        document.head.appendChild(link);
-      })();
-    </script>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
