@@ -35,6 +35,8 @@ export default defineConfig({
       },
     },
   },
+  // Explicitly include public assets
+  publicDir: 'public',
   css: {
     postcss: './postcss.config.js',
   },

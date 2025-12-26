@@ -1,168 +1,16 @@
 /**
- * PWA Utilities
- * Handles service worker registration, install prompts, and offline detection
+ * PWA (Progressive Web App) utilities for ProSpaces CRM
+ * Handles service worker registration, installation prompts, and offline detection
  */
-
-export interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
-
-let deferredPrompt: BeforeInstallPromptEvent | null = null;
-
-/**
- * Detect if the user is online
- */
-export function isOnline(): boolean {
-  return navigator.onLine;
-}
-
-/**
- * Listen for online/offline events
- */
-export function listenForNetworkChanges(
-  onOnline?: () => void,
-  onOffline?: () => void
-): () => void {
-  const handleOnline = () => {
-    console.log('[PWA] Network online');
-    if (onOnline) onOnline();
-  };
-
-  const handleOffline = () => {
-    console.log('[PWA] Network offline');
-    if (onOffline) onOffline();
-  };
-
-  window.addEventListener('online', handleOnline);
-  window.addEventListener('offline', handleOffline);
-
-  // Return cleanup function
-  return () => {
-    window.removeEventListener('online', handleOnline);
-    window.removeEventListener('offline', handleOffline);
-  };
-}
-
-/**
- * Check if the app is installed as a PWA
- */
-export function isInstalled(): boolean {
-  // Check if running in standalone mode
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-  
-  // Check for iOS standalone mode
-  const isIOSStandalone = (window.navigator as any).standalone === true;
-  
-  return isStandalone || isIOSStandalone;
-}
-
-/**
- * Listen for install prompt
- */
-export function listenForInstallPrompt(
-  onPromptAvailable?: (prompt: BeforeInstallPromptEvent) => void
-): void {
-  window.addEventListener('beforeinstallprompt', (e) => {
-    // Prevent the default mini-infobar
-    e.preventDefault();
-    
-    // Save the event for later use
-    deferredPrompt = e as BeforeInstallPromptEvent;
-    
-    console.log('[PWA] Install prompt available');
-    
-    if (onPromptAvailable) {
-      onPromptAvailable(deferredPrompt);
-    }
-  });
-}
-
-/**
- * Show the install prompt
- */
-export async function showInstallPrompt(): Promise<'accepted' | 'dismissed' | 'unavailable'> {
-  if (!deferredPrompt) {
-    console.warn('[PWA] Install prompt not available');
-    return 'unavailable';
-  }
-
-  try {
-    // Show the install prompt
-    await deferredPrompt.prompt();
-
-    // Wait for the user to respond
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    console.log(`[PWA] Install prompt ${outcome}`);
-
-    // Clear the saved prompt
-    deferredPrompt = null;
-
-    return outcome;
-  } catch (error) {
-    console.error('[PWA] Error showing install prompt:', error);
-    return 'unavailable';
-  }
-}
-
-/**
- * Detect if the user is on iOS
- */
-export function isIOS(): boolean {
-  const ua = window.navigator.userAgent;
-  const isIOSDevice = /iPad|iPhone|iPod/.test(ua) || 
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  return isIOSDevice && !(window as any).MSStream;
-}
-
-/**
- * Detect if the user is on Android
- */
-export function isAndroid(): boolean {
-  return /Android/.test(window.navigator.userAgent);
-}
-
-/**
- * Get iOS installation instructions
- */
-export function getIOSInstallInstructions(): string[] {
-  return [
-    'Tap the Share button at the bottom of Safari',
-    'Scroll down and tap "Add to Home Screen"',
-    'Tap "Add" in the top right corner',
-    'ProSpaces CRM will appear on your home screen'
-  ];
-}
-
-/**
- * Get platform-specific install instructions
- */
-export function getInstallInstructions(): string[] {
-  if (isIOS()) {
-    return getIOSInstallInstructions();
-  }
-  
-  if (isAndroid()) {
-    return [
-      'Tap the menu button (⋮) in Chrome',
-      'Tap "Install app" or "Add to Home screen"',
-      'Tap "Install" to confirm',
-      'ProSpaces CRM will appear on your home screen'
-    ];
-  }
-  
-  return [
-    'Click the install icon in your browser\'s address bar',
-    'Or click the menu and select "Install ProSpaces CRM"',
-    'The app will be installed on your computer'
-  ];
-}
 
 /**
  * Register the service worker
  */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  // TEMPORARY: Disable service worker until deployment is fixed
+  console.log('[PWA] Service worker registration temporarily disabled');
+  return null;
+  
   // Don't even try in non-HTTPS or preview environments
   const isHTTPS = window.location.protocol === 'https:';
   const isLocalhost = window.location.hostname === 'localhost' || 
@@ -236,38 +84,146 @@ export async function unregisterServiceWorker(): Promise<void> {
 }
 
 /**
- * Check if the app can be installed
+ * Online/Offline Detection
  */
-export function canInstall(): boolean {
-  return deferredPrompt !== null || !isInstalled();
+
+/**
+ * Check if the browser is currently online
+ */
+export function isOnline(): boolean {
+  return navigator.onLine;
 }
 
 /**
- * Clear all caches (for debugging)
+ * Listen for network status changes
  */
-export async function clearCaches(): Promise<void> {
-  if (!('caches' in window)) return;
+export function listenForNetworkChanges(
+  onOnline: () => void,
+  onOffline: () => void
+): () => void {
+  const handleOnline = () => onOnline();
+  const handleOffline = () => onOffline();
 
-  const cacheNames = await caches.keys();
-  await Promise.all(cacheNames.map((name) => caches.delete(name)));
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+
+  // Return cleanup function
+  return () => {
+    window.removeEventListener('online', handleOnline);
+    window.removeEventListener('offline', handleOffline);
+  };
+}
+
+/**
+ * PWA Installation
+ */
+
+let deferredPrompt: any = null;
+
+/**
+ * Listen for the beforeinstallprompt event
+ */
+export function listenForInstallPrompt(
+  onPromptAvailable: () => void
+): () => void {
+  const handleBeforeInstallPrompt = (e: Event) => {
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later
+    deferredPrompt = e;
+    // Notify that install prompt is available
+    onPromptAvailable();
+  };
+
+  window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+  // Return cleanup function
+  return () => {
+    window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  };
+}
+
+/**
+ * Check if the app is already installed
+ */
+export function isInstalled(): boolean {
+  // Check if running in standalone mode (installed PWA)
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  const isIOSStandalone = (window.navigator as any).standalone === true;
   
-  console.log('[PWA] All caches cleared');
+  return isStandalone || isIOSStandalone;
 }
 
 /**
- * Get cache size
+ * Check if the device is iOS
+ */
+export function isIOS(): boolean {
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  return /iphone|ipad|ipod/.test(userAgent);
+}
+
+/**
+ * Check if the device is Android
+ */
+export function isAndroid(): boolean {
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  return /android/.test(userAgent);
+}
+
+/**
+ * Get installation instructions based on platform
+ */
+export function getInstallInstructions(): string {
+  if (isIOS()) {
+    return 'Tap the Share button and then "Add to Home Screen"';
+  } else if (isAndroid()) {
+    return 'Tap the menu button and then "Install app" or "Add to Home screen"';
+  } else {
+    return 'Click the install button in your browser\'s address bar';
+  }
+}
+
+/**
+ * Show the install prompt
+ */
+export async function showInstallPrompt(): Promise<boolean> {
+  if (!deferredPrompt) {
+    console.warn('[PWA] Install prompt not available');
+    return false;
+  }
+
+  // Show the install prompt
+  deferredPrompt.prompt();
+
+  // Wait for the user to respond to the prompt
+  const { outcome } = await deferredPrompt.userChoice;
+  
+  console.log(`[PWA] User response to install prompt: ${outcome}`);
+
+  // Clear the deferredPrompt
+  deferredPrompt = null;
+
+  return outcome === 'accepted';
+}
+
+/**
+ * Cache Management
+ */
+
+/**
+ * Get the current cache size
  */
 export async function getCacheSize(): Promise<number> {
   if (!('caches' in window)) return 0;
 
-  let totalSize = 0;
   const cacheNames = await caches.keys();
+  let totalSize = 0;
 
   for (const name of cacheNames) {
     const cache = await caches.open(name);
-    const keys = await cache.keys();
+    const requests = await cache.keys();
     
-    for (const request of keys) {
+    for (const request of requests) {
       const response = await cache.match(request);
       if (response) {
         const blob = await response.blob();
@@ -280,57 +236,88 @@ export async function getCacheSize(): Promise<number> {
 }
 
 /**
- * Format bytes to human-readable string
+ * Clear all caches
  */
-export function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
+export async function clearAllCaches(): Promise<void> {
+  if (!('caches' in window)) return;
 
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  const cacheNames = await caches.keys();
+  await Promise.all(
+    cacheNames.map(name => caches.delete(name))
+  );
+  
+  console.log('[PWA] All caches cleared');
 }
 
 /**
- * Check if the browser supports PWA features
+ * Check current cache version
+ */
+export async function getCurrentCacheVersion(): Promise<string | null> {
+  if (!('caches' in window)) return null;
+
+  const cacheNames = await caches.keys();
+  const prospacesCaches = cacheNames.filter(name => name.startsWith('prospaces-'));
+  
+  if (prospacesCaches.length === 0) return null;
+  
+  // Return the latest cache version
+  return prospacesCaches.sort().pop() || null;
+}
+
+/**
+ * Feature Detection
+ */
+
+/**
+ * Check if PWA features are supported
  */
 export function checkPWASupport(): {
   serviceWorker: boolean;
   manifest: boolean;
   notifications: boolean;
-  backgroundSync: boolean;
-  pushNotifications: boolean;
+  storage: boolean;
 } {
   return {
     serviceWorker: 'serviceWorker' in navigator,
     manifest: 'manifest' in document.createElement('link'),
     notifications: 'Notification' in window,
-    backgroundSync: 'sync' in (self as any).registration || false,
-    pushNotifications: 'PushManager' in window,
+    storage: 'storage' in navigator && 'estimate' in navigator.storage,
   };
 }
+
+/**
+ * Get storage quota information
+ */
+export async function getStorageQuota(): Promise<{
+  usage: number;
+  quota: number;
+  percentage: number;
+} | null> {
+  if (!('storage' in navigator) || !('estimate' in navigator.storage)) {
+    return null;
+  }
+
+  const estimate = await navigator.storage.estimate();
+  const usage = estimate.usage || 0;
+  const quota = estimate.quota || 0;
+  const percentage = quota > 0 ? (usage / quota) * 100 : 0;
+
+  return { usage, quota, percentage };
+}
+
+/**
+ * Notifications
+ */
 
 /**
  * Request notification permission
  */
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
   if (!('Notification' in window)) {
-    console.warn('[PWA] Notifications not supported');
     return 'denied';
   }
 
-  if (Notification.permission === 'granted') {
-    return 'granted';
-  }
-
-  if (Notification.permission !== 'denied') {
-    const permission = await Notification.requestPermission();
-    console.log('[PWA] Notification permission:', permission);
-    return permission;
-  }
-
-  return Notification.permission;
+  return await Notification.requestPermission();
 }
 
 /**
@@ -340,9 +327,12 @@ export async function showNotification(
   title: string,
   options?: NotificationOptions
 ): Promise<void> {
-  const permission = await requestNotificationPermission();
-  
-  if (permission !== 'granted') {
+  if (!('Notification' in window)) {
+    console.warn('[PWA] Notifications not supported');
+    return;
+  }
+
+  if (Notification.permission !== 'granted') {
     console.warn('[PWA] Notification permission denied');
     return;
   }
@@ -354,4 +344,35 @@ export async function showNotification(
     vibrate: [200, 100, 200],
     ...options,
   });
+}
+
+/**
+ * Background Sync
+ */
+
+/**
+ * Register a background sync
+ */
+export async function registerBackgroundSync(tag: string): Promise<void> {
+  if (!('serviceWorker' in navigator) || !('sync' in ServiceWorkerRegistration.prototype)) {
+    console.warn('[PWA] Background sync not supported');
+    return;
+  }
+
+  const registration = await navigator.serviceWorker.ready;
+  await (registration as any).sync.register(tag);
+  console.log(`[PWA] Background sync registered: ${tag}`);
+}
+
+/**
+ * Utility: Convert bytes to human-readable format
+ */
+export function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
