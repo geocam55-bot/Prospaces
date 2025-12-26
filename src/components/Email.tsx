@@ -1172,18 +1172,18 @@ export function Email({ user }: EmailProps) {
             <Mail className="h-6 w-6 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-3xl text-gray-900">Email</h1>
-            <p className="text-gray-600 mt-1">Manage emails from connected accounts</p>
+            <h1 className="text-2xl sm:text-3xl text-gray-900">Email</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Manage emails from connected accounts</p>
           </div>
         </div>
         <div className="flex gap-2 items-center">
-          <Button variant="outline" onClick={() => setIsSettingsOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Account
+          <Button variant="outline" onClick={() => setIsSettingsOpen(true)} className="text-xs sm:text-sm">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add Account</span>
           </Button>
-          <Button onClick={() => setIsComposeOpen(true)}>
-            <Send className="h-4 w-4 mr-2" />
-            Compose
+          <Button onClick={() => setIsComposeOpen(true)} className="text-xs sm:text-sm">
+            <Send className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Compose</span>
           </Button>
         </div>
       </div>
@@ -1192,10 +1192,10 @@ export function Email({ user }: EmailProps) {
       {accounts.length > 0 && (
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 flex-1">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-1">
                 <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-                  <SelectTrigger className="w-64">
+                  <SelectTrigger className="w-full sm:w-64">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1205,14 +1205,14 @@ export function Email({ user }: EmailProps) {
                           <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center text-xs text-blue-600">
                             {getProviderIcon(account.provider)}
                           </div>
-                          {account.email}
+                          <span className="text-xs sm:text-sm truncate">{account.email}</span>
                         </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {accounts.find(a => a.id === selectedAccount)?.lastSync && (
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500 hidden md:inline">
                     Last synced: {formatDate(accounts.find(a => a.id === selectedAccount)!.lastSync!)}
                   </span>
                 )}
@@ -1220,9 +1220,9 @@ export function Email({ user }: EmailProps) {
               <div className="flex gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Settings className="h-4 w-4 mr-2" />
-                      Account Settings
+                    <Button variant="outline" size="sm" className="text-xs">
+                      <Settings className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Account Settings</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -1239,9 +1239,9 @@ export function Email({ user }: EmailProps) {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button variant="outline" size="sm" onClick={handleSync} disabled={isSyncing}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                  Sync
+                <Button variant="outline" size="sm" onClick={handleSync} disabled={isSyncing} className="text-xs">
+                  <RefreshCw className={`h-4 w-4 sm:mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Sync</span>
                 </Button>
               </div>
             </div>
@@ -1278,16 +1278,16 @@ export function Email({ user }: EmailProps) {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Email List */}
-          <div className="lg:col-span-1">
+          <div className={`lg:col-span-1 ${selectedEmail ? 'hidden lg:block' : ''}`}>
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between mb-4">
-                  <Tabs value={currentFolder} onValueChange={(value: any) => setCurrentFolder(value)}>
+                  <Tabs value={currentFolder} onValueChange={(value: any) => setCurrentFolder(value)} className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="inbox" className="text-xs">
+                      <TabsTrigger value="inbox" className="text-xs sm:text-sm">
                         Inbox {unreadCount > 0 && `(${unreadCount})`}
                       </TabsTrigger>
-                      <TabsTrigger value="sent" className="text-xs">Sent</TabsTrigger>
+                      <TabsTrigger value="sent" className="text-xs sm:text-sm">Sent</TabsTrigger>
                     </TabsList>
                   </Tabs>
                 </div>
@@ -1297,12 +1297,12 @@ export function Email({ user }: EmailProps) {
                     placeholder="Search emails..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 text-sm"
                   />
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
+                <div className="divide-y divide-gray-200 max-h-[600px] lg:max-h-[600px] overflow-y-auto">
                   {filteredEmails.map((email) => (
                     <button
                       key={email.id}
@@ -1310,29 +1310,29 @@ export function Email({ user }: EmailProps) {
                         setSelectedEmail(email);
                         handleMarkAsRead(email.id);
                       }}
-                      className={`w-full text-left p-4 hover:bg-gray-50 transition-colors ${
+                      className={`w-full text-left p-3 sm:p-4 hover:bg-gray-50 transition-colors ${
                         selectedEmail?.id === email.id ? 'bg-blue-50' : ''
                       } ${!email.read ? 'bg-blue-50/30' : ''}`}
                     >
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <span className={`text-sm ${!email.read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                        <span className={`text-xs sm:text-sm truncate flex-1 ${!email.read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
                           {email.folder === 'sent' ? `To: ${email.to}` : email.from}
                         </span>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           {email.starred && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />}
                           <span className="text-xs text-gray-500 whitespace-nowrap">
                             {formatDate(email.date)}
                           </span>
                         </div>
                       </div>
-                      <p className={`text-sm mb-1 ${!email.read ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
+                      <p className={`text-xs sm:text-sm mb-1 truncate ${!email.read ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
                         {email.subject}
                       </p>
                       <p className="text-xs text-gray-500 line-clamp-2">{getEmailPreview(email.body)}</p>
                       {email.linkedTo && (
                         <Badge variant="secondary" className="mt-2 text-xs">
                           <Link2 className="h-3 w-3 mr-1" />
-                          {email.linkedTo}
+                          <span className="truncate">{email.linkedTo}</span>
                         </Badge>
                       )}
                     </button>
@@ -1349,17 +1349,26 @@ export function Email({ user }: EmailProps) {
           </div>
 
           {/* Email Detail */}
-          <div className="lg:col-span-2">
+          <div className={`lg:col-span-2 ${!selectedEmail ? 'hidden lg:block' : ''}`}>
             {selectedEmail ? (
               <Card>
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h2 className="text-xl text-gray-900 mb-2">{selectedEmail.subject}</h2>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <span>From: {selectedEmail.from}</span>
-                        <span>•</span>
-                        <span>To: {selectedEmail.to}</span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      {/* Back button for mobile */}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="lg:hidden mb-2 -ml-2"
+                        onClick={() => setSelectedEmail(null)}
+                      >
+                        ← Back to list
+                      </Button>
+                      <h2 className="text-lg sm:text-xl text-gray-900 mb-2 break-words">{selectedEmail.subject}</h2>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-600">
+                        <span className="truncate">From: {selectedEmail.from}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="truncate">To: {selectedEmail.to}</span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
                         {new Date(selectedEmail.date).toLocaleString()}
@@ -1421,7 +1430,7 @@ export function Email({ user }: EmailProps) {
                       </div>
                     </div>
                   )}
-                  <div className="flex gap-2 mt-6">
+                  <div className="flex flex-wrap gap-2 mt-6">
                     <Button
                       onClick={() => {
                         setComposeEmail({
@@ -1432,21 +1441,22 @@ export function Email({ user }: EmailProps) {
                         });
                         setIsComposeOpen(true);
                       }}
+                      className="text-xs sm:text-sm"
                     >
-                      <Send className="h-4 w-4 mr-2" />
-                      Reply
+                      <Send className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Reply</span>
                     </Button>
-                    <Button variant="outline">
-                      <Send className="h-4 w-4 mr-2" />
-                      Forward
+                    <Button variant="outline" className="text-xs sm:text-sm">
+                      <Send className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Forward</span>
                     </Button>
                     <Button 
                       variant="outline" 
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs sm:text-sm"
                       onClick={() => handlePermanentDelete(selectedEmail.id)}
                     >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
+                      <Trash2 className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Delete</span>
                     </Button>
                   </div>
                 </CardContent>
@@ -1465,61 +1475,65 @@ export function Email({ user }: EmailProps) {
 
       {/* Compose Dialog */}
       <Dialog open={isComposeOpen} onOpenChange={setIsComposeOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="max-w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Compose Email</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-lg sm:text-xl">Compose Email</DialogTitle>
+            <DialogDescription className="text-sm">
               Send a new email from your connected account
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="to">To</Label>
+              <Label htmlFor="to" className="text-sm">To</Label>
               <Input
                 id="to"
                 value={composeEmail.to}
                 onChange={(e) => setComposeEmail({ ...composeEmail, to: e.target.value })}
                 placeholder="recipient@example.com"
+                className="text-sm"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="subject">Subject</Label>
+              <Label htmlFor="subject" className="text-sm">Subject</Label>
               <Input
                 id="subject"
                 value={composeEmail.subject}
                 onChange={(e) => setComposeEmail({ ...composeEmail, subject: e.target.value })}
+                className="text-sm"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="body">Message</Label>
+              <Label htmlFor="body" className="text-sm">Message</Label>
               <Textarea
                 id="body"
                 value={composeEmail.body}
                 onChange={(e) => setComposeEmail({ ...composeEmail, body: e.target.value })}
-                rows={8}
+                rows={6}
+                className="text-sm min-h-[120px]"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="linkTo">Link to CRM Record (optional)</Label>
+              <Label htmlFor="linkTo" className="text-sm">Link to CRM Record (optional)</Label>
               <Input
                 id="linkTo"
                 value={composeEmail.linkTo}
                 onChange={(e) => setComposeEmail({ ...composeEmail, linkTo: e.target.value })}
                 placeholder="e.g., Contact: John Smith"
+                className="text-sm"
               />
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Paperclip className="h-4 w-4 mr-2" />
-                Attach File
+              <Button variant="outline" size="sm" className="text-xs">
+                <Paperclip className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Attach File</span>
               </Button>
             </div>
             <div className="flex gap-2 pt-4">
-              <Button onClick={handleSendEmail} className="flex-1">
+              <Button onClick={handleSendEmail} className="flex-1 text-sm">
                 <Send className="h-4 w-4 mr-2" />
                 Send
               </Button>
-              <Button variant="outline" onClick={() => setIsComposeOpen(false)}>
+              <Button variant="outline" onClick={() => setIsComposeOpen(false)} className="text-sm">
                 Cancel
               </Button>
             </div>

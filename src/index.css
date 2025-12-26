@@ -983,6 +983,10 @@
     margin-bottom: calc(var(--spacing) * 24);
   }
 
+  .-ml-2 {
+    margin-left: calc(var(--spacing) * -2);
+  }
+
   .ml-0 {
     margin-left: calc(var(--spacing) * 0);
   }
@@ -1328,6 +1332,10 @@
     min-height: calc(var(--spacing) * 96);
   }
 
+  .min-h-\[120px\] {
+    min-height: 120px;
+  }
+
   .min-h-\[400px\] {
     min-height: 400px;
   }
@@ -1474,6 +1482,10 @@
 
   .max-w-\[60px\] {
     max-width: 60px;
+  }
+
+  .max-w-\[95vw\] {
+    max-width: 95vw;
   }
 
   .max-w-\[150px\] {
@@ -4995,6 +5007,12 @@
   }
 
   @media (width >= 40rem) {
+    .sm\:mr-2 {
+      margin-right: calc(var(--spacing) * 2);
+    }
+  }
+
+  @media (width >= 40rem) {
     .sm\:flex {
       display: flex;
     }
@@ -5013,8 +5031,20 @@
   }
 
   @media (width >= 40rem) {
+    .sm\:inline {
+      display: inline;
+    }
+  }
+
+  @media (width >= 40rem) {
     .sm\:w-48 {
       width: calc(var(--spacing) * 48);
+    }
+  }
+
+  @media (width >= 40rem) {
+    .sm\:w-64 {
+      width: calc(var(--spacing) * 64);
     }
   }
 
@@ -5103,8 +5133,20 @@
   }
 
   @media (width >= 40rem) {
+    .sm\:gap-2 {
+      gap: calc(var(--spacing) * 2);
+    }
+  }
+
+  @media (width >= 40rem) {
     .sm\:self-auto {
       align-self: auto;
+    }
+  }
+
+  @media (width >= 40rem) {
+    .sm\:p-4 {
+      padding: calc(var(--spacing) * 4);
     }
   }
 
@@ -5146,6 +5188,13 @@
   }
 
   @media (width >= 40rem) {
+    .sm\:text-3xl {
+      font-size: var(--text-3xl);
+      line-height: var(--tw-leading, var(--text-3xl--line-height));
+    }
+  }
+
+  @media (width >= 40rem) {
     .sm\:text-5xl {
       font-size: var(--text-5xl);
       line-height: var(--tw-leading, var(--text-5xl--line-height));
@@ -5160,9 +5209,23 @@
   }
 
   @media (width >= 40rem) {
+    .sm\:text-base {
+      font-size: var(--text-base);
+      line-height: var(--tw-leading, var(--text-base--line-height));
+    }
+  }
+
+  @media (width >= 40rem) {
     .sm\:text-sm {
       font-size: var(--text-sm);
       line-height: var(--tw-leading, var(--text-sm--line-height));
+    }
+  }
+
+  @media (width >= 40rem) {
+    .sm\:text-xl {
+      font-size: var(--text-xl);
+      line-height: var(--tw-leading, var(--text-xl--line-height));
     }
   }
 
@@ -5199,6 +5262,12 @@
   @media (width >= 48rem) {
     .md\:grid {
       display: grid;
+    }
+  }
+
+  @media (width >= 48rem) {
+    .md\:inline {
+      display: inline;
     }
   }
 
@@ -5308,6 +5377,12 @@
   @media (width >= 64rem) {
     .lg\:hidden {
       display: none;
+    }
+  }
+
+  @media (width >= 64rem) {
+    .lg\:max-h-\[600px\] {
+      max-height: 600px;
     }
   }
 
