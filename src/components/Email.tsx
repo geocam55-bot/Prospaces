@@ -251,6 +251,14 @@ export function Email({ user }: EmailProps) {
     }
   }, []);
 
+  // Auto-select first account when accounts are loaded
+  useEffect(() => {
+    if (accounts.length > 0 && !selectedAccount) {
+      setSelectedAccount(accounts[0].id);
+      console.log(`[Email] Auto-selected first account: ${accounts[0].email}`);
+    }
+  }, [accounts, selectedAccount]);
+
   const loadAccountsFromSupabase = async () => {
     try {
       const supabase = createClient();
@@ -1339,19 +1347,25 @@ export function Email({ user }: EmailProps) {
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-1">
                 <Select value={selectedAccount} onValueChange={setSelectedAccount}>
                   <SelectTrigger className="w-full sm:w-64">
-                    <SelectValue />
+                    <SelectValue placeholder="Select email account" />
                   </SelectTrigger>
                   <SelectContent>
-                    {accounts.map(account => (
-                      <SelectItem key={account.id} value={account.id}>
-                        <div className="flex items-center gap-2">
-                          <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center text-xs text-blue-600">
-                            {getProviderIcon(account.provider)}
+                    {accounts
+                      .filter((account, index, self) => 
+                        // Remove duplicates based on email address
+                        index === self.findIndex((a) => a.email === account.email && a.connected)
+                      )
+                      .filter(account => account.connected) // Only show connected accounts
+                      .map(account => (
+                        <SelectItem key={account.id} value={account.id}>
+                          <div className="flex items-center gap-2">
+                            <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center text-xs text-blue-600">
+                              {getProviderIcon(account.provider)}
+                            </div>
+                            <span className="text-xs sm:text-sm truncate">{account.email}</span>
                           </div>
-                          <span className="text-xs sm:text-sm truncate">{account.email}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
                 {accounts.find(a => a.id === selectedAccount)?.lastSync && (
