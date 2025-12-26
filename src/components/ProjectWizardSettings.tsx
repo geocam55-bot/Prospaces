@@ -108,7 +108,10 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
       setDefaults(defaultsMap);
     } catch (error) {
       console.error('Error loading project wizard settings:', error);
-      onSave('error', 'Failed to load project wizard settings');
+      // Only show error if it's not an authentication issue
+      if (error && typeof error === 'object' && 'message' in error && !String(error.message).includes('auth')) {
+        onSave('error', 'Failed to load project wizard settings');
+      }
     } finally {
       setLoading(false);
     }

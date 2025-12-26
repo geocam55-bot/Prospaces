@@ -69,7 +69,7 @@ export async function upsertProjectWizardDefault(defaultConfig: ProjectWizardDef
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.error('[project-wizard-defaults] ❌ User not authenticated, cannot upsert');
+      console.warn('[project-wizard-defaults] ⚠️ User not authenticated, cannot upsert');
       return null;
     }
 
