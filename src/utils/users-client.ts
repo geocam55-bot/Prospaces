@@ -449,6 +449,7 @@ export async function resetPasswordClient(userId: string, newPassword: string) {
       .update({
         temp_password: newPassword,
         temp_password_created_at: new Date().toISOString(),
+        needs_password_change: true, // Flag that user must change password on next login
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId)

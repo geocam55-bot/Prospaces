@@ -71,50 +71,10 @@ export async function getAllAppointmentsClient() {
         query = query.eq('owner_id', user.id);
       }
     } else {
-      // Standard User: Check if they're the ONLY user in the org
-      // If so, show all appointments. Otherwise, only show their own.
-      console.log('👤 Standard User - Checking organization users...');
-      
-      const { data: orgUsers, error: usersError } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('organization_id', userOrgId)
-        .neq('role', 'super_admin'); // Don't count super admins
-      
-      console.log('👤 Organization users:', orgUsers?.length, orgUsers?.map(u => u.email));
-      
-      if (!usersError && orgUsers && orgUsers.length === 1) {
-        // Only one user in org - show all appointments in organization
-        console.log('👤 Only user in organization - Loading all organization appointments');
-        query = query.eq('organization_id', userOrgId);
-      } else if (!usersError && orgUsers && orgUsers.length > 1) {
-        // Multiple users - check if this is a legacy data scenario
-        console.log('👤 Multiple users in organization - Checking for legacy data...');
-        
-        // First, try to get appointments owned by current user
-        const { count: ownCount } = await supabase
-          .from('appointments')
-          .select('id', { count: 'exact', head: true })
-          .eq('organization_id', userOrgId)
-          .eq('owner_id', user.id);
-        
-        // If user has 0 appointments but org has appointments, this is likely legacy data
-        // Show all org appointments to avoid confusion
-        if (ownCount === 0) {
-          console.log('👤 No appointments owned by user but org has appointments - showing all org appointments (legacy data scenario)');
-          query = query.eq('organization_id', userOrgId);
-        } else {
-          // User has some appointments - show only their own
-          console.log('👤 User has appointments - Loading only own appointments');
-          query = query.eq('organization_id', userOrgId);
-          query = query.eq('owner_id', user.id);
-        }
-      } else {
-        // Fallback - show only own appointments
-        console.log('👤 Standard User - Loading only own appointments');
-        query = query.eq('organization_id', userOrgId);
-        query = query.eq('owner_id', user.id);
-      }
+      // Standard User: Only show their own appointments
+      console.log('👤 Standard User - Loading only own appointments');
+      query = query.eq('organization_id', userOrgId);
+      query = query.eq('owner_id', user.id);
     }
 
     const { data, error } = await query.order('start_time', { ascending: true });

@@ -71,10 +71,15 @@ export function ChangePasswordDialog({ open, onClose, userId }: ChangePasswordDi
         throw updateError;
       }
 
-      // Clear the needs_password_change flag
+      // Clear the needs_password_change flag and temp_password
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ needs_password_change: false })
+        .update({ 
+          needs_password_change: false,
+          temp_password: null,
+          temp_password_created_at: null,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', userId);
 
       if (profileError) {
