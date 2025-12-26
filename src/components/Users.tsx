@@ -479,6 +479,24 @@ export function Users({ user }: UsersProps) {
       }
 
       console.log('✅ Temporary password set successfully!');
+      console.log('✅ Function result:', JSON.stringify(functionResult, null, 2));
+      
+      // Verify the flag was set by querying the profile
+      const { data: verifyProfile, error: verifyError } = await supabase
+        .from('profiles')
+        .select('needs_password_change, temp_password, temp_password_created_at')
+        .eq('email', orgUser.email)
+        .single();
+      
+      console.log('🔍 Verification - Profile after password reset:');
+      console.log('  - needs_password_change:', verifyProfile?.needs_password_change);
+      console.log('  - temp_password exists:', !!verifyProfile?.temp_password);
+      console.log('  - temp_password_created_at:', verifyProfile?.temp_password_created_at);
+      
+      if (!verifyProfile?.needs_password_change) {
+        console.error('⚠️ WARNING: needs_password_change is NOT TRUE after reset!');
+        console.error('⚠️ This means the user will NOT be prompted to change password on login!');
+      }
       
       // Try to send password reset email (optional - not critical)
       try {

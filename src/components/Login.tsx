@@ -249,7 +249,7 @@ export function Login({ onLogin }: LoginProps) {
         throw new Error('Invalid response from server');
       }
 
-      console.log('✅ Sign in successful!');
+      console.log('✅ Sign in successful!')
 
       // Get user profile from database
       let { data: profile, error: profileError } = await supabase
@@ -257,6 +257,10 @@ export function Login({ onLogin }: LoginProps) {
         .select('*')
         .eq('id', signInData.user.id)
         .single();
+
+      console.log('📋 Profile fetched:', profile);
+      console.log('🔐 needs_password_change value:', profile?.needs_password_change);
+      console.log('🔐 needs_password_change type:', typeof profile?.needs_password_change);
 
       // If profile doesn't exist, create it automatically
       if (profileError || !profile) {
