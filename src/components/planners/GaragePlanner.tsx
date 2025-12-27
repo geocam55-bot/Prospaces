@@ -78,13 +78,14 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
 
   // Flatten materials for quote generator
   const flatMaterials = [
+    ...materials.foundation,
     ...materials.framing,
     ...materials.roofing,
     ...materials.siding,
     ...materials.doors,
     ...materials.windows,
-    ...materials.insulation,
-    ...materials.electrical,
+    ...(materials.insulation || []),
+    ...(materials.electrical || []),
   ];
 
   // Enrich materials with T1 pricing whenever config changes
@@ -214,7 +215,13 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
         )}
 
         {activeTab === 'saved' && (
-          <SavedGarageDesigns currentConfig={config} onLoadDesign={handleLoadDesign} />
+          <SavedGarageDesigns 
+            user={user}
+            currentConfig={config} 
+            materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+            totalCost={totalT1Price > 0 ? totalT1Price : 0}
+            onLoadDesign={handleLoadDesign} 
+          />
         )}
       </div>
     </div>

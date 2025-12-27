@@ -3,7 +3,7 @@ import { DeckConfigurator } from '../deck/DeckConfigurator';
 import { DeckCanvas } from '../deck/DeckCanvas';
 import { MaterialsList } from '../deck/MaterialsList';
 import { DeckTemplates } from '../deck/DeckTemplates';
-import { SavedDesigns } from '../deck/SavedDesigns';
+import { SavedDeckDesigns } from '../deck/SavedDeckDesigns';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { DiagnosticPanel } from '../DiagnosticPanel';
 import { calculateMaterials } from '../../utils/deckCalculations';
@@ -181,7 +181,13 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
         )}
 
         {activeTab === 'saved' && (
-          <SavedDesigns onLoadDesign={handleLoadDesign} />
+          <SavedDeckDesigns 
+            user={user}
+            currentConfig={config}
+            materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+            totalCost={totalT1Price > 0 ? totalT1Price : 0}
+            onLoadDesign={handleLoadDesign} 
+          />
         )}
       </div>
     </div>

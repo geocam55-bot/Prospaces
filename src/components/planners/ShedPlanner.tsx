@@ -66,15 +66,15 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
   const flatMaterials = [
     ...materials.foundation,
     ...materials.framing,
-    ...materials.floor,
+    ...(materials.flooring || []),
     ...materials.roofing,
     ...materials.siding,
-    ...materials.door,
+    ...materials.doors,
     ...materials.windows,
-    ...materials.loft,
-    ...materials.electrical,
-    ...materials.shelving,
-    ...materials.accessories,
+    ...materials.trim,
+    ...materials.hardware,
+    ...(materials.electrical || []),
+    ...(materials.accessories || []),
   ];
 
   // Enrich materials with T1 pricing whenever config changes
@@ -204,7 +204,13 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
         )}
 
         {activeTab === 'saved' && (
-          <SavedShedDesigns currentConfig={config} onLoadDesign={handleLoadDesign} />
+          <SavedShedDesigns 
+            user={user}
+            currentConfig={config} 
+            materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+            totalCost={totalT1Price > 0 ? totalT1Price : 0}
+            onLoadDesign={handleLoadDesign} 
+          />
         )}
       </div>
     </div>

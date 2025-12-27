@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
-import { GarageConfig, SavedGarageDesign } from '../../types/garage';
+import { DeckConfig } from '../../types/deck';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -11,12 +11,12 @@ import { FileText, Trash2, Download, Save, User } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
 import type { User as AppUser } from '../../App';
 
-interface SavedGarageDesignsProps {
+interface SavedDeckDesignsProps {
   user: AppUser;
-  currentConfig: GarageConfig;
+  currentConfig: DeckConfig;
   materials: any[];
   totalCost: number;
-  onLoadDesign: (config: GarageConfig) => void;
+  onLoadDesign: (config: DeckConfig) => void;
 }
 
 interface Customer {
@@ -32,7 +32,7 @@ interface SavedDesign {
   id: string;
   name: string;
   description: string;
-  config: GarageConfig;
+  config: DeckConfig;
   customer_id: string | null;
   customer_name: string | null;
   customer_company: string | null;
@@ -43,13 +43,13 @@ interface SavedDesign {
   updated_at: string;
 }
 
-export function SavedGarageDesigns({ 
+export function SavedDeckDesigns({ 
   user,
   currentConfig, 
   materials,
   totalCost,
   onLoadDesign 
-}: SavedGarageDesignsProps) {
+}: SavedDeckDesignsProps) {
   const [designs, setDesigns] = useState<SavedDesign[]>([]);
   const [saveName, setSaveName] = useState('');
   const [saveDescription, setSaveDescription] = useState('');
@@ -66,7 +66,7 @@ export function SavedGarageDesigns({
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('saved_garage_designs')
+        .from('saved_deck_designs')
         .select(`
           id,
           name,
@@ -121,7 +121,7 @@ export function SavedGarageDesigns({
     setIsSaving(true);
     try {
       const { data, error } = await supabase
-        .from('saved_garage_designs')
+        .from('saved_deck_designs')
         .insert({
           organization_id: user.organizationId,
           user_id: user.id,
@@ -158,7 +158,7 @@ export function SavedGarageDesigns({
 
     try {
       const { error } = await supabase
-        .from('saved_garage_designs')
+        .from('saved_deck_designs')
         .delete()
         .eq('id', id);
 
@@ -186,7 +186,7 @@ export function SavedGarageDesigns({
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `garage-design-${design.name.replace(/\s+/g, '-')}.json`;
+    link.download = `deck-design-${design.name.replace(/\s+/g, '-')}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -206,7 +206,7 @@ export function SavedGarageDesigns({
             <Label htmlFor="saveName">Design Name *</Label>
             <Input
               id="saveName"
-              placeholder="e.g., Client Smith - 24x24 Double Garage"
+              placeholder="e.g., Johnson Residence - 14x18 Deck"
               value={saveName}
               onChange={(e) => setSaveName(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && saveDesign()}
@@ -249,7 +249,7 @@ export function SavedGarageDesigns({
           
           <div className="text-xs text-slate-500 space-y-1">
             <p>• Designs are saved to your organization's database</p>
-            <p>• Current: {currentConfig.width}' × {currentConfig.length}' {currentConfig.bays}-bay garage</p>
+            <p>• Current: {currentConfig.width}' × {currentConfig.length}' {currentConfig.shape} deck</p>
             <p>• Estimated Cost: ${totalCost.toLocaleString()}</p>
           </div>
         </CardContent>
@@ -279,7 +279,7 @@ export function SavedGarageDesigns({
               {designs.map((design) => (
                 <div
                   key={design.id}
-                  className="border border-slate-200 rounded-lg p-4 hover:border-green-300 hover:bg-green-50/50 transition-colors"
+                  className="border border-slate-200 rounded-lg p-4 hover:border-purple-300 hover:bg-purple-50/50 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
@@ -288,7 +288,8 @@ export function SavedGarageDesigns({
                         <p className="text-sm text-slate-600 mt-1">{design.description}</p>
                       )}
                       <div className="text-sm text-slate-600 mt-2">
-                        {design.config.width}' × {design.config.length}' • {design.config.bays}-bay • {design.config.roofStyle} roof
+                        {design.config.width}' × {design.config.length}' • {design.config.shape} shape
+                        {design.config.hasStairs && ' • w/Stairs'}
                       </div>
                       {design.customer_name && (
                         <div className="flex items-center gap-2 mt-2 text-sm text-slate-700">

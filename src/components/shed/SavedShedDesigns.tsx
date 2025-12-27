@@ -1,78 +1,187 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../../supabaseClient';
 import { ShedConfig, SavedShedDesign } from '../../types/shed';
+import { CustomerSelector } from '../project-wizard/CustomerSelector';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { FileText, Trash2, Download, Save } from 'lucide-react';
+import { Textarea } from '../ui/textarea';
+import { FileText, Trash2, Download, Save, User } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
+import type { User as AppUser } from '../../App';
 
 interface SavedShedDesignsProps {
+  user: AppUser;
   currentConfig: ShedConfig;
+  materials: any[];
+  totalCost: number;
   onLoadDesign: (config: ShedConfig) => void;
 }
 
-export function SavedShedDesigns({ currentConfig, onLoadDesign }: SavedShedDesignsProps) {
-  const [designs, setDesigns] = useState<SavedShedDesign[]>([]);
+interface Customer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  price_tier: string;
+}
+
+interface SavedDesign {
+  id: string;
+  name: string;
+  description: string;
+  config: ShedConfig;
+  customer_id: string | null;
+  customer_name: string | null;
+  customer_company: string | null;
+  price_tier: string;
+  total_cost: number;
+  materials: any[];
+  created_at: string;
+  updated_at: string;
+}
+
+export function SavedShedDesigns({ 
+  user,
+  currentConfig, 
+  materials,
+  totalCost,
+  onLoadDesign 
+}: SavedShedDesignsProps) {
+  const [designs, setDesigns] = useState<SavedDesign[]>([]);
   const [saveName, setSaveName] = useState('');
+  const [saveDescription, setSaveDescription] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [saveMessage, setSaveMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     loadDesigns();
-  }, []);
+  }, [user.organizationId]);
 
-  const loadDesigns = () => {
+  const loadDesigns = async () => {
+    setIsLoading(true);
     try {
-      const saved = localStorage.getItem('prospacescrm_shed_designs');
-      if (saved) {
-        setDesigns(JSON.parse(saved));
-      }
+      const { data, error } = await supabase
+        .from('saved_shed_designs')
+        .select(`
+          id,
+          name,
+          description,
+          config,
+          customer_id,
+          price_tier,
+          total_cost,
+          materials,
+          created_at,
+          updated_at,
+          contacts:customer_id (
+            name,
+            company
+          )
+        `)
+        .eq('organization_id', user.organizationId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedDesigns = (data || []).map((design: any) => ({
+        id: design.id,
+        name: design.name,
+        description: design.description,
+        config: design.config,
+        customer_id: design.customer_id,
+        customer_name: design.contacts?.name || null,
+        customer_company: design.contacts?.company || null,
+        price_tier: design.price_tier,
+        total_cost: design.total_cost,
+        materials: design.materials,
+        created_at: design.created_at,
+        updated_at: design.updated_at,
+      }));
+
+      setDesigns(formattedDesigns);
     } catch (error) {
       console.error('Error loading saved designs:', error);
+      setSaveMessage('Error loading designs. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const saveDesign = () => {
+  const saveDesign = async () => {
     if (!saveName.trim()) {
       setSaveMessage('Please enter a name for your design');
       return;
     }
 
-    const newDesign: SavedShedDesign = {
-      id: Date.now().toString(),
-      name: saveName.trim(),
-      config: currentConfig,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    const updatedDesigns = [...designs, newDesign];
-    
+    setIsSaving(true);
     try {
-      localStorage.setItem('prospacescrm_shed_designs', JSON.stringify(updatedDesigns));
-      setDesigns(updatedDesigns);
+      const { data, error } = await supabase
+        .from('saved_shed_designs')
+        .insert({
+          organization_id: user.organizationId,
+          user_id: user.id,
+          customer_id: selectedCustomer?.id || null,
+          name: saveName.trim(),
+          description: saveDescription.trim() || null,
+          config: currentConfig,
+          price_tier: selectedCustomer?.price_tier || 't1',
+          total_cost: totalCost,
+          materials: materials,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
       setSaveName('');
+      setSaveDescription('');
+      setSelectedCustomer(null);
       setSaveMessage('Design saved successfully!');
       setTimeout(() => setSaveMessage(''), 3000);
+      
+      await loadDesigns();
     } catch (error) {
-      setSaveMessage('Error saving design. Please try again.');
       console.error('Error saving design:', error);
+      setSaveMessage('Error saving design. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const deleteDesign = (id: string) => {
-    const updatedDesigns = designs.filter((d) => d.id !== id);
-    
+  const deleteDesign = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this design?')) return;
+
     try {
-      localStorage.setItem('prospacescrm_shed_designs', JSON.stringify(updatedDesigns));
-      setDesigns(updatedDesigns);
+      const { error } = await supabase
+        .from('saved_shed_designs')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await loadDesigns();
     } catch (error) {
       console.error('Error deleting design:', error);
+      setSaveMessage('Error deleting design. Please try again.');
     }
   };
 
-  const exportDesign = (design: SavedShedDesign) => {
-    const dataStr = JSON.stringify(design, null, 2);
+  const exportDesign = (design: SavedDesign) => {
+    const exportData = {
+      name: design.name,
+      description: design.description,
+      config: design.config,
+      materials: design.materials,
+      total_cost: design.total_cost,
+      exported_at: new Date().toISOString(),
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
@@ -94,15 +203,32 @@ export function SavedShedDesigns({ currentConfig, onLoadDesign }: SavedShedDesig
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="saveName">Design Name</Label>
+            <Label htmlFor="saveName">Design Name *</Label>
             <Input
               id="saveName"
-              placeholder="e.g., Backyard Storage Shed - 10x12 Barn"
+              placeholder="e.g., Client Smith - 10x12 Barn Style Shed"
               value={saveName}
               onChange={(e) => setSaveName(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && saveDesign()}
+              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && saveDesign()}
             />
           </div>
+
+          <div>
+            <Label htmlFor="saveDescription">Description (Optional)</Label>
+            <Textarea
+              id="saveDescription"
+              placeholder="Add notes about this design..."
+              value={saveDescription}
+              onChange={(e) => setSaveDescription(e.target.value)}
+              rows={3}
+            />
+          </div>
+
+          <CustomerSelector
+            organizationId={user.organizationId}
+            selectedCustomer={selectedCustomer}
+            onCustomerSelect={setSelectedCustomer}
+          />
           
           {saveMessage && (
             <Alert className={saveMessage.includes('success') ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}>
@@ -112,14 +238,19 @@ export function SavedShedDesigns({ currentConfig, onLoadDesign }: SavedShedDesig
             </Alert>
           )}
           
-          <Button onClick={saveDesign} className="w-full">
+          <Button 
+            onClick={saveDesign} 
+            className="w-full"
+            disabled={isSaving}
+          >
             <Save className="w-4 h-4 mr-2" />
-            Save Design
+            {isSaving ? 'Saving...' : 'Save Design'}
           </Button>
           
           <div className="text-xs text-slate-500 space-y-1">
-            <p>• Designs are saved to your browser's local storage</p>
-            <p>• Current configuration: {currentConfig.width}' × {currentConfig.length}' {currentConfig.style} shed</p>
+            <p>• Designs are saved to your organization's database</p>
+            <p>• Current: {currentConfig.width}' × {currentConfig.length}' {currentConfig.style} shed</p>
+            <p>• Estimated Cost: ${totalCost.toLocaleString()}</p>
           </div>
         </CardContent>
       </Card>
@@ -133,7 +264,11 @@ export function SavedShedDesigns({ currentConfig, onLoadDesign }: SavedShedDesig
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {designs.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-8 text-slate-500">
+              Loading designs...
+            </div>
+          ) : designs.length === 0 ? (
             <div className="text-center py-8 text-slate-500">
               <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>No saved designs yet</p>
@@ -149,11 +284,29 @@ export function SavedShedDesigns({ currentConfig, onLoadDesign }: SavedShedDesig
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
                       <h3 className="font-medium text-slate-900">{design.name}</h3>
-                      <div className="text-sm text-slate-600 mt-1">
-                        {design.config.width}' × {design.config.length}' • {design.config.style} • {design.config.doorType} door
+                      {design.description && (
+                        <p className="text-sm text-slate-600 mt-1">{design.description}</p>
+                      )}
+                      <div className="text-sm text-slate-600 mt-2">
+                        {design.config.width}' × {design.config.length}' • {design.config.style} style
+                        {design.config.hasLoft && ' • w/Loft'}
                       </div>
-                      <div className="text-xs text-slate-500 mt-1">
-                        Saved {new Date(design.createdAt).toLocaleDateString()}
+                      {design.customer_name && (
+                        <div className="flex items-center gap-2 mt-2 text-sm text-slate-700">
+                          <User className="w-3 h-3" />
+                          <span>{design.customer_name}</span>
+                          {design.customer_company && (
+                            <span className="text-slate-500">({design.customer_company})</span>
+                          )}
+                          <span className="text-green-600 ml-2">
+                            {design.price_tier.toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                        <span>Saved {new Date(design.created_at).toLocaleDateString()}</span>
+                        <span>•</span>
+                        <span className="text-green-600">${design.total_cost.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
