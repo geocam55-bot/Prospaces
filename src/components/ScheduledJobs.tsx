@@ -12,7 +12,8 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
-  X
+  X,
+  ArrowLeft
 } from 'lucide-react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -23,6 +24,7 @@ import type { User } from '../App';
 
 interface ScheduledJobsProps {
   user: User;
+  onNavigate?: (view: string) => void;
 }
 
 interface ScheduledJob {
@@ -44,7 +46,7 @@ interface ScheduledJob {
   };
 }
 
-export function ScheduledJobs({ user }: ScheduledJobsProps) {
+export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
   const [jobs, setJobs] = useState<ScheduledJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -430,11 +432,24 @@ export function ScheduledJobs({ user }: ScheduledJobsProps) {
   const completedJobs = jobs.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status));
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl text-gray-900">Scheduled Jobs</h2>
-          <p className="text-sm text-gray-600">View and manage scheduled import/export jobs</p>
+        <div className="flex items-center gap-4">
+          {onNavigate && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onNavigate('import-export')}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Import & Export
+            </Button>
+          )}
+          <div>
+            <h2 className="text-2xl text-gray-900">Scheduled Jobs</h2>
+            <p className="text-sm text-gray-600">View and manage scheduled import/export jobs</p>
+          </div>
         </div>
         <Button variant="outline" onClick={loadJobs} disabled={isLoading}>
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <History className="h-4 w-4" />}
