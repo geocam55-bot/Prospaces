@@ -9,10 +9,10 @@ interface MaterialsListProps {
 
 export function MaterialsList({ materials, compact = false }: MaterialsListProps) {
   const allItems = [
-    ...materials.framing,
-    ...materials.decking,
-    ...materials.railing,
-    ...materials.hardware,
+    ...(materials.framing || []),
+    ...(materials.decking || []),
+    ...(materials.railing || []),
+    ...(materials.hardware || []),
   ];
 
   const categoryIcons: Record<string, React.ReactNode> = {

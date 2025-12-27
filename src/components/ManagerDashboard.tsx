@@ -263,23 +263,25 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
       try {
         bidsResult = await supabase
           .from('bids')
-          .select('id, title, status, amount, customer_name, organization_id, created_at, updated_at')
+          .select('id, title, status, amount, customer_id, organization_id, created_at, updated_at')
           .eq('organization_id', user.organizationId)
           .limit(1000);
       } catch (err) {
         bidsResult.error = err;
       }
       
-      // Quotes
+      // Quotes - Note: quotes table may not exist, handle gracefully
       let quotesResult = { data: null, error: null };
       try {
         quotesResult = await supabase
           .from('quotes')
-          .select('id, title, status, total, customer_name, organization_id, created_at, updated_at')
+          .select('id, title, status, total, customer_id, organization_id, created_at, updated_at')
           .eq('organization_id', user.organizationId)
           .limit(1000);
       } catch (err) {
         quotesResult.error = err;
+        // Suppress error logging for quotes since the table may not exist
+        console.log('ℹ️ Quotes table not available, skipping...');
       }
       
       // Opportunities
@@ -314,16 +316,14 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
         console.error('Failed to load tasks for dashboard:', tasksResult.error);
       }
       if (bidsResult.error) {
-        console.error('Failed to load bids for dashboard:', bidsResult.error);
+        console.error('Error fetching recent bids:', bidsResult.error);
       }
-      if (quotesResult.error) {
-        console.error('Failed to load quotes for dashboard:', quotesResult.error);
-      }
+      // Note: quotesResult.error is not logged since quotes table may not exist
       if (opportunitiesResult.error) {
-        console.error('Failed to load opportunities for dashboard:', opportunitiesResult.error);
+        console.error('Error fetching recent opportunities:', opportunitiesResult.error);
       }
       if (appointmentsResult.error) {
-        console.error('Failed to load appointments for dashboard:', appointmentsResult.error);
+        console.error('Error fetching recent appointments:', appointmentsResult.error);
       }
 
       // Merge bids and quotes into a single array
@@ -418,8 +418,9 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
       
       // Fetch recent activity from multiple tables
       // Defensive queries - only use columns that definitely exist
-      // IMPORTANT: Include both 'bids' and 'quotes' tables
-      const [contactsResult, tasksResult, bidsResult, quotesResult, opportunitiesResult, appointmentsResult] = await Promise.all([
+      // Note: quotes table may not exist, wrap in try-catch
+      
+      const results = await Promise.allSettled([
         supabase
           .from('contacts')
           .select('name, created_at')
@@ -458,6 +459,11 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
           .limit(5),
       ]);
 
+      // Extract results safely
+      const [contactsResult, tasksResult, bidsResult, quotesResult, opportunitiesResult, appointmentsResult] = results.map(r => 
+        r.status === 'fulfilled' ? r.value : { data: null, error: r.reason }
+      );
+
       // Log errors for debugging
       if (contactsResult.error) {
         console.error('Error fetching recent contacts:', contactsResult.error);
@@ -468,9 +474,7 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
       if (bidsResult.error) {
         console.error('Error fetching recent bids:', bidsResult.error);
       }
-      if (quotesResult.error) {
-        console.error('Error fetching recent quotes:', quotesResult.error);
-      }
+      // Note: quotesResult.error is not logged since quotes table may not exist
       if (opportunitiesResult.error) {
         console.error('Error fetching recent opportunities:', opportunitiesResult.error);
       }

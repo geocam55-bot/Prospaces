@@ -111,7 +111,7 @@ export function PrintableShedDesign({
           </div>
           <div>
             <p className="font-semibold text-gray-700">Foundation:</p>
-            <p className="text-black capitalize">{config.foundationType.replace('-', ' ')}</p>
+            <p className="text-black capitalize">{config.foundationType?.replace('-', ' ') || 'N/A'}</p>
           </div>
           <div>
             <p className="font-semibold text-gray-700">Siding:</p>
@@ -119,7 +119,7 @@ export function PrintableShedDesign({
           </div>
           <div>
             <p className="font-semibold text-gray-700">Roofing:</p>
-            <p className="text-black capitalize">{config.roofingMaterial.replace('-', ' ')}</p>
+            <p className="text-black capitalize">{config.roofingMaterial?.replace('-', ' ') || 'N/A'}</p>
           </div>
         </div>
         <div className="mt-3 pt-3 border-t border-gray-300">

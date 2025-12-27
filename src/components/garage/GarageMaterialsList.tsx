@@ -10,15 +10,15 @@ interface GarageMaterialsListProps {
 
 export function GarageMaterialsList({ materials, compact = false }: GarageMaterialsListProps) {
   const categories = [
-    { key: 'foundation', label: 'Foundation', icon: Box, items: materials.foundation },
-    { key: 'framing', label: 'Framing', icon: Hammer, items: materials.framing },
-    { key: 'roofing', label: 'Roofing', icon: Home, items: materials.roofing },
-    { key: 'siding', label: 'Siding & Trim', icon: Paintbrush, items: materials.siding },
-    { key: 'doors', label: 'Doors', icon: DoorOpen, items: materials.doors },
-    { key: 'windows', label: 'Windows', icon: SquareStack, items: materials.windows },
-    { key: 'hardware', label: 'Hardware & Fasteners', icon: Wrench, items: materials.hardware },
-    ...(materials.electrical ? [{ key: 'electrical', label: 'Electrical', icon: Zap, items: materials.electrical }] : []),
-    ...(materials.insulation ? [{ key: 'insulation', label: 'Insulation', icon: Wind, items: materials.insulation }] : []),
+    { key: 'foundation', label: 'Foundation', icon: Box, items: materials.foundation || [] },
+    { key: 'framing', label: 'Framing', icon: Hammer, items: materials.framing || [] },
+    { key: 'roofing', label: 'Roofing', icon: Home, items: materials.roofing || [] },
+    { key: 'siding', label: 'Siding & Trim', icon: Paintbrush, items: materials.siding || [] },
+    { key: 'doors', label: 'Doors', icon: DoorOpen, items: materials.doors || [] },
+    { key: 'windows', label: 'Windows', icon: SquareStack, items: materials.windows || [] },
+    { key: 'hardware', label: 'Hardware & Fasteners', icon: Wrench, items: materials.hardware || [] },
+    ...(materials.electrical ? [{ key: 'electrical', label: 'Electrical', icon: Zap, items: materials.electrical || [] }] : []),
+    ...(materials.insulation ? [{ key: 'insulation', label: 'Insulation', icon: Wind, items: materials.insulation || [] }] : []),
   ];
 
   if (compact) {

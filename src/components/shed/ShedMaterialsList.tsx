@@ -10,17 +10,17 @@ interface ShedMaterialsListProps {
 
 export function ShedMaterialsList({ materials, compact = false }: ShedMaterialsListProps) {
   const categories = [
-    { key: 'foundation', label: 'Foundation', icon: Box, items: materials.foundation },
-    { key: 'framing', label: 'Framing & Sheathing', icon: Hammer, items: materials.framing },
-    ...(materials.flooring ? [{ key: 'flooring', label: 'Flooring', icon: Layers, items: materials.flooring }] : []),
-    { key: 'roofing', label: 'Roofing', icon: Home, items: materials.roofing },
-    { key: 'siding', label: 'Siding', icon: Paintbrush, items: materials.siding },
-    { key: 'doors', label: 'Doors', icon: DoorOpen, items: materials.doors },
-    { key: 'windows', label: 'Windows', icon: SquareStack, items: materials.windows },
-    { key: 'trim', label: 'Trim & Fascia', icon: Package, items: materials.trim },
-    { key: 'hardware', label: 'Hardware & Fasteners', icon: Wrench, items: materials.hardware },
-    ...(materials.electrical ? [{ key: 'electrical', label: 'Electrical', icon: Zap, items: materials.electrical }] : []),
-    ...(materials.accessories ? [{ key: 'accessories', label: 'Accessories', icon: Package, items: materials.accessories }] : []),
+    { key: 'foundation', label: 'Foundation', icon: Box, items: materials.foundation || [] },
+    { key: 'framing', label: 'Framing & Sheathing', icon: Hammer, items: materials.framing || [] },
+    ...(materials.flooring ? [{ key: 'flooring', label: 'Flooring', icon: Layers, items: materials.flooring || [] }] : []),
+    { key: 'roofing', label: 'Roofing', icon: Home, items: materials.roofing || [] },
+    { key: 'siding', label: 'Siding', icon: Paintbrush, items: materials.siding || [] },
+    { key: 'doors', label: 'Doors', icon: DoorOpen, items: materials.doors || [] },
+    { key: 'windows', label: 'Windows', icon: SquareStack, items: materials.windows || [] },
+    { key: 'trim', label: 'Trim & Fascia', icon: Package, items: materials.trim || [] },
+    { key: 'hardware', label: 'Hardware & Fasteners', icon: Wrench, items: materials.hardware || [] },
+    ...(materials.electrical ? [{ key: 'electrical', label: 'Electrical', icon: Zap, items: materials.electrical || [] }] : []),
+    ...(materials.accessories ? [{ key: 'accessories', label: 'Accessories', icon: Package, items: materials.accessories || [] }] : []),
   ];
 
   if (compact) {

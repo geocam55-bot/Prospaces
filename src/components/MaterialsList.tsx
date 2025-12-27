@@ -9,10 +9,10 @@ interface MaterialsListProps {
 
 export function MaterialsList({ materials, compact = false }: MaterialsListProps) {
   const allItems = [
-    ...materials.framing,
-    ...materials.decking,
-    ...materials.railing,
-    ...materials.hardware,
+    ...(materials.framing || []),
+    ...(materials.decking || []),
+    ...(materials.railing || []),
+    ...(materials.hardware || []),
   ];
 
   const categoryIcons: Record<string, React.ReactNode> = {
@@ -33,7 +33,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
               <Hammer className="w-4 h-4" />
               <span className="text-xs">Framing</span>
             </div>
-            <div className="text-blue-900">{materials.framing.length} items</div>
+            <div className="text-blue-900">{(materials.framing || []).length} items</div>
           </div>
           
           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
@@ -41,7 +41,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
               <Package className="w-4 h-4" />
               <span className="text-xs">Decking</span>
             </div>
-            <div className="text-green-900">{materials.decking.length} items</div>
+            <div className="text-green-900">{(materials.decking || []).length} items</div>
           </div>
           
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
@@ -49,7 +49,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
               <Fence className="w-4 h-4" />
               <span className="text-xs">Railing</span>
             </div>
-            <div className="text-purple-900">{materials.railing.length} items</div>
+            <div className="text-purple-900">{(materials.railing || []).length} items</div>
           </div>
           
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
@@ -57,7 +57,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
               <Wrench className="w-4 h-4" />
               <span className="text-xs">Hardware</span>
             </div>
-            <div className="text-orange-900">{materials.hardware.length} items</div>
+            <div className="text-orange-900">{(materials.hardware || []).length} items</div>
           </div>
         </div>
 
@@ -80,7 +80,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
       </div>
 
       {/* Framing */}
-      {materials.framing.length > 0 && (
+      {(materials.framing || []).length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Hammer className="w-5 h-5 text-blue-600" />
@@ -97,7 +97,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
                 </tr>
               </thead>
               <tbody>
-                {materials.framing.map((item, idx) => (
+                {(materials.framing || []).map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.quantity}</td>
@@ -112,7 +112,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
       )}
 
       {/* Decking */}
-      {materials.decking.length > 0 && (
+      {(materials.decking || []).length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Package className="w-5 h-5 text-green-600" />
@@ -129,7 +129,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
                 </tr>
               </thead>
               <tbody>
-                {materials.decking.map((item, idx) => (
+                {(materials.decking || []).map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.quantity}</td>
@@ -144,7 +144,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
       )}
 
       {/* Railing */}
-      {materials.railing.length > 0 && (
+      {(materials.railing || []).length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Fence className="w-5 h-5 text-purple-600" />
@@ -161,7 +161,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
                 </tr>
               </thead>
               <tbody>
-                {materials.railing.map((item, idx) => (
+                {(materials.railing || []).map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.quantity}</td>
@@ -176,7 +176,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
       )}
 
       {/* Hardware */}
-      {materials.hardware.length > 0 && (
+      {(materials.hardware || []).length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Wrench className="w-5 h-5 text-orange-600" />
@@ -193,7 +193,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
                 </tr>
               </thead>
               <tbody>
-                {materials.hardware.map((item, idx) => (
+                {(materials.hardware || []).map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.quantity}</td>
