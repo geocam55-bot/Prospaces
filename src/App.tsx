@@ -37,6 +37,8 @@ export interface User {
   full_name?: string;
   avatar_url?: string;
   organization_id?: string;
+  // Add camelCase alias for components
+  organizationId?: string;
 }
 
 export interface Organization {
@@ -114,6 +116,8 @@ function App() {
           full_name: profile.full_name,
           avatar_url: profile.avatar_url,
           organization_id: profile.organization_id,
+          // Add camelCase alias for components
+          organizationId: profile.organization_id,
         });
 
         // Initialize permissions for this user's role

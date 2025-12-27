@@ -73,8 +73,8 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 print:space-y-4">
+      <div className="flex items-center justify-between print:hidden">
         <h2 className="text-slate-900">Bill of Materials</h2>
         <span className="text-sm text-slate-600">{allItems.length} total items</span>
       </div>
@@ -86,7 +86,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
             <Hammer className="w-5 h-5 text-blue-600" />
             <h3 className="text-slate-900">Framing</h3>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200">
@@ -124,7 +124,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
             <Package className="w-5 h-5 text-green-600" />
             <h3 className="text-slate-900">Decking</h3>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200">
@@ -162,7 +162,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
             <Fence className="w-5 h-5 text-purple-600" />
             <h3 className="text-slate-900">Railing</h3>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200">
@@ -200,7 +200,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
             <Wrench className="w-5 h-5 text-orange-600" />
             <h3 className="text-slate-900">Hardware & Fasteners</h3>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-200">

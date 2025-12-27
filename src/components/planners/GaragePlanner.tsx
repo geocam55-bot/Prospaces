@@ -5,6 +5,7 @@ import { GarageMaterialsList } from '../garage/GarageMaterialsList';
 import { GarageTemplates } from '../garage/GarageTemplates';
 import { SavedGarageDesigns } from '../garage/SavedGarageDesigns';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
+import { PrintableGarageDesign } from '../project-wizard/PrintableGarageDesign';
 import { calculateMaterials } from '../../utils/garageCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { GarageConfig } from '../../types/garage';
@@ -73,6 +74,12 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
   const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved'>('design');
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
+  const [loadedDesignInfo, setLoadedDesignInfo] = useState<{
+    name?: string;
+    description?: string;
+    customerName?: string;
+    customerCompany?: string;
+  }>({});
 
   const materials = calculateMaterials(config);
 
@@ -104,13 +111,45 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
     enrichMaterials();
   }, [config, user.organizationId]);
 
+  // Create enriched materials structure for display
+  const getEnrichedMaterialsStructure = () => {
+    if (enrichedMaterials.length === 0) {
+      return materials;
+    }
+
+    // Create a map of enriched materials by description for quick lookup
+    const enrichedMap = new Map();
+    enrichedMaterials.forEach(item => {
+      enrichedMap.set(item.description, item);
+    });
+
+    // Merge pricing data into original structure
+    return {
+      foundation: materials.foundation.map(item => enrichedMap.get(item.description) || item),
+      framing: materials.framing.map(item => enrichedMap.get(item.description) || item),
+      roofing: materials.roofing.map(item => enrichedMap.get(item.description) || item),
+      siding: materials.siding.map(item => enrichedMap.get(item.description) || item),
+      doors: materials.doors.map(item => enrichedMap.get(item.description) || item),
+      windows: materials.windows.map(item => enrichedMap.get(item.description) || item),
+      insulation: (materials.insulation || []).map(item => enrichedMap.get(item.description) || item),
+      electrical: (materials.electrical || []).map(item => enrichedMap.get(item.description) || item),
+    };
+  };
+
   const handleLoadTemplate = (templateConfig: GarageConfig) => {
     setConfig(templateConfig);
+    setLoadedDesignInfo({}); // Clear loaded design info when loading a template
     setActiveTab('design');
   };
 
-  const handleLoadDesign = (loadedConfig: GarageConfig) => {
+  const handleLoadDesign = (loadedConfig: GarageConfig, designInfo?: {
+    name?: string;
+    description?: string;
+    customerName?: string;
+    customerCompany?: string;
+  }) => {
     setConfig(loadedConfig);
+    setLoadedDesignInfo(designInfo || {});
     setActiveTab('design');
   };
 
@@ -194,7 +233,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
               />
             </div>
 
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-6 print:hidden">
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black">
                 <h2 className="text-slate-900 mb-4">Garage Plan & Elevation</h2>
                 <GarageCanvas config={config} />
@@ -209,8 +248,24 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
         )}
 
         {activeTab === 'materials' && (
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-            <GarageMaterialsList materials={materials} compact={false} />
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+              {enrichedMaterials.length > 0 && totalT1Price > 0 && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-blue-700">Total Estimated Cost (Tier 1 Pricing)</p>
+                      <p className="text-xs text-blue-600 mt-1">Based on your organization's default pricing</p>
+                    </div>
+                    <p className="text-2xl font-semibold text-blue-900">${totalT1Price.toLocaleString()}</p>
+                  </div>
+                </div>
+              )}
+              <GarageMaterialsList 
+                materials={getEnrichedMaterialsStructure()} 
+                compact={false} 
+              />
+            </div>
           </div>
         )}
 
@@ -224,6 +279,17 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
           />
         )}
       </div>
+
+      {/* Printable Design View */}
+      <PrintableGarageDesign
+        config={config}
+        materials={getEnrichedMaterialsStructure()}
+        totalCost={totalT1Price}
+        designName={loadedDesignInfo.name}
+        description={loadedDesignInfo.description}
+        customerName={loadedDesignInfo.customerName}
+        customerCompany={loadedDesignInfo.customerCompany}
+      />
     </div>
   );
 }

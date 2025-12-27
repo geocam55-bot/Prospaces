@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../supabaseClient';
+import { createClient } from '../../utils/supabase/client';
 import { GarageConfig, SavedGarageDesign } from '../../types/garage';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -16,7 +16,12 @@ interface SavedGarageDesignsProps {
   currentConfig: GarageConfig;
   materials: any[];
   totalCost: number;
-  onLoadDesign: (config: GarageConfig) => void;
+  onLoadDesign: (config: GarageConfig, designInfo?: {
+    name?: string;
+    description?: string;
+    customerName?: string;
+    customerCompany?: string;
+  }) => void;
 }
 
 interface Customer {
@@ -25,7 +30,7 @@ interface Customer {
   email: string;
   phone: string;
   company: string;
-  price_tier: string;
+  price_level: string;
 }
 
 interface SavedDesign {
@@ -59,13 +64,29 @@ export function SavedGarageDesigns({
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    loadDesigns();
+    // Only load if we have a valid organization ID
+    if (user.organizationId) {
+      loadDesigns();
+    } else {
+      console.warn('[SavedGarageDesigns] Skipping load - organizationId is undefined');
+    }
   }, [user.organizationId]);
 
   const loadDesigns = async () => {
+    // Guard against undefined organizationId
+    if (!user.organizationId) {
+      console.error('[SavedGarageDesigns] Cannot load designs - organizationId is undefined');
+      setSaveMessage('Unable to load designs. Please refresh the page.');
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
+    setSaveMessage(''); // Clear any previous messages
+    console.log('[SavedGarageDesigns] Loading designs for org:', user.organizationId);
+    
     try {
-      const { data, error } = await supabase
+      const { data, error } = await createClient()
         .from('saved_garage_designs')
         .select(`
           id,
@@ -77,33 +98,55 @@ export function SavedGarageDesigns({
           total_cost,
           materials,
           created_at,
-          updated_at,
-          contacts:customer_id (
-            name,
-            company
-          )
+          updated_at
         `)
         .eq('organization_id', user.organizationId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[SavedGarageDesigns] Error loading designs:', error);
+        throw error;
+      }
 
-      const formattedDesigns = (data || []).map((design: any) => ({
-        id: design.id,
-        name: design.name,
-        description: design.description,
-        config: design.config,
-        customer_id: design.customer_id,
-        customer_name: design.contacts?.name || null,
-        customer_company: design.contacts?.company || null,
-        price_tier: design.price_tier,
-        total_cost: design.total_cost,
-        materials: design.materials,
-        created_at: design.created_at,
-        updated_at: design.updated_at,
-      }));
+      console.log('[SavedGarageDesigns] Loaded designs:', data?.length || 0);
 
-      setDesigns(formattedDesigns);
+      // Fetch customer details separately for designs that have a customer_id
+      const designsWithCustomers = await Promise.all(
+        (data || []).map(async (design: any) => {
+          let customerName = null;
+          let customerCompany = null;
+
+          if (design.customer_id) {
+            const { data: contact } = await createClient()
+              .from('contacts')
+              .select('name, company')
+              .eq('id', design.customer_id)
+              .single();
+            
+            if (contact) {
+              customerName = contact.name;
+              customerCompany = contact.company;
+            }
+          }
+
+          return {
+            id: design.id,
+            name: design.name,
+            description: design.description,
+            config: design.config,
+            customer_id: design.customer_id,
+            customer_name: customerName,
+            customer_company: customerCompany,
+            price_tier: design.price_tier,
+            total_cost: design.total_cost,
+            materials: design.materials,
+            created_at: design.created_at,
+            updated_at: design.updated_at,
+          };
+        })
+      );
+
+      setDesigns(designsWithCustomers);
     } catch (error) {
       console.error('Error loading saved designs:', error);
       setSaveMessage('Error loading designs. Please try again.');
@@ -120,7 +163,7 @@ export function SavedGarageDesigns({
 
     setIsSaving(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await createClient()
         .from('saved_garage_designs')
         .insert({
           organization_id: user.organizationId,
@@ -129,25 +172,30 @@ export function SavedGarageDesigns({
           name: saveName.trim(),
           description: saveDescription.trim() || null,
           config: currentConfig,
-          price_tier: selectedCustomer?.price_tier || 't1',
+          price_tier: selectedCustomer?.price_level || 't1',
           total_cost: totalCost,
           materials: materials,
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw new Error(`Database error: ${error.message}`);
+      }
 
+      console.log('✓ Design saved to Supabase successfully:', data);
       setSaveName('');
       setSaveDescription('');
       setSelectedCustomer(null);
-      setSaveMessage('Design saved successfully!');
+      setSaveMessage('Design saved successfully to database!');
       setTimeout(() => setSaveMessage(''), 3000);
       
       await loadDesigns();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving design:', error);
-      setSaveMessage('Error saving design. Please try again.');
+      setSaveMessage(`Error saving design: ${error.message || 'Please check console for details'}`);
+      setTimeout(() => setSaveMessage(''), 5000);
     } finally {
       setIsSaving(false);
     }
@@ -157,7 +205,7 @@ export function SavedGarageDesigns({
     if (!confirm('Are you sure you want to delete this design?')) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await createClient()
         .from('saved_garage_designs')
         .delete()
         .eq('id', id);
@@ -315,7 +363,12 @@ export function SavedGarageDesigns({
                       size="sm"
                       variant="outline"
                       className="flex-1"
-                      onClick={() => onLoadDesign(design.config)}
+                      onClick={() => onLoadDesign(design.config, {
+                        name: design.name,
+                        description: design.description,
+                        customerName: design.customer_name,
+                        customerCompany: design.customer_company,
+                      })}
                     >
                       Load Design
                     </Button>

@@ -266,13 +266,21 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
-      console.error('❌ Database error:', error);
+      console.error('❌ Database error loading contacts:', error);
       console.error('❌ Error details:', {
         message: error.message,
         code: error.code,
         details: error.details,
         hint: error.hint
       });
+      
+      // Handle specific error cases
+      if (error.code === '42703') {
+        throw new Error('Database column missing. Please run the latest migration.');
+      } else if (error.code === 'PGRST205' || error.code === '42P01') {
+        throw new Error('Database table missing. Please run the database setup.');
+      }
+      
       throw error;
     }
 

@@ -6,6 +6,7 @@ import { DeckTemplates } from '../deck/DeckTemplates';
 import { SavedDeckDesigns } from '../deck/SavedDeckDesigns';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { DiagnosticPanel } from '../DiagnosticPanel';
+import { PrintableDeckDesign } from '../project-wizard/PrintableDeckDesign';
 import { calculateMaterials } from '../../utils/deckCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { DeckConfig } from '../../types/deck';
@@ -34,6 +35,12 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
   const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved'>('design');
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
+  const [loadedDesignInfo, setLoadedDesignInfo] = useState<{
+    name?: string;
+    description?: string;
+    customerName?: string;
+    customerCompany?: string;
+  }>({});
 
   const materials = calculateMaterials(config);
 
@@ -62,13 +69,41 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     enrichMaterials();
   }, [config, user.organizationId]);
 
+  // Create enriched materials structure for display
+  const getEnrichedMaterialsStructure = () => {
+    if (enrichedMaterials.length === 0) {
+      return materials;
+    }
+
+    // Create a map of enriched materials by description for quick lookup
+    const enrichedMap = new Map();
+    enrichedMaterials.forEach(item => {
+      enrichedMap.set(item.description, item);
+    });
+
+    // Merge pricing data into original structure
+    return {
+      framing: materials.framing.map(item => enrichedMap.get(item.description) || item),
+      decking: materials.decking.map(item => enrichedMap.get(item.description) || item),
+      railing: materials.railing.map(item => enrichedMap.get(item.description) || item),
+      hardware: materials.hardware.map(item => enrichedMap.get(item.description) || item),
+    };
+  };
+
   const handleLoadTemplate = (templateConfig: DeckConfig) => {
     setConfig(templateConfig);
+    setLoadedDesignInfo({}); // Clear loaded design info when loading a template
     setActiveTab('design');
   };
 
-  const handleLoadDesign = (loadedConfig: DeckConfig) => {
+  const handleLoadDesign = (loadedConfig: DeckConfig, designInfo?: {
+    name?: string;
+    description?: string;
+    customerName?: string;
+    customerCompany?: string;
+  }) => {
     setConfig(loadedConfig);
+    setLoadedDesignInfo(designInfo || {});
     setActiveTab('design');
   };
 
@@ -152,7 +187,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
               />
             </div>
 
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 space-y-6 print:hidden">
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black">
                 <h2 className="text-slate-900 mb-4">Deck Plan & Elevation</h2>
                 <DeckCanvas config={config} />
@@ -169,7 +204,21 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
         {activeTab === 'materials' && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              <MaterialsList materials={materials} compact={false} />
+              {enrichedMaterials.length > 0 && totalT1Price > 0 && (
+                <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-purple-700">Total Estimated Cost (Tier 1 Pricing)</p>
+                      <p className="text-xs text-purple-600 mt-1">Based on your organization's default pricing</p>
+                    </div>
+                    <p className="text-2xl font-semibold text-purple-900">${totalT1Price.toLocaleString()}</p>
+                  </div>
+                </div>
+              )}
+              <MaterialsList 
+                materials={getEnrichedMaterialsStructure()} 
+                compact={false} 
+              />
             </div>
             
             <DiagnosticPanel 
@@ -190,6 +239,17 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
           />
         )}
       </div>
+
+      {/* Printable Design View */}
+      <PrintableDeckDesign
+        config={config}
+        materials={getEnrichedMaterialsStructure()}
+        totalCost={totalT1Price}
+        designName={loadedDesignInfo.name}
+        description={loadedDesignInfo.description}
+        customerName={loadedDesignInfo.customerName}
+        customerCompany={loadedDesignInfo.customerCompany}
+      />
     </div>
   );
 }

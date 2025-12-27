@@ -7,7 +7,7 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
-import { contactsAPI, opportunitiesAPI, quotesAPI } from '../utils/api';
+import { contactsAPI, opportunitiesAPI, quotesAPI, settingsAPI } from '../utils/api';
 import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms } from '../lib/global-settings';
 import type { User as AppUser } from '../App';
 
@@ -52,6 +52,15 @@ export function ProjectQuoteGenerator({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  
+  // Organization tax settings
+  const [orgTaxRate, setOrgTaxRate] = useState<number>(0);
+  const [orgTaxRate2, setOrgTaxRate2] = useState<number>(0);
+
+  // Load organization settings on mount
+  useEffect(() => {
+    loadOrganizationSettings();
+  }, [user.organizationId]);
 
   // Load contacts on mount
   useEffect(() => {
@@ -82,6 +91,31 @@ export function ProjectQuoteGenerator({
       setCustomerPriceLevel('Retail'); // Reset to default
     }
   }, [selectedContact, contacts]);
+
+  const loadOrganizationSettings = async () => {
+    try {
+      const orgSettings = await settingsAPI.getOrganizationSettings(user.organizationId);
+      if (orgSettings) {
+        setOrgTaxRate(orgSettings.tax_rate || 0);
+        setOrgTaxRate2(orgSettings.tax_rate_2 || 0);
+        console.log('[ProjectQuoteGenerator] Loaded tax rates:', orgSettings.tax_rate, orgSettings.tax_rate_2);
+      } else {
+        // Fallback to localStorage if no settings in database
+        const fallbackRate = getGlobalTaxRate();
+        const fallbackRate2 = getGlobalTaxRate2();
+        setOrgTaxRate(fallbackRate);
+        setOrgTaxRate2(fallbackRate2);
+        console.log('[ProjectQuoteGenerator] Using fallback tax rates:', fallbackRate, fallbackRate2);
+      }
+    } catch (error) {
+      console.error('[ProjectQuoteGenerator] Error loading organization settings:', error);
+      // Fallback to localStorage on error
+      const fallbackRate = getGlobalTaxRate();
+      const fallbackRate2 = getGlobalTaxRate2();
+      setOrgTaxRate(fallbackRate);
+      setOrgTaxRate2(fallbackRate2);
+    }
+  };
 
   const loadContacts = async () => {
     try {
@@ -116,8 +150,8 @@ export function ProjectQuoteGenerator({
   const quotePrice = totalCost;
 
   // Get tax rates for display
-  const taxRate = getGlobalTaxRate();
-  const taxRate2 = getGlobalTaxRate2();
+  const taxRate = orgTaxRate || getGlobalTaxRate();
+  const taxRate2 = orgTaxRate2 || getGlobalTaxRate2();
   const taxAmount = (totalCost * taxRate) / 100;
   const taxAmount2 = (totalCost * taxRate2) / 100;
   const quoteTotalWithTax = totalCost + taxAmount + taxAmount2;

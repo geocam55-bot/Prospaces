@@ -13,6 +13,18 @@
 
   body {
     background: white;
+    overflow: visible !important;
+  }
+
+  /* Hide scrollbars */
+  * {
+    overflow: visible !important;
+    -webkit-overflow-scrolling: auto !important;
+  }
+
+  /* Remove max-height constraints */
+  div {
+    max-height: none !important;
   }
 
   header {
@@ -21,6 +33,10 @@
 
   .print\:hidden {
     display: none !important;
+  }
+
+  .print\:block {
+    display: block !important;
   }
 
   .print\:border-b-2 {
@@ -42,16 +58,42 @@
   .print\:break-before-page {
     break-before: page;
   }
+  
+  /* Ensure hidden elements with print:block show up */
+  .hidden.print\:block {
+    display: block !important;
+  }
 
   /* Force visibility of canvas */
   canvas {
     display: block !important;
+    max-width: 100% !important;
   }
 
   /* Better table printing */
   table {
     page-break-inside: avoid;
+    border-collapse: collapse !important;
+    width: 100% !important;
   }
+  
+  /* Ensure table rows and cells are visible */
+  tr, td, th {
+    page-break-inside: avoid;
+  }
+  
+  /* Force visibility of hover states that might have styling */
+  tr:hover,
+  .hover\:bg-slate-50 {
+    background-color: transparent !important;
+  }
+
+  /* Remove scrollbars from print */
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+  
+  scrollbar-width: none !important;
 }
 
 @layer base {

@@ -84,16 +84,34 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   const [selectedDeckType, setSelectedDeckType] = useState<'spruce' | 'treated' | 'composite' | 'cedar'>('treated');
 
   useEffect(() => {
-    loadData();
+    // Only load if we have a valid organization ID
+    if (organizationId) {
+      loadData();
+    } else {
+      console.warn('[ProjectWizardSettings] Skipping load - organizationId is undefined');
+    }
   }, [organizationId]);
 
   const loadData = async () => {
+    // Guard against undefined organizationId
+    if (!organizationId) {
+      console.error('[ProjectWizardSettings] Cannot load data - organizationId is undefined');
+      onSave('error', 'Unable to load settings. Please refresh the page.');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+    console.log('[ProjectWizardSettings] Loading data for org:', organizationId);
+    
     try {
       const [items, wizardDefaults] = await Promise.all([
         getInventoryItemsForDropdown(organizationId),
         getProjectWizardDefaults(organizationId),
       ]);
+
+      console.log('[ProjectWizardSettings] Loaded inventory items:', items.length);
+      console.log('[ProjectWizardSettings] Loaded wizard defaults:', wizardDefaults.length);
 
       setInventoryItems(items);
 
@@ -105,9 +123,11 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
           defaultsMap[key] = def.inventory_item_id;
         }
       });
+      
+      console.log('[ProjectWizardSettings] Defaults map size:', Object.keys(defaultsMap).length);
       setDefaults(defaultsMap);
     } catch (error) {
-      console.error('Error loading project wizard settings:', error);
+      console.error('[ProjectWizardSettings] Error loading project wizard settings:', error);
       // Only show error if it's not an authentication issue
       if (error && typeof error === 'object' && 'message' in error && !String(error.message).includes('auth')) {
         onSave('error', 'Failed to load project wizard settings');

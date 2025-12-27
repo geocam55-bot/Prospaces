@@ -1,0 +1,176 @@
+import React from 'react';
+import { ShedConfig } from '../../types/shed';
+import { ShedCanvas } from '../shed/ShedCanvas';
+import { ShedMaterialsList } from '../shed/ShedMaterialsList';
+import { ShedMaterials } from '../../types/shed';
+
+interface PrintableShedDesignProps {
+  config: ShedConfig;
+  materials: ShedMaterials;
+  totalCost: number;
+  customerName?: string;
+  customerCompany?: string;
+  description?: string;
+  designName?: string;
+}
+
+export function PrintableShedDesign({
+  config,
+  materials,
+  totalCost,
+  customerName,
+  customerCompany,
+  description,
+  designName,
+}: PrintableShedDesignProps) {
+  // Debug: Log materials to help troubleshoot printing issues
+  console.log('[PrintableShedDesign] Materials for print:', {
+    foundation: materials.foundation?.length || 0,
+    framing: materials.framing?.length || 0,
+    flooring: materials.flooring?.length || 0,
+    roofing: materials.roofing?.length || 0,
+    siding: materials.siding?.length || 0,
+    doors: materials.doors?.length || 0,
+    windows: materials.windows?.length || 0,
+    trim: materials.trim?.length || 0,
+    hardware: materials.hardware?.length || 0,
+    electrical: materials.electrical?.length || 0,
+    accessories: materials.accessories?.length || 0,
+    totalCost,
+  });
+
+  return (
+    <div className="hidden print:block print:overflow-visible">
+      {/* Header */}
+      <div className="mb-6 border-b-2 border-black pb-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-black mb-2">
+              {designName || 'Shed Design Plan'}
+            </h1>
+            <div className="text-sm text-gray-800">
+              <p>Date: {new Date().toLocaleDateString()}</p>
+              <p>Project Type: Shed Construction</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold text-black">ProSpaces CRM</div>
+            <div className="text-sm text-gray-600">Professional Shed Installation</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Customer Information (if saved design) */}
+      {customerName && (
+        <div className="mb-6 p-4 border border-gray-300 bg-gray-50">
+          <h2 className="text-lg font-bold text-black mb-3">Customer Information</h2>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="font-semibold text-gray-700">Customer Name:</p>
+              <p className="text-black">{customerName}</p>
+            </div>
+            {customerCompany && (
+              <div>
+                <p className="font-semibold text-gray-700">Company:</p>
+                <p className="text-black">{customerCompany}</p>
+              </div>
+            )}
+          </div>
+          {description && (
+            <div className="mt-3">
+              <p className="font-semibold text-gray-700">Description:</p>
+              <p className="text-black mt-1">{description}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Project Specifications */}
+      <div className="mb-6 p-4 border border-gray-300">
+        <h2 className="text-lg font-bold text-black mb-3">Project Specifications</h2>
+        <div className="grid grid-cols-3 gap-x-6 gap-y-3 text-sm">
+          <div>
+            <p className="font-semibold text-gray-700">Dimensions:</p>
+            <p className="text-black">{config.width}' × {config.length}'</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700">Style:</p>
+            <p className="text-black capitalize">{config.style}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700">Wall Height:</p>
+            <p className="text-black">{config.wallHeight} feet</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700">Roof Pitch:</p>
+            <p className="text-black">{config.roofPitch}/12</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700">Door Type:</p>
+            <p className="text-black capitalize">{config.doorType}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700">Foundation:</p>
+            <p className="text-black capitalize">{config.foundationType.replace('-', ' ')}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700">Siding:</p>
+            <p className="text-black capitalize">{config.sidingType}</p>
+          </div>
+          <div>
+            <p className="font-semibold text-gray-700">Roofing:</p>
+            <p className="text-black capitalize">{config.roofingMaterial.replace('-', ' ')}</p>
+          </div>
+        </div>
+        <div className="mt-3 pt-3 border-t border-gray-300">
+          <p className="font-semibold text-gray-700 mb-2">Additional Features:</p>
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            {config.hasFloor && <p className="text-black">✓ Floor</p>}
+            {config.hasLoft && <p className="text-black">✓ Loft</p>}
+            {config.hasShutters && <p className="text-black">✓ Shutters</p>}
+            {config.hasFlowerBox && <p className="text-black">✓ Flower Box</p>}
+            {config.hasElectrical && <p className="text-black">✓ Electrical Package</p>}
+            {config.hasShelvingPackage && <p className="text-black">✓ Shelving Package</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* Plan View & Elevation */}
+      <div className="mb-6">
+        <h2 className="text-lg font-bold text-black mb-3 border-b-2 border-black pb-2">
+          Shed Plan & Elevation
+        </h2>
+        <div className="border-2 border-black p-4 bg-white flex items-center justify-center">
+          <ShedCanvas config={config} />
+        </div>
+      </div>
+
+      {/* Materials List */}
+      <div className="break-before-page">
+        <h2 className="text-lg font-bold text-black mb-3 border-b-2 border-black pb-2">
+          Bill of Materials
+        </h2>
+        {totalCost > 0 && (
+          <div className="mb-4 p-3 bg-gray-100 border border-gray-400">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-gray-800">Total Estimated Cost:</p>
+                <p className="text-xs text-gray-600 mt-1">Based on Tier 1 Pricing</p>
+              </div>
+              <p className="text-2xl font-bold text-black">${totalCost.toLocaleString()}</p>
+            </div>
+          </div>
+        )}
+        <div className="border border-black">
+          <ShedMaterialsList materials={materials} compact={false} />
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-6 pt-3 border-t border-gray-400 text-xs text-gray-600">
+        <p className="mb-1">This plan is an estimate and should be verified by a professional before construction.</p>
+        <p>All dimensions and materials are subject to local building codes and regulations.</p>
+      </div>
+    </div>
+  );
+}

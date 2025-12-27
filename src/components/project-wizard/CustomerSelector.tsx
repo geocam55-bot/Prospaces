@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../supabaseClient';
+import { createClient } from '../../utils/supabase/client';
 import { Search, User, X } from 'lucide-react';
 
 interface Customer {
@@ -8,7 +8,7 @@ interface Customer {
   email: string;
   phone: string;
   company: string;
-  price_tier: string;
+  price_level: string;
 }
 
 interface CustomerSelectorProps {
@@ -34,9 +34,9 @@ export function CustomerSelector({
   const loadCustomers = async () => {
     setIsLoading(true);
     try {
-      let query = supabase
+      let query = createClient()
         .from('contacts')
-        .select('id, name, email, phone, company, price_tier')
+        .select('id, name, email, phone, company, price_level')
         .eq('organization_id', organizationId)
         .order('name');
 
@@ -84,7 +84,7 @@ export function CustomerSelector({
                 <div className="text-xs text-slate-600">{selectedCustomer.company}</div>
               )}
               <div className="text-xs text-green-600 mt-1">
-                Price Tier: {selectedCustomer.price_tier.toUpperCase()}
+                Price Tier: {selectedCustomer.price_level}
               </div>
             </div>
           </div>
@@ -154,7 +154,7 @@ export function CustomerSelector({
                               </div>
                             )}
                             <div className="text-xs text-green-600">
-                              {customer.price_tier.toUpperCase()}
+                              {customer.price_level}
                             </div>
                           </div>
                         </div>
@@ -170,7 +170,7 @@ export function CustomerSelector({
       
       {selectedCustomer && (
         <div className="text-xs text-slate-600">
-          Materials will be priced at <span className="text-green-600">{selectedCustomer.price_tier.toUpperCase()}</span> tier
+          Materials will be priced at <span className="text-green-600">{selectedCustomer.price_level.toUpperCase()}</span> tier
         </div>
       )}
     </div>

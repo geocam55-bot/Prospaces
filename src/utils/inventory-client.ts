@@ -65,7 +65,19 @@ export async function getAllInventoryClient() {
       const { data: batchData, error: batchError } = await batchQuery;
       
       if (batchError) {
-        console.error('❌ Database error:', batchError);
+        console.error('❌ Database error loading inventory:', batchError);
+        console.error('❌ Error code:', batchError.code);
+        console.error('❌ Error message:', batchError.message);
+        
+        // Handle specific error cases gracefully
+        if (batchError.code === '42703') {
+          console.error('❌ Column missing - database migration may be needed');
+          return { items: [] };
+        } else if (batchError.code === 'PGRST205' || batchError.code === '42P01') {
+          console.error('❌ Table missing - database setup may be needed');
+          return { items: [] };
+        }
+        
         throw batchError;
       }
       
