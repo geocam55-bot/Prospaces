@@ -795,39 +795,6 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
                     </CardContent>
                   </Card>
 
-                  {/* Recent Activity */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Clock className="h-5 w-5" />
-                        Recent Activity
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {userActivity.length === 0 ? (
-                        <p className="text-sm text-gray-500 text-center py-8">No recent activity</p>
-                      ) : (
-                        <div className="space-y-4">
-                          {userActivity.map((activity, index) => (
-                            <div key={index} className="flex items-start gap-3 pb-4 border-b last:border-b-0">
-                              <div className="w-2 h-2 rounded-full bg-blue-600 mt-2" />
-                              <div className="flex-1">
-                                <p className="text-sm text-gray-900">{activity.action}</p>
-                                <p className="text-sm text-gray-600">{activity.details}</p>
-                                <p className="text-xs text-gray-400 mt-1">
-                                  {getTimeAgo(activity.timestamp)}
-                                </p>
-                              </div>
-                              <Badge variant="outline" className="text-xs">
-                                {activity.module}
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-
                   {/* Detailed Data Tabs */}
                   {userData && (
                     <Card>
@@ -1031,6 +998,39 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
                       </CardContent>
                     </Card>
                   )}
+
+                  {/* Recent Activity */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Clock className="h-5 w-5" />
+                        Recent Activity
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {userActivity.length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center py-8">No recent activity</p>
+                      ) : (
+                        <div className="space-y-4">
+                          {userActivity.map((activity, index) => (
+                            <div key={index} className="flex items-start gap-3 pb-4 border-b last:border-b-0">
+                              <div className="w-2 h-2 rounded-full bg-blue-600 mt-2" />
+                              <div className="flex-1">
+                                <p className="text-sm text-gray-900">{activity.action}</p>
+                                <p className="text-sm text-gray-600">{activity.details}</p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {getTimeAgo(activity.timestamp)}
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="text-xs">
+                                {activity.module}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </>
               )}
             </>
