@@ -56,11 +56,32 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
       color: 'from-orange-500 to-red-500',
     },
     {
+      id: 'tasks',
+      icon: CheckCircle2,
+      title: 'Tasks',
+      description: 'Manage to-dos, deadlines, and team assignments',
+      color: 'from-teal-500 to-cyan-500',
+    },
+    {
       id: 'appointments',
       icon: Calendar,
       title: 'Appointments',
       description: 'Schedule and manage meetings with integrated calendar',
       color: 'from-green-500 to-emerald-500',
+    },
+    {
+      id: 'documents',
+      icon: FileText,
+      title: 'Documents',
+      description: 'Store, organize, and share files securely',
+      color: 'from-yellow-500 to-orange-500',
+    },
+    {
+      id: 'email',
+      icon: Mail,
+      title: 'Email',
+      description: 'Manage customer communications and email campaigns',
+      color: 'from-blue-600 to-indigo-600',
     },
     {
       id: 'inventory',
@@ -75,6 +96,27 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
       title: 'Marketing Automation',
       description: 'Engage customers with automated email campaigns',
       color: 'from-pink-500 to-rose-500',
+    },
+    {
+      id: 'project-wizards',
+      icon: Zap,
+      title: 'Project Wizards',
+      description: 'Design decks, garages, roofs, and sheds with powerful planning tools',
+      color: 'from-violet-500 to-purple-500',
+    },
+    {
+      id: 'reports',
+      icon: BarChart3,
+      title: 'Reports & Analytics',
+      description: 'Comprehensive insights into sales, marketing, and operations',
+      color: 'from-cyan-500 to-blue-500',
+    },
+    {
+      id: 'notes',
+      icon: FileText,
+      title: 'Notes',
+      description: 'Capture important information and track customer interactions',
+      color: 'from-amber-500 to-yellow-500',
     },
   ];
 
@@ -122,17 +164,12 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               <h1 className="text-5xl sm:text-6xl text-white">ProSpaces CRM</h1>
             </div>
             <p className="text-xl sm:text-2xl text-white/90 mb-4 max-w-3xl mx-auto">
-              Complete solution for sales, marketing, and project management
+              Complete solution for sales, marketing, and project management. Designed from the ground up for the Home Renovations Industry.
             </p>
             <p className="text-lg text-white/80 mb-12 max-w-2xl mx-auto">
               Streamline your business operations with our all-in-one CRM platform. 
               Track opportunities, manage contacts, automate marketing, and close more deals.
             </p>
-            <div className="mb-6">
-              <p className="text-xl text-white/95 italic">
-                Designed specifically for the Home Renovations Industry from the Ground Up.
-              </p>
-            </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
                 onClick={onGetStarted}

@@ -287,6 +287,264 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
           description: 'Build automated sequences that educate homeowners about renovation options until they\'re ready to buy.'
         }
       ]
+    },
+    'tasks': {
+      icon: CheckCircle2,
+      title: 'Task Management',
+      subtitle: 'Organize work and manage deadlines',
+      color: 'from-teal-500 to-cyan-500',
+      description: 'Keep your team on track with powerful task management. Assign to-dos, set deadlines, track progress, and ensure nothing falls through the cracks on your renovation projects.',
+      images: [
+        'https://images.unsplash.com/photo-1754039985008-a15410211b67?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0YXNrJTIwbWFuYWdlbWVudCUyMGNoZWNrbGlzdHxlbnwxfHx8fDE3NjY5Mjc2MjJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
+        'https://images.unsplash.com/photo-1765378025264-ca795700291f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb25zdHJ1Y3Rpb24lMjB3b3JrZXIlMjBwbGFubmluZ3xlbnwxfHx8fDE3NjY5NTQ1NDF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
+      ],
+      features: [
+        'Create and assign tasks to team members',
+        'Project-based task organization',
+        'Priority levels (urgent, high, normal, low)',
+        'Due date tracking and reminders',
+        'Task dependencies and sequences',
+        'Recurring tasks for maintenance jobs',
+        'Checklist creation for standard procedures',
+        'Progress tracking and completion status',
+        'Time tracking for billable hours',
+        'Mobile task updates from job sites'
+      ],
+      benefits: [
+        'Never miss critical project deadlines',
+        'Clear accountability for team members',
+        'Standardize processes with task templates',
+        'Track time spent on each renovation job'
+      ],
+      useCases: [
+        {
+          title: 'Project Task Lists',
+          description: 'Create comprehensive task lists for roof replacements, kitchen remodels, or deck builds with assigned crew members.'
+        },
+        {
+          title: 'Pre-Job Checklists',
+          description: 'Ensure crews complete safety checks, material loading, and site prep before starting work.'
+        },
+        {
+          title: 'Follow-Up Tasks',
+          description: 'Schedule post-project tasks like final inspections, warranty registration, and customer satisfaction calls.'
+        }
+      ]
+    },
+    'documents': {
+      icon: FileText,
+      title: 'Document Management',
+      subtitle: 'Store and organize project files',
+      color: 'from-yellow-500 to-orange-500',
+      description: 'Centralize all your project documents in one secure location. Store contracts, permits, blueprints, photos, warranties, and more with easy access from anywhere.',
+      images: [
+        'https://images.unsplash.com/photo-1762427354605-ac241af2b102?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkb2N1bWVudCUyMGZvbGRlciUyMGZpbGVzfGVufDF8fHx8MTc2Njk1NDU0MXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
+        'https://images.unsplash.com/photo-1762146828422-50a8bd416d3c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb25zdHJ1Y3Rpb24lMjBibHVlcHJpbnRzJTIwZG9jdW1lbnRzfGVufDF8fHx8MTc2Njk1NDU0Mnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
+      ],
+      features: [
+        'Secure cloud storage for all project files',
+        'Organized folders by project or customer',
+        'Contract and agreement storage',
+        'Blueprint and plan management',
+        'Before/after photo galleries',
+        'Permit and inspection document tracking',
+        'Warranty and manual storage',
+        'Version control for updated documents',
+        'Share files with homeowners securely',
+        'Mobile photo upload from job sites'
+      ],
+      benefits: [
+        'Access critical documents from anywhere',
+        'Never lose important contracts or permits',
+        'Share project files with homeowners easily',
+        'Build photo portfolios for marketing'
+      ],
+      useCases: [
+        {
+          title: 'Contract Management',
+          description: 'Store signed contracts, change orders, and payment schedules for easy reference and legal protection.'
+        },
+        {
+          title: 'Project Documentation',
+          description: 'Maintain blueprints, permits, inspection reports, and warranty information for each renovation project.'
+        },
+        {
+          title: 'Photo Galleries',
+          description: 'Build before/after photo collections for portfolio marketing and homeowner satisfaction documentation.'
+        }
+      ]
+    },
+    'email': {
+      icon: Mail,
+      title: 'Email Integration',
+      subtitle: 'Manage customer communications',
+      color: 'from-blue-600 to-indigo-600',
+      description: 'Keep all customer communications in one place. Sync your email, track conversations by project, and never lose important correspondence with homeowners or suppliers.',
+      images: [
+        'https://images.unsplash.com/photo-1603539279542-e7cf76a92801?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbWFpbCUyMGluYm94JTIwY29tbXVuaWNhdGlvbnxlbnwxfHx8fDE3NjY5NTQ1NDJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
+        'https://images.unsplash.com/photo-1682336869523-2c6859f781cb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxidXNpbmVzcyUyMGVtYWlsJTIwY29tcHV0ZXJ8ZW58MXx8fHwxNzY2OTU0NTQzfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
+      ],
+      features: [
+        'Email inbox integration (Gmail, Outlook)',
+        'Customer email history tracking',
+        'Email templates for common responses',
+        'Attach emails to contacts and projects',
+        'Send quotes and proposals via email',
+        'Automated email notifications',
+        'Email tracking and read receipts',
+        'Team inbox for shared email accounts',
+        'Search and filter by project or contact',
+        'Mobile email access'
+      ],
+      benefits: [
+        'All customer emails in one organized place',
+        'Faster responses with email templates',
+        'Track communication history per project',
+        'Never miss important homeowner emails'
+      ],
+      useCases: [
+        {
+          title: 'Quote Follow-Up',
+          description: 'Send professional quotes via email and track when homeowners open them for timely follow-up calls.'
+        },
+        {
+          title: 'Project Updates',
+          description: 'Keep homeowners informed with progress updates, photos, and scheduling changes via organized email threads.'
+        },
+        {
+          title: 'Supplier Communication',
+          description: 'Track all correspondence with material suppliers, delivery schedules, and order confirmations.'
+        }
+      ]
+    },
+    'project-wizards': {
+      icon: Zap,
+      title: 'Project Wizards',
+      subtitle: 'Visual design tools for home improvement projects',
+      color: 'from-violet-500 to-purple-500',
+      description: 'Powerful visual planning tools for decks, garages, roofs, and sheds. Design projects with homeowners, generate material lists, and create professional proposals with 3D visualizations.',
+      images: [
+        'https://images.unsplash.com/photo-1667364973943-a625182326e0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkZWNrJTIwY29uc3RydWN0aW9uJTIwZGVzaWdufGVufDF8fHx8MTc2Njk1NDU0M3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
+        'https://images.unsplash.com/photo-1739700712159-550519327ca7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnYXJhZ2UlMjBjb25zdHJ1Y3Rpb24lMjBidWlsZGluZ3xlbnwxfHx8fDE3NjY5NTQ1NDR8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
+      ],
+      features: [
+        'Deck Planner with visual canvas design',
+        'Garage Builder with size customization',
+        'Roof Designer with pitch and material selection',
+        'Shed Configurator with style options',
+        'Automated material quantity calculations',
+        'Real-time cost estimation',
+        'Professional printable designs',
+        'Customer preference saving',
+        'Template library for common designs',
+        'Integration with inventory for material pricing'
+      ],
+      benefits: [
+        'Visualize projects with homeowners before building',
+        'Accurate material lists reduce waste',
+        'Professional presentations win more bids',
+        'Save time with design templates'
+      ],
+      useCases: [
+        {
+          title: 'Deck Design Consultations',
+          description: 'Design custom decks with homeowners in real-time, showing different materials and sizes with instant pricing.'
+        },
+        {
+          title: 'Garage Quotes',
+          description: 'Configure detached garages with different dimensions, door options, and features for accurate estimates.'
+        },
+        {
+          title: 'Roof Replacements',
+          description: 'Calculate exact material needs for roof replacements based on measurements, pitch, and shingle selection.'
+        }
+      ]
+    },
+    'reports': {
+      icon: BarChart3,
+      title: 'Reports & Analytics',
+      subtitle: 'Business insights and performance tracking',
+      color: 'from-cyan-500 to-blue-500',
+      description: 'Make data-driven decisions with comprehensive reporting. Track sales performance, project profitability, team productivity, and marketing ROI with real-time dashboards and detailed reports.',
+      images: [
+        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhbmFseXRpY3MlMjBkYXNoYm9hcmQlMjBjaGFydHN8ZW58MXx8fHwxNzY2OTE5OTkyfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
+        'https://images.unsplash.com/photo-1758518729696-884228731fce?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxidXNpbmVzcyUyMHJlcG9ydHMlMjBkYXRhfGVufDF8fHx8MTc2Njk1NDU0NHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
+      ],
+      features: [
+        'Sales pipeline reports and forecasting',
+        'Project profitability analysis',
+        'Team productivity tracking',
+        'Marketing campaign performance',
+        'Lead source ROI tracking',
+        'Customer acquisition cost analysis',
+        'Seasonal trend reports',
+        'Task completion metrics',
+        'Bid win/loss ratio tracking',
+        'Custom report builder'
+      ],
+      benefits: [
+        'Identify your most profitable project types',
+        'Track which marketing channels work best',
+        'Monitor team performance and productivity',
+        'Forecast revenue for better planning'
+      ],
+      useCases: [
+        {
+          title: 'Monthly Performance Reviews',
+          description: 'Generate comprehensive reports showing sales, profitability, and team performance for management meetings.'
+        },
+        {
+          title: 'Marketing ROI Analysis',
+          description: 'Track which marketing campaigns generate the most leads and highest-value projects for budget allocation.'
+        },
+        {
+          title: 'Profitability Tracking',
+          description: 'Analyze profit margins by project type to focus on your most profitable services (roofing vs. decks vs. siding).'
+        }
+      ]
+    },
+    'notes': {
+      icon: FileText,
+      title: 'Notes & Activity Log',
+      subtitle: 'Capture important customer information',
+      color: 'from-amber-500 to-yellow-500',
+      description: 'Document every customer interaction, site visit observation, and important detail. Build a complete history of conversations, decisions, and follow-up items for each project.',
+      images: [
+        'https://images.unsplash.com/photo-1643094829594-0ae1519d75af?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxub3RlYm9vayUyMHdyaXRpbmclMjBub3Rlc3xlbnwxfHx8fDE3NjY5MzYwMjF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
+        'https://images.unsplash.com/photo-1758519289582-398f2d7a4a88?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjdXN0b21lciUyMG1lZXRpbmclMjBub3Rlc3xlbnwxfHx8fDE3NjY5NTQ1NDV8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
+      ],
+      features: [
+        'Quick note capture from anywhere',
+        'Attach notes to contacts, projects, or tasks',
+        'Site visit observation logging',
+        'Call notes and conversation summaries',
+        'Meeting notes with action items',
+        'Customer preference documentation',
+        'Issue and resolution tracking',
+        'Rich text formatting and attachments',
+        'Search notes across all projects',
+        'Automatic activity timeline'
+      ],
+      benefits: [
+        'Remember important customer details',
+        'Complete history of project communications',
+        'Smooth handoffs between team members',
+        'Better customer service with context'
+      ],
+      useCases: [
+        {
+          title: 'Site Visit Documentation',
+          description: 'Record observations during roof inspections, noting damage areas, homeowner concerns, and special requirements.'
+        },
+        {
+          title: 'Customer Preferences',
+          description: 'Document homeowner style preferences, color choices, scheduling constraints, and special requests for reference.'
+        },
+        {
+          title: 'Problem Resolution',
+          description: 'Track issues that arise during projects and how they were resolved for quality improvement and warranty reference.'
+        }
+      ]
     }
   };
 

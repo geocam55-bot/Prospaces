@@ -654,7 +654,7 @@ export function Login({ onLogin }: LoginProps) {
             <h1 className="text-5xl text-white">ProSpaces CRM</h1>
           </div>
           <p className="text-xl text-white/90">
-            Complete solution for sales, marketing, and project management
+            Complete solution for sales, marketing, and project management. Designed from the ground up for the Home Renovations Industry.
           </p>
         </div>
         
