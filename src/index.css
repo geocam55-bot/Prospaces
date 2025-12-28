@@ -2776,6 +2776,10 @@
     padding-top: calc(var(--spacing) * 12);
   }
 
+  .pt-14 {
+    padding-top: calc(var(--spacing) * 14);
+  }
+
   .pt-16 {
     padding-top: calc(var(--spacing) * 16);
   }
@@ -4721,6 +4725,12 @@
   @media (width >= 40rem) {
     .sm\:py-32 {
       padding-block: calc(var(--spacing) * 32);
+    }
+  }
+
+  @media (width >= 40rem) {
+    .sm\:pt-16 {
+      padding-top: calc(var(--spacing) * 16);
     }
   }
 

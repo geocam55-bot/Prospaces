@@ -195,7 +195,7 @@ function App() {
             <OfflineIndicator />
             <PWAInstallPrompt />
 
-            <div className="lg:pt-16">
+            <div className="pt-14 sm:pt-16 lg:pt-16">
               {currentView === 'dashboard' && <Dashboard user={user} organization={organization} onNavigate={setCurrentView} />}
               {currentView === 'ai-suggestions' && <AITaskSuggestions user={user} />}
               {currentView === 'contacts' && <Contacts user={user} />}
