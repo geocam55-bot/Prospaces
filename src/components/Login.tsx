@@ -726,6 +726,11 @@ export function Login({ onLogin }: LoginProps) {
                       </AlertDescription>
                     </Alert>
                   )}
+                  <div className="text-center py-4 px-2">
+                    <p className="text-base text-gray-700">
+                      Designed specifically for the Home Renovations Industry from the Ground Up.
+                    </p>
+                  </div>
                   <Button 
                     type="submit" 
                     className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white" 

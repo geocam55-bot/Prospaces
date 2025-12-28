@@ -33,258 +33,258 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
     'contact-management': {
       icon: Users,
       title: 'Contact Management',
-      subtitle: 'Comprehensive customer relationship tracking',
+      subtitle: 'Manage homeowners, suppliers, and subcontractors',
       color: 'from-blue-500 to-cyan-500',
-      description: 'Build and maintain strong customer relationships with our comprehensive contact management system. Track every interaction, manage communication history, and gain deep insights into your customer base.',
+      description: 'Build and maintain strong relationships with homeowners, suppliers, and subcontractors. Track every interaction from the first inquiry to project completion and beyond for repeat business and referrals.',
       images: [
-        'https://images.unsplash.com/photo-1552664730-d307ca884978?w=800',
-        'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800'
+        'https://images.unsplash.com/photo-1722876720000-f39b65b7d4a1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob21lJTIwcmVub3ZhdGlvbiUyMGNvbnRyYWN0b3J8ZW58MXx8fHwxNzY2ODkwNjIwfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
+        'https://images.unsplash.com/photo-1760963301666-582b92218a19?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb25zdHJ1Y3Rpb24lMjB3b3JrZXJzJTIwbWVldGluZ3xlbnwxfHx8fDE3NjY4OTA2MjB8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
       ],
       features: [
-        'Centralized contact database with custom fields',
-        'Communication history tracking (calls, emails, meetings)',
-        'Contact segmentation and tagging',
-        'Social media integration',
-        'Import/export contacts (CSV, Excel)',
-        'Duplicate detection and merging',
-        'Custom contact fields and data types',
-        'Activity timeline and notes',
-        'Contact scoring and prioritization',
-        'Multi-organization tenant isolation'
+        'Centralized homeowner database with property details',
+        'Subcontractor and supplier contact management',
+        'Project history tracking per customer',
+        'Communication log (calls, emails, site visits)',
+        'Property photos and documentation storage',
+        'Homeowner preferences and special requirements',
+        'Referral source tracking',
+        'Customer segmentation (residential, commercial)',
+        'Service area and territory management',
+        'Emergency contact information storage'
       ],
       benefits: [
-        'Never lose track of important customer details',
-        'Access complete interaction history instantly',
-        'Segment contacts for targeted campaigns',
-        'Improve customer service with context'
+        'Never lose track of homeowner project details',
+        'Quick access to supplier and subcontractor info',
+        'Build lasting relationships for repeat business',
+        'Track referrals to reward loyal customers'
       ],
       useCases: [
         {
-          title: 'Sales Teams',
-          description: 'Track prospect interactions and conversion paths to close more deals faster.'
+          title: 'Roofing Contractors',
+          description: 'Track homeowners from initial roof inspection through warranty period, maintaining detailed property and contact records.'
         },
         {
-          title: 'Customer Support',
-          description: 'Access complete customer history to provide personalized, efficient support.'
+          title: 'Kitchen & Bath Remodelers',
+          description: 'Store customer preferences, style choices, and project history for personalized service and future referrals.'
         },
         {
-          title: 'Marketing',
-          description: 'Segment contacts for targeted campaigns and track engagement metrics.'
+          title: 'General Contractors',
+          description: 'Manage relationships with homeowners, subcontractors, suppliers, and inspectors all in one place.'
         }
       ]
     },
     'opportunities': {
       icon: Target,
       title: 'Opportunities & Pipeline',
-      subtitle: 'Visual sales pipeline management',
+      subtitle: 'Track renovation projects from lead to completion',
       color: 'from-purple-500 to-pink-500',
-      description: 'Transform your sales process with visual pipeline management. Track deals from first contact to close, forecast revenue, and identify bottlenecks in your sales funnel.',
+      description: 'Transform your renovation sales process with visual pipeline management. Track projects from initial inquiry to signed contract, forecast revenue, and identify which leads need attention.',
       images: [
-        'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800',
-        'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800'
+        'https://images.unsplash.com/photo-1765277789236-18b14cb7869f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob21lJTIwY29uc3RydWN0aW9uJTIwcHJvamVjdHxlbnwxfHx8fDE3NjY4OTA2MjF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
+        'https://images.unsplash.com/photo-1587052694737-a972e4186288?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb250cmFjdG9yJTIwYnVzaW5lc3N8ZW58MXx8fHwxNzY2ODkwNjIzfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
       ],
       features: [
-        'Visual drag-and-drop pipeline stages',
-        'Customizable sales stages and workflows',
-        'Revenue forecasting and projections',
-        'Win/loss analysis and reporting',
-        'Automated stage progression rules',
-        'Deal scoring and prioritization',
-        'Activity tracking per opportunity',
-        'Probability-based forecasting',
-        'Team collaboration on deals',
-        'Pipeline performance analytics'
+        'Visual pipeline for renovation projects',
+        'Custom stages (Inquiry, Site Visit, Estimate, Contract, In Progress, Complete)',
+        'Project value tracking and revenue forecasting',
+        'Win/loss analysis by project type',
+        'Seasonal trend tracking',
+        'Project type categorization (roof, deck, kitchen, etc.)',
+        'Lead source tracking (web, referral, canvassing)',
+        'Probability-based revenue projections',
+        'Team workload and capacity planning',
+        'Project timeline and milestone tracking'
       ],
       benefits: [
-        'Visualize your entire sales pipeline at a glance',
-        'Identify and address bottlenecks quickly',
-        'Accurate revenue forecasting',
-        'Data-driven sales strategy decisions'
+        'See your entire project pipeline at a glance',
+        'Identify bottlenecks in your sales process',
+        'Accurate revenue forecasting for cash flow',
+        'Focus on high-value renovation opportunities'
       ],
       useCases: [
         {
-          title: 'Sales Managers',
-          description: 'Monitor team performance, forecast revenue, and identify coaching opportunities.'
+          title: 'Roofing Companies',
+          description: 'Track leads from storm damage inquiries to completed roof replacements with accurate revenue forecasting.'
         },
         {
-          title: 'Sales Reps',
-          description: 'Manage individual deals, track progress, and prioritize high-value opportunities.'
+          title: 'Deck Builders',
+          description: 'Manage seasonal pipeline of deck projects from design consultation to final walkthrough.'
         },
         {
-          title: 'Executives',
-          description: 'Get real-time visibility into sales performance and pipeline health.'
+          title: 'Multi-Service Contractors',
+          description: 'Monitor diverse project types (roofing, siding, windows) and allocate crews efficiently.'
         }
       ]
     },
     'smart-bidding': {
       icon: FileText,
       title: 'Smart Bidding',
-      subtitle: 'Professional bid creation with automation',
+      subtitle: 'Professional renovation estimates with automation',
       color: 'from-orange-500 to-red-500',
-      description: 'Create professional, accurate bids in minutes with automated calculations, tax handling, and customizable templates. Win more projects with competitive, error-free proposals.',
+      description: 'Create professional, accurate renovation estimates in minutes with automated calculations, material pricing, and labor costs. Win more projects with competitive, detailed proposals homeowners can trust.',
       images: [
-        'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=800',
-        'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800'
+        'https://images.unsplash.com/photo-1666137270524-5131ac07314d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb25zdHJ1Y3Rpb24lMjBlc3RpbWF0ZSUyMGRvY3VtZW50fGVufDF8fHx8MTc2Njg5MDYyMnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
+        'https://images.unsplash.com/photo-1675024274628-47b1042d511f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb250cmFjdG9yJTIwY29uc3VsdGF0aW9uJTIwaG9tZW93bmVyfGVufDF8fHx8MTc2Njg5MDYyMnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
       ],
       features: [
-        'Automated tax calculations (GST, PST, HST)',
-        'Multi-region tax compliance',
-        'Customizable bid templates',
-        'Line item management with formulas',
-        'Discount and markup automation',
-        'Professional PDF generation',
-        'Bid versioning and revisions',
-        'Approval workflows',
-        'Cost estimation tools',
-        'Historical bid analytics'
+        'Automated material and labor calculations',
+        'Built-in tax calculations (GST, PST, HST)',
+        'Project-specific estimate templates (roof, deck, garage)',
+        'Line-by-line pricing breakdown',
+        'Material waste factor calculations',
+        'Labor hour estimation by trade',
+        'Professional PDF quote generation',
+        'Multiple estimate versions and revisions',
+        'Profit margin tracking and optimization',
+        'Historical pricing data for accuracy'
       ],
       benefits: [
-        'Eliminate calculation errors',
-        'Save hours on bid preparation',
-        'Professional, consistent proposals',
-        'Win rate improvement through accuracy'
+        'Eliminate costly calculation errors',
+        'Save hours creating professional estimates',
+        'Consistent, branded proposal documents',
+        'Improve win rates with accurate pricing'
       ],
       useCases: [
         {
-          title: 'Construction',
-          description: 'Create detailed project bids with material costs, labor, and regional taxes.'
+          title: 'Roofing Contractors',
+          description: 'Generate detailed roof replacement estimates with material quantities, labor hours, and disposal costs.'
         },
         {
-          title: 'Consulting',
-          description: 'Generate professional service proposals with clear pricing breakdowns.'
+          title: 'Kitchen Remodelers',
+          description: 'Create comprehensive kitchen renovation quotes with cabinets, countertops, appliances, and installation.'
         },
         {
-          title: 'Manufacturing',
-          description: 'Quote complex products with multi-component pricing and volume discounts.'
+          title: 'Deck & Fence Builders',
+          description: 'Quote outdoor projects with precise material calculations, permit fees, and labor breakdown.'
         }
       ]
     },
     'appointments': {
       icon: Calendar,
       title: 'Appointments & Scheduling',
-      subtitle: 'Integrated calendar management',
+      subtitle: 'Manage site visits, inspections, and consultations',
       color: 'from-green-500 to-emerald-500',
-      description: 'Streamline your scheduling with integrated calendar management. Book meetings, set reminders, and ensure your team never misses an important appointment.',
+      description: 'Streamline your scheduling with integrated calendar management. Book site visits, inspections, and follow-ups with homeowners. Never miss an appointment or double-book your crew.',
       images: [
-        'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=800',
-        'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800'
+        'https://images.unsplash.com/photo-1661930941624-f4b43e3079f1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyb29mJTIwaW5zdGFsbGF0aW9uJTIwd29ya3xlbnwxfHx8fDE3NjY4OTA2MjF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
+        'https://images.unsplash.com/photo-1675024274628-47b1042d511f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb250cmFjdG9yJTIwY29uc3VsdGF0aW9uJTIwaG9tZW93bmVyfGVufDF8fHx8MTc2Njg5MDYyMnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
       ],
       features: [
-        'Visual calendar with multiple views (day, week, month)',
-        'Appointment scheduling and management',
-        'Automated email reminders',
-        'Calendar sharing and permissions',
-        'Conflict detection and prevention',
-        'Recurring appointment support',
-        'Meeting notes and attachments',
-        'Integration with contacts and opportunities',
-        'Team availability tracking',
-        'Mobile-responsive calendar'
+        'Visual calendar with daily, weekly, monthly views',
+        'Site visit and consultation scheduling',
+        'Automated appointment reminders (SMS/Email)',
+        'Crew availability and assignment tracking',
+        'Weather-dependent rescheduling alerts',
+        'Job site location mapping and directions',
+        'Inspection and walkthrough scheduling',
+        'Recurring appointments (maintenance visits)',
+        'Travel time calculation between job sites',
+        'Homeowner appointment confirmation tracking'
       ],
       benefits: [
-        'Never double-book appointments',
+        'Never double-book site visits or crews',
         'Reduce no-shows with automated reminders',
-        'Coordinate team schedules effortlessly',
-        'Keep meeting context with linked records'
+        'Optimize crew schedules and travel routes',
+        'Professional service with timely arrivals'
       ],
       useCases: [
         {
-          title: 'Sales Teams',
-          description: 'Schedule demos, follow-ups, and client meetings with automatic reminders.'
+          title: 'Roofing Inspections',
+          description: 'Schedule initial roof inspections, follow-up visits, and final walkthroughs with automated homeowner reminders.'
         },
         {
-          title: 'Service Providers',
-          description: 'Manage appointments, track availability, and prevent scheduling conflicts.'
+          title: 'Design Consultations',
+          description: 'Book in-home design meetings for kitchens, bathrooms, and additions with travel time optimization.'
         },
         {
-          title: 'Consultants',
-          description: 'Coordinate client meetings and track billable time efficiently.'
+          title: 'Multi-Crew Coordination',
+          description: 'Manage multiple crews across different job sites while avoiding scheduling conflicts.'
         }
       ]
     },
     'inventory': {
       icon: Package,
       title: 'Inventory Management',
-      subtitle: 'Real-time stock tracking',
+      subtitle: 'Track materials, tools, and supplies',
       color: 'from-indigo-500 to-blue-500',
-      description: 'Keep perfect track of your products, stock levels, and pricing. Get low-stock alerts, manage suppliers, and maintain accurate inventory across multiple locations.',
+      description: 'Keep perfect track of your building materials, tools, and supplies. Get low-stock alerts, manage supplier relationships, and ensure you have what you need for every job.',
       images: [
-        'https://images.unsplash.com/photo-1553413077-190dd305871c?w=800',
-        'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800'
+        'https://images.unsplash.com/photo-1761805618757-9d2b9552ee32?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxidWlsZGluZyUyMG1hdGVyaWFscyUyMHdhcmVob3VzZXxlbnwxfHx8fDE3NjY4OTA2MjJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
+        'https://images.unsplash.com/photo-1756402664856-91a90f90b70b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb25zdHJ1Y3Rpb24lMjB0b29scyUyMHN1cHBsaWVzfGVufDF8fHx8MTc2Njg5MDYyM3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
       ],
       features: [
-        'Real-time stock level tracking',
-        'Multi-location inventory management',
-        'Low stock alerts and notifications',
-        'Product categorization and SKUs',
-        'Pricing management with history',
-        'Supplier tracking and relationships',
-        'Purchase order management',
-        'Inventory valuation reports',
-        'Barcode and QR code support',
-        'Stock movement history and audit trail'
+        'Building material inventory tracking',
+        'Tool and equipment management',
+        'Multi-location stock tracking (warehouse, trucks, job sites)',
+        'Low stock alerts for critical materials',
+        'Product categorization (roofing, lumber, hardware, etc.)',
+        'Supplier pricing and lead time tracking',
+        'Material purchase order management',
+        'Job costing and material allocation',
+        'Seasonal inventory planning',
+        'Material waste and return tracking'
       ],
       benefits: [
-        'Never run out of critical stock',
-        'Reduce carrying costs with accurate tracking',
-        'Multi-location visibility',
-        'Data-driven purchasing decisions'
+        'Never run out of critical materials mid-job',
+        'Reduce waste with accurate stock tracking',
+        'Know what materials are on each truck or job site',
+        'Better supplier negotiations with usage data'
       ],
       useCases: [
         {
-          title: 'Retail',
-          description: 'Track inventory across multiple stores with real-time stock updates.'
+          title: 'Roofing Companies',
+          description: 'Track shingles, underlayment, nails, and flashing across multiple job sites and service trucks.'
         },
         {
-          title: 'Manufacturing',
-          description: 'Manage raw materials, components, and finished goods inventory.'
+          title: 'Deck Builders',
+          description: 'Manage lumber inventory, fasteners, stains, and sealers with seasonal demand planning.'
         },
         {
-          title: 'Distributors',
-          description: 'Track products across warehouses and manage supplier relationships.'
+          title: 'General Contractors',
+          description: 'Monitor diverse material inventory across multiple trades and coordinate supplier deliveries.'
         }
       ]
     },
     'marketing': {
       icon: Mail,
       title: 'Marketing Automation',
-      subtitle: 'Engage and convert customers',
+      subtitle: 'Attract and engage homeowners',
       color: 'from-pink-500 to-rose-500',
-      description: 'Create, launch, and track marketing campaigns that convert. Build automated email sequences, landing pages, and nurture leads through your sales funnel.',
+      description: 'Create, launch, and track marketing campaigns that attract homeowners. Build automated email sequences, seasonal promotions, and nurture leads through your sales funnel.',
       images: [
-        'https://images.unsplash.com/photo-1557838923-2985c318be48?w=800',
-        'https://images.unsplash.com/photo-1533750516457-a7f992034fec?w=800'
+        'https://images.unsplash.com/photo-1758548157440-a5640f99b5cd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxob21lJTIwcmVub3ZhdGlvbiUyMG1hcmtldGluZ3xlbnwxfHx8fDE3NjY4OTA2MjN8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
+        'https://images.unsplash.com/photo-1587052694737-a972e4186288?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb250cmFjdG9yJTIwYnVzaW5lc3N8ZW58MXx8fHwxNzY2ODkwNjIzfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral'
       ],
       features: [
         'Visual email campaign builder',
-        'Landing page builder with templates',
-        'Marketing automation workflows',
-        'Contact segmentation and targeting',
-        'A/B testing for campaigns',
+        'Landing page builder with project galleries',
+        'Seasonal campaign automation (spring roofing, fall siding)',
+        'Homeowner segmentation by project type',
+        'Before/after project showcase emails',
         'Campaign performance analytics',
-        'Email template library',
-        'Lead scoring and nurturing',
-        'Integration with contact database',
-        'ROI tracking and reporting'
+        'Email template library for contractors',
+        'Lead nurturing sequences',
+        'Referral program automation',
+        'ROI tracking per marketing channel'
       ],
       benefits: [
-        'Automate repetitive marketing tasks',
-        'Personalize customer communications',
-        'Track campaign performance in real-time',
-        'Increase conversion rates with targeted messaging'
+        'Automate seasonal marketing campaigns',
+        'Nurture leads until they\'re ready to commit',
+        'Track which marketing brings best ROI',
+        'Increase referrals with automated follow-ups'
       ],
       useCases: [
         {
-          title: 'B2B Marketing',
-          description: 'Nurture leads through automated email sequences and track engagement.'
+          title: 'Seasonal Campaigns',
+          description: 'Launch spring roofing campaigns or fall gutter cleaning promotions with automated email sequences.'
         },
         {
-          title: 'E-commerce',
-          description: 'Create product launch campaigns and abandoned cart recovery flows.'
+          title: 'Post-Project Follow-Up',
+          description: 'Automatically request reviews, referrals, and send maintenance tips after project completion.'
         },
         {
-          title: 'SaaS',
-          description: 'Build onboarding sequences and feature announcement campaigns.'
+          title: 'Lead Nurturing',
+          description: 'Build automated sequences that educate homeowners about renovation options until they\'re ready to buy.'
         }
       ]
     }

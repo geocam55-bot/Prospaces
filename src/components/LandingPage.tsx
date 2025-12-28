@@ -128,6 +128,11 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               Streamline your business operations with our all-in-one CRM platform. 
               Track opportunities, manage contacts, automate marketing, and close more deals.
             </p>
+            <div className="mb-6">
+              <p className="text-xl text-white/95 italic">
+                Designed specifically for the Home Renovations Industry from the Ground Up.
+              </p>
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
                 onClick={onGetStarted}
