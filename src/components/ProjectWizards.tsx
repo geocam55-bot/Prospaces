@@ -32,50 +32,50 @@ export function ProjectWizards({ user }: ProjectWizardsProps) {
       {/* Module Navigation */}
       <div className="bg-white border-b border-slate-200 print:hidden">
         <div className="px-4 sm:px-6 lg:px-8">
-          <nav className="flex gap-2">
+          <nav className="flex flex-wrap gap-2">
             <button
               onClick={() => setActiveModule('deck')}
-              className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                 activeModule === 'deck'
                   ? 'border-purple-600 text-purple-600 bg-purple-50'
                   : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <Home className="w-5 h-5" />
-              <span>Deck Planner</span>
+              <Home className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="whitespace-nowrap">Deck Planner</span>
             </button>
             <button
               onClick={() => setActiveModule('garage')}
-              className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                 activeModule === 'garage'
                   ? 'border-blue-600 text-blue-600 bg-blue-50'
                   : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <Warehouse className="w-5 h-5" />
-              <span>Garage Planner</span>
+              <Warehouse className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="whitespace-nowrap">Garage Planner</span>
             </button>
             <button
               onClick={() => setActiveModule('shed')}
-              className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                 activeModule === 'shed'
                   ? 'border-green-600 text-green-600 bg-green-50'
                   : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <Building2 className="w-5 h-5" />
-              <span>Shed Planner</span>
+              <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="whitespace-nowrap">Shed Planner</span>
             </button>
             <button
               onClick={() => setActiveModule('roof')}
-              className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                 activeModule === 'roof'
                   ? 'border-red-600 text-red-600 bg-red-50'
                   : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
-              <Hammer className="w-5 h-5" />
-              <span>Roof Planner</span>
+              <Hammer className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="whitespace-nowrap">Roof Planner</span>
             </button>
           </nav>
         </div>

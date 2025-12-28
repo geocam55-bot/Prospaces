@@ -154,10 +154,10 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
       {/* Sub-navigation */}
       <div className="bg-slate-50 border-b border-slate-200 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex gap-8">
+          <nav className="flex flex-wrap gap-4 sm:gap-8">
             <button
               onClick={() => setActiveTab('design')}
-              className={`flex items-center gap-2 py-4 border-b-2 transition-colors ${
+              className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                 activeTab === 'design'
                   ? 'border-green-600 text-green-600'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
@@ -168,7 +168,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
             </button>
             <button
               onClick={() => setActiveTab('materials')}
-              className={`flex items-center gap-2 py-4 border-b-2 transition-colors ${
+              className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                 activeTab === 'materials'
                   ? 'border-green-600 text-green-600'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
@@ -179,7 +179,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
             </button>
             <button
               onClick={() => setActiveTab('saved')}
-              className={`flex items-center gap-2 py-4 border-b-2 transition-colors ${
+              className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                 activeTab === 'saved'
                   ? 'border-green-600 text-green-600'
                   : 'border-transparent text-slate-600 hover:text-slate-900'

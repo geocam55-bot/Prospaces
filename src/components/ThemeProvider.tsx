@@ -13,28 +13,39 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children, userId }: { children: ReactNode; userId?: string }) {
   const [themeId, setThemeId] = useState<string>(loadTheme());
   const [theme, setThemeState] = useState<Theme>(getTheme(themeId));
-  const [isInitialized, setIsInitialized] = useState(false);
 
   // Load theme from database on mount if user is logged in
   useEffect(() => {
     const loadUserTheme = async () => {
-      if (userId && !isInitialized) {
+      if (userId) {
+        console.log('Loading theme for user:', userId);
         const dbTheme = await loadThemeFromDatabase(userId);
         if (dbTheme) {
+          console.log('Loaded theme from database:', dbTheme);
           setThemeId(dbTheme);
           saveTheme(dbTheme); // Also save to localStorage
+        } else {
+          console.log('No theme found in database, using localStorage or default');
+          // Use localStorage theme if no database theme exists
+          const localTheme = loadTheme();
+          setThemeId(localTheme);
         }
-        setIsInitialized(true);
+      } else {
+        console.log('No user ID, loading theme from localStorage');
+        // If no user, load from localStorage
+        const localTheme = loadTheme();
+        setThemeId(localTheme);
       }
     };
     
     loadUserTheme();
-  }, [userId, isInitialized]);
+  }, [userId]);
 
   useEffect(() => {
     const newTheme = getTheme(themeId);
     setThemeState(newTheme);
     saveTheme(themeId);
+    console.log('Applying theme:', themeId);
     
     // Apply theme colors to CSS variables
     const root = document.documentElement;
@@ -70,10 +81,14 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
     }
   }, [themeId]);
 
-  const handleSetTheme = (newThemeId: string) => {
+  const handleSetTheme = async (newThemeId: string) => {
+    console.log('Setting theme to:', newThemeId);
     setThemeId(newThemeId);
+    saveTheme(newThemeId); // Save to localStorage immediately
+    
     if (userId) {
-      saveThemeToDatabase(newThemeId, userId);
+      console.log('Saving theme to database for user:', userId);
+      await saveThemeToDatabase(newThemeId, userId);
     }
   };
 
