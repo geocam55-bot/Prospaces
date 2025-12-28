@@ -137,7 +137,9 @@ function App() {
           }
         }
 
-        setCurrentView('dashboard');
+        // Set default view based on user role
+        // SUPER_ADMIN starts on Organizations page, others on Dashboard
+        setCurrentView(profile.role === 'super_admin' ? 'tenants' : 'dashboard');
       }
     } catch (error) {
       console.error('Error loading user data:', error);

@@ -39,7 +39,7 @@ const MODULES = [
   { id: 'email', name: 'Email', description: 'Email integration and campaigns' },
   { id: 'marketing', name: 'Marketing', description: 'Marketing automation and campaigns' },
   { id: 'inventory', name: 'Inventory', description: 'Product and inventory management' },
-  { id: 'project-wizards', name: 'Project Wizards', description: 'Deck, garage, and shed design planners' },
+  { id: 'project-wizards', name: 'Project Wizards', description: 'Deck, garage, shed, and roof design planners' },
   { id: 'reports', name: 'Reports', description: 'Business intelligence and analytics reports' },
   { id: 'users', name: 'Users', description: 'User management' },
   { id: 'settings', name: 'Settings', description: 'System settings' },

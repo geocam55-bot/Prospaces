@@ -8,12 +8,28 @@
 @media print {
   @page {
     size: letter;
-    margin: 0.5in;
+    margin: 0.5in 0.5in 0.5in 0.5in;
+  }
+
+  html {
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   body {
     background: white;
     overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Add substantial top padding to main content */
+  #root {
+    padding-top: 0.5in !important;
+  }
+
+  #root > div {
+    padding-top: 0.5in !important;
   }
 
   /* Hide scrollbars */

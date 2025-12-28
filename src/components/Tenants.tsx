@@ -85,6 +85,7 @@ export function Tenants({ user, organization }: TenantsProps) {
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null); // Track which org is being deleted
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const [formData, setFormData] = useState({
@@ -234,13 +235,29 @@ export function Tenants({ user, organization }: TenantsProps) {
       return;
     }
 
+    console.log('[Tenants] 🗑️ Starting deletion for organization:', id);
+    
     try {
-      await tenantsAPI.delete(id);
+      setIsDeleting(id);
+      console.log('[Tenants] 📞 Calling tenantsAPI.delete()...');
+      const result = await tenantsAPI.delete(id);
+      console.log('[Tenants] ✅ Delete result:', result);
       showAlert('success', 'Organization deleted successfully');
-      loadTenants();
-    } catch (error) {
-      console.error('Failed to delete tenant:', error);
-      showAlert('error', 'Failed to delete organization');
+      console.log('[Tenants] 🔄 Reloading tenants list...');
+      await loadTenants();
+      console.log('[Tenants] ✅ Tenants list reloaded');
+    } catch (error: any) {
+      console.error('[Tenants] ❌ Failed to delete tenant:', error);
+      console.error('[Tenants] ❌ Error details:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        fullError: error
+      });
+      showAlert('error', `Failed to delete organization: ${error?.message || 'Unknown error'}`);
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -521,21 +538,29 @@ export function Tenants({ user, organization }: TenantsProps) {
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="inline-flex items-center justify-center rounded-md text-sm ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 w-9">
-                            <MoreVertical className="h-4 w-4" />
+                          <button 
+                            className="inline-flex items-center justify-center rounded-md text-sm ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 w-9"
+                            disabled={isDeleting === tenant.id}
+                          >
+                            {isDeleting === tenant.id ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                            ) : (
+                              <MoreVertical className="h-4 w-4" />
+                            )}
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleOpenDialog(tenant)}>
+                          <DropdownMenuItem onClick={() => handleOpenDialog(tenant)} disabled={isDeleting === tenant.id}>
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-red-600"
                             onClick={() => handleDelete(tenant.id)}
+                            disabled={isDeleting === tenant.id}
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
+                            {isDeleting === tenant.id ? 'Deleting...' : 'Delete'}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

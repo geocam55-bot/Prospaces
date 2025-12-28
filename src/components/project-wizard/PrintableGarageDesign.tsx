@@ -38,24 +38,10 @@ export function PrintableGarageDesign({
   });
 
   return (
-    <div className="hidden print:block print:overflow-visible">
+    <div className="hidden print:block print:pt-8">
       {/* Header */}
-      <div className="mb-6 border-b-2 border-black pb-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-black mb-2">
-              {designName || 'Garage Design Plan'}
-            </h1>
-            <div className="text-sm text-gray-800">
-              <p>Date: {new Date().toLocaleDateString()}</p>
-              <p>Project Type: Garage Construction</p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-black">ProSpaces CRM</div>
-            <div className="text-sm text-gray-600">Professional Garage Construction</div>
-          </div>
-        </div>
+      <div className="border-b-2 border-black pb-4 mb-6 print:mt-8">
+        <h1 className="text-3xl font-bold mb-2">Garage Plan & Materials List</h1>
       </div>
 
       {/* Customer Information (if saved design) */}
@@ -135,10 +121,7 @@ export function PrintableGarageDesign({
 
       {/* Plan View & Elevation */}
       <div className="mb-6">
-        <h2 className="text-lg font-bold text-black mb-3 border-b-2 border-black pb-2">
-          Garage Plan & Elevation
-        </h2>
-        <div className="border-2 border-black p-4 bg-white flex items-center justify-center">
+        <div className="w-full">
           <GarageCanvas config={config} />
         </div>
       </div>

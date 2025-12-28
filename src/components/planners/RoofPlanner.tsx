@@ -1,59 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { ShedConfigurator } from '../shed/ShedConfigurator';
-import { ShedCanvas } from '../shed/ShedCanvas';
-import { ShedMaterialsList } from '../shed/ShedMaterialsList';
-import { ShedTemplates } from '../shed/ShedTemplates';
-import { SavedShedDesigns } from '../shed/SavedShedDesigns';
+import { RoofConfigurator } from '../roof/RoofConfigurator';
+import { RoofCanvas } from '../roof/RoofCanvas';
+import { RoofMaterialsList } from '../roof/RoofMaterialsList';
+import { RoofTemplates } from '../roof/RoofTemplates';
+import { SavedRoofDesigns } from '../roof/SavedRoofDesigns';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
-import { PrintableShedDesign } from '../project-wizard/PrintableShedDesign';
-import { calculateMaterials } from '../../utils/shedCalculations';
+import { DiagnosticPanel } from '../DiagnosticPanel';
+import { PrintableRoofDesign } from '../project-wizard/PrintableRoofDesign';
+import { calculateMaterials } from '../../utils/roofCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
-import { ShedConfig } from '../../types/shed';
+import { RoofConfig } from '../../types/roof';
 import { Ruler, Package, Printer, FileText } from 'lucide-react';
 import type { User } from '../../App';
 
-interface ShedPlannerProps {
+interface RoofPlannerProps {
   user: User;
 }
 
-export function ShedPlanner({ user }: ShedPlannerProps) {
-  const [config, setConfig] = useState<ShedConfig>({
-    width: 10,
-    length: 12,
-    wallHeight: 7,
-    style: 'barn',
-    roofPitch: 8,
-    foundationType: 'concrete-blocks',
-    doorType: 'double',
-    doorWidth: 5,
-    doorHeight: 6.5,
-    doorPosition: 'front',
-    windows: [
-      {
-        id: '1',
-        width: 2,
-        height: 2,
-        position: 'left',
-        offsetFromLeft: 5,
-        offsetFromFloor: 3,
-      },
-      {
-        id: '2',
-        width: 2,
-        height: 2,
-        position: 'right',
-        offsetFromLeft: 5,
-        offsetFromFloor: 3,
-      },
-    ],
-    hasLoft: true,
-    hasFloor: true,
-    hasShutters: true,
-    hasFlowerBox: false,
-    sidingType: 'vinyl',
-    roofingMaterial: 'architectural-shingle',
-    hasElectrical: true,
-    hasShelvingPackage: true,
+export function RoofPlanner({ user }: RoofPlannerProps) {
+  const [config, setConfig] = useState<RoofConfig>({
+    length: 40,
+    width: 30,
+    style: 'gable',
+    pitch: '6/12',
+    eaveOverhang: 1.5,
+    rakeOverhang: 1.5,
+    shingleType: 'architectural',
+    underlaymentType: 'synthetic',
+    hasValleys: false,
+    valleyCount: 0,
+    hasSkylight: false,
+    skylightCount: 0,
+    hasChimney: false,
+    chimneyCount: 0,
+    wasteFactor: 0.10,
     unit: 'feet',
   });
 
@@ -71,17 +51,13 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
 
   // Flatten materials for quote generator
   const flatMaterials = [
-    ...materials.foundation,
-    ...materials.framing,
-    ...(materials.flooring || []),
-    ...materials.roofing,
-    ...materials.siding,
-    ...materials.doors,
-    ...materials.windows,
-    ...materials.trim,
+    ...materials.roofDeck,
+    ...materials.underlayment,
+    ...materials.shingles,
+    ...materials.ridgeAndHip,
+    ...materials.flashing,
+    ...materials.ventilation,
     ...materials.hardware,
-    ...(materials.electrical || []),
-    ...(materials.accessories || []),
   ];
 
   // Enrich materials with T1 pricing whenever config changes
@@ -91,7 +67,8 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
         const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(
           flatMaterials,
           user.organizationId,
-          'shed'
+          'roof',
+          config.shingleType
         );
         setEnrichedMaterials(enriched);
         setTotalT1Price(total);
@@ -114,27 +91,23 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
 
     // Merge pricing data into original structure
     return {
-      foundation: materials.foundation.map(item => enrichedMap.get(item.description) || item),
-      framing: materials.framing.map(item => enrichedMap.get(item.description) || item),
-      flooring: (materials.flooring || []).map(item => enrichedMap.get(item.description) || item),
-      roofing: materials.roofing.map(item => enrichedMap.get(item.description) || item),
-      siding: materials.siding.map(item => enrichedMap.get(item.description) || item),
-      doors: materials.doors.map(item => enrichedMap.get(item.description) || item),
-      windows: materials.windows.map(item => enrichedMap.get(item.description) || item),
-      trim: materials.trim.map(item => enrichedMap.get(item.description) || item),
+      roofDeck: materials.roofDeck.map(item => enrichedMap.get(item.description) || item),
+      underlayment: materials.underlayment.map(item => enrichedMap.get(item.description) || item),
+      shingles: materials.shingles.map(item => enrichedMap.get(item.description) || item),
+      ridgeAndHip: materials.ridgeAndHip.map(item => enrichedMap.get(item.description) || item),
+      flashing: materials.flashing.map(item => enrichedMap.get(item.description) || item),
+      ventilation: materials.ventilation.map(item => enrichedMap.get(item.description) || item),
       hardware: materials.hardware.map(item => enrichedMap.get(item.description) || item),
-      electrical: (materials.electrical || []).map(item => enrichedMap.get(item.description) || item),
-      accessories: (materials.accessories || []).map(item => enrichedMap.get(item.description) || item),
     };
   };
 
-  const handleLoadTemplate = (templateConfig: ShedConfig) => {
+  const handleLoadTemplate = (templateConfig: RoofConfig) => {
     setConfig(templateConfig);
     setLoadedDesignInfo({}); // Clear loaded design info when loading a template
     setActiveTab('design');
   };
 
-  const handleLoadDesign = (loadedConfig: ShedConfig, designInfo?: {
+  const handleLoadDesign = (loadedConfig: RoofConfig, designInfo?: {
     name?: string;
     description?: string;
     customerName?: string;
@@ -159,7 +132,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
               onClick={() => setActiveTab('design')}
               className={`flex items-center gap-2 py-4 border-b-2 transition-colors ${
                 activeTab === 'design'
-                  ? 'border-green-600 text-green-600'
+                  ? 'border-orange-600 text-orange-600'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -170,7 +143,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
               onClick={() => setActiveTab('materials')}
               className={`flex items-center gap-2 py-4 border-b-2 transition-colors ${
                 activeTab === 'materials'
-                  ? 'border-green-600 text-green-600'
+                  ? 'border-orange-600 text-orange-600'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -181,7 +154,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
               onClick={() => setActiveTab('saved')}
               className={`flex items-center gap-2 py-4 border-b-2 transition-colors ${
                 activeTab === 'saved'
-                  ? 'border-green-600 text-green-600'
+                  ? 'border-orange-600 text-orange-600'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -198,7 +171,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
           <div className="flex justify-end">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
             >
               <Printer className="w-4 h-4" />
               Print Plan
@@ -212,13 +185,13 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
         {activeTab === 'design' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 space-y-6 print:hidden">
-              <ShedTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
-              <ShedConfigurator config={config} onChange={setConfig} />
+              <RoofTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
+              <RoofConfigurator config={config} onChange={setConfig} />
               
               {/* Quote Generator */}
               <ProjectQuoteGenerator
                 user={user}
-                projectType="shed"
+                projectType="roof"
                 materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
                 totalCost={totalT1Price > 0 ? totalT1Price : 0}
                 projectData={config}
@@ -227,13 +200,13 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
 
             <div className="lg:col-span-2 space-y-6 print:hidden">
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black">
-                <h2 className="text-slate-900 mb-4 print:hidden">Shed Plan & Elevation</h2>
-                <ShedCanvas config={config} />
+                <h2 className="text-slate-900 mb-4 print:hidden">Roof Plan & Elevation</h2>
+                <RoofCanvas config={config} />
               </div>
 
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black print:break-before-page">
                 <h2 className="text-slate-900 mb-4">Materials Summary</h2>
-                <ShedMaterialsList materials={materials} compact />
+                <RoofMaterialsList materials={materials} compact />
               </div>
             </div>
           </div>
@@ -243,28 +216,34 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
               {enrichedMaterials.length > 0 && totalT1Price > 0 && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-green-700">Total Estimated Cost (Tier 1 Pricing)</p>
-                      <p className="text-xs text-green-600 mt-1">Based on your organization's default pricing</p>
+                      <p className="text-sm text-orange-700">Total Estimated Cost (Tier 1 Pricing)</p>
+                      <p className="text-xs text-orange-600 mt-1">Based on your organization's default pricing</p>
                     </div>
-                    <p className="text-2xl font-semibold text-green-900">${totalT1Price.toLocaleString()}</p>
+                    <p className="text-2xl font-semibold text-orange-900">${totalT1Price.toLocaleString()}</p>
                   </div>
                 </div>
               )}
-              <ShedMaterialsList 
+              <RoofMaterialsList 
                 materials={getEnrichedMaterialsStructure()} 
                 compact={false} 
               />
             </div>
+            
+            <DiagnosticPanel 
+              organizationId={user.organizationId}
+              plannerType="roof"
+              materialType={config.shingleType}
+            />
           </div>
         )}
 
         {activeTab === 'saved' && (
-          <SavedShedDesigns 
+          <SavedRoofDesigns 
             user={user}
-            currentConfig={config} 
+            currentConfig={config}
             materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
             totalCost={totalT1Price > 0 ? totalT1Price : 0}
             onLoadDesign={handleLoadDesign} 
@@ -273,7 +252,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
       </div>
 
       {/* Printable Design View */}
-      <PrintableShedDesign
+      <PrintableRoofDesign
         config={config}
         materials={getEnrichedMaterialsStructure()}
         totalCost={totalT1Price}

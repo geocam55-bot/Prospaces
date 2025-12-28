@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { DeckPlanner } from './planners/DeckPlanner';
 import { GaragePlanner } from './planners/GaragePlanner';
 import { ShedPlanner } from './planners/ShedPlanner';
-import { Home, Warehouse, Building2 } from 'lucide-react';
+import { RoofPlanner } from './planners/RoofPlanner';
+import { Home, Warehouse, Building2, Hammer } from 'lucide-react';
 import type { User } from '../App';
 
-type PlannerModule = 'deck' | 'garage' | 'shed';
+type PlannerModule = 'deck' | 'garage' | 'shed' | 'roof';
 
 interface ProjectWizardsProps {
   user: User;
@@ -22,7 +23,7 @@ export function ProjectWizards({ user }: ProjectWizardsProps) {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-slate-900">Project Wizards</h1>
-              <p className="text-slate-600 text-sm mt-1">Design & estimate materials for decks, garages, and sheds</p>
+              <p className="text-slate-600 text-sm mt-1">Design & estimate materials for decks, garages, sheds, and roofs</p>
             </div>
           </div>
         </div>
@@ -65,6 +66,17 @@ export function ProjectWizards({ user }: ProjectWizardsProps) {
               <Building2 className="w-5 h-5" />
               <span>Shed Planner</span>
             </button>
+            <button
+              onClick={() => setActiveModule('roof')}
+              className={`flex items-center gap-2 px-6 py-4 border-b-2 transition-colors ${
+                activeModule === 'roof'
+                  ? 'border-red-600 text-red-600 bg-red-50'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <Hammer className="w-5 h-5" />
+              <span>Roof Planner</span>
+            </button>
           </nav>
         </div>
       </div>
@@ -74,6 +86,7 @@ export function ProjectWizards({ user }: ProjectWizardsProps) {
         {activeModule === 'deck' && <DeckPlanner user={user} />}
         {activeModule === 'garage' && <GaragePlanner user={user} />}
         {activeModule === 'shed' && <ShedPlanner user={user} />}
+        {activeModule === 'roof' && <RoofPlanner user={user} />}
       </main>
 
       {/* Footer */}

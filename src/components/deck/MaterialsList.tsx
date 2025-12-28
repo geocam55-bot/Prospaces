@@ -100,7 +100,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
                 </tr>
               </thead>
               <tbody>
-                {materials.framing.map((item, idx) => (
+                {materials.framing.filter(item => item.quantity > 0).map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
@@ -138,7 +138,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
                 </tr>
               </thead>
               <tbody>
-                {materials.decking.map((item, idx) => (
+                {materials.decking.filter(item => item.quantity > 0).map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
@@ -176,7 +176,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
                 </tr>
               </thead>
               <tbody>
-                {materials.railing.map((item, idx) => (
+                {materials.railing.filter(item => item.quantity > 0).map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
@@ -214,7 +214,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
                 </tr>
               </thead>
               <tbody>
-                {materials.hardware.map((item, idx) => (
+                {materials.hardware.filter(item => item.quantity > 0).map((item, idx) => (
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>

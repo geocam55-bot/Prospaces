@@ -27,7 +27,9 @@ export function ShedMaterialsList({ materials, compact = false }: ShedMaterialsL
     return (
       <div className="space-y-6">
         {categories.map((category) => {
-          if (category.items.length === 0) return null;
+          // Filter out items with zero quantity
+          const nonZeroItems = category.items.filter(item => item.quantity > 0);
+          if (nonZeroItems.length === 0) return null;
           
           const Icon = category.icon;
           return (
@@ -37,7 +39,7 @@ export function ShedMaterialsList({ materials, compact = false }: ShedMaterialsL
                 {category.label}
               </h3>
               <div className="space-y-2">
-                {category.items.map((item, index) => (
+                {nonZeroItems.map((item, index) => (
                   <div
                     key={index}
                     className="flex justify-between items-start text-sm py-2 border-b border-slate-100 last:border-0"
@@ -72,7 +74,9 @@ export function ShedMaterialsList({ materials, compact = false }: ShedMaterialsL
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {categories.map((category) => {
-          if (category.items.length === 0) return null;
+          // Filter out items with zero quantity
+          const nonZeroItems = category.items.filter(item => item.quantity > 0);
+          if (nonZeroItems.length === 0) return null;
           
           const Icon = category.icon;
           return (
@@ -85,7 +89,7 @@ export function ShedMaterialsList({ materials, compact = false }: ShedMaterialsL
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {category.items.map((item, index) => (
+                  {nonZeroItems.map((item, index) => (
                     <div key={index} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0">
                       <div className="flex justify-between items-start mb-1">
                         <div className="font-medium text-slate-900 text-sm">

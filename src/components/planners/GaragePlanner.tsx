@@ -235,7 +235,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
 
             <div className="lg:col-span-2 space-y-6 print:hidden">
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black">
-                <h2 className="text-slate-900 mb-4">Garage Plan & Elevation</h2>
+                <h2 className="text-slate-900 mb-4 print:hidden">Garage Plan & Elevation</h2>
                 <GarageCanvas config={config} />
               </div>
 

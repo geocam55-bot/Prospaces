@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { ShedConfig } from '../../types/shed';
 
 interface ShedCanvasProps {
@@ -6,437 +6,864 @@ interface ShedCanvasProps {
 }
 
 export function ShedCanvas({ config }: ShedCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const topViewRef = useRef<HTMLCanvasElement>(null);
+  const frontViewRef = useRef<HTMLCanvasElement>(null);
+  const sideViewRef = useRef<HTMLCanvasElement>(null);
+  const [view3D, setView3D] = useState(true);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    drawTopView();
+    drawFrontElevation();
+    drawSideElevation();
+  }, [config, view3D]);
+
+  const drawTopView = () => {
+    const canvas = topViewRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Set up scaling
-    const padding = 60;
-    const maxWidth = canvas.width - padding * 2;
-    const maxHeight = canvas.height - padding * 2 - 100;
-    
-    const scale = Math.min(
-      maxWidth / config.width,
-      (maxHeight * 0.6) / config.length
-    );
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = 50;
 
-    // Draw floor plan
-    drawFloorPlan(ctx, config, padding, padding, scale);
-    
-    // Draw front elevation
-    const elevationY = padding + config.length * scale + 80;
-    drawFrontElevation(ctx, config, padding, elevationY, scale);
-  }, [config]);
+    const scale = Math.min((width - 2 * padding) / config.width, (height - 2 * padding) / config.length);
 
-  return (
-    <div className="relative">
-      <canvas
-        ref={canvasRef}
-        width={800}
-        height={900}
-        className="w-full border border-slate-200 rounded-lg bg-white"
-      />
-    </div>
-  );
-}
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const scaledWidth = config.width * scale;
+    const scaledLength = config.length * scale;
 
-function drawFloorPlan(
-  ctx: CanvasRenderingContext2D,
-  config: ShedConfig,
-  offsetX: number,
-  offsetY: number,
-  scale: number
-) {
-  const { width, length, doorType, doorWidth, windows } = config;
-  
-  // Title
-  ctx.fillStyle = '#1e293b';
-  ctx.font = 'bold 16px system-ui';
-  ctx.fillText('Floor Plan (Top View)', offsetX, offsetY - 30);
-  ctx.font = '12px system-ui';
-  ctx.fillStyle = '#64748b';
-  ctx.fillText(`${width}' × ${length}'`, offsetX, offsetY - 10);
+    const baseX = centerX - scaledWidth / 2;
+    const baseY = centerY - scaledLength / 2;
 
-  // Wall outline
-  ctx.strokeStyle = '#1e293b';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(offsetX, offsetY, width * scale, length * scale);
+    // Draw floor with wood texture
+    const floorGradient = ctx.createLinearGradient(baseX, baseY, baseX + scaledWidth, baseY + scaledLength);
+    floorGradient.addColorStop(0, '#e7d4c0');
+    floorGradient.addColorStop(0.5, '#c9b8a4');
+    floorGradient.addColorStop(1, '#e7d4c0');
+    
+    ctx.fillStyle = view3D ? floorGradient : '#f5f5f4';
+    ctx.fillRect(baseX, baseY, scaledWidth, scaledLength);
 
-  // Draw door
-  ctx.fillStyle = '#10b981';
-  ctx.strokeStyle = '#059669';
-  ctx.lineWidth = 2;
-  
-  const doorWidthScaled = doorWidth * scale;
-  const doorX = offsetX + (width * scale - doorWidthScaled) / 2;
-  const doorThickness = 6;
-  
-  if (doorType === 'single') {
-    // Single door with swing arc
-    ctx.fillRect(doorX, offsetY - doorThickness / 2, doorWidthScaled, doorThickness);
-    ctx.strokeRect(doorX, offsetY - doorThickness / 2, doorWidthScaled, doorThickness);
-    
-    ctx.beginPath();
-    ctx.arc(doorX, offsetY, doorWidthScaled, -Math.PI / 2, 0);
-    ctx.stroke();
-  } else if (doorType === 'double') {
-    // Double doors
-    ctx.fillRect(doorX, offsetY - doorThickness / 2, doorWidthScaled, doorThickness);
-    ctx.strokeRect(doorX, offsetY - doorThickness / 2, doorWidthScaled, doorThickness);
-    
-    // Center line
-    ctx.beginPath();
-    ctx.moveTo(doorX + doorWidthScaled / 2, offsetY - doorThickness / 2);
-    ctx.lineTo(doorX + doorWidthScaled / 2, offsetY + doorThickness / 2);
-    ctx.stroke();
-    
-    // Swing arcs
-    ctx.beginPath();
-    ctx.arc(doorX, offsetY, doorWidthScaled / 2, -Math.PI / 2, 0);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(doorX + doorWidthScaled, offsetY, doorWidthScaled / 2, Math.PI, -Math.PI / 2);
-    ctx.stroke();
-  } else {
-    // Sliding barn door
-    ctx.fillRect(doorX, offsetY - doorThickness / 2, doorWidthScaled, doorThickness);
-    ctx.strokeRect(doorX, offsetY - doorThickness / 2, doorWidthScaled, doorThickness);
-    
-    // Track indication
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(doorX - 10, offsetY - 15);
-    ctx.lineTo(doorX + doorWidthScaled + 10, offsetY - 15);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-  
-  // Door label
-  ctx.fillStyle = '#059669';
-  ctx.font = '11px system-ui';
-  const doorLabel = doorType === 'sliding-barn' ? 'Barn Door' : doorType === 'double' ? 'Double Door' : 'Door';
-  ctx.fillText(doorLabel, doorX + doorWidthScaled / 2 - 20, offsetY - 18);
-
-  // Draw windows
-  ctx.strokeStyle = '#06b6d4';
-  ctx.fillStyle = '#e0f2fe';
-  ctx.lineWidth = 2;
-  
-  windows.forEach((window, index) => {
-    const windowWidth = window.width * scale;
-    const windowHeight = window.height * scale;
-    
-    let windowX = 0;
-    let windowY = 0;
-    
-    switch (window.position) {
-      case 'left':
-        windowX = offsetX - 3;
-        windowY = offsetY + (window.offsetFromLeft || length / 2) * scale;
-        ctx.fillRect(windowX, windowY, 6, windowHeight);
-        ctx.strokeRect(windowX, windowY, 6, windowHeight);
-        break;
-      case 'right':
-        windowX = offsetX + width * scale - 3;
-        windowY = offsetY + (window.offsetFromLeft || length / 2) * scale;
-        ctx.fillRect(windowX, windowY, 6, windowHeight);
-        ctx.strokeRect(windowX, windowY, 6, windowHeight);
-        break;
-      case 'back':
-        windowX = offsetX + (window.offsetFromLeft || width / 2) * scale;
-        windowY = offsetY + length * scale - 3;
-        ctx.fillRect(windowX, windowY, windowWidth, 6);
-        ctx.strokeRect(windowX, windowY, windowWidth, 6);
-        break;
+    // Floor boards
+    if (view3D) {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.lineWidth = 1;
+      const boardWidth = scale * 0.5;
+      for (let x = baseX; x < baseX + scaledWidth; x += boardWidth) {
+        ctx.beginPath();
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, baseY + scaledLength);
+        ctx.stroke();
+      }
     }
-  });
 
-  // Loft indication
-  if (config.hasLoft) {
-    ctx.setLineDash([8, 8]);
-    ctx.strokeStyle = '#94a3b8';
-    ctx.lineWidth = 1;
-    const loftDepth = length * 0.4;
-    ctx.strokeRect(offsetX + 10, offsetY + 10, width * scale - 20, loftDepth * scale);
-    ctx.setLineDash([]);
+    // Wall outline with thickness
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = view3D ? 8 : 3;
+    ctx.strokeRect(baseX, baseY, scaledWidth, scaledLength);
+
+    // Inner wall line
+    if (view3D) {
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(baseX + 4, baseY + 4, scaledWidth - 8, scaledLength - 8);
+    }
+
+    // Draw door
+    const doorWidthScaled = config.doorWidth * scale;
+    const doorX = baseX + (scaledWidth - doorWidthScaled) / 2;
+    const doorThickness = view3D ? 10 : 6;
     
-    ctx.fillStyle = '#64748b';
-    ctx.font = '10px system-ui';
-    ctx.fillText('Loft Storage', offsetX + width * scale / 2 - 30, offsetY + 30);
-  }
-
-  // Dimensions
-  ctx.strokeStyle = '#64748b';
-  ctx.fillStyle = '#475569';
-  ctx.lineWidth = 1;
-  ctx.font = '11px system-ui';
-  
-  // Width dimension
-  const dimY = offsetY + length * scale + 25;
-  ctx.beginPath();
-  ctx.moveTo(offsetX, dimY);
-  ctx.lineTo(offsetX + width * scale, dimY);
-  ctx.stroke();
-  
-  drawArrow(ctx, offsetX, dimY, offsetX + 10, dimY);
-  drawArrow(ctx, offsetX + width * scale, dimY, offsetX + width * scale - 10, dimY);
-  ctx.fillText(`${width}'`, offsetX + width * scale / 2 - 10, dimY - 5);
-  
-  // Length dimension
-  const dimX = offsetX + width * scale + 25;
-  ctx.beginPath();
-  ctx.moveTo(dimX, offsetY);
-  ctx.lineTo(dimX, offsetY + length * scale);
-  ctx.stroke();
-  
-  drawArrow(ctx, dimX, offsetY, dimX, offsetY + 10);
-  drawArrow(ctx, dimX, offsetY + length * scale, dimX, offsetY + length * scale - 10);
-  
-  ctx.save();
-  ctx.translate(dimX + 15, offsetY + length * scale / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText(`${length}'`, -10, 0);
-  ctx.restore();
-}
-
-function drawFrontElevation(
-  ctx: CanvasRenderingContext2D,
-  config: ShedConfig,
-  offsetX: number,
-  offsetY: number,
-  scale: number
-) {
-  const { width, wallHeight, style, roofPitch, doorWidth, doorHeight, doorType, windows } = config;
-  
-  // Title
-  ctx.fillStyle = '#1e293b';
-  ctx.font = 'bold 16px system-ui';
-  ctx.fillText('Front Elevation', offsetX, offsetY - 15);
-
-  // Calculate roof dimensions
-  const wallHeightScaled = wallHeight * scale;
-  const roofRun = (width / 2) * scale;
-  const roofRise = (roofPitch / 12) * roofRun;
-  const overhang = 12;
-
-  // Draw walls
-  ctx.fillStyle = '#f8fafc';
-  ctx.strokeStyle = '#1e293b';
-  ctx.lineWidth = 2;
-  ctx.fillRect(offsetX, offsetY, width * scale, wallHeightScaled);
-  ctx.strokeRect(offsetX, offsetY, width * scale, wallHeightScaled);
-
-  // Draw roof based on style
-  ctx.fillStyle = '#475569';
-  ctx.strokeStyle = '#1e293b';
-  
-  switch (style) {
-    case 'gable':
+    // Door gradient
+    const doorGradient = ctx.createLinearGradient(doorX, baseY - doorThickness / 2, doorX + doorWidthScaled, baseY + doorThickness / 2);
+    doorGradient.addColorStop(0, '#d1fae5');
+    doorGradient.addColorStop(0.5, '#6ee7b7');
+    doorGradient.addColorStop(1, '#d1fae5');
+    
+    ctx.fillStyle = view3D ? doorGradient : '#10b981';
+    ctx.strokeStyle = '#059669';
+    ctx.lineWidth = 2;
+    
+    ctx.fillRect(doorX, baseY - doorThickness / 2, doorWidthScaled, doorThickness);
+    ctx.strokeRect(doorX, baseY - doorThickness / 2, doorWidthScaled, doorThickness);
+    
+    // Door details based on type
+    if (config.doorType === 'single') {
+      // Door swing arc
+      ctx.strokeStyle = '#047857';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
       ctx.beginPath();
-      ctx.moveTo(offsetX - overhang, offsetY);
-      ctx.lineTo(offsetX + width * scale / 2, offsetY - roofRise);
-      ctx.lineTo(offsetX + width * scale + overhang, offsetY);
-      ctx.closePath();
-      ctx.fill();
+      ctx.arc(doorX, baseY, doorWidthScaled, -Math.PI / 2, 0);
       ctx.stroke();
-      break;
-      
-    case 'barn':
-      // Gambrel roof
-      const lowerPitch = roofRise * 0.4;
-      const upperPitch = roofRise * 0.6;
+      ctx.setLineDash([]);
+    } else if (config.doorType === 'double') {
+      // Center divider
+      ctx.strokeStyle = '#047857';
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(offsetX - overhang, offsetY);
-      ctx.lineTo(offsetX + roofRun * 0.3, offsetY - lowerPitch);
-      ctx.lineTo(offsetX + width * scale / 2, offsetY - roofRise);
-      ctx.lineTo(offsetX + width * scale - roofRun * 0.3, offsetY - lowerPitch);
-      ctx.lineTo(offsetX + width * scale + overhang, offsetY);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      break;
-      
-    case 'quaker':
-      // Gable with overhang on front
-      const quakerOverhang = 30;
-      ctx.beginPath();
-      ctx.moveTo(offsetX - overhang, offsetY);
-      ctx.lineTo(offsetX + width * scale / 2, offsetY - roofRise);
-      ctx.lineTo(offsetX + width * scale + overhang, offsetY);
-      ctx.closePath();
-      ctx.fill();
+      ctx.moveTo(doorX + doorWidthScaled / 2, baseY - doorThickness / 2);
+      ctx.lineTo(doorX + doorWidthScaled / 2, baseY + doorThickness / 2);
       ctx.stroke();
       
-      // Front overhang
-      ctx.fillStyle = '#64748b';
+      // Swing arcs
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
       ctx.beginPath();
-      ctx.moveTo(offsetX, offsetY);
-      ctx.lineTo(offsetX, offsetY - quakerOverhang);
-      ctx.lineTo(offsetX + width * scale, offsetY - quakerOverhang);
-      ctx.lineTo(offsetX + width * scale, offsetY);
+      ctx.arc(doorX, baseY, doorWidthScaled / 2, -Math.PI / 2, 0);
       ctx.stroke();
-      break;
+      ctx.beginPath();
+      ctx.arc(doorX + doorWidthScaled, baseY, doorWidthScaled / 2, Math.PI, -Math.PI / 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (config.doorType === 'sliding-barn') {
+      // Track indication
+      ctx.strokeStyle = '#047857';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(doorX - 15, baseY - 20);
+      ctx.lineTo(doorX + doorWidthScaled + 15, baseY - 20);
+      ctx.stroke();
+      ctx.setLineDash([]);
       
-    case 'lean-to':
-      ctx.beginPath();
-      ctx.moveTo(offsetX - overhang, offsetY);
-      ctx.lineTo(offsetX + width * scale + overhang, offsetY - roofRise * 0.7);
-      ctx.lineTo(offsetX + width * scale + overhang, offsetY);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      break;
-      
-    case 'saltbox':
-      // Asymmetric roof
-      ctx.beginPath();
-      ctx.moveTo(offsetX - overhang, offsetY);
-      ctx.lineTo(offsetX + width * scale * 0.4, offsetY - roofRise);
-      ctx.lineTo(offsetX + width * scale + overhang, offsetY);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      break;
-  }
+      // Rollers
+      if (view3D) {
+        ctx.fillStyle = '#065f46';
+        ctx.fillRect(doorX + 10, baseY - 22, 6, 4);
+        ctx.fillRect(doorX + doorWidthScaled - 16, baseY - 22, 6, 4);
+      }
+    }
+    
+    // Door label
+    ctx.fillStyle = '#059669';
+    ctx.font = 'bold 11px system-ui';
+    ctx.textAlign = 'center';
+    const doorLabel = config.doorType === 'sliding-barn' ? 'Barn Door' : config.doorType === 'double' ? 'Double Door' : 'Entry Door';
+    ctx.fillText(doorLabel, doorX + doorWidthScaled / 2, baseY - 25);
 
-  // Draw door
-  ctx.fillStyle = '#d1fae5';
-  ctx.strokeStyle = '#059669';
-  ctx.lineWidth = 2;
-  
-  const doorWidthScaled = doorWidth * scale;
-  const doorHeightScaled = doorHeight * scale;
-  const doorX = offsetX + (width * scale - doorWidthScaled) / 2;
-  const doorY = offsetY + wallHeightScaled - doorHeightScaled;
-  
-  ctx.fillRect(doorX, doorY, doorWidthScaled, doorHeightScaled);
-  ctx.strokeRect(doorX, doorY, doorWidthScaled, doorHeightScaled);
-  
-  // Door details
-  if (doorType === 'double') {
-    ctx.beginPath();
-    ctx.moveTo(doorX + doorWidthScaled / 2, doorY);
-    ctx.lineTo(doorX + doorWidthScaled / 2, doorY + doorHeightScaled);
-    ctx.stroke();
-  }
-  
-  // Door panels
-  ctx.strokeStyle = '#10b981';
-  ctx.lineWidth = 1;
-  for (let i = 1; i < 3; i++) {
-    const panelY = doorY + (doorHeightScaled / 3) * i;
-    ctx.beginPath();
-    ctx.moveTo(doorX, panelY);
-    ctx.lineTo(doorX + doorWidthScaled, panelY);
-    ctx.stroke();
-  }
-
-  // Draw windows
-  ctx.fillStyle = '#e0f2fe';
-  ctx.strokeStyle = '#06b6d4';
-  ctx.lineWidth = 2;
-  
-  windows.forEach((window) => {
-    if (window.position === 'front') {
+    // Draw windows
+    config.windows.forEach((window, index) => {
       const windowWidth = window.width * scale;
       const windowHeight = window.height * scale;
-      const windowX = offsetX + (window.offsetFromLeft || width * 0.25) * scale;
-      const windowY = offsetY + (window.offsetFromFloor || wallHeight * 0.4) * scale;
       
-      ctx.fillRect(windowX, windowY, windowWidth, windowHeight);
-      ctx.strokeRect(windowX, windowY, windowWidth, windowHeight);
+      let windowX = 0;
+      let windowY = 0;
       
-      // Window panes
-      ctx.strokeStyle = '#22d3ee';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(windowX + windowWidth / 2, windowY);
-      ctx.lineTo(windowX + windowWidth / 2, windowY + windowHeight);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(windowX, windowY + windowHeight / 2);
-      ctx.lineTo(windowX + windowWidth, windowY + windowHeight / 2);
-      ctx.stroke();
+      const windowGradient = ctx.createLinearGradient(0, 0, 10, 10);
+      windowGradient.addColorStop(0, '#e0f2fe');
+      windowGradient.addColorStop(0.5, '#bae6fd');
+      windowGradient.addColorStop(1, '#e0f2fe');
       
-      // Shutters
-      if (config.hasShutters) {
-        ctx.fillStyle = '#334155';
-        ctx.fillRect(windowX - 8, windowY, 6, windowHeight);
-        ctx.fillRect(windowX + windowWidth + 2, windowY, 6, windowHeight);
+      ctx.fillStyle = view3D ? windowGradient : '#06b6d4';
+      ctx.strokeStyle = '#0891b2';
+      ctx.lineWidth = 2;
+      
+      switch (window.position) {
+        case 'left':
+          windowX = baseX - 4;
+          windowY = baseY + (window.offsetFromLeft || config.length / 2) * scale;
+          ctx.fillRect(windowX, windowY, 8, windowHeight);
+          ctx.strokeRect(windowX, windowY, 8, windowHeight);
+          
+          // Window frame
+          if (view3D) {
+            ctx.strokeStyle = '#0e7490';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(windowX + 4, windowY);
+            ctx.lineTo(windowX + 4, windowY + windowHeight);
+            ctx.stroke();
+          }
+          break;
+        case 'right':
+          windowX = baseX + scaledWidth - 4;
+          windowY = baseY + (window.offsetFromLeft || config.length / 2) * scale;
+          ctx.fillRect(windowX, windowY, 8, windowHeight);
+          ctx.strokeRect(windowX, windowY, 8, windowHeight);
+          break;
+        case 'back':
+          windowX = baseX + (window.offsetFromLeft || config.width / 2) * scale;
+          windowY = baseY + scaledLength - 4;
+          ctx.fillRect(windowX, windowY, windowWidth, 8);
+          ctx.strokeRect(windowX, windowY, windowWidth, 8);
+          break;
       }
+    });
+
+    // Loft indication
+    if (config.hasLoft) {
+      ctx.setLineDash([10, 10]);
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2;
+      const loftDepth = config.length * 0.4;
+      ctx.strokeRect(baseX + 15, baseY + 15, scaledWidth - 30, loftDepth * scale);
+      ctx.setLineDash([]);
       
-      // Flower box
-      if (config.hasFlowerBox) {
-        ctx.fillStyle = '#8b5cf6';
-        ctx.fillRect(windowX - 4, windowY + windowHeight, windowWidth + 8, 8);
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 11px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('Storage Loft', baseX + scaledWidth / 2, baseY + 40);
+    }
+
+    // Dimensions
+    ctx.strokeStyle = '#64748b';
+    ctx.fillStyle = '#64748b';
+    ctx.lineWidth = 1;
+    ctx.font = 'bold 12px sans-serif';
+
+    // Width dimension
+    drawDimensionLine(ctx, baseX, baseY + scaledLength + 30, baseX + scaledWidth, baseY + scaledLength + 30, `${config.width}'`, 'horizontal');
+    
+    // Length dimension
+    drawDimensionLine(ctx, baseX + scaledWidth + 30, baseY, baseX + scaledWidth + 30, baseY + scaledLength, `${config.length}'`, 'vertical');
+
+    // Compass rose
+    drawCompassRose(ctx, baseX + scaledWidth + 60, baseY + 30);
+
+    // Title
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 16px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText('Top View (Floor Plan)', padding, padding - 20);
+    
+    ctx.font = '12px system-ui';
+    ctx.fillStyle = '#64748b';
+    ctx.fillText(`${config.width}' × ${config.length}' ${config.style.replace('-', ' ')} Shed`, padding, padding - 5);
+  };
+
+  const drawFrontElevation = () => {
+    const canvas = frontViewRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = 40;
+
+    const scale = Math.min((width - 2 * padding) / config.width, (height - 2 * padding) / (config.wallHeight + 15));
+
+    const centerX = width / 2;
+    const baseY = height - padding - 10;
+    const scaledWidth = config.width * scale;
+    const wallHeightScaled = config.wallHeight * scale;
+    const rise = config.roofPitch; // e.g., 4, 6, 8, 10, 12
+    const run = 12; // always 12 for roofPitch
+    const roofRise = ((config.length / 2) * (rise / run)) * scale;
+    const overhang = 15;
+
+    // Foundation/floor
+    const foundationHeight = 8;
+    ctx.fillStyle = '#78716c';
+    ctx.strokeStyle = '#57534e';
+    ctx.lineWidth = 2;
+    ctx.fillRect(centerX - scaledWidth / 2 - 5, baseY, scaledWidth + 10, foundationHeight);
+    ctx.strokeRect(centerX - scaledWidth / 2 - 5, baseY, scaledWidth + 10, foundationHeight);
+
+    // Draw walls with siding texture
+    const wallGradient = ctx.createLinearGradient(0, baseY - wallHeightScaled, 0, baseY);
+    wallGradient.addColorStop(0, '#fef3c7');
+    wallGradient.addColorStop(0.5, '#fde68a');
+    wallGradient.addColorStop(1, '#fef3c7');
+    
+    ctx.fillStyle = view3D ? wallGradient : '#fef3c7';
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 3;
+    ctx.fillRect(centerX - scaledWidth / 2, baseY - wallHeightScaled, scaledWidth, wallHeightScaled);
+    ctx.strokeRect(centerX - scaledWidth / 2, baseY - wallHeightScaled, scaledWidth, wallHeightScaled);
+
+    // Board and batten siding
+    if (view3D) {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.lineWidth = 2;
+      const battenSpacing = scale * 2;
+      for (let x = centerX - scaledWidth / 2; x < centerX + scaledWidth / 2; x += battenSpacing) {
+        ctx.beginPath();
+        ctx.moveTo(x, baseY - wallHeightScaled);
+        ctx.lineTo(x, baseY);
+        ctx.stroke();
       }
     }
-  });
 
-  // Trim details
-  ctx.strokeStyle = '#1e293b';
-  ctx.lineWidth = 2;
-  
-  // Corner trim
-  ctx.beginPath();
-  ctx.moveTo(offsetX, offsetY);
-  ctx.lineTo(offsetX, offsetY + wallHeightScaled);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(offsetX + width * scale, offsetY);
-  ctx.lineTo(offsetX + width * scale, offsetY + wallHeightScaled);
-  ctx.stroke();
+    // Draw roof based on style
+    ctx.fillStyle = view3D ? createRoofGradient(ctx, centerX, baseY - wallHeightScaled - roofRise, roofRise) : '#92400e';
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 3;
 
-  // Wall height dimension
-  ctx.strokeStyle = '#64748b';
-  ctx.fillStyle = '#475569';
-  ctx.lineWidth = 1;
-  ctx.font = '11px system-ui';
-  
-  const dimX = offsetX + width * scale + 25;
-  ctx.beginPath();
-  ctx.moveTo(dimX, offsetY + wallHeightScaled);
-  ctx.lineTo(dimX, offsetY);
-  ctx.stroke();
-  
-  drawArrow(ctx, dimX, offsetY + wallHeightScaled, dimX, offsetY + wallHeightScaled - 10);
-  drawArrow(ctx, dimX, offsetY, dimX, offsetY + 10);
-  
-  ctx.save();
-  ctx.translate(dimX + 15, offsetY + wallHeightScaled / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText(`${wallHeight}' Wall`, -20, 0);
-  ctx.restore();
-}
+    switch (config.style) {
+      case 'gable':
+        ctx.beginPath();
+        ctx.moveTo(centerX - scaledWidth / 2 - overhang, baseY - wallHeightScaled);
+        ctx.lineTo(centerX, baseY - wallHeightScaled - roofRise);
+        ctx.lineTo(centerX + scaledWidth / 2 + overhang, baseY - wallHeightScaled);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Shingle texture
+        if (view3D) {
+          drawShingleTexture(ctx, centerX - scaledWidth / 2 - overhang, baseY - wallHeightScaled, scaledWidth / 2 + overhang, roofRise, 'left');
+          drawShingleTexture(ctx, centerX, baseY - wallHeightScaled, scaledWidth / 2 + overhang, roofRise, 'right');
+        }
+        
+        // Gable vent
+        if (view3D) {
+          const ventSize = 18;
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 1;
+          ctx.fillRect(centerX - ventSize / 2, baseY - wallHeightScaled - roofRise / 2 - ventSize / 2, ventSize, ventSize);
+          ctx.strokeRect(centerX - ventSize / 2, baseY - wallHeightScaled - roofRise / 2 - ventSize / 2, ventSize, ventSize);
+          
+          // Vent louvers
+          ctx.beginPath();
+          for (let i = 0; i < 5; i++) {
+            const louverY = baseY - wallHeightScaled - roofRise / 2 - ventSize / 2 + (i * 4) + 2;
+            ctx.moveTo(centerX - ventSize / 2 + 2, louverY);
+            ctx.lineTo(centerX + ventSize / 2 - 2, louverY);
+          }
+          ctx.stroke();
+        }
+        break;
 
-function drawArrow(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  toX: number,
-  toY: number
-) {
-  const headlen = 6;
-  const angle = Math.atan2(toY - y, toX - x);
-  
-  ctx.beginPath();
-  ctx.moveTo(toX, toY);
-  ctx.lineTo(
-    toX - headlen * Math.cos(angle - Math.PI / 6),
-    toY - headlen * Math.sin(angle - Math.PI / 6)
+      case 'barn':
+        // Gambrel roof
+        const lowerPitch = roofRise * 0.45;
+        const upperPitch = roofRise * 0.65;
+        const breakPoint = scaledWidth * 0.28;
+        ctx.beginPath();
+        ctx.moveTo(centerX - scaledWidth / 2 - overhang, baseY - wallHeightScaled);
+        ctx.lineTo(centerX - breakPoint, baseY - wallHeightScaled - lowerPitch);
+        ctx.lineTo(centerX, baseY - wallHeightScaled - roofRise);
+        ctx.lineTo(centerX + breakPoint, baseY - wallHeightScaled - lowerPitch);
+        ctx.lineTo(centerX + scaledWidth / 2 + overhang, baseY - wallHeightScaled);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        break;
+
+      case 'quaker':
+        // Gable with front overhang
+        ctx.beginPath();
+        ctx.moveTo(centerX - scaledWidth / 2 - overhang, baseY - wallHeightScaled);
+        ctx.lineTo(centerX, baseY - wallHeightScaled - roofRise);
+        ctx.lineTo(centerX + scaledWidth / 2 + overhang, baseY - wallHeightScaled);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        // Front overhang section
+        if (view3D) {
+          const quakerOverhang = 35;
+          ctx.fillStyle = '#78350f';
+          ctx.beginPath();
+          ctx.moveTo(centerX - scaledWidth / 4, baseY - wallHeightScaled);
+          ctx.lineTo(centerX - scaledWidth / 4, baseY - wallHeightScaled - quakerOverhang);
+          ctx.lineTo(centerX + scaledWidth / 4, baseY - wallHeightScaled - quakerOverhang);
+          ctx.lineTo(centerX + scaledWidth / 4, baseY - wallHeightScaled);
+          ctx.fill();
+          ctx.stroke();
+        }
+        break;
+
+      case 'lean-to':
+        ctx.beginPath();
+        ctx.moveTo(centerX - scaledWidth / 2 - overhang, baseY - wallHeightScaled);
+        ctx.lineTo(centerX + scaledWidth / 2 + overhang, baseY - wallHeightScaled - roofRise * 0.75);
+        ctx.lineTo(centerX + scaledWidth / 2 + overhang, baseY - wallHeightScaled);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        break;
+
+      case 'saltbox':
+        // Asymmetric roof
+        ctx.beginPath();
+        ctx.moveTo(centerX - scaledWidth / 2 - overhang, baseY - wallHeightScaled);
+        ctx.lineTo(centerX - scaledWidth * 0.1, baseY - wallHeightScaled - roofRise);
+        ctx.lineTo(centerX + scaledWidth / 2 + overhang, baseY - wallHeightScaled);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        break;
+    }
+
+    // Draw door
+    const doorWidthScaled = config.doorWidth * scale;
+    const doorHeightScaled = config.doorHeight * scale;
+    const doorX = centerX - doorWidthScaled / 2;
+    const doorY = baseY - doorHeightScaled;
+    
+    // Door gradient
+    const doorGradient = ctx.createLinearGradient(doorX, doorY, doorX, doorY + doorHeightScaled);
+    doorGradient.addColorStop(0, '#d1fae5');
+    doorGradient.addColorStop(0.5, '#a7f3d0');
+    doorGradient.addColorStop(1, '#d1fae5');
+    
+    ctx.fillStyle = view3D ? doorGradient : '#d1fae5';
+    ctx.strokeStyle = '#059669';
+    ctx.lineWidth = 2;
+    
+    ctx.fillRect(doorX, doorY, doorWidthScaled, doorHeightScaled);
+    ctx.strokeRect(doorX, doorY, doorWidthScaled, doorHeightScaled);
+    
+    // Door details
+    if (view3D) {
+      // Door panels
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.5;
+      
+      if (config.doorType === 'double') {
+        // Center divider
+        ctx.beginPath();
+        ctx.moveTo(doorX + doorWidthScaled / 2, doorY);
+        ctx.lineTo(doorX + doorWidthScaled / 2, doorY + doorHeightScaled);
+        ctx.stroke();
+      }
+      
+      // Horizontal panels
+      const panelCount = config.doorType === 'sliding-barn' ? 4 : 3;
+      for (let i = 1; i < panelCount; i++) {
+        const panelY = doorY + (doorHeightScaled / panelCount) * i;
+        ctx.beginPath();
+        ctx.moveTo(doorX + 5, panelY);
+        ctx.lineTo(doorX + doorWidthScaled - 5, panelY);
+        ctx.stroke();
+      }
+      
+      // Door hardware
+      ctx.fillStyle = '#065f46';
+      if (config.doorType === 'sliding-barn') {
+        // X pattern for barn door
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(doorX + 10, doorY + 10);
+        ctx.lineTo(doorX + doorWidthScaled - 10, doorY + doorHeightScaled - 10);
+        ctx.moveTo(doorX + doorWidthScaled - 10, doorY + 10);
+        ctx.lineTo(doorX + 10, doorY + doorHeightScaled - 10);
+        ctx.stroke();
+      } else {
+        // Handle
+        ctx.fillRect(doorX + doorWidthScaled - 15, doorY + doorHeightScaled / 2 - 5, 8, 10);
+      }
+    }
+
+    // Draw windows on front
+    config.windows.forEach((window) => {
+      if (window.position === 'front') {
+        const windowWidth = window.width * scale;
+        const windowHeight = window.height * scale;
+        const windowX = centerX - scaledWidth / 2 + (window.offsetFromLeft || config.width * 0.25) * scale;
+        const windowY = baseY - wallHeightScaled + (window.offsetFromFloor || config.wallHeight * 0.4) * scale;
+        
+        // Window with gradient
+        const windowGradient = ctx.createLinearGradient(windowX, windowY, windowX, windowY + windowHeight);
+        windowGradient.addColorStop(0, '#e0f2fe');
+        windowGradient.addColorStop(0.5, '#bae6fd');
+        windowGradient.addColorStop(1, '#dbeafe');
+        
+        ctx.fillStyle = view3D ? windowGradient : '#e0f2fe';
+        ctx.strokeStyle = '#0891b2';
+        ctx.lineWidth = 2;
+        
+        ctx.fillRect(windowX, windowY, windowWidth, windowHeight);
+        ctx.strokeRect(windowX, windowY, windowWidth, windowHeight);
+        
+        // Window panes
+        if (view3D) {
+          ctx.strokeStyle = '#0e7490';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(windowX + windowWidth / 2, windowY);
+          ctx.lineTo(windowX + windowWidth / 2, windowY + windowHeight);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(windowX, windowY + windowHeight / 2);
+          ctx.lineTo(windowX + windowWidth, windowY + windowHeight / 2);
+          ctx.stroke();
+        }
+        
+        // Shutters
+        if (config.hasShutters) {
+          ctx.fillStyle = '#334155';
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 1;
+          ctx.fillRect(windowX - 10, windowY, 8, windowHeight);
+          ctx.strokeRect(windowX - 10, windowY, 8, windowHeight);
+          ctx.fillRect(windowX + windowWidth + 2, windowY, 8, windowHeight);
+          ctx.strokeRect(windowX + windowWidth + 2, windowY, 8, windowHeight);
+          
+          // Shutter slats
+          ctx.strokeStyle = '#475569';
+          ctx.lineWidth = 0.5;
+          for (let s = 0; s < 6; s++) {
+            const slotY = windowY + (s * windowHeight / 6) + windowHeight / 12;
+            ctx.beginPath();
+            ctx.moveTo(windowX - 10, slotY);
+            ctx.lineTo(windowX - 2, slotY);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(windowX + windowWidth + 2, slotY);
+            ctx.lineTo(windowX + windowWidth + 10, slotY);
+            ctx.stroke();
+          }
+        }
+        
+        // Flower box
+        if (config.hasFlowerBox) {
+          ctx.fillStyle = '#78350f';
+          ctx.strokeStyle = '#451a03';
+          ctx.lineWidth = 1;
+          ctx.fillRect(windowX - 6, windowY + windowHeight, windowWidth + 12, 10);
+          ctx.strokeRect(windowX - 6, windowY + windowHeight, windowWidth + 12, 10);
+          
+          // Flowers
+          if (view3D) {
+            ctx.fillStyle = '#ec4899';
+            for (let f = 0; f < 5; f++) {
+              const flowerX = windowX - 4 + (f * (windowWidth + 8) / 4);
+              ctx.beginPath();
+              ctx.arc(flowerX, windowY + windowHeight + 4, 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+      }
+    });
+
+    // Corner trim
+    if (view3D) {
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(centerX - scaledWidth / 2, baseY - wallHeightScaled);
+      ctx.lineTo(centerX - scaledWidth / 2, baseY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(centerX + scaledWidth / 2, baseY - wallHeightScaled);
+      ctx.lineTo(centerX + scaledWidth / 2, baseY);
+      ctx.stroke();
+    }
+
+    // Dimensions
+    drawDimensionLine(ctx, centerX - scaledWidth / 2, baseY + 30, centerX + scaledWidth / 2, baseY + 30, `${config.width}'`, 'horizontal');
+    drawDimensionLine(ctx, centerX + scaledWidth / 2 + 30, baseY, centerX + scaledWidth / 2 + 30, baseY - wallHeightScaled, `${config.wallHeight}' Wall`, 'vertical');
+
+    // Title
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 16px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText('Front Elevation', padding, 25);
+  };
+
+  const drawSideElevation = () => {
+    const canvas = sideViewRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = 40;
+
+    const scale = Math.min((width - 2 * padding) / config.length, (height - 2 * padding) / (config.wallHeight + 15));
+
+    const centerX = width / 2;
+    const baseY = height - padding - 10;
+    const scaledLength = config.length * scale;
+    const wallHeightScaled = config.wallHeight * scale;
+    const rise = config.roofPitch; // e.g., 4, 6, 8, 10, 12
+    const run = 12; // always 12 for roofPitch
+    const roofRise = ((config.length / 2) * (rise / run)) * scale;
+    const overhang = 15;
+
+    // Foundation
+    ctx.fillStyle = '#78716c';
+    ctx.strokeStyle = '#57534e';
+    ctx.lineWidth = 2;
+    ctx.fillRect(centerX - scaledLength / 2 - 5, baseY, scaledLength + 10, 8);
+    ctx.strokeRect(centerX - scaledLength / 2 - 5, baseY, scaledLength + 10, 8);
+
+    // Wall
+    const wallGradient = ctx.createLinearGradient(0, baseY - wallHeightScaled, 0, baseY);
+    wallGradient.addColorStop(0, '#fef3c7');
+    wallGradient.addColorStop(0.5, '#fde68a');
+    wallGradient.addColorStop(1, '#fef3c7');
+    
+    ctx.fillStyle = view3D ? wallGradient : '#fef3c7';
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 3;
+    ctx.fillRect(centerX - scaledLength / 2, baseY - wallHeightScaled, scaledLength, wallHeightScaled);
+    ctx.strokeRect(centerX - scaledLength / 2, baseY - wallHeightScaled, scaledLength, wallHeightScaled);
+
+    // Board and batten siding
+    if (view3D) {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.lineWidth = 2;
+      const battenSpacing = scale * 2;
+      for (let x = centerX - scaledLength / 2; x < centerX + scaledLength / 2; x += battenSpacing) {
+        ctx.beginPath();
+        ctx.moveTo(x, baseY - wallHeightScaled);
+        ctx.lineTo(x, baseY);
+        ctx.stroke();
+      }
+    }
+
+    // Roof side view
+    ctx.fillStyle = view3D ? '#92400e' : '#78350f';
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 3;
+
+    if (config.style === 'gable' || config.style === 'barn' || config.style === 'quaker' || config.style === 'saltbox') {
+      // Sloped roof visible from side
+      ctx.beginPath();
+      ctx.moveTo(centerX - scaledLength / 2 - overhang, baseY - wallHeightScaled);
+      ctx.lineTo(centerX - scaledLength / 2 - overhang, baseY - wallHeightScaled - roofRise * 0.6);
+      ctx.lineTo(centerX + scaledLength / 2 + overhang, baseY - wallHeightScaled - roofRise * 0.6);
+      ctx.lineTo(centerX + scaledLength / 2 + overhang, baseY - wallHeightScaled);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      
+      // Roof edge detail
+      if (view3D) {
+        ctx.fillStyle = '#451a03';
+        ctx.fillRect(centerX - scaledLength / 2 - overhang, baseY - wallHeightScaled - roofRise * 0.6, scaledLength + overhang * 2, 5);
+      }
+    } else if (config.style === 'lean-to') {
+      ctx.beginPath();
+      ctx.moveTo(centerX - scaledLength / 2 - overhang, baseY - wallHeightScaled);
+      ctx.lineTo(centerX + scaledLength / 2 + overhang, baseY - wallHeightScaled - roofRise * 0.75);
+      ctx.lineTo(centerX + scaledLength / 2 + overhang, baseY - wallHeightScaled);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Side windows
+    config.windows.forEach((window) => {
+      if (window.position === 'left' || window.position === 'right') {
+        const windowHeight = window.height * scale;
+        const windowY = baseY - wallHeightScaled + (window.offsetFromFloor || config.wallHeight * 0.4) * scale;
+        const windowX = centerX - scaledLength / 2 + (window.offsetFromLeft || config.length / 2) * scale;
+        
+        ctx.fillStyle = '#bae6fd';
+        ctx.strokeStyle = '#0891b2';
+        ctx.lineWidth = 2;
+        
+        ctx.fillRect(windowX - 15, windowY, 30, windowHeight);
+        ctx.strokeRect(windowX - 15, windowY, 30, windowHeight);
+      }
+    });
+
+    // Dimensions
+    drawDimensionLine(ctx, centerX - scaledLength / 2, baseY + 30, centerX + scaledLength / 2, baseY + 30, `${config.length}'`, 'horizontal');
+
+    // Title
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 16px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText('Side Elevation', padding, 25);
+  };
+
+  // Helper functions
+  const createRoofGradient = (ctx: CanvasRenderingContext2D, x: number, y: number, height: number) => {
+    const gradient = ctx.createLinearGradient(x, y, x, y + height);
+    gradient.addColorStop(0, '#92400e');
+    gradient.addColorStop(0.5, '#78350f');
+    gradient.addColorStop(1, '#451a03');
+    return gradient;
+  };
+
+  const drawShingleTexture = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, side: 'left' | 'right') => {
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.lineWidth = 1;
+    
+    const courseSpacing = 8;
+    for (let i = 0; i < h; i += courseSpacing) {
+      ctx.beginPath();
+      if (side === 'left') {
+        ctx.moveTo(x, y - i);
+        ctx.lineTo(x + (w * (h - i) / h), y);
+      } else {
+        ctx.moveTo(x, y - i);
+        ctx.lineTo(x + (w * i / h), y);
+      }
+      ctx.stroke();
+    }
+  };
+
+  const drawDimensionLine = (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, text: string, orientation: 'horizontal' | 'vertical') => {
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    
+    const capSize = 5;
+    if (orientation === 'horizontal') {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1 - capSize);
+      ctx.lineTo(x1, y1 + capSize);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x2, y2 - capSize);
+      ctx.lineTo(x2, y2 + capSize);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(x1 - capSize, y1);
+      ctx.lineTo(x1 + capSize, y1);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x2 - capSize, y2);
+      ctx.lineTo(x2 + capSize, y2);
+      ctx.stroke();
+    }
+    
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    if (orientation === 'horizontal') {
+      ctx.fillText(text, (x1 + x2) / 2, y1 - 8);
+    } else {
+      ctx.save();
+      ctx.translate(x1 + 15, (y1 + y2) / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    }
+  };
+
+  const drawCompassRose = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
+    const size = 20;
+    
+    ctx.strokeStyle = '#64748b';
+    ctx.fillStyle = '#64748b';
+    ctx.lineWidth = 1.5;
+    
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.moveTo(x, y - size);
+    ctx.lineTo(x - 4, y - size + 10);
+    ctx.lineTo(x + 4, y - size + 10);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('N', x, y - size - 10);
+    ctx.fillText('S', x, y + size + 10);
+    ctx.fillText('E', x + size + 10, y);
+    ctx.fillText('W', x - size - 10, y);
+  };
+
+  return (
+    <div className="space-y-6 print:space-y-2 print:break-before-page">
+      {/* Main Top View */}
+      <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border-2 border-purple-300 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+        <div className="flex items-center justify-between mb-4 print:mb-1">
+          <h3 className="font-semibold text-slate-900 print:text-base">Top View (Floor Plan)</h3>
+          <button
+            onClick={() => setView3D(!view3D)}
+            className="text-sm px-3 py-1 bg-amber-600 text-white rounded hover:bg-amber-700 print:hidden"
+          >
+            {view3D ? '3D View' : '2D View'}
+          </button>
+        </div>
+        <canvas
+          ref={topViewRef}
+          width={500}
+          height={350}
+          className="w-full bg-white rounded border border-amber-300 shadow-inner print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top"
+        />
+      </div>
+
+      {/* Elevation Views */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:gap-2 print:grid-cols-2 print:break-inside-avoid">
+        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border-2 border-green-300 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+          <h3 className="font-semibold text-slate-900 mb-3 print:mb-1 print:text-base">Front Elevation</h3>
+          <canvas
+            ref={frontViewRef}
+            width={350}
+            height={250}
+            className="w-full bg-white rounded border border-green-300 shadow-inner print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top"
+          />
+        </div>
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border-2 border-blue-300 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+          <h3 className="font-semibold text-slate-900 mb-3 print:mb-1 print:text-base">Side Elevation</h3>
+          <canvas
+            ref={sideViewRef}
+            width={350}
+            height={250}
+            className="w-full bg-white rounded border border-blue-300 shadow-inner print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top"
+          />
+        </div>
+      </div>
+
+      {/* Specifications Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 print:hidden">
+        <div className="p-3 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg border border-amber-200">
+          <div className="text-xs text-amber-700 font-medium">Shed Size</div>
+          <div className="text-sm font-bold text-amber-900 mt-1">{config.width}' × {config.length}'</div>
+        </div>
+        <div className="p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
+          <div className="text-xs text-green-700 font-medium">Wall Height</div>
+          <div className="text-sm font-bold text-green-900 mt-1">{config.wallHeight}' tall</div>
+        </div>
+        <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+          <div className="text-xs text-blue-700 font-medium">Style</div>
+          <div className="text-sm font-bold text-blue-900 mt-1 capitalize">{config.style.replace('-', ' ')}</div>
+        </div>
+        <div className="p-3 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
+          <div className="text-xs text-purple-700 font-medium">Door Type</div>
+          <div className="text-sm font-bold text-purple-900 mt-1 capitalize">{config.doorType.replace('-', ' ')}</div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:hidden">
+        <h4 className="text-sm font-semibold text-slate-900 mb-3">Drawing Legend</h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-3 bg-green-400 rounded"></div>
+            <span className="text-slate-700">Door</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-3 bg-cyan-400 rounded"></div>
+            <span className="text-slate-700">Window</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-3 bg-stone-700 rounded"></div>
+            <span className="text-slate-700">Shutters</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-1 bg-slate-600"></div>
+            <span className="text-slate-700">Dimension Lines</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
-  ctx.moveTo(toX, toY);
-  ctx.lineTo(
-    toX - headlen * Math.cos(angle + Math.PI / 6),
-    toY - headlen * Math.sin(angle + Math.PI / 6)
-  );
-  ctx.stroke();
 }

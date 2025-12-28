@@ -338,13 +338,173 @@ export const tenantsAPI = {
     return { tenant: org };
   },
   delete: async (id: string) => {
-    const { error } = await supabase
-      .from('organizations')
-      .delete()
-      .eq('id', id);
+    // Comprehensive deletion - delete all related data first, then organization
+    console.log(`[tenantsAPI] 🗑️ Starting comprehensive deletion of organization: ${id}`);
     
-    if (error) throw error;
-    return { success: true };
+    try {
+      // Delete in order: dependent records first, then organization
+      
+      // 1. Delete bids
+      console.log('[tenantsAPI] 1/13 Deleting bids...');
+      const { data: bidsData, error: bidsError } = await supabase
+        .from('bids')
+        .delete()
+        .eq('organization_id', id)
+        .select();
+      console.log(`[tenantsAPI] Deleted ${bidsData?.length || 0} bids`);
+      if (bidsError) console.error('[tenantsAPI] Error deleting bids:', bidsError);
+      
+      // 2. Delete opportunities
+      console.log('[tenantsAPI] 2/13 Deleting opportunities...');
+      const { data: oppData, error: opportunitiesError } = await supabase
+        .from('opportunities')
+        .delete()
+        .eq('organization_id', id)
+        .select();
+      console.log(`[tenantsAPI] Deleted ${oppData?.length || 0} opportunities`);
+      if (opportunitiesError) console.error('[tenantsAPI] Error deleting opportunities:', opportunitiesError);
+      
+      // 3. Delete project managers
+      console.log('[tenantsAPI] 3/13 Deleting project managers...');
+      const { data: pmData, error: projectManagersError } = await supabase
+        .from('project_managers')
+        .delete()
+        .eq('organization_id', id)
+        .select();
+      console.log(`[tenantsAPI] Deleted ${pmData?.length || 0} project managers`);
+      if (projectManagersError) console.error('[tenantsAPI] Error deleting project managers:', projectManagersError);
+      
+      // 4. Delete contacts
+      console.log('[tenantsAPI] 4/13 Deleting contacts...');
+      const { data: contactsData, error: contactsError } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('organization_id', id)
+        .select();
+      console.log(`[tenantsAPI] Deleted ${contactsData?.length || 0} contacts`);
+      if (contactsError) console.error('[tenantsAPI] Error deleting contacts:', contactsError);
+      
+      // 5. Delete appointments
+      console.log('[tenantsAPI] 5/13 Deleting appointments...');
+      const { data: apptData, error: appointmentsError } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('organization_id', id)
+        .select();
+      console.log(`[tenantsAPI] Deleted ${apptData?.length || 0} appointments`);
+      if (appointmentsError) console.error('[tenantsAPI] Error deleting appointments:', appointmentsError);
+      
+      // 6. Delete notes
+      console.log('[tenantsAPI] 6/13 Deleting notes...');
+      const { data: notesData, error: notesError } = await supabase
+        .from('notes')
+        .delete()
+        .eq('organization_id', id)
+        .select();
+      console.log(`[tenantsAPI] Deleted ${notesData?.length || 0} notes`);
+      if (notesError) console.error('[tenantsAPI] Error deleting notes:', notesError);
+      
+      // 7. Delete tasks
+      console.log('[tenantsAPI] 7/13 Deleting tasks...');
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('organization_id', id)
+        .select();
+      console.log(`[tenantsAPI] Deleted ${tasksData?.length || 0} tasks`);
+      if (tasksError) console.error('[tenantsAPI] Error deleting tasks:', tasksError);
+      
+      // 8. Delete quotes
+      console.log('[tenantsAPI] 8/13 Deleting quotes...');
+      const { data: quotesData, error: quotesError } = await supabase
+        .from('quotes')
+        .delete()
+        .eq('organization_id', id)
+        .select();
+      console.log(`[tenantsAPI] Deleted ${quotesData?.length || 0} quotes`);
+      if (quotesError) console.error('[tenantsAPI] Error deleting quotes:', quotesError);
+      
+      // 9. Delete documents
+      console.log('[tenantsAPI] 9/13 Deleting documents...');
+      const { data: docsData, error: documentsError } = await supabase
+        .from('documents')
+        .delete()
+        .eq('organization_id', id)
+        .select();
+      console.log(`[tenantsAPI] Deleted ${docsData?.length || 0} documents`);
+      if (documentsError) console.error('[tenantsAPI] Error deleting documents:', documentsError);
+      
+      // 10. Delete inventory items
+      console.log('[tenantsAPI] 10/13 Deleting inventory...');
+      const { data: invData, error: inventoryError } = await supabase
+        .from('inventory')
+        .delete()
+        .eq('organization_id', id)
+        .select();
+      console.log(`[tenantsAPI] Deleted ${invData?.length || 0} inventory items`);
+      if (inventoryError) console.error('[tenantsAPI] Error deleting inventory:', inventoryError);
+      
+      // 11. Delete files from storage (documents bucket)
+      console.log('[tenantsAPI] 11/13 Deleting storage files...');
+      const { data: files } = await supabase
+        .storage
+        .from('documents')
+        .list(id);
+      
+      if (files && files.length > 0) {
+        console.log(`[tenantsAPI] Found ${files.length} storage files to delete`);
+        const filePaths = files.map(file => `${id}/${file.name}`);
+        const { error: storageError } = await supabase
+          .storage
+          .from('documents')
+          .remove(filePaths);
+        if (storageError) console.error('[tenantsAPI] Error deleting storage files:', storageError);
+        else console.log(`[tenantsAPI] Deleted ${files.length} storage files`);
+      } else {
+        console.log('[tenantsAPI] No storage files to delete');
+      }
+      
+      // 12. Delete user profiles
+      console.log('[tenantsAPI] 12/13 Deleting user profiles...');
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('organization_id', id)
+        .select();
+      console.log(`[tenantsAPI] Deleted ${profilesData?.length || 0} user profiles`);
+      if (profilesError) console.error('[tenantsAPI] Error deleting profiles:', profilesError);
+      
+      // 13. Finally, delete the organization
+      console.log('[tenantsAPI] 13/13 Deleting organization...');
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizations')
+        .delete()
+        .eq('id', id)
+        .select();
+      
+      if (orgError) {
+        console.error('[tenantsAPI] ❌ Error deleting organization:', orgError);
+        console.error('[tenantsAPI] ❌ Error code:', orgError.code);
+        console.error('[tenantsAPI] ❌ Error message:', orgError.message);
+        console.error('[tenantsAPI] ❌ Error details:', orgError.details);
+        console.error('[tenantsAPI] ❌ Error hint:', orgError.hint);
+        throw orgError;
+      }
+      
+      console.log(`[tenantsAPI] ✅ Deleted organization:`, orgData);
+      console.log(`[tenantsAPI] ✅ Successfully deleted organization and all related data: ${id}`);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[tenantsAPI] ❌ Error during organization deletion:', error);
+      console.error('[tenantsAPI] ❌ Full error object:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        status: error?.status
+      });
+      throw error;
+    }
   },
 };
 
