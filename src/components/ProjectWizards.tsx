@@ -17,65 +17,57 @@ export function ProjectWizards({ user }: ProjectWizardsProps) {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 print:border-b-2 print:border-black">
-        <div className="px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-slate-900">Project Wizards</h1>
-              <p className="text-slate-600 text-sm mt-1">Design & estimate materials for decks, garages, sheds, and roofs</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Module Navigation */}
       <div className="bg-white border-b border-slate-200 print:hidden">
         <div className="px-4 sm:px-6 lg:px-8">
-          <nav className="flex flex-wrap gap-2">
+          <nav className="flex gap-2 overflow-x-auto scrollbar-hide">
             <button
               onClick={() => setActiveModule('deck')}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base whitespace-nowrap ${
                 activeModule === 'deck'
                   ? 'border-purple-600 text-purple-600 bg-purple-50'
                   : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <Home className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="whitespace-nowrap">Deck Planner</span>
+              <span className="hidden sm:inline">Deck Planner</span>
+              <span className="sm:hidden">Deck</span>
             </button>
             <button
               onClick={() => setActiveModule('garage')}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base whitespace-nowrap ${
                 activeModule === 'garage'
                   ? 'border-blue-600 text-blue-600 bg-blue-50'
                   : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <Warehouse className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="whitespace-nowrap">Garage Planner</span>
+              <span className="hidden sm:inline">Garage Planner</span>
+              <span className="sm:hidden">Garage</span>
             </button>
             <button
               onClick={() => setActiveModule('shed')}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base whitespace-nowrap ${
                 activeModule === 'shed'
                   ? 'border-green-600 text-green-600 bg-green-50'
                   : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <Building2 className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="whitespace-nowrap">Shed Planner</span>
+              <span className="hidden sm:inline">Shed Planner</span>
+              <span className="sm:hidden">Shed</span>
             </button>
             <button
               onClick={() => setActiveModule('roof')}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+              className={`flex items-center gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base whitespace-nowrap ${
                 activeModule === 'roof'
                   ? 'border-red-600 text-red-600 bg-red-50'
                   : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <Hammer className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="whitespace-nowrap">Roof Planner</span>
+              <span className="hidden sm:inline">Roof Planner</span>
+              <span className="sm:hidden">Roof</span>
             </button>
           </nav>
         </div>

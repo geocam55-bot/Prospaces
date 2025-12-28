@@ -5578,13 +5578,6 @@
   }
 
   @media print {
-    .print\:border-b-2 {
-      border-bottom-style: var(--tw-border-style);
-      border-bottom-width: 2px;
-    }
-  }
-
-  @media print {
     .print\:border-amber-600 {
       border-color: var(--color-amber-600);
     }
@@ -5859,6 +5852,15 @@
 
 .animate-slide-down {
   animation: .3s ease-out slide-down;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 @property --tw-translate-x {

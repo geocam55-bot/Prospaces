@@ -127,51 +127,45 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
       {/* Sub-navigation */}
       <div className="bg-slate-50 border-b border-slate-200 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex flex-wrap gap-4 sm:gap-8">
-            <button
-              onClick={() => setActiveTab('design')}
-              className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
-                activeTab === 'design'
-                  ? 'border-orange-600 text-orange-600'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Ruler className="w-4 h-4" />
-              Design
-            </button>
-            <button
-              onClick={() => setActiveTab('materials')}
-              className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
-                activeTab === 'materials'
-                  ? 'border-orange-600 text-orange-600'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Package className="w-4 h-4" />
-              Materials
-            </button>
-            <button
-              onClick={() => setActiveTab('saved')}
-              className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
-                activeTab === 'saved'
-                  ? 'border-orange-600 text-orange-600'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              Saved Designs
-            </button>
-          </nav>
-        </div>
-      </div>
-
-      {/* Action Bar */}
-      <div className="bg-white border-b border-slate-200 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            <nav className="flex flex-wrap gap-4 sm:gap-8">
+              <button
+                onClick={() => setActiveTab('design')}
+                className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+                  activeTab === 'design'
+                    ? 'border-red-600 text-red-600'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Ruler className="w-4 h-4" />
+                Design
+              </button>
+              <button
+                onClick={() => setActiveTab('materials')}
+                className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+                  activeTab === 'materials'
+                    ? 'border-red-600 text-red-600'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Package className="w-4 h-4" />
+                Materials
+              </button>
+              <button
+                onClick={() => setActiveTab('saved')}
+                className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+                  activeTab === 'saved'
+                    ? 'border-red-600 text-red-600'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                Saved Designs
+              </button>
+            </nav>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
             >
               <Printer className="w-4 h-4" />
               Print Plan
