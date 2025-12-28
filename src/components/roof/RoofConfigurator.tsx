@@ -31,7 +31,7 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
                 step="1"
                 value={config.length}
                 onChange={(e) => updateConfig({ length: parseFloat(e.target.value) || 40 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-900"
               />
             </div>
             <div>
@@ -45,7 +45,7 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
                 step="1"
                 value={config.width}
                 onChange={(e) => updateConfig({ width: parseFloat(e.target.value) || 30 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-900"
               />
             </div>
           </div>
@@ -128,7 +128,7 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
           <select
             value={config.pitch}
             onChange={(e) => updateConfig({ pitch: e.target.value as any })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-900"
           >
             <option value="2/12">2/12 (9.5°) - Shallow</option>
             <option value="3/12">3/12 (14°) - Low</option>
@@ -161,7 +161,7 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
                 step="0.5"
                 value={config.eaveOverhang}
                 onChange={(e) => updateConfig({ eaveOverhang: parseFloat(e.target.value) || 1.5 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-900"
               />
             </div>
             <div>
@@ -175,7 +175,7 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
                 step="0.5"
                 value={config.rakeOverhang}
                 onChange={(e) => updateConfig({ rakeOverhang: parseFloat(e.target.value) || 1.5 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-900"
               />
             </div>
           </div>
@@ -192,7 +192,7 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
           <select
             value={config.shingleType}
             onChange={(e) => updateConfig({ shingleType: e.target.value as any })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-900"
           >
             <option value="architectural">Architectural (Dimensional)</option>
             <option value="3-tab">3-Tab Asphalt</option>
@@ -210,7 +210,7 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
           <select
             value={config.underlaymentType}
             onChange={(e) => updateConfig({ underlaymentType: e.target.value as any })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-900"
           >
             <option value="synthetic">Synthetic (Recommended)</option>
             <option value="felt-15">#15 Felt Paper</option>
@@ -245,7 +245,7 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
                 max="10"
                 value={config.valleyCount || 2}
                 onChange={(e) => updateConfig({ valleyCount: parseInt(e.target.value) || 2 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-900"
               />
             </div>
           )}
@@ -277,7 +277,7 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
                 max="10"
                 value={config.skylightCount || 1}
                 onChange={(e) => updateConfig({ skylightCount: parseInt(e.target.value) || 1 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-900"
               />
             </div>
           )}
@@ -309,7 +309,7 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
                 max="5"
                 value={config.chimneyCount || 1}
                 onChange={(e) => updateConfig({ chimneyCount: parseInt(e.target.value) || 1 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-900"
               />
             </div>
           )}

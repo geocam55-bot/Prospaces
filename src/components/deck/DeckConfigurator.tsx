@@ -31,7 +31,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                 step="0.5"
                 value={config.width}
                 onChange={(e) => updateConfig({ width: parseFloat(e.target.value) || 12 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
               />
             </div>
             <div>
@@ -45,7 +45,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                 step="0.5"
                 value={config.length}
                 onChange={(e) => updateConfig({ length: parseFloat(e.target.value) || 16 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
               />
             </div>
           </div>
@@ -63,7 +63,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
             step="0.5"
             value={config.height}
             onChange={(e) => updateConfig({ height: parseFloat(e.target.value) || 2 })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
           />
         </div>
 
@@ -120,7 +120,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                   step="1"
                   value={config.lShapeWidth || 8}
                   onChange={(e) => updateConfig({ lShapeWidth: parseFloat(e.target.value) || 8 })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
                 />
               </div>
               <div>
@@ -134,7 +134,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                   step="1"
                   value={config.lShapeLength || 10}
                   onChange={(e) => updateConfig({ lShapeLength: parseFloat(e.target.value) || 10 })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
                 />
               </div>
             </div>
@@ -146,7 +146,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
               <select
                 value={config.lShapePosition || 'top-left'}
                 onChange={(e) => updateConfig({ lShapePosition: e.target.value as any })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
               >
                 <option value="top-left">Top Left</option>
                 <option value="top-right">Top Right</option>
@@ -187,7 +187,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
           <select
             value={config.deckingPattern}
             onChange={(e) => updateConfig({ deckingPattern: e.target.value as any })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
           >
             <option value="perpendicular">Perpendicular to House</option>
             <option value="parallel">Parallel to House</option>
@@ -203,7 +203,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
           <select
             value={config.deckingType}
             onChange={(e) => updateConfig({ deckingType: e.target.value as any })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
           >
             <option value="Spruce">Spruce</option>
             <option value="Treated">Treated</option>
@@ -238,7 +238,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                 <select
                   value={config.stairSide}
                   onChange={(e) => updateConfig({ stairSide: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
                 >
                   <option value="front">Front</option>
                   <option value="back">Back</option>
@@ -257,7 +257,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                   step="0.5"
                   value={config.stairWidth || 4}
                   onChange={(e) => updateConfig({ stairWidth: parseFloat(e.target.value) || 4 })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
                 />
               </div>
             </div>
