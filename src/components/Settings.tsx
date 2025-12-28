@@ -245,11 +245,6 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
             notifications_appointments: notifications.appointments,
             notifications_bids: notifications.bids,
           });
-
-          // Also update Supabase profiles table
-          await settingsAPI.updateUserProfile(user.id, {
-            profile_picture: base64String,
-          });
           
           // Keep localStorage as backup
           localStorage.setItem(`profile_picture_${user.id}`, base64String);
@@ -257,7 +252,7 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
           if (onUserUpdate) {
             const updatedUser: User = {
               ...user,
-              profilePicture: base64String,
+              avatar_url: base64String,
             };
             onUserUpdate(updatedUser);
           }
@@ -289,7 +284,7 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
       setIsUploading(true);
       setProfileData({ ...profileData, profilePicture: '' });
       
-      // Remove from Supabase
+      // Remove from Supabase user_preferences table
       await settingsAPI.upsertUserPreferences({
         user_id: user.id,
         organization_id: user.organizationId,
@@ -300,10 +295,6 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
         notifications_appointments: notifications.appointments,
         notifications_bids: notifications.bids,
       });
-
-      await settingsAPI.updateUserProfile(user.id, {
-        profile_picture: '',
-      });
       
       // Remove from localStorage
       localStorage.removeItem(`profile_picture_${user.id}`);
@@ -311,7 +302,7 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
       if (onUserUpdate) {
         const updatedUser: User = {
           ...user,
-          profilePicture: undefined,
+          avatar_url: undefined,
         };
         onUserUpdate(updatedUser);
       }
@@ -328,19 +319,12 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
     try {
-      // Save to Supabase profiles table - include both name AND profile picture
-      const updateData: { name: string; profile_picture?: string } = {
+      // Save name to Supabase profiles table
+      await settingsAPI.updateUserProfile(user.id, {
         name: profileData.name,
-      };
+      });
       
-      // Include profile picture if it exists
-      if (profileData.profilePicture) {
-        updateData.profile_picture = profileData.profilePicture;
-      }
-      
-      await settingsAPI.updateUserProfile(user.id, updateData);
-      
-      // Also update user preferences to keep everything in sync
+      // Save profile picture to user_preferences table
       await settingsAPI.upsertUserPreferences({
         user_id: user.id,
         organization_id: user.organizationId,
@@ -355,8 +339,8 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
       if (onUserUpdate) {
         const updatedUser: User = {
           ...user,
-          name: profileData.name,
-          profilePicture: profileData.profilePicture || undefined,
+          full_name: profileData.name,
+          avatar_url: profileData.profilePicture || undefined,
         };
         onUserUpdate(updatedUser);
       }
