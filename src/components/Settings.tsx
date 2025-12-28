@@ -19,6 +19,7 @@ import { Switch } from './ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Alert, AlertDescription } from './ui/alert';
 import { Textarea } from './ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { 
   Settings as SettingsIcon, 
   Bell, 
@@ -30,7 +31,11 @@ import {
   Shield, 
   Palette, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  LayoutGrid,
+  Monitor,
+  Grid,
+  Eye
 } from 'lucide-react';
 import type { User } from '../App';
 import { tenantsAPI, settingsAPI } from '../utils/api';
@@ -54,12 +59,23 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
   const [isSavingOrg, setIsSavingOrg] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showDatabaseWarning, setShowDatabaseWarning] = useState(false);
+  const [showLayoutDialog, setShowLayoutDialog] = useState(false);
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
     taskAssignments: true,
     appointments: true,
     bids: false,
+  });
+
+  // Layout configuration state
+  const [layoutConfig, setLayoutConfig] = useState({
+    dashboardDensity: 'comfortable',
+    sidebarPosition: 'left',
+    moduleCardSize: 'medium',
+    showModuleIcons: true,
+    compactMode: false,
+    tableRowHeight: 'medium',
   });
 
   // Global Organization Settings
@@ -820,7 +836,7 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
               <div className="space-y-2">
                 <Label>Layout</Label>
                 <p className="text-sm text-gray-500">Configure your dashboard layout</p>
-                <Button type="button" variant="outline">Configure Layout</Button>
+                <Button type="button" variant="outline" onClick={() => setShowLayoutDialog(true)}>Configure Layout</Button>
               </div>
               <Button 
                 type="button"
@@ -865,6 +881,134 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Layout Configuration Dialog */}
+      <Dialog open={showLayoutDialog} onOpenChange={setShowLayoutDialog}>
+        <DialogContent className="sm:max-w-[425px] max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-gray-900">Configure Layout</DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Customize your dashboard layout to suit your workflow.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 overflow-y-auto pr-2">
+            <div className="space-y-2">
+              <Label htmlFor="dashboardDensity" className="text-gray-900 font-medium">Dashboard Density</Label>
+              <Select
+                value={layoutConfig.dashboardDensity}
+                onValueChange={(value) => setLayoutConfig({ ...layoutConfig, dashboardDensity: value })}
+              >
+                <SelectTrigger id="dashboardDensity" className="bg-white border-gray-300 text-gray-900">
+                  <SelectValue placeholder="Select dashboard density" className="text-gray-900" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="comfortable">Comfortable</SelectItem>
+                  <SelectItem value="compact">Compact</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-600">
+                Adjust the density of your dashboard to fit more or less information.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sidebarPosition" className="text-gray-900 font-medium">Sidebar Position</Label>
+              <Select
+                value={layoutConfig.sidebarPosition}
+                onValueChange={(value) => setLayoutConfig({ ...layoutConfig, sidebarPosition: value })}
+              >
+                <SelectTrigger id="sidebarPosition" className="bg-white border-gray-300 text-gray-900">
+                  <SelectValue placeholder="Select sidebar position" className="text-gray-900" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-600">
+                Choose where the sidebar should be positioned on your dashboard.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="moduleCardSize" className="text-gray-900 font-medium">Module Card Size</Label>
+              <Select
+                value={layoutConfig.moduleCardSize}
+                onValueChange={(value) => setLayoutConfig({ ...layoutConfig, moduleCardSize: value })}
+              >
+                <SelectTrigger id="moduleCardSize" className="bg-white border-gray-300 text-gray-900">
+                  <SelectValue placeholder="Select module card size" className="text-gray-900" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="small">Small</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="large">Large</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-600">
+                Set the size of the module cards on your dashboard.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label className="text-gray-900 font-medium">Show Module Icons</Label>
+                  <p className="text-xs text-gray-600">
+                    Toggle the visibility of module icons on your dashboard.
+                  </p>
+                </div>
+                <Switch
+                  checked={layoutConfig.showModuleIcons}
+                  onCheckedChange={(checked) => setLayoutConfig({ ...layoutConfig, showModuleIcons: checked })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label className="text-gray-900 font-medium">Compact Mode</Label>
+                  <p className="text-xs text-gray-600">
+                    Enable compact mode to reduce the space used by elements on your dashboard.
+                  </p>
+                </div>
+                <Switch
+                  checked={layoutConfig.compactMode}
+                  onCheckedChange={(checked) => setLayoutConfig({ ...layoutConfig, compactMode: checked })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tableRowHeight" className="text-gray-900 font-medium">Table Row Height</Label>
+              <Select
+                value={layoutConfig.tableRowHeight}
+                onValueChange={(value) => setLayoutConfig({ ...layoutConfig, tableRowHeight: value })}
+              >
+                <SelectTrigger id="tableRowHeight" className="bg-white border-gray-300 text-gray-900">
+                  <SelectValue placeholder="Select table row height" className="text-gray-900" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="small">Small</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="large">Large</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-600">
+                Set the height of the rows in tables on your dashboard.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            className="mt-4"
+            onClick={() => setShowLayoutDialog(false)}
+          >
+            Save Layout Settings
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
