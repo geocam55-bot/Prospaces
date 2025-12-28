@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner@2.0.3';
 import { Security } from './Security';
 import { TestDataGenerator } from './TestDataGenerator';
 import { ThemeSelector } from './ThemeSelector';
 import { FindLarryContacts } from './FindLarryContacts';
 import { BidsTableMigration } from './BidsTableMigration';
+import { ThemeMigration } from './ThemeMigration';
 import { FullCRMDatabaseSetup } from './FullCRMDatabaseSetup';
 import { OrganizationFeatureMigration } from './OrganizationFeatureMigration';
 import { ProjectWizardSettings } from './ProjectWizardSettings';
@@ -449,8 +451,7 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
   const handleSaveAppearanceSettings = () => {
     console.log('Save Appearance Settings clicked!');
     // Theme is already auto-saved by ThemeSelector, but we can add more settings here
-    setAlert({ type: 'success', message: 'Appearance settings saved successfully! Theme changes are applied automatically.' });
-    setTimeout(() => setAlert(null), 3000);
+    toast.success('Appearance settings saved! Theme changes are applied automatically.');
   };
 
   const canManageSettings = user.role === 'super_admin' || user.role === 'admin';
@@ -458,11 +459,6 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-1">Manage your preferences and configuration</p>
-      </div>
-
       <Tabs defaultValue="profile" className="w-full">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-6">
@@ -828,13 +824,7 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
               </div>
               <Button 
                 type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('Button clicked!', alert);
-                  setAlert({ type: 'success', message: 'Appearance settings saved successfully! Theme changes are applied automatically.' });
-                  setTimeout(() => setAlert(null), 3000);
-                }}
+                onClick={handleSaveAppearanceSettings}
               >
                 Save Appearance Settings
               </Button>
@@ -856,6 +846,9 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
             
             {/* Organization Feature Migration */}
             <OrganizationFeatureMigration />
+            
+            {/* Theme Migration */}
+            <ThemeMigration />
           </TabsContent>
         )}
       </Tabs>

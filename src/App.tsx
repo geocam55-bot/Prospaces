@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createClient } from './utils/supabase/client';
+import { createClient } from './utils/supabase/client.ts';
 import { initializePermissions } from './utils/permissions';
 import { Login } from './components/Login';
 import { LandingPage } from './components/LandingPage';
@@ -28,6 +28,7 @@ import { ProjectWizards } from './components/ProjectWizards';
 import { ThemeProvider } from './components/ThemeProvider';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
+import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -114,7 +115,7 @@ function App() {
           id: profile.id,
           email: profile.email,
           role: profile.role,
-          full_name: profile.full_name,
+          full_name: profile.full_name || profile.name,
           avatar_url: profile.avatar_url,
           organization_id: profile.organization_id,
           // Add camelCase alias for components
@@ -179,8 +180,9 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <div className="flex h-screen overflow-hidden bg-slate-50">
+      <ThemeProvider userId={user?.id}>
+        <Toaster />
+        <div className="flex h-screen overflow-hidden" style={{ background: 'var(--color-background)' }}>
           <Navigation
             user={user}
             organization={organization}
@@ -189,7 +191,7 @@ function App() {
             onLogout={handleLogout}
           />
 
-          <main className="flex-1 overflow-auto lg:ml-64">
+          <main className="flex-1 overflow-auto lg:ml-64" style={{ background: 'var(--color-background-secondary)' }}>
             <OfflineIndicator />
             <PWAInstallPrompt />
 

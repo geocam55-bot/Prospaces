@@ -30,13 +30,6 @@ export function Marketing({ user }: MarketingProps) {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl text-gray-900">Marketing Automation</h1>
-          <p className="text-gray-600 mt-1">Engage, nurture, and convert leads across all channels</p>
-        </div>
-      </div>
-
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-6">

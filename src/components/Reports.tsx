@@ -31,12 +31,7 @@ export function Reports({ user }: ReportsProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl text-gray-900">Reports & Analytics</h1>
-          <p className="text-gray-600 mt-1">Comprehensive insights into your business performance</p>
-        </div>
-        
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
         {/* Price/Cost Toggle Switch */}
         <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-4 py-2.5 shadow-sm">
           <DollarSign className="h-4 w-4 text-gray-500" />

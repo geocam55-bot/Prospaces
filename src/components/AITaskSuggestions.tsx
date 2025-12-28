@@ -599,16 +599,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
   return (
     <div className="h-full flex flex-col space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl text-gray-900 mb-2 flex items-center gap-3">
-            <Sparkles className="h-8 w-8 text-purple-600" />
-            AI Task Suggestions
-          </h1>
-          <p className="text-gray-600">
-            Smart, data-driven recommendations to maximize your productivity and close more deals
-          </p>
-        </div>
+      <div className="flex items-center justify-end">
         <Button onClick={loadAISuggestions} disabled={isLoading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh

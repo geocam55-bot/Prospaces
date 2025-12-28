@@ -885,7 +885,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
     <div className="p-6 space-y-6">
       {/* Header with User Info */}
       <div>
-        <h1 className="mb-2">Welcome back, {user.full_name || user.email || 'User'}!</h1>
+        <h1 className="mb-2">Welcome back, {user.full_name?.split(' ')[0] || user.email?.split('@')[0] || 'User'}!</h1>
         <p className="text-muted-foreground">Here's what's happening with your workspace today.</p>
       </div>
 

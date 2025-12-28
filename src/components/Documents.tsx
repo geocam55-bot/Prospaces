@@ -348,11 +348,7 @@ export function Documents({ user }: DocumentsProps) {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl">Documents</h1>
-          <p className="text-muted-foreground">Manage and organize your documents</p>
-        </div>
+      <div className="flex justify-end items-center">
         <PermissionButton module="documents" action="add" userRole={user.role}>
           <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
             <DialogTrigger asChild>

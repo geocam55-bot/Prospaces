@@ -292,12 +292,12 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
                       <div className="overflow-x-auto">
                         <table className="w-full">
                           <thead>
-                            <tr className="border-b border-gray-200">
-                              <th className="text-left py-3 px-4 text-sm text-gray-700">Module</th>
-                              <th className="text-center py-3 px-4 text-sm text-gray-700">Visible</th>
-                              <th className="text-center py-3 px-4 text-sm text-gray-700">Add</th>
-                              <th className="text-center py-3 px-4 text-sm text-gray-700">Change</th>
-                              <th className="text-center py-3 px-4 text-sm text-gray-700">Delete</th>
+                            <tr className="border-b border-gray-200 dark:border-gray-700">
+                              <th className="text-left py-3 px-4 text-sm text-muted-foreground">Module</th>
+                              <th className="text-center py-3 px-4 text-sm text-muted-foreground">Visible</th>
+                              <th className="text-center py-3 px-4 text-sm text-muted-foreground">Add</th>
+                              <th className="text-center py-3 px-4 text-sm text-muted-foreground">Change</th>
+                              <th className="text-center py-3 px-4 text-sm text-muted-foreground">Delete</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -306,11 +306,11 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
                               if (!perm) return null;
 
                               return (
-                                <tr key={module.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                <tr key={module.id} className="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800">
                                   <td className="py-3 px-4">
                                     <div>
-                                      <p className="text-sm text-gray-900">{module.name}</p>
-                                      <p className="text-xs text-gray-500">{module.description}</p>
+                                      <p className="text-sm text-foreground">{module.name}</p>
+                                      <p className="text-xs text-muted-foreground">{module.description}</p>
                                     </div>
                                   </td>
                                   <td className="py-3 px-4 text-center">

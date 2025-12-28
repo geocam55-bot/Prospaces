@@ -580,7 +580,7 @@ export function Users({ user }: UsersProps) {
   if (!canManageUsers) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl text-gray-900">Users</h1>
+        <h1 className="text-3xl text-foreground">Users</h1>
         <Alert>
           <Shield className="h-4 w-4" />
           <AlertDescription>
@@ -593,14 +593,6 @@ export function Users({ user }: UsersProps) {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl text-gray-900">User & Permission Management</h1>
-        <p className="text-gray-600 mt-1">
-          Manage your team members and configure role-based access permissions
-        </p>
-      </div>
-
       <Tabs defaultValue="users" className="space-y-6">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-3">
@@ -694,16 +686,7 @@ export function Users({ user }: UsersProps) {
             </CardContent>
           </Card>
           
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl text-gray-900">Users</h1>
-              <p className="text-gray-600 mt-1">
-                {user.role === 'super_admin' 
-                  ? `Managing users across all organizations (${filteredUsers.length} total)`
-                  : `Manage team members and permissions (${filteredUsers.length} in your organization)`
-                }
-              </p>
-            </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
             <div className="flex gap-2">
               <Button 
                 variant="outline" 

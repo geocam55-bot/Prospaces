@@ -154,8 +154,8 @@ FROM public.profiles;`;
         <CardContent className="p-8">
           <div className="text-center mb-6">
             <Database className="h-16 w-16 text-blue-600 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">One-Time Database Setup</h1>
-            <p className="text-gray-600">
+            <h1 className="text-3xl font-bold text-foreground mb-2">One-Time Database Setup</h1>
+            <p className="text-muted-foreground">
               Run this SQL script once to sync all users and fix permissions
             </p>
           </div>

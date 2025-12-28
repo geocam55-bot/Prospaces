@@ -363,19 +363,12 @@ export function Inventory({ user }: InventoryProps) {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
-            <Package className="h-5 w-5 text-purple-600" />
-          </div>
-          <div>
-            <h1 className="text-3xl text-gray-900">Inventory Management</h1>
-            <p className="text-gray-600 mt-1">Track stock levels and multi-tier pricing {items.length > 1000 && '(All items loaded)'}</p>
-          </div>
+        <div className="flex items-center justify-end gap-3">
+          <Button onClick={() => handleOpenDialog()}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Item
+          </Button>
         </div>
-        <Button onClick={() => handleOpenDialog()}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Item
-        </Button>
       </div>
 
       {/* Alert */}

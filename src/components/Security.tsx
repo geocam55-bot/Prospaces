@@ -58,21 +58,24 @@ export function Security({ user }: SecurityProps) {
 
   const modules = [
     { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+    { id: 'team-dashboard', name: 'Team Dashboard', icon: '👥' },
     { id: 'contacts', name: 'Contacts', icon: '👥' },
     { id: 'tasks', name: 'Tasks', icon: '✓' },
     { id: 'appointments', name: 'Appointments', icon: '📅' },
     { id: 'opportunities', name: 'Opportunities', icon: '🎯' },
     { id: 'bids', name: 'Bids', icon: '📄' },
     { id: 'notes', name: 'Notes', icon: '📝' },
+    { id: 'documents', name: 'Documents', icon: '📁' },
     { id: 'email', name: 'Email', icon: '✉️' },
     { id: 'marketing', name: 'Marketing', icon: '📈' },
     { id: 'inventory', name: 'Inventory', icon: '📦' },
+    { id: 'project-wizards', name: 'Project Wizards', icon: '🪄' },
+    { id: 'reports', name: 'Reports', icon: '📊' },
     { id: 'users', name: 'Users', icon: '👤' },
     { id: 'settings', name: 'Settings', icon: '⚙️' },
-    // Future modules
-    { id: 'documents', name: 'Documents', icon: '📁', future: true },
-    { id: 'import_export', name: 'Import/Export', icon: '🔄', future: true },
-    { id: 'reports', name: 'Reports', icon: '📊', future: true },
+    { id: 'tenants', name: 'Tenants', icon: '🏢' },
+    { id: 'security', name: 'Security', icon: '🔒' },
+    { id: 'import-export', name: 'Import/Export', icon: '🔄' },
   ];
 
   const allRoles: UserRole[] = ['super_admin', 'admin', 'manager', 'marketing', 'standard_user'];
@@ -288,7 +291,7 @@ export function Security({ user }: SecurityProps) {
 
   const handleBulkUpdate = (role: UserRole, type: 'visible' | 'add' | 'change' | 'delete', value: boolean) => {
     const modulesToUpdate = selectedModule === 'all' 
-      ? modules.filter(m => !m.future).map(m => m.id)
+      ? modules.map(m => m.id)
       : [selectedModule];
     
     modulesToUpdate.forEach(module => {
@@ -329,16 +332,7 @@ export function Security({ user }: SecurityProps) {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-red-100 flex items-center justify-center">
-            <Shield className="h-5 w-5 text-red-600" />
-          </div>
-          <div>
-            <h1 className="text-3xl text-gray-900">Security & Permissions</h1>
-            <p className="text-gray-600 mt-1">Manage role-based access control for all CRM modules</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2">
           {hasChanges && (
             <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
               Unsaved Changes
@@ -397,7 +391,7 @@ export function Security({ user }: SecurityProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Modules</SelectItem>
-                    {modules.filter(m => !m.future).map(module => (
+                    {modules.map(module => (
                       <SelectItem key={module.id} value={module.id}>
                         {module.icon} {module.name}
                       </SelectItem>
@@ -412,20 +406,7 @@ export function Security({ user }: SecurityProps) {
           <div className="space-y-4">
             {filteredModules.map(module => (
               <Card key={module.id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{module.icon}</span>
-                      <CardTitle className="text-lg">{module.name}</CardTitle>
-                      {module.future && (
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                          Coming Soon
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
+                <CardContent className="pt-6">
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>

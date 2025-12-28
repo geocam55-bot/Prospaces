@@ -545,8 +545,8 @@ export function Bids({ user }: BidsProps) {
             <FileText className="h-5 w-5 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-3xl text-gray-900">Quotes & Bids</h1>
-            <p className="text-gray-600 mt-1">Create quotes with inventory products and multi-tier pricing</p>
+            <h1 className="text-3xl text-foreground">Quotes & Bids</h1>
+            <p className="text-muted-foreground mt-1">Create quotes with inventory products and multi-tier pricing</p>
           </div>
         </div>
         <Button onClick={() => handleOpenDialog()}>

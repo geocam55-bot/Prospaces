@@ -358,24 +358,7 @@ export function Tenants({ user, organization }: TenantsProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          {organization?.logo ? (
-            <img 
-              src={organization.logo} 
-              alt={`${organization.name} logo`}
-              className="h-10 w-10 object-contain rounded-lg border border-gray-200 bg-white p-1"
-            />
-          ) : (
-            <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-purple-600" />
-            </div>
-          )}
-          <div>
-            <h1 className="text-3xl text-gray-900">Tenant Organizations</h1>
-            <p className="text-gray-600 mt-1">Manage multi-tenant organizations and subscriptions</p>
-          </div>
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => loadTenants()} title="Refresh data">
             🔄 Refresh

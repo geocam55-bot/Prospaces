@@ -758,8 +758,8 @@ ON CONFLICT (role, module) DO UPDATE SET
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <h1 className="text-3xl text-gray-900">ProSpaces CRM</h1>
-          <p className="text-gray-600">Database Initialization Required</p>
+          <h1 className="text-3xl text-foreground">ProSpaces CRM</h1>
+          <p className="text-muted-foreground">Database Initialization Required</p>
         </div>
 
         <Card className="border-purple-200 bg-white shadow-lg">

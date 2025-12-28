@@ -10,6 +10,38 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+// Convert hex to HSL format for Tailwind CSS variables
+function hexToHSL(hex: string): string {
+  // Remove # if present
+  hex = hex.replace('#', '');
+  
+  // Convert hex to RGB
+  const r = parseInt(hex.substring(0, 2), 16) / 255;
+  const g = parseInt(hex.substring(2, 4), 16) / 255;
+  const b = parseInt(hex.substring(4, 6), 16) / 255;
+  
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+  
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      case b: h = ((r - g) / d + 4) / 6; break;
+    }
+  }
+  
+  h = Math.round(h * 360);
+  s = Math.round(s * 100);
+  l = Math.round(l * 100);
+  
+  return `${h} ${s}% ${l}%`;
+}
+
 export function ThemeProvider({ children, userId }: { children: ReactNode; userId?: string }) {
   const [themeId, setThemeId] = useState<string>(loadTheme());
   const [theme, setThemeState] = useState<Theme>(getTheme(themeId));
@@ -49,6 +81,8 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
     
     // Apply theme colors to CSS variables
     const root = document.documentElement;
+    
+    // Set hex color variables (for direct use)
     root.style.setProperty('--color-background', newTheme.colors.background);
     root.style.setProperty('--color-background-secondary', newTheme.colors.backgroundSecondary);
     root.style.setProperty('--color-background-tertiary', newTheme.colors.backgroundTertiary);
@@ -79,6 +113,22 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
     if (newTheme.colors.gradient) {
       root.style.setProperty('--gradient', newTheme.colors.gradient);
     }
+    
+    // Also set Tailwind HSL variables for components that use Tailwind classes
+    root.style.setProperty('--background', hexToHSL(newTheme.colors.background));
+    root.style.setProperty('--foreground', hexToHSL(newTheme.colors.text));
+    root.style.setProperty('--card', hexToHSL(newTheme.colors.card));
+    root.style.setProperty('--card-foreground', hexToHSL(newTheme.colors.text));
+    root.style.setProperty('--popover', hexToHSL(newTheme.colors.card));
+    root.style.setProperty('--popover-foreground', hexToHSL(newTheme.colors.text));
+    root.style.setProperty('--primary', hexToHSL(newTheme.colors.primary));
+    root.style.setProperty('--primary-foreground', hexToHSL(newTheme.colors.primaryText));
+    root.style.setProperty('--muted', hexToHSL(newTheme.colors.backgroundTertiary));
+    root.style.setProperty('--muted-foreground', hexToHSL(newTheme.colors.textSecondary));
+    root.style.setProperty('--accent', hexToHSL(newTheme.colors.accent));
+    root.style.setProperty('--border', hexToHSL(newTheme.colors.border));
+    root.style.setProperty('--input', hexToHSL(newTheme.colors.border));
+    root.style.setProperty('--ring', hexToHSL(newTheme.colors.primary));
   }, [themeId]);
 
   const handleSetTheme = async (newThemeId: string) => {

@@ -1318,16 +1318,7 @@ export function Email({ user }: EmailProps) {
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-            <Mail className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl text-gray-900">Email</h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">Manage emails from connected accounts</p>
-          </div>
-        </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex items-center justify-end gap-2">
           <Button variant="outline" onClick={() => setIsSettingsOpen(true)} className="text-xs sm:text-sm">
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Add Account</span>

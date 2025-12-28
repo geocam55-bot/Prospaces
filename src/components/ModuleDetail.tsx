@@ -354,7 +354,7 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
 
         {/* Features Section */}
         <div className="mb-16">
-          <h2 className="text-3xl text-gray-900 mb-8">Key Features</h2>
+          <h2 className="text-3xl text-foreground mb-8">Key Features</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {module.features.map((feature, index) => (
               <div key={index} className="flex items-start gap-3">
@@ -367,7 +367,7 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
 
         {/* Benefits Section */}
         <div className="mb-16">
-          <h2 className="text-3xl text-gray-900 mb-8">Benefits</h2>
+          <h2 className="text-3xl text-foreground mb-8">Benefits</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {module.benefits.map((benefit, index) => (
               <Card key={index} className="border-2">
@@ -386,7 +386,7 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
 
         {/* Use Cases Section */}
         <div className="mb-16">
-          <h2 className="text-3xl text-gray-900 mb-8">Use Cases</h2>
+          <h2 className="text-3xl text-foreground mb-8">Use Cases</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {module.useCases.map((useCase, index) => (
               <Card key={index} className="border-0 shadow-lg">
@@ -401,10 +401,10 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
 
         {/* CTA Section */}
         <div className="text-center bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl p-12">
-          <h2 className="text-3xl text-gray-900 mb-4">
+          <h2 className="text-3xl text-foreground mb-4">
             Ready to get started with {module.title}?
           </h2>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             Join thousands of businesses already using ProSpaces CRM to streamline their operations.
           </p>
           <div className="flex gap-4 justify-center">

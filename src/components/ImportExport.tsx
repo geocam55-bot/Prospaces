@@ -894,11 +894,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl text-gray-900 mb-2">Import & Export</h1>
-          <p className="text-gray-600">Import and export your CRM data</p>
-        </div>
+      <div className="flex items-center justify-end">
         <Button
           variant="outline"
           onClick={() => onNavigate ? onNavigate('scheduled-jobs') : window.location.hash = '#scheduled-jobs'}

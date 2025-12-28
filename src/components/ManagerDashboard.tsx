@@ -626,14 +626,6 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
 
   return (
     <div className="h-full flex flex-col space-y-4">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl text-gray-900 mb-2">Team Dashboard</h1>
-        <p className="text-gray-600">
-          Monitor and manage your team's performance and activities
-        </p>
-      </div>
-
       {/* Main Split View */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Panel - Selected User Summary */}

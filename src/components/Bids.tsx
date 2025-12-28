@@ -646,19 +646,12 @@ export function Bids({ user }: BidsProps) {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-            <FileText className="h-5 w-5 text-blue-600" />
-          </div>
-          <div>
-            <h1 className="text-3xl text-gray-900">Quotes & Bids</h1>
-            <p className="text-gray-600 mt-1">Create quotes with inventory products and multi-tier pricing</p>
-          </div>
+        <div className="flex items-center justify-end gap-3">
+          <Button onClick={() => handleOpenDialog()}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Quote
+          </Button>
         </div>
-        <Button onClick={() => handleOpenDialog()}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Quote
-        </Button>
       </div>
 
       {/* Alert */}

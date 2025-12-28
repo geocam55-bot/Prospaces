@@ -361,11 +361,7 @@ export function Opportunities({ user }: OpportunitiesProps) {
           </Alert>
         )}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Opportunities</h1>
-          <p className="text-gray-600 mt-1">Track and manage sales opportunities</p>
-        </div>
+      <div className="flex items-center justify-end">
         <PermissionGate user={user} module="opportunities" action="add">
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
