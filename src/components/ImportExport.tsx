@@ -621,7 +621,10 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     
     // Log whether we created or updated
     if (result.action === 'updated') {
-      console.log(`✏️ Row ${rowNum}: Updated existing inventory item (SKU: ${cleanItem.sku})`);
+      const duplicateInfo = result.updatedCount && result.updatedCount > 1 
+        ? ` (${result.updatedCount} duplicate records updated)` 
+        : '';
+      console.log(`✏️ Row ${rowNum}: Updated existing inventory item (SKU: ${cleanItem.sku})${duplicateInfo}`);
     } else {
       console.log(`➕ Row ${rowNum}: Created new inventory item`);
     }

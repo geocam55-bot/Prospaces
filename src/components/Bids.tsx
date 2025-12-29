@@ -176,9 +176,9 @@ export function Bids({ user }: BidsProps) {
 
     // 🚀 Use advanced search with fuzzy matching, plural handling (hammer/hammers), and semantic search
     const searchResults = advancedSearch(inventory, debouncedInventorySearch, {
-      fuzzyThreshold: 0.7,      // Allow small typos
+      fuzzyThreshold: 0.6,      // Optimal for typo tolerance
       includeInactive: false,   // Only show active items
-      minScore: 0.2,            // Lower threshold for more results
+      minScore: 0.05,           // Low threshold to catch fuzzy matches
       maxResults: 100,          // Limit results
       sortBy: 'relevance',      // Sort by best match
     });

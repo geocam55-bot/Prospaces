@@ -225,9 +225,9 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     
     // 🚀 Use advanced search with fuzzy matching, plural handling, and multi-word support
     const searchResults = advancedSearch(inventoryItems, debouncedInventorySearch, {
-      fuzzyThreshold: 0.7,      // Allow small typos
+      fuzzyThreshold: 0.6,      // Optimal for typo tolerance
       includeInactive: false,   // Only show active items
-      minScore: 0.1,            // Lower threshold for more results
+      minScore: 0.05,           // Low threshold to catch fuzzy matches
       maxResults: 100,
       sortBy: 'relevance',
     });

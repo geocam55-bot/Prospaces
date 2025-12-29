@@ -418,44 +418,58 @@ export async function upsertInventoryBySKUClient(itemData: any) {
     console.log('✅ Clean data to send to database:', cleanData);
 
     // Check if item with this SKU already exists in this organization
-    let existingItem = null;
+    // If there are duplicates, we'll find ALL of them and update them all
+    let existingItems: any[] = [];
     if (itemData.sku) {
       const { data, error } = await supabase
         .from('inventory')
         .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, organization_id, created_at, updated_at')
         .eq('sku', itemData.sku)
         .eq('organization_id', organizationId)
-        .maybeSingle();
+        .order('created_at', { ascending: true }); // Oldest first
       
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error checking for existing inventory item:', error);
         throw error;
       }
       
-      existingItem = data;
+      if (data && data.length > 0) {
+        existingItems = data;
+        
+        // Warn if there are duplicates
+        if (data.length > 1) {
+          console.warn(`⚠️ Found ${data.length} duplicate records for SKU "${itemData.sku}". Will update all of them.`);
+        }
+      }
     }
 
-    if (existingItem) {
-      // Update existing item - remove organization_id from update data
+    if (existingItems.length > 0) {
+      // Update ALL existing items with this SKU to ensure consistency
       const updateData = { ...cleanData };
       delete updateData.organization_id;
       
-      console.log('🔄 Updating existing item with data:', updateData);
+      console.log(`🔄 Updating ${existingItems.length} existing item(s) with data:`, updateData);
       
-      const { data: updatedItem, error: updateError } = await supabase
+      // Update all records with this SKU
+      const { data: updatedItems, error: updateError } = await supabase
         .from('inventory')
         .update(updateData)
-        .eq('id', existingItem.id)
-        .select()
-        .single();
+        .eq('sku', itemData.sku)
+        .eq('organization_id', organizationId)
+        .select();
       
       if (updateError) {
-        console.error('Error updating inventory item:', updateError);
+        console.error('Error updating inventory items:', updateError);
         throw updateError;
       }
       
-      const item = updatedItem ? mapInventoryItem(updatedItem) : null;
-      return { item, action: 'updated' };
+      // Return the first updated item
+      const item = updatedItems && updatedItems.length > 0 ? mapInventoryItem(updatedItems[0]) : null;
+      return { 
+        item, 
+        action: 'updated',
+        updatedCount: updatedItems?.length || 0
+      };
     } else {
       // Create new item
       console.log('➕ Creating new item with data:', cleanData);
@@ -559,6 +573,7 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
     const skus = cleanItems.map(item => item.sku).filter(Boolean);
 
     // Query existing items by SKU in this organization
+    // Note: This will get ALL records including duplicates
     const { data: existingItems, error: queryError } = await supabase
       .from('inventory')
       .select('id, sku')
@@ -570,25 +585,38 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
       throw queryError;
     }
 
-    // Create a map of existing SKU -> ID
-    const existingSkuMap = new Map<string, string>();
+    // Create a map of existing SKU -> Array of IDs (to handle duplicates)
+    const existingSkuMap = new Map<string, string[]>();
+    let duplicatesFound = 0;
+    
     if (existingItems) {
       existingItems.forEach(item => {
-        existingSkuMap.set(item.sku, item.id);
+        const existingIds = existingSkuMap.get(item.sku) || [];
+        existingIds.push(item.id);
+        existingSkuMap.set(item.sku, existingIds);
+        
+        // Track duplicates
+        if (existingIds.length > 1 && existingIds.length === 2) {
+          duplicatesFound++;
+        }
       });
+    }
+    
+    if (duplicatesFound > 0) {
+      console.warn(`⚠️ Found ${duplicatesFound} SKUs with duplicate records. Will update all duplicates.`);
     }
 
     // Separate items into updates and creates
-    const itemsToUpdate: any[] = [];
+    const itemsToUpdate: { ids: string[]; data: any; sku: string }[] = [];
     const itemsToCreate: any[] = [];
 
     cleanItems.forEach(item => {
-      const existingId = existingSkuMap.get(item.sku);
-      if (existingId) {
-        // Item exists - prepare for update
+      const existingIds = existingSkuMap.get(item.sku);
+      if (existingIds && existingIds.length > 0) {
+        // Item exists (possibly with duplicates) - prepare for update
         const updateData = { ...item };
         delete updateData.organization_id; // Don't update organization_id
-        itemsToUpdate.push({ id: existingId, data: updateData });
+        itemsToUpdate.push({ ids: existingIds, data: updateData, sku: item.sku });
       } else {
         // Item doesn't exist - prepare for insert
         itemsToCreate.push(item);
@@ -630,20 +658,22 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
 
     // Bulk update existing items (one by one since Supabase doesn't support bulk update well)
     if (itemsToUpdate.length > 0) {
-      for (const { id, data: updateData } of itemsToUpdate) {
+      for (const { ids, data: updateData, sku } of itemsToUpdate) {
         try {
-          const { error: updateError } = await supabase
-            .from('inventory')
-            .update(updateData)
-            .eq('id', id);
+          for (const id of ids) {
+            const { error: updateError } = await supabase
+              .from('inventory')
+              .update(updateData)
+              .eq('id', id);
 
-          if (updateError) {
-            throw updateError;
+            if (updateError) {
+              throw updateError;
+            }
           }
-          updated++;
+          updated += ids.length;
         } catch (error: any) {
           failed++;
-          errors.push(`SKU ${updateData.sku}: ${error.message}`);
+          errors.push(`SKU ${sku}: ${error.message}`);
         }
       }
     }

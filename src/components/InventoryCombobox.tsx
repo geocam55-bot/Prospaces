@@ -67,8 +67,8 @@ export function InventoryCombobox({
       })));
       
       const results = advancedSearch(items, debouncedSearch, {
-        fuzzyThreshold: 0.5,  // More lenient (was 0.6)
-        minScore: 0.1,        // Lower minimum score to catch more results (was 0.2)
+        fuzzyThreshold: 0.6,  // Optimal balance between precision and recall
+        minScore: 0.05,       // Very low minimum to catch fuzzy matches
         maxResults: 100,
         sortBy: 'relevance',
       });

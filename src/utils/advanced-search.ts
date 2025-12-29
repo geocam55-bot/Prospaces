@@ -1,315 +1,242 @@
 /**
- * Advanced Search Engine for Inventory
- * 
- * Features:
- * - Fuzzy Search: Handles misspellings and approximate matches
- * - Semantic Search: Understands meaning behind words
- * - Full-Text Search: Searches across all fields
- * - Natural Language: Conversational queries, flexible word order
+ * TYPE DEFINITIONS
  */
-
-// ============================================
-// 1. FUZZY MATCHING - Levenshtein Distance
-// ============================================
-
-/**
- * Calculate Levenshtein distance between two strings
- * Returns the minimum number of single-character edits needed
- */
-function levenshteinDistance(str1: string, str2: string): number {
-  const len1 = str1.length;
-  const len2 = str2.length;
-  const matrix: number[][] = [];
-
-  if (len1 === 0) return len2;
-  if (len2 === 0) return len1;
-
-  // Initialize matrix
-  for (let i = 0; i <= len1; i++) {
-    matrix[i] = [i];
-  }
-  for (let j = 0; j <= len2; j++) {
-    matrix[0][j] = j;
-  }
-
-  // Fill matrix
-  for (let i = 1; i <= len1; i++) {
-    for (let j = 1; j <= len2; j++) {
-      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1,      // deletion
-        matrix[i][j - 1] + 1,      // insertion
-        matrix[i - 1][j - 1] + cost // substitution
-      );
-    }
-  }
-
-  return matrix[len1][len2];
-}
-
-/**
- * Calculate similarity score (0-1) based on Levenshtein distance
- */
-function similarityScore(str1: string, str2: string): number {
-  const maxLen = Math.max(str1.length, str2.length);
-  if (maxLen === 0) return 1;
-  const distance = levenshteinDistance(str1.toLowerCase(), str2.toLowerCase());
-  return 1 - distance / maxLen;
-}
-
-/**
- * Check if two strings are fuzzy matches
- * @param str1 - First string
- * @param str2 - Second string
- * @param threshold - Similarity threshold (0-1), default 0.7
- */
-function isFuzzyMatch(str1: string, str2: string, threshold: number = 0.7): boolean {
-  return similarityScore(str1, str2) >= threshold;
-}
-
-// ============================================
-// 2. SEMANTIC SEARCH - Word Mapping
-// ============================================
-
-/**
- * Simple stemmer to handle plurals and common word variations
- * Converts words to their root form for better matching
- */
-function stem(word: string): string {
-  const lower = word.toLowerCase();
-  
-  // Handle common plural forms
-  if (lower.endsWith('ies') && lower.length > 4) {
-    return lower.slice(0, -3) + 'y'; // batteries -> battery
-  }
-  if (lower.endsWith('es') && lower.length > 3) {
-    // Check for -ches, -shes, -xes, -zes, -sses
-    if (lower.endsWith('ches') || lower.endsWith('shes') || 
-        lower.endsWith('xes') || lower.endsWith('zes') || 
-        lower.endsWith('sses')) {
-      return lower.slice(0, -2); // boxes -> box, brushes -> brush
-    }
-    return lower.slice(0, -2); // tries to handle -es plurals
-  }
-  if (lower.endsWith('s') && lower.length > 3 && !lower.endsWith('ss')) {
-    return lower.slice(0, -1); // hammers -> hammer, tools -> tool
-  }
-  
-  // Handle common verb forms
-  if (lower.endsWith('ing') && lower.length > 5) {
-    return lower.slice(0, -3); // painting -> paint
-  }
-  if (lower.endsWith('ed') && lower.length > 4) {
-    return lower.slice(0, -2); // painted -> paint
-  }
-  
-  return lower;
-}
-
-/**
- * Semantic word mappings for inventory-related terms
- * Maps synonyms and related words to common concepts
- */
-const semanticMappings: Record<string, string[]> = {
-  // Product types
-  'tool': ['equipment', 'instrument', 'device', 'apparatus', 'implement'],
-  'material': ['supply', 'substance', 'component', 'part', 'piece'],
-  'hardware': ['fastener', 'screw', 'bolt', 'nail', 'bracket'],
-  'paint': ['coating', 'finish', 'stain', 'primer', 'sealant'],
-  'electric': ['electrical', 'electronic', 'power', 'wiring', 'electric'],
-  'wood': ['lumber', 'timber', 'plywood', 'wooden', 'hardwood'],
-  
-  // Sizes
-  'small': ['tiny', 'mini', 'compact', 'little', 'petite'],
-  'large': ['big', 'huge', 'giant', 'jumbo', 'oversized'],
-  'medium': ['mid', 'average', 'standard', 'regular', 'normal'],
-  
-  // Colors
-  'red': ['crimson', 'scarlet', 'burgundy', 'maroon', 'cherry'],
-  'blue': ['navy', 'azure', 'cobalt', 'cyan', 'turquoise'],
-  'green': ['lime', 'olive', 'emerald', 'forest', 'mint'],
-  'white': ['ivory', 'cream', 'off-white', 'pearl', 'snow'],
-  'black': ['ebony', 'charcoal', 'onyx', 'jet', 'midnight'],
-  
-  // Quantities
-  'cheap': ['inexpensive', 'affordable', 'budget', 'economical', 'low-cost'],
-  'expensive': ['costly', 'premium', 'high-end', 'luxury', 'pricey'],
-  'heavy': ['weighty', 'massive', 'substantial', 'hefty', 'dense'],
-  'light': ['lightweight', 'portable', 'feather', 'airy', 'delicate'],
-  
-  // Status
-  'available': ['in-stock', 'ready', 'on-hand', 'stocked', 'inventory'],
-  'unavailable': ['out-of-stock', 'depleted', 'empty', 'sold-out', 'exhausted'],
-  'new': ['fresh', 'recent', 'latest', 'brand-new', 'unused'],
-  'old': ['vintage', 'antique', 'used', 'worn', 'aged'],
-};
-
-/**
- * Expand query with semantic equivalents AND word stems
- */
-function expandSemanticQuery(query: string): string[] {
-  const words = query.toLowerCase().split(/\s+/);
-  const expanded = new Set<string>([query.toLowerCase()]);
-  
-  for (const word of words) {
-    // Add the word itself
-    expanded.add(word);
-    
-    // Add stemmed version (handles plurals)
-    const stemmed = stem(word);
-    expanded.add(stemmed);
-    
-    // Add semantic equivalents for both original and stemmed
-    for (const [key, synonyms] of Object.entries(semanticMappings)) {
-      if (word === key || stemmed === key || synonyms.includes(word) || synonyms.includes(stemmed)) {
-        expanded.add(key);
-        expanded.add(stem(key)); // Also add stemmed version of key
-        synonyms.forEach(syn => {
-          expanded.add(syn);
-          expanded.add(stem(syn)); // Add stemmed version of synonym
-        });
-      }
-    }
-  }
-  
-  return Array.from(expanded);
-}
-
-// ============================================
-// 3. NATURAL LANGUAGE PROCESSING
-// ============================================
-
-/**
- * Extract meaningful terms from natural language query
- * Removes common words (stop words) and focuses on important terms
- */
-function extractSearchTerms(query: string): string[] {
-  const stopWords = new Set([
-    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
-    'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the',
-    'to', 'was', 'will', 'with', 'show', 'me', 'find', 'search',
-    'looking', 'need', 'want', 'get', 'have', 'i', 'we', 'you',
-    'my', 'our', 'your', 'all', 'any', 'some', 'what', 'where',
-    'when', 'how', 'who', 'which', 'this', 'these', 'those',
-    // Price/quantity operators (these are handled by parseQueryIntent)
-    'under', 'over', 'below', 'above', 'between', 'less', 'more',
-    'than', 'around', 'about', 'approximately', 'cheap', 'expensive',
-  ]);
-  
-  // Trim whitespace before splitting to avoid empty strings from trailing spaces
-  // Split on whitespace and filter out only actual stop words
-  // Keep ALL other words including single letters (important for searches like "GAF T")
-  return query
-    .trim()  // Remove leading/trailing whitespace before processing
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(word => word.length > 0 && !stopWords.has(word));
-}
-
-/**
- * Parse natural language queries for specific intents
- */
-interface QueryIntent {
-  type: 'price' | 'quantity' | 'category' | 'status' | 'general';
-  operator?: 'greater' | 'less' | 'equal' | 'between';
-  value?: number | string;
-  value2?: number; // For 'between' operator
-}
-
-function parseQueryIntent(query: string): QueryIntent[] {
-  const intents: QueryIntent[] = [];
-  const lowerQuery = query.toLowerCase();
-  
-  // Price queries
-  const pricePatterns = [
-    { pattern: /(?:under|less\s+than|below|cheaper\s+than)\s*\$?(\d+(?:\.\d+)?)/i, operator: 'less' as const },
-    { pattern: /(?:over|more\s+than|above|expensive\s+than)\s*\$?(\d+(?:\.\d+)?)/i, operator: 'greater' as const },
-    { pattern: /(?:around|about|approximately)\s*\$?(\d+(?:\.\d+)?)/i, operator: 'equal' as const },
-    { pattern: /(?:between)\s*\$?(\d+(?:\.\d+)?)\s*(?:and|to)\s*\$?(\d+(?:\.\d+)?)/i, operator: 'between' as const },
-  ];
-  
-  for (const { pattern, operator } of pricePatterns) {
-    const match = lowerQuery.match(pattern);
-    if (match) {
-      intents.push({
-        type: 'price',
-        operator,
-        value: parseFloat(match[1]),
-        value2: match[2] ? parseFloat(match[2]) : undefined,
-      });
-    }
-  }
-  
-  // Quantity queries
-  const quantityPatterns = [
-    { pattern: /(?:low\s+stock|running\s+low|need\s+reorder|almost\s+out)/i, operator: 'less' as const, value: 10 },
-    { pattern: /(?:in\s+stock|available|have)/i, operator: 'greater' as const, value: 0 },
-    { pattern: /(?:out\s+of\s+stock|no\s+stock|unavailable)/i, operator: 'equal' as const, value: 0 },
-  ];
-  
-  for (const { pattern, operator, value } of quantityPatterns) {
-    if (pattern.test(lowerQuery)) {
-      intents.push({
-        type: 'quantity',
-        operator,
-        value,
-      });
-    }
-  }
-  
-  // Status queries
-  if (/\b(active|available|current)\b/i.test(lowerQuery)) {
-    intents.push({ type: 'status', value: 'active' });
-  }
-  if (/\b(inactive|unavailable|disabled)\b/i.test(lowerQuery)) {
-    intents.push({ type: 'status', value: 'inactive' });
-  }
-  if (/\b(discontinued|obsolete|retired)\b/i.test(lowerQuery)) {
-    intents.push({ type: 'status', value: 'discontinued' });
-  }
-  
-  return intents;
-}
-
-// ============================================
-// 4. MAIN SEARCH FUNCTION
-// ============================================
-
 export interface SearchableItem {
-  id: string;
   name: string;
   sku: string;
-  category: string;
   description: string;
+  category: string;
+  status?: string;
+  priceTier1: number;
+  quantityOnHand: number;
   supplier?: string;
   barcode?: string;
   location?: string;
   tags?: string[];
-  quantityOnHand: number;
-  cost: number;
-  priceTier1: number;
-  status: 'active' | 'inactive' | 'discontinued';
-  [key: string]: any; // Allow additional fields
 }
 
-export interface SearchResult<T extends SearchableItem> {
+export interface SearchOptions {
+  fuzzyThreshold?: number;
+  includeInactive?: boolean;
+  minScore?: number;
+  maxResults?: number;
+  sortBy?: 'relevance' | 'name' | 'price' | 'quantity';
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface SearchResult<T> {
   item: T;
   score: number;
   matchedFields: string[];
   matchType: 'exact' | 'fuzzy' | 'semantic' | 'partial';
 }
 
-export interface SearchOptions {
-  fuzzyThreshold?: number;      // 0-1, default 0.7
-  includeInactive?: boolean;     // Include inactive items
-  minScore?: number;             // Minimum score to include (0-1)
-  maxResults?: number;           // Maximum number of results
-  sortBy?: 'relevance' | 'name' | 'price' | 'quantity';
-  sortOrder?: 'asc' | 'desc';
+interface QueryIntent {
+  type: 'price' | 'quantity' | 'status' | 'category';
+  operator: 'less' | 'greater' | 'equal' | 'between';
+  value: string | number;
+  value2?: number;
+}
+
+/**
+ * HELPER FUNCTIONS
+ */
+function extractSearchTerms(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(term => term.length > 0 && !['and', 'or', 'the', 'a', 'an'].includes(term));
+}
+
+function stem(word: string): string {
+  word = word.toLowerCase();
+  if (word.endsWith('ies')) return word.slice(0, -3) + 'y';
+  if (word.endsWith('es')) return word.slice(0, -2);
+  if (word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
+  if (word.endsWith('ing')) return word.slice(0, -3);
+  if (word.endsWith('ed')) return word.slice(0, -2);
+  return word;
+}
+
+function parseQueryIntent(query: string): QueryIntent[] {
+  const intents: QueryIntent[] = [];
+  const queryLower = query.toLowerCase();
+  
+  const pricePatterns = [
+    { regex: /under\s+\$?(\d+(?:\.\d{2})?)/i, operator: 'less' as const },
+    { regex: /less\s+than\s+\$?(\d+(?:\.\d{2})?)/i, operator: 'less' as const },
+    { regex: /below\s+\$?(\d+(?:\.\d{2})?)/i, operator: 'less' as const },
+    { regex: /over\s+\$?(\d+(?:\.\d{2})?)/i, operator: 'greater' as const },
+    { regex: /more\s+than\s+\$?(\d+(?:\.\d{2})?)/i, operator: 'greater' as const },
+    { regex: /above\s+\$?(\d+(?:\.\d{2})?)/i, operator: 'greater' as const },
+    { regex: /\$?(\d+(?:\.\d{2})?)\s*-\s*\$?(\d+(?:\.\d{2})?)/i, operator: 'between' as const },
+  ];
+  
+  for (const pattern of pricePatterns) {
+    const match = queryLower.match(pattern.regex);
+    if (match) {
+      if (pattern.operator === 'between') {
+        intents.push({
+          type: 'price',
+          operator: pattern.operator,
+          value: parseFloat(match[1]),
+          value2: parseFloat(match[2]),
+        });
+      } else {
+        intents.push({
+          type: 'price',
+          operator: pattern.operator,
+          value: parseFloat(match[1]),
+        });
+      }
+    }
+  }
+  
+  if (queryLower.includes('in stock') || queryLower.includes('available')) {
+    intents.push({ type: 'status', operator: 'equal', value: 'active' });
+  }
+  if (queryLower.includes('out of stock') || queryLower.includes('unavailable')) {
+    intents.push({ type: 'quantity', operator: 'equal', value: 0 });
+  }
+  
+  return intents;
+}
+
+function expandSemanticQuery(query: string): string[] {
+  const semanticMap: Record<string, string[]> = {
+    'tool': ['equipment', 'implement', 'device', 'instrument'],
+    'paint': ['coating', 'finish', 'stain', 'varnish'],
+    'screw': ['fastener', 'bolt', 'nail'],
+    'wood': ['lumber', 'timber', 'plywood'],
+    'red': ['crimson', 'scarlet', 'burgundy'],
+    'blue': ['navy', 'azure', 'cobalt'],
+    'large': ['big', 'huge', 'massive'],
+    'small': ['tiny', 'mini', 'compact'],
+  };
+  
+  const queryLower = query.toLowerCase();
+  const synonyms: string[] = [];
+  
+  if (query.split(/\s+/).length > 3) {
+    return [];
+  }
+  
+  for (const [key, values] of Object.entries(semanticMap)) {
+    if (queryLower.includes(key)) {
+      synonyms.push(...values);
+    }
+  }
+  
+  return synonyms;
+}
+
+function advancedFuzzyMatch(str1: string, str2: string): number {
+  const levenshteinScore = 1 - (levenshteinDistance(str1, str2) / Math.max(str1.length, str2.length));
+  const jaroScore = jaroWinkler(str1, str2);
+  const ngramScore = ngramSimilarity(str1, str2, 2);
+  return (levenshteinScore * 0.4) + (jaroScore * 0.4) + (ngramScore * 0.2);
+}
+
+function levenshteinDistance(str1: string, str2: string): number {
+  const m = str1.length;
+  const n = str2.length;
+  const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+  
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (str1[i - 1] === str2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = Math.min(
+          dp[i - 1][j] + 1,
+          dp[i][j - 1] + 1,
+          dp[i - 1][j - 1] + 1
+        );
+      }
+    }
+  }
+  
+  return dp[m][n];
+}
+
+function jaroWinkler(str1: string, str2: string): number {
+  const jaro = jaroSimilarity(str1, str2);
+  let prefixLength = 0;
+  for (let i = 0; i < Math.min(4, str1.length, str2.length); i++) {
+    if (str1[i] === str2[i]) {
+      prefixLength++;
+    } else {
+      break;
+    }
+  }
+  return jaro + (prefixLength * 0.1 * (1 - jaro));
+}
+
+function jaroSimilarity(str1: string, str2: string): number {
+  if (str1 === str2) return 1;
+  if (str1.length === 0 || str2.length === 0) return 0;
+  
+  const matchWindow = Math.max(str1.length, str2.length) / 2 - 1;
+  const str1Matches = new Array(str1.length).fill(false);
+  const str2Matches = new Array(str2.length).fill(false);
+  
+  let matches = 0;
+  let transpositions = 0;
+  
+  for (let i = 0; i < str1.length; i++) {
+    const start = Math.max(0, i - matchWindow);
+    const end = Math.min(i + matchWindow + 1, str2.length);
+    
+    for (let j = start; j < end; j++) {
+      if (str2Matches[j] || str1[i] !== str2[j]) continue;
+      str1Matches[i] = true;
+      str2Matches[j] = true;
+      matches++;
+      break;
+    }
+  }
+  
+  if (matches === 0) return 0;
+  
+  let k = 0;
+  for (let i = 0; i < str1.length; i++) {
+    if (!str1Matches[i]) continue;
+    while (!str2Matches[k]) k++;
+    if (str1[i] !== str2[k]) transpositions++;
+    k++;
+  }
+  
+  return (
+    (matches / str1.length +
+    matches / str2.length +
+    (matches - transpositions / 2) / matches) / 3
+  );
+}
+
+function ngramSimilarity(str1: string, str2: string, n: number): number {
+  const ngrams1 = getNgrams(str1, n);
+  const ngrams2 = getNgrams(str2, n);
+  
+  const intersection = ngrams1.filter(ng => ngrams2.includes(ng)).length;
+  const union = new Set([...ngrams1, ...ngrams2]).size;
+  
+  return union === 0 ? 0 : intersection / union;
+}
+
+function getNgrams(str: string, n: number): string[] {
+  const ngrams: string[] = [];
+  for (let i = 0; i <= str.length - n; i++) {
+    ngrams.push(str.substring(i, i + n));
+  }
+  return ngrams;
 }
 
 /**
  * Advanced search function with fuzzy matching, semantic understanding, and NLP
+ * Optimized for large datasets (10k+ items)
  */
 export function advancedSearch<T extends SearchableItem>(
   items: T[],
@@ -336,10 +263,15 @@ export function advancedSearch<T extends SearchableItem>(
   
   const queryLower = query.toLowerCase().trim();
   const searchTerms = extractSearchTerms(query);
-  const semanticTerms = expandSemanticQuery(query);
   const intents = parseQueryIntent(query);
   
+  // ⚡ Performance optimization: Only expand semantic query if we have search terms
+  const semanticTerms = searchTerms.length > 0 ? expandSemanticQuery(query) : [];
+  
   const results: SearchResult<T>[] = [];
+  
+  // ⚡ Performance: Pre-compute stemmed versions of search terms once
+  const stemmedSearchTerms = searchTerms.map(term => ({ original: term, stemmed: stem(term) }));
   
   for (const item of items) {
     // Skip inactive items if not requested
@@ -373,7 +305,11 @@ export function advancedSearch<T extends SearchableItem>(
         .toLowerCase();
       
       // Check if all search terms are present (order doesn't matter)
-      const allTermsPresent = searchTerms.every(term => allFieldsText.includes(term));
+      // IMPORTANT: Check both original terms AND stemmed versions
+      const allTermsPresent = searchTerms.every(term => {
+        const stemmedTerm = stem(term);
+        return allFieldsText.includes(term) || allFieldsText.includes(stemmedTerm);
+      });
       
       // If not all terms are present, skip this item entirely
       if (!allTermsPresent) {
@@ -403,9 +339,42 @@ export function advancedSearch<T extends SearchableItem>(
         continue;
       }
       
+      // Stemmed exact match (e.g., "hammers" matches "hammer")
+      const stemmedQuery = stem(queryLower);
+      const stemmedField = stem(fieldValue);
+      if (stemmedField === stemmedQuery && stemmedQuery !== queryLower) {
+        totalScore += weight * 9.5; // Very high score, just below exact
+        matchCount++;
+        matchedFields.push(field);
+        bestMatchType = 'exact';
+        continue;
+      }
+      
       // Contains exact query
       if (fieldValue.includes(queryLower)) {
         totalScore += weight * 8;
+        matchCount++;
+        matchedFields.push(field);
+        if (bestMatchType !== 'exact') {
+          bestMatchType = 'partial';
+        }
+        continue;
+      }
+      
+      // Contains stemmed query (e.g., "hammer" in field matches "hammers" query)
+      if (stemmedQuery !== queryLower && fieldValue.includes(stemmedQuery)) {
+        totalScore += weight * 7.5; // High score for stemmed match
+        matchCount++;
+        matchedFields.push(field);
+        if (bestMatchType !== 'exact') {
+          bestMatchType = 'partial';
+        }
+        continue;
+      }
+      
+      // Query contains field value (for shorter field values)
+      if (queryLower.includes(fieldValue) && fieldValue.length >= 3) {
+        totalScore += weight * 7;
         matchCount++;
         matchedFields.push(field);
         if (bestMatchType !== 'exact') {
@@ -421,6 +390,21 @@ export function advancedSearch<T extends SearchableItem>(
         if (allTermsMatch) {
           // High score bonus for matching all terms
           totalScore += weight * 7;
+          matchCount++;
+          matchedFields.push(field);
+          if (bestMatchType !== 'exact') {
+            bestMatchType = 'partial';
+          }
+          continue;
+        }
+        
+        // Also check with stemmed terms
+        const allStemmedTermsMatch = searchTerms.every(term => {
+          const stemmedTerm = stem(term);
+          return fieldValue.includes(term) || fieldValue.includes(stemmedTerm);
+        });
+        if (allStemmedTermsMatch) {
+          totalScore += weight * 6.5;
           matchCount++;
           matchedFields.push(field);
           if (bestMatchType !== 'exact') {
@@ -446,24 +430,107 @@ export function advancedSearch<T extends SearchableItem>(
       // Fuzzy match
       const words = fieldValue.split(/\s+/);
       for (const word of words) {
-        if (isFuzzyMatch(word, queryLower, fuzzyThreshold)) {
-          totalScore += weight * 5;
+        // Check if stemmed versions of individual words match
+        const stemmedWord = stem(word);
+        const stemmedQuery = stem(queryLower);
+        
+        // Direct word-to-query comparison (handles "hammers" in field matching "hammer" query)
+        if (word === queryLower) {
+          totalScore += weight * 6;
           matchCount++;
-          matchedFields.push(field);
+          if (!matchedFields.includes(field)) {
+            matchedFields.push(field);
+          }
+          break;
+        }
+        
+        // Stemmed word comparison (handles "hammer" in field matching "hammers" query)
+        if (stemmedWord === stemmedQuery) {
+          totalScore += weight * 5.8;
+          matchCount++;
+          if (!matchedFields.includes(field)) {
+            matchedFields.push(field);
+          }
+          bestMatchType = 'exact';
+          break;
+        }
+        
+        // Use advanced fuzzy matching that combines multiple algorithms
+        const fuzzyScore = advancedFuzzyMatch(word, queryLower);
+        if (fuzzyScore >= fuzzyThreshold) {
+          totalScore += weight * 5 * fuzzyScore; // Scale by fuzzy score
+          matchCount++;
+          if (!matchedFields.includes(field)) {
+            matchedFields.push(field);
+          }
           if (bestMatchType === 'partial') {
             bestMatchType = 'fuzzy';
           }
           break;
         }
+        
+        // Also try fuzzy match with stemmed versions (handles plurals with typos)
+        if (stemmedWord !== word || stemmedQuery !== queryLower) {
+          const stemFuzzyScore = advancedFuzzyMatch(stemmedWord, stemmedQuery);
+          if (stemFuzzyScore >= fuzzyThreshold) {
+            totalScore += weight * 5 * stemFuzzyScore;
+            matchCount++;
+            if (!matchedFields.includes(field)) {
+              matchedFields.push(field);
+            }
+            if (bestMatchType === 'partial') {
+              bestMatchType = 'fuzzy';
+            }
+            break;
+          }
+        }
       }
       
-      // Individual search terms
-      for (const term of searchTerms) {
-        if (fieldValue.includes(term)) {
+      // Enhanced individual search term matching with fuzzy support
+      for (const { original, stemmed } of stemmedSearchTerms) {
+        if (fieldValue.includes(original)) {
           totalScore += weight * 3;
           matchCount++;
           if (!matchedFields.includes(field)) {
             matchedFields.push(field);
+          }
+        } else {
+          // Try exact match with stemmed versions
+          if (stemmed !== original && fieldValue.includes(stemmed)) {
+            totalScore += weight * 2.8; // Slightly lower than exact match
+            matchCount++;
+            if (!matchedFields.includes(field)) {
+              matchedFields.push(field);
+            }
+            continue;
+          }
+          
+          // Try fuzzy match on individual words in the field for this term
+          const fieldWords = fieldValue.split(/\s+/);
+          for (const word of fieldWords) {
+            const fuzzyScore = advancedFuzzyMatch(word, original);
+            if (fuzzyScore >= fuzzyThreshold) {
+              totalScore += weight * 2 * fuzzyScore; // Lower score for fuzzy term match
+              matchCount++;
+              if (!matchedFields.includes(field)) {
+                matchedFields.push(field);
+              }
+              break;
+            }
+            
+            // Also try fuzzy match with stemmed versions
+            const stemmedWord = stem(word);
+            if (stemmedWord !== word || stemmed !== original) {
+              const stemFuzzyScore = advancedFuzzyMatch(stemmedWord, stemmed);
+              if (stemFuzzyScore >= fuzzyThreshold) {
+                totalScore += weight * 2 * stemFuzzyScore;
+                matchCount++;
+                if (!matchedFields.includes(field)) {
+                  matchedFields.push(field);
+                }
+                break;
+              }
+            }
           }
         }
       }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useTransition, useDeferredValue } from 'react';
+import { useState, useEffect, useMemo, useTransition, useDeferredValue, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -35,6 +35,13 @@ import { DatabaseInit } from './DatabaseInit';
 import { advancedSearch, getSearchSuggestions } from '../utils/advanced-search';
 import { InventorySearchHelp } from './InventorySearchHelp';
 import { useDebounce } from '../utils/useDebounce';
+import { createClient } from '../utils/supabase/client';
+import { ensureUserProfile } from '../utils/ensure-profile';
+import { InventoryOptimizationBanner } from './InventoryOptimizationBanner';
+import { InventoryDuplicateCleaner } from './InventoryDuplicateCleaner';
+import { InventoryIndexFixer } from './InventoryIndexFixer';
+import { loadInventoryPage, checkForDuplicates } from '../utils/inventory-loader';
+import { showOptimizationInstructions } from '../utils/show-optimization-instructions';
 
 interface InventoryProps {
   user: User;
@@ -78,6 +85,8 @@ export function Inventory({ user }: InventoryProps) {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showDialog, setShowDialog] = useState(false);
+  const [showDuplicateCleaner, setShowDuplicateCleaner] = useState(false);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [activeTab, setActiveTab] = useState('items');
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -91,6 +100,19 @@ export function Inventory({ user }: InventoryProps) {
   const [useAdvancedSearch, setUseAdvancedSearch] = useState(true);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  
+  // ⚡ Performance optimization: Track if search is computing
+  const [isSearching, setIsSearching] = useState(false);
+  const [, startTransition] = useTransition();
+  
+  // ⚡ Performance tracking
+  const [loadTimeMs, setLoadTimeMs] = useState(0);
+  
+  // ⚡ Track if background loading is in progress to prevent duplicates
+  const loadingRef = useRef(false);
+  
+  // ⚡ Track total count for pagination
+  const [totalCount, setTotalCount] = useState(0);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -123,7 +145,7 @@ export function Inventory({ user }: InventoryProps) {
 
   useEffect(() => {
     loadInventory();
-  }, []);
+  }, [currentPage, itemsPerPage, searchQuery, categoryFilter, statusFilter]);
 
   // ✅ Use deferred value to prevent search input from blocking during large renders
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -150,20 +172,29 @@ export function Inventory({ user }: InventoryProps) {
       if (useAdvancedSearch) {
         // 🌟 Advanced Search with fuzzy matching, semantic understanding, and NLP
         const searchResults = advancedSearch(result, deferredSearchQuery, {
-          fuzzyThreshold: 0.7,
+          fuzzyThreshold: 0.6,    // Optimal for typo tolerance
           includeInactive: statusFilter !== 'active',
-          minScore: 0.2,
+          minScore: 0.05,         // Low threshold to catch fuzzy matches
           maxResults: 1000,
           sortBy: 'relevance',
         });
         
         // Return items with their relevance scores
-        return searchResults.map(r => ({
-          ...r.item,
-          _searchScore: r.score,
-          _matchedFields: r.matchedFields,
-          _matchType: r.matchType,
-        }));
+        // Use a Map to ensure unique items by ID (prevent duplicate keys)
+        const uniqueItems = new Map();
+        searchResults.forEach(r => {
+          // Only keep the highest scoring instance of each item
+          if (!uniqueItems.has(r.item.id) || uniqueItems.get(r.item.id)._searchScore < r.score) {
+            uniqueItems.set(r.item.id, {
+              ...r.item,
+              _searchScore: r.score,
+              _matchedFields: r.matchedFields,
+              _matchType: r.matchType,
+            });
+          }
+        });
+        
+        return Array.from(uniqueItems.values());
       } else {
         // Basic search (original)
         const query = deferredSearchQuery.toLowerCase();
@@ -192,25 +223,246 @@ export function Inventory({ user }: InventoryProps) {
     }
   }, [debouncedSearchQuery, items]);
 
+  const supabase = createClient();
+
+  // Helper to map database items
+  const mapInventoryItem = (dbItem: any): InventoryItem => {
+    const unitPriceInDollars = dbItem.unit_price ? dbItem.unit_price / 100 : 0;
+    const costInDollars = dbItem.cost ? dbItem.cost / 100 : 0;
+    
+    return {
+      id: dbItem.id,
+      name: dbItem.name || '',
+      sku: dbItem.sku || '',
+      category: dbItem.category || '',
+      description: dbItem.description || '',
+      unitOfMeasure: 'ea',
+      quantityOnHand: dbItem.quantity || 0,
+      quantityOnOrder: dbItem.quantity_on_order || 0,
+      reorderLevel: 0,
+      minStock: 0,
+      maxStock: 0,
+      cost: costInDollars,
+      priceTier1: unitPriceInDollars,
+      priceTier2: unitPriceInDollars,
+      priceTier3: unitPriceInDollars,
+      priceTier4: unitPriceInDollars,
+      priceTier5: unitPriceInDollars,
+      status: 'active',
+      tags: [],
+      createdAt: dbItem.created_at || '',
+      updatedAt: dbItem.updated_at || '',
+    };
+  };
+
+  // ⚡ Load remaining items in background without blocking UI
+  const loadRemainingItems = async (userOrgId: string, totalCount: number) => {
+    // Prevent duplicate loading
+    if (loadingRef.current) {
+      console.log('⏭️ Background loading already in progress, skipping...');
+      return;
+    }
+    
+    loadingRef.current = true;
+    
+    try {
+      let offset = 200; // Start after first batch
+      const batchSize = 1000;
+      
+      while (offset < totalCount) {
+        const batchQuery = supabase
+          .from('inventory')
+          .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, organization_id, created_at, updated_at')
+          .eq('organization_id', userOrgId)
+          .order('name', { ascending: true })
+          .range(offset, offset + batchSize - 1);
+        
+        const { data: batchData, error: batchError } = await batchQuery;
+        
+        if (batchError) {
+          console.error('❌ Error loading batch:', batchError);
+          break;
+        }
+        
+        if (batchData && batchData.length > 0) {
+          console.log(`📦 Background: Loaded ${batchData.length} items (${offset + batchData.length}/${totalCount})`);
+          
+          // Update items progressively (non-blocking) with deduplication
+          setItems(prevItems => {
+            const newItems = batchData.map(mapInventoryItem);
+            
+            // Create a Map to deduplicate by ID
+            const itemMap = new Map<string, any>();
+            
+            // Add existing items first
+            prevItems.forEach(item => {
+              itemMap.set(item.id, item);
+            });
+            
+            // Add/update with new items
+            newItems.forEach(item => {
+              itemMap.set(item.id, item);
+            });
+            
+            // Convert back to array
+            const uniqueItems = Array.from(itemMap.values());
+            console.log(`📊 [Background] Total unique items: ${uniqueItems.length} (was ${prevItems.length}, added ${newItems.length})`);
+            return uniqueItems;
+          });
+          
+          offset += batchData.length;
+          
+          // Add small delay to prevent blocking (allows UI to remain responsive)
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } else {
+          break;
+        }
+      }
+      
+      console.log(`✅ [Inventory] Background loading complete!`);
+    } catch (error) {
+      console.error('❌ Error in background loading:', error);
+    } finally {
+      loadingRef.current = false;
+    }
+  };
+
   const loadInventory = async () => {
+    const startTime = performance.now();
+    
+    // Reset background loading flag on fresh load
+    loadingRef.current = false;
+    
     try {
       setIsLoading(true);
       console.log('🔄 [Inventory] Starting to load inventory...');
-      const data = await inventoryAPI.getAll();
-      console.log('✅ [Inventory] Loaded items:', data.items?.length || 0);
-      console.log('📋 [Inventory] Sample SKUs:', data.items?.slice(0, 5).map(i => i.sku) || []);
-      setItems(data.items || []);
-      setTableExists(true); // Table exists
+      
+      // ⚡ PERFORMANCE: Only load first page of data initially (200 items)
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        setIsLoading(false);
+        return;
+      }
+      
+      const profile = await ensureUserProfile(authUser.id);
+      const userOrgId = profile.organization_id;
+      
+      if (!userOrgId) {
+        console.error('❌ No organization_id found for user!');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Save organization ID for duplicate cleaner
+      setOrganizationId(userOrgId);
+      
+      // Load first batch immediately (makes UI interactive fast)
+      const firstBatchQuery = supabase
+        .from('inventory')
+        .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, organization_id, created_at, updated_at', { count: 'exact' })
+        .eq('organization_id', userOrgId)
+        .order('name', { ascending: true })
+        .range(0, 199); // First 200 items
+      
+      const { data: firstBatch, error: firstError, count } = await firstBatchQuery;
+      
+      if (firstError) {
+        console.error('❌ Database error loading inventory:', firstError);
+        if (firstError.code === 'PGRST205' || firstError.code === '42P01') {
+          setTableExists(false);
+        }
+        setIsLoading(false);
+        return;
+      }
+      
+      // Map first batch and show immediately
+      const firstItems = firstBatch ? firstBatch.map(mapInventoryItem) : [];
+      
+      // Deduplicate first batch (just in case)
+      const uniqueFirstItems = Array.from(
+        new Map(firstItems.map(item => [item.id, item])).values()
+      );
+      
+      console.log(`📊 [Inventory] Setting ${uniqueFirstItems.length} unique items from first batch`);
+      setItems(uniqueFirstItems);
+      setTableExists(true);
+      setIsLoading(false); // ✅ UI is now interactive!
+      
+      // Track load time
+      const endTime = performance.now();
+      const loadTime = endTime - startTime;
+      setLoadTimeMs(loadTime);
+      
+      console.log(`✅ [Inventory] Loaded first ${firstItems.length} items (total: ${count}) in ${loadTime.toFixed(0)}ms`);
+      
+      // Store total count
+      setTotalCount(count || 0);
+      
+      // Show optimization instructions if critically slow (not for 1-2s loads)
+      if (loadTime > 5000 && (count || 0) > 1000 && currentPage === 1) {
+        console.warn(`⚠️ Slow inventory performance detected: ${(loadTime / 1000).toFixed(1)}s for first page`);
+        showOptimizationInstructions();
+      }
+      
+      // Log performance metrics for monitoring
+      if (currentPage === 1) {
+        if (loadTime < 2000) {
+          console.log(`✅ [Inventory] Excellent performance: ${loadTime.toFixed(0)}ms for ${count} items`);
+        } else if (loadTime < 5000) {
+          console.info(`ℹ️ [Inventory] Acceptable performance: ${(loadTime / 1000).toFixed(1)}s for ${count} items - Consider adding indexes for faster loads`);
+        }
+      }
+      
+      // ⚡ PERFORMANCE: Check for duplicates (async, non-blocking)
+      if (currentPage === 1 && count && count > 0) {
+        console.log(`✅ [Inventory] Server-side pagination active - showing page 1 of ${Math.ceil(count / 200)}`);
+        
+        // Run duplicate detection after background load completes
+        setTimeout(async () => {
+          // ⚠️ Use optimized duplicate checker instead
+          const dupCount = await checkForDuplicates(userOrgId);
+          if (dupCount > 0) {
+            console.warn(`⚠️ Found ${dupCount} duplicate SKUs`);
+            setShowDuplicateCleaner(true);
+          }
+          return; // Exit early
+          
+          setItems(currentItems => {
+            const skuMap = new Map<string, number>();
+            currentItems.forEach(item => {
+              if (item.sku) {
+                skuMap.set(item.sku, (skuMap.get(item.sku) || 0) + 1);
+              }
+            });
+            
+            const duplicates = Array.from(skuMap.entries()).filter(([_, count]) => count > 1);
+            if (duplicates.length > 0) {
+              console.warn(`⚠️ Found ${duplicates.length} duplicate SKUs in database:`, duplicates.slice(0, 5));
+              console.warn(`🔧 Run this SQL in Supabase to find duplicates:\n` +
+                `SELECT sku, name, COUNT(*) as count\n` +
+                `FROM inventory\n` +
+                `WHERE organization_id = '${userOrgId}'\n` +
+                `GROUP BY sku, name\n` +
+                `HAVING COUNT(*) > 1\n` +
+                `ORDER BY count DESC;`);
+              
+              // Show duplicate cleaner UI
+              setShowDuplicateCleaner(true);
+            }
+            
+            return currentItems;
+          });
+        }, 100);
+      }
+      
     } catch (error: any) {
       console.error('❌ [Inventory] Failed to load inventory:', error);
       
-      // Check if it's a "table not found" error
       if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')) {
-        setTableExists(false); // Table doesn't exist
+        setTableExists(false);
       } else {
         showAlert('error', 'Failed to load inventory items');
       }
-    } finally {
       setIsLoading(false);
     }
   };
@@ -289,16 +541,26 @@ export function Inventory({ user }: InventoryProps) {
       console.log('💾 [Inventory] Form data:', formData);
       console.log('💾 [Inventory] Editing item:', editingItem);
       
+      // ✅ Validate required fields
+      if (!formData.name || formData.name.trim() === '') {
+        showAlert('error', 'Missing required field: Item Name');
+        return;
+      }
+      
+      if (!formData.sku || formData.sku.trim() === '') {
+        showAlert('error', 'Missing required field: SKU');
+        return;
+      }
+      
       // Match the actual database schema (simple version)
       const itemData = {
-        name: formData.name,
-        sku: formData.sku,
-        description: formData.description,
-        category: formData.category,
-        quantity: Number(formData.quantityOnHand),
-        quantity_on_order: Number(formData.quantityOnOrder),
-        unit_price: Number(formData.priceTier1), // Changed from 'price' to 'unit_price' to match DB schema
-        // Note: Advanced fields will be ignored until schema is updated
+        name: formData.name.trim(),
+        sku: formData.sku.trim(),
+        description: formData.description || '',
+        category: formData.category || '',
+        quantity: Number(formData.quantityOnHand) || 0,
+        quantity_on_order: Number(formData.quantityOnOrder) || 0,
+        unit_price: Number(formData.priceTier1) || 0,
       };
 
       console.log('💾 [Inventory] Item data to save:', itemData);
@@ -448,6 +710,31 @@ export function Inventory({ user }: InventoryProps) {
         </div>
 
         <TabsContent value="items" className="space-y-4 mt-6">
+          {/* Database Performance Fix - Show prominently if slow */}
+          {loadTimeMs > 5000 && (
+            <InventoryIndexFixer />
+          )}
+          
+          {/* Performance Optimization Banner - Only show if not critically slow */}
+          {loadTimeMs > 0 && loadTimeMs <= 5000 && (
+            <InventoryOptimizationBanner 
+              organizationId={user.organizationId}
+              itemCount={items.length}
+              loadTimeMs={loadTimeMs}
+            />
+          )}
+          
+          {/* Duplicate Cleaner */}
+          {showDuplicateCleaner && organizationId && (
+            <InventoryDuplicateCleaner
+              organizationId={organizationId}
+              onCleanupComplete={() => {
+                setShowDuplicateCleaner(false);
+                loadInventory();
+              }}
+            />
+          )}
+          
           {/* Filters */}
           <Card>
             <CardContent className="pt-6">
