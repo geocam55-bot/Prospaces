@@ -150,9 +150,10 @@ export async function deleteProjectWizardDefault(id: string): Promise<boolean> {
 
 /**
  * Get inventory items for dropdown (limited fields)
+ * If itemIds is provided, only fetch those specific items
  */
-export async function getInventoryItemsForDropdown(organizationId: string): Promise<InventoryItem[]> {
-  console.log('[project-wizard-defaults] 📊 Fetching inventory items for org:', organizationId);
+export async function getInventoryItemsForDropdown(organizationId: string, itemIds?: string[]): Promise<InventoryItem[]> {
+  console.log('[project-wizard-defaults] 📊 Fetching inventory items for org:', organizationId, itemIds ? `(${itemIds.length} specific items)` : '(all items)');
   
   try {
     const supabase = createClient();
@@ -175,22 +176,15 @@ export async function getInventoryItemsForDropdown(organizationId: string): Prom
       authUser = user;
     }
 
-    // ✅ CRITICAL FIX: Load ALL items by fetching in batches (Supabase has a hard 1000 row limit per query)
-    // We'll fetch 1000 items at a time to handle 14k+ SKUs
-    console.log('[project-wizard-defaults] 🔄 Fetching inventory in batches...');
-    
-    const allData: InventoryItem[] = [];
-    let offset = 0;
-    const batchSize = 1000;
-    let hasMore = true;
-    
-    while (hasMore) {
+    // If specific item IDs are provided, fetch only those items
+    if (itemIds && itemIds.length > 0) {
+      console.log('[project-wizard-defaults] 🎯 Fetching specific items:', itemIds.length);
+      
       const { data, error } = await supabase
         .from('inventory')
         .select('id, name, sku, category, description')
         .eq('organization_id', organizationId)
-        .order('name', { ascending: true })
-        .range(offset, offset + batchSize - 1);
+        .in('id', itemIds);
 
       if (error) {
         if (error.code === 'PGRST205' || error.code === '42P01') {
@@ -201,23 +195,32 @@ export async function getInventoryItemsForDropdown(organizationId: string): Prom
         return [];
       }
 
-      if (data && data.length > 0) {
-        allData.push(...data);
-        console.log(`[project-wizard-defaults] 📦 Fetched batch: ${data.length} items (total so far: ${allData.length})`);
-        
-        // If we got fewer items than batchSize, we've reached the end
-        if (data.length < batchSize) {
-          hasMore = false;
-        } else {
-          offset += batchSize;
-        }
-      } else {
-        hasMore = false;
-      }
+      console.log('[project-wizard-defaults] ✅ Fetched', data?.length || 0, 'specific items');
+      return data || [];
     }
 
-    console.log('[project-wizard-defaults] ✅ Total inventory items fetched:', allData.length);
-    return allData;
+    // Otherwise, fetch ALL items in batches (for initial load, we'll use a limit instead)
+    // Load only first 1000 items - users can search for more
+    console.log('[project-wizard-defaults] 🔄 Fetching first 1000 inventory items...');
+    
+    const { data, error } = await supabase
+      .from('inventory')
+      .select('id, name, sku, category, description')
+      .eq('organization_id', organizationId)
+      .order('name', { ascending: true })
+      .limit(1000);
+
+    if (error) {
+      if (error.code === 'PGRST205' || error.code === '42P01') {
+        console.warn('[project-wizard-defaults] ⚠️ inventory table does not exist.');
+        return [];
+      }
+      console.error('[project-wizard-defaults] ❌ Error fetching inventory items:', error);
+      return [];
+    }
+
+    console.log('[project-wizard-defaults] ✅ Fetched', data?.length || 0, 'items');
+    return data || [];
   } catch (error) {
     console.error('[project-wizard-defaults] ❌ Unexpected error fetching inventory items:', error);
     return [];

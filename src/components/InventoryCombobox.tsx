@@ -146,13 +146,6 @@ export function InventoryCombobox({
   // Find the selected item
   const selectedItem = items.find((item) => item.id === value);
   
-  // Display text
-  const displayText = value === 'none' 
-    ? 'None' 
-    : selectedItem 
-      ? `${selectedItem.name} (${selectedItem.sku})`
-      : placeholder;
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -161,9 +154,23 @@ export function InventoryCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className="w-full justify-between h-auto min-h-[40px] py-2"
         >
-          <span className="truncate">{displayText}</span>
+          <div className="flex flex-col items-start text-left flex-1 min-w-0">
+            {value === 'none' ? (
+              <span className="truncate">None</span>
+            ) : selectedItem ? (
+              <>
+                <span className="truncate w-full font-medium">{selectedItem.name}</span>
+                {selectedItem.description && (
+                  <span className="text-xs text-gray-600 truncate w-full">{selectedItem.description}</span>
+                )}
+                <span className="text-xs text-gray-500">SKU: {selectedItem.sku}</span>
+              </>
+            ) : (
+              <span className="truncate">{placeholder}</span>
+            )}
+          </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>

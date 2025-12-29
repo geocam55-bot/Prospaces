@@ -146,32 +146,50 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     }
 
     setLoading(true);
-    console.log('[ProjectWizardSettings] Loading data for org:', organizationId);
+    console.log('[ProjectWizardSettings] ⚡ Loading data for org:', organizationId);
     
     try {
-      const [items, wizardDefaults] = await Promise.all([
-        getInventoryItemsForDropdown(organizationId),
-        getProjectWizardDefaults(organizationId),
-      ]);
-
-      console.log('[ProjectWizardSettings] Loaded inventory items:', items.length);
-      console.log('[ProjectWizardSettings] Loaded wizard defaults:', wizardDefaults.length);
-
-      setInventoryItems(items);
+      // First, load just the wizard defaults (fast!)
+      console.log('[ProjectWizardSettings] 📋 Step 1: Loading wizard defaults...');
+      const wizardDefaults = await getProjectWizardDefaults(organizationId);
+      console.log('[ProjectWizardSettings] ✅ Loaded wizard defaults:', wizardDefaults.length);
 
       // Convert defaults array to lookup object
       const defaultsMap: Record<string, string> = {};
+      const itemIdsToFetch: string[] = [];
+      
       wizardDefaults.forEach((def) => {
         const key = `${def.planner_type}-${def.material_type || 'default'}-${def.material_category}`;
         if (def.inventory_item_id) {
           defaultsMap[key] = def.inventory_item_id;
+          itemIdsToFetch.push(def.inventory_item_id);
         }
       });
       
-      console.log('[ProjectWizardSettings] Defaults map size:', Object.keys(defaultsMap).length);
+      console.log('[ProjectWizardSettings] 📊 Defaults map size:', Object.keys(defaultsMap).length);
       setDefaults(defaultsMap);
+
+      // Now load only the inventory items that are currently set as defaults (fast!)
+      console.log('[ProjectWizardSettings] 📦 Step 2: Loading', itemIdsToFetch.length, 'inventory items that are set as defaults...');
+      let items: InventoryItem[] = [];
+      
+      if (itemIdsToFetch.length > 0) {
+        items = await getInventoryItemsForDropdown(organizationId, itemIdsToFetch);
+        console.log('[ProjectWizardSettings] ✅ Loaded', items.length, 'inventory items');
+      }
+
+      setInventoryItems(items);
+      
+      // Load the full inventory list in the background (lazy load)
+      console.log('[ProjectWizardSettings] 🔄 Step 3: Loading full inventory list in background...');
+      setTimeout(async () => {
+        const allItems = await getInventoryItemsForDropdown(organizationId);
+        console.log('[ProjectWizardSettings] ✅ Background load complete:', allItems.length, 'total items');
+        setInventoryItems(allItems);
+      }, 100); // Small delay to let UI render first
+      
     } catch (error) {
-      console.error('[ProjectWizardSettings] Error loading project wizard settings:', error);
+      console.error('[ProjectWizardSettings] ❌ Error loading project wizard settings:', error);
       // Only show error if it's not an authentication issue
       if (error && typeof error === 'object' && 'message' in error && !String(error.message).includes('auth')) {
         onSave('error', 'Failed to load project wizard settings');
