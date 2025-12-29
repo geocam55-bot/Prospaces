@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { createClient } from '../utils/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
@@ -31,7 +31,7 @@ export function InventoryDuplicateCleaner({ organizationId, onCleanupComplete }:
       console.log('🔍 Scanning for duplicates...');
       
       // Load all inventory items
-      const { data: allItems, error: loadError } = await supabase
+      const { data: allItems, error: loadError } = await createClient()
         .from('inventory')
         .select('id, sku, name')
         .eq('organization_id', organizationId)
@@ -101,7 +101,7 @@ export function InventoryDuplicateCleaner({ organizationId, onCleanupComplete }:
         
         // Delete the duplicate records
         for (const deleteId of deleteIds) {
-          const { error: deleteError } = await supabase
+          const { error: deleteError } = await createClient()
             .from('inventory')
             .delete()
             .eq('id', deleteId)

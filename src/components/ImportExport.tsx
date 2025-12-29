@@ -919,12 +919,12 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               Schedule for Later
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={createBackgroundImportJob}
               disabled={isImporting}
               className="flex items-center gap-2"
             >
-              <Clock className="h-4 w-4" />
+              <Upload className="h-4 w-4" />
               Run in Background
             </Button>
             <Button onClick={executeImport} disabled={isImporting}>
