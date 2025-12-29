@@ -67,8 +67,8 @@ export function InventoryCombobox({
       })));
       
       const results = advancedSearch(items, debouncedSearch, {
-        fuzzyThreshold: 0.6,  // Optimal balance between precision and recall
-        minScore: 0.05,       // Very low minimum to catch fuzzy matches
+        fuzzyThreshold: 0.7,  // Match Inventory Module settings
+        minScore: 0.3,        // Match Inventory Module settings
         maxResults: 100,
         sortBy: 'relevance',
       });
@@ -265,6 +265,9 @@ export function InventoryCombobox({
                       />
                       <div className="flex flex-col items-start text-left flex-1">
                         <span>{item.name}</span>
+                        {item.description && (
+                          <span className="text-xs text-gray-600 line-clamp-1">{item.description}</span>
+                        )}
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           <span>SKU: {item.sku}</span>
                           {price !== undefined && price !== null && (
