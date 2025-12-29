@@ -1012,6 +1012,11 @@
     height: calc(var(--spacing) * 5);
   }
 
+  .size-8 {
+    width: calc(var(--spacing) * 8);
+    height: calc(var(--spacing) * 8);
+  }
+
   .size-9 {
     width: calc(var(--spacing) * 9);
     height: calc(var(--spacing) * 9);
@@ -2307,6 +2312,10 @@
 
   .bg-primary {
     background-color: oklch(.205 0 0);
+  }
+
+  .bg-primary\/20 {
+    background-color: color-mix(in oklab, oklch(.205 0 0) 20%, transparent);
   }
 
   .bg-purple-50 {

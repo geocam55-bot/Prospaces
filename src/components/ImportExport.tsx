@@ -183,6 +183,64 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     setShowScheduleDialog(true);
   };
 
+  // Create background import job (runs immediately in background)
+  const createBackgroundImportJob = async () => {
+    if (!mappingState) return;
+
+    const { type, data, mapping } = mappingState;
+
+    try {
+      // Map the data using the column mapping
+      const mappedData = data.map(row => {
+        const mappedRow: any = {};
+        Object.entries(mapping).forEach(([fileCol, dbField]) => {
+          if (dbField && row[fileCol] !== undefined) {
+            mappedRow[dbField] = row[fileCol];
+          }
+        });
+        return mappedRow;
+      });
+
+      const supabase = createClient();
+
+      const jobData = {
+        organization_id: user.organizationId,
+        created_by: user.id,
+        job_type: 'import',
+        data_type: type,
+        scheduled_time: new Date().toISOString(), // Run immediately
+        status: 'pending',
+        creator_name: user.full_name || user.email || 'User',
+        file_name: `background_import_${type}_${new Date().toISOString().split('T')[0]}.csv`,
+        file_data: { records: mappedData, mapping: mapping },
+      };
+
+      const { error } = await supabase
+        .from('scheduled_jobs')
+        .insert(jobData);
+
+      if (error) throw error;
+
+      toast.success(
+        `Background import started for ${data.length} records!`,
+        {
+          description: 'You can close this page. We\'ll notify you when it\'s complete.',
+          duration: 10000,
+          action: {
+            label: 'View Status',
+            onClick: () => onNavigate?.('background-imports')
+          }
+        }
+      );
+      
+      // Clear mapping state
+      clearMapping();
+    } catch (error: any) {
+      console.error('Failed to create background import job:', error);
+      toast.error('Failed to start background import: ' + error.message);
+    }
+  };
+
   // Get minimum datetime (current time + 5 minutes)
   const getMinDateTime = () => {
     const now = new Date();
@@ -859,6 +917,15 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
             >
               <Clock className="h-4 w-4" />
               Schedule for Later
+            </Button>
+            <Button
+              variant="outline"
+              onClick={createBackgroundImportJob}
+              disabled={isImporting}
+              className="flex items-center gap-2"
+            >
+              <Clock className="h-4 w-4" />
+              Run in Background
             </Button>
             <Button onClick={executeImport} disabled={isImporting}>
               {isImporting ? (

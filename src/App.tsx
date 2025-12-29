@@ -23,6 +23,7 @@ import { Settings } from './components/Settings';
 import { Security } from './components/Security';
 import { ImportExport } from './components/ImportExport';
 import { ScheduledJobs } from './components/ScheduledJobs';
+import { BackgroundImportManager } from './components/BackgroundImportManager';
 import { AITaskSuggestions } from './components/AITaskSuggestions';
 import { ProjectWizards } from './components/ProjectWizards';
 import { ThemeProvider } from './components/ThemeProvider';
@@ -217,6 +218,7 @@ function App() {
               {currentView === 'import-export' && <ImportExport user={user} onNavigate={setCurrentView} />}
               {currentView === 'project-wizards' && <ProjectWizards user={user} />}
               {currentView === 'scheduled-jobs' && <ScheduledJobs user={user} onNavigate={setCurrentView} />}
+              {currentView === 'background-imports' && <BackgroundImportManager user={user} onNavigate={setCurrentView} />}
             </div>
           </main>
         </div>
