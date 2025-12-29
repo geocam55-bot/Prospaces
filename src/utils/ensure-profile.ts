@@ -29,17 +29,51 @@ export async function ensureUserProfile(userId: string) {
   
   if (!user) {
     console.error('❌ User not authenticated');
-    // Return a minimal default profile instead of throwing
-    return {
-      role: 'standard_user',
-      organization_id: null,
-      email: 'unknown@example.com',
-      manager_id: null,
-    };
+    throw new Error('User not authenticated. Please log in again.');
   }
   
   const email = user.email || user.user_metadata?.email || 'unknown@example.com';
-  const organizationId = user.user_metadata?.organizationId || null;
+  let organizationId = user.user_metadata?.organizationId || user.user_metadata?.organization_id || null;
+  
+  // If no organization in metadata, try to find or create one
+  if (!organizationId) {
+    console.log('⚠️ No organization_id in user metadata, checking for default organization...');
+    
+    // Try to find the default organization
+    const { data: defaultOrg } = await supabase
+      .from('organizations')
+      .select('id')
+      .eq('name', 'ProSpaces CRM')
+      .maybeSingle();
+    
+    if (defaultOrg) {
+      organizationId = defaultOrg.id;
+      console.log('✅ Found default organization:', organizationId);
+    } else {
+      // Create a default organization
+      const defaultOrgId = 'default-org';
+      const { data: newOrg, error: orgError } = await supabase
+        .from('organizations')
+        .insert({
+          id: defaultOrgId,
+          name: 'ProSpaces CRM',
+          status: 'active'
+        })
+        .select()
+        .single();
+      
+      if (!orgError && newOrg) {
+        organizationId = newOrg.id;
+        console.log('✅ Created default organization:', organizationId);
+      } else if (orgError?.code === '23505') {
+        // Organization already exists (race condition)
+        organizationId = defaultOrgId;
+        console.log('✅ Using default organization (already exists):', organizationId);
+      } else {
+        console.error('❌ Failed to create default organization:', orgError);
+      }
+    }
+  }
   
   // Create the profile with default values
   const newProfileData = {
@@ -106,18 +140,26 @@ export async function ensureUserProfile(userId: string) {
     
     // Return a minimal default profile instead of throwing
     console.error('⚠️ Could not create or find profile, returning default profile');
+    
+    // Ensure we have at least a default organization
+    const finalOrgId = organizationId || 'default-org';
+    
     return {
       role: 'standard_user',
-      organization_id: organizationId || null,
+      organization_id: finalOrgId,
       email: email,
       manager_id: null,
     };
   }
   
   console.log('✅ Profile created successfully for user:', userId);
+  
+  // Ensure organization_id is set
+  const finalOrgId = newProfile.organization_id || organizationId || 'default-org';
+  
   return {
     role: newProfile.role,
-    organization_id: newProfile.organization_id,
+    organization_id: finalOrgId,
     email: newProfile.email,
     manager_id: newProfile.manager_id,
   };

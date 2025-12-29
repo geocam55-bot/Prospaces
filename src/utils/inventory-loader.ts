@@ -55,8 +55,15 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
     const { data, error, count } = await query;
     
     if (error) {
-      console.error('❌ Error loading inventory:', error);
-      throw error;
+      console.error('❌ Database error loading inventory:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
+      console.error('❌ Error code:', error.code);
+      console.error('❌ Error message:', error.message);
+      throw new Error(`Database error: ${error.message} (Code: ${error.code || 'unknown'})`);
     }
     
     const endTime = performance.now();

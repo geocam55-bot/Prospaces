@@ -281,9 +281,12 @@ export function Inventory({ user }: InventoryProps) {
       setIsLoading(true);
       console.log(`🔄 [Inventory] Loading page ${currentPage} with ${itemsPerPage} items per page...`);
       
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !authUser) {
+        console.error('❌ User not authenticated:', authError?.message || 'No user found');
         setIsLoading(false);
+        setTableExists(false);
+        showAlert('error', 'Please log in to access inventory');
         return;
       }
       
@@ -292,7 +295,10 @@ export function Inventory({ user }: InventoryProps) {
       
       if (!userOrgId) {
         console.error('❌ No organization_id found for user!');
+        console.error('ℹ️ User profile:', profile);
         setIsLoading(false);
+        setTableExists(false);
+        showAlert('error', 'Your account is not assigned to an organization. Please contact your administrator.');
         return;
       }
       
@@ -382,11 +388,21 @@ export function Inventory({ user }: InventoryProps) {
       
     } catch (error: any) {
       console.error('❌ [Inventory] Failed to load inventory:', error);
+      console.error('Error loading inventory:', {
+        message: error?.message,
+        code: error?.code,
+        name: error?.name,
+        stack: error?.stack?.split('\n').slice(0, 3)
+      });
       
-      if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')) {
+      if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table') || error?.message?.includes('relation "inventory" does not exist')) {
         setTableExists(false);
+        showAlert('error', 'Inventory table not found. Please contact your administrator.');
+      } else if (error?.message?.includes('organization')) {
+        showAlert('error', 'Organization access error. Please contact your administrator.');
       } else {
-        showAlert('error', 'Failed to load inventory items');
+        const errorMsg = error?.message || 'Failed to load inventory items';
+        showAlert('error', errorMsg.length > 100 ? 'Failed to load inventory items' : errorMsg);
       }
       setIsLoading(false);
     }
