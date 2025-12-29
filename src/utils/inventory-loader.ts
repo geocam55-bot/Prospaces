@@ -18,6 +18,63 @@ export interface LoadInventoryResult {
 }
 
 /**
+ * Parse natural language search queries for price filters
+ */
+function parseSearchQuery(query: string): {
+  searchTerms: string;
+  priceFilter?: { operator: 'lt' | 'gt' | 'gte' | 'lte', value: number };
+} {
+  if (!query || !query.trim()) {
+    return { searchTerms: '' };
+  }
+
+  let cleanedQuery = query.toLowerCase();
+  let priceFilter: { operator: 'lt' | 'gt' | 'gte' | 'lte', value: number } | undefined;
+
+  // Check for price patterns
+  const pricePatterns = [
+    { regex: /under\s+\$?(\d+(?:\.\d{2})?)/i, operator: 'lt' as const },
+    { regex: /less\s+than\s+\$?(\d+(?:\.\d{2})?)/i, operator: 'lt' as const },
+    { regex: /below\s+\$?(\d+(?:\.\d{2})?)/i, operator: 'lt' as const },
+    { regex: /over\s+\$?(\d+(?:\.\d{2})?)/i, operator: 'gt' as const },
+    { regex: /more\s+than\s+\$?(\d+(?:\.\d{2})?)/i, operator: 'gt' as const },
+    { regex: /above\s+\$?(\d+(?:\.\d{2})?)/i, operator: 'gt' as const },
+  ];
+
+  for (const pattern of pricePatterns) {
+    const match = cleanedQuery.match(pattern.regex);
+    if (match) {
+      priceFilter = {
+        operator: pattern.operator,
+        value: parseFloat(match[1]),
+      };
+      // Remove the price phrase from the search query
+      cleanedQuery = cleanedQuery.replace(pattern.regex, ' ');
+      break;
+    }
+  }
+
+  // Remove standalone prices like "$40"
+  cleanedQuery = cleanedQuery.replace(/\$\d+(?:\.\d{2})?/gi, ' ');
+
+  // Clean up extra spaces
+  const searchTerms = cleanedQuery.replace(/\s+/g, ' ').trim();
+
+  return { searchTerms, priceFilter };
+}
+
+/**
+ * Simple stemming function to handle singular/plural
+ */
+function stem(word: string): string {
+  word = word.toLowerCase();
+  if (word.endsWith('ies')) return word.slice(0, -3) + 'y';
+  if (word.endsWith('es')) return word.slice(0, -2);
+  if (word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
+  return word;
+}
+
+/**
  * ⚡ Optimized server-side paginated inventory loader
  * Only loads the current page of items - MUCH faster than loading all 35k+ items
  */
@@ -36,10 +93,51 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
       .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, organization_id, created_at, updated_at', { count: 'exact' })
       .eq('organization_id', organizationId);
     
-    // ⚡ Server-side search filtering (much faster than client-side)
+    // ⚡ Enhanced server-side search with natural language support
     if (searchQuery && searchQuery.trim()) {
-      const search = searchQuery.trim();
-      query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%,description.ilike.%${search}%,category.ilike.%${search}%`);
+      const { searchTerms, priceFilter } = parseSearchQuery(searchQuery);
+      
+      console.log('🔍 [Inventory Search]', {
+        originalQuery: searchQuery,
+        searchTerms,
+        priceFilter,
+      });
+      
+      // Apply text search if there are search terms
+      if (searchTerms) {
+        // Handle both singular and plural forms by searching for stemmed version
+        const stemmedSearch = stem(searchTerms);
+        
+        console.log('🔍 [Inventory Search] Stemming:', {
+          original: searchTerms,
+          stemmed: stemmedSearch,
+        });
+        
+        // Search for both original and stemmed versions
+        if (stemmedSearch !== searchTerms) {
+          query = query.or(
+            `name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%,` +
+            `name.ilike.%${stemmedSearch}%,sku.ilike.%${stemmedSearch}%,description.ilike.%${stemmedSearch}%,category.ilike.%${stemmedSearch}%`
+          );
+        } else {
+          query = query.or(`name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%`);
+        }
+      }
+      
+      // Apply price filter if present
+      if (priceFilter) {
+        console.log('💰 [Inventory Search] Applying price filter:', priceFilter);
+        
+        if (priceFilter.operator === 'lt') {
+          query = query.lt('unit_price', priceFilter.value);
+        } else if (priceFilter.operator === 'gt') {
+          query = query.gt('unit_price', priceFilter.value);
+        } else if (priceFilter.operator === 'lte') {
+          query = query.lte('unit_price', priceFilter.value);
+        } else if (priceFilter.operator === 'gte') {
+          query = query.gte('unit_price', priceFilter.value);
+        }
+      }
     }
     
     // ⚡ Server-side category filtering

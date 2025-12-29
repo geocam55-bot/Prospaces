@@ -1,51 +1,35 @@
 /**
- * TYPE DEFINITIONS
- */
-export interface SearchableItem {
-  name: string;
-  sku: string;
-  description: string;
-  category: string;
-  status?: string;
-  priceTier1: number;
-  quantityOnHand: number;
-  supplier?: string;
-  barcode?: string;
-  location?: string;
-  tags?: string[];
-}
-
-export interface SearchOptions {
-  fuzzyThreshold?: number;
-  includeInactive?: boolean;
-  minScore?: number;
-  maxResults?: number;
-  sortBy?: 'relevance' | 'name' | 'price' | 'quantity';
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface SearchResult<T> {
-  item: T;
-  score: number;
-  matchedFields: string[];
-  matchType: 'exact' | 'fuzzy' | 'semantic' | 'partial';
-}
-
-interface QueryIntent {
-  type: 'price' | 'quantity' | 'status' | 'category';
-  operator: 'less' | 'greater' | 'equal' | 'between';
-  value: string | number;
-  value2?: number;
-}
-
-/**
  * HELPER FUNCTIONS
  */
 function extractSearchTerms(query: string): string[] {
-  return query
-    .toLowerCase()
+  // Remove price-related phrases before extracting terms
+  let cleanedQuery = query.toLowerCase();
+  
+  // Remove price patterns and their values
+  const pricePatterns = [
+    /under\s+\$?\d+(?:\.\d{2})?/gi,
+    /less\s+than\s+\$?\d+(?:\.\d{2})?/gi,
+    /below\s+\$?\d+(?:\.\d{2})?/gi,
+    /over\s+\$?\d+(?:\.\d{2})?/gi,
+    /more\s+than\s+\$?\d+(?:\.\d{2})?/gi,
+    /above\s+\$?\d+(?:\.\d{2})?/gi,
+    /\$?\d+(?:\.\d{2})?\s*-\s*\$?\d+(?:\.\d{2})?/gi,
+    /\$\d+(?:\.\d{2})?/gi, // Remove standalone prices like "$40"
+  ];
+  
+  for (const pattern of pricePatterns) {
+    cleanedQuery = cleanedQuery.replace(pattern, ' ');
+  }
+  
+  // Remove quantity-related phrases
+  cleanedQuery = cleanedQuery.replace(/in\s+stock/gi, ' ');
+  cleanedQuery = cleanedQuery.replace(/out\s+of\s+stock/gi, ' ');
+  cleanedQuery = cleanedQuery.replace(/available/gi, ' ');
+  cleanedQuery = cleanedQuery.replace(/unavailable/gi, ' ');
+  
+  return cleanedQuery
     .split(/\s+/)
-    .filter(term => term.length > 0 && !['and', 'or', 'the', 'a', 'an'].includes(term));
+    .filter(term => term.length > 0 && !['and', 'or', 'the', 'a', 'an', 'with', 'for'].includes(term));
 }
 
 function stem(word: string): string {
