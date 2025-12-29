@@ -112,12 +112,29 @@ function App() {
           return;
         }
 
+        // Load user preferences to get profile picture
+        let avatarUrl = profile.avatar_url;
+        try {
+          const { data: userPrefs } = await supabase
+            .from('user_preferences')
+            .select('profile_picture')
+            .eq('user_id', profile.id)
+            .eq('organization_id', profile.organization_id)
+            .single();
+          
+          if (userPrefs?.profile_picture) {
+            avatarUrl = userPrefs.profile_picture;
+          }
+        } catch (prefError) {
+          console.log('No user preferences found, using profile avatar_url');
+        }
+
         setUser({
           id: profile.id,
           email: profile.email,
           role: profile.role,
           full_name: profile.full_name || profile.name,
-          avatar_url: profile.avatar_url,
+          avatar_url: avatarUrl,
           organization_id: profile.organization_id,
           // Add camelCase alias for components
           organizationId: profile.organization_id,
