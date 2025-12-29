@@ -145,7 +145,7 @@ export function Inventory({ user }: InventoryProps) {
 
   useEffect(() => {
     loadInventory();
-  }, [currentPage, itemsPerPage, searchQuery, categoryFilter, statusFilter]);
+  }, [currentPage, itemsPerPage, debouncedSearchQuery, categoryFilter, statusFilter]);
 
   // ✅ Use deferred value to prevent search input from blocking during large renders
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -153,65 +153,9 @@ export function Inventory({ user }: InventoryProps) {
   // 🚀 Debounce search query for suggestions (300ms delay)
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // 🔮 Advanced search with fuzzy matching, semantic search, and NLP
-  const filteredItems = useMemo(() => {
-    let result = items;
-
-    // Apply category filter first
-    if (categoryFilter !== 'all') {
-      result = result.filter(item => item.category === categoryFilter);
-    }
-
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      result = result.filter(item => item.status === statusFilter);
-    }
-
-    // Apply search
-    if (deferredSearchQuery.trim()) {
-      if (useAdvancedSearch) {
-        // 🌟 Advanced Search with fuzzy matching, semantic understanding, and NLP
-        const searchResults = advancedSearch(result, deferredSearchQuery, {
-          fuzzyThreshold: 0.6,    // Optimal for typo tolerance
-          includeInactive: statusFilter !== 'active',
-          minScore: 0.05,         // Low threshold to catch fuzzy matches
-          maxResults: 1000,
-          sortBy: 'relevance',
-        });
-        
-        // Return items with their relevance scores
-        // Use a Map to ensure unique items by ID (prevent duplicate keys)
-        const uniqueItems = new Map();
-        searchResults.forEach(r => {
-          // Only keep the highest scoring instance of each item
-          if (!uniqueItems.has(r.item.id) || uniqueItems.get(r.item.id)._searchScore < r.score) {
-            uniqueItems.set(r.item.id, {
-              ...r.item,
-              _searchScore: r.score,
-              _matchedFields: r.matchedFields,
-              _matchType: r.matchType,
-            });
-          }
-        });
-        
-        return Array.from(uniqueItems.values());
-      } else {
-        // Basic search (original)
-        const query = deferredSearchQuery.toLowerCase();
-        return result.filter(item =>
-          item.name?.toLowerCase().includes(query) ||
-          item.sku?.toLowerCase().includes(query) ||
-          item.description?.toLowerCase().includes(query) ||
-          item.category?.toLowerCase().includes(query) ||
-          item.barcode?.toLowerCase().includes(query) ||
-          item.location?.toLowerCase().includes(query) ||
-          item.supplier?.toLowerCase().includes(query)
-        );
-      }
-    }
-
-    return result;
-  }, [items, deferredSearchQuery, categoryFilter, statusFilter, useAdvancedSearch]);
+  // ⚡ Server-side filtering is now active - items are already filtered
+  // No need for client-side filtering since loadInventoryPage handles it
+  const filteredItems = items;
   
   // 🔮 Generate search suggestions (debounced to reduce calculations)
   useEffect(() => {
@@ -335,9 +279,8 @@ export function Inventory({ user }: InventoryProps) {
     
     try {
       setIsLoading(true);
-      console.log('🔄 [Inventory] Starting to load inventory...');
+      console.log(`🔄 [Inventory] Loading page ${currentPage} with ${itemsPerPage} items per page...`);
       
-      // ⚡ PERFORMANCE: Only load first page of data initially (200 items)
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) {
         setIsLoading(false);
@@ -356,50 +299,32 @@ export function Inventory({ user }: InventoryProps) {
       // Save organization ID for duplicate cleaner
       setOrganizationId(userOrgId);
       
-      // Load first batch immediately (makes UI interactive fast)
-      const firstBatchQuery = supabase
-        .from('inventory')
-        .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, organization_id, created_at, updated_at', { count: 'exact' })
-        .eq('organization_id', userOrgId)
-        .order('name', { ascending: true })
-        .range(0, 199); // First 200 items
+      // ⚡ Use the optimized loader with proper pagination
+      const { items: loadedItems, totalCount: count, loadTime } = await loadInventoryPage({
+        organizationId: userOrgId,
+        currentPage,
+        itemsPerPage,
+        searchQuery: debouncedSearchQuery, // Use debounced search for server-side filtering
+        categoryFilter,
+        statusFilter
+      });
       
-      const { data: firstBatch, error: firstError, count } = await firstBatchQuery;
+      // Map the loaded items
+      const mappedItems = loadedItems.map(mapInventoryItem);
       
-      if (firstError) {
-        console.error('❌ Database error loading inventory:', firstError);
-        if (firstError.code === 'PGRST205' || firstError.code === '42P01') {
-          setTableExists(false);
-        }
-        setIsLoading(false);
-        return;
-      }
-      
-      // Map first batch and show immediately
-      const firstItems = firstBatch ? firstBatch.map(mapInventoryItem) : [];
-      
-      // Deduplicate first batch (just in case)
-      const uniqueFirstItems = Array.from(
-        new Map(firstItems.map(item => [item.id, item])).values()
-      );
-      
-      console.log(`📊 [Inventory] Setting ${uniqueFirstItems.length} unique items from first batch`);
-      setItems(uniqueFirstItems);
+      console.log(`📊 [Inventory] Loaded ${mappedItems.length} items (page ${currentPage}/${Math.ceil(count / itemsPerPage)}, total: ${count})`);
+      setItems(mappedItems);
+      setTotalCount(count);
       setTableExists(true);
-      setIsLoading(false); // ✅ UI is now interactive!
+      setIsLoading(false);
       
       // Track load time
-      const endTime = performance.now();
-      const loadTime = endTime - startTime;
       setLoadTimeMs(loadTime);
       
-      console.log(`✅ [Inventory] Loaded first ${firstItems.length} items (total: ${count}) in ${loadTime.toFixed(0)}ms`);
-      
-      // Store total count
-      setTotalCount(count || 0);
+      console.log(`✅ [Inventory] Loaded page ${currentPage} in ${loadTime.toFixed(0)}ms`);
       
       // Show optimization instructions if critically slow (not for 1-2s loads)
-      if (loadTime > 5000 && (count || 0) > 1000 && currentPage === 1) {
+      if (loadTime > 5000 && count > 1000 && currentPage === 1) {
         console.warn(`⚠️ Slow inventory performance detected: ${(loadTime / 1000).toFixed(1)}s for first page`);
         showOptimizationInstructions();
       }
@@ -414,8 +339,8 @@ export function Inventory({ user }: InventoryProps) {
       }
       
       // ⚡ PERFORMANCE: Check for duplicates (async, non-blocking)
-      if (currentPage === 1 && count && count > 0) {
-        console.log(`✅ [Inventory] Server-side pagination active - showing page 1 of ${Math.ceil(count / 200)}`);
+      if (currentPage === 1 && count > 0) {
+        console.log(`✅ [Inventory] Server-side pagination active - showing page 1 of ${Math.ceil(count / itemsPerPage)}`);
         
         // Run duplicate detection after background load completes
         setTimeout(async () => {
@@ -850,11 +775,11 @@ export function Inventory({ user }: InventoryProps) {
           </Card>
 
           {/* Search Results Summary */}
-          {searchQuery && filteredItems.length > 0 && (
+          {searchQuery && totalCount > 0 && (
             <div className="flex items-center justify-between text-sm text-gray-600 px-2">
               <span>
-                Found <strong>{filteredItems.length}</strong> {filteredItems.length === 1 ? 'item' : 'items'}
-                {useAdvancedSearch && ' (sorted by relevance)'}
+                Found <strong>{totalCount}</strong> {totalCount === 1 ? 'item' : 'items'}
+                {useAdvancedSearch && ' (server-side search)'}
               </span>
               {searchQuery && (
                 <Button
@@ -902,7 +827,7 @@ export function Inventory({ user }: InventoryProps) {
                 </CardContent>
               </Card>
             ) : (
-              filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item: any) => (
+              filteredItems.map((item: any) => (
                 <Card key={item.id} className={
                   item.quantityOnHand <= item.reorderLevel 
                     ? 'border-yellow-300' 
@@ -1042,11 +967,11 @@ export function Inventory({ user }: InventoryProps) {
           </div>
 
           {/* Pagination */}
-          {filteredItems.length > itemsPerPage && (
+          {totalCount > itemsPerPage && (
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center gap-4">
                 <div className="text-sm text-gray-600">
-                  Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredItems.length)} of {filteredItems.length} items
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} items
                 </div>
                 <Select value={itemsPerPage.toString()} onValueChange={(value) => {
                   setItemsPerPage(Number(value));
@@ -1084,7 +1009,7 @@ export function Inventory({ user }: InventoryProps) {
                 {/* Page numbers */}
                 <div className="hidden sm:flex items-center gap-1">
                   {(() => {
-                    const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+                    const totalPages = Math.ceil(totalCount / itemsPerPage);
                     const pages = [];
                     const maxVisible = 5;
                     
@@ -1148,13 +1073,13 @@ export function Inventory({ user }: InventoryProps) {
                 </div>
                 
                 <span className="mx-2 text-sm sm:hidden">
-                  Page {currentPage} of {Math.ceil(filteredItems.length / itemsPerPage)}
+                  Page {currentPage} of {Math.ceil(totalCount / itemsPerPage)}
                 </span>
                 
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={currentPage * itemsPerPage >= filteredItems.length}
+                  disabled={currentPage * itemsPerPage >= totalCount}
                   onClick={() => setCurrentPage(currentPage + 1)}
                 >
                   Next
@@ -1162,7 +1087,7 @@ export function Inventory({ user }: InventoryProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={currentPage * itemsPerPage >= filteredItems.length}
+                  disabled={currentPage * itemsPerPage >= totalCount}
                   onClick={() => setCurrentPage(Math.ceil(filteredItems.length / itemsPerPage))}
                 >
                   Last

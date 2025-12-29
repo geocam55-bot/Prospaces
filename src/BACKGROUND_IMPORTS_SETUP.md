@@ -1,19 +1,36 @@
 # Background Imports Setup Guide
 
-## Issue: RLS Policy Error
+## ⚠️ IMPORTANT: RLS Policy Fix Required
 
-If you're seeing the error: **"new row violates row-level security policy for table"**, follow these steps:
+If you're seeing the error: **"new row violates row-level security policy for table"**, you MUST run the fix below.
 
-## Step 1: Run the RLS Fix Script
+## 🔧 Quick Fix (2 Minutes)
+
+### Step 1: Run This SQL in Supabase
 
 1. Open your **Supabase Dashboard**
 2. Go to **SQL Editor**
-3. Copy and paste the contents of `/database-migrations/fix_scheduled_jobs_rls.sql`
+3. Copy and paste this entire block:
+
+```sql
+-- Drop old policies
+DROP POLICY IF EXISTS "Users can view jobs from their organization" ON scheduled_jobs;
+DROP POLICY IF EXISTS "Users can create jobs in their organization" ON scheduled_jobs;
+DROP POLICY IF EXISTS "Users can update their own jobs" ON scheduled_jobs;
+DROP POLICY IF EXISTS "Users can update jobs in their organization" ON scheduled_jobs;
+DROP POLICY IF EXISTS "Users can delete their own jobs" ON scheduled_jobs;
+DROP POLICY IF EXISTS "Users can delete jobs in their organization" ON scheduled_jobs;
+
+-- Create new policies (using EXISTS instead of IN)
+CREATE POLICY "Users can view jobs from their organization" ON scheduled_jobs FOR SELECT USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.organization_id = scheduled_jobs.organization_id));
+CREATE POLICY "Users can create jobs in their organization" ON scheduled_jobs FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.organization_id = scheduled_jobs.organization_id));
+CREATE POLICY "Users can update jobs in their organization" ON scheduled_jobs FOR UPDATE USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.organization_id = scheduled_jobs.organization_id));
+CREATE POLICY "Users can delete jobs in their organization" ON scheduled_jobs FOR DELETE USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.organization_id = scheduled_jobs.organization_id));
+```
+
 4. Click **Run**
 
-This will update the RLS policy to allow users to create jobs in their organization.
-
-## Step 2: Verify the Table Exists
+### Step 2: Verify the Table Exists
 
 If the `scheduled_jobs` table doesn't exist yet, run:
 
@@ -21,7 +38,7 @@ If the `scheduled_jobs` table doesn't exist yet, run:
 2. Copy and paste the contents of `/database-migrations/scheduled_jobs_table.sql`
 3. Click **Run**
 
-## Step 3: Test the Background Import
+### Step 3: Test the Background Import
 
 1. Go to **Import & Export** module
 2. Upload an inventory CSV file

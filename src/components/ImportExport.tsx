@@ -219,11 +219,33 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       }
 
       console.log('✅ Authenticated user:', authUser.id);
-      console.log('📋 Creating job for org:', user.organizationId);
+      console.log('📋 App user ID:', user.id);
+      console.log('📋 App user org:', user.organizationId);
+
+      // CRITICAL: Verify the profile exists and has an organization
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, email, organization_id, role')
+        .eq('id', authUser.id)
+        .single();
+
+      console.log('👤 Profile lookup:', profile);
+
+      if (profileError) {
+        console.error('❌ Profile error:', profileError);
+        throw new Error('Could not load your profile. Please try logging out and back in.');
+      }
+
+      if (!profile?.organization_id) {
+        console.error('❌ Profile missing organization_id:', profile);
+        throw new Error('Your account is not associated with an organization. Please contact support.');
+      }
+
+      console.log('✅ Profile verified with org:', profile.organization_id);
 
       const jobData = {
-        organization_id: user.organizationId,
-        created_by: authUser.id, // Use the authenticated user ID from Supabase Auth
+        organization_id: profile.organization_id, // Use org from verified profile
+        created_by: authUser.id,
         job_type: 'import' as const,
         data_type: type,
         scheduled_time: new Date().toISOString(), // Run immediately
@@ -233,7 +255,14 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         file_data: { records: mappedData, mapping: mapping },
       };
 
-      console.log('📤 Inserting job data:', { ...jobData, file_data: '(truncated)' });
+      console.log('📤 Inserting job data:', { 
+        organization_id: jobData.organization_id,
+        created_by: jobData.created_by,
+        job_type: jobData.job_type,
+        data_type: jobData.data_type,
+        status: jobData.status,
+        file_data: '(truncated)'
+      });
 
       const { data: insertedJob, error } = await supabase
         .from('scheduled_jobs')
