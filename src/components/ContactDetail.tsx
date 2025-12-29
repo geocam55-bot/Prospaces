@@ -11,6 +11,7 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { getGlobalTaxRate, priceLevelToTier } from '../lib/global-settings';
 import { useDebounce } from '../utils/useDebounce';
+import { advancedSearch } from '../utils/advanced-search';
 import { 
   ArrowLeft, 
   Edit, 
@@ -216,20 +217,22 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
   // 🚀 Debounce search query (200ms delay for fast typing)
   const debouncedInventorySearch = useDebounce(inventorySearchQuery, 200);
 
-  // Filtered inventory for search
+  // Filtered inventory for search - using advanced search
   const filteredInventory = useMemo(() => {
     if (!debouncedInventorySearch.trim()) {
-      return inventoryItems.slice(0, 100); // Show first 100 items
+      return inventoryItems.filter(item => item.status === 'active').slice(0, 100); // Show first 100 active items
     }
     
-    const query = debouncedInventorySearch.toLowerCase();
-    const filtered = inventoryItems.filter(item => 
-      item.name?.toLowerCase().includes(query) ||
-      item.sku?.toLowerCase().includes(query) ||
-      item.description?.toLowerCase().includes(query)
-    );
+    // 🚀 Use advanced search with fuzzy matching, plural handling, and multi-word support
+    const searchResults = advancedSearch(inventoryItems, debouncedInventorySearch, {
+      fuzzyThreshold: 0.7,      // Allow small typos
+      includeInactive: false,   // Only show active items
+      minScore: 0.1,            // Lower threshold for more results
+      maxResults: 100,
+      sortBy: 'relevance',
+    });
     
-    return filtered.slice(0, 100);
+    return searchResults.map(result => result.item);
   }, [debouncedInventorySearch, inventoryItems]);
 
   // Auto-populate unit price when inventory item is selected

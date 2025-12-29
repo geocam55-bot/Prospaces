@@ -366,17 +366,25 @@ export function advancedSearch<T extends SearchableItem>(
     
     // For multi-word queries, check if ALL search terms appear somewhere in the item
     // (across all fields combined)
-    if (searchTerms.length > 1) {
+    if (searchTerms.length > 0) {
       const allFieldsText = searchFields
         .map(f => f.value || '')
         .join(' ')
         .toLowerCase();
       
+      // Check if all search terms are present (order doesn't matter)
       const allTermsPresent = searchTerms.every(term => allFieldsText.includes(term));
       
       // If not all terms are present, skip this item entirely
       if (!allTermsPresent) {
         continue;
+      }
+      
+      // Bonus score for having all terms present (important for 3+ word searches)
+      // This ensures items with all terms rank higher even if spread across fields
+      if (allTermsPresent && searchTerms.length >= 2) {
+        totalScore += searchTerms.length * 50; // Significant bonus for multi-term matches
+        matchCount += searchTerms.length;
       }
     }
     
