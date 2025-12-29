@@ -43,6 +43,7 @@ CREATE POLICY "Users can view jobs from their organization"
   );
 
 -- Allow users to create jobs in their organization
+-- Updated policy: No longer requires created_by check to allow service role inserts
 CREATE POLICY "Users can create jobs in their organization"
   ON scheduled_jobs
   FOR INSERT
@@ -50,7 +51,6 @@ CREATE POLICY "Users can create jobs in their organization"
     organization_id IN (
       SELECT organization_id FROM profiles WHERE id = auth.uid()
     )
-    AND created_by = auth.uid()
   );
 
 -- Allow users to update their own jobs (e.g., cancel)

@@ -132,13 +132,20 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       setIsScheduling(true);
       const supabase = createClient();
 
+      // Get the authenticated user
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !authUser) {
+        throw new Error('You must be logged in to schedule jobs');
+      }
+
       const jobData = {
         organization_id: user.organizationId,
-        created_by: user.id,
+        created_by: authUser.id, // Use authenticated user ID
         job_type: scheduleJobType,
         data_type: scheduleDataType,
         scheduled_time: scheduledTime.toISOString(),
-        status: 'pending',
+        status: 'pending' as const,
         creator_name: user.full_name || user.email || 'User',
         file_name: scheduleFileName || `${scheduleJobType}_${scheduleDataType}_${scheduledTime.toISOString().split('T')[0]}.csv`,
         file_data: scheduleFileData ? { records: scheduleFileData } : null,
@@ -203,23 +210,43 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
       const supabase = createClient();
 
+      // First, verify the user is authenticated
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !authUser) {
+        console.error('❌ Auth error:', authError);
+        throw new Error('You must be logged in to create background imports');
+      }
+
+      console.log('✅ Authenticated user:', authUser.id);
+      console.log('📋 Creating job for org:', user.organizationId);
+
       const jobData = {
         organization_id: user.organizationId,
-        created_by: user.id,
-        job_type: 'import',
+        created_by: authUser.id, // Use the authenticated user ID from Supabase Auth
+        job_type: 'import' as const,
         data_type: type,
         scheduled_time: new Date().toISOString(), // Run immediately
-        status: 'pending',
+        status: 'pending' as const,
         creator_name: user.full_name || user.email || 'User',
         file_name: `background_import_${type}_${new Date().toISOString().split('T')[0]}.csv`,
         file_data: { records: mappedData, mapping: mapping },
       };
 
-      const { error } = await supabase
-        .from('scheduled_jobs')
-        .insert(jobData);
+      console.log('📤 Inserting job data:', { ...jobData, file_data: '(truncated)' });
 
-      if (error) throw error;
+      const { data: insertedJob, error } = await supabase
+        .from('scheduled_jobs')
+        .insert(jobData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Insert error:', error);
+        throw error;
+      }
+
+      console.log('✅ Job created:', insertedJob);
 
       toast.success(
         `Background import started for ${data.length} records!`,
