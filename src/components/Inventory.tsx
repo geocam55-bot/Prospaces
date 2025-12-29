@@ -143,15 +143,15 @@ export function Inventory({ user }: InventoryProps) {
     status: 'active' as 'active' | 'inactive' | 'discontinued',
   });
 
+  // 🚀 Debounce search query for suggestions (300ms delay)
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  
+  // ✅ Use deferred value to prevent search input from blocking during large renders
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+
   useEffect(() => {
     loadInventory();
   }, [currentPage, itemsPerPage, debouncedSearchQuery, categoryFilter, statusFilter]);
-
-  // ✅ Use deferred value to prevent search input from blocking during large renders
-  const deferredSearchQuery = useDeferredValue(searchQuery);
-  
-  // 🚀 Debounce search query for suggestions (300ms delay)
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // ⚡ Server-side filtering is now active - items are already filtered
   // No need for client-side filtering since loadInventoryPage handles it
