@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Loader2, Save, Hammer, RefreshCw } from 'lucide-react';
+import { Loader2, Save, Hammer, RefreshCw, Home, Warehouse, Building2 } from 'lucide-react';
 import {
   getProjectWizardDefaults,
   upsertProjectWizardDefault,
@@ -74,6 +74,16 @@ const PLANNER_CATEGORIES = {
       'Accessories': ['Shelf Supports', 'Plywood Shelving', 'Shelf Brackets'],
     },
   },
+  roof: {
+    default: {
+      'Roofing': ['Shingles', 'Underlayment', 'Ice & Water Shield', 'Drip Edge', 'Ridge Cap', 'Starter Shingles', 'Roofing Nails', 'Roof Sealant'],
+      'Flashing': ['Step Flashing', 'Valley Flashing', 'Chimney Flashing', 'Vent Pipe Flashing', 'Skylight Flashing'],
+      'Ventilation': ['Ridge Vent', 'Soffit Vents', 'Gable Vents', 'Roof Vents', 'Turbine Vents', 'Baffles'],
+      'Gutters': ['Gutters', 'Downspouts', 'Gutter Hangers', 'End Caps', 'Elbows', 'Gutter Guards'],
+      'Decking': ['Roof Sheathing (Plywood)', 'Roof Sheathing (OSB)', 'H-Clips'],
+      'Accessories': ['Roof Jacks', 'Roof Anchors', 'Roof Brackets', 'Ridge Vent Connectors'],
+    },
+  },
 };
 
 export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardSettingsProps) {
@@ -82,6 +92,40 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [selectedDeckType, setSelectedDeckType] = useState<'spruce' | 'treated' | 'composite' | 'cedar'>('treated');
+
+  // Refs for scrolling to each planner section
+  const deckRef = React.useRef<HTMLDivElement>(null);
+  const garageRef = React.useRef<HTMLDivElement>(null);
+  const shedRef = React.useRef<HTMLDivElement>(null);
+  const roofRef = React.useRef<HTMLDivElement>(null);
+
+  // Scroll to planner section
+  const scrollToPlanner = (planner: string) => {
+    let ref: React.RefObject<HTMLDivElement> | null = null;
+    
+    switch (planner) {
+      case 'deck':
+        ref = deckRef;
+        break;
+      case 'garage':
+        ref = garageRef;
+        break;
+      case 'shed':
+        ref = shedRef;
+        break;
+      case 'roof':
+        ref = roofRef;
+        break;
+    }
+    
+    if (ref?.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Add a small offset to account for any fixed headers
+      setTimeout(() => {
+        window.scrollBy({ top: -20, behavior: 'smooth' });
+      }, 300);
+    }
+  };
 
   useEffect(() => {
     // Only load if we have a valid organization ID
@@ -165,7 +209,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
 
         const defaultConfig: ProjectWizardDefault = {
           organization_id: organizationId,
-          planner_type: plannerType as 'deck' | 'garage' | 'shed',
+          planner_type: plannerType as 'deck' | 'garage' | 'shed' | 'roof',
           material_type: materialType === 'default' ? undefined : materialType,
           material_category: category,
           inventory_item_id: inventoryItemId || undefined,
@@ -247,10 +291,53 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
             </div>
           )}
 
+          {/* Quick Navigation Dropdown */}
+          <div className="bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-300 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <Label htmlFor="planner-nav" className="text-sm font-medium text-slate-700 whitespace-nowrap">
+                Jump to Planner:
+              </Label>
+              <Select onValueChange={scrollToPlanner}>
+                <SelectTrigger id="planner-nav" className="w-[200px] bg-white">
+                  <SelectValue placeholder="Select a planner..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="deck">
+                    <div className="flex items-center gap-2">
+                      <Home className="h-4 w-4 text-purple-600" />
+                      <span>Deck Planner</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="garage">
+                    <div className="flex items-center gap-2">
+                      <Warehouse className="h-4 w-4 text-blue-600" />
+                      <span>Garage Planner</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="shed">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-green-600" />
+                      <span>Shed Planner</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="roof">
+                    <div className="flex items-center gap-2">
+                      <Hammer className="h-4 w-4 text-red-600" />
+                      <span>Roof Planner</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {/* Deck Planner Settings */}
-          <div className="space-y-4">
+          <div className="space-y-4 border-2 border-purple-200 rounded-lg p-6 bg-purple-50" ref={deckRef}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Deck Planner</h3>
+              <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
+                <Home className="h-5 w-5 text-purple-600" />
+                Deck Planner
+              </h3>
               <Select value={selectedDeckType} onValueChange={(value: any) => setSelectedDeckType(value)}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Select type" />
@@ -264,10 +351,10 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               </Select>
             </div>
 
-            <div className="space-y-6 p-4 bg-gray-50 rounded-lg">
+            <div className="space-y-6 p-4 bg-white rounded-lg border border-purple-100">
               {Object.entries(PLANNER_CATEGORIES.deck[selectedDeckType]).map(([sectionName, categories]) => (
                 <div key={sectionName} className="space-y-3">
-                  <h4 className="font-medium text-gray-700 border-b pb-1">{sectionName}</h4>
+                  <h4 className="font-medium text-gray-700 border-b border-purple-200 pb-1">{sectionName}</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {categories.map((category) => (
                       <div key={category} className="space-y-2">
@@ -288,12 +375,15 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
           </div>
 
           {/* Garage Planner Settings */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Garage Planner</h3>
-            <div className="space-y-6 p-4 bg-gray-50 rounded-lg">
+          <div className="space-y-4 border-2 border-blue-200 rounded-lg p-6 bg-blue-50" ref={garageRef}>
+            <h3 className="text-lg font-semibold text-blue-900 flex items-center gap-2">
+              <Warehouse className="h-5 w-5 text-blue-600" />
+              Garage Planner
+            </h3>
+            <div className="space-y-6 p-4 bg-white rounded-lg border border-blue-100">
               {Object.entries(PLANNER_CATEGORIES.garage.default).map(([sectionName, categories]) => (
                 <div key={sectionName} className="space-y-3">
-                  <h4 className="font-medium text-gray-700 border-b pb-1">{sectionName}</h4>
+                  <h4 className="font-medium text-gray-700 border-b border-blue-200 pb-1">{sectionName}</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {categories.map((category) => (
                       <div key={category} className="space-y-2">
@@ -314,12 +404,15 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
           </div>
 
           {/* Shed Planner Settings */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Shed Planner</h3>
-            <div className="space-y-6 p-4 bg-gray-50 rounded-lg">
+          <div className="space-y-4 border-2 border-green-200 rounded-lg p-6 bg-green-50" ref={shedRef}>
+            <h3 className="text-lg font-semibold text-green-900 flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-green-600" />
+              Shed Planner
+            </h3>
+            <div className="space-y-6 p-4 bg-white rounded-lg border border-green-100">
               {Object.entries(PLANNER_CATEGORIES.shed.default).map(([sectionName, categories]) => (
                 <div key={sectionName} className="space-y-3">
-                  <h4 className="font-medium text-gray-700 border-b pb-1">{sectionName}</h4>
+                  <h4 className="font-medium text-gray-700 border-b border-green-200 pb-1">{sectionName}</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {categories.map((category) => (
                       <div key={category} className="space-y-2">
@@ -329,6 +422,35 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                           items={inventoryItems}
                           value={getDefaultValue('shed', null, category)}
                           onChange={(value) => handleDefaultChange('shed', null, category, value)}
+                          placeholder="Select inventory item..."
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Roof Planner Settings */}
+          <div className="space-y-4 border-2 border-red-200 rounded-lg p-6 bg-red-50" ref={roofRef}>
+            <h3 className="text-lg font-semibold text-red-900 flex items-center gap-2">
+              <Hammer className="h-5 w-5 text-red-600" />
+              Roof Planner
+            </h3>
+            <div className="space-y-6 p-4 bg-white rounded-lg border border-red-100">
+              {Object.entries(PLANNER_CATEGORIES.roof.default).map(([sectionName, categories]) => (
+                <div key={sectionName} className="space-y-3">
+                  <h4 className="font-medium text-gray-700 border-b border-red-200 pb-1">{sectionName}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {categories.map((category) => (
+                      <div key={category} className="space-y-2">
+                        <Label htmlFor={`roof-${category}`}>{category}</Label>
+                        <InventoryCombobox
+                          id={`roof-${category}`}
+                          items={inventoryItems}
+                          value={getDefaultValue('roof', null, category)}
+                          onChange={(value) => handleDefaultChange('roof', null, category, value)}
                           placeholder="Select inventory item..."
                         />
                       </div>

@@ -196,10 +196,14 @@ function extractSearchTerms(query: string): string[] {
     'than', 'around', 'about', 'approximately', 'cheap', 'expensive',
   ]);
   
+  // Trim whitespace before splitting to avoid empty strings from trailing spaces
+  // Split on whitespace and filter out only actual stop words
+  // Keep ALL other words including single letters (important for searches like "GAF T")
   return query
+    .trim()  // Remove leading/trailing whitespace before processing
     .toLowerCase()
     .split(/\s+/)
-    .filter(word => word.length > 2 && !stopWords.has(word));
+    .filter(word => word.length > 0 && !stopWords.has(word));
 }
 
 /**
@@ -360,6 +364,22 @@ export function advancedSearch<T extends SearchableItem>(
       { field: 'tags', weight: 5, value: item.tags?.join(' ') },
     ];
     
+    // For multi-word queries, check if ALL search terms appear somewhere in the item
+    // (across all fields combined)
+    if (searchTerms.length > 1) {
+      const allFieldsText = searchFields
+        .map(f => f.value || '')
+        .join(' ')
+        .toLowerCase();
+      
+      const allTermsPresent = searchTerms.every(term => allFieldsText.includes(term));
+      
+      // If not all terms are present, skip this item entirely
+      if (!allTermsPresent) {
+        continue;
+      }
+    }
+    
     // 1. Check each field for matches
     for (const { field, weight, value } of searchFields) {
       if (!value) continue;
@@ -384,6 +404,22 @@ export function advancedSearch<T extends SearchableItem>(
           bestMatchType = 'partial';
         }
         continue;
+      }
+      
+      // Multi-word phrase matching: Check if ALL search terms appear in this field
+      // This handles cases like "GAF T" matching "GAF Timbertex"
+      if (searchTerms.length > 1) {
+        const allTermsMatch = searchTerms.every(term => fieldValue.includes(term));
+        if (allTermsMatch) {
+          // High score bonus for matching all terms
+          totalScore += weight * 7;
+          matchCount++;
+          matchedFields.push(field);
+          if (bestMatchType !== 'exact') {
+            bestMatchType = 'partial';
+          }
+          continue;
+        }
       }
       
       // Semantic match
