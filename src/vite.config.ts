@@ -1,10 +1,50 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import fs from 'fs'
+
+// Plugin to ensure favicons are copied to build output
+function copyFaviconsPlugin() {
+  return {
+    name: 'copy-favicons',
+    closeBundle() {
+      const publicDir = path.resolve(__dirname, 'public');
+      const outDir = path.resolve(__dirname, 'build');
+      
+      // List of favicon files to copy
+      const faviconFiles = [
+        'favicon.ico',
+        'favicon.svg',
+        'favicon-16x16.png',
+        'favicon-32x32.png',
+        'favicon-48x48.png',
+        'favicon-192x192.png',
+        'favicon-512x512.png',
+        'apple-touch-icon.png'
+      ];
+      
+      console.log('🔄 Copying favicon files to build output...');
+      
+      faviconFiles.forEach(file => {
+        const src = path.join(publicDir, file);
+        const dest = path.join(outDir, file);
+        
+        if (fs.existsSync(src)) {
+          fs.copyFileSync(src, dest);
+          console.log(`✅ Copied: ${file}`);
+        } else {
+          console.warn(`⚠️  Missing: ${file}`);
+        }
+      });
+      
+      console.log('✅ Favicon copy complete!');
+    }
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), copyFaviconsPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
