@@ -44,7 +44,8 @@ const sizes: FaviconConfig[] = [
   { size: 128, name: 'favicon-128x128.png', label: '128x128 (Chrome Store)' },
   { size: 192, name: 'favicon-192x192.png', label: '192x192 (Android)' },
   { size: 512, name: 'favicon-512x512.png', label: '512x512 (PWA)' },
-  { size: 180, name: 'apple-touch-icon.png', label: '180x180 (iOS)' }
+  { size: 180, name: 'apple-touch-icon.png', label: '180x180 (iOS)' },
+  { size: 32, name: 'favicon.ico', label: '32x32 (favicon.ico)' }
 ];
 
 export function FaviconGenerator() {
