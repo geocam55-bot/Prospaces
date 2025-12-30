@@ -28,6 +28,7 @@ interface PermissionsManagerProps {
 
 const MODULES = [
   { id: 'dashboard', name: 'Dashboard', description: 'Main dashboard and analytics' },
+  { id: 'ai-suggestions', name: 'AI Suggestions', description: 'Intelligent task recommendations' },
   { id: 'team-dashboard', name: 'Team Dashboard', description: 'Team performance monitoring (Manager/Admin only)' },
   { id: 'contacts', name: 'Contacts', description: 'Customer and lead management' },
   { id: 'tasks', name: 'Tasks', description: 'Task and to-do management' },

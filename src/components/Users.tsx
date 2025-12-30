@@ -26,6 +26,7 @@ import { FixInvalidOrgIds } from './FixInvalidOrgIds';
 import { InvalidOrgIdAlert } from './InvalidOrgIdAlert';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
+import { useDebounce } from '../utils/useDebounce';
 
 const supabase = createClient();
 
@@ -48,6 +49,7 @@ interface Tenant {
 
 export function Users({ user }: UsersProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<OrgUser | null>(null);
@@ -190,12 +192,21 @@ export function Users({ user }: UsersProps) {
     }
   };
 
-  const filteredUsers = users.filter(u =>
-    (u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchQuery.toLowerCase())) &&
+  const filteredUsers = users.filter(u => {
+    const query = debouncedSearchQuery.toLowerCase().trim();
+    
+    // 🔍 Enhanced search: search across multiple fields
+    const matchesSearch = !query || 
+      u.name.toLowerCase().includes(query) ||
+      u.email.toLowerCase().includes(query) ||
+      u.role.toLowerCase().includes(query) ||
+      (u.status && u.status.toLowerCase().includes(query));
+    
     // Admin users should not see super_admin users
-    (user.role === 'super_admin' || u.role !== 'super_admin')
-  );
+    const roleFilter = user.role === 'super_admin' || u.role !== 'super_admin';
+    
+    return matchesSearch && roleFilter;
+  });
 
   // Get list of managers for the manager dropdown
   const managers = users.filter(u => u.role === 'manager' && u.status === 'active');
@@ -819,7 +830,7 @@ export function Users({ user }: UsersProps) {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search users..."
+                  placeholder="Search users by name, email, role, or status..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"

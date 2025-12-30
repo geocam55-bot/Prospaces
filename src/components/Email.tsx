@@ -56,6 +56,7 @@ import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
 import { EmailAccountSetup } from './EmailAccountSetup';
 import type { User } from '../types';
+import { useDebounce } from '../utils/useDebounce';
 
 // Cache backend availability check to avoid repeated failed requests
 // This prevents console spam from 404 errors when Edge Functions aren't deployed
@@ -199,6 +200,7 @@ export function Email({ user }: EmailProps) {
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [isSyncing, setIsSyncing] = useState(false);
   const [editingAccount, setEditingAccount] = useState<EmailAccount | null>(null);
   const [currentFolder, setCurrentFolder] = useState<Email['folder']>('inbox');
@@ -492,11 +494,16 @@ export function Email({ user }: EmailProps) {
       // Regular folders
       return email.folder === currentFolder;
     })
-    .filter(email =>
-      email.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      email.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      email.body.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    .filter(email => {
+      const query = debouncedSearchQuery.toLowerCase().trim();
+      if (!query) return true;
+      
+      // 🔍 Enhanced search: search across multiple fields
+      return email.subject.toLowerCase().includes(query) ||
+        email.from.toLowerCase().includes(query) ||
+        email.to.toLowerCase().includes(query) ||
+        email.body.toLowerCase().includes(query);
+    });
   
   // Debug: Log filtering info
   console.log(`[Email] Total emails: ${emails.length}, Current folder: ${currentFolder}, Filtered: ${filteredEmails.length}, Selected account: ${selectedAccount}`);
@@ -1489,7 +1496,7 @@ export function Email({ user }: EmailProps) {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder="Search emails..."
+                    placeholder="Search emails by subject, from, to, or content..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 text-sm"

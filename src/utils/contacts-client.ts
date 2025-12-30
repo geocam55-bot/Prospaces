@@ -182,85 +182,21 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
       console.log('🔓 Super Admin - Loading all contacts');
       // No filtering needed
     } else if (userRole === 'admin') {
-      // Admin: Can see all data within their organization
-      console.log('🔒 Admin - Loading contacts for organization:', userOrgId);
-      query = query.eq('organization_id', userOrgId);
+      // Admin: Can ONLY see their own data (Team Dashboard shows team data)
+      console.log('🔒 Admin - Loading own contacts only (strict filtering)');
+      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
     } else if (userRole === 'manager') {
-      // Manager: Can see their own data + data from users they manage
-      console.log('👔 Manager - Loading contacts for team');
-      
-      // Get list of users this manager oversees
-      const { data: teamMembers } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('manager_id', user.id)
-        .eq('organization_id', userOrgId);
-
-      const teamIds = teamMembers?.map(m => m.id) || [];
-      const allowedOwnerIds = [user.id, ...teamIds];
-      
-      console.log('👔 Manager can see contacts owned by IDs:', allowedOwnerIds);
-      
-      // Filter: owned by manager OR owned by their team members
-      query = query.eq('organization_id', userOrgId);
-      
-      if (allowedOwnerIds.length > 0) {
-        query = query.in('owner_id', allowedOwnerIds);
-      } else {
-        // No team members, just show manager's own contacts
-        query = query.eq('owner_id', user.id);
-      }
+      // Manager: Can ONLY see their own data (Team Dashboard shows team data)
+      console.log('👔 Manager - Loading own contacts only (strict filtering)');
+      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
     } else if (userRole === 'marketing') {
       // Marketing: Can see all data within their organization (for campaigns)
       console.log('📢 Marketing - Loading contacts for organization:', userOrgId);
       query = query.eq('organization_id', userOrgId);
     } else {
-      // Standard User: Check if they're the ONLY user in the org
-      // If so, show all contacts. Otherwise, only show their own.
-      console.log('👤 Standard User - Checking organization users...');
-      
-      const { data: orgUsers, error: usersError } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('organization_id', userOrgId)
-        .neq('role', 'super_admin'); // Don't count super admins
-      
-      console.log('👤 Organization users:', orgUsers?.length, orgUsers?.map(u => u.email));
-      
-      if (!usersError && orgUsers && orgUsers.length === 1) {
-        // Only one user in org - show all contacts in organization
-        console.log('👤 Only user in organization - Loading all organization contacts');
-        query = query.eq('organization_id', userOrgId);
-      } else if (!usersError && orgUsers && orgUsers.length > 1) {
-        // Multiple users - check if this is a legacy data scenario
-        console.log('👤 Multiple users in organization - Checking for legacy data...');
-        
-        // First, try to get contacts owned by current user
-        const { data: ownContacts, error: ownError } = await supabase
-          .from('contacts')
-          .select('id', { count: 'exact', head: true })
-          .eq('organization_id', userOrgId)
-          .eq('owner_id', user.id);
-        
-        const ownContactCount = ownContacts || 0;
-        
-        // If user has 0 contacts but org has contacts, this is likely legacy data
-        // Show all org contacts to avoid confusion
-        if (ownContactCount === 0) {
-          console.log('👤 No contacts owned by user but org has contacts - showing all org contacts (legacy data scenario)');
-          query = query.eq('organization_id', userOrgId);
-        } else {
-          // User has some contacts - show only their own
-          console.log('👤 User has contacts - Loading only own contacts');
-          query = query.eq('organization_id', userOrgId);
-          query = query.eq('owner_id', user.id);
-        }
-      } else {
-        // Fallback - show only own contacts
-        console.log('👤 Standard User - Loading only own contacts');
-        query = query.eq('organization_id', userOrgId);
-        query = query.eq('owner_id', user.id);
-      }
+      // Standard User: Only show their own contacts (strict filtering)
+      console.log('👤 Standard User - Loading only own contacts (strict filtering)');
+      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
@@ -284,9 +220,14 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
       throw error;
     }
 
-    // Debug: Log the filtered results
+    // Debug: Log the filtered results with owner information
     console.log('📊 Query completed successfully');
-    console.log('📊 User details:', { email: userEmail, role: userRole, orgId: userOrgId });
+    console.log('📊 User details:', { 
+      userId: user.id, 
+      email: userEmail, 
+      role: userRole, 
+      orgId: userOrgId 
+    });
     
     if (data) {
       console.log('📊 Filtered data - Total rows:', data.length);
@@ -298,45 +239,6 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
           organization_id: d.organization_id,
           created_at: d.created_at
         })));
-      } else {
-        console.warn('⚠️ Query returned 0 contacts!');
-        console.warn('⚠️ Check if contacts exist with organization_id:', userOrgId);
-        
-        // Additional debug: Count total contacts in the database
-        const { count, error: countError } = await supabase
-          .from('contacts')
-          .select('*', { count: 'exact', head: true });
-        
-        if (!countError) {
-          console.warn('⚠️ Total contacts in database:', count);
-        }
-        
-        // Check if any contacts exist for this organization
-        const { count: orgCount, error: orgCountError } = await supabase
-          .from('contacts')
-          .select('*', { count: 'exact', head: true })
-          .eq('organization_id', userOrgId);
-        
-        if (!orgCountError) {
-          console.warn('⚠️ Contacts for organization', userOrgId + ':', orgCount);
-        }
-        
-        // CRITICAL DEBUG: Check owner_id values for this organization's contacts
-        const { data: ownerCheck, error: ownerError } = await supabase
-          .from('contacts')
-          .select('id, name, owner_id, organization_id')
-          .eq('organization_id', userOrgId)
-          .limit(5);
-        
-        if (!ownerError && ownerCheck) {
-          console.warn('⚠️ Sample owner_id values:', ownerCheck.map(c => ({
-            name: c.name,
-            owner_id: c.owner_id,
-            current_user_id: user.id
-          })));
-          console.warn('⚠️ Current user ID:', user.id);
-          console.warn('⚠️ Owner IDs match?', ownerCheck.some(c => c.owner_id === user.id));
-        }
       }
     } else {
       console.log('📊 No data returned from database (data is null/undefined)');
@@ -345,7 +247,19 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
     // Transform data from database format to application format
     const transformedData = (data || []).map(transformFromDbFormat);
 
-    return { contacts: transformedData };
+    // 🚨 SAFETY NET: Client-side filter to ensure no other users' data leaks through
+    // Filter out any contacts that don't belong to the current user (except for super_admin and marketing)
+    let finalData = transformedData;
+    if (userRole !== 'super_admin' && userRole !== 'marketing') {
+      finalData = transformedData.filter(contact => contact.ownerId === user.id);
+      
+      // Only log if we actually filtered something out (which shouldn't happen)
+      if (finalData.length !== transformedData.length) {
+        console.warn(`🚨 CLIENT-SIDE FILTER: Removed ${transformedData.length - finalData.length} contacts that didn't belong to current user`);
+      }
+    }
+
+    return { contacts: finalData };
   } catch (error: any) {
     console.error('Error loading contacts:', error);
     // Return empty array instead of throwing to prevent "Error" in dashboard

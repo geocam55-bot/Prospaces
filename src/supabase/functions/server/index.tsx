@@ -1885,6 +1885,94 @@ app.get('/make-server-8405be07/project-managers/customer/:customerId', async (c)
   }
 });
 
+// ============================================================================
+// CONTACTS ADMIN ROUTES
+// ============================================================================
+
+// Reassign contacts to a new owner by email
+app.post('/make-server-8405be07/contacts/reassign-by-email', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Get user data from KV store
+    const userData = await getUserData(user.id);
+    const role = userData?.role || user.user_metadata?.role;
+    const userOrgId = userData?.organizationId || user.user_metadata?.organizationId;
+
+    if (!userData) {
+      console.log('⚠️ User data not found in KV, using metadata:', user.user_metadata);
+    }
+
+    // Only admins and super_admins can reassign contacts
+    if (role !== 'admin' && role !== 'super_admin') {
+      return c.json({ error: 'Unauthorized: Only admins can reassign contacts' }, 403);
+    }
+
+    const { fromEmail, toEmail, organizationId } = await c.req.json();
+
+    if (!fromEmail || !toEmail || !organizationId) {
+      return c.json({ error: 'fromEmail, toEmail, and organizationId are required' }, 400);
+    }
+
+    console.log(`🔄 Reassigning contacts from ${fromEmail} to ${toEmail} in org ${organizationId}`);
+
+    // Get all users from Supabase Auth to find the from/to user IDs
+    const { data: { users: authUsers }, error: listError } = await supabase.auth.admin.listUsers();
+    
+    if (listError) {
+      console.error('❌ Error listing users:', listError);
+      return c.json({ error: 'Failed to list users' }, 500);
+    }
+
+    // Find the "from" user by email
+    const fromUser = authUsers?.find(u => u.email === fromEmail);
+    if (!fromUser) {
+      return c.json({ error: `User with email ${fromEmail} not found` }, 404);
+    }
+
+    // Find the "to" user by email
+    const toUser = authUsers?.find(u => u.email === toEmail);
+    if (!toUser) {
+      return c.json({ error: `User with email ${toEmail} not found` }, 404);
+    }
+
+    const fromUserId = fromUser.id;
+    const toUserId = toUser.id;
+
+    console.log(`📋 Found users: ${fromUserId} (${fromEmail}) -> ${toUserId} (${toEmail})`);
+
+    // Update all contacts from fromUserId to toUserId
+    const { data: updatedContacts, error: updateError } = await supabase
+      .from('contacts')
+      .update({ owner_id: toUserId })
+      .eq('owner_id', fromUserId)
+      .eq('organization_id', organizationId)
+      .select('id');
+
+    if (updateError) {
+      console.error('❌ Error updating contacts:', updateError);
+      return c.json({ error: updateError.message }, 500);
+    }
+
+    const count = updatedContacts?.length || 0;
+    console.log(`✅ Successfully reassigned ${count} contacts from ${fromEmail} to ${toEmail}`);
+
+    return c.json({ 
+      success: true, 
+      count,
+      message: `Reassigned ${count} contacts from ${fromEmail} to ${toEmail}` 
+    });
+  } catch (error) {
+    console.error('❌ Reassign contacts error:', error);
+    return c.json({ error: 'Failed to reassign contacts: ' + error.message }, 500);
+  }
+});
+
 // Health check
 app.get('/make-server-8405be07/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });

@@ -17,6 +17,7 @@ import type { User } from '../App';
 import { PermissionGate, PermissionButton } from './PermissionGate';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { ContactDetail } from './ContactDetail';
+import { useDebounce } from '../utils/useDebounce';
 
 interface Contact {
   id: string;
@@ -57,6 +58,7 @@ interface ContactsProps {
 
 export function Contacts({ user }: ContactsProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -165,13 +167,18 @@ export function Contacts({ user }: ContactsProps) {
 
   // ⚡ Performance: Memoize filtered contacts to avoid re-filtering on every render
   const filteredContacts = useMemo(() => {
-    const query = searchQuery.toLowerCase();
+    const query = debouncedSearchQuery.toLowerCase().trim();
+    if (!query) return contacts;
+    
+    // 🔍 Enhanced search: search across multiple fields
     return contacts.filter(contact =>
       contact.name.toLowerCase().includes(query) ||
       contact.email.toLowerCase().includes(query) ||
-      contact.company.toLowerCase().includes(query)
+      contact.company.toLowerCase().includes(query) ||
+      contact.phone.includes(query) ||
+      contact.status.toLowerCase().includes(query)
     );
-  }, [contacts, searchQuery]);
+  }, [contacts, debouncedSearchQuery]);
 
   // ⚡ Performance: Paginate filtered contacts - only render current page
   const paginatedContacts = useMemo(() => {
@@ -185,7 +192,7 @@ export function Contacts({ user }: ContactsProps) {
   // Reset to page 1 when search query changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [debouncedSearchQuery]);
 
   const handleAddContact = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -747,7 +754,7 @@ export function Contacts({ user }: ContactsProps) {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search contacts..."
+                  placeholder="Search contacts by name, email, company, phone, or status..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"

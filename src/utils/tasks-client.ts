@@ -36,33 +36,13 @@ export async function getAllTasksClient() {
       // Super Admin: Can see all tasks
       console.log('🔓 Super Admin - Loading all tasks');
     } else if (userRole === 'admin') {
-      // Admin: Can see all tasks within their organization
-      console.log('🔒 Admin - Loading tasks for organization:', userOrgId);
-      query = query.eq('organization_id', userOrgId);
+      // Admin: Can ONLY see their own tasks (Team Dashboard shows team data)
+      console.log('🔒 Admin - Loading own tasks only (strict filtering)');
+      query = query.eq('organization_id', userOrgId).or(`owner_id.eq.${user.id},assigned_to.eq.${user.id}`);
     } else if (userRole === 'manager') {
-      // Manager: Can see their own tasks + tasks from users they manage
-      console.log('👔 Manager - Loading tasks for team');
-      
-      // Get list of users this manager oversees
-      const { data: teamMembers } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('manager_id', user.id)
-        .eq('organization_id', userOrgId);
-
-      const teamIds = teamMembers?.map(m => m.id) || [];
-      const allowedUserIds = [user.id, ...teamIds];
-      
-      // Filter: owned by manager/team OR assigned to manager/team
-      query = query.eq('organization_id', userOrgId);
-      
-      if (allowedUserIds.length > 1) {
-        query = query.or(
-          allowedUserIds.map(id => `owner_id.eq.${id},assigned_to.eq.${id}`).join(',')
-        );
-      } else {
-        query = query.or(`owner_id.eq.${user.id},assigned_to.eq.${user.id}`);
-      }
+      // Manager: Can ONLY see their own tasks (Team Dashboard shows team data)
+      console.log('👔 Manager - Loading own tasks only (strict filtering)');
+      query = query.eq('organization_id', userOrgId).or(`owner_id.eq.${user.id},assigned_to.eq.${user.id}`);
     } else if (userRole === 'marketing') {
       // Marketing: Can see all tasks within their organization
       console.log('📢 Marketing - Loading tasks for organization:', userOrgId);

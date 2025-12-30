@@ -33,10 +33,12 @@ import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
+export type UserRole = 'standard_user' | 'manager' | 'admin' | 'super_admin' | 'marketing';
+
 export interface User {
   id: string;
   email: string;
-  role: 'user' | 'manager' | 'admin' | 'super_admin';
+  role: UserRole;
   full_name?: string;
   avatar_url?: string;
   organization_id?: string;
@@ -99,7 +101,7 @@ function App() {
       // Load user profile
       const { data: profile } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, email, role, name, avatar_url, organization_id, manager_id, needs_password_change')
         .eq('id', supabaseUser.id)
         .single();
 
@@ -111,6 +113,9 @@ function App() {
           setLoading(false);
           return;
         }
+
+        // Initialize permissions for this user's role BEFORE setting user state
+        await initializePermissions(profile.role);
 
         // Load user preferences to get profile picture
         let avatarUrl = profile.avatar_url;
@@ -133,25 +138,24 @@ function App() {
           id: profile.id,
           email: profile.email,
           role: profile.role,
-          full_name: profile.full_name || profile.name,
+          full_name: profile.name,
           avatar_url: avatarUrl,
           organization_id: profile.organization_id,
           // Add camelCase alias for components
           organizationId: profile.organization_id,
         });
 
-        // Initialize permissions for this user's role
-        await initializePermissions(profile.role);
-
         // Load organization if user has one
         if (profile.organization_id) {
           const { data: org } = await supabase
             .from('organizations')
-            .select('*')
+            .select('id, name, status, logo, created_at, updated_at, ai_suggestions_enabled, marketing_enabled, inventory_enabled, import_export_enabled, documents_enabled, appointments_enabled, project_wizards_enabled')
             .eq('id', profile.organization_id)
             .single();
 
           if (org) {
+            console.log('📍 [App.tsx] Loaded organization on startup:', org);
+            console.log('📍 [App.tsx] AI Suggestions enabled?', org.ai_suggestions_enabled);
             setOrganization(org);
           }
         }
@@ -187,7 +191,24 @@ function App() {
 
   if (!session || !user) {
     return currentView === 'login' ? (
-      <Login onLogin={(user, token) => {
+      <Login onLogin={async (user, token) => {
+        // Initialize permissions for this user's role BEFORE setting user state
+        await initializePermissions(user.role);
+        
+        // Load organization if user has one
+        if (user.organizationId || user.organization_id) {
+          const orgId = user.organizationId || user.organization_id;
+          const { data: org } = await supabase
+            .from('organizations')
+            .select('*')
+            .eq('id', orgId)
+            .single();
+
+          if (org) {
+            setOrganization(org);
+          }
+        }
+        
         setUser(user);
         setCurrentView('dashboard');
       }} />
@@ -230,7 +251,7 @@ function App() {
               {currentView === 'team-dashboard' && <ManagerDashboard user={user} organization={organization} />}
               {currentView === 'users' && <Users user={user} />}
               {currentView === 'tenants' && <Tenants user={user} />}
-              {currentView === 'settings' && <Settings user={user} onUserUpdate={setUser} />}
+              {currentView === 'settings' && <Settings user={user} organization={organization} onUserUpdate={setUser} onOrganizationUpdate={setOrganization} />}
               {currentView === 'security' && <Security user={user} />}
               {currentView === 'import-export' && <ImportExport user={user} onNavigate={setCurrentView} />}
               {currentView === 'project-wizards' && <ProjectWizards user={user} />}

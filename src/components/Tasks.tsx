@@ -17,6 +17,7 @@ import type { User } from '../App';
 import { tasksAPI } from '../utils/api';
 import { PermissionGate } from './PermissionGate';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
+import { useDebounce } from '../utils/useDebounce';
 
 interface Task {
   id: string;
@@ -35,6 +36,7 @@ interface TasksProps {
 
 export function Tasks({ user }: TasksProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,10 +49,17 @@ export function Tasks({ user }: TasksProps) {
     dueDate: '',
   });
 
-  const filteredTasks = tasks.filter(task =>
-    task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    task.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTasks = tasks.filter(task => {
+    const query = debouncedSearchQuery.toLowerCase().trim();
+    if (!query) return true;
+    
+    // 🔍 Enhanced search: search across multiple fields
+    return task.title.toLowerCase().includes(query) ||
+      task.description.toLowerCase().includes(query) ||
+      task.status.toLowerCase().includes(query) ||
+      task.priority.toLowerCase().includes(query) ||
+      task.assignedTo.toLowerCase().includes(query);
+  });
 
   // Load tasks on mount
   useEffect(() => {
@@ -213,7 +222,7 @@ export function Tasks({ user }: TasksProps) {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search tasks..."
+                placeholder="Search tasks by title, description, status, priority, or assignee..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"

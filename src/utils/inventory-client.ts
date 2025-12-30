@@ -105,7 +105,10 @@ export async function getAllInventoryClient() {
     console.log('✅ Sample mapped items (first 2):', items.slice(0, 2));
     return { items };
   } catch (error: any) {
-    console.error('Error loading inventory:', error);
+    console.error('❌ Error loading inventory:', error?.message || error);
+    if (error?.code) {
+      console.error('❌ Error code:', error.code);
+    }
     // Return empty array instead of throwing to prevent "Error" in dashboard
     return { items: [] };
   }

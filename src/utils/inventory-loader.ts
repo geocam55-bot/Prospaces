@@ -15,6 +15,8 @@ export interface LoadInventoryResult {
   items: any[];
   totalCount: number;
   loadTime: number;
+  totalValue?: number; // Total inventory value for filtered results
+  activeCount?: number; // Count of active items in filtered results
 }
 
 /**
@@ -164,14 +166,85 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
       throw new Error(`Database error: ${error.message} (Code: ${error.code || 'unknown'})`);
     }
     
+    // 📊 Calculate total value for ALL filtered results (not just current page)
+    // Build same query but select aggregation columns
+    let aggregateQuery = supabase
+      .from('inventory')
+      .select('quantity, cost, unit_price')
+      .eq('organization_id', organizationId);
+    
+    // Apply same filters as main query
+    if (searchQuery && searchQuery.trim()) {
+      const { searchTerms, priceFilter } = parseSearchQuery(searchQuery);
+      
+      if (searchTerms) {
+        const stemmedSearch = stem(searchTerms);
+        if (stemmedSearch !== searchTerms) {
+          aggregateQuery = aggregateQuery.or(
+            `name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%,` +
+            `name.ilike.%${stemmedSearch}%,sku.ilike.%${stemmedSearch}%,description.ilike.%${stemmedSearch}%,category.ilike.%${stemmedSearch}%`
+          );
+        } else {
+          aggregateQuery = aggregateQuery.or(`name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%`);
+        }
+      }
+      
+      if (priceFilter) {
+        if (priceFilter.operator === 'lt') {
+          aggregateQuery = aggregateQuery.lt('unit_price', priceFilter.value);
+        } else if (priceFilter.operator === 'gt') {
+          aggregateQuery = aggregateQuery.gt('unit_price', priceFilter.value);
+        } else if (priceFilter.operator === 'lte') {
+          aggregateQuery = aggregateQuery.lte('unit_price', priceFilter.value);
+        } else if (priceFilter.operator === 'gte') {
+          aggregateQuery = aggregateQuery.gte('unit_price', priceFilter.value);
+        }
+      }
+    }
+    
+    if (categoryFilter && categoryFilter !== 'all') {
+      aggregateQuery = aggregateQuery.eq('category', categoryFilter);
+    }
+    
+    const { data: aggregateData } = await aggregateQuery;
+    
+    // Calculate total value from all filtered items
+    let totalValue = 0;
+    if (aggregateData) {
+      console.log(`📊 [Inventory Loader] Calculating total value from ${aggregateData.length} items...`);
+      
+      // Debug: Log first few items to see actual values
+      if (aggregateData.length > 0) {
+        const sample = aggregateData.slice(0, 3);
+        console.log('📊 [Sample Items]:', sample.map(item => ({
+          quantity: item.quantity,
+          cost: item.cost,
+          unit_price: item.unit_price,
+          costDollars: (item.cost || 0) / 100,
+          priceDollars: (item.unit_price || 0) / 100,
+        })));
+      }
+      
+      totalValue = aggregateData.reduce((sum, item) => {
+        const quantity = item.quantity || 0;
+        // Use cost (what we paid) for inventory value, not unit_price (selling price)
+        const cost = item.cost || 0;
+        return sum + (quantity * cost / 100); // Convert cents to dollars
+      }, 0);
+      
+      console.log(`💰 [Inventory Loader] Calculated total inventory value (Qty × Cost): $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
+    }
+    
     const endTime = performance.now();
     const loadTime = endTime - startTime;
     
     console.log(`✅ [Inventory Loader] Loaded ${data?.length || 0} items (page ${currentPage}, total: ${count}) in ${loadTime.toFixed(0)}ms`);
+    console.log(`💰 [Inventory Loader] Total value of filtered results: $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
     
     return {
       items: data || [],
       totalCount: count || 0,
+      totalValue,
       loadTime,
     };
   } catch (error) {

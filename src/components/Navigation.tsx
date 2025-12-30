@@ -51,19 +51,20 @@ interface NavigationProps {
 export function Navigation({ user, organization, currentView, onNavigate, onLogout }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Debug: Log organization state to help troubleshoot AI Suggestions visibility
+  console.log('🔍 [Navigation] Organization state:', organization);
+  console.log('🔍 [Navigation] AI Suggestions enabled?', organization?.ai_suggestions_enabled);
+
   // Base navigation items (organization-specific - hidden from SUPER_ADMIN and filtered for ADMIN)
   const baseNavItems = user.role !== 'super_admin' ? [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     // Only show AI Suggestions if enabled for the organization
     ...(organization?.ai_suggestions_enabled ? [{ id: 'ai-suggestions', label: 'AI Suggestions', icon: Sparkles }] : []),
-    // Admin users don't need these - they use Team Dashboard
-    ...(user.role !== 'admin' ? [
-      { id: 'contacts', label: 'Contacts', icon: Users },
-      { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-      { id: 'opportunities', label: 'Opportunities', icon: Target },
-      { id: 'bids', label: 'Bids', icon: FileText },
-      { id: 'notes', label: 'Notes', icon: StickyNote },
-    ] : []),
+    { id: 'contacts', label: 'Contacts', icon: Users },
+    { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+    { id: 'opportunities', label: 'Opportunities', icon: Target },
+    { id: 'bids', label: 'Bids', icon: FileText },
+    { id: 'notes', label: 'Notes', icon: StickyNote },
     // Show Appointments for all users (including Admin for calendar sync testing)
     ...(organization?.appointments_enabled !== false ? [{ id: 'appointments', label: 'Appointments', icon: Calendar }] : []),
     // Only show Documents if enabled for the organization

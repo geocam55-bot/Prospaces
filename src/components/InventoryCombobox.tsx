@@ -57,15 +57,6 @@ export function InventoryCombobox({
       // Use AI-powered advanced search engine
       console.log('[InventoryCombobox] 🤖 Using AI-Powered search');
       
-      // DIAGNOSTIC: Sample a few items to see what data we have
-      const sampleItems = items.slice(0, 5);
-      console.log('[InventoryCombobox] 📦 Sample items:', sampleItems.map(i => ({
-        name: i.name,
-        sku: i.sku,
-        category: i.category,
-        description: i.description?.substring(0, 50)
-      })));
-      
       const results = advancedSearch(items, debouncedSearch, {
         fuzzyThreshold: 0.7,  // Match Inventory Module settings
         minScore: 0.3,        // Match Inventory Module settings
@@ -74,20 +65,6 @@ export function InventoryCombobox({
       });
       
       console.log('[InventoryCombobox] ✅ Advanced search found', results.length, 'matches');
-      console.log('[InventoryCombobox] 📊 Top 10 results with scores:', 
-        results.slice(0, 10).map(r => ({ 
-          name: r.item.name, 
-          sku: r.item.sku,
-          score: r.score.toFixed(3),
-          matchedFields: r.matchedFields,
-          matchType: r.matchType
-        }))
-      );
-      
-      // DIAGNOSTIC: If no results, test with basic search to compare
-      if (results.length === 0) {
-        console.log('[InventoryCombobox] ⚠️ No results from advanced search, testing basic search...');
-      }
       
       return results.map(r => r.item);
     } else {

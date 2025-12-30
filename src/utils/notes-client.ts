@@ -35,31 +35,13 @@ export async function getAllNotesClient() {
       // Super Admin: Can see all notes
       console.log('🔓 Super Admin - Loading all notes');
     } else if (userRole === 'admin') {
-      // Admin: Can see all notes within their organization
-      console.log('🔒 Admin - Loading notes for organization:', userOrgId);
-      query = query.eq('organization_id', userOrgId);
+      // Admin: Can ONLY see their own notes (Team Dashboard shows team data)
+      console.log('🔒 Admin - Loading own notes only (strict filtering)');
+      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
     } else if (userRole === 'manager') {
-      // Manager: Can see their own notes + notes from users they manage
-      console.log('👔 Manager - Loading notes for team');
-      
-      // Get list of users this manager oversees
-      const { data: teamMembers } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('manager_id', user.id)
-        .eq('organization_id', userOrgId);
-
-      const teamIds = teamMembers?.map(m => m.id) || [];
-      const allowedUserIds = [user.id, ...teamIds];
-      
-      // Filter: created by manager/team
-      query = query.eq('organization_id', userOrgId);
-      
-      if (allowedUserIds.length > 1) {
-        query = query.in('owner_id', allowedUserIds);
-      } else {
-        query = query.eq('owner_id', user.id);
-      }
+      // Manager: Can ONLY see their own notes (Team Dashboard shows team data)
+      console.log('👔 Manager - Loading own notes only (strict filtering)');
+      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
     } else if (userRole === 'marketing') {
       // Marketing: Can see all notes within their organization
       console.log('📢 Marketing - Loading notes for organization:', userOrgId);

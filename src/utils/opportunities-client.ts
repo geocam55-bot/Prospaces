@@ -35,32 +35,18 @@ export async function getAllOpportunitiesClient() {
     if (userRole === 'super_admin') {
       // Super Admin: Can see all opportunities
       console.log('🔓 Super Admin - Loading all opportunities');
-    } else if (userRole === 'admin' || userRole === 'marketing') {
-      // Admin & Marketing: Can see all opportunities within their organization
-      console.log('🔒 Admin/Marketing - Loading opportunities for organization:', userOrgId);
-      query = query.eq('organization_id', userOrgId);
+    } else if (userRole === 'admin') {
+      // Admin: Can ONLY see their own opportunities (Team Dashboard shows team data)
+      console.log('🔒 Admin - Loading own opportunities only (strict filtering)');
+      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
     } else if (userRole === 'manager') {
-      // Manager: Can see their own opportunities + opportunities from users they manage
-      console.log('👔 Manager - Loading opportunities for team');
-      
-      // Get list of users this manager oversees
-      const { data: teamMembers } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('manager_id', user.id)
-        .eq('organization_id', userOrgId);
-
-      const teamIds = teamMembers?.map(m => m.id) || [];
-      const allowedUserIds = [user.id, ...teamIds];
-      
-      // Filter by organization and owner_id
+      // Manager: Can ONLY see their own opportunities (Team Dashboard shows team data)
+      console.log('👔 Manager - Loading own opportunities only (strict filtering)');
+      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
+    } else if (userRole === 'marketing') {
+      // Marketing: Can see all opportunities within their organization (for campaigns)
+      console.log('📢 Marketing - Loading opportunities for organization:', userOrgId);
       query = query.eq('organization_id', userOrgId);
-      
-      if (allowedUserIds.length > 1) {
-        query = query.in('owner_id', allowedUserIds);
-      } else {
-        query = query.eq('owner_id', user.id);
-      }
     } else {
       // Standard User: Can ONLY see their own opportunities
       console.log('👤 Standard User - Loading only own opportunities for user ID:', user.id);

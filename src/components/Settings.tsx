@@ -9,6 +9,8 @@ import { ThemeMigration } from './ThemeMigration';
 import { FullCRMDatabaseSetup } from './FullCRMDatabaseSetup';
 import { OrganizationFeatureMigration } from './OrganizationFeatureMigration';
 import { ProjectWizardSettings } from './ProjectWizardSettings';
+import { ReassignContacts } from './admin/ReassignContacts';
+import { AIToggleSwitch } from './AIToggleSwitch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -42,10 +44,12 @@ import { tenantsAPI, settingsAPI } from '../utils/api';
 
 interface SettingsProps {
   user: User;
+  organization: any | null;
   onUserUpdate?: (updatedUser: User) => void;
+  onOrganizationUpdate?: (updatedOrganization: any) => void;
 }
 
-export function Settings({ user, onUserUpdate }: SettingsProps) {
+export function Settings({ user, organization, onUserUpdate, onOrganizationUpdate }: SettingsProps) {
   const [orgName, setOrgName] = useState('ProSpaces Organization');
   const [profileData, setProfileData] = useState({
     name: user.full_name || user.email || '',
@@ -461,10 +465,11 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
     <div className="p-6 space-y-6">
       <Tabs defaultValue="profile" className="w-full">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-6">
+          <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-7">
             <TabsTrigger value="profile" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Profile</TabsTrigger>
             <TabsTrigger value="notifications" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Notifications</TabsTrigger>
             {canManageSettings && <TabsTrigger value="organization" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Organization</TabsTrigger>}
+            {canManageSettings && <TabsTrigger value="features" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Features</TabsTrigger>}
             {canAccessSecurity && <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Permissions</TabsTrigger>}
             <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
             {canManageSettings && <TabsTrigger value="testdata" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Test Data</TabsTrigger>}
@@ -792,6 +797,115 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
           </TabsContent>
         )}
 
+        {canManageSettings && (
+          <TabsContent value="features" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Eye className="h-5 w-5" />
+                  Module Features
+                </CardTitle>
+                <p className="text-sm text-gray-500 mt-2">
+                  Enable or disable modules for your organization. Changes take effect after users refresh their browser.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between py-3 border-b">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">AI Suggestions</Label>
+                    <p className="text-sm text-gray-500">
+                      Intelligent task recommendations based on your CRM data
+                    </p>
+                    <p className="text-xs text-gray-400 font-mono mt-1">
+                      Organization ID: {user.organizationId}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      try {
+                        console.log('🔧 Attempting to enable AI Suggestions for org:', user.organizationId);
+                        
+                        // Try to update the organization
+                        const result = await tenantsAPI.updateFeatures(user.organizationId, {
+                          ai_suggestions_enabled: true
+                        });
+                        
+                        console.log('✅ Update result:', result);
+                        
+                        // Update the organization state immediately without requiring refresh
+                        if (onOrganizationUpdate && result?.tenant) {
+                          // Merge with existing organization data to preserve other fields
+                          const updatedOrg = {
+                            ...(organization || {}),
+                            ...result.tenant,
+                            ai_suggestions_enabled: true
+                          };
+                          console.log('📦 Updated organization object:', updatedOrg);
+                          onOrganizationUpdate(updatedOrg);
+                          console.log('✅ Organization state updated - AI Suggestions now visible in sidebar');
+                        } else {
+                          console.error('❌ Could not update organization state:', {
+                            hasCallback: !!onOrganizationUpdate,
+                            hasTenant: !!result?.tenant,
+                            result
+                          });
+                        }
+                        
+                        toast.success(
+                          'AI Suggestions enabled! The module is now visible in the sidebar.',
+                          { duration: 5000 }
+                        );
+                      } catch (error: any) {
+                        console.error('❌ Failed to enable AI Suggestions:', error);
+                        
+                        // Show detailed error
+                        if (error?.message?.includes('column') || error?.code === '42703') {
+                          toast.error(
+                            'Database column missing. Please run the migration in the Test Data tab → Organization Feature Migration.',
+                            { duration: 10000 }
+                          );
+                        } else {
+                          toast.error(
+                            `Failed to enable feature: ${error?.message || 'Unknown error'}. Check console for details.`,
+                            { duration: 10000 }
+                          );
+                        }
+                      }
+                    }}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Enable AI Module
+                  </Button>
+                </div>
+
+                <Alert>
+                  <AlertDescription>
+                    <p className="text-sm font-medium mb-2">
+                      If you get an error when enabling features:
+                    </p>
+                    <ol className="list-decimal list-inside text-sm space-y-1">
+                      <li>Go to the <strong>Test Data</strong> tab</li>
+                      <li>Find the <strong>Organization Feature Migration</strong> card</li>
+                      <li>Click "Copy SQL" and run it in your Supabase SQL Editor</li>
+                      <li>Come back here and click "Enable AI Module" again</li>
+                      <li><strong>Refresh your browser</strong> (F5 or Cmd+R)</li>
+                    </ol>
+                  </AlertDescription>
+                </Alert>
+
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertDescription>
+                    <p className="text-sm text-blue-900">
+                      <strong>Note:</strong> After enabling, you MUST refresh your browser to see the AI Suggestions menu item appear in the sidebar.
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
         {canAccessSecurity && (
           <TabsContent value="permissions" className="space-y-4">
             <Security user={user} />
@@ -849,6 +963,9 @@ export function Settings({ user, onUserUpdate }: SettingsProps) {
             
             {/* Theme Migration */}
             <ThemeMigration />
+            
+            {/* Reassign Contacts */}
+            <ReassignContacts />
           </TabsContent>
         )}
       </Tabs>

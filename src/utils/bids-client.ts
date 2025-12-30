@@ -50,32 +50,18 @@ export async function getAllBidsClient() {
       console.log('🔓 Super Admin - Loading all bids');
       // Include NULL organization_ids for backwards compatibility
       // query = query; // no filter needed
-    } else if (userRole === 'admin' || userRole === 'marketing') {
-      // Admin & Marketing: Can see all bids within their organization
-      console.log('🔒 Admin/Marketing - Loading bids for organization:', userOrgId);
-      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+    } else if (userRole === 'admin') {
+      // Admin: Can ONLY see their own bids (Team Dashboard shows team data)
+      console.log('🔒 Admin - Loading own bids only (strict filtering)');
+      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`).eq('created_by', authUser.id);
     } else if (userRole === 'manager') {
-      // Manager: Can see their own bids + bids from users they manage
-      console.log('👔 Manager - Loading bids for team');
-      
-      // Get list of users this manager oversees
-      const { data: teamMembers } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('manager_id', authUser.id)
-        .eq('organization_id', userOrgId);
-
-      const teamIds = teamMembers?.map(m => m.id) || [];
-      const allowedUserIds = [authUser.id, ...teamIds];
-      
-      // Filter by organization and created_by
+      // Manager: Can ONLY see their own bids (Team Dashboard shows team data)
+      console.log('👔 Manager - Loading own bids only (strict filtering)');
+      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`).eq('created_by', authUser.id);
+    } else if (userRole === 'marketing') {
+      // Marketing: Can see all bids within their organization (for campaigns)
+      console.log('📢 Marketing - Loading bids for organization:', userOrgId);
       query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
-      
-      if (allowedUserIds.length > 1) {
-        query = query.in('created_by', allowedUserIds);
-      } else {
-        query = query.eq('created_by', authUser.id);
-      }
     } else {
       // Standard User: Can ONLY see their own bids
       console.log('👤 Standard User - Loading only own bids');

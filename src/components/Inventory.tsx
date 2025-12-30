@@ -113,6 +113,9 @@ export function Inventory({ user }: InventoryProps) {
   
   // ⚡ Track total count for pagination
   const [totalCount, setTotalCount] = useState(0);
+  
+  // 📊 Track total value from server (for all filtered results)
+  const [serverTotalValue, setServerTotalValue] = useState(0);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -306,7 +309,7 @@ export function Inventory({ user }: InventoryProps) {
       setOrganizationId(userOrgId);
       
       // ⚡ Use the optimized loader with proper pagination
-      const { items: loadedItems, totalCount: count, loadTime } = await loadInventoryPage({
+      const { items: loadedItems, totalCount: count, loadTime, totalValue } = await loadInventoryPage({
         organizationId: userOrgId,
         currentPage,
         itemsPerPage,
@@ -321,6 +324,7 @@ export function Inventory({ user }: InventoryProps) {
       console.log(`📊 [Inventory] Loaded ${mappedItems.length} items (page ${currentPage}/${Math.ceil(count / itemsPerPage)}, total: ${count})`);
       setItems(mappedItems);
       setTotalCount(count);
+      setServerTotalValue(totalValue || 0); // 📊 Store server-calculated total value
       setTableExists(true);
       setIsLoading(false);
       
@@ -387,13 +391,10 @@ export function Inventory({ user }: InventoryProps) {
       }
       
     } catch (error: any) {
-      console.error('❌ [Inventory] Failed to load inventory:', error);
-      console.error('Error loading inventory:', {
-        message: error?.message,
-        code: error?.code,
-        name: error?.name,
-        stack: error?.stack?.split('\n').slice(0, 3)
-      });
+      console.error('❌ [Inventory] Failed to load inventory:', error?.message || error);
+      if (error?.code) {
+        console.error('❌ Error code:', error.code);
+      }
       
       if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table') || error?.message?.includes('relation "inventory" does not exist')) {
         setTableExists(false);
@@ -550,12 +551,18 @@ export function Inventory({ user }: InventoryProps) {
   // Server-side filtering now, so filteredItems = items
   // const filteredItems = items;
 
+  // 📊 Calculate stats based on filtered results
   const lowStockItems = items.filter(item => 
     item.status === 'active' && item.quantityOnHand <= item.reorderLevel
   );
 
-  const totalValue = items.reduce((sum, item) => sum + (item.quantityOnHand * item.cost), 0);
+  // ✅ Use server-calculated total value (accurate for ALL filtered results)
+  const totalValue = serverTotalValue;
   const activeItems = items.filter(item => item.status === 'active').length;
+  
+  // ✅ Use totalCount for item counts (reflects search/filter results)
+  const displayTotalItems = totalCount > 0 ? totalCount : items.length;
+  const displayActiveItems = searchQuery || categoryFilter !== 'all' || statusFilter !== 'all' ? totalCount : activeItems;
 
   // Show database setup if table doesn't exist
   if (!tableExists && !isLoading) {
@@ -593,7 +600,7 @@ export function Inventory({ user }: InventoryProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Items</p>
-                <p className="text-2xl text-gray-900 mt-1">{items.length}</p>
+                <p className="text-2xl text-gray-900 mt-1">{displayTotalItems}</p>
               </div>
               <Package className="h-8 w-8 text-purple-600" />
             </div>
@@ -605,7 +612,7 @@ export function Inventory({ user }: InventoryProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Active Items</p>
-                <p className="text-2xl text-gray-900 mt-1">{activeItems}</p>
+                <p className="text-2xl text-gray-900 mt-1">{displayActiveItems}</p>
               </div>
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>

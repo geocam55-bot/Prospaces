@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { Badge } from './ui/badge';
+import { toast } from 'sonner@2.0.3';
 import { 
   Users, 
   FileText, 
@@ -70,12 +71,31 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
     // Force initial render
     setPermissionsVersion(v => v + 1);
     
+    // Check authentication on mount
+    checkAuthentication();
     checkDatabase();
     
     return () => {
       unsubscribe();
     };
   }, [user]);
+
+  const checkAuthentication = async () => {
+    try {
+      const supabase = createClient();
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error || !session) {
+        console.warn('⚠️ [Dashboard] Authentication check failed');
+        toast.warning(
+          'Session expired or invalid. Please refresh your browser (F5) if you experience issues.',
+          { duration: 5000, id: 'auth-warning' }
+        );
+      }
+    } catch (err) {
+      console.error('❌ [Dashboard] Auth check error:', err);
+    }
+  };
 
   const checkDatabase = async () => {
     try {

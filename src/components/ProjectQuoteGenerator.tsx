@@ -218,7 +218,6 @@ export function ProjectQuoteGenerator({
         tax_amount: taxAmount,
         tax_amount_2: taxAmount2,
         total: total,
-        amount: total, // Legacy field
         status: 'draft',
         valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
         notes: enhancedNotes,
@@ -348,7 +347,7 @@ export function ProjectQuoteGenerator({
                 {opportunities.length > 0 ? (
                   opportunities.map((opp) => (
                     <SelectItem key={opp.id} value={opp.id}>
-                      {opp.opportunity_name} ({opp.status})
+                      {opp.opportunity_name || 'Untitled Opportunity'} ({opp.status})
                     </SelectItem>
                   ))
                 ) : (

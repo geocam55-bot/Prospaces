@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import type { User } from '../App';
+import { useDebounce } from '../utils/useDebounce';
 
 interface Note {
   id: string;
@@ -30,6 +31,7 @@ interface NotesProps {
 
 export function Notes({ user }: NotesProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
 
@@ -39,10 +41,15 @@ export function Notes({ user }: NotesProps) {
     linkedTo: '',
   });
 
-  const filteredNotes = notes.filter(note =>
-    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    note.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredNotes = notes.filter(note => {
+    const query = debouncedSearchQuery.toLowerCase().trim();
+    if (!query) return true;
+    
+    // 🔍 Enhanced search: search across multiple fields
+    return note.title.toLowerCase().includes(query) ||
+      note.content.toLowerCase().includes(query) ||
+      (note.linkedTo && note.linkedTo.toLowerCase().includes(query));
+  });
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,7 +141,7 @@ export function Notes({ user }: NotesProps) {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search notes..."
+              placeholder="Search notes by title, content, or linked item..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"

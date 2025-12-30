@@ -24,15 +24,43 @@ export async function ensureUserProfile(userId: string) {
   // Profile doesn't exist, try to create it
   console.log('⚠️ Profile not found for user:', userId, 'Creating profile...');
   
-  // Get the user's email from auth
-  const { data: { user } } = await supabase.auth.getUser();
+  // Get the user's email from auth - but don't throw if auth check fails
+  let user = null;
+  let userEmail = 'unknown@example.com';
   
-  if (!user) {
-    console.error('❌ User not authenticated');
-    throw new Error('User not authenticated. Please log in again.');
+  try {
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.warn('⚠️ Auth check failed in ensureUserProfile:', authError.message);
+      // Try to get session instead
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (session?.user) {
+        user = session.user;
+        console.log('✅ Using session user in ensureUserProfile');
+      } else if (sessionError) {
+        console.error('❌ Session check also failed:', sessionError.message);
+      }
+    } else if (authUser) {
+      user = authUser;
+    }
+  } catch (err: any) {
+    console.error('❌ Exception in auth check:', err.message);
   }
   
-  const email = user.email || user.user_metadata?.email || 'unknown@example.com';
+  if (!user) {
+    console.error('❌ User not authenticated in ensureUserProfile');
+    console.error('🔧 Debug: userId provided:', userId);
+    console.error('🔧 Debug: Supabase client exists:', !!supabase);
+    
+    // Provide actionable guidance
+    const errorMessage = 'Your session may have expired. Please refresh your browser (F5) or sign out and sign back in.';
+    console.error('💡 Suggested action:', errorMessage);
+    
+    throw new Error(errorMessage);
+  }
+  
+  userEmail = user.email || user.user_metadata?.email || 'unknown@example.com';
   let organizationId = user.user_metadata?.organizationId || user.user_metadata?.organization_id || null;
   
   // If no organization in metadata, try to find or create one
@@ -78,8 +106,8 @@ export async function ensureUserProfile(userId: string) {
   // Create the profile with default values
   const newProfileData = {
     id: userId,
-    email: email,
-    name: user.user_metadata?.name || email.split('@')[0],
+    email: userEmail,
+    name: user.user_metadata?.name || userEmail.split('@')[0],
     role: 'standard_user', // Default role
     organization_id: organizationId,
     manager_id: null,
@@ -94,21 +122,41 @@ export async function ensureUserProfile(userId: string) {
     .single();
   
   if (createError) {
-    console.error('❌ Failed to create profile:', createError);
-    
-    // If it's a duplicate email error, try to fetch by email
+    // If it's a duplicate key error (either email or id), try to fetch the existing profile
     if (createError.code === '23505') {
-      console.log('🔍 Duplicate email detected, searching by email...');
-      const { data: profileByEmail } = await supabase
+      console.log('ℹ️ Profile already exists (duplicate key), fetching existing profile...');
+      
+      // First try by ID (most common case - profile already exists)
+      const { data: profileById, error: fetchByIdError } = await supabase
         .from('profiles')
         .select('role, organization_id, email, manager_id, id')
-        .eq('email', email)
+        .eq('id', userId)
         .maybeSingle();
       
+      if (fetchByIdError) {
+        console.error('❌ Error fetching profile by ID:', fetchByIdError);
+      }
+      
+      if (profileById) {
+        console.log('✅ Found existing profile by ID');
+        return profileById;
+      }
+      
+      // If not found by ID, try by email
+      const { data: profileByEmail, error: fetchByEmailError } = await supabase
+        .from('profiles')
+        .select('role, organization_id, email, manager_id, id')
+        .eq('email', userEmail)
+        .maybeSingle();
+      
+      if (fetchByEmailError) {
+        console.error('❌ Error fetching profile by email:', fetchByEmailError);
+      }
+      
       if (profileByEmail) {
+        console.log('✅ Found existing profile by email');
         // Check if this profile matches the user ID
         if (profileByEmail.id === userId) {
-          console.log('✅ Found matching profile by email');
           return profileByEmail;
         } else {
           console.error('❌ Email belongs to different user. Current:', userId, 'Found:', profileByEmail.id);
@@ -124,6 +172,9 @@ export async function ensureUserProfile(userId: string) {
           };
         }
       }
+    } else {
+      // Only log as error if it's NOT a duplicate key error
+      console.error('❌ Failed to create profile:', createError);
     }
     
     // Try one more time to fetch in case another process created it
@@ -147,7 +198,7 @@ export async function ensureUserProfile(userId: string) {
     return {
       role: 'standard_user',
       organization_id: finalOrgId,
-      email: email,
+      email: userEmail,
       manager_id: null,
     };
   }

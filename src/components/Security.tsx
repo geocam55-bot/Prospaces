@@ -20,6 +20,7 @@ import {
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import type { User, UserRole } from '../App';
+import { useDebounce } from '../utils/useDebounce';
 
 interface SecurityProps {
   user: User;
@@ -48,6 +49,7 @@ export function Security({ user }: SecurityProps) {
   const [permissions, setPermissions] = useState<ModulePermission[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [selectedModule, setSelectedModule] = useState<string>('all');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -58,6 +60,7 @@ export function Security({ user }: SecurityProps) {
 
   const modules = [
     { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+    { id: 'ai-suggestions', name: 'AI Suggestions', icon: '🤖' },
     { id: 'team-dashboard', name: 'Team Dashboard', icon: '👥' },
     { id: 'contacts', name: 'Contacts', icon: '👥' },
     { id: 'tasks', name: 'Tasks', icon: '✓' },
@@ -108,6 +111,68 @@ export function Security({ user }: SecurityProps) {
       
       if (storedPerms) {
         const permsArray = JSON.parse(storedPerms);
+        
+        // 🔄 Migration: Check if ai-suggestions module exists in stored permissions
+        const hasAISuggestions = permsArray.some((p: ModulePermission) => p.module === 'ai-suggestions');
+        
+        if (!hasAISuggestions) {
+          // Add ai-suggestions permissions for all roles
+          console.log('📦 Migrating permissions: Adding AI Suggestions module');
+          roles.forEach(role => {
+            if (role === 'super_admin') {
+              permsArray.push({
+                module: 'ai-suggestions',
+                role,
+                visible: true,
+                add: true,
+                change: true,
+                delete: true,
+              });
+            } else if (role === 'admin') {
+              permsArray.push({
+                module: 'ai-suggestions',
+                role,
+                visible: true,
+                add: true,
+                change: true,
+                delete: true,
+              });
+            } else if (role === 'manager') {
+              permsArray.push({
+                module: 'ai-suggestions',
+                role,
+                visible: true,
+                add: true,
+                change: true,
+                delete: false,
+              });
+            } else if (role === 'marketing') {
+              permsArray.push({
+                module: 'ai-suggestions',
+                role,
+                visible: true,
+                add: false,
+                change: false,
+                delete: false,
+              });
+            } else {
+              // standard_user
+              permsArray.push({
+                module: 'ai-suggestions',
+                role,
+                visible: false,
+                add: false,
+                change: false,
+                delete: false,
+              });
+            }
+          });
+          
+          // Save the migrated permissions back to localStorage
+          localStorage.setItem(`permissions_${orgId}`, JSON.stringify(permsArray));
+          console.log('✅ AI Suggestions permissions added and saved');
+        }
+        
         setPermissions(permsArray);
       } else {
         // Initialize with default permissions if none exist
@@ -311,9 +376,13 @@ export function Security({ user }: SecurityProps) {
     });
   };
 
-  const filteredModules = modules.filter(module => 
-    module.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredModules = modules.filter(module => {
+    const query = debouncedSearchQuery.toLowerCase().trim();
+    if (!query) return true;
+    
+    // 🔍 Enhanced search: search module name
+    return module.name.toLowerCase().includes(query);
+  });
 
   if (!canAccessSecurity) {
     return (
@@ -406,31 +475,37 @@ export function Security({ user }: SecurityProps) {
           <div className="space-y-4">
             {filteredModules.map(module => (
               <Card key={module.id}>
-                <CardContent className="pt-6">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <span className="text-2xl">{module.icon}</span>
+                    <span className="text-gray-900">{module.name}</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-3">
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-gray-200">
-                          <th className="text-left py-3 px-4 text-sm text-gray-600 w-40">Role</th>
-                          <th className="text-center py-3 px-4 text-sm text-gray-600 w-24">
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-40">Role</th>
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
                             <div className="flex flex-col items-center gap-1">
                               <Lock className="h-4 w-4" />
                               <span>Visible</span>
                             </div>
                           </th>
-                          <th className="text-center py-3 px-4 text-sm text-gray-600 w-24">
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
                             <div className="flex flex-col items-center gap-1">
                               <span>➕</span>
                               <span>Add</span>
                             </div>
                           </th>
-                          <th className="text-center py-3 px-4 text-sm text-gray-600 w-24">
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
                             <div className="flex flex-col items-center gap-1">
                               <span>✏️</span>
                               <span>Change</span>
                             </div>
                           </th>
-                          <th className="text-center py-3 px-4 text-sm text-gray-600 w-24">
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
                             <div className="flex flex-col items-center gap-1">
                               <span>🗑️</span>
                               <span>Delete</span>

@@ -199,28 +199,48 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
       return data || [];
     }
 
-    // Otherwise, fetch ALL items in batches (for initial load, we'll use a limit instead)
-    // Load only first 1000 items - users can search for more
-    console.log('[project-wizard-defaults] 🔄 Fetching first 1000 inventory items...');
+    // Otherwise, fetch ALL items using pagination
+    console.log('[project-wizard-defaults] 🔄 Fetching all inventory items (may take a moment)...');
     
-    const { data, error } = await supabase
-      .from('inventory')
-      .select('id, name, sku, category, description')
-      .eq('organization_id', organizationId)
-      .order('name', { ascending: true })
-      .limit(1000);
+    let allItems: InventoryItem[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('id, name, sku, category, description')
+        .eq('organization_id', organizationId)
+        .order('name', { ascending: true })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
 
-    if (error) {
-      if (error.code === 'PGRST205' || error.code === '42P01') {
-        console.warn('[project-wizard-defaults] ⚠️ inventory table does not exist.');
-        return [];
+      if (error) {
+        if (error.code === 'PGRST205' || error.code === '42P01') {
+          console.warn('[project-wizard-defaults] ⚠️ inventory table does not exist.');
+          return [];
+        }
+        console.error('[project-wizard-defaults] ❌ Error fetching inventory items:', error);
+        return allItems; // Return what we have so far
       }
-      console.error('[project-wizard-defaults] ❌ Error fetching inventory items:', error);
-      return [];
+
+      if (data && data.length > 0) {
+        allItems = [...allItems, ...data];
+        console.log('[project-wizard-defaults] 📦 Fetched page', page + 1, '- Total items:', allItems.length);
+        
+        // If we got less than pageSize, we've reached the end
+        if (data.length < pageSize) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      } else {
+        hasMore = false;
+      }
     }
 
-    console.log('[project-wizard-defaults] ✅ Fetched', data?.length || 0, 'items');
-    return data || [];
+    console.log('[project-wizard-defaults] ✅ Fetched all', allItems.length, 'items');
+    return allItems;
   } catch (error) {
     console.error('[project-wizard-defaults] ❌ Unexpected error fetching inventory items:', error);
     return [];
