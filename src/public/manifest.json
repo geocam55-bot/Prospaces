@@ -1,50 +1,24 @@
 {
   "name": "ProSpaces CRM",
   "short_name": "ProSpaces",
-  "description": "Multi-tenant CRM platform with role-based access control",
+  "description": "Multi-tenant CRM platform with role-based access control for home improvement industry",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#9333ea",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/favicon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/favicon.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/favicon.svg",
+      "src": "/favicon-512x512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    }
-  ],
-  "categories": ["business", "productivity"],
-  "screenshots": [
-    {
-      "src": "/screenshots/dashboard.png",
-      "sizes": "1280x720",
       "type": "image/png",
-      "form_factor": "wide"
-    },
-    {
-      "src": "/screenshots/mobile.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow"
+      "purpose": "any maskable"
     }
-  ],
-  "prefer_related_applications": false,
-  "scope": "/",
-  "id": "com.prospaces.crm",
-  "dir": "ltr",
-  "lang": "en-US"
+  ]
 }
