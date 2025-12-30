@@ -90,6 +90,22 @@ export function Appointments({ user }: AppointmentsProps) {
     }
   }, []);
 
+  // 🔄 Auto-sync calendar every 5 minutes
+  useEffect(() => {
+    if (calendarAccounts.length === 0) return;
+
+    // Set up interval for auto-sync every 5 minutes
+    const syncInterval = setInterval(() => {
+      console.log('[Calendar] 🔄 Auto-syncing calendar (5-minute interval)');
+      handleSyncCalendar();
+    }, 5 * 60 * 1000); // 5 minutes in milliseconds
+
+    // Cleanup interval on unmount or when accounts change
+    return () => {
+      clearInterval(syncInterval);
+    };
+  }, [calendarAccounts]);
+
   const loadAppointments = async () => {
     try {
       setIsLoading(true);

@@ -158,7 +158,7 @@ interface Email {
   date: string;
   read: boolean;
   starred: boolean;
-  folder: 'inbox' | 'sent' | 'drafts' | 'archive' | 'trash' | 'spam' | 'important';
+  folder: 'inbox' | 'sent' | 'drafts' | 'archive' | 'trash' | 'spam' | 'important' | string; // Allow custom folder IDs
   linkedTo?: string;
   accountId: string;
   flagged?: boolean;
@@ -207,6 +207,12 @@ export function Email({ user }: EmailProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; email: Email } | null>(null);
   const [showFoldersSidebar, setShowFoldersSidebar] = useState(true);
 
+  // Custom folders state
+  const [customFolders, setCustomFolders] = useState<Array<{ id: string; name: string; color?: string }>>([]);
+  const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderColor, setNewFolderColor] = useState('#3b82f6');
+
   const [composeEmail, setComposeEmail] = useState({
     to: '',
     subject: '',
@@ -226,10 +232,27 @@ export function Email({ user }: EmailProps) {
     };
   }, []);
 
+  // 🔄 Auto-sync emails every 5 minutes
+  useEffect(() => {
+    if (!selectedAccount) return;
+
+    // Set up interval for auto-sync every 5 minutes
+    const syncInterval = setInterval(() => {
+      console.log('[Email] 🔄 Auto-syncing emails (5-minute interval)');
+      handleSync();
+    }, 5 * 60 * 1000); // 5 minutes in milliseconds
+
+    // Cleanup interval on unmount or when account changes
+    return () => {
+      clearInterval(syncInterval);
+    };
+  }, [selectedAccount]);
+
   // Load data on mount from Supabase
   useEffect(() => {
     loadAccountsFromSupabase();
     loadEmailsFromSupabase();
+    loadCustomFolders();
     
     // Check for OAuth callback success/error
     const urlParams = new URLSearchParams(window.location.search);
@@ -473,6 +496,132 @@ export function Email({ user }: EmailProps) {
       console.log('[Email] Account deleted from Supabase');
     } catch (error) {
       console.error('[Email] Failed to delete account:', error);
+    }
+  };
+
+  // Custom folder management functions
+  const loadCustomFolders = async () => {
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) return;
+
+      const { data, error } = await supabase
+        .from('email_custom_folders')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .eq('organization_id', user.organizationId)
+        .order('name');
+
+      if (error) {
+        // Table might not exist yet
+        if (error.code === '42P01') {
+          console.log('[Email] Custom folders table does not exist yet. Run migration to create it.');
+          return;
+        }
+        throw error;
+      }
+
+      setCustomFolders(data || []);
+      console.log(`[Email] Loaded ${data?.length || 0} custom folders`);
+    } catch (error) {
+      console.error('[Email] Failed to load custom folders:', error);
+    }
+  };
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) {
+      toast.error('Please enter a folder name');
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error('Not authenticated');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('email_custom_folders')
+        .insert({
+          name: newFolderName.trim(),
+          color: newFolderColor,
+          user_id: session.user.id,
+          organization_id: user.organizationId,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === '42P01') {
+          toast.error('Custom folders table does not exist. Please run the migration in Settings → Test Data tab.');
+          return;
+        }
+        throw error;
+      }
+
+      setCustomFolders([...customFolders, data]);
+      setNewFolderName('');
+      setNewFolderColor('#3b82f6');
+      setIsFolderDialogOpen(false);
+      toast.success(`Folder "${data.name}" created!`);
+    } catch (error: any) {
+      console.error('[Email] Failed to create folder:', error);
+      toast.error(`Failed to create folder: ${error.message}`);
+    }
+  };
+
+  const handleDeleteFolder = async (folderId: string, folderName: string) => {
+    // Check if any emails are in this folder
+    const emailsInFolder = emails.filter(e => e.folder === folderId);
+    
+    if (emailsInFolder.length > 0) {
+      if (!confirm(`This folder contains ${emailsInFolder.length} email(s). These emails will be moved to Inbox. Continue?`)) {
+        return;
+      }
+    }
+
+    try {
+      const supabase = createClient();
+
+      // Move emails to inbox first
+      if (emailsInFolder.length > 0) {
+        for (const email of emailsInFolder) {
+          await supabase
+            .from('emails')
+            .update({ folder: 'inbox' })
+            .eq('id', email.id);
+        }
+
+        // Update local state
+        setEmails(emails.map(e => 
+          e.folder === folderId ? { ...e, folder: 'inbox' as Email['folder'] } : e
+        ));
+      }
+
+      // Delete the folder
+      const { error } = await supabase
+        .from('email_custom_folders')
+        .delete()
+        .eq('id', folderId);
+
+      if (error) throw error;
+
+      setCustomFolders(customFolders.filter(f => f.id !== folderId));
+      
+      // If we're viewing this folder, switch to inbox
+      if (currentFolder === folderId) {
+        setCurrentFolder('inbox');
+      }
+
+      toast.success(`Folder "${folderName}" deleted`);
+    } catch (error: any) {
+      console.error('[Email] Failed to delete folder:', error);
+      toast.error(`Failed to delete folder: ${error.message}`);
     }
   };
 
@@ -961,16 +1110,30 @@ export function Email({ user }: EmailProps) {
     }
   };
 
-  const handleMoveToFolder = async (id: string, folder: Email['folder']) => {
+  const handleMoveToFolder = async (id: string, folder: string) => {
     const email = emails.find(e => e.id === id);
-    if (!email) return;
+    if (!email) {
+      console.error('[Email] Could not find email with id:', id);
+      return;
+    }
+
+    console.log(`[Email] Moving email ${id} from "${email.folder}" to "${folder}"`);
 
     try {
       const supabase = createClient();
-      await supabase
+      const { data, error } = await supabase
         .from('emails')
         .update({ folder })
-        .eq('id', id);
+        .eq('id', id)
+        .select();
+
+      if (error) {
+        console.error('[Email] Database error moving email to folder:', error);
+        toast.error(`Failed to move email: ${error.message}`);
+        return;
+      }
+
+      console.log('[Email] Database update successful:', data);
 
       setEmails(emails.map(e =>
         e.id === id ? { ...e, folder } : e
@@ -978,7 +1141,7 @@ export function Email({ user }: EmailProps) {
       
       setSelectedEmail(null);
       
-      const folderNames: Record<Email['folder'], string> = {
+      const folderNames: Record<string, string> = {
         inbox: 'Inbox',
         sent: 'Sent',
         drafts: 'Drafts',
@@ -988,9 +1151,15 @@ export function Email({ user }: EmailProps) {
         important: 'Important'
       };
       
-      toast.success(`Moved to ${folderNames[folder]}`);
-    } catch (error) {
-      console.error('[Email] Failed to move email:', error);
+      // Check if it's a custom folder
+      const customFolder = customFolders.find(f => f.id === folder);
+      const folderName = customFolder ? customFolder.name : (folderNames[folder] || folder);
+      
+      console.log(`[Email] Successfully moved email to ${folderName}`);
+      toast.success(`Moved to ${folderName}`);
+    } catch (error: any) {
+      console.error('[Email] Exception while moving email:', error);
+      toast.error(`Failed to move email: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -1039,6 +1208,40 @@ export function Email({ user }: EmailProps) {
     } catch (error) {
       console.error('[Email] Failed to delete email:', error);
       toast.error('Failed to delete email');
+    }
+  };
+
+  const handleEmptyTrash = async () => {
+    const trashEmails = emails.filter(e => e.folder === 'trash' && e.accountId === selectedAccount);
+    
+    if (trashEmails.length === 0) {
+      toast.info('Trash is already empty');
+      return;
+    }
+
+    if (!confirm(`Permanently delete ${trashEmails.length} email(s) from Trash? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      
+      // Delete all trash emails from Supabase
+      const { error } = await supabase
+        .from('emails')
+        .delete()
+        .eq('folder', 'trash')
+        .eq('account_id', selectedAccount);
+
+      if (error) throw error;
+
+      // Update local state
+      setEmails(emails.filter(e => !(e.folder === 'trash' && e.accountId === selectedAccount)));
+      setSelectedEmail(null);
+      toast.success(`${trashEmails.length} email(s) permanently deleted`);
+    } catch (error) {
+      console.error('[Email] Failed to empty trash:', error);
+      toast.error('Failed to empty trash');
     }
   };
 
@@ -1450,6 +1653,7 @@ export function Email({ user }: EmailProps) {
               </CardHeader>
               <CardContent className="p-2">
                 <div className="space-y-1">
+                  {/* System Folders */}
                   {folders.map((folder) => {
                     const Icon = folder.icon;
                     const isActive = currentFolder === folder.id || 
@@ -1484,6 +1688,64 @@ export function Email({ user }: EmailProps) {
                       </button>
                     );
                   })}
+
+                  {/* Custom Folders */}
+                  {customFolders.length > 0 && (
+                    <>
+                      <div className="border-t pt-2 mt-2">
+                        <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase">Custom</div>
+                      </div>
+                      {customFolders.map((folder) => {
+                        const isActive = currentFolder === folder.id;
+                        const folderCount = emails.filter(e => e.folder === folder.id && e.accountId === selectedAccount).length;
+                        
+                        return (
+                          <div key={folder.id} className="flex items-center gap-1 group">
+                            <button
+                              onClick={() => setCurrentFolder(folder.id)}
+                              className={`flex-1 flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
+                                isActive
+                                  ? 'bg-blue-50 text-blue-700 font-medium'
+                                  : 'text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <div 
+                                  className="h-3 w-3 rounded-full" 
+                                  style={{ backgroundColor: folder.color || '#3b82f6' }}
+                                />
+                                <span className="truncate">{folder.name}</span>
+                              </div>
+                              {folderCount > 0 && (
+                                <Badge variant={isActive ? 'default' : 'secondary'} className="text-xs">
+                                  {folderCount}
+                                </Badge>
+                              )}
+                            </button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => handleDeleteFolder(folder.id, folder.name)}
+                            >
+                              <Trash2 className="h-3 w-3 text-red-600" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+
+                  {/* Add Folder Button */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start px-3 py-2 text-sm text-gray-600 hover:text-gray-900 mt-2"
+                    onClick={() => setIsFolderDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Folder
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -1493,14 +1755,27 @@ export function Email({ user }: EmailProps) {
           <div className={`lg:col-span-4 ${selectedEmail ? 'hidden lg:block' : ''}`}>
             <Card>
               <CardHeader>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search emails by subject, from, to, or content..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 text-sm"
-                  />
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search emails by subject, from, to, or content..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 text-sm"
+                    />
+                  </div>
+                  {currentFolder === 'trash' && filteredEmails.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                      onClick={handleEmptyTrash}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Empty Trash ({filteredEmails.length})
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-0">
@@ -1657,13 +1932,66 @@ export function Email({ user }: EmailProps) {
                       <Send className="h-4 w-4 sm:mr-2" />
                       <span className="hidden sm:inline">Forward</span>
                     </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="text-xs sm:text-sm">
+                          <FolderOpen className="h-4 w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Move to Folder</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="max-h-[300px] overflow-y-auto">
+                        <DropdownMenuItem onClick={() => handleMoveToFolder(selectedEmail.id, 'inbox')}>
+                          <Inbox className="h-4 w-4 mr-2" />
+                          Inbox
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleMoveToFolder(selectedEmail.id, 'archive')}>
+                          <Archive className="h-4 w-4 mr-2" />
+                          Archive
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleMoveToFolder(selectedEmail.id, 'drafts')}>
+                          <FileText className="h-4 w-4 mr-2" />
+                          Drafts
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleMoveToFolder(selectedEmail.id, 'spam')}>
+                          <AlertCircle className="h-4 w-4 mr-2" />
+                          Spam
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleMoveToFolder(selectedEmail.id, 'trash')}>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Trash
+                        </DropdownMenuItem>
+                        {customFolders.length > 0 && (
+                          <>
+                            <div className="border-t my-1" />
+                            <div className="px-2 py-1 text-xs font-semibold text-gray-500">Custom Folders</div>
+                            {customFolders.map((folder) => (
+                              <DropdownMenuItem key={folder.id} onClick={() => handleMoveToFolder(selectedEmail.id, folder.id)}>
+                                <div 
+                                  className="h-3 w-3 rounded-full mr-2" 
+                                  style={{ backgroundColor: folder.color || '#3b82f6' }}
+                                />
+                                {folder.name}
+                              </DropdownMenuItem>
+                            ))}
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button 
                       variant="outline" 
                       className="text-red-600 hover:text-red-700 hover:bg-red-50 text-xs sm:text-sm"
-                      onClick={() => handlePermanentDelete(selectedEmail.id)}
+                      onClick={() => {
+                        if (selectedEmail.folder === 'trash') {
+                          handlePermanentDelete(selectedEmail.id);
+                        } else {
+                          handleDelete(selectedEmail.id);
+                        }
+                      }}
                     >
                       <Trash2 className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline">Delete</span>
+                      <span className="hidden sm:inline">
+                        {selectedEmail.folder === 'trash' ? 'Delete Forever' : 'Delete'}
+                      </span>
                     </Button>
                   </div>
                 </CardContent>
@@ -1759,6 +2087,60 @@ export function Email({ user }: EmailProps) {
         editingAccount={editingAccount}
       />
 
+      {/* Create Folder Dialog */}
+      <Dialog open={isFolderDialogOpen} onOpenChange={setIsFolderDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Create Custom Folder</DialogTitle>
+            <DialogDescription>
+              Create a new folder to organize your emails
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="folderName">Folder Name</Label>
+              <Input
+                id="folderName"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="e.g., Clients, Projects, Personal"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleCreateFolder();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="folderColor">Folder Color</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="folderColor"
+                  type="color"
+                  value={newFolderColor}
+                  onChange={(e) => setNewFolderColor(e.target.value)}
+                  className="h-10 w-20"
+                />
+                <span className="text-sm text-gray-600">Choose a color to identify this folder</span>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-4">
+              <Button onClick={handleCreateFolder} className="flex-1">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Folder
+              </Button>
+              <Button variant="outline" onClick={() => {
+                setIsFolderDialogOpen(false);
+                setNewFolderName('');
+                setNewFolderColor('#3b82f6');
+              }}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Context Menu */}
       {contextMenu && (
         <div
@@ -1840,6 +2222,17 @@ export function Email({ user }: EmailProps) {
           <button
             className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
             onClick={() => {
+              handleMoveToFolder(contextMenu.email.id, 'drafts');
+              setContextMenu(null);
+            }}
+          >
+            <FileText className="h-4 w-4" />
+            Drafts
+          </button>
+
+          <button
+            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            onClick={() => {
               handleMoveToFolder(contextMenu.email.id, 'spam');
               setContextMenu(null);
             }}
@@ -1859,17 +2252,45 @@ export function Email({ user }: EmailProps) {
             Trash
           </button>
 
+          {/* Custom Folders in Context Menu */}
+          {customFolders.length > 0 && (
+            <>
+              <div className="border-t border-gray-200 my-1" />
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500">Custom Folders</div>
+              {customFolders.map((folder) => (
+                <button
+                  key={folder.id}
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+                  onClick={() => {
+                    handleMoveToFolder(contextMenu.email.id, folder.id);
+                    setContextMenu(null);
+                  }}
+                >
+                  <div 
+                    className="h-3 w-3 rounded-full" 
+                    style={{ backgroundColor: folder.color || '#3b82f6' }}
+                  />
+                  {folder.name}
+                </button>
+              ))}
+            </>
+          )}
+
           <div className="border-t border-gray-200 my-1" />
 
           <button
             className="w-full text-left px-4 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
             onClick={() => {
-              handlePermanentDelete(contextMenu.email.id);
+              if (contextMenu.email.folder === 'trash') {
+                handlePermanentDelete(contextMenu.email.id);
+              } else {
+                handleDelete(contextMenu.email.id);
+              }
               setContextMenu(null);
             }}
           >
             <Trash2 className="h-4 w-4" />
-            Delete Permanently
+            {contextMenu.email.folder === 'trash' ? 'Delete Permanently' : 'Delete'}
           </button>
         </div>
       )}

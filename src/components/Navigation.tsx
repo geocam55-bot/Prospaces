@@ -51,10 +51,6 @@ interface NavigationProps {
 export function Navigation({ user, organization, currentView, onNavigate, onLogout }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Debug: Log organization state to help troubleshoot AI Suggestions visibility
-  console.log('🔍 [Navigation] Organization state:', organization);
-  console.log('🔍 [Navigation] AI Suggestions enabled?', organization?.ai_suggestions_enabled);
-
   // Base navigation items (organization-specific - hidden from SUPER_ADMIN and filtered for ADMIN)
   const baseNavItems = user.role !== 'super_admin' ? [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },

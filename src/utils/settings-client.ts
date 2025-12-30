@@ -241,14 +241,16 @@ export async function updateOrganizationNameClient(organizationId: string, name:
 /**
  * Update user profile (name only)
  */
-export async function updateUserProfileClient(userId: string, updates: { name?: string }): Promise<void> {
+export async function updateUserProfileClient(userId: string, updates: { name?: string; avatar_url?: string }): Promise<void> {
   console.log('[settings-client] 💾 Updating user profile');
+  
+  const updateData: any = {};
+  if (updates.name) updateData.name = updates.name;
+  if (updates.avatar_url !== undefined) updateData.avatar_url = updates.avatar_url;
   
   const { error } = await supabase
     .from('profiles')
-    .update({
-      ...(updates.name && { name: updates.name }),
-    })
+    .update(updateData)
     .eq('id', userId);
 
   if (error) {

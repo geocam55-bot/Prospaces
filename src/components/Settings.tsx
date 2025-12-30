@@ -11,6 +11,7 @@ import { OrganizationFeatureMigration } from './OrganizationFeatureMigration';
 import { ProjectWizardSettings } from './ProjectWizardSettings';
 import { ReassignContacts } from './admin/ReassignContacts';
 import { AIToggleSwitch } from './AIToggleSwitch';
+import { EmailCustomFoldersMigration } from './EmailCustomFoldersMigration';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -238,7 +239,12 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         setProfileData({ ...profileData, profilePicture: base64String });
         
         try {
-          // Save to Supabase user preferences
+          // Save to Supabase profiles table (avatar_url)
+          await settingsAPI.updateUserProfile(user.id, {
+            avatar_url: base64String,
+          });
+          
+          // Save to Supabase user preferences (profile_picture)
           await settingsAPI.upsertUserPreferences({
             user_id: user.id,
             organization_id: user.organizationId,
@@ -288,6 +294,11 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
       setIsUploading(true);
       setProfileData({ ...profileData, profilePicture: '' });
       
+      // Remove from Supabase profiles table (avatar_url)
+      await settingsAPI.updateUserProfile(user.id, {
+        avatar_url: '',
+      });
+      
       // Remove from Supabase user_preferences table
       await settingsAPI.upsertUserPreferences({
         user_id: user.id,
@@ -323,9 +334,10 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
     try {
-      // Save name to Supabase profiles table
+      // Save name and avatar_url to Supabase profiles table
       await settingsAPI.updateUserProfile(user.id, {
         name: profileData.name,
+        avatar_url: profileData.profilePicture || '',
       });
       
       // Save profile picture to user_preferences table
@@ -823,14 +835,10 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                   <Button
                     onClick={async () => {
                       try {
-                        console.log('🔧 Attempting to enable AI Suggestions for org:', user.organizationId);
-                        
                         // Try to update the organization
                         const result = await tenantsAPI.updateFeatures(user.organizationId, {
                           ai_suggestions_enabled: true
                         });
-                        
-                        console.log('✅ Update result:', result);
                         
                         // Update the organization state immediately without requiring refresh
                         if (onOrganizationUpdate && result?.tenant) {
@@ -840,15 +848,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                             ...result.tenant,
                             ai_suggestions_enabled: true
                           };
-                          console.log('📦 Updated organization object:', updatedOrg);
                           onOrganizationUpdate(updatedOrg);
-                          console.log('✅ Organization state updated - AI Suggestions now visible in sidebar');
-                        } else {
-                          console.error('❌ Could not update organization state:', {
-                            hasCallback: !!onOrganizationUpdate,
-                            hasTenant: !!result?.tenant,
-                            result
-                          });
                         }
                         
                         toast.success(
@@ -960,6 +960,9 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             
             {/* Organization Feature Migration */}
             <OrganizationFeatureMigration />
+            
+            {/* Email Custom Folders Migration */}
+            <EmailCustomFoldersMigration />
             
             {/* Theme Migration */}
             <ThemeMigration />

@@ -154,8 +154,6 @@ function App() {
             .single();
 
           if (org) {
-            console.log('📍 [App.tsx] Loaded organization on startup:', org);
-            console.log('📍 [App.tsx] AI Suggestions enabled?', org.ai_suggestions_enabled);
             setOrganization(org);
           }
         }
