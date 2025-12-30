@@ -29,6 +29,7 @@ import { ProjectWizards } from './components/ProjectWizards';
 import { ThemeProvider } from './components/ThemeProvider';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
+import { FaviconGenerator } from './components/FaviconGenerator';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
@@ -66,6 +67,14 @@ function App() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [currentView, setCurrentView] = useState('landing');
   const [loading, setLoading] = useState(true);
+
+  // Check if accessing favicon generator (no auth required)
+  const urlParams = new URLSearchParams(window.location.search);
+  const isFaviconGenerator = urlParams.get('view') === 'favicon-generator';
+
+  if (isFaviconGenerator) {
+    return <FaviconGenerator />;
+  }
 
   useEffect(() => {
     // Check active session

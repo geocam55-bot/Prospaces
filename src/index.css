@@ -786,6 +786,10 @@
     margin-top: calc(var(--spacing) * -16);
   }
 
+  .mt-0 {
+    margin-top: calc(var(--spacing) * 0);
+  }
+
   .mt-0\.5 {
     margin-top: calc(var(--spacing) * .5);
   }
@@ -1910,6 +1914,11 @@
   .border-l-0 {
     border-left-style: var(--tw-border-style);
     border-left-width: 0;
+  }
+
+  .border-l-4 {
+    border-left-style: var(--tw-border-style);
+    border-left-width: 4px;
   }
 
   .border-dashed {

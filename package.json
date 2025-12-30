@@ -42,6 +42,7 @@
           "embla-carousel-react": "*",
           "hono": "*",
           "input-otp": "*",
+          "jszip": "*",
           "lucide-react": "*",
           "next-themes": "*",
           "path": "*",
