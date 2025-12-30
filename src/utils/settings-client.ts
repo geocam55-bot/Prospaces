@@ -242,21 +242,49 @@ export async function updateOrganizationNameClient(organizationId: string, name:
  * Update user profile (name only)
  */
 export async function updateUserProfileClient(userId: string, updates: { name?: string; avatar_url?: string }): Promise<void> {
-  console.log('[settings-client] 💾 Updating user profile');
+  console.log('[settings-client] 💾 Updating user profile', { userId, updates });
   
-  const updateData: any = {};
-  if (updates.name) updateData.name = updates.name;
-  if (updates.avatar_url !== undefined) updateData.avatar_url = updates.avatar_url;
-  
-  const { error } = await supabase
-    .from('profiles')
-    .update(updateData)
-    .eq('id', userId);
+  try {
+    const updateData: any = {};
+    if (updates.name) updateData.name = updates.name;
+    if (updates.avatar_url !== undefined) updateData.avatar_url = updates.avatar_url;
+    
+    if (Object.keys(updateData).length === 0) {
+      console.log('[settings-client] ℹ️ No updates to apply');
+      return;
+    }
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', userId)
+      .select()
+      .single();
 
-  if (error) {
-    console.error('[settings-client] ❌ Error updating user profile:', error);
+    if (error) {
+      console.error('[settings-client] ❌ Error updating user profile:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        updateData
+      });
+      
+      // Provide more specific error messages
+      if (error.code === '42703') {
+        throw new Error('Database column not found. The profiles table may need to be updated.');
+      } else if (error.code === '42501') {
+        throw new Error('Permission denied. You may not have access to update your profile.');
+      } else if (error.code === 'PGRST116') {
+        throw new Error('Profile not found. Please try logging out and back in.');
+      } else {
+        throw new Error(error.message || 'Failed to update profile');
+      }
+    }
+
+    console.log('[settings-client] ✅ User profile updated successfully:', data);
+  } catch (error: any) {
+    console.error('[settings-client] ❌ Unexpected error updating user profile:', error);
     throw error;
   }
-
-  console.log('[settings-client] ✅ User profile updated successfully');
 }

@@ -334,11 +334,15 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
     try {
+      console.log('[Settings] 💾 Saving profile...', profileData);
+      
       // Save name and avatar_url to Supabase profiles table
       await settingsAPI.updateUserProfile(user.id, {
         name: profileData.name,
         avatar_url: profileData.profilePicture || '',
       });
+      
+      console.log('[Settings] ✅ Profile table updated, now updating preferences...');
       
       // Save profile picture to user_preferences table
       await settingsAPI.upsertUserPreferences({
@@ -352,6 +356,8 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         notifications_bids: notifications.bids,
       });
       
+      console.log('[Settings] ✅ Both tables updated successfully');
+      
       if (onUserUpdate) {
         const updatedUser: User = {
           ...user,
@@ -361,10 +367,13 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         onUserUpdate(updatedUser);
       }
       
+      toast.success('Profile updated successfully!');
       showAlert('success', 'Profile updated successfully!');
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      showAlert('error', 'Failed to update profile');
+    } catch (error: any) {
+      console.error('[Settings] ❌ Error updating profile:', error);
+      const errorMessage = error?.message || 'Failed to update profile. Please check console for details.';
+      toast.error(errorMessage);
+      showAlert('error', errorMessage);
     } finally {
       setIsSavingProfile(false);
     }
