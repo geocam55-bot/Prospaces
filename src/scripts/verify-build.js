@@ -45,8 +45,10 @@ const requiredFiles = [
   'favicon.ico',
   'favicon.svg',
   'favicon-16x16.png',
+  'favicon-32x32.png',
   'manifest.json',
-  'service-worker.js'
+  'service-worker.js',
+  'favicon-debug.html'
 ];
 
 console.log('Required files verification:\n');

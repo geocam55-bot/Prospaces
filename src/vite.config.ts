@@ -16,8 +16,11 @@ function copyFaviconsPlugin() {
         'favicon.ico',
         'favicon.svg',
         'favicon-16x16.png',
+        'favicon-32x32.png',
         'manifest.json',
-        'service-worker.js'
+        'service-worker.js',
+        'favicon-debug.html',
+        '_headers'
       ];
       
       console.log('\n🔄 Copying public assets to build output...\n');
@@ -76,6 +79,7 @@ export default defineConfig({
     assetsInlineLimit: 0,
     cssCodeSplit: false,
     minify: 'esbuild',
+    copyPublicDir: true,  // CRITICAL: Ensure public dir is copied
     rollupOptions: {
       output: {
         assetFileNames: (assetInfo) => {
