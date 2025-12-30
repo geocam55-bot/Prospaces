@@ -1,9 +1,0 @@
-Note: The favicon.ico file should be generated from the favicon.svg file.
-
-You can create favicon.ico by:
-1. Going to https://favicon.io/favicon-converter/
-2. Uploading /public/favicon.svg
-3. Downloading the generated favicon.ico
-4. Replacing this placeholder file
-
-For now, modern browsers will use favicon.svg (which already exists and works).
