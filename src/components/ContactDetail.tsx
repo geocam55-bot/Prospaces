@@ -1919,7 +1919,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Type to search by name or SKU..."
+                  placeholder="Type to search by name, SKU, or item number..."
                   value={inventorySearchQuery}
                   onChange={(e) => setInventorySearchQuery(e.target.value)}
                   className="pl-10"

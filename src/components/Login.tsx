@@ -416,19 +416,19 @@ export function Login({ onLogin }: LoginProps) {
       
       // Handle specific error types
       if (err.message === 'EMAIL_NOT_CONFIRMED') {
-        setError('⚠️ EMAIL CONFIRMATION REQUIRED: Please check your email inbox (and spam folder) for a confirmation link. You must click the link before you can sign in. Click the "Resend Confirmation Email" button below if you need a new link.');
+        setError('Email not confirmed. Please check your inbox for the confirmation link.');
         setIsLoading(false);
         return;
       }
       
       if (err.message === 'INVALID_CREDENTIALS') {
-        setError('⚠️ SIGN IN FAILED: This usually means your email requires confirmation OR your password is incorrect.\n\n🔍 TROUBLESHOOTING:\n\n1️⃣ If you just signed up: Check your email for a confirmation link (check spam folder too)\n\n2️⃣ If you confirmed your email already: Your password might be wrong - try typing it carefully\n\n3️⃣ If you need a new confirmation email: Click the "Resend Confirmation Email" button below\n\n4️⃣ If you haven\'t signed up yet: Click the "Sign Up" tab to create an account\n\n💡 TIP: Most users see this error because they haven\'t confirmed their email yet!');
+        setError('Invalid email or password. Please try again.');
         setIsLoading(false);
         return;
       }
       
       if (err.message === 'EMAIL_NOT_CONFIRMED_OR_WRONG_PASSWORD') {
-        setError('⚠️ SIGN IN FAILED: This usually means your email requires confirmation OR your password is incorrect.\n\n🔍 TROUBLESHOOTING:\n\n1️⃣ If you just signed up: Check your email for a confirmation link (check spam folder too)\n\n2️⃣ If you confirmed your email already: Your password might be wrong - try typing it carefully\n\n3️⃣ If you need a new confirmation email: Click the "Resend Confirmation Email" button below\n\n4️⃣ If you haven\'t signed up yet: Click the "Sign Up" tab to create an account\n\n💡 TIP: Most users see this error because they haven\'t confirmed their email yet!');
+        setError('Invalid email or password. Please check your credentials and try again.');
         setIsLoading(false);
         return;
       }
@@ -437,14 +437,15 @@ export function Login({ onLogin }: LoginProps) {
       let errorMessage = 'Sign in failed. Please check your credentials.';
       
       if (err.message === 'Failed to fetch') {
-        errorMessage = 'Unable to connect to server. Please check your internet connection and try again.';
+        errorMessage = 'Unable to connect to server. Please check your internet connection.';
       } else if (err.message.includes('timeout')) {
-        errorMessage = 'Connection timeout. The server is taking too long to respond. Please try again.';
+        errorMessage = 'Connection timeout. Please try again.';
       } else if (err.message) {
         errorMessage = err.message;
       }
       
       setError(errorMessage);
+      setIsLoading(false);
     } finally {
       setIsLoading(false);
     }

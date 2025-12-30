@@ -219,6 +219,47 @@ function getNgrams(str: string, n: number): string[] {
 }
 
 /**
+ * Types
+ */
+interface SearchableItem {
+  id: string;
+  name: string;
+  sku: string;
+  description: string;
+  category: string;
+  supplier?: string;
+  barcode?: string;
+  location?: string;
+  tags?: string[];
+  status: string;
+  priceTier1: number;
+  quantityOnHand: number;
+}
+
+interface SearchOptions {
+  fuzzyThreshold?: number;
+  includeInactive?: boolean;
+  minScore?: number;
+  maxResults?: number;
+  sortBy?: 'relevance' | 'name' | 'price' | 'quantity';
+  sortOrder?: 'asc' | 'desc';
+}
+
+interface SearchResult<T> {
+  item: T;
+  score: number;
+  matchedFields: string[];
+  matchType: 'exact' | 'fuzzy' | 'semantic' | 'partial';
+}
+
+interface QueryIntent {
+  type: 'price' | 'quantity' | 'status';
+  operator: 'less' | 'greater' | 'equal' | 'between';
+  value: number | string;
+  value2?: number;
+}
+
+/**
  * Advanced search function with fuzzy matching, semantic understanding, and NLP
  * Optimized for large datasets (10k+ items)
  */
@@ -272,6 +313,7 @@ export function advancedSearch<T extends SearchableItem>(
     const searchFields = [
       { field: 'name', weight: 10, value: item.name },
       { field: 'sku', weight: 8, value: item.sku },
+      { field: 'item_number', weight: 9, value: (item as any).item_number }, // High priority for item numbers
       { field: 'description', weight: 6, value: item.description },
       { field: 'category', weight: 7, value: item.category },
       { field: 'supplier', weight: 4, value: item.supplier },
@@ -649,6 +691,8 @@ export function getSearchSuggestions<T extends SearchableItem>(
       suggestions.add(item.name);
     } else if (item.sku.toLowerCase().startsWith(queryLower)) {
       suggestions.add(item.sku);
+    } else if ((item as any).item_number?.toLowerCase().startsWith(queryLower)) {
+      suggestions.add((item as any).item_number);
     } else if (item.category.toLowerCase().startsWith(queryLower)) {
       suggestions.add(item.category);
     }
