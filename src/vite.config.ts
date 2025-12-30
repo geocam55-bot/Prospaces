@@ -16,11 +16,6 @@ function copyFaviconsPlugin() {
         'favicon.ico',
         'favicon.svg',
         'favicon-16x16.png',
-        'favicon-32x32.png',
-        'favicon-48x48.png',
-        'favicon-192x192.png',
-        'favicon-512x512.png',
-        'apple-touch-icon.png',
         'manifest.json',
         'service-worker.js'
       ];
@@ -50,7 +45,7 @@ function copyFaviconsPlugin() {
       try {
         const buildFiles = fs.readdirSync(outDir);
         buildFiles.forEach(file => {
-          if (file.includes('favicon') || file.includes('apple-touch') || file === 'manifest.json' || file === 'service-worker.js') {
+          if (file.includes('favicon') || file === 'manifest.json' || file === 'service-worker.js') {
             const stats = fs.statSync(path.join(outDir, file));
             console.log(`   📄 ${file} (${stats.size} bytes)`);
           }
@@ -89,7 +84,6 @@ export default defineConfig({
           // Keep favicons, manifest, and service worker at root without hashing
           if (
             name.includes('favicon') || 
-            name.includes('apple-touch-icon') ||
             name === 'manifest.json' || 
             name === 'service-worker.js'
           ) {
