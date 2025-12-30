@@ -7,7 +7,7 @@ import fs from 'fs'
 function copyFaviconsPlugin() {
   return {
     name: 'copy-favicons',
-    closeBundle() {
+    writeBundle() {
       const publicDir = path.resolve(__dirname, 'public');
       const outDir = path.resolve(__dirname, 'build');
       
@@ -20,24 +20,44 @@ function copyFaviconsPlugin() {
         'favicon-48x48.png',
         'favicon-192x192.png',
         'favicon-512x512.png',
-        'apple-touch-icon.png'
+        'apple-touch-icon.png',
+        'manifest.json',
+        'service-worker.js'
       ];
       
-      console.log('🔄 Copying favicon files to build output...');
+      console.log('\n🔄 Copying public assets to build output...\n');
       
       faviconFiles.forEach(file => {
         const src = path.join(publicDir, file);
         const dest = path.join(outDir, file);
         
-        if (fs.existsSync(src)) {
-          fs.copyFileSync(src, dest);
-          console.log(`✅ Copied: ${file}`);
-        } else {
-          console.warn(`⚠️  Missing: ${file}`);
+        try {
+          if (fs.existsSync(src)) {
+            fs.copyFileSync(src, dest);
+            console.log(`✅ Copied: ${file}`);
+          } else {
+            console.warn(`⚠️  Missing: ${file}`);
+          }
+        } catch (error) {
+          console.error(`❌ Error copying ${file}:`, error);
         }
       });
       
-      console.log('✅ Favicon copy complete!');
+      console.log('\n✅ Public assets copy complete!\n');
+      
+      // List final build directory contents
+      console.log('📂 Build directory contents:');
+      try {
+        const buildFiles = fs.readdirSync(outDir);
+        buildFiles.forEach(file => {
+          if (file.includes('favicon') || file.includes('apple-touch') || file === 'manifest.json' || file === 'service-worker.js') {
+            const stats = fs.statSync(path.join(outDir, file));
+            console.log(`   📄 ${file} (${stats.size} bytes)`);
+          }
+        });
+      } catch (error) {
+        console.error('Error listing build directory:', error);
+      }
     }
   };
 }
@@ -64,10 +84,18 @@ export default defineConfig({
     rollupOptions: {
       output: {
         assetFileNames: (assetInfo) => {
-          // Don't hash service worker or manifest
-          if (assetInfo.name === 'service-worker.js' || assetInfo.name === 'manifest.json') {
+          const name = assetInfo.name || '';
+          
+          // Keep favicons, manifest, and service worker at root without hashing
+          if (
+            name.includes('favicon') || 
+            name.includes('apple-touch-icon') ||
+            name === 'manifest.json' || 
+            name === 'service-worker.js'
+          ) {
             return '[name][extname]';
           }
+          
           return 'assets/[name]-[hash][extname]';
         },
         chunkFileNames: 'assets/[name]-[hash].js',
@@ -75,7 +103,7 @@ export default defineConfig({
       },
     },
   },
-  // Explicitly include public assets
+  // Explicitly set public directory
   publicDir: 'public',
   css: {
     postcss: './postcss.config.js',

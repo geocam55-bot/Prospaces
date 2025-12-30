@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "rm -rf build && vite build --logLevel info",
+    "prebuild": "node scripts/create-favicons.js",
+    "build": "rm -rf build && vite build --logLevel info && node scripts/verify-build.js",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts,tsx --fix",
