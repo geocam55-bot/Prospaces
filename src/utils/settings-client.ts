@@ -247,7 +247,7 @@ export async function updateUserProfileClient(userId: string, updates: { name?: 
   try {
     const updateData: any = {};
     if (updates.name) updateData.name = updates.name;
-    if (updates.avatar_url !== undefined) updateData.avatar_url = updates.avatar_url;
+    // Note: We don't update avatar_url here anymore - use user_preferences.profile_picture instead
     
     if (Object.keys(updateData).length === 0) {
       console.log('[settings-client] ℹ️ No updates to apply');

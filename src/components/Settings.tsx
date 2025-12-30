@@ -239,11 +239,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         setProfileData({ ...profileData, profilePicture: base64String });
         
         try {
-          // Save to Supabase profiles table (avatar_url)
-          await settingsAPI.updateUserProfile(user.id, {
-            avatar_url: base64String,
-          });
-          
           // Save to Supabase user preferences (profile_picture)
           await settingsAPI.upsertUserPreferences({
             user_id: user.id,
@@ -293,11 +288,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
     try {
       setIsUploading(true);
       setProfileData({ ...profileData, profilePicture: '' });
-      
-      // Remove from Supabase profiles table (avatar_url)
-      await settingsAPI.updateUserProfile(user.id, {
-        avatar_url: '',
-      });
       
       // Remove from Supabase user_preferences table
       await settingsAPI.upsertUserPreferences({
