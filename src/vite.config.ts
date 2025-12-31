@@ -20,7 +20,7 @@ function copyFaviconsPlugin() {
         'manifest.json',
         'service-worker.js',
         'favicon-debug.html',
-        '_headers'
+        'test.html'
       ];
       
       console.log('\n🔄 Copying public assets to build output...\n');
@@ -31,8 +31,14 @@ function copyFaviconsPlugin() {
         
         try {
           if (fs.existsSync(src)) {
-            fs.copyFileSync(src, dest);
-            console.log(`✅ Copied: ${file}`);
+            // Ensure we're copying a file, not a directory
+            const stats = fs.statSync(src);
+            if (stats.isFile()) {
+              fs.copyFileSync(src, dest);
+              console.log(`✅ Copied: ${file} (${stats.size} bytes)`);
+            } else {
+              console.warn(`⚠️  Skipping (not a file): ${file}`);
+            }
           } else {
             console.warn(`⚠️  Missing: ${file}`);
           }
@@ -43,14 +49,22 @@ function copyFaviconsPlugin() {
       
       console.log('\n✅ Public assets copy complete!\n');
       
+      // Create _redirects file for Vercel SPA routing
+      const redirectsContent = `/*    /index.html   200`;
+      fs.writeFileSync(path.join(outDir, '_redirects'), redirectsContent);
+      console.log(`✅ Created: _redirects`);
+      
       // List final build directory contents
       console.log('📂 Build directory contents:');
       try {
         const buildFiles = fs.readdirSync(outDir);
         buildFiles.forEach(file => {
           if (file.includes('favicon') || file === 'manifest.json' || file === 'service-worker.js') {
-            const stats = fs.statSync(path.join(outDir, file));
-            console.log(`   📄 ${file} (${stats.size} bytes)`);
+            const filePath = path.join(outDir, file);
+            const stats = fs.statSync(filePath);
+            if (stats.isFile()) {
+              console.log(`   📄 ${file} (${stats.size} bytes)`);
+            }
           }
         });
       } catch (error) {
