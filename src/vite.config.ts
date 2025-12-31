@@ -9,7 +9,7 @@ function copyFaviconsPlugin() {
     name: 'copy-favicons',
     writeBundle() {
       const publicDir = path.resolve(__dirname, 'public');
-      const outDir = path.resolve(__dirname, 'build');
+      const outDir = path.resolve(__dirname, 'dist');
       
       // List of favicon files to copy
       const faviconFiles = [
@@ -87,7 +87,7 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
-    outDir: 'build',
+    outDir: 'dist',
     emptyOutDir: true,
     sourcemap: false,
     assetsInlineLimit: 0,

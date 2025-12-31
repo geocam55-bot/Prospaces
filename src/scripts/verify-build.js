@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const buildDir = path.resolve(__dirname, '../build');
+const buildDir = path.resolve(__dirname, '../dist');
 const publicDir = path.resolve(__dirname, '../public');
 
 console.log('\n🔍 COMPREHENSIVE BUILD VERIFICATION\n');
