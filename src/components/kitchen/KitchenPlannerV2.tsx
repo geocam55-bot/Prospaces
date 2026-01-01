@@ -352,7 +352,13 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
             </div>
 
             {/* Sidebar Content - Scrollable */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden kitchen-planner-scroll">
+            <div 
+              className="flex-1 kitchen-planner-scroll" 
+              style={{ 
+                overflowY: 'scroll',
+                overflowX: 'hidden',
+              }}
+            >
               {activeCategory === 'cabinets' && (
                 <div className="p-4 space-y-3">
                   <div className="text-sm text-gray-600 mb-2 sticky top-0 bg-white py-1 z-10">

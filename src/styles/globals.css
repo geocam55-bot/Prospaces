@@ -7,20 +7,21 @@
 /* Custom Scrollbar Styles - Always Visible */
 .kitchen-planner-scroll {
   scrollbar-width: thin;
-  scrollbar-color: #94a3b8 #f1f5f9;
-  overflow: auto !important;
+  scrollbar-color: #475569 #e2e8f0;
 }
 
-/* Force scrollbars to always be visible */
+/* Force scrollbars to always be visible in Webkit browsers */
 .kitchen-planner-scroll::-webkit-scrollbar {
   -webkit-appearance: none;
   width: 16px;
   height: 16px;
+  display: block !important;
 }
 
 .kitchen-planner-scroll::-webkit-scrollbar-track {
   background: #e2e8f0;
   border-radius: 0;
+  display: block !important;
 }
 
 .kitchen-planner-scroll::-webkit-scrollbar-thumb {
@@ -28,6 +29,7 @@
   border-radius: 8px;
   border: 3px solid #e2e8f0;
   min-height: 40px;
+  display: block !important;
 }
 
 .kitchen-planner-scroll::-webkit-scrollbar-thumb:hover {
@@ -36,9 +38,9 @@
 
 .kitchen-planner-scroll::-webkit-scrollbar-corner {
   background: #e2e8f0;
+  display: block !important;
 }
 
-/* Force scrollbar to always show even when content doesn't overflow */
 .kitchen-planner-scroll::-webkit-scrollbar-button {
   display: none;
 }
