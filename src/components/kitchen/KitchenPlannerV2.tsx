@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { KitchenCanvas } from './KitchenCanvas';
+import { Kitchen3DCanvas } from './Kitchen3DCanvas';
 import { KitchenConfigurator } from './KitchenConfigurator';
 import { calculateKitchenMaterials } from '../../utils/kitchenCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
@@ -142,6 +143,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
   const [selectedCabinet, setSelectedCabinet] = useState<PlacedCabinet | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showSidebar, setShowSidebar] = useState(true);
+  const [viewMode, setViewMode] = useState<'2D' | '3D'>('2D');
 
   const materials = calculateKitchenMaterials(config);
   const flatMaterials = [
@@ -350,7 +352,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
             </div>
 
             {/* Sidebar Content - Scrollable */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
               {activeCategory === 'cabinets' && (
                 <div className="p-4 space-y-3">
                   <div className="text-sm text-gray-600 mb-2 sticky top-0 bg-white py-1 z-10">
@@ -410,17 +412,51 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
             </button>
           )}
 
-          <div className="flex-1 p-6">
-            <KitchenCanvas
-              config={config}
-              selectedCabinet={selectedCabinet}
-              onSelectCabinet={setSelectedCabinet}
-              onUpdateCabinet={handleUpdateCabinet}
-              onUpdateAppliance={handleUpdateAppliance}
-              onDeleteCabinet={handleDeleteCabinet}
-              onAddCabinet={handleAddCabinet}
-              onAddAppliance={handleAddAppliance}
-            />
+          <div className="flex-1 p-6 overflow-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
+            {viewMode === '3D' ? (
+              <div className="h-full flex flex-col min-w-[800px]">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">3D View - Kitchen Plan & Elevations</h2>
+                  <Button
+                    onClick={() => setViewMode('2D')}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Box className="w-4 h-4 mr-2" />
+                    2D View
+                  </Button>
+                </div>
+                <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
+                  <Kitchen3DCanvas config={config} />
+                </div>
+              </div>
+            ) : (
+              <div className="h-full flex flex-col min-w-[800px]">
+                <div className="flex items-center justify-between mb-4">
+                  <div />
+                  <Button
+                    onClick={() => setViewMode('3D')}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Maximize2 className="w-4 h-4 mr-2" />
+                    3D View
+                  </Button>
+                </div>
+                <div className="flex-1">
+                  <KitchenCanvas
+                    config={config}
+                    selectedCabinet={selectedCabinet}
+                    onSelectCabinet={setSelectedCabinet}
+                    onUpdateCabinet={handleUpdateCabinet}
+                    onUpdateAppliance={handleUpdateAppliance}
+                    onDeleteCabinet={handleDeleteCabinet}
+                    onAddCabinet={handleAddCabinet}
+                    onAddAppliance={handleAddAppliance}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
