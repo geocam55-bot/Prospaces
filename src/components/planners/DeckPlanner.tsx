@@ -11,7 +11,9 @@ import { PrintableDeckDesign } from '../project-wizard/PrintableDeckDesign';
 import { calculateMaterials } from '../../utils/deckCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { DeckConfig } from '../../types/deck';
-import { Ruler, Package, Printer, FileText, Box, Layers } from 'lucide-react';
+import { Ruler, Package, Printer, FileText, Box, Layers, Hammer } from 'lucide-react';
+import { Button } from '../ui/button';
+import { toast } from 'sonner';
 import type { User } from '../../App';
 
 interface DeckPlannerProps {
@@ -115,6 +117,30 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
 
   return (
     <div>
+      {/* Now in Development Banner */}
+      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-200 print:hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-purple-100 p-2 rounded-lg">
+              <Hammer className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-purple-900">Deck Planner - Now in Development</h3>
+              <p className="text-sm text-purple-700">We're actively building this feature. Try out the preview and share your feedback!</p>
+            </div>
+          </div>
+          <Button 
+            variant="outline" 
+            className="border-purple-300 text-purple-700 hover:bg-purple-100 hover:border-purple-400"
+            onClick={() => {
+              toast.info('Deck Planner is under active development. Your feedback helps us build better tools!');
+            }}
+          >
+            Give Feedback
+          </Button>
+        </div>
+      </div>
+
       {/* Sub-navigation */}
       <div className="bg-slate-50 border-b border-slate-200 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -681,14 +681,8 @@ export function DeckCanvas({ config }: DeckCanvasProps) {
     <div className="space-y-6 print:space-y-2 print:break-before-page">
       {/* Main Top View */}
       <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border-2 border-purple-300 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
-        <div className="flex items-center justify-between mb-4 print:mb-1">
+        <div className="mb-4 print:mb-1">
           <h3 className="font-semibold text-slate-900 print:text-base">Top View (Floor Plan)</h3>
-          <button
-            onClick={() => setView3D(!view3D)}
-            className="text-sm px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 print:hidden"
-          >
-            {view3D ? '3D View' : '2D View'}
-          </button>
         </div>
         <canvas
           ref={topViewRef}
