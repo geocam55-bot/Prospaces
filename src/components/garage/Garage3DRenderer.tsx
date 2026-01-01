@@ -19,6 +19,7 @@ import {
   LineBasicMaterial,
   LineSegments,
   BufferGeometry,
+  BufferAttribute,
   Vector3
 } from 'three';
 
@@ -197,7 +198,7 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
         garageWidth/2, wallHeight + 0.2, garageLength/2,
         0, wallHeight + 0.2 + roofRise, garageLength/2,
       ]);
-      gableGeometry.setAttribute('position', new Vector3().constructor.prototype.constructor.call(null, gableVertices, 3));
+      gableGeometry.setAttribute('position', new BufferAttribute(gableVertices, 3));
       gableGeometry.computeVertexNormals();
       
       const gableFront = new Mesh(gableGeometry, wallMaterial);
