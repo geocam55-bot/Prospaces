@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { RoofConfigurator } from '../roof/RoofConfigurator';
 import { RoofCanvas } from '../roof/RoofCanvas';
+import { Roof3DRenderer } from '../roof/Roof3DRenderer';
 import { RoofMaterialsList } from '../roof/RoofMaterialsList';
 import { RoofTemplates } from '../roof/RoofTemplates';
 import { SavedRoofDesigns } from '../roof/SavedRoofDesigns';
@@ -10,7 +11,7 @@ import { PrintableRoofDesign } from '../project-wizard/PrintableRoofDesign';
 import { calculateMaterials } from '../../utils/roofCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { RoofConfig } from '../../types/roof';
-import { Ruler, Package, Printer, FileText } from 'lucide-react';
+import { Ruler, Package, Printer, FileText, Box, Layers } from 'lucide-react';
 import type { User } from '../../App';
 
 interface RoofPlannerProps {
@@ -38,6 +39,7 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
   });
 
   const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved'>('design');
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
   const [loadedDesignInfo, setLoadedDesignInfo] = useState<{
@@ -194,8 +196,40 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
 
             <div className="lg:col-span-2 space-y-6 print:hidden">
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black">
-                <h2 className="text-slate-900 mb-4 print:hidden">Roof Plan & Elevation</h2>
-                <RoofCanvas config={config} />
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-slate-900 print:hidden">Roof Plan & Elevation</h2>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setViewMode('2d')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                        viewMode === '2d'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Layers className="w-4 h-4" />
+                      2D
+                    </button>
+                    <button
+                      onClick={() => setViewMode('3d')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                        viewMode === '3d'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Box className="w-4 h-4" />
+                      3D
+                    </button>
+                  </div>
+                </div>
+                <div className="h-[500px]">
+                  {viewMode === '2d' ? (
+                    <RoofCanvas config={config} />
+                  ) : (
+                    <Roof3DRenderer config={config} />
+                  )}
+                </div>
               </div>
 
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black print:break-before-page">

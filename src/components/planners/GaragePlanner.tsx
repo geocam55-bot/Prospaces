@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GarageConfigurator } from '../garage/GarageConfigurator';
 import { GarageCanvas } from '../garage/GarageCanvas';
+import { Garage3DRenderer } from '../garage/Garage3DRenderer';
 import { GarageMaterialsList } from '../garage/GarageMaterialsList';
 import { GarageTemplates } from '../garage/GarageTemplates';
 import { SavedGarageDesigns } from '../garage/SavedGarageDesigns';
@@ -9,7 +10,7 @@ import { PrintableGarageDesign } from '../project-wizard/PrintableGarageDesign';
 import { calculateMaterials } from '../../utils/garageCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { GarageConfig } from '../../types/garage';
-import { Ruler, Package, Printer, FileText } from 'lucide-react';
+import { Ruler, Package, Printer, FileText, Box, Layers } from 'lucide-react';
 import type { User } from '../../App';
 
 interface GaragePlannerProps {
@@ -72,6 +73,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
   });
 
   const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved'>('design');
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
   const [loadedDesignInfo, setLoadedDesignInfo] = useState<{
@@ -229,8 +231,40 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
 
             <div className="lg:col-span-2 space-y-6 print:hidden">
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black">
-                <h2 className="text-slate-900 mb-4 print:hidden">Garage Plan & Elevation</h2>
-                <GarageCanvas config={config} />
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-slate-900 print:hidden">Garage Plan & Elevation</h2>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setViewMode('2d')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                        viewMode === '2d'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Layers className="w-4 h-4" />
+                      2D
+                    </button>
+                    <button
+                      onClick={() => setViewMode('3d')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                        viewMode === '3d'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Box className="w-4 h-4" />
+                      3D
+                    </button>
+                  </div>
+                </div>
+                <div className="h-[500px]">
+                  {viewMode === '2d' ? (
+                    <GarageCanvas config={config} />
+                  ) : (
+                    <Garage3DRenderer config={config} />
+                  )}
+                </div>
               </div>
 
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black print:break-before-page">
