@@ -1469,6 +1469,10 @@
     min-width: 800px;
   }
 
+  .min-w-\[1200px\] {
+    min-width: 1200px;
+  }
+
   .min-w-\[var\(--radix-select-trigger-width\)\] {
     min-width: var(--radix-select-trigger-width);
   }
@@ -3512,6 +3516,11 @@
 
   .shadow-sm {
     --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, #0000001a), 0 1px 2px -1px var(--tw-shadow-color, #0000001a);
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+
+  .shadow-xl {
+    --tw-shadow: 0 20px 25px -5px var(--tw-shadow-color, #0000001a), 0 8px 10px -6px var(--tw-shadow-color, #0000001a);
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
 
@@ -6052,31 +6061,38 @@
 
 .kitchen-planner-scroll {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f1f5f9;
+  scrollbar-color: #94a3b8 #f1f5f9;
+  overflow: auto !important;
 }
 
 .kitchen-planner-scroll::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
 }
 
 .kitchen-planner-scroll::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 6px;
+  background: #e2e8f0;
+  border-radius: 0;
 }
 
 .kitchen-planner-scroll::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border: 2px solid #f1f5f9;
-  border-radius: 6px;
+  background: #475569;
+  border: 3px solid #e2e8f0;
+  border-radius: 8px;
+  min-height: 40px;
 }
 
 .kitchen-planner-scroll::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #334155;
 }
 
 .kitchen-planner-scroll::-webkit-scrollbar-corner {
-  background: #f1f5f9;
+  background: #e2e8f0;
+}
+
+.kitchen-planner-scroll::-webkit-scrollbar-button {
+  display: none;
 }
 
 @media print {

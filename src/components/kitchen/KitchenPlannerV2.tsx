@@ -402,7 +402,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         )}
 
         {/* Main Canvas Area */}
-        <div className="flex-1 flex flex-col bg-gray-50">
+        <div className="flex-1 flex flex-col bg-gray-50 relative">
           {!showSidebar && (
             <button
               onClick={() => setShowSidebar(true)}
@@ -412,10 +412,25 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
             </button>
           )}
 
-          <div className="flex-1 p-6 overflow-auto kitchen-planner-scroll">
+          {/* 3D Toggle Button - Fixed Position at Top Level */}
+          {viewMode === '2D' && (
+            <div className="absolute top-4 right-4 z-50">
+              <Button
+                onClick={() => setViewMode('3D')}
+                variant="default"
+                size="lg"
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-xl border-2 border-white"
+              >
+                <Maximize2 className="w-5 h-5 mr-2" />
+                View in 3D
+              </Button>
+            </div>
+          )}
+
+          <div className="flex-1 p-6 overflow-auto kitchen-planner-scroll bg-gray-50">
             {viewMode === '3D' ? (
               <div className="h-full flex flex-col min-w-[800px]">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-lg shadow-sm flex-shrink-0">
                   <h2 className="text-lg font-semibold">3D View - Kitchen Plan & Elevations</h2>
                   <Button
                     onClick={() => setViewMode('2D')}
@@ -431,20 +446,8 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                 </div>
               </div>
             ) : (
-              <div className="h-full flex flex-col min-w-[800px]">
-                <div className="flex items-center justify-between mb-4 flex-shrink-0">
-                  <div />
-                  <Button
-                    onClick={() => setViewMode('3D')}
-                    variant="outline"
-                    size="sm"
-                    className="bg-white shadow-sm"
-                  >
-                    <Maximize2 className="w-4 h-4 mr-2" />
-                    3D View
-                  </Button>
-                </div>
-                <div className="flex-1">
+              <div className="h-full flex flex-col min-w-[1200px]">
+                <div className="flex-1 relative">
                   <KitchenCanvas
                     config={config}
                     selectedCabinet={selectedCabinet}
