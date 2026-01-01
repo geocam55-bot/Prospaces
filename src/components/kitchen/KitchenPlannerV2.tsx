@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { KitchenCanvas } from './KitchenCanvas';
-import { Kitchen3DCanvas } from './Kitchen3DCanvas';
+import { Kitchen3DView } from './Kitchen3DView';
 import { KitchenConfigurator } from './KitchenConfigurator';
 import { calculateKitchenMaterials } from '../../utils/kitchenCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
@@ -445,7 +445,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                   </Button>
                 </div>
                 <div className="h-[calc(100%-4rem)]">
-                  <Kitchen3DCanvas config={config} />
+                  <Kitchen3DView config={config} />
                 </div>
               </div>
             ) : (
