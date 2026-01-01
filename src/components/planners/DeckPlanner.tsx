@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DeckConfigurator } from '../deck/DeckConfigurator';
 import { DeckCanvas } from '../deck/DeckCanvas';
+import { Deck3DRenderer } from '../deck/Deck3DRenderer';
 import { MaterialsList } from '../deck/MaterialsList';
 import { DeckTemplates } from '../deck/DeckTemplates';
 import { SavedDeckDesigns } from '../deck/SavedDeckDesigns';
@@ -10,7 +11,7 @@ import { PrintableDeckDesign } from '../project-wizard/PrintableDeckDesign';
 import { calculateMaterials } from '../../utils/deckCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { DeckConfig } from '../../types/deck';
-import { Ruler, Package, Printer, FileText } from 'lucide-react';
+import { Ruler, Package, Printer, FileText, Box, Layers } from 'lucide-react';
 import type { User } from '../../App';
 
 interface DeckPlannerProps {
@@ -33,6 +34,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
   });
 
   const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved'>('design');
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
   const [loadedDesignInfo, setLoadedDesignInfo] = useState<{
@@ -183,8 +185,40 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
 
             <div className="lg:col-span-2 space-y-6 print:hidden">
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black">
-                <h2 className="text-slate-900 mb-4 print:hidden">Deck Plan & Elevation</h2>
-                <DeckCanvas config={config} />
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-slate-900 print:hidden">Deck Plan & Elevation</h2>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setViewMode('2d')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                        viewMode === '2d'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Layers className="w-4 h-4" />
+                      2D
+                    </button>
+                    <button
+                      onClick={() => setViewMode('3d')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                        viewMode === '3d'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Box className="w-4 h-4" />
+                      3D
+                    </button>
+                  </div>
+                </div>
+                <div className="h-[500px]">
+                  {viewMode === '2d' ? (
+                    <DeckCanvas config={config} />
+                  ) : (
+                    <Deck3DRenderer config={config} />
+                  )}
+                </div>
               </div>
 
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black print:break-before-page">

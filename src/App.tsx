@@ -1,3 +1,6 @@
+// CRITICAL: Import Three.js warning suppression FIRST, before any other imports
+import './utils/suppressThreeWarnings';
+
 import React, { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { TopBar } from './components/TopBar';

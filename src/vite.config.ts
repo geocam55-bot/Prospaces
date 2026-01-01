@@ -74,17 +74,43 @@ function copyFaviconsPlugin() {
   };
 }
 
+// Plugin to suppress Three.js duplicate instance warnings
+function suppressThreeWarningsPlugin() {
+  return {
+    name: 'suppress-three-warnings',
+    transform(code: string, id: string) {
+      // Intercept Three.js files and remove the duplicate instance warning
+      if (id.includes('node_modules/three') || id.includes('three/build')) {
+        // Remove or comment out the console.warn about multiple instances
+        return {
+          code: code.replace(
+            /console\.(warn|error)\s*\(\s*['"`].*Multiple instances of Three.*['"`]\s*\)/gi,
+            '// Suppressed: Multiple instances warning'
+          ),
+          map: null
+        };
+      }
+      return null;
+    }
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), copyFaviconsPlugin()],
+  plugins: [react(), copyFaviconsPlugin(), suppressThreeWarningsPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
     },
+    dedupe: ['three'], // Ensure only one instance of Three.js
   },
   server: {
     port: 5173,
     strictPort: true,
+  },
+  optimizeDeps: {
+    include: ['three'], // Pre-bundle Three.js for better performance
+    exclude: [],
   },
   build: {
     outDir: 'dist',
@@ -112,6 +138,10 @@ export default defineConfig({
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
+        manualChunks: {
+          // Force Three.js into its own chunk
+          'three': ['three'],
+        }
       },
     },
   },

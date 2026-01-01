@@ -3,7 +3,6 @@ import { KitchenConfig, PlacedCabinet, CabinetItem } from '../../types/kitchen';
 import { Button } from '../ui/button';
 import { ZoomIn, ZoomOut, Grid3x3, Eye, EyeOff, Trash2, Move, RotateCw, RotateCcw, Box } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import { Kitchen3DCanvas } from './Kitchen3DCanvas';
 
 interface KitchenCanvasProps {
   config: KitchenConfig;
