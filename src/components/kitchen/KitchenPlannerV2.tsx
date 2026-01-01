@@ -221,7 +221,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
   );
 
   return (
-    <div className="min-h-full flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-white overflow-hidden">
       {/* Coming Soon Banner */}
       <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-b border-orange-200 flex-shrink-0">
         <div className="px-6 py-4 flex items-center justify-between">
@@ -408,35 +408,32 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         )}
 
         {/* Main Canvas Area */}
-        <div className="flex-1 flex flex-col bg-gray-50 relative">
+        <div className="flex-1 flex flex-col bg-gray-50 relative overflow-hidden">
           {!showSidebar && (
             <button
               onClick={() => setShowSidebar(true)}
-              className="absolute left-4 top-24 z-10 p-2 bg-white border rounded-lg shadow-sm hover:bg-gray-50"
+              className="absolute left-4 top-4 z-10 p-2 bg-white border rounded-lg shadow-sm hover:bg-gray-50"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
           )}
 
-          {/* 3D Toggle Button - Fixed Position at Top Level */}
+          {/* 3D Toggle Button - ALWAYS VISIBLE IN TOP RIGHT */}
           {viewMode === '2D' && (
-            <div className="absolute top-4 right-4 z-50">
-              <Button
-                onClick={() => setViewMode('3D')}
-                variant="default"
-                size="lg"
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-xl border-2 border-white"
-              >
-                <Maximize2 className="w-5 h-5 mr-2" />
-                View in 3D
-              </Button>
-            </div>
+            <Button
+              onClick={() => setViewMode('3D')}
+              size="lg"
+              className="absolute top-4 right-4 z-[100] bg-blue-600 hover:bg-blue-700 text-white shadow-2xl"
+            >
+              <Maximize2 className="w-5 h-5 mr-2" />
+              View in 3D
+            </Button>
           )}
 
-          <div className="flex-1 p-6 overflow-auto kitchen-planner-scroll bg-gray-50">
+          <div className="flex-1 overflow-auto kitchen-planner-scroll">
             {viewMode === '3D' ? (
-              <div className="h-full flex flex-col min-w-[800px]">
-                <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-lg shadow-sm flex-shrink-0">
+              <div className="h-full w-full p-6">
+                <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-lg shadow-sm">
                   <h2 className="text-lg font-semibold">3D View - Kitchen Plan & Elevations</h2>
                   <Button
                     onClick={() => setViewMode('2D')}
@@ -447,24 +444,22 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                     2D View
                   </Button>
                 </div>
-                <div className="flex-1 overflow-y-auto kitchen-planner-scroll">
+                <div className="h-[calc(100%-4rem)]">
                   <Kitchen3DCanvas config={config} />
                 </div>
               </div>
             ) : (
-              <div className="h-full flex flex-col min-w-[1200px]">
-                <div className="flex-1 relative">
-                  <KitchenCanvas
-                    config={config}
-                    selectedCabinet={selectedCabinet}
-                    onSelectCabinet={setSelectedCabinet}
-                    onUpdateCabinet={handleUpdateCabinet}
-                    onUpdateAppliance={handleUpdateAppliance}
-                    onDeleteCabinet={handleDeleteCabinet}
-                    onAddCabinet={handleAddCabinet}
-                    onAddAppliance={handleAddAppliance}
-                  />
-                </div>
+              <div className="h-full w-full p-6" style={{ minWidth: '1200px' }}>
+                <KitchenCanvas
+                  config={config}
+                  selectedCabinet={selectedCabinet}
+                  onSelectCabinet={setSelectedCabinet}
+                  onUpdateCabinet={handleUpdateCabinet}
+                  onUpdateAppliance={handleUpdateAppliance}
+                  onDeleteCabinet={handleDeleteCabinet}
+                  onAddCabinet={handleAddCabinet}
+                  onAddAppliance={handleAddAppliance}
+                />
               </div>
             )}
           </div>
