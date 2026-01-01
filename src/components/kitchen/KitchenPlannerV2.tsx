@@ -352,7 +352,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
             </div>
 
             {/* Sidebar Content - Scrollable */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
+            <div className="flex-1 overflow-y-auto overflow-x-hidden kitchen-planner-scroll">
               {activeCategory === 'cabinets' && (
                 <div className="p-4 space-y-3">
                   <div className="text-sm text-gray-600 mb-2 sticky top-0 bg-white py-1 z-10">
@@ -412,7 +412,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
             </button>
           )}
 
-          <div className="flex-1 p-6 overflow-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
+          <div className="flex-1 p-6 overflow-auto kitchen-planner-scroll">
             {viewMode === '3D' ? (
               <div className="h-full flex flex-col min-w-[800px]">
                 <div className="flex items-center justify-between mb-4">
@@ -426,18 +426,19 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                     2D View
                   </Button>
                 </div>
-                <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
+                <div className="flex-1 overflow-y-auto kitchen-planner-scroll">
                   <Kitchen3DCanvas config={config} />
                 </div>
               </div>
             ) : (
               <div className="h-full flex flex-col min-w-[800px]">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4 flex-shrink-0">
                   <div />
                   <Button
                     onClick={() => setViewMode('3D')}
                     variant="outline"
                     size="sm"
+                    className="bg-white shadow-sm"
                   >
                     <Maximize2 className="w-4 h-4 mr-2" />
                     3D View

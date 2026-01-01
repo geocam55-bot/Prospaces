@@ -6050,6 +6050,35 @@
   }
 }
 
+.kitchen-planner-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.kitchen-planner-scroll::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.kitchen-planner-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.kitchen-planner-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border: 2px solid #f1f5f9;
+  border-radius: 6px;
+}
+
+.kitchen-planner-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.kitchen-planner-scroll::-webkit-scrollbar-corner {
+  background: #f1f5f9;
+}
+
 @media print {
   @page {
     size: letter;
