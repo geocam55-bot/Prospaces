@@ -27,8 +27,11 @@ import { ImportExport } from './components/ImportExport';
 import { ScheduledJobs } from './components/ScheduledJobs';
 import { BackgroundImportManager } from './components/BackgroundImportManager';
 import { AITaskSuggestions } from './components/AITaskSuggestions';
-import { ProjectWizards } from './components/ProjectWizards';
 import { KitchenPlanner } from './components/planners/KitchenPlanner';
+import { DeckPlanner } from './components/planners/DeckPlanner';
+import { GaragePlanner } from './components/planners/GaragePlanner';
+import { ShedPlanner } from './components/planners/ShedPlanner';
+import { RoofPlanner } from './components/planners/RoofPlanner';
 import { ThemeProvider } from './components/ThemeProvider';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
@@ -266,10 +269,13 @@ function App() {
               {currentView === 'settings' && <Settings user={user} organization={organization} onUserUpdate={setUser} onOrganizationUpdate={setOrganization} />}
               {currentView === 'security' && <Security user={user} />}
               {currentView === 'import-export' && <ImportExport user={user} onNavigate={setCurrentView} />}
-              {currentView === 'project-wizards' && <ProjectWizards user={user} />}
               {currentView === 'scheduled-jobs' && <ScheduledJobs user={user} onNavigate={setCurrentView} />}
               {currentView === 'background-imports' && <BackgroundImportManager user={user} onNavigate={setCurrentView} />}
               {currentView === 'kitchen-planner' && <KitchenPlanner user={user} />}
+              {currentView === 'deck-planner' && <DeckPlanner user={user} />}
+              {currentView === 'garage-planner' && <GaragePlanner user={user} />}
+              {currentView === 'shed-planner' && <ShedPlanner user={user} />}
+              {currentView === 'roof-planner' && <RoofPlanner user={user} />}
             </div>
           </main>
         </div>

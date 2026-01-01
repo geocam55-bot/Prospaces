@@ -401,6 +401,23 @@ export function Login({ onLogin }: LoginProps) {
         return;
       }
 
+      // Load user preferences to get profile picture
+      let avatarUrl = profile.avatar_url;
+      try {
+        const { data: userPrefs } = await supabase
+          .from('user_preferences')
+          .select('profile_picture')
+          .eq('user_id', profile.id)
+          .eq('organization_id', profile.organization_id)
+          .single();
+        
+        if (userPrefs?.profile_picture) {
+          avatarUrl = userPrefs.profile_picture;
+        }
+      } catch (prefError) {
+        console.log('No user preferences found, using profile avatar_url');
+      }
+
       // Map to User object
       const user: User = {
         id: signInData.user.id,
@@ -408,6 +425,7 @@ export function Login({ onLogin }: LoginProps) {
         name: profile.name || 'User',
         role: (profile.role as UserRole) || 'standard_user',
         organizationId: profile.organization_id || 'default',
+        avatar_url: avatarUrl,
       };
 
       onLogin(user, signInData.session.access_token);
@@ -615,6 +633,23 @@ export function Login({ onLogin }: LoginProps) {
         return;
       }
 
+      // Load user preferences to get profile picture
+      let avatarUrl = userProfile?.avatar_url;
+      try {
+        const { data: userPrefs } = await supabase
+          .from('user_preferences')
+          .select('profile_picture')
+          .eq('user_id', signInData.user.id)
+          .eq('organization_id', orgIdToUse)
+          .single();
+        
+        if (userPrefs?.profile_picture) {
+          avatarUrl = userPrefs.profile_picture;
+        }
+      } catch (prefError) {
+        console.log('No user preferences found for new sign up');
+      }
+
       // Map to User object
       const user: User = {
         id: signInData.user.id,
@@ -622,6 +657,7 @@ export function Login({ onLogin }: LoginProps) {
         name: userProfile?.name || name,
         role: (userProfile?.role as UserRole) || (invitation.role as UserRole) || 'USER',
         organizationId: userProfile?.organization_id || orgIdToUse,
+        avatar_url: avatarUrl,
       };
 
       onLogin(user, signInData.session.access_token);

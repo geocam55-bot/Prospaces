@@ -27,6 +27,11 @@ import {
   Wand2,
   ChevronDown,
   ChevronRight,
+  ChefHat,
+  Hammer,
+  Warehouse,
+  Home,
+  Triangle,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -107,7 +112,11 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
       icon: Wand2,
       hasSubmenu: true,
       submenu: [
-        { id: 'kitchen-planner', label: 'Kitchen Planner', icon: Wand2 },
+        { id: 'kitchen-planner', label: 'Kitchen Planner', icon: ChefHat },
+        { id: 'deck-planner', label: 'Deck Planner', icon: Hammer },
+        { id: 'garage-planner', label: 'Garage Planner', icon: Warehouse },
+        { id: 'shed-planner', label: 'Shed Planner', icon: Home },
+        { id: 'roof-planner', label: 'Roof Planner', icon: Triangle },
       ]
     }] : []),
     { id: 'reports', label: 'Reports', icon: BarChart3 },
@@ -198,8 +207,8 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
       return (
         <div key={item.id}>
           <div className="relative">
-            {/* For Admin menu, make entire button toggle (no navigation). For others, split between navigate and toggle */}
-            {item.id === 'admin' ? (
+            {/* For Admin menu and Project Wizards, make entire button toggle (no navigation). For others, split between navigate and toggle */}
+            {(item.id === 'admin' || item.id === 'project-wizards') ? (
               <button
                 onClick={() => toggleSubmenu(item.id)}
                 className={`w-full group flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors ${

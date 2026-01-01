@@ -20,7 +20,10 @@ import {
   Camera,
   ShoppingCart,
   Settings,
-  Maximize2
+  Maximize2,
+  Edit3,
+  Save,
+  Printer
 } from 'lucide-react';
 import type { User } from '../../App';
 import { toast } from 'sonner@2.0.3';
@@ -43,6 +46,7 @@ interface KitchenPlannerV2Props {
 }
 
 type ItemCategory = 'cabinets' | 'appliances' | 'openings' | 'settings';
+type MainTab = 'design' | 'materials' | 'saved-designs';
 
 // Cabinet images by type
 const CABINET_IMAGES: Record<string, string> = {
@@ -144,6 +148,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showSidebar, setShowSidebar] = useState(true);
   const [viewMode, setViewMode] = useState<'2D' | '3D'>('2D');
+  const [activeTab, setActiveTab] = useState<MainTab>('design');
 
   const materials = calculateKitchenMaterials(config);
   const flatMaterials = [
@@ -222,6 +227,61 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
 
   return (
     <div className="h-screen flex flex-col bg-white overflow-hidden">
+      {/* Main Tab Navigation - Design / Materials / Saved Designs */}
+      <div className="border-b bg-white flex-shrink-0">
+        <div className="px-6 py-0 flex items-center justify-between">
+          {/* Tab Navigation */}
+          <div className="flex gap-1">
+            <button
+              onClick={() => setActiveTab('design')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                activeTab === 'design'
+                  ? 'border-red-600 text-red-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Design</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('materials')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                activeTab === 'materials'
+                  ? 'border-red-600 text-red-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <ShoppingCart className="w-4 h-4" />
+              <span>Materials</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('saved-designs')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                activeTab === 'saved-designs'
+                  ? 'border-red-600 text-red-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Save className="w-4 h-4" />
+              <span>Saved Designs</span>
+            </button>
+          </div>
+
+          {/* Print Plan Button */}
+          <Button 
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={() => {
+              toast.info('Print functionality coming soon!');
+            }}
+          >
+            <Printer className="w-4 h-4 mr-2" />
+            Print Plan
+          </Button>
+        </div>
+      </div>
+
       {/* Coming Soon Banner */}
       <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-b border-orange-200 flex-shrink-0">
         <div className="px-6 py-4 flex items-center justify-between">
@@ -246,71 +306,73 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         </div>
       </div>
 
-      {/* Top Navigation Bar */}
-      <div className="border-b bg-white flex-shrink-0">
-        <div className="px-6 py-3">
-          <div className="flex items-center gap-6">
-            {/* Category Tabs */}
-            <button
-              onClick={() => setActiveCategory('cabinets')}
-              className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                activeCategory === 'cabinets'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Box className="w-5 h-5" />
-              <span>Cabinets</span>
-            </button>
+      {/* Secondary Navigation Bar - Only show on Design tab */}
+      {activeTab === 'design' && (
+        <div className="border-b bg-white flex-shrink-0">
+          <div className="px-6 py-3">
+            <div className="flex items-center gap-6">
+              {/* Category Tabs */}
+              <button
+                onClick={() => setActiveCategory('cabinets')}
+                className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
+                  activeCategory === 'cabinets'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Box className="w-5 h-5" />
+                <span>Cabinets</span>
+              </button>
 
-            <button
-              onClick={() => setActiveCategory('appliances')}
-              className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                activeCategory === 'appliances'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Refrigerator className="w-5 h-5" />
-              <span>Appliances</span>
-            </button>
+              <button
+                onClick={() => setActiveCategory('appliances')}
+                className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
+                  activeCategory === 'appliances'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Refrigerator className="w-5 h-5" />
+                <span>Appliances</span>
+              </button>
 
-            <button
-              onClick={() => setActiveCategory('openings')}
-              className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                activeCategory === 'openings'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <DoorOpen className="w-5 h-5" />
-              <span>Doors & Windows</span>
-            </button>
+              <button
+                onClick={() => setActiveCategory('openings')}
+                className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
+                  activeCategory === 'openings'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <DoorOpen className="w-5 h-5" />
+                <span>Doors & Windows</span>
+              </button>
 
-            <button
-              onClick={() => setActiveCategory('settings')}
-              className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                activeCategory === 'settings'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Settings className="w-5 h-5" />
-              <span>Room Settings</span>
-            </button>
+              <button
+                onClick={() => setActiveCategory('settings')}
+                className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
+                  activeCategory === 'settings'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Settings className="w-5 h-5" />
+                <span>Room Settings</span>
+              </button>
 
-            <div className="flex-1" />
+              <div className="flex-1" />
 
-            {/* Price Display */}
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <div className="text-sm text-gray-600">My kitchen</div>
-                <div className="text-lg font-bold">${totalPrice.toFixed(2)}</div>
+              {/* Price Display */}
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="text-sm text-gray-600">My kitchen</div>
+                  <div className="text-lg font-bold">${totalPrice.toFixed(2)}</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
