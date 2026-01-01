@@ -20,7 +20,7 @@ import {
   LineSegments,
   MeshBasicMaterial,
   CylinderGeometry
-} from '../../utils/three';
+} from 'three';
 
 interface Kitchen3DRendererProps {
   config: KitchenConfig;

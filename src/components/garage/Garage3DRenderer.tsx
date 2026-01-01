@@ -20,7 +20,7 @@ import {
   LineSegments,
   BufferGeometry,
   Vector3
-} from '../../utils/three';
+} from 'three';
 
 interface Garage3DRendererProps {
   config: GarageConfig;
