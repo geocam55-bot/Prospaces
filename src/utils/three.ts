@@ -7,9 +7,6 @@
  * DO NOT import 'three' directly in any other file.
  */
 
-// Import warning suppression first
-import './suppressThreeWarnings';
-
 // Single import of Three.js - this is the ONLY place where 'three' should be imported
 import * as THREE from 'three';
 

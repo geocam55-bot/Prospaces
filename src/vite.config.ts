@@ -74,30 +74,9 @@ function copyFaviconsPlugin() {
   };
 }
 
-// Plugin to suppress Three.js duplicate instance warnings
-function suppressThreeWarningsPlugin() {
-  return {
-    name: 'suppress-three-warnings',
-    transform(code: string, id: string) {
-      // Intercept Three.js files and remove the duplicate instance warning
-      if (id.includes('node_modules/three') || id.includes('three/build')) {
-        // Remove or comment out the console.warn about multiple instances
-        return {
-          code: code.replace(
-            /console\.(warn|error)\s*\(\s*['"`].*Multiple instances of Three.*['"`]\s*\)/gi,
-            '// Suppressed: Multiple instances warning'
-          ),
-          map: null
-        };
-      }
-      return null;
-    }
-  };
-}
-
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), copyFaviconsPlugin(), suppressThreeWarningsPlugin()],
+  plugins: [react(), copyFaviconsPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
