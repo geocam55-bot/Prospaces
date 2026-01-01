@@ -597,64 +597,65 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
   );
 
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="h-full flex flex-col space-y-4 sm:space-y-6 p-4 sm:p-0">
       {/* Header */}
-      <div className="flex items-center justify-end">
-        <Button onClick={loadAISuggestions} disabled={isLoading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl sm:text-2xl">AI Suggestions</h1>
+        <Button onClick={loadAISuggestions} disabled={isLoading} size="sm">
+          <RefreshCw className={`h-4 w-4 sm:mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Refresh</span>
         </Button>
       </div>
 
       {/* Daily Metrics Dashboard */}
       {metrics && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="pt-4 sm:pt-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
-                  <p className="text-sm text-gray-600">Total Suggestions</p>
-                  <p className="text-3xl text-gray-900 mt-1">{metrics.totalSuggestions}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Total Suggestions</p>
+                  <p className="text-2xl sm:text-3xl text-gray-900 mt-1">{metrics.totalSuggestions}</p>
                 </div>
-                <Sparkles className="h-8 w-8 text-purple-600" />
+                <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="pt-4 sm:pt-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
-                  <p className="text-sm text-gray-600">Critical Actions</p>
-                  <p className="text-3xl text-red-600 mt-1">{metrics.criticalActions}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Critical Actions</p>
+                  <p className="text-2xl sm:text-3xl text-red-600 mt-1">{metrics.criticalActions}</p>
                 </div>
-                <Flame className="h-8 w-8 text-red-600" />
+                <Flame className="h-6 w-6 sm:h-8 sm:w-8 text-red-600" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="pt-4 sm:pt-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
-                  <p className="text-sm text-gray-600">Potential Revenue</p>
-                  <p className="text-2xl text-green-600 mt-1">
+                  <p className="text-xs sm:text-sm text-gray-600">Potential Revenue</p>
+                  <p className="text-xl sm:text-2xl text-green-600 mt-1">
                     ${metrics.potentialRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                   </p>
                 </div>
-                <DollarSign className="h-8 w-8 text-green-600" />
+                <DollarSign className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="pt-4 sm:pt-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div>
-                  <p className="text-sm text-gray-600">Avg Days Inactive</p>
-                  <p className="text-3xl text-orange-600 mt-1">{metrics.avgDaysInactive}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Avg Days Inactive</p>
+                  <p className="text-2xl sm:text-3xl text-orange-600 mt-1">{metrics.avgDaysInactive}</p>
                 </div>
-                <Clock className="h-8 w-8 text-orange-600" />
+                <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
               </div>
             </CardContent>
           </Card>
@@ -665,25 +666,25 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       {metrics?.topPriority && (
         <Card className="border-purple-300 bg-purple-50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-purple-900">
-              <Star className="h-5 w-5 text-purple-600" />
+            <CardTitle className="flex items-center gap-2 text-purple-900 text-base sm:text-lg">
+              <Star className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
               Top Priority Action
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-start gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4">
               <div className="flex-1">
-                <h3 className="text-lg text-purple-900 mb-2">{metrics.topPriority.title}</h3>
+                <h3 className="text-base sm:text-lg text-purple-900 mb-2">{metrics.topPriority.title}</h3>
                 <p className="text-sm text-purple-800 mb-3">{metrics.topPriority.suggestedAction}</p>
-                <div className="flex items-center gap-3">
-                  <Badge className={`${getPriorityBadge(metrics.topPriority.priority).className} border`}>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <Badge className={`${getPriorityBadge(metrics.topPriority.priority).className} border text-xs`}>
                     {metrics.topPriority.priority}
                   </Badge>
-                  <span className="text-sm text-purple-700">
+                  <span className="text-xs sm:text-sm text-purple-700">
                     Score: {Math.round(metrics.topPriority.score)}
                   </span>
                   {metrics.topPriority.potentialValue && (
-                    <span className="text-sm text-purple-700">
+                    <span className="text-xs sm:text-sm text-purple-700">
                       Value: ${metrics.topPriority.potentialValue.toLocaleString()}
                     </span>
                   )}
@@ -777,7 +778,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
               {filteredSuggestions.map((suggestion) => (
                 <div
                   key={suggestion.id}
-                  className={`p-4 rounded-lg border-2 hover:shadow-md transition-all ${
+                  className={`p-3 sm:p-4 rounded-lg border-2 hover:shadow-md transition-all ${
                     suggestion.priority === 'critical'
                       ? 'border-red-200 bg-red-50'
                       : suggestion.priority === 'high'
@@ -787,20 +788,20 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                       : 'border-gray-200 bg-white'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1">
-                      <div className="mt-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                    <div className="flex items-start gap-2 sm:gap-3 flex-1">
+                      <div className="mt-1 flex-shrink-0">
                         {getPriorityIcon(suggestion.priority)}
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-base text-gray-900">{suggestion.title}</h3>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <h3 className="text-sm sm:text-base text-gray-900">{suggestion.title}</h3>
                           <Badge className={`${getPriorityBadge(suggestion.priority).className} border text-xs`}>
                             {suggestion.priority}
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-700 mb-2">{suggestion.description}</p>
-                        <div className="flex items-center gap-4 mb-3">
+                        <p className="text-xs sm:text-sm text-gray-700 mb-2">{suggestion.description}</p>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-3">
                           <span className="text-xs text-gray-600 flex items-center gap-1">
                             <BarChart3 className="h-3 w-3" />
                             Score: {Math.round(suggestion.score)}
@@ -808,7 +809,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                           {suggestion.daysInactive && (
                             <span className="text-xs text-gray-600 flex items-center gap-1">
                               <Clock className="h-3 w-3" />
-                              {suggestion.daysInactive} days inactive
+                              {suggestion.daysInactive}d
                             </span>
                           )}
                           {suggestion.potentialValue && (
@@ -818,13 +819,13 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                             </span>
                           )}
                         </div>
-                        <div className="bg-white bg-opacity-50 rounded p-3 mb-3">
-                          <p className="text-sm text-gray-900 mb-1">
+                        <div className="bg-white bg-opacity-50 rounded p-2 sm:p-3 mb-3">
+                          <p className="text-xs sm:text-sm text-gray-900 mb-1">
                             <strong>Suggested Action:</strong> {suggestion.suggestedAction}
                           </p>
                           <p className="text-xs text-gray-600">{suggestion.context}</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline" className="text-xs">
                             {getActionIcon(suggestion.actionType)}
                             <span className="ml-1 capitalize">{suggestion.actionType}</span>
@@ -835,12 +836,12 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <Button size="sm" className="whitespace-nowrap" onClick={() => handleTakeAction(suggestion)}>
+                    <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
+                      <Button size="sm" className="flex-1 sm:flex-none whitespace-nowrap text-xs sm:text-sm" onClick={() => handleTakeAction(suggestion)}>
                         {getActionIcon(suggestion.actionType)}
-                        <span className="ml-2">Take Action</span>
+                        <span className="ml-1 sm:ml-2">Take Action</span>
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleDismissSuggestion(suggestion.id)}>
+                      <Button size="sm" variant="outline" className="flex-1 sm:flex-none text-xs sm:text-sm" onClick={() => handleDismissSuggestion(suggestion.id)}>
                         Dismiss
                       </Button>
                     </div>
@@ -854,35 +855,42 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
 
       {/* Email Template Dialog */}
       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Email Template</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base sm:text-lg">Email Template</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               Review and send the email to {selectedSuggestion?.relatedEntity.name}:
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <Label htmlFor="email-subject">Subject</Label>
-            <Input
-              id="email-subject"
-              value={emailSubject}
-              onChange={e => setEmailSubject(e.target.value)}
-              placeholder="Email subject"
-            />
-            <Label htmlFor="email-body">Body</Label>
-            <Textarea
-              id="email-body"
-              value={emailBody}
-              onChange={e => setEmailBody(e.target.value)}
-              placeholder="Email body"
-              className="h-40"
-            />
+            <div>
+              <Label htmlFor="email-subject" className="text-xs sm:text-sm">Subject</Label>
+              <Input
+                id="email-subject"
+                value={emailSubject}
+                onChange={e => setEmailSubject(e.target.value)}
+                placeholder="Email subject"
+                className="text-xs sm:text-sm"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email-body" className="text-xs sm:text-sm">Body</Label>
+              <Textarea
+                id="email-body"
+                value={emailBody}
+                onChange={e => setEmailBody(e.target.value)}
+                placeholder="Email body"
+                className="h-32 sm:h-40 text-xs sm:text-sm"
+              />
+            </div>
           </div>
-          <DialogFooter>
-            <Button size="sm" variant="outline" onClick={handleCopyEmail}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button size="sm" variant="outline" onClick={handleCopyEmail} className="w-full sm:w-auto text-xs sm:text-sm">
+              <Copy className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
               Copy to Clipboard
             </Button>
-            <Button size="sm" onClick={handleSendEmail}>
+            <Button size="sm" onClick={handleSendEmail} className="w-full sm:w-auto text-xs sm:text-sm">
+              <Send className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
               Send Email
             </Button>
           </DialogFooter>
@@ -891,58 +899,67 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
 
       {/* Task Creation Dialog */}
       <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create Task</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base sm:text-lg">Create Task</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               Create a new task based on the suggestion:
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <Label htmlFor="task-title">Title</Label>
-            <Input
-              id="task-title"
-              value={taskTitle}
-              onChange={e => setTaskTitle(e.target.value)}
-              placeholder="Task title"
-            />
-            <Label htmlFor="task-description">Description</Label>
-            <Textarea
-              id="task-description"
-              value={taskDescription}
-              onChange={e => setTaskDescription(e.target.value)}
-              placeholder="Task description"
-              className="h-40"
-            />
-            <Label htmlFor="task-due-date">Due Date</Label>
-            <Input
-              id="task-due-date"
-              type="date"
-              value={taskDueDate}
-              onChange={e => setTaskDueDate(e.target.value)}
-              placeholder="Task due date"
-            />
-            <Label htmlFor="task-priority">Priority</Label>
-            <Select
-              id="task-priority"
-              value={taskPriority}
-              onValueChange={value => setTaskPriority(value as 'low' | 'medium' | 'high')}
-            >
-              <SelectTrigger>
-                <SelectValue>{taskPriority}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-              </SelectContent>
-            </Select>
+            <div>
+              <Label htmlFor="task-title" className="text-xs sm:text-sm">Title</Label>
+              <Input
+                id="task-title"
+                value={taskTitle}
+                onChange={e => setTaskTitle(e.target.value)}
+                placeholder="Task title"
+                className="text-xs sm:text-sm"
+              />
+            </div>
+            <div>
+              <Label htmlFor="task-description" className="text-xs sm:text-sm">Description</Label>
+              <Textarea
+                id="task-description"
+                value={taskDescription}
+                onChange={e => setTaskDescription(e.target.value)}
+                placeholder="Task description"
+                className="h-32 sm:h-40 text-xs sm:text-sm"
+              />
+            </div>
+            <div>
+              <Label htmlFor="task-due-date" className="text-xs sm:text-sm">Due Date</Label>
+              <Input
+                id="task-due-date"
+                type="date"
+                value={taskDueDate}
+                onChange={e => setTaskDueDate(e.target.value)}
+                placeholder="Task due date"
+                className="text-xs sm:text-sm"
+              />
+            </div>
+            <div>
+              <Label htmlFor="task-priority" className="text-xs sm:text-sm">Priority</Label>
+              <Select
+                value={taskPriority}
+                onValueChange={value => setTaskPriority(value as 'low' | 'medium' | 'high')}
+              >
+                <SelectTrigger className="text-xs sm:text-sm">
+                  <SelectValue>{taskPriority}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <DialogFooter>
-            <Button size="sm" variant="outline" onClick={() => setShowTaskDialog(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button size="sm" variant="outline" onClick={() => setShowTaskDialog(false)} className="w-full sm:w-auto text-xs sm:text-sm">
               Cancel
             </Button>
-            <Button size="sm" onClick={handleCreateTask}>
+            <Button size="sm" onClick={handleCreateTask} className="w-full sm:w-auto text-xs sm:text-sm">
               Create Task
             </Button>
           </DialogFooter>
