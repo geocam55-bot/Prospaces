@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import {
   LayoutDashboard,
@@ -25,6 +25,8 @@ import {
   BarChart3,
   Sparkles,
   Wand2,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -50,29 +52,64 @@ interface NavigationProps {
 
 export function Navigation({ user, organization, currentView, onNavigate, onLogout }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
+    'opportunities': false,
+    'email': false,
+    'admin': false,
+    'project-wizards': false,
+  });
 
-  // Base navigation items (organization-specific - hidden from SUPER_ADMIN and filtered for ADMIN)
+  // Toggle submenu expansion
+  const toggleSubmenu = (menuId: string) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [menuId]: !prev[menuId]
+    }));
+  };
+
+  // Base navigation items with submenu structure
   const baseNavItems = user.role !== 'super_admin' ? [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     // Only show AI Suggestions if enabled for the organization
     ...(organization?.ai_suggestions_enabled ? [{ id: 'ai-suggestions', label: 'AI Suggestions', icon: Sparkles }] : []),
     { id: 'contacts', label: 'Contacts', icon: Users },
-    { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-    { id: 'opportunities', label: 'Opportunities', icon: Target },
-    { id: 'bids', label: 'Bids', icon: FileText },
+    { 
+      id: 'opportunities', 
+      label: 'Opportunities', 
+      icon: Target,
+      hasSubmenu: true,
+      submenu: [
+        { id: 'bids', label: 'Bids', icon: FileText },
+      ]
+    },
     { id: 'notes', label: 'Notes', icon: StickyNote },
     // Show Appointments for all users (including Admin for calendar sync testing)
-    ...(organization?.appointments_enabled !== false ? [{ id: 'appointments', label: 'Appointments', icon: Calendar }] : []),
+    { 
+      id: 'email', 
+      label: 'Email', 
+      icon: Mail,
+      hasSubmenu: true,
+      submenu: [
+        { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+        ...(organization?.appointments_enabled !== false ? [{ id: 'appointments', label: 'Appointments', icon: Calendar }] : []),
+      ]
+    },
     // Only show Documents if enabled for the organization
     ...(organization?.documents_enabled !== false ? [{ id: 'documents', label: 'Documents', icon: Folder }] : []),
-    // Show Email for all authenticated users
-    { id: 'email', label: 'Email', icon: Mail },
     // Only show Marketing if enabled for the organization
     ...(organization?.marketing_enabled !== false ? [{ id: 'marketing', label: 'Marketing', icon: TrendingUp }] : []),
     // Only show Inventory if enabled for the organization
     ...(organization?.inventory_enabled !== false ? [{ id: 'inventory', label: 'Inventory', icon: Package }] : []),
     // Only show Project Wizards if enabled for the organization
-    ...(organization?.project_wizards_enabled !== false ? [{ id: 'project-wizards', label: 'Project Wizards', icon: Wand2 }] : []),
+    ...(organization?.project_wizards_enabled !== false ? [{ 
+      id: 'project-wizards', 
+      label: 'Project Wizards', 
+      icon: Wand2,
+      hasSubmenu: true,
+      submenu: [
+        { id: 'kitchen-planner', label: 'Kitchen Planner', icon: Wand2 },
+      ]
+    }] : []),
     { id: 'reports', label: 'Reports', icon: BarChart3 },
   ] : [];
 
@@ -82,38 +119,200 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
       ? [{ id: 'team-dashboard', label: 'Team Dashboard', icon: UsersRound }]
       : [];
 
-  // Admin items (SUPER_ADMIN only sees Organizations and Users, not Import/Export)
-  const adminNavItems = user.role === 'super_admin' 
-    ? [
+  // Build Admin submenu items based on role
+  const buildAdminSubmenu = () => {
+    const submenuItems = [];
+    
+    if (user.role === 'super_admin') {
+      submenuItems.push(
         { id: 'tenants', label: 'Organizations', icon: Building2 },
         { id: 'users', label: 'Users', icon: UserCog },
-        { id: 'security', label: 'Security', icon: Shield },
-      ]
-    : (user.role === 'admin' 
-      ? [
-          { id: 'users', label: 'Users', icon: UserCog },
-          { id: 'security', label: 'Security', icon: Shield },
-          // Only show Import/Export if enabled for the organization
-          ...(organization?.import_export_enabled !== false ? [{ id: 'import-export', label: 'Import/Export', icon: Upload }] : []),
-        ]
-      : []);
+        { id: 'security', label: 'Security', icon: Shield }
+      );
+    } else if (user.role === 'admin') {
+      submenuItems.push(
+        { id: 'users', label: 'Users', icon: UserCog },
+        { id: 'security', label: 'Security', icon: Shield }
+      );
+      // Only show Import/Export if enabled for the organization
+      if (organization?.import_export_enabled !== false) {
+        submenuItems.push({ id: 'import-export', label: 'Import/Export', icon: Upload });
+      }
+    }
+    
+    // Add Settings for all users
+    submenuItems.push({ id: 'settings', label: 'Settings', icon: Settings });
+    
+    return submenuItems;
+  };
 
-  // Settings (available to all)
-  const settingsItems = [
-    { id: 'settings', label: 'Settings', icon: Settings },
-  ];
+  // Admin menu with submenu
+  const adminNavItems = (user.role === 'super_admin' || user.role === 'admin')
+    ? [{
+        id: 'admin',
+        label: 'Admin',
+        icon: UserCog,
+        hasSubmenu: true,
+        submenu: buildAdminSubmenu()
+      }]
+    : [
+        // For non-admin users, just show Settings as a standalone item
+        { id: 'settings', label: 'Settings', icon: Settings }
+      ];
 
   // Combine and filter based on permissions
   const navItems = [
     ...baseNavItems,
     ...managerNavItems,
     ...adminNavItems,
-    ...settingsItems,
   ].filter(item => canView(item.id, user.role)); // Filter based on permissions
+
+  // Auto-expand parent menu when child is active
+  useEffect(() => {
+    navItems.forEach((item) => {
+      if (item.submenu) {
+        const hasActiveChild = item.submenu.some((sub: any) => sub.id === currentView);
+        if (hasActiveChild && !expandedMenus[item.id]) {
+          setExpandedMenus(prev => ({
+            ...prev,
+            [item.id]: true
+          }));
+        }
+      }
+    });
+  }, [currentView]);
 
   const handleNavClick = (view: string) => {
     onNavigate(view);
     setIsMobileMenuOpen(false);
+  };
+
+  // Render navigation item (with or without submenu)
+  const renderNavItem = (item: any, isSubmenuItem = false) => {
+    const Icon = item.icon;
+    const isActive = currentView === item.id;
+    const isExpanded = expandedMenus[item.id];
+    const hasActiveChild = item.submenu?.some((sub: any) => sub.id === currentView);
+
+    if (item.hasSubmenu) {
+      return (
+        <div key={item.id}>
+          <div className="relative">
+            {/* For Admin menu, make entire button toggle (no navigation). For others, split between navigate and toggle */}
+            {item.id === 'admin' ? (
+              <button
+                onClick={() => toggleSubmenu(item.id)}
+                className={`w-full group flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors ${
+                  isSubmenuItem ? 'pl-6' : ''
+                }`}
+                style={{
+                  backgroundColor: hasActiveChild ? theme.colors.navActive : 'transparent',
+                  color: theme.colors.navText,
+                }}
+                onMouseEnter={(e) => {
+                  if (!hasActiveChild) {
+                    e.currentTarget.style.backgroundColor = theme.colors.navHover;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!hasActiveChild) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+              >
+                <div className="flex items-center">
+                  <Icon className="mr-3 h-5 w-5 flex-shrink-0" 
+                    style={{ opacity: hasActiveChild ? 1 : 0.7 }}
+                  />
+                  {item.label}
+                </div>
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4" style={{ opacity: 0.7 }} />
+                ) : (
+                  <ChevronRight className="h-4 w-4" style={{ opacity: 0.7 }} />
+                )}
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleNavClick(item.id)}
+                  className={`w-full group flex items-center pr-8 px-3 py-2 text-sm rounded-md transition-colors ${
+                    isSubmenuItem ? 'pl-6' : ''
+                  }`}
+                  style={{
+                    backgroundColor: (isActive || hasActiveChild) ? theme.colors.navActive : 'transparent',
+                    color: theme.colors.navText,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive && !hasActiveChild) {
+                      e.currentTarget.style.backgroundColor = theme.colors.navHover;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive && !hasActiveChild) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
+                  <Icon className="mr-3 h-5 w-5 flex-shrink-0" 
+                    style={{ opacity: (isActive || hasActiveChild) ? 1 : 0.7 }}
+                  />
+                  {item.label}
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleSubmenu(item.id);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10 transition-colors"
+                  aria-label={isExpanded ? 'Collapse submenu' : 'Expand submenu'}
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="h-4 w-4" style={{ opacity: 0.7 }} />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" style={{ opacity: 0.7 }} />
+                  )}
+                </button>
+              </>
+            )}
+          </div>
+          {isExpanded && item.submenu && (
+            <div className="mt-1 space-y-1">
+              {item.submenu.map((subItem: any) => renderNavItem(subItem, true))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <button
+        key={item.id}
+        onClick={() => handleNavClick(item.id)}
+        className={`w-full group flex items-center px-3 py-2 text-sm rounded-md transition-colors ${
+          isSubmenuItem ? 'pl-11' : ''
+        }`}
+        style={{
+          backgroundColor: isActive ? theme.colors.navActive : 'transparent',
+          color: theme.colors.navText,
+        }}
+        onMouseEnter={(e) => {
+          if (!isActive) {
+            e.currentTarget.style.backgroundColor = theme.colors.navHover;
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isActive) {
+            e.currentTarget.style.backgroundColor = 'transparent';
+          }
+        }}
+      >
+        <Icon className="mr-3 h-5 w-5 flex-shrink-0" 
+          style={{ opacity: isActive ? 1 : 0.7 }}
+        />
+        {item.label}
+      </button>
+    );
   };
 
   // Get user initials for avatar fallback
@@ -131,14 +330,36 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
 
   // Get page title based on current view
   const getPageTitle = (view: string) => {
+    // Check main items
     const item = navItems.find(item => item.id === view);
-    return item?.label || 'Dashboard';
+    if (item) return item.label;
+    
+    // Check submenu items
+    for (const navItem of navItems) {
+      if (navItem.submenu) {
+        const subItem = navItem.submenu.find((sub: any) => sub.id === view);
+        if (subItem) return subItem.label;
+      }
+    }
+    
+    return 'Dashboard';
   };
 
   // Get page icon based on current view
   const getPageIcon = (view: string) => {
+    // Check main items
     const item = navItems.find(item => item.id === view);
-    return item?.icon || LayoutDashboard;
+    if (item) return item.icon;
+    
+    // Check submenu items
+    for (const navItem of navItems) {
+      if (navItem.submenu) {
+        const subItem = navItem.submenu.find((sub: any) => sub.id === view);
+        if (subItem) return subItem.icon;
+      }
+    }
+    
+    return LayoutDashboard;
   };
 
   return (
@@ -237,36 +458,7 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
           </div>
           
           <nav className="mt-8 flex-1 px-2 space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentView === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavClick(item.id)}
-                  className="w-full group flex items-center px-3 py-2 text-sm rounded-md transition-colors"
-                  style={{
-                    backgroundColor: isActive ? theme.colors.navActive : 'transparent',
-                    color: theme.colors.navText,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor = theme.colors.navHover;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }
-                  }}
-                >
-                  <Icon className="mr-3 h-5 w-5 flex-shrink-0" 
-                    style={{ opacity: isActive ? 1 : 0.7 }}
-                  />
-                  {item.label}
-                </button>
-              );
-            })}
+            {navItems.map((item) => renderNavItem(item))}
           </nav>
         </div>
       </div>
@@ -284,36 +476,7 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
           >
             <div className="flex flex-col h-full pt-16 pb-4">
               <nav className="flex-1 px-2 space-y-1 mt-4">
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = currentView === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleNavClick(item.id)}
-                      className="w-full group flex items-center px-3 py-2 text-sm rounded-md transition-colors"
-                      style={{
-                        backgroundColor: isActive ? theme.colors.navActive : 'transparent',
-                        color: theme.colors.navText,
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.backgroundColor = theme.colors.navHover;
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                        }
-                      }}
-                    >
-                      <Icon className="mr-3 h-5 w-5 flex-shrink-0" 
-                        style={{ opacity: isActive ? 1 : 0.7 }}
-                      />
-                      {item.label}
-                    </button>
-                  );
-                })}
+                {navItems.map((item) => renderNavItem(item))}
               </nav>
             </div>
           </div>

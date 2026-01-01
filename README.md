@@ -1,7 +1,7 @@
 
-  # ProSpaces CRM Specification
+  # ProSpaces CRM
 
-  This is a code bundle for ProSpaces CRM Specification. The original project is available at https://www.figma.com/design/0NIWxaPFaVcCTCDFcePevZ/ProSpaces-CRM-Specification.
+  This is a code bundle for ProSpaces CRM. The original project is available at https://www.figma.com/design/0NIWxaPFaVcCTCDFcePevZ/ProSpaces-CRM.
 
   ## Running the code
 

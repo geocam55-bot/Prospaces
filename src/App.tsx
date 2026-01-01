@@ -1,37 +1,39 @@
-import { useState, useEffect } from 'react';
-import { createClient } from './utils/supabase/client.ts';
-import { initializePermissions } from './utils/permissions';
-import { Login } from './components/Login';
-import { LandingPage } from './components/LandingPage';
+import React, { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
+import { TopBar } from './components/TopBar';
+import { LandingPage } from './components/LandingPage';
+import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 import { Contacts } from './components/Contacts';
 import { Tasks } from './components/Tasks';
-import { Opportunities } from './components/Opportunities';
-import { Bids } from './components/Bids';
-import { Notes } from './components/Notes';
 import { Appointments } from './components/Appointments';
-import { Documents } from './components/Documents';
+import { Opportunities } from './components/Opportunities';
+import { Notes } from './components/Notes';
 import { Email } from './components/Email';
 import { Marketing } from './components/Marketing';
 import { Inventory } from './components/Inventory';
-import { Reports } from './components/Reports';
-import { ManagerDashboard } from './components/ManagerDashboard';
+import { Documents } from './components/Documents';
 import { Users } from './components/Users';
 import { Tenants } from './components/Tenants';
 import { Settings } from './components/Settings';
+import { Reports } from './components/Reports';
+import { Bids } from './components/Bids';
+import { ManagerDashboard } from './components/ManagerDashboard';
 import { Security } from './components/Security';
 import { ImportExport } from './components/ImportExport';
 import { ScheduledJobs } from './components/ScheduledJobs';
 import { BackgroundImportManager } from './components/BackgroundImportManager';
 import { AITaskSuggestions } from './components/AITaskSuggestions';
 import { ProjectWizards } from './components/ProjectWizards';
+import { KitchenPlanner } from './components/planners/KitchenPlanner';
 import { ThemeProvider } from './components/ThemeProvider';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { FaviconGenerator } from './components/FaviconGenerator';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
+import { createClient } from './utils/supabase/client';
+import { initializePermissions } from './utils/permissions';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 export type UserRole = 'standard_user' | 'manager' | 'admin' | 'super_admin' | 'marketing';
@@ -264,6 +266,7 @@ function App() {
               {currentView === 'project-wizards' && <ProjectWizards user={user} />}
               {currentView === 'scheduled-jobs' && <ScheduledJobs user={user} onNavigate={setCurrentView} />}
               {currentView === 'background-imports' && <BackgroundImportManager user={user} onNavigate={setCurrentView} />}
+              {currentView === 'kitchen-planner' && <KitchenPlanner user={user} />}
             </div>
           </main>
         </div>

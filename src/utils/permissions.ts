@@ -106,7 +106,7 @@ function initializeDefaultPermissions() {
   const modules = [
     'dashboard', 'ai-suggestions', 'contacts', 'tasks', 'appointments', 'opportunities', 'bids', 'notes',
     'email', 'marketing', 'inventory', 'users', 'settings', 'tenants', 'security', 'import-export',
-    'documents', 'team-dashboard', 'reports', 'project-wizards'
+    'documents', 'team-dashboard', 'reports', 'project-wizards', 'admin', 'kitchen-planner'
   ];
   const roles: UserRole[] = ['super_admin', 'admin', 'manager', 'marketing', 'standard_user'];
 
@@ -232,7 +232,7 @@ export function debugPermissions(role: UserRole) {
   const modules = [
     'dashboard', 'ai-suggestions', 'contacts', 'tasks', 'appointments', 'opportunities', 'bids', 'notes',
     'email', 'marketing', 'inventory', 'users', 'settings', 'tenants', 'security', 'import-export',
-    'documents', 'team-dashboard', 'reports', 'project-wizards'
+    'documents', 'team-dashboard', 'reports', 'project-wizards', 'admin', 'kitchen-planner'
   ];
   
   modules.forEach(module => {
