@@ -1148,6 +1148,10 @@
     height: 500px;
   }
 
+  .h-\[600px\] {
+    height: 600px;
+  }
+
   .h-\[calc\(100\%-1px\)\] {
     height: calc(100% - 1px);
   }
@@ -5915,6 +5919,12 @@
   @media print {
     .print\:hidden {
       display: none;
+    }
+  }
+
+  @media print {
+    .print\:h-\[600px\] {
+      height: 600px;
     }
   }
 

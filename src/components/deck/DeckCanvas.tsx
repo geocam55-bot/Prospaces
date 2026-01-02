@@ -268,9 +268,107 @@ export function DeckCanvas({ config }: DeckCanvasProps) {
           break;
           
         case 'back':
+          stairX = baseX + (scaledWidth - stairWidth) / 2;
+          stairY = baseY + scaledLength;
+          
+          // Draw individual steps
+          for (let i = 0; i < numSteps; i++) {
+            const stepY = stairY + (i * stairDepth / numSteps);
+            const stepDepth = stairDepth / numSteps;
+            
+            ctx.fillRect(stairX, stepY, stairWidth, stepDepth);
+            ctx.strokeRect(stairX, stepY, stairWidth, stepDepth);
+            
+            // Tread line
+            if (view3D && i > 0) {
+              ctx.strokeStyle = '#6d28d9';
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(stairX, stepY);
+              ctx.lineTo(stairX + stairWidth, stepY);
+              ctx.stroke();
+              ctx.strokeStyle = '#4c1d95';
+              ctx.lineWidth = 2;
+            }
+          }
+          
+          // Stair label
+          ctx.fillStyle = '#4c1d95';
+          ctx.font = 'bold 10px system-ui';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${numSteps} Steps`, stairX + stairWidth / 2, stairY + stairDepth / 2);
+          break;
+          
         case 'left':
+          stairX = baseX - stairDepth;
+          stairY = baseY + (scaledLength - stairWidth) / 2;
+          
+          // Draw individual steps (rotated for left side)
+          for (let i = 0; i < numSteps; i++) {
+            const stepX = stairX + (i * stairDepth / numSteps);
+            const stepDepth = stairDepth / numSteps;
+            
+            ctx.fillRect(stepX, stairY, stepDepth, stairWidth);
+            ctx.strokeRect(stepX, stairY, stepDepth, stairWidth);
+            
+            // Tread line
+            if (view3D && i > 0) {
+              ctx.strokeStyle = '#6d28d9';
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(stepX, stairY);
+              ctx.lineTo(stepX, stairY + stairWidth);
+              ctx.stroke();
+              ctx.strokeStyle = '#4c1d95';
+              ctx.lineWidth = 2;
+            }
+          }
+          
+          // Stair label
+          ctx.fillStyle = '#4c1d95';
+          ctx.font = 'bold 10px system-ui';
+          ctx.textAlign = 'center';
+          ctx.save();
+          ctx.translate(stairX + stairDepth / 2, stairY + stairWidth / 2);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillText(`${numSteps} Steps`, 0, 0);
+          ctx.restore();
+          break;
+          
         case 'right':
-          // Similar logic for other sides
+          stairX = baseX + scaledWidth;
+          stairY = baseY + (scaledLength - stairWidth) / 2;
+          
+          // Draw individual steps (rotated for right side)
+          for (let i = 0; i < numSteps; i++) {
+            const stepX = stairX + (i * stairDepth / numSteps);
+            const stepDepth = stairDepth / numSteps;
+            
+            ctx.fillRect(stepX, stairY, stepDepth, stairWidth);
+            ctx.strokeRect(stepX, stairY, stepDepth, stairWidth);
+            
+            // Tread line
+            if (view3D && i > 0) {
+              ctx.strokeStyle = '#6d28d9';
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(stepX, stairY);
+              ctx.lineTo(stepX, stairY + stairWidth);
+              ctx.stroke();
+              ctx.strokeStyle = '#4c1d95';
+              ctx.lineWidth = 2;
+            }
+          }
+          
+          // Stair label
+          ctx.fillStyle = '#4c1d95';
+          ctx.font = 'bold 10px system-ui';
+          ctx.textAlign = 'center';
+          ctx.save();
+          ctx.translate(stairX + stairDepth / 2, stairY + stairWidth / 2);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillText(`${numSteps} Steps`, 0, 0);
+          ctx.restore();
           break;
       }
     }
@@ -735,8 +833,8 @@ export function DeckCanvas({ config }: DeckCanvasProps) {
       </div>
 
       {/* Legend */}
-      <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:hidden">
-        <h4 className="text-sm font-semibold text-slate-900 mb-3">Drawing Legend</h4>
+      <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:hidden mt-6">
+        <h4 className="font-semibold text-slate-900 mb-3">Drawing Legend</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-6 h-3 bg-purple-600 rounded"></div>

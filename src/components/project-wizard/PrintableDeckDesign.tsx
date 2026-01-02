@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { DeckConfig } from '../../types/deck';
-import { DeckCanvas } from '../deck/DeckCanvas';
+import { Deck3DRenderer } from '../deck/Deck3DRenderer';
 import { MaterialsList } from '../deck/MaterialsList';
 import { DeckMaterials } from '../../types/deck';
 
@@ -12,6 +12,7 @@ interface PrintableDeckDesignProps {
   customerCompany?: string;
   description?: string;
   designName?: string;
+  snapshotUrl?: string; // Add this prop for the 3D snapshot
 }
 
 export function PrintableDeckDesign({
@@ -22,6 +23,7 @@ export function PrintableDeckDesign({
   customerCompany,
   description,
   designName,
+  snapshotUrl,
 }: PrintableDeckDesignProps) {
   // Debug: Log materials to help troubleshoot printing issues
   console.log('[PrintableDeckDesign] Materials for print:', {
@@ -101,8 +103,15 @@ export function PrintableDeckDesign({
 
       {/* Plan View & Elevation */}
       <div className="mb-6">
-        <div className="w-full">
-          <DeckCanvas config={config} />
+        <h2 className="text-lg font-bold text-black mb-3">3D Deck Visualization</h2>
+        <div className="w-full h-[600px] border border-gray-300 bg-gradient-to-br from-sky-100 to-blue-200">
+          {snapshotUrl ? (
+            <img src={snapshotUrl} alt="3D Deck Snapshot" className="w-full h-full object-contain" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-500">
+              <p>Switch to 3D view before printing to see 3D visualization</p>
+            </div>
+          )}
         </div>
       </div>
 

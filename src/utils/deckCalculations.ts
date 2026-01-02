@@ -24,35 +24,71 @@ export function calculateDeckArea(config: DeckConfig): number {
 
 /**
  * Calculate railing linear footage
+ * Covers complete perimeter excluding house side (back) and stair opening
  */
 export function calculateRailingLength(config: DeckConfig): number {
   let totalLength = 0;
   
   if (config.shape === 'rectangle') {
-    if (config.railingSides.includes('front')) {
-      totalLength += config.width;
-      // Subtract stair width if on front
-      if (config.hasStairs && config.stairSide === 'front') {
-        totalLength -= (config.stairWidth || 4);
-      }
+    // Calculate perimeter excluding back (house side)
+    totalLength += config.width;  // front
+    totalLength += config.length; // right
+    totalLength += config.length; // left
+    
+    // Subtract stairs if present (not on back/house side)
+    if (config.hasStairs && config.stairSide !== 'back') {
+      totalLength -= (config.stairWidth || 4);
     }
-    if (config.railingSides.includes('back')) {
-      totalLength += config.width;
-      if (config.hasStairs && config.stairSide === 'back') {
-        totalLength -= (config.stairWidth || 4);
-      }
+  } else if (config.shape === 'l-shape') {
+    // L-shape: calculate complete outer perimeter excluding house side (back)
+    const mainWidth = config.width;
+    const mainLength = config.length;
+    const lWidth = config.lShapeWidth || 4;
+    const lLength = config.lShapeLength || 4;
+    const lPos = config.lShapePosition || 'top-left';
+    
+    // Calculate outer perimeter segments based on L-shape position
+    // The "back" edge (house side, z = -mainLength/2 in 3D) is always excluded
+    // Interior edges where L meets main rectangle are also excluded
+    
+    switch (lPos) {
+      case 'top-right':
+        // L extends RIGHT from the back-right corner
+        // Outer perimeter: main right (partial), L right outer, L front connecting, main front, main left
+        totalLength = (mainLength - lLength) + lLength + lWidth + mainWidth + mainLength;
+        // Simplifies to: mainLength + lWidth + mainWidth + mainLength
+        totalLength = 2 * mainLength + mainWidth + lWidth;
+        break;
+        
+      case 'bottom-right':
+        // L extends RIGHT from the front-right corner
+        // Outer perimeter: main right (partial), L right outer, L bottom, main front, main left
+        totalLength = (mainLength - lLength) + lLength + lWidth + mainWidth + mainLength;
+        // Simplifies to: mainLength + lWidth + mainWidth + mainLength
+        totalLength = 2 * mainLength + mainWidth + lWidth;
+        break;
+        
+      case 'bottom-left':
+        // L extends LEFT from the front-left corner
+        // Outer perimeter: main right, main front, L bottom, L left outer, main left (partial)
+        totalLength = mainLength + mainWidth + lWidth + lLength + (mainLength - lLength);
+        // Simplifies to: mainLength + mainWidth + lWidth + mainLength
+        totalLength = 2 * mainLength + mainWidth + lWidth;
+        break;
+        
+      case 'top-left':
+      default:
+        // L extends LEFT from the back-left corner
+        // Outer perimeter: main right, main front, main left (partial), L left outer, L front edge
+        totalLength = mainLength + mainWidth + (mainLength - lLength) + lLength + lWidth;
+        // Simplifies to: mainLength + mainWidth + mainLength + lWidth
+        totalLength = 2 * mainLength + mainWidth + lWidth;
+        break;
     }
-    if (config.railingSides.includes('left')) {
-      totalLength += config.length;
-      if (config.hasStairs && config.stairSide === 'left') {
-        totalLength -= (config.stairWidth || 4);
-      }
-    }
-    if (config.railingSides.includes('right')) {
-      totalLength += config.length;
-      if (config.hasStairs && config.stairSide === 'right') {
-        totalLength -= (config.stairWidth || 4);
-      }
+    
+    // Subtract stairs if present (stairs can be on any outer edge)
+    if (config.hasStairs) {
+      totalLength -= (config.stairWidth || 4);
     }
   }
   

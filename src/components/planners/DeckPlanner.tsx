@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DeckConfigurator } from '../deck/DeckConfigurator';
 import { DeckCanvas } from '../deck/DeckCanvas';
-import { Deck3DRenderer } from '../deck/Deck3DRenderer';
+import { Deck3DRenderer, Deck3DRendererRef } from '../deck/Deck3DRenderer';
 import { MaterialsList } from '../deck/MaterialsList';
 import { DeckTemplates } from '../deck/DeckTemplates';
 import { SavedDeckDesigns } from '../deck/SavedDeckDesigns';
@@ -21,6 +21,9 @@ interface DeckPlannerProps {
 }
 
 export function DeckPlanner({ user }: DeckPlannerProps) {
+  const deck3DRendererRef = useRef<Deck3DRendererRef>(null);
+  const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
+  
   const [config, setConfig] = useState<DeckConfig>({
     width: 12,
     length: 16,
@@ -71,7 +74,24 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
       }
     };
     enrichMaterials();
-  }, [config, user.organizationId]);
+  }, [
+    config.width,
+    config.length,
+    config.height,
+    config.shape,
+    config.lShapeWidth,
+    config.lShapeLength,
+    config.lShapePosition,
+    config.hasStairs,
+    config.stairSide,
+    config.stairWidth,
+    config.railingSides,
+    config.railingHeight,
+    config.joistSpacing,
+    config.deckingType,
+    user.organizationId,
+    flatMaterials.length
+  ]);
 
   // Create enriched materials structure for display
   const getEnrichedMaterialsStructure = () => {
@@ -112,8 +132,26 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
   };
 
   const handlePrint = () => {
-    window.print();
+    // Ensure all pending async operations are complete before printing
+    // This prevents the "callback is no longer runnable" error
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
+
+  // Poll for snapshot URL from 3D renderer
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (deck3DRendererRef.current && viewMode === '3d') {
+        const url = deck3DRendererRef.current.getSnapshotUrl();
+        if (url && url !== snapshotUrl) {
+          setSnapshotUrl(url);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [viewMode, snapshotUrl]);
 
   return (
     <div>
@@ -238,11 +276,15 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
                     </button>
                   </div>
                 </div>
-                <div className="h-[500px]">
+                <div className="h-[500px] overflow-y-auto">
                   {viewMode === '2d' ? (
                     <DeckCanvas config={config} />
                   ) : (
-                    <Deck3DRenderer config={config} />
+                    <Deck3DRenderer 
+                      key={`3d-${config.width}-${config.length}-${config.shape}-${config.lShapePosition}-${config.lShapeWidth}-${config.lShapeLength}-${config.hasStairs}-${config.stairSide}`} 
+                      config={config} 
+                      ref={deck3DRendererRef}
+                    />
                   )}
                 </div>
               </div>
@@ -303,6 +345,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
         description={loadedDesignInfo.description}
         customerName={loadedDesignInfo.customerName}
         customerCompany={loadedDesignInfo.customerCompany}
+        snapshotUrl={snapshotUrl}
       />
     </div>
   );
