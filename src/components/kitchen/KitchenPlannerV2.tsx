@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { KitchenCanvas } from './KitchenCanvas';
 import { Kitchen3DRenderer } from './Kitchen3DRenderer';
 import { KitchenConfigurator } from './KitchenConfigurator';
+import { SavedKitchenDesigns } from './SavedKitchenDesigns';
 import { calculateKitchenMaterials } from '../../utils/kitchenCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { KitchenConfig, PlacedCabinet, CABINET_CATALOG, CabinetItem, Appliance } from '../../types/kitchen';
@@ -376,153 +377,217 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - Item Library */}
-        {showSidebar && (
-          <div className="w-80 border-r bg-white flex flex-col max-h-full">
-            {/* Sidebar Header */}
-            <div className="p-4 border-b flex-shrink-0">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-lg">
-                  {activeCategory === 'cabinets' && 'Add a cabinet'}
-                  {activeCategory === 'appliances' && 'Add an appliance'}
-                  {activeCategory === 'openings' && 'Add opening'}
-                  {activeCategory === 'settings' && 'Room Settings'}
-                </h2>
-                <button
-                  onClick={() => setShowSidebar(false)}
-                  className="p-1 hover:bg-gray-100 rounded"
+        {activeTab === 'design' && (
+          <>
+            {/* Left Sidebar - Item Library */}
+            {showSidebar && (
+              <div className="w-80 border-r bg-white flex flex-col max-h-full">
+                {/* Sidebar Header */}
+                <div className="p-4 border-b flex-shrink-0">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-semibold text-lg">
+                      {activeCategory === 'cabinets' && 'Add a cabinet'}
+                      {activeCategory === 'appliances' && 'Add an appliance'}
+                      {activeCategory === 'openings' && 'Add opening'}
+                      {activeCategory === 'settings' && 'Room Settings'}
+                    </h2>
+                    <button
+                      onClick={() => setShowSidebar(false)}
+                      className="p-1 hover:bg-gray-100 rounded"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Search */}
+                  {activeCategory !== 'settings' && (
+                    <div className="relative">
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-9"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Sidebar Content - Scrollable */}
+                <div 
+                  className="flex-1 kitchen-planner-scroll" 
+                  style={{ 
+                    overflowY: 'scroll',
+                    overflowX: 'hidden',
+                  }}
                 >
-                  <X className="w-5 h-5" />
-                </button>
+                  {activeCategory === 'cabinets' && (
+                    <div className="p-4 space-y-3">
+                      <div className="text-sm text-gray-600 mb-2 sticky top-0 bg-white py-1 z-10">
+                        {filteredCabinets.length} products
+                      </div>
+                      {filteredCabinets.map(cabinet => (
+                        <CabinetCard
+                          key={cabinet.id}
+                          cabinet={cabinet}
+                          onAdd={handleAddCabinet}
+                          finish={config.cabinetFinish}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {activeCategory === 'appliances' && (
+                    <div className="p-4 space-y-3">
+                      <div className="text-sm text-gray-600 mb-2 sticky top-0 bg-white py-1 z-10">
+                        {filteredAppliances.length} products
+                      </div>
+                      {filteredAppliances.map(appliance => (
+                        <ApplianceCard
+                          key={appliance.id}
+                          appliance={appliance}
+                          onAdd={handleAddAppliance}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {activeCategory === 'openings' && (
+                    <div className="p-4">
+                      <p className="text-gray-600 text-sm">
+                        Doors and windows coming soon...
+                      </p>
+                    </div>
+                  )}
+
+                  {activeCategory === 'settings' && (
+                    <div className="p-4">
+                      <KitchenConfigurator config={config} onChange={setConfig} />
+                    </div>
+                  )}
+                </div>
               </div>
+            )}
 
-              {/* Search */}
-              {activeCategory !== 'settings' && (
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
+            {/* Main Canvas Area */}
+            <div className="flex-1 flex flex-col bg-gray-50 relative overflow-hidden">
+              {!showSidebar && (
+                <button
+                  onClick={() => setShowSidebar(true)}
+                  className="absolute left-4 top-4 z-10 p-2 bg-white border rounded-lg shadow-sm hover:bg-gray-50"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
               )}
+
+              {/* 3D Toggle Button - ALWAYS VISIBLE IN TOP RIGHT */}
+              {viewMode === '2D' && (
+                <Button
+                  onClick={() => setViewMode('3D')}
+                  size="lg"
+                  className="absolute top-4 right-4 z-[100] bg-blue-600 hover:bg-blue-700 text-white shadow-2xl"
+                >
+                  <Maximize2 className="w-5 h-5 mr-2" />
+                  View in 3D
+                </Button>
+              )}
+
+              <div className="flex-1 overflow-auto kitchen-planner-scroll">
+                {viewMode === '3D' ? (
+                  <div className="h-full w-full p-6">
+                    <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-lg shadow-sm">
+                      <h2 className="text-lg font-semibold">3D View - Kitchen Plan & Elevations</h2>
+                      <Button
+                        onClick={() => setViewMode('2D')}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Box className="w-4 h-4 mr-2" />
+                        2D View
+                      </Button>
+                    </div>
+                    <div className="h-[calc(100%-4rem)]">
+                      <Kitchen3DRenderer config={config} />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full w-full p-6" style={{ minWidth: '1200px' }}>
+                    <KitchenCanvas
+                      config={config}
+                      selectedCabinet={selectedCabinet}
+                      onSelectCabinet={setSelectedCabinet}
+                      onUpdateCabinet={handleUpdateCabinet}
+                      onUpdateAppliance={handleUpdateAppliance}
+                      onDeleteCabinet={handleDeleteCabinet}
+                      onAddCabinet={handleAddCabinet}
+                      onAddAppliance={handleAddAppliance}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
+          </>
+        )}
 
-            {/* Sidebar Content - Scrollable */}
-            <div 
-              className="flex-1 kitchen-planner-scroll" 
-              style={{ 
-                overflowY: 'scroll',
-                overflowX: 'hidden',
-              }}
-            >
-              {activeCategory === 'cabinets' && (
-                <div className="p-4 space-y-3">
-                  <div className="text-sm text-gray-600 mb-2 sticky top-0 bg-white py-1 z-10">
-                    {filteredCabinets.length} products
-                  </div>
-                  {filteredCabinets.map(cabinet => (
-                    <CabinetCard
-                      key={cabinet.id}
-                      cabinet={cabinet}
-                      onAdd={handleAddCabinet}
-                      finish={config.cabinetFinish}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {activeCategory === 'appliances' && (
-                <div className="p-4 space-y-3">
-                  <div className="text-sm text-gray-600 mb-2 sticky top-0 bg-white py-1 z-10">
-                    {filteredAppliances.length} products
-                  </div>
-                  {filteredAppliances.map(appliance => (
-                    <ApplianceCard
-                      key={appliance.id}
-                      appliance={appliance}
-                      onAdd={handleAddAppliance}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {activeCategory === 'openings' && (
-                <div className="p-4">
-                  <p className="text-gray-600 text-sm">
-                    Doors and windows coming soon...
-                  </p>
-                </div>
-              )}
-
-              {activeCategory === 'settings' && (
-                <div className="p-4">
-                  <KitchenConfigurator config={config} onChange={setConfig} />
-                </div>
-              )}
+        {activeTab === 'materials' && (
+          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+            <div className="max-w-6xl mx-auto">
+              <h2 className="text-2xl font-semibold mb-6">Materials & Cost Breakdown</h2>
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left p-4 font-semibold">Category</th>
+                      <th className="text-left p-4 font-semibold">Item</th>
+                      <th className="text-right p-4 font-semibold">Quantity</th>
+                      <th className="text-right p-4 font-semibold">Unit Price</th>
+                      <th className="text-right p-4 font-semibold">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {flatMaterials.map((item, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="p-4">{item.category}</td>
+                        <td className="p-4">{item.name}</td>
+                        <td className="p-4 text-right">{item.quantity} {item.unit}</td>
+                        <td className="p-4 text-right">${item.unitPrice?.toFixed(2) || '0.00'}</td>
+                        <td className="p-4 text-right font-semibold">${item.totalPrice?.toFixed(2) || '0.00'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-50 border-t-2 border-gray-300">
+                    <tr>
+                      <td colSpan={4} className="p-4 text-right font-semibold">Total Estimated Cost:</td>
+                      <td className="p-4 text-right font-bold text-lg text-red-600">
+                        ${totalPrice.toFixed(2)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Main Canvas Area */}
-        <div className="flex-1 flex flex-col bg-gray-50 relative overflow-hidden">
-          {!showSidebar && (
-            <button
-              onClick={() => setShowSidebar(true)}
-              className="absolute left-4 top-4 z-10 p-2 bg-white border rounded-lg shadow-sm hover:bg-gray-50"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          )}
-
-          {/* 3D Toggle Button - ALWAYS VISIBLE IN TOP RIGHT */}
-          {viewMode === '2D' && (
-            <Button
-              onClick={() => setViewMode('3D')}
-              size="lg"
-              className="absolute top-4 right-4 z-[100] bg-blue-600 hover:bg-blue-700 text-white shadow-2xl"
-            >
-              <Maximize2 className="w-5 h-5 mr-2" />
-              View in 3D
-            </Button>
-          )}
-
-          <div className="flex-1 overflow-auto kitchen-planner-scroll">
-            {viewMode === '3D' ? (
-              <div className="h-full w-full p-6">
-                <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-lg shadow-sm">
-                  <h2 className="text-lg font-semibold">3D View - Kitchen Plan & Elevations</h2>
-                  <Button
-                    onClick={() => setViewMode('2D')}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <Box className="w-4 h-4 mr-2" />
-                    2D View
-                  </Button>
-                </div>
-                <div className="h-[calc(100%-4rem)]">
-                  <Kitchen3DRenderer config={config} />
-                </div>
-              </div>
-            ) : (
-              <div className="h-full w-full p-6" style={{ minWidth: '1200px' }}>
-                <KitchenCanvas
-                  config={config}
-                  selectedCabinet={selectedCabinet}
-                  onSelectCabinet={setSelectedCabinet}
-                  onUpdateCabinet={handleUpdateCabinet}
-                  onUpdateAppliance={handleUpdateAppliance}
-                  onDeleteCabinet={handleDeleteCabinet}
-                  onAddCabinet={handleAddCabinet}
-                  onAddAppliance={handleAddAppliance}
-                />
-              </div>
-            )}
+        {activeTab === 'saved-designs' && (
+          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+            <div className="max-w-6xl mx-auto">
+              <SavedKitchenDesigns
+                user={user}
+                currentConfig={config}
+                materials={flatMaterials}
+                totalCost={totalPrice}
+                onLoadDesign={(loadedConfig, designInfo) => {
+                  setConfig(loadedConfig);
+                  setActiveTab('design');
+                  if (designInfo) {
+                    toast.success(`Loaded design: ${designInfo.name}`);
+                  }
+                }}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

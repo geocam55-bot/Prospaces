@@ -27,9 +27,23 @@ export function CustomerSelector({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Load customers on mount and when search changes
   useEffect(() => {
-    loadCustomers();
-  }, [organizationId, searchQuery]);
+    if (organizationId) {
+      loadCustomers();
+    }
+  }, [organizationId]);
+
+  // Reload when search query changes (with debounce effect)
+  useEffect(() => {
+    if (!organizationId) return;
+    
+    const timer = setTimeout(() => {
+      loadCustomers();
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const loadCustomers = async () => {
     setIsLoading(true);
@@ -125,7 +139,7 @@ export function CustomerSelector({
                   </div>
                 ) : customers.length === 0 ? (
                   <div className="p-4 text-center text-slate-500">
-                    {searchQuery ? 'No customers found' : 'Start typing to search customers'}
+                    No customers found
                   </div>
                 ) : (
                   <div className="py-1">

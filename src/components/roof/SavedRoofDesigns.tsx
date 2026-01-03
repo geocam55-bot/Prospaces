@@ -1,15 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { RoofConfig, MaterialItem } from '../../types/roof';
 import { createClient } from '../../utils/supabase/client';
-import { Save, Trash2, Download, FileText, AlertCircle } from 'lucide-react';
-import type { User } from '../../App';
+import { CustomerSelector } from '../project-wizard/CustomerSelector';
+import { OpportunitySelector } from '../project-wizard/OpportunitySelector';
+import { Save, Trash2, Download, FileText, AlertCircle, User } from 'lucide-react';
+import type { User as AppUser } from '../../App';
 
 interface SavedRoofDesignsProps {
-  user: User;
+  user: AppUser;
   currentConfig: RoofConfig;
   materials: MaterialItem[];
   totalCost: number;
   onLoadDesign: (config: RoofConfig, info?: { name?: string; description?: string; customerName?: string; customerCompany?: string }) => void;
+}
+
+interface Customer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  price_level: string;
 }
 
 export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, onLoadDesign }: SavedRoofDesignsProps) {
@@ -19,8 +30,8 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [designName, setDesignName] = useState('');
   const [designDescription, setDesignDescription] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerCompany, setCustomerCompany] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
@@ -65,8 +76,8 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
         design_type: 'roof',
         name: designName,
         description: designDescription,
-        customer_name: customerName,
-        customer_company: customerCompany,
+        customer_name: selectedCustomer?.name,
+        customer_company: selectedCustomer?.company,
         config: currentConfig,
         materials: materials,
         total_cost: totalCost,
@@ -84,8 +95,8 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
       // Reset form and reload designs
       setDesignName('');
       setDesignDescription('');
-      setCustomerName('');
-      setCustomerCompany('');
+      setSelectedCustomer(null);
+      setSelectedOpportunityId(null);
       setShowSaveDialog(false);
       await loadSavedDesigns();
     } catch (error) {
@@ -170,24 +181,21 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
                 <label className="block text-slate-700 text-sm mb-1">
                   Customer Name
                 </label>
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Optional"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                <CustomerSelector
+                  organizationId={user.organizationId}
+                  selectedCustomer={selectedCustomer}
+                  onCustomerSelect={setSelectedCustomer}
                 />
               </div>
               <div>
                 <label className="block text-slate-700 text-sm mb-1">
-                  Company
+                  Opportunity
                 </label>
-                <input
-                  type="text"
-                  value={customerCompany}
-                  onChange={(e) => setCustomerCompany(e.target.value)}
-                  placeholder="Optional"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                <OpportunitySelector
+                  organizationId={user.organizationId}
+                  customerId={selectedCustomer?.id || null}
+                  selectedOpportunityId={selectedOpportunityId}
+                  onOpportunitySelect={setSelectedOpportunityId}
                 />
               </div>
             </div>

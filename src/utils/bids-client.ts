@@ -90,6 +90,11 @@ export async function getAllBidsClient() {
 }
 
 export async function getBidsByOpportunityClient(opportunityId: string) {
+  // ⚠️ NOTE: The contacts table does NOT have account_owner_number or created_by columns.
+  // This function only queries organization_id which DOES exist.
+  // If you need to add contact-based filtering, verify the column exists first!
+  // See /docs/DATABASE_SCHEMA_NOTES.md for details.
+  
   try {
     console.log('[getBidsByOpportunityClient] Starting query for opportunity:', opportunityId);
     const { data: { user } } = await supabase.auth.getUser();

@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { DeckConfig } from '../../types/deck';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
+import { OpportunitySelector } from '../project-wizard/OpportunitySelector';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
-import { FileText, Trash2, Download, Save, User } from 'lucide-react';
+import { FileText, Trash2, Download, Save, User, FileCheck } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
+import { Checkbox } from '../ui/checkbox';
 import type { User as AppUser } from '../../App';
 
 interface SavedDeckDesignsProps {
@@ -33,6 +35,14 @@ interface Customer {
   price_level: string;
 }
 
+interface Opportunity {
+  id: string;
+  title: string;
+  customer_id: string;
+  status: string;
+  value: number;
+}
+
 interface SavedDesign {
   id: string;
   name: string;
@@ -41,6 +51,8 @@ interface SavedDesign {
   customer_id: string | null;
   customer_name: string | null;
   customer_company: string | null;
+  opportunity_id: string | null;
+  opportunity_title: string | null;
   price_tier: string;
   total_cost: number;
   materials: any[];
@@ -59,9 +71,16 @@ export function SavedDeckDesigns({
   const [saveName, setSaveName] = useState('');
   const [saveDescription, setSaveDescription] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
+  const [createQuote, setCreateQuote] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Reset opportunity when customer changes
+  useEffect(() => {
+    setSelectedOpportunity(null);
+  }, [selectedCustomer]);
 
   useEffect(() => {
     // Only load if we have a valid organization ID
@@ -161,14 +180,21 @@ export function SavedDeckDesigns({
       return;
     }
 
+    if (createQuote && !selectedCustomer) {
+      setSaveMessage('Please select a customer to create a quote');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const { data, error } = await createClient()
+      // 1. Save the design
+      const { data: savedDesign, error } = await createClient()
         .from('saved_deck_designs')
         .insert({
           organization_id: user.organizationId,
           user_id: user.id,
           customer_id: selectedCustomer?.id || null,
+          opportunity_id: selectedOpportunity?.id || null,
           name: saveName.trim(),
           description: saveDescription.trim() || null,
           config: currentConfig,
@@ -184,12 +210,54 @@ export function SavedDeckDesigns({
         throw new Error(`Database error: ${error.message}`);
       }
 
-      console.log('✓ Design saved to Supabase successfully:', data);
+      console.log('✓ Design saved to Supabase successfully:', savedDesign);
+      
+      // 2. Create quote if requested
+      if (createQuote && selectedCustomer) {
+        const quoteData = {
+          organization_id: user.organizationId,
+          contact_id: selectedCustomer.id,
+          title: `Deck Design - ${saveName.trim()}`,
+          description: saveDescription.trim() || `${currentConfig.width}' × ${currentConfig.length}' ${currentConfig.shape} deck`,
+          line_items: materials.map(item => ({
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            unit_price: item.price || 0,
+            total_price: (item.price || 0) * item.quantity,
+          })),
+          subtotal: totalCost,
+          total: totalCost,
+          status: 'draft',
+          valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+          created_by: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const { error: quoteError } = await createClient()
+          .from('quotes')
+          .insert([quoteData]);
+
+        if (quoteError) {
+          console.error('Error creating quote:', quoteError);
+          setSaveMessage(`Design saved, but error creating quote: ${quoteError.message}`);
+          setTimeout(() => setSaveMessage(''), 5000);
+        } else {
+          console.log('✓ Quote created successfully');
+          setSaveMessage('Design saved and quote created successfully!');
+          setTimeout(() => setSaveMessage(''), 3000);
+        }
+      } else {
+        setSaveMessage('Design saved successfully to database!');
+        setTimeout(() => setSaveMessage(''), 3000);
+      }
+
+      // 3. Reset form
       setSaveName('');
       setSaveDescription('');
       setSelectedCustomer(null);
-      setSaveMessage('Design saved successfully to database!');
-      setTimeout(() => setSaveMessage(''), 3000);
+      setCreateQuote(false);
       
       await loadDesigns();
     } catch (error: any) {
@@ -278,6 +346,38 @@ export function SavedDeckDesigns({
             onCustomerSelect={setSelectedCustomer}
           />
           
+          <OpportunitySelector
+            organizationId={user.organizationId}
+            selectedOpportunity={selectedOpportunity}
+            onOpportunitySelect={setSelectedOpportunity}
+            customerId={selectedCustomer?.id}
+          />
+          
+          {/* Option to create quote */}
+          {selectedCustomer && (
+            <div className="flex items-start space-x-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <Checkbox
+                id="createQuote"
+                checked={createQuote}
+                onCheckedChange={(checked) => setCreateQuote(checked as boolean)}
+              />
+              <div className="flex-1">
+                <Label 
+                  htmlFor="createQuote" 
+                  className="text-sm cursor-pointer text-purple-900"
+                >
+                  <div className="flex items-center gap-2">
+                    <FileCheck className="w-4 h-4" />
+                    <span className="font-medium">Also create a quote for {selectedCustomer.name}</span>
+                  </div>
+                </Label>
+                <p className="text-xs text-purple-700 mt-1">
+                  This will save the design and automatically create a draft quote that you can finalize later
+                </p>
+              </div>
+            </div>
+          )}
+          
           {saveMessage && (
             <Alert className={saveMessage.includes('success') ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}>
               <AlertDescription className={saveMessage.includes('success') ? 'text-green-800' : 'text-yellow-800'}>
@@ -291,8 +391,17 @@ export function SavedDeckDesigns({
             className="w-full"
             disabled={isSaving}
           >
-            <Save className="w-4 h-4 mr-2" />
-            {isSaving ? 'Saving...' : 'Save Design'}
+            {isSaving ? (
+              <>
+                <Save className="w-4 h-4 mr-2 animate-spin" />
+                {createQuote ? 'Saving Design & Creating Quote...' : 'Saving Design...'}
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                {createQuote ? 'Save Design & Create Quote' : 'Save Design'}
+              </>
+            )}
           </Button>
           
           <div className="text-xs text-slate-500 space-y-1">

@@ -100,6 +100,18 @@ export async function getAllQuotesClient() {
 }
 
 export async function getQuotesByOpportunityClient(opportunityId: string) {
+  // ⚠️ CRITICAL: DO NOT ADD CONTACT ACCESS CHECKS HERE!
+  // The contacts table does NOT have the following columns:
+  // - account_owner_number (does not exist)
+  // - created_by (does not exist)
+  // 
+  // Access control is already handled by:
+  // 1. Opportunity-level filtering (if user can see opportunity, they can see quotes)
+  // 2. Organization-level filtering (quotes filtered by organization_id)
+  // 
+  // This function was broken because it tried to query non-existent contact columns.
+  // DO NOT try to "improve" access control by querying the contacts table!
+  
   console.error('[getQuotesByOpportunityClient] 🔴 FUNCTION ENTRY POINT');
   console.log('[getQuotesByOpportunityClient] ========== FUNCTION CALLED ==========');
   console.log('[getQuotesByOpportunityClient] opportunityId parameter:', opportunityId);

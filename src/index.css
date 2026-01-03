@@ -986,6 +986,10 @@
     display: table;
   }
 
+  .table\! {
+    display: table !important;
+  }
+
   .field-sizing-content {
     field-sizing: content;
   }
@@ -4024,6 +4028,12 @@
   }
 
   @media (hover: hover) {
+    .hover\:border-red-300:hover {
+      border-color: var(--color-red-300);
+    }
+  }
+
+  @media (hover: hover) {
     .hover\:border-red-400:hover {
       border-color: var(--color-red-400);
     }
@@ -4200,6 +4210,18 @@
   @media (hover: hover) {
     .hover\:bg-red-50:hover {
       background-color: var(--color-red-50);
+    }
+  }
+
+  @media (hover: hover) {
+    .hover\:bg-red-50\/50:hover {
+      background-color: color-mix(in srgb, oklch(.971 .013 17.38) 50%, transparent);
+    }
+
+    @supports (color: color-mix(in lab, red, red)) {
+      .hover\:bg-red-50\/50:hover {
+        background-color: color-mix(in oklab, var(--color-red-50) 50%, transparent);
+      }
     }
   }
 

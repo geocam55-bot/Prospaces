@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { GarageConfig, SavedGarageDesign } from '../../types/garage';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
+import { OpportunitySelector } from '../project-wizard/OpportunitySelector';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -59,6 +60,7 @@ export function SavedGarageDesigns({
   const [saveName, setSaveName] = useState('');
   const [saveDescription, setSaveDescription] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -169,6 +171,7 @@ export function SavedGarageDesigns({
           organization_id: user.organizationId,
           user_id: user.id,
           customer_id: selectedCustomer?.id || null,
+          opportunity_id: selectedOpportunityId,
           name: saveName.trim(),
           description: saveDescription.trim() || null,
           config: currentConfig,
@@ -188,6 +191,7 @@ export function SavedGarageDesigns({
       setSaveName('');
       setSaveDescription('');
       setSelectedCustomer(null);
+      setSelectedOpportunityId(null);
       setSaveMessage('Design saved successfully to database!');
       setTimeout(() => setSaveMessage(''), 3000);
       
@@ -276,6 +280,13 @@ export function SavedGarageDesigns({
             organizationId={user.organizationId}
             selectedCustomer={selectedCustomer}
             onCustomerSelect={setSelectedCustomer}
+          />
+          
+          <OpportunitySelector
+            organizationId={user.organizationId}
+            customerId={selectedCustomer?.id || null}
+            selectedOpportunityId={selectedOpportunityId}
+            onOpportunitySelect={setSelectedOpportunityId}
           />
           
           {saveMessage && (
