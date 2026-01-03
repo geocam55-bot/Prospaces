@@ -178,14 +178,39 @@ export function OpportunityChat({ opportunityId, user, opportunity, onClose, onE
       try {
         console.log('[OpportunityChat] 🔍 About to load bids and quotes for opportunity:', opportunityId);
         console.log('[OpportunityChat] 📍 LOADING STARTED - calling both APIs...');
+        console.log('[OpportunityChat] 🔍 Checking API objects:', { bidsAPI, quotesAPI });
+        console.log('[OpportunityChat] 🔍 Checking function exists:', {
+          bidsAPIgetByOpportunity: typeof bidsAPI.getByOpportunity,
+          quotesAPIgetQuotesByOpportunity: typeof quotesAPI.getQuotesByOpportunity
+        });
         
-        // Use the same pattern as ContactDetail (which works!)
-        const [bidsResult, quotesResult] = await Promise.all([
-          bidsAPI.getByOpportunity(opportunityId),
-          quotesAPI.getQuotesByOpportunity(opportunityId),
-        ]);
+        // Call them separately to see which one fails
+        let bidsResult, quotesResult;
         
-        console.log('[OpportunityChat] ✅ APIs completed');
+        try {
+          console.log('[OpportunityChat] 📞 Calling bidsAPI.getByOpportunity...');
+          bidsResult = await bidsAPI.getByOpportunity(opportunityId);
+          console.log('[OpportunityChat] ✅ Bids call completed:', bidsResult);
+        } catch (bidsError) {
+          console.error('[OpportunityChat] ❌ ERROR in bidsAPI.getByOpportunity:', bidsError);
+          throw bidsError;
+        }
+        
+        try {
+          console.log('[OpportunityChat] 📞 Calling quotesAPI.getQuotesByOpportunity...');
+          quotesResult = await quotesAPI.getQuotesByOpportunity(opportunityId);
+          console.log('[OpportunityChat] ✅ Quotes call completed:', quotesResult);
+        } catch (quotesError) {
+          console.error('[OpportunityChat] ❌ ERROR in quotesAPI.getQuotesByOpportunity:', quotesError);
+          console.error('[OpportunityChat] ❌ Error details:', {
+            message: (quotesError as Error).message,
+            stack: (quotesError as Error).stack,
+            error: quotesError
+          });
+          throw quotesError;
+        }
+        
+        console.log('[OpportunityChat] ✅ Both APIs completed successfully!');
         console.log('[OpportunityChat] Bids result:', bidsResult);
         console.log('[OpportunityChat] Quotes result:', quotesResult);
         console.log('[OpportunityChat] Number of bids:', bidsResult.bids?.length || 0);
