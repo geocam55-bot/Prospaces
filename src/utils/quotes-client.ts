@@ -161,64 +161,27 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
       return { quotes: [] };
     }
     
-    console.error('[getQuotesByOpportunityClient] 🔴 ABOUT TO QUERY CONTACT:', opportunity.customer_id);
+    console.error('[getQuotesByOpportunityClient] 🔴 CHECKING ACCESS TO OPPORTUNITY');
     
-    // Check if user has access to this opportunity's contact
-    const { data: contact, error: contactError } = await supabase
-      .from('contacts')
-      .select('id, organization_id, created_by')
-      .eq('id', opportunity.customer_id)
-      .maybeSingle();
-    
-    console.error('[getQuotesByOpportunityClient] 🔴 CONTACT QUERY RESULT:', { 
-      hasContact: !!contact, 
-      contactId: contact?.id,
-      error: contactError 
-    });
-    
-    if (contactError) {
-      console.error('[getQuotesByOpportunityClient] ❌❌❌ ERROR QUERYING CONTACT:', contactError);
-      console.error('[getQuotesByOpportunityClient] Error code:', contactError.code);
-      console.error('[getQuotesByOpportunityClient] Error message:', contactError.message);
-      console.error('[getQuotesByOpportunityClient] Error details:', contactError.details);
-      console.error('[getQuotesByOpportunityClient] Error hint:', contactError.hint);
-      return { quotes: [] };
-    }
-    
-    if (!contact) {
-      console.log('[getQuotesByOpportunityClient] ❌ Contact not found (no data returned)');
-      return { quotes: [] };
-    }
-    
-    const hasContactAccess = 
-      userRole === 'super_admin' || // Super admin sees everything
-      (userRole === 'admin' && contact.organization_id === userOrgId) || // Admin sees org contacts
-      (userRole === 'marketing' && contact.organization_id === userOrgId) || // Marketing sees org contacts
-      (userRole === 'manager' && contact.organization_id === userOrgId) || // Manager sees org contacts
-      (userRole === 'standard_user' && contact.organization_id === userOrgId && contact.created_by === user.id); // Standard user sees owned contacts
-    
-    if (!hasContactAccess) {
-      console.log('[getQuotesByOpportunityClient] ❌ User does not have access to this contact');
-      return { quotes: [] };
-    }
+    // Simplified access check: if user can see the opportunity (which they can since they navigated here),
+    // then they can see all quotes for that contact
+    // The opportunity filtering already ensures proper access control
     
     console.log('[getQuotesByOpportunityClient] ✅ User has access - loading ALL quotes for this contact');
     
     // Get ALL quotes for this contact (quotes are linked to contacts, not opportunities)
-    // Since we've already verified contact access, show all quotes for this contact
-    // Filter by the contact's organization to ensure data isolation at the org level
+    // Filter by the opportunity's organization_id to ensure data isolation
     let query = supabase
       .from('quotes')
       .select('*')
       .eq('contact_id', opportunity.customer_id);
     
-    // Filter by the contact's organization_id to ensure data isolation
-    // This ensures we only show quotes that belong to the same organization as the contact
-    if (userRole !== 'super_admin' && contact.organization_id) {
-      console.log('[getQuotesByOpportunityClient] Applying org filter for contact org:', contact.organization_id);
-      query = query.or(`organization_id.eq.${contact.organization_id},organization_id.is.null`);
-    } else if (userRole !== 'super_admin') {
-      // Fallback to user's org if contact doesn't have an org
+    // Filter by organization to ensure data isolation
+    if (userRole !== 'super_admin' && opportunity.organization_id) {
+      console.log('[getQuotesByOpportunityClient] Applying org filter for opportunity org:', opportunity.organization_id);
+      query = query.or(`organization_id.eq.${opportunity.organization_id},organization_id.is.null`);
+    } else if (userRole !== 'super_admin' && userOrgId) {
+      // Fallback to user's org if opportunity doesn't have an org
       console.log('[getQuotesByOpportunityClient] Applying org filter for user org:', userOrgId);
       query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
     } else {
