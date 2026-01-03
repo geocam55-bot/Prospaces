@@ -174,8 +174,11 @@ export function OpportunityChat({ opportunityId, user, opportunity, onClose, onE
       
       setMessages(allMessages);
       
+      console.log('[OpportunityChat] 🚀 CHECKPOINT 1: Before try block');
+      
       // Load bids from BOTH bids and quotes tables
       try {
+        console.log('[OpportunityChat] 🚀 CHECKPOINT 2: Inside try block');
         console.log('[OpportunityChat] 🔍 About to load bids and quotes for opportunity:', opportunityId);
         console.log('[OpportunityChat] 📍 LOADING STARTED - calling both APIs...');
         
