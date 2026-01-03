@@ -100,6 +100,10 @@ export async function getAllQuotesClient() {
 }
 
 export async function getQuotesByOpportunityClient(opportunityId: string) {
+  console.log('[getQuotesByOpportunityClient] ========== FUNCTION CALLED ==========');
+  console.log('[getQuotesByOpportunityClient] opportunityId parameter:', opportunityId);
+  console.log('[getQuotesByOpportunityClient] typeof opportunityId:', typeof opportunityId);
+  
   try {
     console.log('[getQuotesByOpportunityClient] Starting query for opportunity:', opportunityId);
     const { data: { user } } = await supabase.auth.getUser();
