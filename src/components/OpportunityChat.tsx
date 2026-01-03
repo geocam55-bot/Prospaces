@@ -177,10 +177,28 @@ export function OpportunityChat({ opportunityId, user, opportunity, onClose, onE
       // Load bids from BOTH bids and quotes tables
       try {
         console.log('[OpportunityChat] 🔍 About to load bids and quotes for opportunity:', opportunityId);
-        const [bidsResult, quotesResult] = await Promise.all([
-          bidsAPI.getByOpportunity(opportunityId),
-          quotesAPI.getQuotesByOpportunity(opportunityId)
-        ]);
+        
+        let bidsResult, quotesResult;
+        
+        try {
+          console.log('[OpportunityChat] 📞 Calling bidsAPI.getByOpportunity...');
+          bidsResult = await bidsAPI.getByOpportunity(opportunityId);
+          console.log('[OpportunityChat] ✅ bidsAPI.getByOpportunity completed:', bidsResult);
+        } catch (bidsErr) {
+          console.error('[OpportunityChat] ❌ Error calling bidsAPI.getByOpportunity:', bidsErr);
+          throw bidsErr;
+        }
+        
+        try {
+          console.log('[OpportunityChat] 📞 Calling quotesAPI.getQuotesByOpportunity...');
+          quotesResult = await quotesAPI.getQuotesByOpportunity(opportunityId);
+          console.log('[OpportunityChat] ✅ quotesAPI.getQuotesByOpportunity completed:', quotesResult);
+        } catch (quotesErr) {
+          console.error('[OpportunityChat] ❌ Error calling quotesAPI.getQuotesByOpportunity:', quotesErr);
+          console.error('[OpportunityChat] ❌ Error message:', (quotesErr as Error).message);
+          console.error('[OpportunityChat] ❌ Error stack:', (quotesErr as Error).stack);
+          throw quotesErr;
+        }
         
         console.log('[OpportunityChat] Raw bids data:', bidsResult.bids);
         console.log('[OpportunityChat] Raw quotes data:', quotesResult.quotes);
