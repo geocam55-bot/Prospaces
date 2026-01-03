@@ -217,10 +217,15 @@ export function OpportunityChat({ opportunityId, user, opportunity, onClose, onE
           quotesAPIgetQuotesByOpportunity: typeof quotesAPI.getQuotesByOpportunity
         });
         
+        console.log('[OpportunityChat] ⚡ CHECKPOINT 3: After function check');
+        
         // Call them separately to see which one fails
         let bidsResult, quotesResult;
         
+        console.log('[OpportunityChat] ⚡ CHECKPOINT 4: Variables declared');
+        
         try {
+          console.log('[OpportunityChat] ⚡ CHECKPOINT 5: Inside bids try block');
           console.log('[OpportunityChat] 📞 Calling bidsAPI.getByOpportunity...');
           bidsResult = await bidsAPI.getByOpportunity(opportunityId);
           console.log('[OpportunityChat] ✅ Bids call completed:', bidsResult);
@@ -230,6 +235,7 @@ export function OpportunityChat({ opportunityId, user, opportunity, onClose, onE
         }
         
         try {
+          console.log('[OpportunityChat] ⚡ CHECKPOINT 6: Inside quotes try block');
           console.log('[OpportunityChat] 📞 Calling quotesAPI.getQuotesByOpportunity...');
           quotesResult = await quotesAPI.getQuotesByOpportunity(opportunityId);
           console.log('[OpportunityChat] ✅ Quotes call completed:', quotesResult);
