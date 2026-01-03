@@ -175,62 +175,69 @@ export function OpportunityChat({ opportunityId, user, opportunity, onClose, onE
       setMessages(allMessages);
       
       // Load bids from BOTH bids and quotes tables
-      const [bidsResult, quotesResult] = await Promise.all([
-        bidsAPI.getByOpportunity(opportunityId),
-        quotesAPI.getQuotesByOpportunity(opportunityId)
-      ]);
-      
-      console.log('[OpportunityChat] Raw bids data:', bidsResult.bids);
-      console.log('[OpportunityChat] Raw quotes data:', quotesResult.quotes);
-      console.log('[OpportunityChat] Number of bids returned:', bidsResult.bids?.length || 0);
-      console.log('[OpportunityChat] Number of quotes returned:', quotesResult.quotes?.length || 0);
-      
-      // Merge bids and quotes
-      const allBids = [...(bidsResult.bids || []), ...(quotesResult.quotes || [])];
-      
-      console.log('[OpportunityChat] Total bids + quotes:', allBids.length);
-      console.log('[OpportunityChat] Sample bid object:', allBids[0]);
-      console.log('[OpportunityChat] Sample quote object (if exists):', allBids.find(b => b.quote_number || b.quoteNumber));
-      
-      // Normalize the bids data to handle both snake_case and camelCase
-      const normalizedBids = allBids.map((bid: any) => {
-        console.log('[OpportunityChat] Processing bid/quote:', bid.title, 'Fields:', Object.keys(bid));
-        console.log('[OpportunityChat] Amount fields check:', {
-          amount: bid.amount,
-          bidAmount: bid.bidAmount,
-          total: bid.total,
-          total_amount: bid.total_amount,
-          quote_amount: bid.quote_amount,
-          subtotal: bid.subtotal,
-          grand_total: bid.grand_total
+      try {
+        console.log('[OpportunityChat] 🔍 About to load bids and quotes for opportunity:', opportunityId);
+        const [bidsResult, quotesResult] = await Promise.all([
+          bidsAPI.getByOpportunity(opportunityId),
+          quotesAPI.getQuotesByOpportunity(opportunityId)
+        ]);
+        
+        console.log('[OpportunityChat] Raw bids data:', bidsResult.bids);
+        console.log('[OpportunityChat] Raw quotes data:', quotesResult.quotes);
+        console.log('[OpportunityChat] Number of bids returned:', bidsResult.bids?.length || 0);
+        console.log('[OpportunityChat] Number of quotes returned:', quotesResult.quotes?.length || 0);
+        
+        // Merge bids and quotes
+        const allBids = [...(bidsResult.bids || []), ...(quotesResult.quotes || [])];
+        
+        console.log('[OpportunityChat] Total bids + quotes:', allBids.length);
+        console.log('[OpportunityChat] Sample bid object:', allBids[0]);
+        console.log('[OpportunityChat] Sample quote object (if exists):', allBids.find(b => b.quote_number || b.quoteNumber));
+        
+        // Normalize the bids data to handle both snake_case and camelCase
+        const normalizedBids = allBids.map((bid: any) => {
+          console.log('[OpportunityChat] Processing bid/quote:', bid.title, 'Fields:', Object.keys(bid));
+          console.log('[OpportunityChat] Amount fields check:', {
+            amount: bid.amount,
+            bidAmount: bid.bidAmount,
+            total: bid.total,
+            total_amount: bid.total_amount,
+            quote_amount: bid.quote_amount,
+            subtotal: bid.subtotal,
+            grand_total: bid.grand_total
+          });
+          
+          return {
+            ...bid,
+            bidAmount: bid.amount || bid.bidAmount || bid.total || bid.total_amount || bid.quote_amount || bid.subtotal || bid.grand_total || 0,
+            submissionDate: bid.submission_date || bid.submissionDate || bid.created_at || new Date().toISOString()
+          };
         });
         
-        return {
-          ...bid,
-          bidAmount: bid.amount || bid.bidAmount || bid.total || bid.total_amount || bid.quote_amount || bid.subtotal || bid.grand_total || 0,
-          submissionDate: bid.submission_date || bid.submissionDate || bid.created_at || new Date().toISOString()
-        };
-      });
-      
-      console.log('[OpportunityChat] Total normalized bids (bids + quotes):', normalizedBids.length);
-      console.log('[OpportunityChat] Normalized bids:', normalizedBids);
-      setBids(normalizedBids);
-      
-      // Add bid submitted messages
-      const bidMessages = normalizedBids.map((bid: Bid) => ({
-        id: `bid-${bid.id}`,
-        opportunityId,
-        userId: user.id,
-        userName: user.full_name || user.email || 'User',
-        message: `Bid submitted: ${bid.title}`,
-        messageType: 'bid_submitted' as const,
-        createdAt: bid.submissionDate,
-        metadata: { bidId: bid.id, bidAmount: bid.bidAmount }
-      }));
-      
-      setMessages([...allMessages, ...bidMessages].sort((a, b) => 
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      ));
+        console.log('[OpportunityChat] Total normalized bids (bids + quotes):', normalizedBids.length);
+        console.log('[OpportunityChat] Normalized bids:', normalizedBids);
+        setBids(normalizedBids);
+        
+        // Add bid submitted messages
+        const bidMessages = normalizedBids.map((bid: Bid) => ({
+          id: `bid-${bid.id}`,
+          opportunityId,
+          userId: user.id,
+          userName: user.full_name || user.email || 'User',
+          message: `Bid submitted: ${bid.title}`,
+          messageType: 'bid_submitted' as const,
+          createdAt: bid.submissionDate
+        }));
+        
+        setMessages([...allMessages, ...bidMessages].sort((a, b) => 
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        ));
+      } catch (bidsError) {
+        console.error('[OpportunityChat] ❌ Error loading bids/quotes:', bidsError);
+        console.error('[OpportunityChat] ❌ Error stack:', (bidsError as Error).stack);
+        // Continue without bids if there's an error
+        setBids([]);
+      }
     } catch (error) {
       console.error('Failed to load opportunity data:', error);
     } finally {
