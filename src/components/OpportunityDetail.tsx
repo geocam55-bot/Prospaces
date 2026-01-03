@@ -142,8 +142,9 @@ export function OpportunityDetail({ opportunity, user, onBack, onEdit }: Opportu
       setIsLoading(true);
       console.log('[loadData] Starting to load data for opportunity:', opportunity.id);
       
-      const [bidsData, contactsData, pmsData, inventoryData] = await Promise.all([
+      const [bidsData, quotesData, contactsData, pmsData, inventoryData] = await Promise.all([
         bidsAPI.getByOpportunity(opportunity.id),
+        quotesAPI.getAll(),
         contactsAPI.getAll(),
         projectManagersAPI.getByCustomer(opportunity.customerId),
         inventoryAPI.getAll(),
@@ -151,10 +152,25 @@ export function OpportunityDetail({ opportunity, user, onBack, onEdit }: Opportu
       
       console.log('[loadData] Raw bidsData:', bidsData);
       console.log('[loadData] Number of bids loaded:', bidsData.bids?.length || 0);
+      console.log('[loadData] All quotes from API:', quotesData.quotes?.length || 0);
+      console.log('[loadData] Opportunity customer ID:', opportunity.customerId);
       
       // Parse bids line items if they're stringified and map snake_case to camelCase
       const parsedBids = (bidsData.bids || []).map((b: any) => {
         console.log('[loadData] Processing bid:', b);
+        let lineItems = [];
+        try {
+          if (typeof b.items === 'string') {
+            lineItems = JSON.parse(b.items);
+          } else if (Array.isArray(b.items)) {
+            lineItems = b.items;
+          } else if (b.line_items) {
+            lineItems = typeof b.line_items === 'string' ? JSON.parse(b.line_items) : b.line_items;
+          }
+        } catch (e) {
+          console.error('Failed to parse bid line items:', e);
+        }
+        
         return {
           id: b.id,
           title: b.title,
@@ -168,17 +184,82 @@ export function OpportunityDetail({ opportunity, user, onBack, onEdit }: Opportu
           status: b.status,
           validUntil: b.valid_until || b.validUntil,
           notes: b.notes,
-          items: typeof b.items === 'string' ? JSON.parse(b.items) : (b.items || []),
+          items: lineItems,
           createdAt: b.created_at || b.createdAt,
           contacts: b.contacts,
           project_managers: b.project_managers,
+          _source: 'bids', // Tag to identify source
         };
       });
       
+      // Filter quotes by customer_id OR opportunity_id (if quotes table has it)
+      const allQuotes = quotesData.quotes || [];
+      const quotesForOpportunity = allQuotes.filter((q: any) => {
+        // Check if quote has opportunity_id matching this opportunity
+        if (q.opportunity_id === opportunity.id) {
+          console.log('[loadData] ✅ Quote matched by opportunity_id:', q.id, q.title);
+          return true;
+        }
+        // Fallback: Check if quote has customer_id matching this opportunity's customer
+        if (q.contact_id === opportunity.customerId || q.customer_id === opportunity.customerId) {
+          console.log('[loadData] ✅ Quote matched by customer_id:', q.id, q.title);
+          return true;
+        }
+        return false;
+      });
+      
+      console.log('[loadData] Quotes for this opportunity:', quotesForOpportunity.length);
+      
+      // Parse line items for each quote and convert to bid format
+      const parsedQuotes = quotesForOpportunity.map((quote: any) => {
+        let parsedLineItems: any[] = [];
+        const rawLineItems = quote.lineItems || quote.line_items || quote.items;
+        if (rawLineItems) {
+          try {
+            if (typeof rawLineItems === 'string') {
+              parsedLineItems = JSON.parse(rawLineItems);
+            } else if (Array.isArray(rawLineItems)) {
+              parsedLineItems = rawLineItems;
+            }
+            // Ensure cost field exists for backward compatibility
+            parsedLineItems = parsedLineItems.map(item => ({
+              ...item,
+              cost: item.cost ?? 0,
+            }));
+          } catch (error) {
+            console.error('Failed to parse line items for quote:', quote.id, error);
+          }
+        }
+        
+        // Convert quote to bid format for display consistency
+        return {
+          id: quote.id,
+          title: quote.title || 'Quote',
+          customerId: quote.contact_id || quote.customer_id,
+          opportunityId: opportunity.id,
+          amount: quote.total || quote.amount || 0,
+          status: quote.status || 'draft',
+          validUntil: quote.valid_until || quote.validUntil || new Date().toISOString(),
+          notes: quote.notes || '',
+          createdAt: quote.created_at || quote.createdAt,
+          items: parsedLineItems,
+          subtotal: quote.subtotal || 0,
+          taxRate: quote.tax_percent || quote.taxPercent || 0,
+          taxAmount: quote.tax_amount || quote.taxAmount || 0,
+          _source: 'quotes', // Tag to identify source
+        };
+      });
+      
+      // Merge bids and quotes
+      const allBids = [...parsedBids, ...parsedQuotes].sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      
+      console.log('[loadData] Total merged bids + quotes:', allBids.length);
       console.log('[loadData] Parsed bids:', parsedBids);
       console.log('[loadData] Project managers loaded:', pmsData.projectManagers?.length || 0);
       
-      setBids(parsedBids);
+      setBids(allBids);
       setContacts(contactsData.contacts || []);
       setProjectManagers(pmsData.projectManagers || []);
       setInventoryItems(inventoryData.items || []);
