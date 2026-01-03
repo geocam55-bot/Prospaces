@@ -36,6 +36,7 @@ import { ThemeProvider } from './components/ThemeProvider';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { FaviconGenerator } from './components/FaviconGenerator';
+import { OpportunitiesDiagnostic } from './components/OpportunitiesDiagnostic';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
@@ -79,9 +80,14 @@ function App() {
   // Check if accessing favicon generator (no auth required)
   const urlParams = new URLSearchParams(window.location.search);
   const isFaviconGenerator = urlParams.get('view') === 'favicon-generator';
+  const isOpportunitiesDiagnostic = urlParams.get('view') === 'opportunities-diagnostic';
 
   if (isFaviconGenerator) {
     return <FaviconGenerator />;
+  }
+
+  if (isOpportunitiesDiagnostic) {
+    return <OpportunitiesDiagnostic />;
   }
 
   useEffect(() => {

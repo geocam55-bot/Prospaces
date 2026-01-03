@@ -24,7 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { bidsAPI, contactsAPI, projectManagersAPI, inventoryAPI } from '../utils/api';
+import { bidsAPI, contactsAPI, projectManagersAPI, inventoryAPI, quotesAPI } from '../utils/api';
 import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
 import { canAdd, canChange, canDelete } from '../utils/permissions';

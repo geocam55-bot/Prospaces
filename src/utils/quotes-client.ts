@@ -224,13 +224,10 @@ export async function createQuoteClient(data: any) {
       return `QT-${year}${month}-${random}`;
     };
     
-    // Remove opportunity_id - quotes table doesn't have this column
-    // Quotes are linked to contacts, not directly to opportunities
-    const { opportunity_id, ...cleanData } = data;
-    
+    // ✅ Keep opportunity_id if provided - quotes CAN be linked to opportunities
     const quoteData = {
-      ...cleanData,
-      quote_number: cleanData.quote_number || generateQuoteNumber(),
+      ...data,
+      quote_number: data.quote_number || generateQuoteNumber(),
       organization_id: organizationId,
       created_by: user.id,
       created_at: new Date().toISOString(),

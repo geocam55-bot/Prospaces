@@ -34,6 +34,8 @@ export function Login({ onLogin }: LoginProps) {
   const [isResendingEmail, setIsResendingEmail] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [pendingUser, setPendingUser] = useState<{ user: User; token: string } | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [isResetLoading, setIsResetLoading] = useState(false);
 
   const handleResendConfirmationEmail = async () => {
     if (!email) {
@@ -70,6 +72,37 @@ export function Login({ onLogin }: LoginProps) {
     if (pendingUser) {
       onLogin(pendingUser.user, pendingUser.token);
       setPendingUser(null);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address first');
+      return;
+    }
+
+    setIsResetLoading(true);
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const supabase = createClient();
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/`,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setSuccessMessage('✅ Password reset email sent! Please check your inbox (and spam folder) for the reset link.');
+      setShowForgotPassword(false);
+    } catch (err: any) {
+      console.error('Password reset error:', err);
+      setError(`Failed to send password reset email: ${err.message}`);
+    } finally {
+      setIsResetLoading(false);
     }
   };
 
@@ -770,6 +803,23 @@ export function Login({ onLogin }: LoginProps) {
                   >
                     {isLoading ? 'Signing in...' : 'Sign In'}
                   </Button>
+                  
+                  <div className="text-center">
+                    <Button 
+                      type="button"
+                      variant="link"
+                      className="text-sm text-purple-600 hover:text-purple-700"
+                      onClick={handleForgotPassword}
+                      disabled={isResetLoading || !email}
+                    >
+                      {isResetLoading ? 'Sending reset link...' : 'Forgot password?'}
+                    </Button>
+                    {!email && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter your email address above first
+                      </p>
+                    )}
+                  </div>
                   
                   {error && error.includes('SIGN IN FAILED') && (
                     <div className="pt-2">

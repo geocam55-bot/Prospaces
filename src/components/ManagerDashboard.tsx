@@ -287,11 +287,42 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
       // Opportunities
       let opportunitiesResult = { data: null, error: null };
       try {
-        opportunitiesResult = await supabase
-          .from('opportunities')
-          .select('id, title, status, value, owner_id, expected_close_date, created_at, updated_at')
-          .eq('owner_id', userId)
-          .limit(1000);
+        // Standard users should see opportunities for contacts they own, not just opportunities they created
+        // First get all contact IDs owned by this user
+        const { data: userContacts } = await supabase
+          .from('contacts')
+          .select('id')
+          .eq('organization_id', user.organizationId)
+          .eq('owner_id', userId);
+        
+        const contactIds = (userContacts || []).map((c: any) => c.id);
+        
+        console.log('🔍 [Team Dashboard] User:', userId);
+        console.log('🔍 [Team Dashboard] Contacts owned by user:', contactIds);
+        
+        if (contactIds.length > 0) {
+          // Get ALL opportunities for this org to debug
+          const { data: allOpps } = await supabase
+            .from('opportunities')
+            .select('id, title, customer_id, owner_id')
+            .eq('organization_id', user.organizationId);
+          
+          console.log('🔍 [Team Dashboard] ALL opportunities in org:', allOpps);
+          
+          // Get opportunities for those contacts
+          opportunitiesResult = await supabase
+            .from('opportunities')
+            .select('id, title, status, value, owner_id, customer_id, expected_close_date, created_at, updated_at')
+            .eq('organization_id', user.organizationId)
+            .in('customer_id', contactIds)
+            .limit(1000);
+          
+          console.log('🔍 [Team Dashboard] Filtered opportunities:', opportunitiesResult.data);
+        } else {
+          // No contacts = no opportunities
+          console.log('⚠️ [Team Dashboard] User has NO contacts');
+          opportunitiesResult.data = [];
+        }
       } catch (err) {
         opportunitiesResult.error = err;
       }
