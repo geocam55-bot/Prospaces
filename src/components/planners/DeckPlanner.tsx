@@ -5,13 +5,13 @@ import { Deck3DRenderer, Deck3DRendererRef } from '../deck/Deck3DRenderer';
 import { MaterialsList } from '../deck/MaterialsList';
 import { DeckTemplates } from '../deck/DeckTemplates';
 import { SavedDeckDesigns } from '../deck/SavedDeckDesigns';
-import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { DiagnosticPanel } from '../DiagnosticPanel';
 import { PrintableDeckDesign } from '../project-wizard/PrintableDeckDesign';
+import { PlannerDefaults } from '../PlannerDefaults';
 import { calculateMaterials } from '../../utils/deckCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { DeckConfig } from '../../types/deck';
-import { Ruler, Package, Printer, FileText, Box, Layers, Hammer } from 'lucide-react';
+import { Ruler, Package, Printer, FileText, Box, Layers, Hammer, Settings } from 'lucide-react';
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 import type { User } from '../../App';
@@ -38,7 +38,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     unit: 'feet',
   });
 
-  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved'>('design');
+  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved' | 'defaults'>('design');
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
@@ -217,6 +217,17 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
                 <FileText className="w-4 h-4" />
                 Saved Designs
               </button>
+              <button
+                onClick={() => setActiveTab('defaults')}
+                className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+                  activeTab === 'defaults'
+                    ? 'border-purple-600 text-purple-600'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                Defaults
+              </button>
             </nav>
             <button
               onClick={handlePrint}
@@ -236,15 +247,6 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
             <div className="lg:col-span-1 space-y-6 print:hidden">
               <DeckTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
               <DeckConfigurator config={config} onChange={setConfig} />
-              
-              {/* Quote Generator */}
-              <ProjectQuoteGenerator
-                user={user}
-                projectType="deck"
-                materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
-                totalCost={totalT1Price > 0 ? totalT1Price : 0}
-                projectData={config}
-              />
             </div>
 
             <div className="lg:col-span-2 space-y-6 print:hidden">
@@ -276,15 +278,17 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
                     </button>
                   </div>
                 </div>
-                <div className="h-[500px] overflow-y-auto">
+                <div>
                   {viewMode === '2d' ? (
                     <DeckCanvas config={config} />
                   ) : (
-                    <Deck3DRenderer 
-                      key={`3d-${config.width}-${config.length}-${config.shape}-${config.lShapePosition}-${config.lShapeWidth}-${config.lShapeLength}-${config.hasStairs}-${config.stairSide}`} 
-                      config={config} 
-                      ref={deck3DRendererRef}
-                    />
+                    <div className="h-[500px]">
+                      <Deck3DRenderer 
+                        key={`3d-${config.width}-${config.length}-${config.shape}-${config.lShapePosition}-${config.lShapeWidth}-${config.lShapeLength}-${config.hasStairs}-${config.stairSide}`} 
+                        config={config} 
+                        ref={deck3DRendererRef}
+                      />
+                    </div>
                   )}
                 </div>
               </div>
@@ -332,6 +336,15 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
             materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
             totalCost={totalT1Price > 0 ? totalT1Price : 0}
             onLoadDesign={handleLoadDesign} 
+          />
+        )}
+
+        {activeTab === 'defaults' && (
+          <PlannerDefaults 
+            organizationId={user.organizationId}
+            userId={user.id}
+            plannerType="deck"
+            materialTypes={['spruce', 'treated', 'composite', 'cedar']}
           />
         )}
       </div>

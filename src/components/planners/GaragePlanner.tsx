@@ -5,12 +5,12 @@ import { Garage3DRenderer } from '../garage/Garage3DRenderer';
 import { GarageMaterialsList } from '../garage/GarageMaterialsList';
 import { GarageTemplates } from '../garage/GarageTemplates';
 import { SavedGarageDesigns } from '../garage/SavedGarageDesigns';
-import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { PrintableGarageDesign } from '../project-wizard/PrintableGarageDesign';
+import { PlannerDefaults } from '../PlannerDefaults';
 import { calculateMaterials } from '../../utils/garageCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { GarageConfig } from '../../types/garage';
-import { Ruler, Package, Printer, FileText, Box, Layers, Warehouse } from 'lucide-react';
+import { Ruler, Package, Printer, FileText, Box, Layers, Warehouse, Settings } from 'lucide-react';
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 import type { User } from '../../App';
@@ -74,7 +74,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
     unit: 'feet',
   });
 
-  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved'>('design');
+  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved' | 'defaults'>('design');
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
@@ -225,6 +225,17 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
                 <FileText className="w-4 h-4" />
                 Saved Designs
               </button>
+              <button
+                onClick={() => setActiveTab('defaults')}
+                className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+                  activeTab === 'defaults'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                Defaults
+              </button>
             </nav>
             <button
               onClick={handlePrint}
@@ -244,15 +255,6 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
             <div className="lg:col-span-1 space-y-6 print:hidden">
               <GarageTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
               <GarageConfigurator config={config} onChange={setConfig} />
-              
-              {/* Quote Generator */}
-              <ProjectQuoteGenerator
-                user={user}
-                projectType="garage"
-                materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
-                totalCost={totalT1Price > 0 ? totalT1Price : 0}
-                projectData={config}
-              />
             </div>
 
             <div className="lg:col-span-2 space-y-6 print:hidden">
@@ -284,11 +286,13 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
                     </button>
                   </div>
                 </div>
-                <div className="h-[500px]">
+                <div>
                   {viewMode === '2d' ? (
                     <GarageCanvas config={config} />
                   ) : (
-                    <Garage3DRenderer config={config} />
+                    <div className="h-[500px]">
+                      <Garage3DRenderer config={config} />
+                    </div>
                   )}
                 </div>
               </div>
@@ -330,6 +334,14 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
             materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
             totalCost={totalT1Price > 0 ? totalT1Price : 0}
             onLoadDesign={handleLoadDesign} 
+          />
+        )}
+
+        {activeTab === 'defaults' && (
+          <PlannerDefaults 
+            organizationId={user.organizationId}
+            userId={user.id}
+            plannerType="garage"
           />
         )}
       </div>

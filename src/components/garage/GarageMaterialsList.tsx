@@ -23,7 +23,7 @@ export function GarageMaterialsList({ materials, compact = false }: GarageMateri
 
   if (compact) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2">
         {categories.map((category) => {
           // Filter out items with zero quantity
           const nonZeroItems = category.items.filter(item => item.quantity > 0);

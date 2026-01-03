@@ -1,17 +1,6 @@
-import { useState, useEffect } from 'react';
-import { toast } from 'sonner@2.0.3';
-import { Security } from './Security';
-import { TestDataGenerator } from './TestDataGenerator';
-import { ThemeSelector } from './ThemeSelector';
-import { FindLarryContacts } from './FindLarryContacts';
-import { BidsTableMigration } from './BidsTableMigration';
-import { ThemeMigration } from './ThemeMigration';
-import { FullCRMDatabaseSetup } from './FullCRMDatabaseSetup';
-import { OrganizationFeatureMigration } from './OrganizationFeatureMigration';
-import { ProjectWizardSettings } from './ProjectWizardSettings';
-import { ReassignContacts } from './admin/ReassignContacts';
-import { AIToggleSwitch } from './AIToggleSwitch';
-import { EmailCustomFoldersMigration } from './EmailCustomFoldersMigration';
+import { PlannerDefaultsMigrationStatus } from './PlannerDefaultsMigrationStatus';
+import { TestUserDefaults } from './TestUserDefaults';
+import { PlannerMigrationValidator } from './PlannerMigrationValidator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -943,6 +932,12 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               </Button>
             </CardContent>
           </Card>
+
+          {/* Planner Defaults Migration Status */}
+          <PlannerDefaultsMigrationStatus 
+            userId={user.id}
+            organizationId={user.organizationId}
+          />
         </TabsContent>
 
         {canManageSettings && (
@@ -968,6 +963,18 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             
             {/* Reassign Contacts */}
             <ReassignContacts />
+            
+            {/* Test User Defaults API */}
+            <TestUserDefaults 
+              userId={user.id}
+              organizationId={user.organizationId}
+            />
+            
+            {/* Comprehensive Planner Migration Validator */}
+            <PlannerMigrationValidator 
+              userId={user.id}
+              organizationId={user.organizationId}
+            />
           </TabsContent>
         )}
       </Tabs>

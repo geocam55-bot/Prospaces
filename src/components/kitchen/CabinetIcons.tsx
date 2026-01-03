@@ -1,9 +1,9 @@
 import React from 'react';
 
 // Base Cabinet - Isometric view
-export function BaseCabinetIcon() {
+export function BaseCabinetIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className || "w-full h-full"} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Back face */}
       <path d="M30 35 L60 20 L90 35 L60 50 Z" fill="#f8f9fa" stroke="#1f2937" strokeWidth="1.5"/>
       
@@ -29,9 +29,9 @@ export function BaseCabinetIcon() {
 }
 
 // Wall Cabinet - Isometric view
-export function WallCabinetIcon() {
+export function WallCabinetIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className || "w-full h-full"} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Back face */}
       <path d="M25 45 L60 30 L95 45 L60 60 Z" fill="#f8f9fa" stroke="#1f2937" strokeWidth="1.5"/>
       
@@ -53,9 +53,9 @@ export function WallCabinetIcon() {
 }
 
 // Tall Cabinet - Isometric view
-export function TallCabinetIcon() {
+export function TallCabinetIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className || "w-full h-full"} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Back face */}
       <path d="M35 25 L60 15 L85 25 L60 35 Z" fill="#f8f9fa" stroke="#1f2937" strokeWidth="1.5"/>
       
@@ -80,9 +80,9 @@ export function TallCabinetIcon() {
 }
 
 // Corner Base Cabinet - Isometric view
-export function CornerBaseCabinetIcon() {
+export function CornerBaseCabinetIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className || "w-full h-full"} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* L-shaped corner cabinet */}
       {/* Back left */}
       <path d="M20 40 L40 30 L40 75 L20 85 Z" fill="#ffffff" stroke="#1f2937" strokeWidth="1.5"/>
@@ -101,9 +101,9 @@ export function CornerBaseCabinetIcon() {
 }
 
 // Island Cabinet - Isometric view
-export function IslandCabinetIcon() {
+export function IslandCabinetIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className || "w-full h-full"} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Top surface */}
       <path d="M25 35 L60 20 L95 35 L60 50 Z" fill="#9ca3af" stroke="#1f2937" strokeWidth="1.5"/>
       
@@ -125,9 +125,9 @@ export function IslandCabinetIcon() {
 }
 
 // Refrigerator - Isometric view
-export function RefrigeratorIcon() {
+export function RefrigeratorIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className || "w-full h-full"} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Back face */}
       <path d="M35 20 L60 10 L85 20 L60 30 Z" fill="#f1f5f9" stroke="#1f2937" strokeWidth="1.5"/>
       
@@ -149,9 +149,9 @@ export function RefrigeratorIcon() {
 }
 
 // Stove/Range - Isometric view
-export function StoveIcon() {
+export function StoveIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className || "w-full h-full"} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Top surface */}
       <path d="M30 40 L60 25 L90 40 L60 55 Z" fill="#1f2937" stroke="#1f2937" strokeWidth="1.5"/>
       
@@ -177,9 +177,9 @@ export function StoveIcon() {
 }
 
 // Dishwasher - Isometric view
-export function DishwasherIcon() {
+export function DishwasherIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className || "w-full h-full"} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Back face */}
       <path d="M35 35 L60 25 L85 35 L60 45 Z" fill="#f1f5f9" stroke="#1f2937" strokeWidth="1.5"/>
       
@@ -204,9 +204,9 @@ export function DishwasherIcon() {
 }
 
 // Microwave - Isometric view
-export function MicrowaveIcon() {
+export function MicrowaveIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className || "w-full h-full"} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Back face */}
       <path d="M25 45 L60 30 L95 45 L60 60 Z" fill="#f1f5f9" stroke="#1f2937" strokeWidth="1.5"/>
       
@@ -234,9 +234,9 @@ export function MicrowaveIcon() {
 }
 
 // Sink - Isometric view
-export function SinkIcon() {
+export function SinkIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className || "w-full h-full"} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Counter top */}
       <path d="M20 40 L60 25 L100 40 L60 55 Z" fill="#9ca3af" stroke="#1f2937" strokeWidth="1.5"/>
       

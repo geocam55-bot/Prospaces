@@ -25,7 +25,7 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
 
   if (compact) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
         {/* Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

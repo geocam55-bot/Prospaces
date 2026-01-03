@@ -769,7 +769,7 @@ export function KitchenCanvas({
         <canvas
           ref={canvasRef}
           width={800}
-          height={700}
+          height={1200}
           onClick={handleCanvasClick}
           onMouseMove={handleCanvasMouseMove}
           onMouseDown={handleCanvasMouseDown}
@@ -778,15 +778,6 @@ export function KitchenCanvas({
           className="mx-auto"
           style={{ cursor: isDragging ? 'grabbing' : 'default' }}
         />
-      </div>
-
-      {/* Instructions */}
-      <div className="mt-3 text-xs text-gray-500 flex items-center gap-4">
-        <span className="flex items-center gap-1">
-          <Move className="h-3 w-3" /> Click and drag to move cabinets
-        </span>
-        <span>Click to select</span>
-        <span className="text-blue-600">Blue outline = Selected</span>
       </div>
     </div>
   );

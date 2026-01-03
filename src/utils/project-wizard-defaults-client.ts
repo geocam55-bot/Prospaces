@@ -1,10 +1,11 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
+import { projectId, publicAnonKey } from './supabase/info';
 
 export interface ProjectWizardDefault {
   id?: string;
   organization_id: string;
-  planner_type: 'deck' | 'garage' | 'shed' | 'roof';
+  planner_type: 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen';
   material_type?: string; // For deck: 'spruce', 'treated', 'composite', 'cedar'
   material_category: string; // e.g., 'decking', 'joists', 'posts', etc.
   inventory_item_id?: string;
@@ -21,10 +22,12 @@ export interface InventoryItem {
 }
 
 /**
- * Get all project wizard defaults for an organization
+ * Get all project wizard defaults for an organization (organization-level only)
+ * User-specific defaults are stored in localStorage
+ * @param organizationId - The organization ID
  */
 export async function getProjectWizardDefaults(organizationId: string): Promise<ProjectWizardDefault[]> {
-  console.log('[project-wizard-defaults] 📊 Fetching defaults for org:', organizationId);
+  console.log('[project-wizard-defaults] 📊 Fetching org defaults for:', organizationId);
   
   try {
     const supabase = createClient();
@@ -35,6 +38,7 @@ export async function getProjectWizardDefaults(organizationId: string): Promise<
       return [];
     }
 
+    // Get organization-level defaults only
     const { data, error } = await supabase
       .from('project_wizard_defaults')
       .select('*')
@@ -50,11 +54,193 @@ export async function getProjectWizardDefaults(organizationId: string): Promise<
     }
 
     console.log('[project-wizard-defaults] ✅ Defaults fetched successfully:', data?.length || 0, 'records');
-    console.log('[project-wizard-defaults] 📋 Default records:', data);
     return data || [];
   } catch (error) {
     console.error('[project-wizard-defaults] ❌ Unexpected error fetching defaults:', error);
     return [];
+  }
+}
+
+/**
+ * Get user-specific defaults from database
+ */
+export async function getUserDefaults(userId: string, organizationId: string): Promise<Record<string, string>> {
+  console.log('[project-wizard-defaults] 📊 Fetching user defaults for:', { userId, organizationId });
+  
+  try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.warn('[project-wizard-defaults] ⚠️ No session, returning empty user defaults');
+      return {};
+    }
+
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 404 || response.status === 500) {
+        // No defaults found, return empty object
+        console.log('[project-wizard-defaults] ℹ️ No user defaults found (or error), returning empty object');
+        return {};
+      }
+      console.error('[project-wizard-defaults] ❌ Error fetching user defaults:', response.statusText);
+      return {};
+    }
+
+    const data = await response.json();
+    console.log('[project-wizard-defaults] ✅ User defaults fetched successfully:', Object.keys(data.defaults || {}).length, 'items');
+    return data.defaults || {};
+  } catch (error) {
+    console.error('[project-wizard-defaults] ❌ Unexpected error loading user defaults:', error);
+    return {};
+  }
+}
+
+/**
+ * Save user-specific defaults to database
+ */
+export async function saveUserDefaults(userId: string, organizationId: string, defaults: Record<string, string>): Promise<boolean> {
+  console.log('[project-wizard-defaults] 💾 Saving user defaults:', { userId, organizationId, defaultsCount: Object.keys(defaults).length });
+  
+  try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.warn('[project-wizard-defaults] ⚠️ No session, cannot save user defaults');
+      return false;
+    }
+
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ defaults }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('[project-wizard-defaults] ❌ Error saving user defaults:', errorData);
+      return false;
+    }
+
+    console.log('[project-wizard-defaults] ✅ User defaults saved successfully');
+    return true;
+  } catch (error) {
+    console.error('[project-wizard-defaults] ❌ Unexpected error saving user defaults:', error);
+    return false;
+  }
+}
+
+/**
+ * Delete user-specific defaults from database (restore to org defaults)
+ */
+export async function deleteUserDefaults(userId: string, organizationId: string): Promise<boolean> {
+  console.log('[project-wizard-defaults] 🗑️ Deleting user defaults:', { userId, organizationId });
+  
+  try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      console.warn('[project-wizard-defaults] ⚠️ No session, cannot delete user defaults');
+      return false;
+    }
+
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('[project-wizard-defaults] ❌ Error deleting user defaults:', errorData);
+      return false;
+    }
+
+    console.log('[project-wizard-defaults] ✅ User defaults deleted successfully');
+    return true;
+  } catch (error) {
+    console.error('[project-wizard-defaults] ❌ Unexpected error deleting user defaults:', error);
+    return false;
+  }
+}
+
+/**
+ * Migrate user defaults from localStorage to database
+ * This should be called once to migrate existing localStorage data
+ */
+export async function migrateUserDefaultsFromLocalStorage(userId: string, organizationId: string): Promise<boolean> {
+  console.log('[project-wizard-defaults] 🔄 Starting migration from localStorage to database');
+  
+  try {
+    // Check if there's data in localStorage
+    const key = `planner_defaults_${organizationId}_${userId}`;
+    const stored = localStorage.getItem(key);
+    
+    if (!stored) {
+      console.log('[project-wizard-defaults] ℹ️ No localStorage data to migrate');
+      return true; // Nothing to migrate, but not an error
+    }
+    
+    const localDefaults = JSON.parse(stored);
+    const itemCount = Object.keys(localDefaults).length;
+    
+    if (itemCount === 0) {
+      console.log('[project-wizard-defaults] ℹ️ localStorage data is empty, nothing to migrate');
+      // Clean up empty localStorage entry
+      localStorage.removeItem(key);
+      return true;
+    }
+    
+    console.log('[project-wizard-defaults] 📦 Found', itemCount, 'items in localStorage to migrate');
+    
+    // Check if database already has data
+    const existingDefaults = await getUserDefaults(userId, organizationId);
+    
+    if (Object.keys(existingDefaults).length > 0) {
+      console.log('[project-wizard-defaults] ℹ️ Database already has user defaults, skipping migration');
+      // Optionally clean up localStorage since data is already in DB
+      localStorage.removeItem(key);
+      return true;
+    }
+    
+    // Migrate the data
+    const success = await saveUserDefaults(userId, organizationId, localDefaults);
+    
+    if (success) {
+      console.log('[project-wizard-defaults] ✅ Migration successful, cleaning up localStorage');
+      // Clean up localStorage after successful migration
+      localStorage.removeItem(key);
+      return true;
+    } else {
+      console.error('[project-wizard-defaults] ❌ Migration failed, keeping localStorage data');
+      return false;
+    }
+  } catch (error) {
+    console.error('[project-wizard-defaults] ❌ Error during migration:', error);
+    return false;
   }
 }
 

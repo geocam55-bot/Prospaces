@@ -5,12 +5,12 @@ import { Shed3DRenderer } from '../shed/Shed3DRenderer';
 import { ShedMaterialsList } from '../shed/ShedMaterialsList';
 import { ShedTemplates } from '../shed/ShedTemplates';
 import { SavedShedDesigns } from '../shed/SavedShedDesigns';
-import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { PrintableShedDesign } from '../project-wizard/PrintableShedDesign';
+import { PlannerDefaults } from '../PlannerDefaults';
 import { calculateMaterials } from '../../utils/shedCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { ShedConfig } from '../../types/shed';
-import { Ruler, Package, Printer, FileText, Box, Layers, Home } from 'lucide-react';
+import { Ruler, Package, Printer, FileText, Box, Layers, Home, Settings } from 'lucide-react';
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 import type { User } from '../../App';
@@ -60,7 +60,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
     unit: 'feet',
   });
 
-  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved'>('design');
+  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved' | 'defaults'>('design');
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
@@ -217,6 +217,17 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
                 <FileText className="w-4 h-4" />
                 Saved Designs
               </button>
+              <button
+                onClick={() => setActiveTab('defaults')}
+                className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+                  activeTab === 'defaults'
+                    ? 'border-green-600 text-green-600'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                Defaults
+              </button>
             </nav>
             <button
               onClick={handlePrint}
@@ -236,15 +247,6 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
             <div className="lg:col-span-1 space-y-6 print:hidden">
               <ShedTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
               <ShedConfigurator config={config} onChange={setConfig} />
-              
-              {/* Quote Generator */}
-              <ProjectQuoteGenerator
-                user={user}
-                projectType="shed"
-                materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
-                totalCost={totalT1Price > 0 ? totalT1Price : 0}
-                projectData={config}
-              />
             </div>
 
             <div className="lg:col-span-2 space-y-6 print:hidden">
@@ -276,11 +278,13 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
                     </button>
                   </div>
                 </div>
-                <div className="h-[500px]">
+                <div>
                   {viewMode === '2d' ? (
                     <ShedCanvas config={config} />
                   ) : (
-                    <Shed3DRenderer config={config} />
+                    <div className="h-[500px]">
+                      <Shed3DRenderer config={config} />
+                    </div>
                   )}
                 </div>
               </div>
@@ -322,6 +326,14 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
             materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
             totalCost={totalT1Price > 0 ? totalT1Price : 0}
             onLoadDesign={handleLoadDesign} 
+          />
+        )}
+
+        {activeTab === 'defaults' && (
+          <PlannerDefaults 
+            organizationId={user.organizationId}
+            userId={user.id}
+            plannerType="shed"
           />
         )}
       </div>

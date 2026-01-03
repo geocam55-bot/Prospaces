@@ -3,6 +3,7 @@ import { KitchenCanvas } from './KitchenCanvas';
 import { Kitchen3DRenderer } from './Kitchen3DRenderer';
 import { KitchenConfigurator } from './KitchenConfigurator';
 import { SavedKitchenDesigns } from './SavedKitchenDesigns';
+import { PlannerDefaults } from '../PlannerDefaults';
 import { calculateKitchenMaterials } from '../../utils/kitchenCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { KitchenConfig, PlacedCabinet, CABINET_CATALOG, CabinetItem, Appliance } from '../../types/kitchen';
@@ -47,7 +48,7 @@ interface KitchenPlannerV2Props {
 }
 
 type ItemCategory = 'cabinets' | 'appliances' | 'openings' | 'settings';
-type MainTab = 'design' | 'materials' | 'saved-designs';
+type MainTab = 'design' | 'materials' | 'saved-designs' | 'defaults';
 
 // Cabinet images by type
 const CABINET_IMAGES: Record<string, string> = {
@@ -100,54 +101,146 @@ const APPLIANCE_CATALOG = [
     height: 34, 
     depth: 24, 
     price: 600,
-    image: 'https://images.unsplash.com/photo-1758631130778-42d518bf13aa?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkaXNod2FzaGVyJTIwYXBwbGlhbmNlfGVufDF8fHx8MTc2NzI4Mjc1M3ww&ixlib=rb-4.1.0&q=80&w=1080'
+    image: 'https://images.unsplash.com/photo-1610733374054-59454fe657cd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzdGFpbmxlc3MlMjBzdGVlbCUyMHJlZnJpZ2VyYXRvcnxlbnwxfHx8fDE3NjcyODI3NTJ8MA&ixlib=rb-4.1.0&q=80&w=1080'
   },
   { 
     id: 'microwave-30', 
     type: 'microwave' as const, 
-    name: 'Microwave 30"', 
+    name: 'Over-Range Microwave 30"', 
     width: 30, 
     height: 17, 
     depth: 16, 
     price: 300,
-    image: 'https://images.unsplash.com/photo-1690731849383-514935755156?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtaWNyb3dhdmUlMjBvdmVufGVufDF8fHx8MTc2NzI2MjEwNXww&ixlib=rb-4.1.0&q=80&w=1080'
+    image: 'https://images.unsplash.com/photo-1610733374054-59454fe657cd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzdGFpbmxlc3MlMjBzdGVlbCUyMHJlZnJpZ2VyYXRvcnxlbnwxfHx8fDE3NjcyODI3NTJ8MA&ixlib=rb-4.1.0&q=80&w=1080'
   },
   { 
     id: 'sink-33', 
     type: 'sink' as const, 
-    name: 'Sink 33"', 
+    name: 'Undermount Sink 33"', 
     width: 33, 
-    height: 10, 
+    height: 9, 
     depth: 22, 
-    price: 400,
-    image: 'https://images.unsplash.com/photo-1609210884848-2d530cfb2a07?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxraXRjaGVuJTIwc2lua3xlbnwxfHx8fDE3NjcxNzMzOTR8MA&ixlib=rb-4.1.0&q=80&w=1080'
+    price: 250,
+    image: 'https://images.unsplash.com/photo-1610733374054-59454fe657cd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzdGFpbmxlc3MlMjBzdGVlbCUyMHJlZnJpZ2VyYXRvcnxlbnwxfHx8fDE3NjcyODI3NTJ8MA&ixlib=rb-4.1.0&q=80&w=1080'
   },
 ];
+
+// Cabinet Card Component
+function CabinetCard({ 
+  cabinet, 
+  onAdd,
+  finish 
+}: { 
+  cabinet: CabinetItem; 
+  onAdd: (cab: PlacedCabinet) => void;
+  finish: string;
+}) {
+  const handleAdd = () => {
+    const newCabinet: PlacedCabinet = {
+      id: `cabinet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      catalogId: cabinet.id,
+      name: cabinet.name,
+      type: cabinet.type,
+      width: cabinet.width,
+      height: cabinet.height,
+      depth: cabinet.depth,
+      x: 100,
+      y: 100,
+      rotation: 0,
+      finish: finish,
+      price: cabinet.price,
+    };
+    onAdd(newCabinet);
+    toast.success(`Added ${cabinet.name}`);
+  };
+
+  const getCabinetIcon = () => {
+    switch (cabinet.type) {
+      case 'base': return <BaseCabinetIcon className="w-full h-full" />;
+      case 'wall': return <WallCabinetIcon className="w-full h-full" />;
+      case 'tall': return <TallCabinetIcon className="w-full h-full" />;
+      case 'corner-base':
+      case 'corner-wall': return <CornerBaseCabinetIcon className="w-full h-full" />;
+      case 'island':
+      case 'peninsula': return <IslandCabinetIcon className="w-full h-full" />;
+      default: return <Box className="w-8 h-8" />;
+    }
+  };
+
+  return (
+    <div 
+      className="rounded-lg border border-gray-200 hover:shadow-md transition-shadow cursor-pointer bg-white" 
+      onClick={handleAdd}
+    >
+      <div className="h-32 p-4 border-b border-gray-200">
+        {getCabinetIcon()}
+      </div>
+      <div className="p-3 bg-white">
+        <h3 className="font-medium text-sm mb-1">{cabinet.name}</h3>
+        <p className="text-xs text-gray-600 mb-2">{cabinet.width}W × {cabinet.height}H × {cabinet.depth}D</p>
+        <p className="text-sm font-semibold text-blue-600">${cabinet.price?.toFixed(2) || '0.00'}</p>
+      </div>
+    </div>
+  );
+}
+
+// Appliance Card Component
+function ApplianceCard({ 
+  appliance, 
+  onAdd 
+}: { 
+  appliance: typeof APPLIANCE_CATALOG[0]; 
+  onAdd: (app: typeof APPLIANCE_CATALOG[0], x: number, y: number) => void;
+}) {
+  const handleAdd = () => {
+    onAdd(appliance, 200, 200);
+    toast.success(`Added ${appliance.name}`);
+  };
+
+  const getApplianceIcon = () => {
+    switch (appliance.type) {
+      case 'refrigerator': return <RefrigeratorIcon className="w-8 h-8" />;
+      case 'stove': return <StoveIcon className="w-8 h-8" />;
+      case 'dishwasher': return <DishwasherIcon className="w-8 h-8" />;
+      case 'microwave': return <MicrowaveIcon className="w-8 h-8" />;
+      case 'sink': return <SinkIcon className="w-8 h-8" />;
+      default: return <Refrigerator className="w-8 h-8" />;
+    }
+  };
+
+  return (
+    <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer group" onClick={handleAdd}>
+      <div className="relative h-32 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+        {getApplianceIcon()}
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all flex items-center justify-center">
+          <Plus className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </div>
+      <div className="p-3">
+        <h3 className="font-medium text-sm mb-1">{appliance.name}</h3>
+        <p className="text-xs text-gray-600 mb-2">{appliance.width}W × {appliance.height}H</p>
+        <p className="text-sm font-semibold text-green-600">${appliance.price.toFixed(2)}</p>
+      </div>
+    </Card>
+  );
+}
 
 export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
   const [config, setConfig] = useState<KitchenConfig>({
     roomWidth: 12,
-    roomLength: 15,
-    roomHeight: 9,
-    layoutStyle: 'L-shape',
+    roomLength: 14,
+    wallThickness: 6,
+    layoutStyle: 'L-shaped',
+    cabinetFinish: 'White Shaker',
+    countertopMaterial: 'Granite',
     cabinets: [],
-    cabinetFinish: 'White',
-    countertops: [],
-    countertopMaterial: 'Quartz',
     appliances: [],
-    hasIsland: false,
-    hasPantry: false,
-    hasBacksplash: true,
-    gridSize: 3,
-    showGrid: true,
-    viewMode: '2D',
-    unit: 'feet',
   });
 
-  const [activeCategory, setActiveCategory] = useState<ItemCategory>('cabinets');
   const [selectedCabinet, setSelectedCabinet] = useState<PlacedCabinet | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [activeCategory, setActiveCategory] = useState<ItemCategory>('cabinets');
   const [showSidebar, setShowSidebar] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'2D' | '3D'>('2D');
   const [activeTab, setActiveTab] = useState<MainTab>('design');
 
@@ -227,9 +320,9 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
   );
 
   return (
-    <div className="h-screen flex flex-col bg-white overflow-hidden">
+    <div className="bg-white">
       {/* Main Tab Navigation - Design / Materials / Saved Designs */}
-      <div className="border-b bg-white flex-shrink-0">
+      <div className="border-b bg-white">
         <div className="px-6 py-0 flex items-center justify-between">
           {/* Tab Navigation */}
           <div className="flex gap-1">
@@ -267,6 +360,18 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
             >
               <Save className="w-4 h-4" />
               <span>Saved Designs</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('defaults')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                activeTab === 'defaults'
+                  ? 'border-red-600 text-red-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>Defaults</span>
             </button>
           </div>
 
@@ -307,125 +412,77 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         </div>
       </div>
 
-      {/* Secondary Navigation Bar - Only show on Design tab */}
-      {activeTab === 'design' && (
-        <div className="border-b bg-white flex-shrink-0">
-          <div className="px-6 py-3">
-            <div className="flex items-center gap-6">
-              {/* Category Tabs */}
-              <button
-                onClick={() => setActiveCategory('cabinets')}
-                className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                  activeCategory === 'cabinets'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Box className="w-5 h-5" />
-                <span>Cabinets</span>
-              </button>
-
-              <button
-                onClick={() => setActiveCategory('appliances')}
-                className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                  activeCategory === 'appliances'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Refrigerator className="w-5 h-5" />
-                <span>Appliances</span>
-              </button>
-
-              <button
-                onClick={() => setActiveCategory('openings')}
-                className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                  activeCategory === 'openings'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <DoorOpen className="w-5 h-5" />
-                <span>Doors & Windows</span>
-              </button>
-
-              <button
-                onClick={() => setActiveCategory('settings')}
-                className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                  activeCategory === 'settings'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Settings className="w-5 h-5" />
-                <span>Room Settings</span>
-              </button>
-
-              <div className="flex-1" />
-
-              {/* Price Display */}
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <div className="text-sm text-gray-600">My kitchen</div>
-                  <div className="text-lg font-bold">${totalPrice.toFixed(2)}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'design' && (
-          <>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Left Sidebar - Item Library */}
-            {showSidebar && (
-              <div className="w-80 border-r bg-white flex flex-col max-h-full">
-                {/* Sidebar Header */}
-                <div className="p-4 border-b flex-shrink-0">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="font-semibold text-lg">
-                      {activeCategory === 'cabinets' && 'Add a cabinet'}
-                      {activeCategory === 'appliances' && 'Add an appliance'}
-                      {activeCategory === 'openings' && 'Add opening'}
-                      {activeCategory === 'settings' && 'Room Settings'}
-                    </h2>
-                    <button
-                      onClick={() => setShowSidebar(false)}
-                      className="p-1 hover:bg-gray-100 rounded"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
+            <div className="lg:col-span-1 space-y-6">
+              {/* Category Selector */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <h2 className="font-semibold text-lg mb-3">Add Items</h2>
+                
+                {/* Category Tabs */}
+                <div className="flex flex-col gap-2 mb-4">
+                  <button
+                    onClick={() => setActiveCategory('cabinets')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      activeCategory === 'cabinets'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Box className="w-5 h-5" />
+                    <span>Cabinets</span>
+                  </button>
 
-                  {/* Search */}
-                  {activeCategory !== 'settings' && (
-                    <div className="relative">
-                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                      <Input
-                        placeholder="Search..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9"
-                      />
-                    </div>
-                  )}
+                  <button
+                    onClick={() => setActiveCategory('appliances')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      activeCategory === 'appliances'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Refrigerator className="w-5 h-5" />
+                    <span>Appliances</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveCategory('settings')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                      activeCategory === 'settings'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Settings className="w-5 h-5" />
+                    <span>Room Settings</span>
+                  </button>
                 </div>
 
-                {/* Sidebar Content - Scrollable */}
-                <div 
-                  className="flex-1 kitchen-planner-scroll" 
-                  style={{ 
-                    overflowY: 'scroll',
-                    overflowX: 'hidden',
-                  }}
-                >
-                  {activeCategory === 'cabinets' && (
-                    <div className="p-4 space-y-3">
-                      <div className="text-sm text-gray-600 mb-2 sticky top-0 bg-white py-1 z-10">
-                        {filteredCabinets.length} products
-                      </div>
+                {/* Search */}
+                {activeCategory !== 'settings' && (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Category Content */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                {activeCategory === 'cabinets' && (
+                  <div className="p-4">
+                    <div className="text-sm text-gray-600 mb-2">
+                      {filteredCabinets.length} products
+                    </div>
+                    <div className="space-y-3 max-h-[880px] overflow-y-auto pr-2">
                       {filteredCabinets.map(cabinet => (
                         <CabinetCard
                           key={cabinet.id}
@@ -435,13 +492,15 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                         />
                       ))}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {activeCategory === 'appliances' && (
-                    <div className="p-4 space-y-3">
-                      <div className="text-sm text-gray-600 mb-2 sticky top-0 bg-white py-1 z-10">
-                        {filteredAppliances.length} products
-                      </div>
+                {activeCategory === 'appliances' && (
+                  <div className="p-4">
+                    <div className="text-sm text-gray-600 mb-2">
+                      {filteredAppliances.length} products
+                    </div>
+                    <div className="space-y-3 max-h-[880px] overflow-y-auto pr-2">
                       {filteredAppliances.map(appliance => (
                         <ApplianceCard
                           key={appliance.id}
@@ -450,68 +509,54 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                         />
                       ))}
                     </div>
-                  )}
-
-                  {activeCategory === 'openings' && (
-                    <div className="p-4">
-                      <p className="text-gray-600 text-sm">
-                        Doors and windows coming soon...
-                      </p>
-                    </div>
-                  )}
-
-                  {activeCategory === 'settings' && (
-                    <div className="p-4">
-                      <KitchenConfigurator config={config} onChange={setConfig} />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Main Canvas Area */}
-            <div className="flex-1 flex flex-col bg-gray-50 relative overflow-hidden">
-              {!showSidebar && (
-                <button
-                  onClick={() => setShowSidebar(true)}
-                  className="absolute left-4 top-4 z-10 p-2 bg-white border rounded-lg shadow-sm hover:bg-gray-50"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-              )}
-
-              {/* 3D Toggle Button - ALWAYS VISIBLE IN TOP RIGHT */}
-              {viewMode === '2D' && (
-                <Button
-                  onClick={() => setViewMode('3D')}
-                  size="lg"
-                  className="absolute top-4 right-4 z-[100] bg-blue-600 hover:bg-blue-700 text-white shadow-2xl"
-                >
-                  <Maximize2 className="w-5 h-5 mr-2" />
-                  View in 3D
-                </Button>
-              )}
-
-              <div className="flex-1 overflow-auto kitchen-planner-scroll">
-                {viewMode === '3D' ? (
-                  <div className="h-full w-full p-6">
-                    <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-lg shadow-sm">
-                      <h2 className="text-lg font-semibold">3D View - Kitchen Plan & Elevations</h2>
-                      <Button
-                        onClick={() => setViewMode('2D')}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Box className="w-4 h-4 mr-2" />
-                        2D View
-                      </Button>
-                    </div>
-                    <div className="h-[calc(100%-4rem)]">
-                      <Kitchen3DRenderer config={config} />
-                    </div>
                   </div>
-                ) : (
-                  <div className="h-full w-full p-6" style={{ minWidth: '1200px' }}>
+                )}
+
+                {activeCategory === 'settings' && (
+                  <div className="p-4">
+                    <KitchenConfigurator config={config} onChange={setConfig} />
+                  </div>
+                )}
+              </div>
+
+              {/* Price Display */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div className="text-sm text-gray-600 mb-1">Total Cost</div>
+                <div className="text-2xl font-bold text-blue-600">${totalPrice.toFixed(2)}</div>
+              </div>
+            </div>
+
+            {/* Right Side - Canvas and Materials */}
+            <div className="lg:col-span-3 space-y-6">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">Kitchen Plan & Elevation</h2>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setViewMode('2D')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                        viewMode === '2D'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      2D
+                    </button>
+                    <button
+                      onClick={() => setViewMode('3D')}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                        viewMode === '3D'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Box className="w-4 h-4" />
+                      3D
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  {viewMode === '2D' ? (
                     <KitchenCanvas
                       config={config}
                       selectedCabinet={selectedCabinet}
@@ -522,11 +567,43 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                       onAddCabinet={handleAddCabinet}
                       onAddAppliance={handleAddAppliance}
                     />
-                  </div>
-                )}
+                  ) : (
+                    <div className="h-[500px]">
+                      <Kitchen3DRenderer config={config} />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-lg font-semibold mb-4">Materials Summary</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left p-3 text-sm font-semibold">Category</th>
+                        <th className="text-left p-3 text-sm font-semibold">Item</th>
+                        <th className="text-right p-3 text-sm font-semibold">Qty</th>
+                        <th className="text-right p-3 text-sm font-semibold">Unit Price</th>
+                        <th className="text-right p-3 text-sm font-semibold">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {flatMaterials.slice(0, 10).map((item, idx) => (
+                        <tr key={idx} className="border-t border-gray-100">
+                          <td className="p-3 text-sm text-gray-600">{item.category}</td>
+                          <td className="p-3 text-sm">{item.description}</td>
+                          <td className="p-3 text-sm text-right">{item.quantity} {item.unit}</td>
+                          <td className="p-3 text-sm text-right">${item.unitPrice?.toFixed(2) || '—'}</td>
+                          <td className="p-3 text-sm text-right font-medium">${item.totalPrice?.toFixed(2) || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {activeTab === 'materials' && (
@@ -544,25 +621,23 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                       <th className="text-right p-4 font-semibold">Total</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {flatMaterials.map((item, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="p-4">{item.category}</td>
-                        <td className="p-4">{item.name}</td>
+                  <tbody>
+                    {flatMaterials.map((item, idx) => (
+                      <tr key={idx} className="border-t border-gray-100">
+                        <td className="p-4 text-sm text-gray-600">{item.category}</td>
+                        <td className="p-4">{item.description}</td>
                         <td className="p-4 text-right">{item.quantity} {item.unit}</td>
-                        <td className="p-4 text-right">${item.unitPrice?.toFixed(2) || '0.00'}</td>
-                        <td className="p-4 text-right font-semibold">${item.totalPrice?.toFixed(2) || '0.00'}</td>
+                        <td className="p-4 text-right">${item.unitPrice?.toFixed(2) || '—'}</td>
+                        <td className="p-4 text-right font-medium">${item.totalPrice?.toFixed(2) || '—'}</td>
                       </tr>
                     ))}
-                  </tbody>
-                  <tfoot className="bg-gray-50 border-t-2 border-gray-300">
-                    <tr>
-                      <td colSpan={4} className="p-4 text-right font-semibold">Total Estimated Cost:</td>
-                      <td className="p-4 text-right font-bold text-lg text-red-600">
+                    <tr className="border-t-2 border-gray-300 bg-blue-50">
+                      <td colSpan={4} className="p-4 font-bold text-right">Grand Total:</td>
+                      <td className="p-4 text-right font-bold text-xl text-blue-600">
                         ${totalPrice.toFixed(2)}
                       </td>
                     </tr>
-                  </tfoot>
+                  </tbody>
                 </table>
               </div>
             </div>
@@ -572,7 +647,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         {activeTab === 'saved-designs' && (
           <div className="flex-1 overflow-auto p-6 bg-gray-50">
             <div className="max-w-6xl mx-auto">
-              <SavedKitchenDesigns
+              <SavedKitchenDesigns 
                 user={user}
                 currentConfig={config}
                 materials={flatMaterials}
@@ -580,187 +655,24 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                 onLoadDesign={(loadedConfig, designInfo) => {
                   setConfig(loadedConfig);
                   setActiveTab('design');
-                  if (designInfo) {
-                    toast.success(`Loaded design: ${designInfo.name}`);
-                  }
+                  toast.success('Design loaded successfully!');
                 }}
               />
             </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
 
-// Cabinet Card Component
-interface CabinetCardProps {
-  cabinet: CabinetItem;
-  onAdd: (cabinet: PlacedCabinet) => void;
-  finish: string;
-}
-
-function CabinetCard({ cabinet, onAdd, finish }: CabinetCardProps) {
-  const handleDragStart = (e: React.DragEvent) => {
-    e.dataTransfer.effectAllowed = 'copy';
-    e.dataTransfer.setData('application/json', JSON.stringify(cabinet));
-  };
-
-  const handleClick = () => {
-    const newCabinet: PlacedCabinet = {
-      ...cabinet,
-      id: `cabinet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      finish,
-      x: 50,
-      y: 50,
-      rotation: 0,
-      wall: 'north',
-    };
-    onAdd(newCabinet);
-    toast.success(`${cabinet.name} added to kitchen`);
-  };
-
-  // Map cabinet type to icon component
-  const getIconComponent = () => {
-    switch (cabinet.type) {
-      case 'base':
-        return <BaseCabinetIcon />;
-      case 'wall':
-        return <WallCabinetIcon />;
-      case 'tall':
-        return <TallCabinetIcon />;
-      case 'corner-base':
-      case 'corner-wall':
-        return <CornerBaseCabinetIcon />;
-      case 'island':
-      case 'peninsula':
-        return <IslandCabinetIcon />;
-      default:
-        return <BaseCabinetIcon />;
-    }
-  };
-
-  return (
-    <div
-      className="border rounded-lg p-3 hover:border-blue-500 hover:bg-blue-50 transition-colors cursor-move"
-      draggable
-      onDragStart={handleDragStart}
-    >
-      <div className="flex items-start gap-3">
-        {/* Product Icon - 3D Isometric */}
-        <div className="w-20 h-20 rounded border flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-gray-50 to-gray-100 p-2">
-          {getIconComponent()}
-        </div>
-
-        {/* Product Details */}
-        <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-sm">{cabinet.name}</h4>
-          <p className="text-xs text-gray-600 mt-1">
-            {cabinet.width}×{cabinet.height}×{cabinet.depth}"
-          </p>
-          {cabinet.price && (
-            <p className="text-sm font-semibold mt-1">
-              ${cabinet.price.toFixed(2)}
-            </p>
-          )}
-        </div>
-
-        {/* Add Button */}
-        <button
-          onClick={handleClick}
-          className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-blue-500 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Features */}
-      {(cabinet.hasDoors || cabinet.hasDrawers) && (
-        <div className="flex gap-2 mt-2">
-          {cabinet.hasDoors && (
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-              {cabinet.numberOfDoors} Door{cabinet.numberOfDoors !== 1 ? 's' : ''}
-            </span>
-          )}
-          {cabinet.hasDrawers && (
-            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-              {cabinet.numberOfDrawers} Drawer{cabinet.numberOfDrawers !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Appliance Card Component
-interface ApplianceCardProps {
-  appliance: typeof APPLIANCE_CATALOG[0];
-  onAdd: (appliance: typeof APPLIANCE_CATALOG[0], x: number, y: number) => void;
-}
-
-function ApplianceCard({ appliance, onAdd }: ApplianceCardProps) {
-  const handleDragStart = (e: React.DragEvent) => {
-    e.dataTransfer.effectAllowed = 'copy';
-    e.dataTransfer.setData('application/json', JSON.stringify({
-      ...appliance,
-      itemType: 'appliance'
-    }));
-  };
-
-  const handleClick = () => {
-    onAdd(appliance, 50, 50);
-    toast.success(`${appliance.name} added to kitchen`);
-  };
-
-  // Map appliance type to icon component
-  const getIconComponent = () => {
-    switch (appliance.type) {
-      case 'refrigerator':
-        return <RefrigeratorIcon />;
-      case 'stove':
-        return <StoveIcon />;
-      case 'dishwasher':
-        return <DishwasherIcon />;
-      case 'microwave':
-        return <MicrowaveIcon />;
-      case 'sink':
-        return <SinkIcon />;
-      default:
-        return <RefrigeratorIcon />;
-    }
-  };
-
-  return (
-    <div
-      className="border rounded-lg p-3 hover:border-blue-500 hover:bg-blue-50 transition-colors cursor-move"
-      draggable
-      onDragStart={handleDragStart}
-    >
-      <div className="flex items-start gap-3">
-        {/* Product Icon - 3D Isometric */}
-        <div className="w-20 h-20 rounded border flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-gray-50 to-gray-100 p-2">
-          {getIconComponent()}
-        </div>
-
-        {/* Product Details */}
-        <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-sm">{appliance.name}</h4>
-          <p className="text-xs text-gray-600 mt-1">
-            {appliance.width}×{appliance.height}×{appliance.depth}"
-          </p>
-          <p className="text-sm font-semibold mt-1">
-            ${appliance.price.toFixed(2)}
-          </p>
-        </div>
-
-        {/* Add Button */}
-        <button
-          onClick={handleClick}
-          className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-blue-500 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        {activeTab === 'defaults' && (
+          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+            <div className="max-w-6xl mx-auto">
+              <PlannerDefaults 
+                organizationId={user.organizationId}
+                userId={user.id}
+                plannerType="kitchen"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

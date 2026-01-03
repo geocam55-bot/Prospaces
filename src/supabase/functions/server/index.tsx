@@ -1978,4 +1978,132 @@ app.get('/make-server-8405be07/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ============================================================================
+// USER PLANNER DEFAULTS ROUTES
+// ============================================================================
+
+/**
+ * Get user-specific planner defaults
+ * GET /make-server-8405be07/user-planner-defaults/:organizationId/:userId
+ */
+app.get('/make-server-8405be07/user-planner-defaults/:organizationId/:userId', async (c) => {
+  try {
+    const { organizationId, userId } = c.req.param();
+    
+    // Verify authentication
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+    
+    if (!user) {
+      console.error('❌ User planner defaults GET: Unauthorized');
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    
+    // Ensure user can only access their own defaults (or is admin)
+    if (user.id !== userId) {
+      // Check if user is admin and in same organization
+      const userData = await getUserData(user.id);
+      if (!userData || userData.organizationId !== organizationId || !['super_admin', 'org_admin'].includes(userData.role)) {
+        console.error('❌ User planner defaults GET: Forbidden - User cannot access other user defaults');
+        return c.json({ error: 'Forbidden' }, 403);
+      }
+    }
+    
+    const key = `user_planner_defaults:${organizationId}:${userId}`;
+    const defaults = await kv.get(key);
+    
+    console.log('✅ User planner defaults retrieved:', { organizationId, userId, hasDefaults: !!defaults });
+    
+    return c.json({
+      defaults: defaults || {},
+    });
+  } catch (error) {
+    console.error('❌ Get user planner defaults error:', error);
+    return c.json({ error: 'Failed to get user planner defaults: ' + error.message }, 500);
+  }
+});
+
+/**
+ * Save user-specific planner defaults
+ * POST /make-server-8405be07/user-planner-defaults/:organizationId/:userId
+ */
+app.post('/make-server-8405be07/user-planner-defaults/:organizationId/:userId', async (c) => {
+  try {
+    const { organizationId, userId } = c.req.param();
+    const { defaults } = await c.req.json();
+    
+    // Verify authentication
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+    
+    if (!user) {
+      console.error('❌ User planner defaults POST: Unauthorized');
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    
+    // Ensure user can only update their own defaults
+    if (user.id !== userId) {
+      console.error('❌ User planner defaults POST: Forbidden - User can only update their own defaults');
+      return c.json({ error: 'Forbidden - You can only update your own defaults' }, 403);
+    }
+    
+    // Validate defaults format
+    if (!defaults || typeof defaults !== 'object') {
+      console.error('❌ User planner defaults POST: Invalid defaults format');
+      return c.json({ error: 'Invalid defaults format - must be an object' }, 400);
+    }
+    
+    const key = `user_planner_defaults:${organizationId}:${userId}`;
+    await kv.set(key, defaults);
+    
+    console.log('✅ User planner defaults saved:', { organizationId, userId, defaultsCount: Object.keys(defaults).length });
+    
+    return c.json({
+      success: true,
+      message: 'User planner defaults saved successfully',
+    });
+  } catch (error) {
+    console.error('❌ Save user planner defaults error:', error);
+    return c.json({ error: 'Failed to save user planner defaults: ' + error.message }, 500);
+  }
+});
+
+/**
+ * Delete user-specific planner defaults (restore to org defaults)
+ * DELETE /make-server-8405be07/user-planner-defaults/:organizationId/:userId
+ */
+app.delete('/make-server-8405be07/user-planner-defaults/:organizationId/:userId', async (c) => {
+  try {
+    const { organizationId, userId } = c.req.param();
+    
+    // Verify authentication
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+    
+    if (!user) {
+      console.error('❌ User planner defaults DELETE: Unauthorized');
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    
+    // Ensure user can only delete their own defaults
+    if (user.id !== userId) {
+      console.error('❌ User planner defaults DELETE: Forbidden - User can only delete their own defaults');
+      return c.json({ error: 'Forbidden - You can only delete your own defaults' }, 403);
+    }
+    
+    const key = `user_planner_defaults:${organizationId}:${userId}`;
+    await kv.del(key);
+    
+    console.log('✅ User planner defaults deleted:', { organizationId, userId });
+    
+    return c.json({
+      success: true,
+      message: 'User planner defaults deleted successfully',
+    });
+  } catch (error) {
+    console.error('❌ Delete user planner defaults error:', error);
+    return c.json({ error: 'Failed to delete user planner defaults: ' + error.message }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

@@ -67,7 +67,7 @@ export function RoofMaterialsList({ materials, compact = false }: RoofMaterialsL
     .reduce((sum, item) => sum + (item.totalCost || 0), 0);
 
   return (
-    <div>
+    <div className={compact ? "max-h-[600px] overflow-y-auto pr-2" : ""}>
       {totalCost > 0 && (
         <div className="mb-6 p-4 bg-orange-50 border-2 border-orange-300 rounded-lg">
           <div className="flex justify-between items-center">

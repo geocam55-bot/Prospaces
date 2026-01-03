@@ -5,13 +5,13 @@ import { Roof3DRenderer } from '../roof/Roof3DRenderer';
 import { RoofMaterialsList } from '../roof/RoofMaterialsList';
 import { RoofTemplates } from '../roof/RoofTemplates';
 import { SavedRoofDesigns } from '../roof/SavedRoofDesigns';
-import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { DiagnosticPanel } from '../DiagnosticPanel';
 import { PrintableRoofDesign } from '../project-wizard/PrintableRoofDesign';
+import { PlannerDefaults } from '../PlannerDefaults';
 import { calculateMaterials } from '../../utils/roofCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { RoofConfig } from '../../types/roof';
-import { Ruler, Package, Printer, FileText, Box, Layers, Triangle } from 'lucide-react';
+import { Ruler, Package, Printer, FileText, Box, Layers, Triangle, Settings } from 'lucide-react';
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 import type { User } from '../../App';
@@ -40,7 +40,7 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
     unit: 'feet',
   });
 
-  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved'>('design');
+  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved' | 'defaults'>('design');
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
@@ -190,6 +190,17 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
                 <FileText className="w-4 h-4" />
                 Saved Designs
               </button>
+              <button
+                onClick={() => setActiveTab('defaults')}
+                className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+                  activeTab === 'defaults'
+                    ? 'border-red-600 text-red-600'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                Defaults
+              </button>
             </nav>
             <button
               onClick={handlePrint}
@@ -209,15 +220,6 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
             <div className="lg:col-span-1 space-y-6 print:hidden">
               <RoofTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
               <RoofConfigurator config={config} onChange={setConfig} />
-              
-              {/* Quote Generator */}
-              <ProjectQuoteGenerator
-                user={user}
-                projectType="roof"
-                materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
-                totalCost={totalT1Price > 0 ? totalT1Price : 0}
-                projectData={config}
-              />
             </div>
 
             <div className="lg:col-span-2 space-y-6 print:hidden">
@@ -249,11 +251,13 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
                     </button>
                   </div>
                 </div>
-                <div className="h-[500px]">
+                <div>
                   {viewMode === '2d' ? (
                     <RoofCanvas config={config} />
                   ) : (
-                    <Roof3DRenderer config={config} />
+                    <div className="h-[500px]">
+                      <Roof3DRenderer config={config} />
+                    </div>
                   )}
                 </div>
               </div>
@@ -301,6 +305,14 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
             materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
             totalCost={totalT1Price > 0 ? totalT1Price : 0}
             onLoadDesign={handleLoadDesign} 
+          />
+        )}
+
+        {activeTab === 'defaults' && (
+          <PlannerDefaults 
+            organizationId={user.organizationId}
+            userId={user.id}
+            plannerType="roof"
           />
         )}
       </div>
