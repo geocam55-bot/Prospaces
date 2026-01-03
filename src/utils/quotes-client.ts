@@ -161,15 +161,32 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
       return { quotes: [] };
     }
     
+    console.error('[getQuotesByOpportunityClient] 🔴 ABOUT TO QUERY CONTACT:', opportunity.customer_id);
+    
     // Check if user has access to this opportunity's contact
-    const { data: contact } = await supabase
+    const { data: contact, error: contactError } = await supabase
       .from('contacts')
       .select('id, account_owner_number, organization_id, created_by')
       .eq('id', opportunity.customer_id)
       .maybeSingle();
     
+    console.error('[getQuotesByOpportunityClient] 🔴 CONTACT QUERY RESULT:', { 
+      hasContact: !!contact, 
+      contactId: contact?.id,
+      error: contactError 
+    });
+    
+    if (contactError) {
+      console.error('[getQuotesByOpportunityClient] ❌❌❌ ERROR QUERYING CONTACT:', contactError);
+      console.error('[getQuotesByOpportunityClient] Error code:', contactError.code);
+      console.error('[getQuotesByOpportunityClient] Error message:', contactError.message);
+      console.error('[getQuotesByOpportunityClient] Error details:', contactError.details);
+      console.error('[getQuotesByOpportunityClient] Error hint:', contactError.hint);
+      return { quotes: [] };
+    }
+    
     if (!contact) {
-      console.log('[getQuotesByOpportunityClient] ❌ Contact not found');
+      console.log('[getQuotesByOpportunityClient] ❌ Contact not found (no data returned)');
       return { quotes: [] };
     }
     
