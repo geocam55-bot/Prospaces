@@ -194,6 +194,22 @@ export function OpportunityDetail({ opportunity, user, onBack, onEdit }: Opportu
       
       // Filter quotes by customer_id OR opportunity_id (if quotes table has it)
       const allQuotes = quotesData.quotes || [];
+      console.log('[loadData] 🔍 Filtering quotes...');
+      console.log('[loadData] Total quotes in DB:', allQuotes.length);
+      console.log('[loadData] Looking for opportunity.id:', opportunity.id);
+      console.log('[loadData] Looking for opportunity.customerId:', opportunity.customerId);
+      
+      // Log all quotes to see their structure
+      allQuotes.forEach((q: any, idx: number) => {
+        console.log(`[loadData] Quote ${idx}:`, {
+          id: q.id,
+          title: q.title,
+          opportunity_id: q.opportunity_id,
+          contact_id: q.contact_id,
+          customer_id: q.customer_id,
+        });
+      });
+      
       const quotesForOpportunity = allQuotes.filter((q: any) => {
         // Check if quote has opportunity_id matching this opportunity
         if (q.opportunity_id === opportunity.id) {
@@ -205,6 +221,13 @@ export function OpportunityDetail({ opportunity, user, onBack, onEdit }: Opportu
           console.log('[loadData] ✅ Quote matched by customer_id:', q.id, q.title);
           return true;
         }
+        console.log('[loadData] ❌ Quote did NOT match:', q.id, {
+          q_opportunity_id: q.opportunity_id,
+          expected_opportunity_id: opportunity.id,
+          q_contact_id: q.contact_id,
+          q_customer_id: q.customer_id,
+          expected_customer_id: opportunity.customerId,
+        });
         return false;
       });
       
