@@ -225,20 +225,20 @@ export function OpportunityChat({ opportunityId, user, opportunity, onClose, onE
         console.log('[OpportunityChat] ⚡ CHECKPOINT 4: Variables declared');
         
         try {
-          console.log('[OpportunityChat] ⚡ CHECKPOINT 5: Inside bids try block');
           console.log('[OpportunityChat] 📞 Calling bidsAPI.getByOpportunity...');
           bidsResult = await bidsAPI.getByOpportunity(opportunityId);
-          console.log('[OpportunityChat] ✅ Bids call completed:', bidsResult);
+          console.log('[OpportunityChat] ⚡ CHECKPOINT 5: Bids call completed');
+          console.log('[OpportunityChat] ✅ Bids result:', bidsResult);
         } catch (bidsError) {
           console.error('[OpportunityChat] ❌ ERROR in bidsAPI.getByOpportunity:', bidsError);
           throw bidsError;
         }
         
         try {
-          console.log('[OpportunityChat] ⚡ CHECKPOINT 6: Inside quotes try block');
           console.log('[OpportunityChat] 📞 Calling quotesAPI.getQuotesByOpportunity...');
           quotesResult = await quotesAPI.getQuotesByOpportunity(opportunityId);
-          console.log('[OpportunityChat] ✅ Quotes call completed:', quotesResult);
+          console.log('[OpportunityChat] ⚡ CHECKPOINT 6: Quotes call completed');
+          console.log('[OpportunityChat] ✅ Quotes result:', quotesResult);
         } catch (quotesError) {
           console.error('[OpportunityChat] ❌ ERROR in quotesAPI.getQuotesByOpportunity:', quotesError);
           console.error('[OpportunityChat] ❌ Error details:', {

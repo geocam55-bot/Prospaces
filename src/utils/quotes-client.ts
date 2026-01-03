@@ -104,6 +104,16 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
   console.log('[getQuotesByOpportunityClient] opportunityId parameter:', opportunityId);
   console.log('[getQuotesByOpportunityClient] typeof opportunityId:', typeof opportunityId);
   
+  if (!opportunityId) {
+    console.error('[getQuotesByOpportunityClient] ❌❌❌ NO OPPORTUNITY ID PROVIDED!');
+    return { quotes: [] };
+  }
+  
+  if (typeof opportunityId !== 'string') {
+    console.error('[getQuotesByOpportunityClient] ❌❌❌ OPPORTUNITY ID IS NOT A STRING!', typeof opportunityId);
+    return { quotes: [] };
+  }
+  
   try {
     console.log('[getQuotesByOpportunityClient] Starting query for opportunity:', opportunityId);
     const { data: { user } } = await supabase.auth.getUser();
