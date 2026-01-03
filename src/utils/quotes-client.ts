@@ -166,7 +166,7 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
     // Check if user has access to this opportunity's contact
     const { data: contact, error: contactError } = await supabase
       .from('contacts')
-      .select('id, account_owner_number, organization_id, created_by')
+      .select('id, organization_id, created_by')
       .eq('id', opportunity.customer_id)
       .maybeSingle();
     
@@ -195,8 +195,7 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
       (userRole === 'admin' && contact.organization_id === userOrgId) || // Admin sees org contacts
       (userRole === 'marketing' && contact.organization_id === userOrgId) || // Marketing sees org contacts
       (userRole === 'manager' && contact.organization_id === userOrgId) || // Manager sees org contacts
-      (userRole === 'standard_user' && contact.organization_id === userOrgId && 
-        (contact.account_owner_number === profile.email || contact.created_by === user.id)); // Standard user sees owned contacts
+      (userRole === 'standard_user' && contact.organization_id === userOrgId && contact.created_by === user.id); // Standard user sees owned contacts
     
     if (!hasContactAccess) {
       console.log('[getQuotesByOpportunityClient] ❌ User does not have access to this contact');
