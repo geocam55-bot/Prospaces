@@ -177,33 +177,19 @@ export function OpportunityChat({ opportunityId, user, opportunity, onClose, onE
       // Load bids from BOTH bids and quotes tables
       try {
         console.log('[OpportunityChat] 🔍 About to load bids and quotes for opportunity:', opportunityId);
+        console.log('[OpportunityChat] 📍 LOADING STARTED - calling both APIs...');
         
-        let bidsResult, quotesResult;
+        // Use the same pattern as ContactDetail (which works!)
+        const [bidsResult, quotesResult] = await Promise.all([
+          bidsAPI.getByOpportunity(opportunityId),
+          quotesAPI.getQuotesByOpportunity(opportunityId),
+        ]);
         
-        try {
-          console.log('[OpportunityChat] 📞 Calling bidsAPI.getByOpportunity...');
-          bidsResult = await bidsAPI.getByOpportunity(opportunityId);
-          console.log('[OpportunityChat] ✅ bidsAPI.getByOpportunity completed:', bidsResult);
-        } catch (bidsErr) {
-          console.error('[OpportunityChat] ❌ Error calling bidsAPI.getByOpportunity:', bidsErr);
-          throw bidsErr;
-        }
-        
-        try {
-          console.log('[OpportunityChat] 📞 Calling quotesAPI.getQuotesByOpportunity...');
-          quotesResult = await quotesAPI.getQuotesByOpportunity(opportunityId);
-          console.log('[OpportunityChat] ✅ quotesAPI.getQuotesByOpportunity completed:', quotesResult);
-        } catch (quotesErr) {
-          console.error('[OpportunityChat] ❌ Error calling quotesAPI.getQuotesByOpportunity:', quotesErr);
-          console.error('[OpportunityChat] ❌ Error message:', (quotesErr as Error).message);
-          console.error('[OpportunityChat] ❌ Error stack:', (quotesErr as Error).stack);
-          throw quotesErr;
-        }
-        
-        console.log('[OpportunityChat] Raw bids data:', bidsResult.bids);
-        console.log('[OpportunityChat] Raw quotes data:', quotesResult.quotes);
-        console.log('[OpportunityChat] Number of bids returned:', bidsResult.bids?.length || 0);
-        console.log('[OpportunityChat] Number of quotes returned:', quotesResult.quotes?.length || 0);
+        console.log('[OpportunityChat] ✅ APIs completed');
+        console.log('[OpportunityChat] Bids result:', bidsResult);
+        console.log('[OpportunityChat] Quotes result:', quotesResult);
+        console.log('[OpportunityChat] Number of bids:', bidsResult.bids?.length || 0);
+        console.log('[OpportunityChat] Number of quotes:', quotesResult.quotes?.length || 0);
         
         // Merge bids and quotes
         const allBids = [...(bidsResult.bids || []), ...(quotesResult.quotes || [])];
