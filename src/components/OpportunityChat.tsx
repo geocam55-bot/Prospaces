@@ -178,6 +178,13 @@ export function OpportunityChat({ opportunityId, user, opportunity, onClose, onE
       try {
         console.log('[OpportunityChat] 🔍 About to load bids and quotes for opportunity:', opportunityId);
         console.log('[OpportunityChat] 📍 LOADING STARTED - calling both APIs...');
+        
+        // CRITICAL DEBUG: Check if quotesAPI even exists!
+        console.log('[OpportunityChat] 🔍 typeof quotesAPI:', typeof quotesAPI);
+        console.log('[OpportunityChat] 🔍 quotesAPI object:', quotesAPI);
+        console.log('[OpportunityChat] 🔍 quotesAPI.getQuotesByOpportunity exists?', quotesAPI?.getQuotesByOpportunity);
+        console.log('[OpportunityChat] 🔍 typeof quotesAPI.getQuotesByOpportunity:', typeof quotesAPI?.getQuotesByOpportunity);
+        
         console.log('[OpportunityChat] 🔍 Checking API objects:', { bidsAPI, quotesAPI });
         console.log('[OpportunityChat] 🔍 Checking function exists:', {
           bidsAPIgetByOpportunity: typeof bidsAPI.getByOpportunity,
