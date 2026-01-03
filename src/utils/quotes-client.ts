@@ -100,6 +100,7 @@ export async function getAllQuotesClient() {
 }
 
 export async function getQuotesByOpportunityClient(opportunityId: string) {
+  console.error('[getQuotesByOpportunityClient] 🔴 FUNCTION ENTRY POINT');
   console.log('[getQuotesByOpportunityClient] ========== FUNCTION CALLED ==========');
   console.log('[getQuotesByOpportunityClient] opportunityId parameter:', opportunityId);
   console.log('[getQuotesByOpportunityClient] typeof opportunityId:', typeof opportunityId);
@@ -114,16 +115,26 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
     return { quotes: [] };
   }
   
+  console.error('[getQuotesByOpportunityClient] 🔴 ABOUT TO ENTER TRY BLOCK');
+  
   try {
+    console.error('[getQuotesByOpportunityClient] 🔴 INSIDE TRY BLOCK');
     console.log('[getQuotesByOpportunityClient] Starting query for opportunity:', opportunityId);
     const { data: { user } } = await supabase.auth.getUser();
     
+    console.error('[getQuotesByOpportunityClient] 🔴 GOT USER');
+    
     if (!user) {
+      console.error('[getQuotesByOpportunityClient] ❌ NO USER - NOT AUTHENTICATED');
       throw new Error('Not authenticated');
     }
 
+    console.error('[getQuotesByOpportunityClient] 🔴 ABOUT TO GET PROFILE');
+    
     // Get user's profile to check their role
     const profile = await ensureUserProfile(user.id);
+    
+    console.error('[getQuotesByOpportunityClient] 🔴 GOT PROFILE');
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
