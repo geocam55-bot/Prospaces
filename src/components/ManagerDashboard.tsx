@@ -360,17 +360,31 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
       }
       
       // Quotes - Filter by customer_id matching user's contacts
+      // NOTE: We can't use .in() with many IDs as it creates URLs that are too long
+      // Instead, fetch all quotes for the org and filter in JavaScript
       let quotesResult = { data: null, error: null };
       try {
         if (userContactIds.length > 0) {
-          quotesResult = await supabase
+          // Fetch ALL quotes in the organization
+          const { data: allQuotes, error: quotesError } = await supabase
             .from('quotes')
             .select('id, title, status, total, customer_id, organization_id, created_at, updated_at')
             .eq('organization_id', user.organizationId)
-            .in('customer_id', userContactIds)
             .limit(1000);
           
-          console.log('🔍 [Team Dashboard] Quotes for user:', quotesResult.data);
+          if (quotesError) {
+            console.log('ℹ️ Quotes table not available, skipping...');
+            quotesResult.data = [];
+          } else {
+            // Filter quotes to only those with customer_id in userContactIds
+            const userContactIdSet = new Set(userContactIds);
+            quotesResult.data = (allQuotes || []).filter((quote: any) => 
+              quote.customer_id && userContactIdSet.has(quote.customer_id)
+            );
+            
+            console.log('🔍 [Team Dashboard] ALL quotes in org:', allQuotes?.length);
+            console.log('🔍 [Team Dashboard] Quotes for user (filtered):', quotesResult.data?.length, quotesResult.data);
+          }
         } else {
           quotesResult.data = [];
         }
@@ -378,6 +392,7 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
         quotesResult.error = err;
         // Suppress error logging for quotes since the table may not exist
         console.log('ℹ️ Quotes table not available, skipping...');
+        quotesResult.data = [];
       }
       
       // Opportunities
