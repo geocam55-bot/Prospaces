@@ -112,46 +112,29 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
   // This function was broken because it tried to query non-existent contact columns.
   // DO NOT try to "improve" access control by querying the contacts table!
   
-  console.error('[getQuotesByOpportunityClient] 🔴 FUNCTION ENTRY POINT');
-  console.log('[getQuotesByOpportunityClient] ========== FUNCTION CALLED ==========');
-  console.log('[getQuotesByOpportunityClient] opportunityId parameter:', opportunityId);
-  console.log('[getQuotesByOpportunityClient] typeof opportunityId:', typeof opportunityId);
-  
   if (!opportunityId) {
-    console.error('[getQuotesByOpportunityClient] ❌❌❌ NO OPPORTUNITY ID PROVIDED!');
+    console.error('[getQuotesByOpportunityClient] No opportunity ID provided');
     return { quotes: [] };
   }
   
   if (typeof opportunityId !== 'string') {
-    console.error('[getQuotesByOpportunityClient] ❌❌❌ OPPORTUNITY ID IS NOT A STRING!', typeof opportunityId);
+    console.error('[getQuotesByOpportunityClient] Opportunity ID is not a string:', typeof opportunityId);
     return { quotes: [] };
   }
   
-  console.error('[getQuotesByOpportunityClient] 🔴 ABOUT TO ENTER TRY BLOCK');
-  
   try {
-    console.error('[getQuotesByOpportunityClient] 🔴 INSIDE TRY BLOCK');
-    console.log('[getQuotesByOpportunityClient] Starting query for opportunity:', opportunityId);
     const { data: { user } } = await supabase.auth.getUser();
     
-    console.error('[getQuotesByOpportunityClient] 🔴 GOT USER');
-    
     if (!user) {
-      console.error('[getQuotesByOpportunityClient] ❌ NO USER - NOT AUTHENTICATED');
+      console.error('[getQuotesByOpportunityClient] Not authenticated');
       throw new Error('Not authenticated');
     }
 
-    console.error('[getQuotesByOpportunityClient] 🔴 ABOUT TO GET PROFILE');
-    
     // Get user's profile to check their role
     const profile = await ensureUserProfile(user.id);
-    
-    console.error('[getQuotesByOpportunityClient] 🔴 GOT PROFILE');
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
-
-    console.log('[getQuotesByOpportunityClient] User:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
     
     // IMPORTANT: When viewing quotes for a specific opportunity, we need to check
     // if the user has access to the opportunity/contact first, THEN show ALL quotes for that opportunity
@@ -164,22 +147,18 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
       .maybeSingle();
     
     if (oppError || !opportunity) {
-      console.log('[getQuotesByOpportunityClient] ❌ Opportunity not found or access denied');
+      console.log('[getQuotesByOpportunityClient] Opportunity not found or access denied');
       return { quotes: [] };
     }
     
     if (!opportunity.customer_id) {
-      console.log('[getQuotesByOpportunityClient] ❌ Opportunity has no customer_id');
+      console.log('[getQuotesByOpportunityClient] Opportunity has no customer_id');
       return { quotes: [] };
     }
-    
-    console.error('[getQuotesByOpportunityClient] 🔴 CHECKING ACCESS TO OPPORTUNITY');
     
     // Simplified access check: if user can see the opportunity (which they can since they navigated here),
     // then they can see all quotes for that contact
     // The opportunity filtering already ensures proper access control
-    
-    console.log('[getQuotesByOpportunityClient] ✅ User has access - loading ALL quotes for this contact');
     
     // Get ALL quotes for this contact (quotes are linked to contacts, not opportunities)
     // Filter by the opportunity's organization_id to ensure data isolation
@@ -190,30 +169,19 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
     
     // Filter by organization to ensure data isolation
     if (userRole !== 'super_admin' && opportunity.organization_id) {
-      console.log('[getQuotesByOpportunityClient] Applying org filter for opportunity org:', opportunity.organization_id);
       query = query.or(`organization_id.eq.${opportunity.organization_id},organization_id.is.null`);
     } else if (userRole !== 'super_admin' && userOrgId) {
       // Fallback to user's org if opportunity doesn't have an org
-      console.log('[getQuotesByOpportunityClient] Applying org filter for user org:', userOrgId);
       query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
-    } else {
-      console.log('[getQuotesByOpportunityClient] Super admin - no org filter applied');
     }
     
     const { data: quotes, error } = await query;
     
-    console.log('[getQuotesByOpportunityClient] Query result:', { quotesCount: quotes?.length, error });
-    if (quotes && quotes.length > 0) {
-      console.log('[getQuotesByOpportunityClient] Quote titles:', quotes.map(q => q.title));
-      console.log('[getQuotesByOpportunityClient] Quote org IDs:', quotes.map(q => ({ title: q.title, org_id: q.organization_id })));
-    }
-    
     if (error) {
-      console.error('[getQuotesByOpportunityClient] Error loading quotes for opportunity:', error);
+      console.error('[getQuotesByOpportunityClient] Error loading quotes:', error);
       return { quotes: [] };
     }
     
-    console.log('[getQuotesByOpportunityClient] Successfully loaded', quotes?.length || 0, 'quotes');
     return { quotes: quotes || [] };
   } catch (error: any) {
     console.error('[getQuotesByOpportunityClient] Error:', error.message);

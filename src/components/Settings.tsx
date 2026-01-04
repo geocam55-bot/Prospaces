@@ -1,3 +1,17 @@
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner@2.0.3';
+import { Security } from './Security';
+import { TestDataGenerator } from './TestDataGenerator';
+import { ThemeSelector } from './ThemeSelector';
+import { FindLarryContacts } from './FindLarryContacts';
+import { BidsTableMigration } from './BidsTableMigration';
+import { ThemeMigration } from './ThemeMigration';
+import { FullCRMDatabaseSetup } from './FullCRMDatabaseSetup';
+import { OrganizationFeatureMigration } from './OrganizationFeatureMigration';
+import { ProjectWizardSettings } from './ProjectWizardSettings';
+import { ReassignContacts } from './admin/ReassignContacts';
+import { AIToggleSwitch } from './AIToggleSwitch';
+import { EmailCustomFoldersMigration } from './EmailCustomFoldersMigration';
 import { PlannerDefaultsMigrationStatus } from './PlannerDefaultsMigrationStatus';
 import { TestUserDefaults } from './TestUserDefaults';
 import { PlannerMigrationValidator } from './PlannerMigrationValidator';
@@ -820,51 +834,11 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                       Organization ID: {user.organizationId}
                     </p>
                   </div>
-                  <Button
-                    onClick={async () => {
-                      try {
-                        // Try to update the organization
-                        const result = await tenantsAPI.updateFeatures(user.organizationId, {
-                          ai_suggestions_enabled: true
-                        });
-                        
-                        // Update the organization state immediately without requiring refresh
-                        if (onOrganizationUpdate && result?.tenant) {
-                          // Merge with existing organization data to preserve other fields
-                          const updatedOrg = {
-                            ...(organization || {}),
-                            ...result.tenant,
-                            ai_suggestions_enabled: true
-                          };
-                          onOrganizationUpdate(updatedOrg);
-                        }
-                        
-                        toast.success(
-                          'AI Suggestions enabled! The module is now visible in the sidebar.',
-                          { duration: 5000 }
-                        );
-                      } catch (error: any) {
-                        console.error('❌ Failed to enable AI Suggestions:', error);
-                        
-                        // Show detailed error
-                        if (error?.message?.includes('column') || error?.code === '42703') {
-                          toast.error(
-                            'Database column missing. Please run the migration in the Test Data tab → Organization Feature Migration.',
-                            { duration: 10000 }
-                          );
-                        } else {
-                          toast.error(
-                            `Failed to enable feature: ${error?.message || 'Unknown error'}. Check console for details.`,
-                            { duration: 10000 }
-                          );
-                        }
-                      }
-                    }}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Enable AI Module
-                  </Button>
+                  <AIToggleSwitch
+                    organizationId={user.organizationId}
+                    onOrganizationUpdate={onOrganizationUpdate}
+                    organization={organization}
+                  />
                 </div>
 
                 <Alert>

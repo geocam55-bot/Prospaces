@@ -237,13 +237,29 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
       // Contacts
       let contactsResult = { data: null, error: null };
       try {
+        // First, try to get ALL contacts to see what's available
+        const { data: allContacts } = await supabase
+          .from('contacts')
+          .select('id, name, email, owner_id, organization_id')
+          .eq('organization_id', user.organizationId)
+          .limit(100);
+        
+        console.log('🔍 [Team Dashboard] ALL contacts in org:', allContacts);
+        console.log('🔍 [Team Dashboard] Looking for owner_id:', userId);
+        console.log('🔍 [Team Dashboard] Selected user email:', userEmail);
+        
+        // Now filter by owner_id
         contactsResult = await supabase
           .from('contacts')
-          .select('id, name, email, phone, company, status, organization_id, created_at, updated_at')
+          .select('id, name, email, phone, company, status, organization_id, owner_id, created_at, updated_at')
           .eq('organization_id', user.organizationId)
+          .eq('owner_id', userId) // Filter by user's owned contacts
           .limit(1000);
+        
+        console.log('🔍 [Team Dashboard] Contacts owned by user:', contactsResult.data);
       } catch (err) {
         contactsResult.error = err;
+        console.error('❌ [Team Dashboard] Error fetching contacts:', err);
       }
       
       // Tasks
@@ -258,26 +274,67 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
         tasksResult.error = err;
       }
       
-      // Bids
+      // Get contact IDs for filtering bids and opportunities
+      const userContactIds = (contactsResult.data || []).map((c: any) => c.id);
+      
+      console.log('🔍 [Team Dashboard] User:', userEmail, 'User ID:', userId);
+      console.log('🔍 [Team Dashboard] Contacts owned by user:', userContactIds);
+      
+      // Bids - Filter by BOTH owner_id AND customer_id matching user's contacts
       let bidsResult = { data: null, error: null };
       try {
-        bidsResult = await supabase
+        // First, try to get ALL bids in the org to debug
+        const { data: allBids } = await supabase
           .from('bids')
-          .select('id, title, status, amount, customer_id, organization_id, created_at, updated_at')
+          .select('id, title, status, amount, customer_id, owner_id, organization_id')
           .eq('organization_id', user.organizationId)
-          .limit(1000);
+          .limit(100);
+        
+        console.log('🔍 [Team Dashboard] ALL bids in org:', allBids);
+        console.log('🔍 [Team Dashboard] Looking for bids with owner_id:', userId, 'OR customer_id in:', userContactIds);
+        
+        // Now filter by owner_id OR customer_id
+        // Bids can be assigned to a user (owner_id) OR linked to a customer/contact (customer_id)
+        if (userContactIds.length > 0) {
+          bidsResult = await supabase
+            .from('bids')
+            .select('id, title, status, amount, customer_id, owner_id, organization_id, created_at, updated_at')
+            .eq('organization_id', user.organizationId)
+            .or(`owner_id.eq.${userId},customer_id.in.(${userContactIds.join(',')})`)
+            .limit(1000);
+          
+          console.log('🔍 [Team Dashboard] Bids for user (filtered):', bidsResult.data);
+        } else {
+          // No contacts, but still check for bids with owner_id
+          bidsResult = await supabase
+            .from('bids')
+            .select('id, title, status, amount, customer_id, owner_id, organization_id, created_at, updated_at')
+            .eq('organization_id', user.organizationId)
+            .eq('owner_id', userId)
+            .limit(1000);
+          
+          console.log('🔍 [Team Dashboard] Bids for user (by owner_id only):', bidsResult.data);
+        }
       } catch (err) {
         bidsResult.error = err;
+        console.error('❌ [Team Dashboard] Error fetching bids:', err);
       }
       
-      // Quotes - Note: quotes table may not exist, handle gracefully
+      // Quotes - Filter by customer_id matching user's contacts
       let quotesResult = { data: null, error: null };
       try {
-        quotesResult = await supabase
-          .from('quotes')
-          .select('id, title, status, total, customer_id, organization_id, created_at, updated_at')
-          .eq('organization_id', user.organizationId)
-          .limit(1000);
+        if (userContactIds.length > 0) {
+          quotesResult = await supabase
+            .from('quotes')
+            .select('id, title, status, total, customer_id, organization_id, created_at, updated_at')
+            .eq('organization_id', user.organizationId)
+            .in('customer_id', userContactIds)
+            .limit(1000);
+          
+          console.log('🔍 [Team Dashboard] Quotes for user:', quotesResult.data);
+        } else {
+          quotesResult.data = [];
+        }
       } catch (err) {
         quotesResult.error = err;
         // Suppress error logging for quotes since the table may not exist
