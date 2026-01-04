@@ -280,13 +280,13 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
       console.log('🔍 [Team Dashboard] User:', userEmail, 'User ID:', userId);
       console.log('🔍 [Team Dashboard] Contacts owned by user:', userContactIds);
       
-      // Bids - Filter by BOTH owner_id AND customer_id matching user's contacts
+      // Bids - Filter by owner_id, customer_id, AND opportunity_id (linked to user's opportunities)
       let bidsResult = { data: null, error: null };
       try {
         // First, try to get ALL bids in the org to debug
         const { data: allBids } = await supabase
           .from('bids')
-          .select('id, title, status, amount, customer_id, owner_id, organization_id')
+          .select('id, title, status, amount, customer_id, owner_id, opportunity_id, organization_id')
           .eq('organization_id', user.organizationId)
           .limit(100);
         
@@ -302,28 +302,52 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
               title: bid.title,
               owner_id: bid.owner_id,
               customer_id: bid.customer_id,
+              opportunity_id: bid.opportunity_id,
               organization_id: bid.organization_id,
               status: bid.status
             });
           });
         }
         
-        // Now filter by owner_id OR customer_id
-        // Bids can be assigned to a user (owner_id) OR linked to a customer/contact (customer_id)
+        // Get opportunities for this user's contacts first
+        let userOpportunityIds: string[] = [];
         if (userContactIds.length > 0) {
+          const { data: userOpps } = await supabase
+            .from('opportunities')
+            .select('id')
+            .eq('organization_id', user.organizationId)
+            .in('customer_id', userContactIds);
+          
+          userOpportunityIds = (userOpps || []).map((opp: any) => opp.id);
+          console.log('🔍 [Team Dashboard] User opportunity IDs:', userOpportunityIds);
+        }
+        
+        // Now filter bids by:
+        // 1. owner_id matching user
+        // 2. customer_id matching user's contacts
+        // 3. opportunity_id matching user's opportunities
+        if (userContactIds.length > 0 || userOpportunityIds.length > 0) {
+          // Build the OR query dynamically
+          const orConditions = [];
+          if (userId) orConditions.push(`owner_id.eq.${userId}`);
+          if (userContactIds.length > 0) orConditions.push(`customer_id.in.(${userContactIds.join(',')})`);
+          if (userOpportunityIds.length > 0) orConditions.push(`opportunity_id.in.(${userOpportunityIds.join(',')})`);
+          
+          console.log('🔍 [Team Dashboard] OR conditions:', orConditions);
+          
           bidsResult = await supabase
             .from('bids')
-            .select('id, title, status, amount, customer_id, owner_id, organization_id, created_at, updated_at')
+            .select('id, title, status, amount, customer_id, owner_id, opportunity_id, organization_id, created_at, updated_at')
             .eq('organization_id', user.organizationId)
-            .or(`owner_id.eq.${userId},customer_id.in.(${userContactIds.join(',')})`)
+            .or(orConditions.join(','))
             .limit(1000);
           
           console.log('🔍 [Team Dashboard] Bids for user (filtered):', bidsResult.data);
         } else {
-          // No contacts, but still check for bids with owner_id
+          // No contacts and no opportunities, but still check for bids with owner_id
           bidsResult = await supabase
             .from('bids')
-            .select('id, title, status, amount, customer_id, owner_id, organization_id, created_at, updated_at')
+            .select('id, title, status, amount, customer_id, owner_id, opportunity_id, organization_id, created_at, updated_at')
             .eq('organization_id', user.organizationId)
             .eq('owner_id', userId)
             .limit(1000);
