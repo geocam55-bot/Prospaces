@@ -368,7 +368,7 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
           // Fetch ALL quotes in the organization
           const { data: allQuotes, error: quotesError } = await supabase
             .from('quotes')
-            .select('id, title, status, total, customer_id, organization_id, created_at, updated_at')
+            .select('id, title, status, total, contact_id, organization_id, created_at, updated_at')
             .eq('organization_id', user.organizationId)
             .limit(1000);
           
@@ -380,10 +380,10 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
             console.log('ℹ️ Quotes table not available, skipping...');
             quotesResult.data = [];
           } else {
-            // Filter quotes to only those with customer_id in userContactIds
+            // Filter quotes to only those with contact_id in userContactIds
             const userContactIdSet = new Set(userContactIds);
             quotesResult.data = (allQuotes || []).filter((quote: any) => 
-              quote.customer_id && userContactIdSet.has(quote.customer_id)
+              quote.contact_id && userContactIdSet.has(quote.contact_id)
             );
             
             console.log('🔍 [Team Dashboard] ALL quotes in org:', allQuotes?.length);
