@@ -373,6 +373,7 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
             .limit(1000);
           
           if (quotesError) {
+            console.error('❌ [Team Dashboard] Quotes error:', quotesError);
             console.log('ℹ️ Quotes table not available, skipping...');
             quotesResult.data = [];
           } else {
