@@ -293,6 +293,21 @@ export function ManagerDashboard({ user, onNavigate }: ManagerDashboardProps) {
         console.log('🔍 [Team Dashboard] ALL bids in org:', allBids);
         console.log('🔍 [Team Dashboard] Looking for bids with owner_id:', userId, 'OR customer_id in:', userContactIds);
         
+        // Debug: Show what the bids actually contain
+        if (allBids && allBids.length > 0) {
+          console.log('🔍 [Team Dashboard] BID DETAILS:');
+          allBids.forEach((bid: any, index: number) => {
+            console.log(`  Bid ${index + 1}:`, {
+              id: bid.id,
+              title: bid.title,
+              owner_id: bid.owner_id,
+              customer_id: bid.customer_id,
+              organization_id: bid.organization_id,
+              status: bid.status
+            });
+          });
+        }
+        
         // Now filter by owner_id OR customer_id
         // Bids can be assigned to a user (owner_id) OR linked to a customer/contact (customer_id)
         if (userContactIds.length > 0) {
