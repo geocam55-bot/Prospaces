@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { KitchenConfig } from '../../types/kitchen';
+import * as THREE from 'three';
 import { 
   Scene, 
   Color, 
@@ -137,6 +138,40 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
     rightWall.rotation.y = -Math.PI / 2;
     rightWall.receiveShadow = true;
     scene.add(rightWall);
+    
+    // Add wall label markers to help debug coordinate system
+    const createWallLabel = (text: string, x: number, y: number, z: number, rotY: number = 0) => {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) return null;
+      
+      canvas.width = 512;
+      canvas.height = 128;
+      context.fillStyle = '#ef4444';
+      context.font = 'bold 80px Arial';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText(text, 256, 64);
+      
+      const texture = new THREE.CanvasTexture(canvas);
+      const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+      const geometry = new THREE.PlaneGeometry(1, 0.25);
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(x, y, z);
+      mesh.rotation.y = rotY;
+      return mesh;
+    };
+    
+    // Add labels (import THREE at the top if not already)
+    const northLabel = createWallLabel('NORTH', 0, roomHeight - 0.3, -roomLength / 2 + 0.01, 0);
+    const westLabel = createWallLabel('WEST', -roomWidth / 2 + 0.01, roomHeight - 0.3, 0, Math.PI / 2);
+    const eastLabel = createWallLabel('EAST', roomWidth / 2 - 0.01, roomHeight - 0.3, 0, -Math.PI / 2);
+    const southLabel = createWallLabel('SOUTH', 0, roomHeight - 0.3, roomLength / 2 - 0.01, Math.PI);
+    
+    if (northLabel) scene.add(northLabel);
+    if (westLabel) scene.add(westLabel);
+    if (eastLabel) scene.add(eastLabel);
+    if (southLabel) scene.add(southLabel);
 
     // Wall edges
     const edgesGeometry = new EdgesGeometry(
@@ -149,21 +184,37 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
 
     // Add cabinets
     config.cabinets.forEach((cabinet) => {
-      const x = (cabinet.x / 100 - 0.5) * roomWidth;
-      const z = (cabinet.y / 100 - 0.5) * roomLength;
+      // Convert from inches to meters
+      const w = cabinet.width * scale;
+      const h = (cabinet.height || 34) * scale;
+      const d = cabinet.depth * scale;
+
+      // DEBUG: Log the first cabinet's position
+      if (config.cabinets.indexOf(cabinet) === 0) {
+        console.log('First cabinet 2D position:', { x: cabinet.x, y: cabinet.y, width: cabinet.width, depth: cabinet.depth });
+        console.log('Room dimensions (feet):', { width: config.roomWidth, length: config.roomLength });
+        console.log('Calculated 3D position will be:', {
+          x: -roomWidth / 2 + (cabinet.x * scale) + (w / 2),
+          z: -roomLength / 2 + (cabinet.y * scale) + (d / 2)
+        });
+      }
+
+      // Map 2D position to 3D:
+      // In 2D: cabinet.x, cabinet.y represent the top-left corner position
+      // In 3D: We want the back edge at North wall (-roomLength/2) when cabinet.y = 0
+      //        We want the left edge at West wall (-roomWidth/2) when cabinet.x = 0
+      
+      const x = -roomWidth / 2 + (cabinet.x * scale) + (w / 2);
+      const z = -roomLength / 2 + (cabinet.y * scale) + (d / 2);  // Adding back depth offset
       
       let y = 0;
-      if (cabinet.type === 'wall') {
+      if (cabinet.type === 'wall' || cabinet.type === 'corner-wall') {
         y = (cabinet.height || 30) * scale / 2 + 1.2;
       } else if (cabinet.type === 'tall') {
         y = (cabinet.height || 84) * scale / 2;
       } else {
         y = (cabinet.height || 34) * scale / 2;
       }
-
-      const w = cabinet.width * scale;
-      const h = (cabinet.height || 34) * scale;
-      const d = cabinet.depth * scale;
 
       // Cabinet body
       const cabinetGeometry = new BoxGeometry(w, h, d);
@@ -221,7 +272,7 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
       }
 
       // Add countertop for base cabinets
-      if (cabinet.type === 'base' || cabinet.type === 'island') {
+      if (cabinet.type === 'base' || cabinet.type === 'island' || cabinet.type === 'corner-base') {
         const countertopGeometry = new BoxGeometry(w + 0.05, 0.04, d + 0.05);
         const countertopMaterial = new MeshStandardMaterial({
           color: 0x64748b,
@@ -238,13 +289,15 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
 
     // Add appliances
     config.appliances.forEach((appliance) => {
-      const x = (appliance.x / 100 - 0.5) * roomWidth;
-      const z = (appliance.y / 100 - 0.5) * roomLength;
-      const y = appliance.height * scale / 2;
-
+      // Convert from inches to meters
       const w = appliance.width * scale;
       const h = appliance.height * scale;
       const d = appliance.depth * scale;
+
+      // Same mapping as cabinets
+      const x = -roomWidth / 2 + (appliance.x * scale) + (w / 2);
+      const z = -roomLength / 2 + (appliance.y * scale) + (d / 2);
+      const y = h / 2;
 
       let color = 0xcbd5e1;
       let metalness = 0.6;

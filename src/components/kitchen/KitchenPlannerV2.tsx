@@ -229,19 +229,28 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
   const [config, setConfig] = useState<KitchenConfig>({
     roomWidth: 12,
     roomLength: 14,
+    roomHeight: 8,
     wallThickness: 6,
     layoutStyle: 'L-shaped',
     cabinetFinish: 'White Shaker',
     countertopMaterial: 'Granite',
     cabinets: [],
+    countertops: [],
     appliances: [],
+    hasIsland: false,
+    hasPantry: false,
+    hasBacksplash: true,
+    gridSize: 6,
+    showGrid: false,
+    snapToGrid: false,
+    viewMode: '2D',
+    unit: 'feet',
   });
 
   const [selectedCabinet, setSelectedCabinet] = useState<PlacedCabinet | null>(null);
   const [activeCategory, setActiveCategory] = useState<ItemCategory>('cabinets');
   const [showSidebar, setShowSidebar] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'2D' | '3D'>('2D');
   const [activeTab, setActiveTab] = useState<MainTab>('design');
 
   const materials = calculateKitchenMaterials(config);
@@ -309,6 +318,13 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
     if (selectedCabinet?.id === id) {
       setSelectedCabinet(null);
     }
+  };
+
+  const handleUpdateConfig = (updates: Partial<KitchenConfig>) => {
+    setConfig(prev => ({
+      ...prev,
+      ...updates,
+    }));
   };
 
   const filteredCabinets = CABINET_CATALOG.filter(cab =>
@@ -514,7 +530,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
 
                 {activeCategory === 'settings' && (
                   <div className="p-4">
-                    <KitchenConfigurator config={config} onChange={setConfig} />
+                    <KitchenConfigurator config={config} onChange={handleUpdateConfig} />
                   </div>
                 )}
               </div>
@@ -533,9 +549,9 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                   <h2 className="text-lg font-semibold">Kitchen Plan & Elevation</h2>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setViewMode('2D')}
+                      onClick={() => setConfig(prev => ({ ...prev, viewMode: '2D' }))}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
-                        viewMode === '2D'
+                        config.viewMode === '2D'
                           ? 'bg-blue-600 text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
@@ -543,9 +559,9 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                       2D
                     </button>
                     <button
-                      onClick={() => setViewMode('3D')}
+                      onClick={() => setConfig(prev => ({ ...prev, viewMode: '3D' }))}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
-                        viewMode === '3D'
+                        config.viewMode === '3D'
                           ? 'bg-blue-600 text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
@@ -556,7 +572,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                   </div>
                 </div>
                 <div>
-                  {viewMode === '2D' ? (
+                  {config.viewMode === '2D' ? (
                     <KitchenCanvas
                       config={config}
                       selectedCabinet={selectedCabinet}
@@ -566,6 +582,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                       onDeleteCabinet={handleDeleteCabinet}
                       onAddCabinet={handleAddCabinet}
                       onAddAppliance={handleAddAppliance}
+                      onUpdateConfig={handleUpdateConfig}
                     />
                   ) : (
                     <div className="h-[500px]">

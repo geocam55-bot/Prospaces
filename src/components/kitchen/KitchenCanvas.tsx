@@ -13,6 +13,7 @@ interface KitchenCanvasProps {
   onDeleteCabinet: (id: string) => void;
   onAddCabinet: (cabinet: PlacedCabinet) => void;
   onAddAppliance?: (appliance: any, x: number, y: number) => void;
+  onUpdateConfig?: (updates: Partial<KitchenConfig>) => void;
 }
 
 export function KitchenCanvas({
@@ -24,11 +25,11 @@ export function KitchenCanvas({
   onDeleteCabinet,
   onAddCabinet,
   onAddAppliance,
+  onUpdateConfig,
 }: KitchenCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
-  const [showGrid, setShowGrid] = useState(config.showGrid);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [hoveredCabinet, setHoveredCabinet] = useState<PlacedCabinet | null>(null);
@@ -42,9 +43,26 @@ export function KitchenCanvas({
 
   const PIXELS_PER_INCH = 4; // Scale factor
 
+  // Snap to grid helper function with boundary awareness
+  const snapToGrid = (value: number, isXCoord: boolean = true, itemWidth: number = 0, itemDepth: number = 0) => {
+    if (!config.snapToGrid) return value;
+    const gridSize = config.gridSize || 6; // Default 6 inches
+    const snappedValue = Math.round(value / gridSize) * gridSize;
+    
+    // Ensure the item stays within room boundaries
+    const maxX = config.roomWidth * 12 - itemWidth; // Room width in inches minus item width
+    const maxY = config.roomLength * 12 - itemDepth; // Room length in inches minus item depth
+    
+    if (isXCoord) {
+      return Math.max(0, Math.min(snappedValue, maxX));
+    } else {
+      return Math.max(0, Math.min(snappedValue, maxY));
+    }
+  };
+
   useEffect(() => {
     drawCanvas();
-  }, [config, zoom, showGrid, selectedCabinet, hoveredCabinet, selectedAppliance]);
+  }, [config, zoom, selectedCabinet, hoveredCabinet, selectedAppliance]);
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
@@ -64,7 +82,7 @@ export function KitchenCanvas({
     drawRoom(ctx);
 
     // Draw grid if enabled
-    if (showGrid) {
+    if (config.showGrid) {
       drawGridLines(ctx);
     }
 
@@ -183,62 +201,123 @@ export function KitchenCanvas({
     if (cabinet.finish === 'Cherry') fillColor = '#a0522d';
     if (cabinet.finish === 'Maple') fillColor = '#f5deb3';
 
-    ctx.fillStyle = fillColor;
-    ctx.fillRect(0, 0, width, depth);
+    // Check if this is a corner cabinet
+    const isCornerCabinet = cabinet.type === 'corner-base' || cabinet.type === 'corner-wall';
 
-    // Cabinet outline
-    ctx.strokeStyle = isSelected ? '#3b82f6' : isHovered ? '#60a5fa' : '#6b7280';
-    ctx.lineWidth = isSelected ? 3 : isHovered ? 2 : 1;
-    ctx.strokeRect(0, 0, width, depth);
-
-    // Draw doors/drawers
-    if (cabinet.hasDoors && cabinet.numberOfDoors) {
-      const doorWidth = width / cabinet.numberOfDoors;
+    if (isCornerCabinet) {
+      // Draw L-shaped corner cabinet
+      const cornerSize = Math.min(width, depth);
+      
+      // Fill the L-shape (two rectangles forming an L)
+      ctx.fillStyle = fillColor;
+      
+      // Vertical part of L
+      ctx.fillRect(0, 0, cornerSize * 0.4, depth);
+      // Horizontal part of L
+      ctx.fillRect(0, depth - cornerSize * 0.4, width, cornerSize * 0.4);
+      
+      // Outline the L-shape
+      ctx.strokeStyle = isSelected ? '#3b82f6' : isHovered ? '#60a5fa' : '#6b7280';
+      ctx.lineWidth = isSelected ? 3 : isHovered ? 2 : 1;
+      
+      ctx.strokeRect(0, 0, cornerSize * 0.4, depth);
+      ctx.strokeRect(0, depth - cornerSize * 0.4, width, cornerSize * 0.4);
+      
+      // Draw corner diagonal line to show the L-shape connection
+      ctx.beginPath();
+      ctx.moveTo(cornerSize * 0.4, depth - cornerSize * 0.4);
+      ctx.lineTo(cornerSize * 0.4, depth);
+      ctx.stroke();
+      
+      // Draw angled doors for corner cabinet
+      const doorWidth = cornerSize * 0.35;
+      const doorHeight = depth * 0.6;
+      const doorOffset = cornerSize * 0.025;
+      
+      // Left door (on vertical part)
       ctx.strokeStyle = '#4b5563';
-      ctx.lineWidth = 1;
-      for (let i = 1; i < cabinet.numberOfDoors; i++) {
-        ctx.beginPath();
-        ctx.moveTo(i * doorWidth, 0);
-        ctx.lineTo(i * doorWidth, depth);
-        ctx.stroke();
-      }
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(doorOffset, depth * 0.2, doorWidth, doorHeight);
+      
+      // Right door (angled, on horizontal part)
+      const rightDoorY = depth - cornerSize * 0.35;
+      const rightDoorWidth = width * 0.45;
+      ctx.strokeRect(cornerSize * 0.45, rightDoorY + doorOffset, rightDoorWidth, cornerSize * 0.3);
+      
       // Door handles
-      ctx.fillStyle = '#9ca3af';
-      for (let i = 0; i < cabinet.numberOfDoors; i++) {
-        const handleX = (i + 0.5) * doorWidth;
-        ctx.fillRect(handleX - 2, depth / 2 - 6, 4, 12);
-      }
-    }
+      ctx.fillStyle = '#374151';
+      // Left door handle
+      ctx.fillRect(doorWidth - 8, depth * 0.5 - 8, 3, 16);
+      // Right door handle  
+      ctx.fillRect(cornerSize * 0.5, rightDoorY + cornerSize * 0.15 - 2, 16, 3);
+      
+      // Label
+      ctx.fillStyle = '#1f2937';
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Corner', width / 2, depth - 10);
+      
+    } else {
+      // Draw regular cabinet (existing code)
+      ctx.fillStyle = fillColor;
+      ctx.fillRect(0, 0, width, depth);
 
-    if (cabinet.hasDrawers && cabinet.numberOfDrawers) {
-      const drawerHeight = depth / cabinet.numberOfDrawers;
-      ctx.strokeStyle = '#4b5563';
-      ctx.lineWidth = 1;
-      for (let i = 1; i < cabinet.numberOfDrawers; i++) {
-        ctx.beginPath();
-        ctx.moveTo(0, i * drawerHeight);
-        ctx.lineTo(width, i * drawerHeight);
-        ctx.stroke();
-      }
-      // Drawer pulls
-      ctx.fillStyle = '#9ca3af';
-      for (let i = 0; i < cabinet.numberOfDrawers; i++) {
-        const handleY = (i + 0.5) * drawerHeight;
-        ctx.fillRect(width / 2 - 6, handleY - 2, 12, 4);
-      }
-    }
+      // Cabinet outline
+      ctx.strokeStyle = isSelected ? '#3b82f6' : isHovered ? '#60a5fa' : '#6b7280';
+      ctx.lineWidth = isSelected ? 3 : isHovered ? 2 : 1;
+      ctx.strokeRect(0, 0, width, depth);
 
-    // Label
-    ctx.fillStyle = '#1f2937';
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(cabinet.name.split(' ').slice(0, 2).join(' '), width / 2, depth / 2);
+      // Draw doors/drawers
+      if (cabinet.hasDoors && cabinet.numberOfDoors) {
+        const doorWidth = width / cabinet.numberOfDoors;
+        ctx.strokeStyle = '#4b5563';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < cabinet.numberOfDoors; i++) {
+          ctx.beginPath();
+          ctx.moveTo(i * doorWidth, 0);
+          ctx.lineTo(i * doorWidth, depth);
+          ctx.stroke();
+        }
+        // Door handles
+        ctx.fillStyle = '#9ca3af';
+        for (let i = 0; i < cabinet.numberOfDoors; i++) {
+          const handleX = (i + 0.5) * doorWidth;
+          ctx.fillRect(handleX - 2, depth / 2 - 6, 4, 12);
+        }
+      }
+
+      if (cabinet.hasDrawers && cabinet.numberOfDrawers) {
+        const drawerHeight = depth / cabinet.numberOfDrawers;
+        ctx.strokeStyle = '#4b5563';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < cabinet.numberOfDrawers; i++) {
+          ctx.beginPath();
+          ctx.moveTo(0, i * drawerHeight);
+          ctx.lineTo(width, i * drawerHeight);
+          ctx.stroke();
+        }
+        // Drawer pulls
+        ctx.fillStyle = '#9ca3af';
+        for (let i = 0; i < cabinet.numberOfDrawers; i++) {
+          const handleY = (i + 0.5) * drawerHeight;
+          ctx.fillRect(width / 2 - 6, handleY - 2, 12, 4);
+        }
+      }
+
+      // Label
+      ctx.fillStyle = '#1f2937';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(cabinet.name.split(' ').slice(0, 2).join(' '), width / 2, depth / 2);
+    }
 
     // Dimensions
     ctx.fillStyle = '#6b7280';
     ctx.font = '8px sans-serif';
-    ctx.fillText(`${cabinet.width}"`, width / 2, -5);
+    ctx.textAlign = 'center';
+    ctx.fillText(`${cabinet.width}\"`, width / 2, -5);
 
     ctx.restore();
   };
@@ -410,7 +489,7 @@ export function KitchenCanvas({
       return;
     }
 
-    // Handle dragging
+    // Handle dragging with boundary checking
     if (isDragging && draggedItem && dragStart) {
       const dx = x - dragStart.x;
       const dy = y - dragStart.y;
@@ -418,8 +497,16 @@ export function KitchenCanvas({
       if (draggedItem.type === 'cabinet') {
         const cabinet = config.cabinets.find(c => c.id === draggedItem.id);
         if (cabinet) {
-          const newX = Math.max(0, cabinet.x + dx / PIXELS_PER_INCH);
-          const newY = Math.max(0, cabinet.y + dy / PIXELS_PER_INCH);
+          // Calculate new position
+          let newX = cabinet.x + dx / PIXELS_PER_INCH;
+          let newY = cabinet.y + dy / PIXELS_PER_INCH;
+          
+          // Apply boundary constraints
+          const maxX = config.roomWidth * 12 - cabinet.width;
+          const maxY = config.roomLength * 12 - cabinet.depth;
+          
+          newX = Math.max(0, Math.min(newX, maxX));
+          newY = Math.max(0, Math.min(newY, maxY));
           
           onUpdateCabinet(draggedItem.id, { x: newX, y: newY });
           setDragStart({ x, y });
@@ -427,8 +514,16 @@ export function KitchenCanvas({
       } else if (draggedItem.type === 'appliance') {
         const appliance = config.appliances.find(a => a.id === draggedItem.id);
         if (appliance && onUpdateAppliance) {
-          const newX = Math.max(0, appliance.x + dx / PIXELS_PER_INCH);
-          const newY = Math.max(0, appliance.y + dy / PIXELS_PER_INCH);
+          // Calculate new position
+          let newX = appliance.x + dx / PIXELS_PER_INCH;
+          let newY = appliance.y + dy / PIXELS_PER_INCH;
+          
+          // Apply boundary constraints
+          const maxX = config.roomWidth * 12 - appliance.width;
+          const maxY = config.roomLength * 12 - appliance.depth;
+          
+          newX = Math.max(0, Math.min(newX, maxX));
+          newY = Math.max(0, Math.min(newY, maxY));
           
           onUpdateAppliance(draggedItem.id, { x: newX, y: newY });
           setDragStart({ x, y });
@@ -544,6 +639,25 @@ export function KitchenCanvas({
   };
 
   const handleCanvasMouseUp = () => {
+    // Apply snap to grid when releasing after dragging
+    if (isDragging && draggedItem) {
+      if (draggedItem.type === 'cabinet') {
+        const cabinet = config.cabinets.find(c => c.id === draggedItem.id);
+        if (cabinet) {
+          const snappedX = snapToGrid(cabinet.x, true, cabinet.width, cabinet.depth);
+          const snappedY = snapToGrid(cabinet.y, false, cabinet.width, cabinet.depth);
+          onUpdateCabinet(draggedItem.id, { x: snappedX, y: snappedY });
+        }
+      } else if (draggedItem.type === 'appliance') {
+        const appliance = config.appliances.find(a => a.id === draggedItem.id);
+        if (appliance && onUpdateAppliance) {
+          const snappedX = snapToGrid(appliance.x, true, appliance.width, appliance.depth);
+          const snappedY = snapToGrid(appliance.y, false, appliance.width, appliance.depth);
+          onUpdateAppliance(draggedItem.id, { x: snappedX, y: snappedY });
+        }
+      }
+    }
+    
     setIsDragging(false);
     setDragStart(null);
     setDraggedItem(null);
@@ -717,12 +831,29 @@ export function KitchenCanvas({
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            variant={showGrid ? 'default' : 'outline'}
-            onClick={() => setShowGrid(!showGrid)}
+            variant={config.showGrid ? 'default' : 'outline'}
+            onClick={() => {
+              if (onUpdateConfig) {
+                onUpdateConfig({ showGrid: !config.showGrid });
+              }
+            }}
           >
             <Grid3x3 className="h-4 w-4 mr-2" />
             Grid
           </Button>
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={config.snapToGrid || false}
+              onChange={(e) => {
+                if (onUpdateConfig) {
+                  onUpdateConfig({ snapToGrid: e.target.checked });
+                }
+              }}
+              className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+            />
+            Snap to Grid
+          </label>
           {(selectedCabinet || selectedAppliance) && (
             <>
               <Button

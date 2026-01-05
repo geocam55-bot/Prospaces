@@ -84,6 +84,7 @@ export interface KitchenConfig {
   // Grid settings
   gridSize: number; // in inches for snapping
   showGrid: boolean;
+  snapToGrid?: boolean; // New: Enable snap-to-grid functionality
   
   // View settings
   viewMode: '2D' | '3D';
