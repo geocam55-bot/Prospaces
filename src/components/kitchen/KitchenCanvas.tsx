@@ -881,14 +881,24 @@ export function KitchenCanvas({
             </>
           )}
           {selectedCabinet && (
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => onDeleteCabinet(selectedCabinet.id)}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onUpdateCabinet(selectedCabinet.id, { x: 0, y: 0 })}
+                title="Move cabinet to corner (0,0)"
+              >
+                Move to Corner
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => onDeleteCabinet(selectedCabinet.id)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
+            </>
           )}
         </div>
       </div>
