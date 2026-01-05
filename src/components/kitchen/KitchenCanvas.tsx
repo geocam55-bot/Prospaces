@@ -791,16 +791,22 @@ export function KitchenCanvas({
 
       // Check if it's an appliance or cabinet
       if (item.itemType === 'appliance' && onAddAppliance) {
-        onAddAppliance(item, canvasX, canvasY);
+        // Snap appliance position to grid
+        const snappedX = snapToGrid(canvasX, true, item.width, item.depth);
+        const snappedY = snapToGrid(canvasY, false, item.width, item.depth);
+        onAddAppliance(item, snappedX, snappedY);
         toast.success(`${item.name} added to canvas`);
       } else {
-        // It's a cabinet
+        // It's a cabinet - snap position to grid
+        const snappedX = snapToGrid(canvasX, true, item.width, item.depth);
+        const snappedY = snapToGrid(canvasY, false, item.width, item.depth);
+        
         const newCabinet: PlacedCabinet = {
           ...item,
           id: `cabinet-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           finish: config.cabinetFinish,
-          x: canvasX,
-          y: canvasY,
+          x: snappedX,
+          y: snappedY,
           rotation: 0,
           wall: 'north',
         };
