@@ -204,6 +204,8 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
       // In 3D: We want the back edge at North wall (-roomLength/2) when cabinet.y = 0
       //        We want the left edge at West wall (-roomWidth/2) when cabinet.x = 0
       
+      // Convert 2D corner position to 3D center position:
+      // Add half the cabinet dimensions to get the center position in 3D
       const x = -roomWidth / 2 + (cabinet.x * scale) + (w / 2);
       const z = -roomLength / 2 + (cabinet.y * scale) + (d / 2);  // Adding back depth offset
       

@@ -886,12 +886,11 @@ export function KitchenCanvas({
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  // To place cabinet flush against North (y=0) and West (x=0) walls in 3D,
-                  // we need to offset by half the cabinet dimensions in 2D
-                  // since the 3D renderer uses center positions
+                  // Move cabinet to (0, 0) which represents the northwest corner
+                  // The 3D renderer will handle the conversion to place it flush against walls
                   onUpdateCabinet(selectedCabinet.id, { 
-                    x: -selectedCabinet.width / 2, 
-                    y: -selectedCabinet.depth / 2 
+                    x: 0, 
+                    y: 0 
                   });
                 }}
                 title="Move cabinet to corner - flush against North and West walls"
