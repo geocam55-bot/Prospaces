@@ -102,12 +102,16 @@ export async function enrichMaterialsWithT1Pricing(
         const description = material.description.toLowerCase();
         
         // Smart matching for deck materials
-        if (description.includes('joist')) {
+        if (description.includes('joist') && !description.includes('hanger')) {
           inventoryItemId = defaultsMap.get('joists');
+        } else if (description.includes('joist hanger')) {
+          inventoryItemId = defaultsMap.get('joist hangers');
         } else if (description.includes('beam')) {
           inventoryItemId = defaultsMap.get('beams');
-        } else if (description.includes('post') && !description.includes('railing')) {
+        } else if (description.includes('post') && !description.includes('railing') && !description.includes('anchor')) {
           inventoryItemId = defaultsMap.get('posts');
+        } else if (description.includes('post anchor')) {
+          inventoryItemId = defaultsMap.get('post anchors');
         } else if (description.includes('decking') || description.includes('deck board')) {
           inventoryItemId = defaultsMap.get('decking boards');
         } else if (description.includes('railing post')) {
@@ -118,10 +122,18 @@ export async function enrichMaterialsWithT1Pricing(
           inventoryItemId = defaultsMap.get('railing bottom rail');
         } else if (description.includes('baluster') || description.includes('spindle')) {
           inventoryItemId = defaultsMap.get('railing balusters');
+        } else if (description.includes('railing bracket')) {
+          inventoryItemId = defaultsMap.get('railing brackets');
         } else if (description.includes('stringer')) {
           inventoryItemId = defaultsMap.get('stair stringers');
         } else if (description.includes('stair') && description.includes('tread')) {
           inventoryItemId = defaultsMap.get('stair treads');
+        } else if (description.includes('deck screw')) {
+          inventoryItemId = defaultsMap.get('deck screws');
+        } else if (description.includes('structural screw')) {
+          inventoryItemId = defaultsMap.get('structural screws');
+        } else if (description.includes('concrete mix')) {
+          inventoryItemId = defaultsMap.get('concrete mix');
         }
         
         if (inventoryItemId) {
