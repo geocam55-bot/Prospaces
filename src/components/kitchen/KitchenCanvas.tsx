@@ -885,8 +885,8 @@ export function KitchenCanvas({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onUpdateCabinet(selectedCabinet.id, { x: 0, y: 0 })}
-                title="Move cabinet to corner (0,0)"
+                onClick={() => onUpdateCabinet(selectedCabinet.id, { x: 1, y: 1 })}
+                title="Move cabinet to corner (flush against walls)"
               >
                 Move to Corner
               </Button>
