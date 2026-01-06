@@ -885,8 +885,16 @@ export function KitchenCanvas({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onUpdateCabinet(selectedCabinet.id, { x: 0, y: 0 })}
-                title="Move cabinet to corner (0,0) - flush against North and West walls"
+                onClick={() => {
+                  // To place cabinet flush against North (y=0) and West (x=0) walls in 3D,
+                  // we need to offset by half the cabinet dimensions in 2D
+                  // since the 3D renderer uses center positions
+                  onUpdateCabinet(selectedCabinet.id, { 
+                    x: -selectedCabinet.width / 2, 
+                    y: -selectedCabinet.depth / 2 
+                  });
+                }}
+                title="Move cabinet to corner - flush against North and West walls"
               >
                 Move to Corner
               </Button>
