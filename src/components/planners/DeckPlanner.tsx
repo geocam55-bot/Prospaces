@@ -32,6 +32,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     hasStairs: true,
     stairSide: 'front',
     railingSides: ['front', 'left', 'right'],
+    railingStyle: 'Treated',
     deckingPattern: 'perpendicular',
     joistSpacing: 16,
     deckingType: 'Treated',

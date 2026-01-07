@@ -260,12 +260,39 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
                 />
               </div>
+              
+              <div className="flex items-center justify-between pt-2">
+                <label className="text-slate-700 text-sm">
+                  Include Stair Railing
+                </label>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.stairRailing !== false} // Default to true
+                    onChange={(e) => updateConfig({ stairRailing: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-300 peer-focus:ring-2 peer-focus:ring-purple-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
             </div>
           )}
         </div>
 
         {/* Railings */}
         <div className="border-t border-slate-200 pt-4">
+          <label className="block text-slate-700 text-sm mb-2">
+            Railing Style
+          </label>
+          <select
+            value={config.railingStyle || 'Treated'}
+            onChange={(e) => updateConfig({ railingStyle: e.target.value as any })}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900 mb-4"
+          >
+            <option value="Treated">Treated Wood</option>
+            <option value="Aluminum">Aluminum</option>
+          </select>
+
           <label className="block text-slate-700 text-sm mb-2">
             Railing Sides
           </label>

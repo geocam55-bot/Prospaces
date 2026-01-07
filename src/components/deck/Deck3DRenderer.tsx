@@ -416,11 +416,22 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     if (isLShape) {
       // For L-shaped decks, calculate complete outer perimeter
       const railingHeight = (config.railingHeight || 42) / 12 * scale;
-      const railingY = railingHeight / 2 + 0.15;
+      
+      const deckSurfaceY = 0.15;
+      const bottomGap = (2 / 12) * scale;
+      const railThickness = 0.05;
+      
+      const topRailY = deckSurfaceY + railingHeight - railThickness/2;
+      const bottomRailY = deckSurfaceY + bottomGap + railThickness/2;
+      
+      const balusterTopY = topRailY - railThickness/2;
+      const balusterBottomY = bottomRailY + railThickness/2;
+      const balusterLength = balusterTopY - balusterBottomY;
+      const balusterCenterY = (balusterTopY + balusterBottomY) / 2;
       
       const postExtraHeight = (2 / 12) * scale;
       const postHeight = railingHeight + postExtraHeight;
-      const postY = postHeight / 2 + 0.15;
+      const postY = postHeight / 2 + deckSurfaceY;
       
       const railingMaterial = new MeshStandardMaterial({ 
         color: 0xffffff,
@@ -644,19 +655,19 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
               
               const topRailGeometry = new BoxGeometry(leftLength, 0.05, 0.05);
               const topRail = new Mesh(topRailGeometry, railingMaterial);
-              topRail.position.set(leftCenterX, railingY, leftCenterZ);
+              topRail.position.set(leftCenterX, topRailY, leftCenterZ);
               topRail.rotation.y = angle;
               topRail.castShadow = true;
               scene.add(topRail);
               
               const bottomRail = new Mesh(topRailGeometry.clone(), railingMaterial);
-              bottomRail.position.set(leftCenterX, railingY - railingHeight + 0.2, leftCenterZ);
+              bottomRail.position.set(leftCenterX, bottomRailY, leftCenterZ);
               bottomRail.rotation.y = angle;
               scene.add(bottomRail);
 
               // Balusters for left section
               const balusterSpacing = 0.15;
-              const balusterGeometry = new BoxGeometry(0.04, railingHeight - 0.2, 0.04);
+              const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
               const numBalusters = Math.floor(leftLength / balusterSpacing);
 
               for (let i = 0; i < numBalusters; i++) {
@@ -664,7 +675,7 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
                 const balX = seg.x1 + (leftEndPt.x - seg.x1) * t;
                 const balZ = seg.z1 + (leftEndPt.z - seg.z1) * t;
                 const baluster = new Mesh(balusterGeometry, railingMaterial);
-                baluster.position.set(balX, railingY - railingHeight/2 + 0.1, balZ);
+                baluster.position.set(balX, balusterCenterY, balZ);
                 scene.add(baluster);
               }
 
@@ -691,19 +702,19 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
               
               const topRailGeometry = new BoxGeometry(rightLength, 0.05, 0.05);
               const topRail = new Mesh(topRailGeometry, railingMaterial);
-              topRail.position.set(rightCenterX, railingY, rightCenterZ);
+              topRail.position.set(rightCenterX, topRailY, rightCenterZ);
               topRail.rotation.y = angle;
               topRail.castShadow = true;
               scene.add(topRail);
               
               const bottomRail = new Mesh(topRailGeometry.clone(), railingMaterial);
-              bottomRail.position.set(rightCenterX, railingY - railingHeight + 0.2, rightCenterZ);
+              bottomRail.position.set(rightCenterX, bottomRailY, rightCenterZ);
               bottomRail.rotation.y = angle;
               scene.add(bottomRail);
 
               // Balusters for right section
               const balusterSpacing = 0.15;
-              const balusterGeometry = new BoxGeometry(0.04, railingHeight - 0.2, 0.04);
+              const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
               const numBalusters = Math.floor(rightLength / balusterSpacing);
 
               for (let i = 0; i < numBalusters; i++) {
@@ -711,7 +722,7 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
                 const balX = rightStartPt.x + (seg.x2 - rightStartPt.x) * t;
                 const balZ = rightStartPt.z + (seg.z2 - rightStartPt.z) * t;
                 const baluster = new Mesh(balusterGeometry, railingMaterial);
-                baluster.position.set(balX, railingY - railingHeight/2 + 0.1, balZ);
+                baluster.position.set(balX, balusterCenterY, balZ);
                 scene.add(baluster);
               }
 
@@ -735,20 +746,20 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
             // Top rail
             const topRailGeometry = new BoxGeometry(segLength, 0.05, 0.05);
             const topRail = new Mesh(topRailGeometry, railingMaterial);
-            topRail.position.set(centerX, railingY, centerZ);
+            topRail.position.set(centerX, topRailY, centerZ);
             topRail.rotation.y = angle;
             topRail.castShadow = true;
             scene.add(topRail);
             
             // Bottom rail
             const bottomRail = new Mesh(topRailGeometry.clone(), railingMaterial);
-            bottomRail.position.set(centerX, railingY - railingHeight + 0.2, centerZ);
+            bottomRail.position.set(centerX, bottomRailY, centerZ);
             bottomRail.rotation.y = angle;
             scene.add(bottomRail);
 
             // Balusters
             const balusterSpacing = 0.15;
-            const balusterGeometry = new BoxGeometry(0.04, railingHeight - 0.2, 0.04);
+            const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
             const numBalusters = Math.floor(segLength / balusterSpacing);
 
             for (let i = 0; i < numBalusters; i++) {
@@ -756,7 +767,7 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
               const balX = seg.x1 + (seg.x2 - seg.x1) * t;
               const balZ = seg.z1 + (seg.z2 - seg.z1) * t;
               const baluster = new Mesh(balusterGeometry, railingMaterial);
-              baluster.position.set(balX, railingY - railingHeight/2 + 0.1, balZ);
+              baluster.position.set(balX, balusterCenterY, balZ);
               scene.add(baluster);
             }
 
@@ -780,11 +791,22 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     } else {
       // Rectangular deck - Complete perimeter excluding house side (back) and stairs
       const railingHeight = (config.railingHeight || 42) / 12 * scale;
-      const railingY = railingHeight / 2 + 0.15;
+      
+      const deckSurfaceY = 0.15;
+      const bottomGap = (2 / 12) * scale;
+      const railThickness = 0.05;
+      
+      const topRailY = deckSurfaceY + railingHeight - railThickness/2;
+      const bottomRailY = deckSurfaceY + bottomGap + railThickness/2;
+      
+      const balusterTopY = topRailY - railThickness/2;
+      const balusterBottomY = bottomRailY + railThickness/2;
+      const balusterLength = balusterTopY - balusterBottomY;
+      const balusterCenterY = (balusterTopY + balusterBottomY) / 2;
       
       const postExtraHeight = (2 / 12) * scale;
       const postHeight = railingHeight + postExtraHeight;
-      const postY = postHeight / 2 + 0.15;
+      const postY = postHeight / 2 + deckSurfaceY;
 
       const railingMaterial = new MeshStandardMaterial({ 
         color: 0xffffff,
@@ -848,19 +870,19 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
               
               const topRailGeometry = new BoxGeometry(leftLength, 0.05, 0.05);
               const topRail = new Mesh(topRailGeometry, railingMaterial);
-              topRail.position.set(leftCenterX, railingY, leftCenterZ);
+              topRail.position.set(leftCenterX, topRailY, leftCenterZ);
               topRail.rotation.y = angle;
               topRail.castShadow = true;
               scene.add(topRail);
               
               const bottomRail = new Mesh(topRailGeometry.clone(), railingMaterial);
-              bottomRail.position.set(leftCenterX, railingY - railingHeight + 0.2, leftCenterZ);
+              bottomRail.position.set(leftCenterX, bottomRailY, leftCenterZ);
               bottomRail.rotation.y = angle;
               scene.add(bottomRail);
 
               // Balusters for left section
               const balusterSpacing = 0.15;
-              const balusterGeometry = new BoxGeometry(0.04, railingHeight - 0.2, 0.04);
+              const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
               const numBalusters = Math.floor(leftLength / balusterSpacing);
 
               for (let i = 0; i < numBalusters; i++) {
@@ -868,7 +890,7 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
                 const balX = side.x1 + (leftEndPt.x - side.x1) * t;
                 const balZ = side.z1 + (leftEndPt.z - side.z1) * t;
                 const baluster = new Mesh(balusterGeometry, railingMaterial);
-                baluster.position.set(balX, railingY - railingHeight/2 + 0.1, balZ);
+                baluster.position.set(balX, balusterCenterY, balZ);
                 scene.add(baluster);
               }
 
@@ -895,19 +917,19 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
               
               const topRailGeometry = new BoxGeometry(rightLength, 0.05, 0.05);
               const topRail = new Mesh(topRailGeometry, railingMaterial);
-              topRail.position.set(rightCenterX, railingY, rightCenterZ);
+              topRail.position.set(rightCenterX, topRailY, rightCenterZ);
               topRail.rotation.y = angle;
               topRail.castShadow = true;
               scene.add(topRail);
               
               const bottomRail = new Mesh(topRailGeometry.clone(), railingMaterial);
-              bottomRail.position.set(rightCenterX, railingY - railingHeight + 0.2, rightCenterZ);
+              bottomRail.position.set(rightCenterX, bottomRailY, rightCenterZ);
               bottomRail.rotation.y = angle;
               scene.add(bottomRail);
 
               // Balusters for right section
               const balusterSpacing = 0.15;
-              const balusterGeometry = new BoxGeometry(0.04, railingHeight - 0.2, 0.04);
+              const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
               const numBalusters = Math.floor(rightLength / balusterSpacing);
 
               for (let i = 0; i < numBalusters; i++) {
@@ -915,7 +937,7 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
                 const balX = rightStartPt.x + (side.x2 - rightStartPt.x) * t;
                 const balZ = rightStartPt.z + (side.z2 - rightStartPt.z) * t;
                 const baluster = new Mesh(balusterGeometry, railingMaterial);
-                baluster.position.set(balX, railingY - railingHeight/2 + 0.1, balZ);
+                baluster.position.set(balX, balusterCenterY, balZ);
                 scene.add(baluster);
               }
 
@@ -939,20 +961,20 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
             // Top rail
             const topRailGeometry = new BoxGeometry(segLength, 0.05, 0.05);
             const topRail = new Mesh(topRailGeometry, railingMaterial);
-            topRail.position.set(centerX, railingY, centerZ);
+            topRail.position.set(centerX, topRailY, centerZ);
             topRail.rotation.y = angle;
             topRail.castShadow = true;
             scene.add(topRail);
             
             // Bottom rail
             const bottomRail = new Mesh(topRailGeometry.clone(), railingMaterial);
-            bottomRail.position.set(centerX, railingY - railingHeight + 0.2, centerZ);
+            bottomRail.position.set(centerX, bottomRailY, centerZ);
             bottomRail.rotation.y = angle;
             scene.add(bottomRail);
 
             // Balusters
             const balusterSpacing = 0.15;
-            const balusterGeometry = new BoxGeometry(0.04, railingHeight - 0.2, 0.04);
+            const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
             const numBalusters = Math.floor(segLength / balusterSpacing);
 
             for (let i = 0; i < numBalusters; i++) {
@@ -960,7 +982,7 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
               const balX = side.x1 + (side.x2 - side.x1) * t;
               const balZ = side.z1 + (side.z2 - side.z1) * t;
               const baluster = new Mesh(balusterGeometry, railingMaterial);
-              baluster.position.set(balX, railingY - railingHeight/2 + 0.1, balZ);
+              baluster.position.set(balX, balusterCenterY, balZ);
               scene.add(baluster);
             }
 
@@ -989,6 +1011,7 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
       const numSteps = Math.ceil(deckHeight / 0.18);
       const stepHeight = deckHeight / numSteps;
       const stepDepth = 0.28;
+      const totalRun = numSteps * stepDepth;
 
       for (let i = 0; i < numSteps; i++) {
         const stepGeometry = new BoxGeometry(stairWidth, 0.05, stepDepth);
@@ -1020,6 +1043,120 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
         step.castShadow = true;
         step.receiveShadow = true;
         scene.add(step);
+      }
+
+      // STAIR RAILING
+      if (config.stairRailing !== false) {
+         const railingHeight = (config.railingHeight || 42) / 12 * scale;
+         const railingOffset = 0.05; // inset from edge
+         const w = stairWidth/2 - railingOffset;
+         
+         const railingMaterial = new MeshStandardMaterial({ 
+            color: 0xffffff,
+            roughness: 0.3,
+            metalness: 0.2
+         });
+         const postMaterial = new MeshStandardMaterial({ 
+            color: 0xe8e8e8,
+            roughness: 0.4,
+            metalness: 0.1
+         });
+         const postSize = 0.089;
+
+         // New height params
+         const bottomGap = (2 / 12) * scale;
+         const railThickness = 0.05;
+
+         // Define rail paths
+         const railPaths: {x1: number, z1: number, x2: number, z2: number}[] = [];
+          
+         if (config.stairSide === 'front') {
+            railPaths.push({ x1: -w, z1: deckLength/2, x2: -w, z2: deckLength/2 + totalRun });
+            railPaths.push({ x1: w, z1: deckLength/2, x2: w, z2: deckLength/2 + totalRun });
+         } else if (config.stairSide === 'back') {
+            railPaths.push({ x1: -w, z1: -deckLength/2, x2: -w, z2: -deckLength/2 - totalRun });
+            railPaths.push({ x1: w, z1: -deckLength/2, x2: w, z2: -deckLength/2 - totalRun });
+         } else if (config.stairSide === 'left') {
+            railPaths.push({ x1: -deckWidth/2, z1: -w, x2: -deckWidth/2 - totalRun, z2: -w });
+            railPaths.push({ x1: -deckWidth/2, z1: w, x2: -deckWidth/2 - totalRun, z2: w });
+         } else if (config.stairSide === 'right') {
+            railPaths.push({ x1: deckWidth/2, z1: -w, x2: deckWidth/2 + totalRun, z2: -w });
+            railPaths.push({ x1: deckWidth/2, z1: w, x2: deckWidth/2 + totalRun, z2: w });
+         }
+         
+         railPaths.forEach(path => {
+            const dx = path.x2 - path.x1;
+            const dz = path.z2 - path.z1;
+            const run = Math.sqrt(dx*dx + dz*dz);
+            const rise = -deckHeight; // Going down
+            const length = Math.sqrt(run*run + rise*rise);
+            
+            const midX = (path.x1 + path.x2) / 2;
+            const midZ = (path.z1 + path.z2) / 2;
+
+            // Updated Height Calculations
+            const midYTop = 0.15 + rise/2 + railingHeight - railThickness/2;
+            const midYBottom = 0.15 + rise/2 + bottomGap + railThickness/2;
+            
+            const yaw = Math.atan2(dz, dx);
+            const pitch = -Math.atan2(Math.abs(rise), run);
+            
+            // Top Rail
+            const railGeo = new BoxGeometry(length, 0.05, 0.05);
+            const topRail = new Mesh(railGeo, railingMaterial);
+            topRail.position.set(midX, midYTop, midZ);
+            topRail.rotation.order = 'YXZ';
+            topRail.rotation.y = -yaw;
+            topRail.rotation.z = pitch; 
+            topRail.castShadow = true;
+            scene.add(topRail);
+            
+            // Bottom Rail
+            const bottomRail = new Mesh(railGeo, railingMaterial);
+            bottomRail.position.set(midX, midYBottom, midZ);
+            bottomRail.rotation.order = 'YXZ';
+            bottomRail.rotation.y = -yaw;
+            bottomRail.rotation.z = pitch;
+            bottomRail.castShadow = true;
+            scene.add(bottomRail);
+            
+            // Posts (Top and Bottom)
+            const postGeo = new BoxGeometry(postSize, railingHeight + 0.1, postSize);
+            
+            const topPostX = path.x1;
+            const topPostZ = path.z1;
+            const topPostY = 0.15 + railingHeight/2;
+            const topPost = new Mesh(postGeo, postMaterial);
+            topPost.position.set(topPostX, topPostY, topPostZ);
+            topPost.castShadow = true;
+            scene.add(topPost);
+
+            const bottomPostX = path.x2;
+            const bottomPostZ = path.z2;
+            const bottomPostY = -deckHeight + 0.15 + railingHeight/2; 
+            const bottomPost = new Mesh(postGeo, postMaterial);
+            bottomPost.position.set(bottomPostX, bottomPostY, bottomPostZ);
+            bottomPost.castShadow = true;
+            scene.add(bottomPost);
+            
+            // Balusters
+            const balusterLength = railingHeight - bottomGap - railThickness;
+            const balGeo = new BoxGeometry(0.04, balusterLength, 0.04);
+            const numBalusters = Math.floor(length / 0.15);
+            
+            const balusterMidOffset = (railingHeight - railThickness/2 + bottomGap + railThickness/2) / 2;
+
+            for(let k=0; k<numBalusters; k++) {
+                const t = k / numBalusters;
+                const bx = path.x1 + dx * t;
+                const bz = path.z1 + dz * t;
+                const by = 0.15 + rise * t + balusterMidOffset;
+                
+                const bal = new Mesh(balGeo, railingMaterial);
+                bal.position.set(bx, by, bz);
+                scene.add(bal);
+            }
+         });
       }
     }
 
@@ -1139,6 +1276,7 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     config.hasStairs,
     config.stairSide,
     config.stairWidth,
+    config.stairRailing,
     config.railingSides,
     config.railingHeight,
     config.joistSpacing,

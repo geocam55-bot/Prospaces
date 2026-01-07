@@ -3857,9 +3857,19 @@
     left: 2px;
   }
 
+  .after\:h-4:after {
+    content: var(--tw-content);
+    height: calc(var(--spacing) * 4);
+  }
+
   .after\:h-5:after {
     content: var(--tw-content);
     height: calc(var(--spacing) * 5);
+  }
+
+  .after\:w-4:after {
+    content: var(--tw-content);
+    width: calc(var(--spacing) * 4);
   }
 
   .after\:w-5:after {

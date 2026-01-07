@@ -3,6 +3,7 @@ export type DeckingSide = 'front' | 'back' | 'left' | 'right';
 export type DeckingPattern = 'perpendicular' | 'parallel' | 'diagonal';
 export type Unit = 'feet' | 'meters';
 export type DeckingMaterialType = 'Spruce' | 'Treated' | 'Cedar' | 'Composite';
+export type RailingStyle = 'Treated' | 'Aluminum';
 
 export interface DeckConfig {
   // Basic dimensions
@@ -20,9 +21,11 @@ export interface DeckConfig {
   hasStairs: boolean;
   stairSide?: DeckingSide;
   stairWidth?: number; // defaults to 4 feet
+  stairRailing?: boolean; // defaults to true if hasStairs is true
   
   // Railings
   railingSides: DeckingSide[];
+  railingStyle?: RailingStyle; // defaults to 'Treated'
   railingHeight?: number; // defaults to 42 inches
   
   // Construction details

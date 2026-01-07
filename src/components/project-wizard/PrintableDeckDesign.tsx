@@ -98,6 +98,10 @@ export function PrintableDeckDesign({
             <p className="font-semibold text-gray-700">Decking Pattern:</p>
             <p className="text-black capitalize">{config.deckingPattern}</p>
           </div>
+          <div>
+            <p className="font-semibold text-gray-700">Railing Style:</p>
+            <p className="text-black capitalize">{config.railingStyle || 'Treated'}</p>
+          </div>
         </div>
       </div>
 
