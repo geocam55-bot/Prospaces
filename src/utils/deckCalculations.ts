@@ -105,6 +105,16 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
   // FRAMING
   const framing: MaterialItem[] = [];
   
+  // Ledger Board - attaches deck to house
+  // Uses same depth as joists (2x8), length equals deck width
+  framing.push({
+    category: 'Framing',
+    description: `2x8 Pressure Treated Ledger Board (${config.width}')`,
+    quantity: 1,
+    unit: 'pcs',
+    notes: 'Attaches deck to house structure',
+  });
+  
   // Joists - calculate based on spacing and length
   const joistSpacingFeet = config.joistSpacing / 12;
   const numberOfJoists = Math.ceil(config.width / joistSpacingFeet) + 1;
@@ -324,6 +334,27 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
   
   // HARDWARE
   const hardware: MaterialItem[] = [];
+  
+  // Ledger Board Hardware
+  // Lag screws every 16" on center for ledger board attachment
+  const lagScrewCount = Math.ceil((config.width * 12) / 16); // Convert width to inches, divide by 16" spacing
+  
+  hardware.push({
+    category: 'Hardware',
+    description: '1/2" x 4" Lag Screws with Washers',
+    quantity: lagScrewCount,
+    unit: 'pcs',
+    notes: 'For ledger board attachment to house framing (16" O.C.)',
+  });
+  
+  // Ledger flashing - matches ledger board width
+  hardware.push({
+    category: 'Hardware',
+    description: `Ledger Flashing Tape (${config.width}')`,
+    quantity: 1,
+    unit: 'roll',
+    notes: 'Self-adhesive waterproof membrane for ledger board',
+  });
   
   hardware.push({
     category: 'Hardware',

@@ -237,6 +237,8 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
         <ul className="text-amber-800 text-sm space-y-1 list-disc list-inside">
           <li>All quantities are estimates and should be verified before ordering</li>
           <li>Material calculations include typical waste factors</li>
+          <li>Ledger board must be attached to house structural framing, not just siding</li>
+          <li>Install flashing properly to prevent water damage to house structure</li>
           <li>Consult local building codes for specific requirements</li>
           <li>Professional installation recommended for safety and compliance</li>
           <li>Concrete footings required for all posts (not included in list)</li>

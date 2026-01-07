@@ -22,28 +22,28 @@ interface ProjectWizardSettingsProps {
 const PLANNER_CATEGORIES = {
   deck: {
     spruce: {
-      'Framing': ['Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
       'Decking': ['Decking Boards', 'Stair Treads'],
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
-      'Hardware': ['Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
+      'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
     treated: {
-      'Framing': ['Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
       'Decking': ['Decking Boards', 'Stair Treads'],
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
-      'Hardware': ['Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
+      'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
     composite: {
-      'Framing': ['Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
       'Decking': ['Decking Boards', 'Stair Treads'],
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
-      'Hardware': ['Deck Clips', 'Composite Screws', 'Composite Plugs', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws'],
+      'Hardware': ['Lag Screws', 'Ledger Flashing', 'Deck Clips', 'Composite Screws', 'Composite Plugs', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws'],
     },
     cedar: {
-      'Framing': ['Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
       'Decking': ['Decking Boards', 'Stair Treads'],
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
-      'Hardware': ['Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
+      'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
   },
   garage: {

@@ -468,19 +468,16 @@ export function Login({ onLogin }: LoginProps) {
       // Handle specific error types
       if (err.message === 'EMAIL_NOT_CONFIRMED') {
         setError('Email not confirmed. Please check your inbox for the confirmation link.');
-        setIsLoading(false);
         return;
       }
       
       if (err.message === 'INVALID_CREDENTIALS') {
         setError('Invalid email or password. Please try again.');
-        setIsLoading(false);
         return;
       }
       
       if (err.message === 'EMAIL_NOT_CONFIRMED_OR_WRONG_PASSWORD') {
         setError('Invalid email or password. Please check your credentials and try again.');
-        setIsLoading(false);
         return;
       }
       
@@ -496,7 +493,6 @@ export function Login({ onLogin }: LoginProps) {
       }
       
       setError(errorMessage);
-      setIsLoading(false);
     } finally {
       setIsLoading(false);
     }
