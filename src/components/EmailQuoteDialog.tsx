@@ -9,6 +9,7 @@ import { Loader2, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
 import { emailAPI } from '../utils/api';
+import { projectId } from '../utils/supabase/info';
 
 interface EmailQuoteDialogProps {
   open: boolean;
@@ -133,10 +134,34 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
 
       // Construct HTML body with quote details
       const quoteHtml = generateQuoteHtml(quote);
+
+      // Tracking Setup
+      const appUrl = window.location.origin;
+      const orgId = quote.organization_id || quote.organizationId || account.organization_id;
+      const quoteId = quote.id;
+      
+      // 1. View Online Link (for Click tracking)
+      // We route through the frontend to handle auth headers securely
+      const targetUrl = `${appUrl}/quotes/${quoteId}?utm_source=email&utm_medium=email&utm_campaign=quote_${quote.quoteNumber || quoteId}`;
+      const encodedTargetUrl = encodeURIComponent(targetUrl);
+      const trackingLinkUrl = `${appUrl}/?view=redirect&url=${encodedTargetUrl}&id=${quoteId}&orgId=${orgId}&type=quote`;
+      
+      // 2. Tracking Pixel (Disabled for now as it requires auth headers which email clients can't send)
+      // const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
+      // const trackingPixelUrl = `${baseUrl}/track/open?id=${quoteId}&orgId=${orgId}&type=quote`;
+      // const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" style="display:none; visibility:hidden;" alt="" />`;
+      
+      const viewOnlineLink = `
+        <div style="margin-top: 30px; text-align: center;">
+            <a href="${trackingLinkUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-family: sans-serif; display: inline-block;">View Quote Online</a>
+        </div>
+      `;
+
       const fullHtmlBody = `
         <div style="font-family: Arial, sans-serif;">
           <div style="white-space: pre-wrap;">${body.replace(/\n/g, '<br/>')}</div>
           ${quoteHtml}
+          ${viewOnlineLink}
         </div>
       `;
 

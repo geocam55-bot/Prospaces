@@ -36,6 +36,7 @@ import { ThemeProvider } from './components/ThemeProvider';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { FaviconGenerator } from './components/FaviconGenerator';
+import { TrackingRedirect } from './components/TrackingRedirect';
 import { OpportunitiesDiagnostic } from './components/OpportunitiesDiagnostic';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -81,6 +82,11 @@ function App() {
   const urlParams = new URLSearchParams(window.location.search);
   const isFaviconGenerator = urlParams.get('view') === 'favicon-generator';
   const isOpportunitiesDiagnostic = urlParams.get('view') === 'opportunities-diagnostic';
+  const isTrackingRedirect = urlParams.get('view') === 'redirect';
+
+  if (isTrackingRedirect) {
+    return <TrackingRedirect />;
+  }
 
   if (isFaviconGenerator) {
     return <FaviconGenerator />;

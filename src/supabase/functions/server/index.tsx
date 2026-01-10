@@ -2106,4 +2106,185 @@ app.delete('/make-server-8405be07/user-planner-defaults/:organizationId/:userId'
   }
 });
 
+// ============================================================================
+// TRACKING ROUTES
+// ============================================================================
+
+app.get('/make-server-8405be07/track/open', async (c) => {
+  try {
+    const id = c.req.query('id');
+    const orgId = c.req.query('orgId');
+    const type = c.req.query('type') || 'quote';
+
+    if (id && orgId) {
+      // 1. Log open event
+      const trackingKey = `tracking:${orgId}:${type}:${id}:opens`;
+      const timestamp = new Date().toISOString();
+      
+      // Get existing opens
+      let opens = await kv.get(trackingKey);
+      if (!Array.isArray(opens)) opens = [];
+      opens.push({ timestamp, userAgent: c.req.header('user-agent') });
+      
+      // Save updated opens
+      await kv.set(trackingKey, opens);
+
+      // 2. Update entity status
+      if (type === 'quote') {
+        // Try updating Postgres table
+        // We only update if it hasn't been read yet or to update last viewed
+        await supabase
+          .from('quotes')
+          .update({ 
+            status: 'viewed', 
+            read_at: timestamp 
+          })
+          .eq('id', id);
+      } else if (type === 'bid') {
+        // Update KV bid
+        const bidKey = `bid:${orgId}:${id}`;
+        const bid = await kv.get(bidKey);
+        if (bid) {
+          bid.read = true;
+          bid.readAt = timestamp;
+          bid.status = 'viewed';
+          await kv.set(bidKey, bid);
+        }
+      }
+    }
+
+    // Return 1x1 transparent GIF
+    const gif = new Uint8Array([71, 73, 70, 56, 57, 97, 1, 0, 1, 0, 128, 0, 0, 0, 0, 0, 255, 255, 255, 33, 249, 4, 1, 0, 0, 0, 0, 44, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 1, 68, 0, 59]);
+    return new Response(gif, {
+      headers: {
+        'Content-Type': 'image/gif',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
+    });
+  } catch (error) {
+    console.error('Tracking open error:', error);
+    // Return GIF anyway
+    const gif = new Uint8Array([71, 73, 70, 56, 57, 97, 1, 0, 1, 0, 128, 0, 0, 0, 0, 0, 255, 255, 255, 33, 249, 4, 1, 0, 0, 0, 0, 44, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 1, 68, 0, 59]);
+    return new Response(gif, { headers: { 'Content-Type': 'image/gif' } });
+  }
+});
+
+app.get('/make-server-8405be07/track/click', async (c) => {
+  try {
+    const url = c.req.query('url');
+    const id = c.req.query('id');
+    const orgId = c.req.query('orgId');
+    const type = c.req.query('type') || 'quote';
+
+    if (!url) {
+        return c.text('Missing URL', 400);
+    }
+
+    if (id && orgId) {
+      // 1. Log click event
+      const trackingKey = `tracking:${orgId}:${type}:${id}:clicks`;
+      const timestamp = new Date().toISOString();
+      
+      // Get existing clicks
+      let clicks = await kv.get(trackingKey);
+      if (!Array.isArray(clicks)) clicks = [];
+      clicks.push({ timestamp, url, userAgent: c.req.header('user-agent') });
+      
+      // Save updated clicks
+      await kv.set(trackingKey, clicks);
+
+      // 2. Update entity status
+       if (type === 'quote') {
+        await supabase
+          .from('quotes')
+          .update({ 
+            status: 'viewed',
+            read_at: timestamp 
+          })
+          .eq('id', id);
+      } else if (type === 'bid') {
+        const bidKey = `bid:${orgId}:${id}`;
+        const bid = await kv.get(bidKey);
+        if (bid) {
+          bid.read = true;
+          bid.readAt = timestamp;
+          bid.clicked = true;
+          bid.status = 'viewed';
+          await kv.set(bidKey, bid);
+        }
+      }
+    }
+
+    return c.redirect(url);
+  } catch (error) {
+    console.error('Tracking click error:', error);
+    const url = c.req.query('url');
+    if (url) return c.redirect(url);
+    return c.text('Error processing tracking link', 500);
+  }
+});
+
+app.post('/make-server-8405be07/track/event', async (c) => {
+  try {
+    const { type, entityType, entityId, orgId, url, userAgent } = await c.req.json();
+    
+    // Validate required fields
+    if (!type || !entityId || !orgId) {
+       return c.json({ error: 'Missing required fields' }, 400);
+    }
+    
+    const timestamp = new Date().toISOString();
+    const ua = userAgent || c.req.header('user-agent');
+    
+    if (type === 'open') {
+        const trackingKey = `tracking:${orgId}:${entityType}:${entityId}:opens`;
+        let opens = await kv.get(trackingKey);
+        if (!Array.isArray(opens)) opens = [];
+        opens.push({ timestamp, userAgent: ua });
+        await kv.set(trackingKey, opens);
+        
+        // Update entity status
+        if (entityType === 'quote') {
+            await supabase.from('quotes').update({ status: 'viewed', read_at: timestamp }).eq('id', entityId);
+        } else if (entityType === 'bid') {
+             const bidKey = `bid:${orgId}:${entityId}`;
+             const bid = await kv.get(bidKey);
+             if (bid) {
+               bid.read = true;
+               bid.readAt = timestamp;
+               bid.status = 'viewed';
+               await kv.set(bidKey, bid);
+             }
+        }
+    } else if (type === 'click') {
+        const trackingKey = `tracking:${orgId}:${entityType}:${entityId}:clicks`;
+        let clicks = await kv.get(trackingKey);
+        if (!Array.isArray(clicks)) clicks = [];
+        clicks.push({ timestamp, url, userAgent: ua });
+        await kv.set(trackingKey, clicks);
+
+        if (entityType === 'quote') {
+            await supabase.from('quotes').update({ status: 'viewed', read_at: timestamp }).eq('id', entityId);
+        } else if (entityType === 'bid') {
+             const bidKey = `bid:${orgId}:${entityId}`;
+             const bid = await kv.get(bidKey);
+             if (bid) {
+               bid.read = true;
+               bid.readAt = timestamp;
+               bid.clicked = true;
+               bid.status = 'viewed';
+               await kv.set(bidKey, bid);
+             }
+        }
+    }
+    
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Tracking event error:', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
 Deno.serve(app.fetch);
