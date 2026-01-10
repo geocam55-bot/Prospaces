@@ -89,10 +89,11 @@ export function PublicQuoteView() {
   }
 
   // Determine title based on type
-  const title = data.quoteNumber ? `Quote #${data.quoteNumber}` : (data.title || 'Document');
+  const quoteNumber = data.quoteNumber || data.quote_number;
+  const title = quoteNumber ? `Quote #${quoteNumber}` : (data.title || 'Document');
   
   // Parse line items if they are a string
-  let lineItems = data.lineItems;
+  let lineItems = data.lineItems || data.line_items;
   if (typeof lineItems === 'string') {
     try {
         lineItems = JSON.parse(lineItems);
@@ -100,6 +101,13 @@ export function PublicQuoteView() {
         lineItems = [];
     }
   }
+
+  const contactName = data.contactName || data.contact_name || 'Valued Customer';
+  const contactEmail = data.contactEmail || data.contact_email;
+  const validUntil = data.validUntil || data.valid_until;
+  const taxAmount = data.taxAmount ?? data.tax_amount ?? 0;
+  const discountAmount = data.discountAmount ?? data.discount_amount ?? 0;
+  const organizationName = data.organizationName || data.organization_name || 'ProSpaces';
 
   return (
     <div className="min-h-screen bg-slate-100 py-8 px-4 sm:px-6 lg:px-8">
@@ -124,13 +132,13 @@ export function PublicQuoteView() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
                 <div>
                     <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">To</h3>
-                    <div className="font-medium">{data.contactName || data.contact_name || 'Valued Customer'}</div>
-                    <div className="text-slate-600">{data.contactEmail || data.contact_email}</div>
+                    <div className="font-medium">{contactName}</div>
+                    <div className="text-slate-600">{contactEmail}</div>
                 </div>
-                {data.validUntil && (
+                {validUntil && (
                     <div>
                         <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Valid Until</h3>
-                        <div>{new Date(data.validUntil || data.valid_until).toLocaleDateString()}</div>
+                        <div>{new Date(validUntil).toLocaleDateString()}</div>
                     </div>
                 )}
             </div>
@@ -150,14 +158,14 @@ export function PublicQuoteView() {
                     <tbody className="divide-y divide-slate-100">
                         {lineItems?.map((item: any, index: number) => (
                             <tr key={index} className="hover:bg-slate-50/50">
-                                <td className="py-4 px-6 font-medium">{item.itemName || item.title || 'Item'}</td>
+                                <td className="py-4 px-6 font-medium">{item.itemName || item.title || item.item_name || 'Item'}</td>
                                 <td className="py-4 px-6 text-slate-600">{item.description}</td>
                                 <td className="py-4 px-6 text-center">{item.quantity || 1}</td>
                                 <td className="py-4 px-6 text-right font-mono text-slate-600">
-                                    {formatCurrency(item.unitPrice || item.price)}
+                                    {formatCurrency(item.unitPrice || item.price || item.unit_price)}
                                 </td>
                                 <td className="py-4 px-6 text-right font-mono font-medium">
-                                    {formatCurrency(item.total || ((item.quantity || 1) * (item.unitPrice || item.price)))}
+                                    {formatCurrency(item.total || ((item.quantity || 1) * (item.unitPrice || item.price || item.unit_price)))}
                                 </td>
                             </tr>
                         ))}
@@ -179,16 +187,16 @@ export function PublicQuoteView() {
                         <span>Subtotal:</span>
                         <span>{formatCurrency(data.subtotal)}</span>
                     </div>
-                    {data.taxAmount > 0 && (
+                    {taxAmount > 0 && (
                         <div className="flex justify-between text-slate-600">
                             <span>Tax:</span>
-                            <span>{formatCurrency(data.taxAmount)}</span>
+                            <span>{formatCurrency(taxAmount)}</span>
                         </div>
                     )}
-                     {data.discountAmount > 0 && (
+                     {discountAmount > 0 && (
                         <div className="flex justify-between text-green-600">
                             <span>Discount:</span>
-                            <span>-{formatCurrency(data.discountAmount)}</span>
+                            <span>-{formatCurrency(discountAmount)}</span>
                         </div>
                     )}
                     <div className="flex justify-between font-bold text-lg text-slate-900 border-t border-slate-300 pt-2 mt-2">
@@ -217,7 +225,7 @@ export function PublicQuoteView() {
         </Card>
         
         <div className="mt-8 text-center text-slate-500 text-sm">
-            &copy; {new Date().getFullYear()} {data.organizationName || 'ProSpaces'}. All rights reserved.
+            &copy; {new Date().getFullYear()} {organizationName}. All rights reserved.
         </div>
       </div>
     </div>
