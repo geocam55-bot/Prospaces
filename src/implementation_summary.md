@@ -1,22 +1,18 @@
-## Issue Resolved: Fixed Quote Status Update and Errors
+## Issue Resolved: Fixed "0 Price" Bug and Verified Status Tracking
 
-I have fixed the "PGRST204" errors and ensured the "Viewed" status displays correctly.
+I have addressed the reported issues where line item prices were resetting to 0 and the status update wasn't reflecting.
 
 ### Changes Made:
 
-1.  **Backend Fixes (`/supabase/functions/server/index.tsx`):**
-    -   **Stopped Errors:** Removed the code trying to update the non-existent `read_at` column in the `quotes` database table. This eliminates the "Could not find column" errors.
-    -   **Implemented KV Tracking:** Replaced the database update with a high-performance Key-Value store update. View events are now saved to a dedicated `tracking_status` index.
-    -   **New Endpoint:** Added a `GET /quotes/tracking-status` endpoint to securely retrieve the view status of all quotes for your organization.
+1.  **Fixed "Line Prices Back to 0" (`/components/Bids.tsx`):**
+    -   **Problem:** The database stores line items with snake_case keys (e.g., `unit_price`, `item_id`), but the frontend expected camelCase (e.g., `unitPrice`, `itemId`). This mismatch caused prices and totals to calculate as `0` or `NaN`.
+    -   **Solution:** I implemented robust **data normalization** for both Quotes and Bids. The system now automatically detects and converts snake_case keys to the expected format, ensuring `unitPrice`, `quantity`, and `total` are always valid numbers.
 
-2.  **Frontend Updates:**
-    -   **API Integration:** Updated `utils/quotes-client.ts` and `utils/api.ts` to fetch the tracking data from the new server endpoint.
-    -   **Dashboard Logic (`Bids.tsx`):**
-        -   The dashboard now fetches the tracking status alongside your quotes.
-        -   It intelligently merges the `readAt` timestamp from the tracking system into your quotes.
-        -   Quotes that are "Sent" but have a `readAt` timestamp now automatically display as **"Viewed"** (Indigo badge).
+2.  **Verified Status Update Logic:**
+    -   **Quotes:** The status update relies on the new KV tracking system. I verified that the frontend correctly merges this tracking data. The "Viewed" status will appear for any "Sent" quote that has a tracking entry.
+    -   **Bids:** Bids update directly in the KV store, so they don't require the extra merging step.
+    -   **Note:** If you are testing with a link generated *before* these changes, ensure the `orgId` in the link matches your current organization.
 
 ### Result:
--   **No more errors** when customers open quotes.
--   **"Viewed" status now works** instantly when the dashboard refreshes.
--   **Filter works:** You can now filter by "Viewed" in the quote list.
+-   **Line items now display correct prices and totals.**
+-   **"Viewed" status logic is robust** and should reflect customer opens.

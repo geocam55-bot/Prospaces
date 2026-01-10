@@ -254,9 +254,24 @@ export function Bids({ user }: BidsProps) {
 
         const tracking = trackingData?.trackingStatus?.[q.id];
 
+        // Normalize line items to ensure camelCase and valid numbers
+        const normalizedLineItems = parsedLineItems.map((item: any) => ({
+          ...item,
+          id: item.id || `line-${Math.random().toString(36).substr(2, 9)}`,
+          itemId: item.itemId ?? item.item_id ?? item.id, 
+          itemName: item.itemName ?? item.item_name ?? item.name ?? item.title ?? 'Item',
+          sku: item.sku ?? '',
+          description: item.description ?? '',
+          quantity: Number(item.quantity ?? 1),
+          unitPrice: Number(item.unitPrice ?? item.unit_price ?? item.price ?? 0),
+          cost: Number(item.cost ?? 0),
+          discount: Number(item.discount ?? 0),
+          total: Number(item.total ?? item.amount ?? 0),
+        }));
+
         return {
           ...q,
-          lineItems: parsedLineItems,
+          lineItems: normalizedLineItems,
           subtotal: q.subtotal ?? q.amount ?? 0,
           discountPercent: q.discountPercent ?? q.discount_percent ?? 0,
           discountAmount: q.discountAmount ?? q.discount_amount ?? 0,
@@ -293,10 +308,25 @@ export function Bids({ user }: BidsProps) {
           parsedLineItems = [];
         }
 
+        // Normalize line items
+        const normalizedLineItems = parsedLineItems.map((item: any) => ({
+          ...item,
+          id: item.id || `line-${Math.random().toString(36).substr(2, 9)}`,
+          itemId: item.itemId ?? item.item_id ?? item.id, 
+          itemName: item.itemName ?? item.item_name ?? item.name ?? item.title ?? 'Item',
+          sku: item.sku ?? '',
+          description: item.description ?? '',
+          quantity: Number(item.quantity ?? 1),
+          unitPrice: Number(item.unitPrice ?? item.unit_price ?? item.price ?? 0),
+          cost: Number(item.cost ?? 0),
+          discount: Number(item.discount ?? 0),
+          total: Number(item.total ?? item.amount ?? 0),
+        }));
+
         // Convert bid to quote format so it displays consistently
         return {
           ...b,
-          lineItems: parsedLineItems,
+          lineItems: normalizedLineItems,
           title: b.title || '',
           subtotal: b.subtotal ?? b.amount ?? 0,
           discountPercent: b.discountPercent ?? b.discount_percent ?? 0,
