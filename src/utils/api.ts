@@ -2,7 +2,7 @@ import { getAllContactsClient, createContactClient, updateContactClient, deleteC
 import { diagnoseContactsRLS } from './contacts-diagnostic';
 import { getAllUsersClient, inviteUserClient, updateUserClient, deleteUserClient, resetPasswordClient } from './users-client';
 import { getAllBidsClient, getBidsByOpportunityClient, createBidClient, updateBidClient, deleteBidClient, fixBidOrganizationIds } from './bids-client';
-import { getAllQuotesClient, getQuotesByOpportunityClient, createQuoteClient, updateQuoteClient, deleteQuoteClient } from './quotes-client';
+import { getAllQuotesClient, getQuotesByOpportunityClient, createQuoteClient, updateQuoteClient, deleteQuoteClient, getQuoteTrackingStatusClient } from './quotes-client';
 import { getAllAppointmentsClient, createAppointmentClient, deleteAppointmentClient } from './appointments-client';
 import { getAllTasksClient, createTaskClient, updateTaskClient, deleteTaskClient } from './tasks-client';
 import { getAllNotesClient, createNoteClient, deleteNoteClient } from './notes-client';
@@ -112,6 +112,7 @@ export const authAPI = {
 export const quotesAPI = {
   getAll: () => getAllQuotesClient(),
   getQuotesByOpportunity: (opportunityId: string) => getQuotesByOpportunityClient(opportunityId),
+  getTrackingStatus: () => getQuoteTrackingStatusClient(),
   create: (data: any) => createQuoteClient(data),
   update: (id: string, data: any) => updateQuoteClient(id, data),
   delete: (id: string) => deleteQuoteClient(id),

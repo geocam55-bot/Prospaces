@@ -218,11 +218,12 @@ export function Bids({ user }: BidsProps) {
       setIsLoading(true);
       // ⚡ Performance: Load only essential data first (quotes, bids, contacts)
       // Inventory and project managers will be loaded when needed (when adding/editing)
-      const [quotesData, bidsData, contactsData, orgSettingsData] = await Promise.all([
+      const [quotesData, bidsData, contactsData, orgSettingsData, trackingData] = await Promise.all([
         quotesAPI.getAll(),
         bidsAPI.getAll(), // Also load from bids table
         contactsAPI.getAll(),
         settingsAPI.getOrganizationSettings(user.organizationId),
+        quotesAPI.getTrackingStatus(),
       ]);
 
       // Load organization settings
@@ -251,6 +252,8 @@ export function Bids({ user }: BidsProps) {
           parsedLineItems = [];
         }
 
+        const tracking = trackingData?.trackingStatus?.[q.id];
+
         return {
           ...q,
           lineItems: parsedLineItems,
@@ -270,7 +273,7 @@ export function Bids({ user }: BidsProps) {
           priceTier: q.priceTier ?? q.price_tier ?? 1,
           createdAt: q.createdAt ?? q.created_at,
           updatedAt: q.updatedAt ?? q.updated_at,
-          readAt: q.readAt ?? q.read_at,
+          readAt: tracking?.readAt || q.readAt || q.read_at,
         };
       });
 

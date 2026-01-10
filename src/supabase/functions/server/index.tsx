@@ -2197,13 +2197,13 @@ app.get('/make-server-8405be07/track/click', async (c) => {
 
       // 2. Update entity status
        if (type === 'quote') {
-        await supabase
-          .from('quotes')
-          .update({ 
-            status: 'viewed',
-            read_at: timestamp 
-          })
-          .eq('id', id);
+        // Update KV tracking index for quotes (since Postgres table lacks read_at)
+        const statusKey = `tracking_status:${orgId}:quotes`;
+        const statusMap = await kv.get(statusKey) || {};
+        if (!statusMap[id]) {
+          statusMap[id] = { readAt: timestamp, status: 'viewed' };
+          await kv.set(statusKey, statusMap);
+        }
       } else if (type === 'bid') {
         const bidKey = `bid:${orgId}:${id}`;
         const bid = await kv.get(bidKey);
@@ -2247,13 +2247,12 @@ app.post('/make-server-8405be07/public/events', async (c) => {
         
         // Update entity status
         if (entityType === 'quote') {
-            const { error: updateError } = await supabase
-                .from('quotes')
-                .update({ status: 'viewed', read_at: timestamp })
-                .eq('id', entityId);
-
-            if (updateError) {
-                console.error('Failed to update quote status (open event):', updateError);
+            // Update KV tracking index for quotes (since Postgres table lacks read_at)
+            const statusKey = `tracking_status:${orgId}:quotes`;
+            const statusMap = await kv.get(statusKey) || {};
+            if (!statusMap[entityId]) {
+              statusMap[entityId] = { readAt: timestamp, status: 'viewed' };
+              await kv.set(statusKey, statusMap);
             }
         } else if (entityType === 'bid') {
              const bidKey = `bid:${orgId}:${entityId}`;
@@ -2273,15 +2272,12 @@ app.post('/make-server-8405be07/public/events', async (c) => {
         await kv.set(trackingKey, clicks);
 
         if (entityType === 'quote') {
-             const { error: updateError } = await supabase
-                .from('quotes')
-                .update({ status: 'viewed', read_at: timestamp })
-                .eq('id', entityId);
-
-            if (updateError) {
-                console.error('Failed to update quote status (click event):', updateError);
-                // Try fallback
-                 await supabase.from('quotes').update({ read_at: timestamp }).eq('id', entityId);
+             // Update KV tracking index for quotes (since Postgres table lacks read_at)
+            const statusKey = `tracking_status:${orgId}:quotes`;
+            const statusMap = await kv.get(statusKey) || {};
+            if (!statusMap[entityId]) {
+              statusMap[entityId] = { readAt: timestamp, status: 'viewed' };
+              await kv.set(statusKey, statusMap);
             }
         } else if (entityType === 'bid') {
              const bidKey = `bid:${orgId}:${entityId}`;
@@ -2333,6 +2329,29 @@ app.get('/make-server-8405be07/public/view', async (c) => {
         console.error('Public view error:', error);
         return c.json({ error: 'Failed to load document' }, 500);
     }
+});
+
+// Get quote tracking status
+app.get('/make-server-8405be07/quotes/tracking-status', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const userData = await getUserData(user.id);
+    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+
+    const statusKey = `tracking_status:${organizationId}:quotes`;
+    const statusMap = await kv.get(statusKey) || {};
+
+    return c.json({ trackingStatus: statusMap });
+  } catch (error) {
+    console.error('Get quote tracking status error:', error);
+    return c.json({ error: 'Failed to fetch quote tracking status: ' + error.message }, 500);
+  }
 });
 
 Deno.serve(app.fetch);

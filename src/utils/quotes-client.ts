@@ -1,7 +1,31 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
+import { projectId } from './supabase/info';
 
 const supabase = createClient();
+
+export async function getQuoteTrackingStatusClient() {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return { trackingStatus: {} };
+
+    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/quotes/tracking-status`, {
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`
+      }
+    });
+
+    if (!response.ok) {
+      console.error('Failed to fetch tracking status:', response.statusText);
+      return { trackingStatus: {} };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get tracking status:', error);
+    return { trackingStatus: {} };
+  }
+}
 
 export async function getAllQuotesClient() {
   try {
