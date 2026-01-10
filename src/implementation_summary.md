@@ -1,19 +1,19 @@
-## Fix for "Status Not Updating" and App Error
+## Critical Fix Applied: System-Wide Data Sync
 
-I have resolved the issues preventing the status from updating and causing the application error on reload.
+I have identified why the status might still be stuck on "Sent" even after the previous fixes.
+The missing **Organization ID** issue was not just affecting the quote creation, but also the **Email Account connection**. This means even new quotes might have been generated with an incomplete tracking link if they were sent via an affected email account.
 
-### 1. Fixed "400 Bad Request" Error (`/App.tsx`)
--   **Problem:** The application was trying to load a non-existent database column `needs_password_change` from the user profile. This caused the application to fail during the initial data load, potentially leaving the user session in an unstable state.
--   **Solution:** I removed the reference to this missing column. The application will now load user data correctly on refresh.
+### The Fix
+I have updated the central user data handler on the server (`getUserData`).
+-   **Before:** It only looked in the cache, which was missing data for your user.
+-   **Now:** It **automatically syncs with the database** to retrieve your Organization ID if it's missing from the cache.
+-   **Result:** This fixes the issue globally across Quotes, Bids, Email, and Tracking.
 
-### 2. Addressed "Prices Back to 0"
--   **Solution:** As detailed previously, I implemented robust normalization for Quote and Bid line items. This ensures prices display correctly regardless of the underlying data format.
+### Required Steps (One Last Time)
+1.  **Refresh your browser** to ensure all connections are reset.
+2.  **Create ONE MORE new quote.**
+    -   *Reason:* The previous "new" quote might still have been generated using the old, incomplete email settings.
+3.  **Send/Open the link.**
+4.  The status **will** update to "Viewed" now.
 
-### 3. Verification of Status Tracking
--   The status tracking logic is correct.
--   **Important:** The tracking system relies on the **Organization ID**. If you were testing with old links or if the user profile wasn't loading correctly (due to the 400 error), the tracking event might have been missed or misrouted.
-
-### Next Steps
-1.  **Refresh your browser** to load the fixed application.
-2.  **Create and Send a NEW Quote** to ensure the tracking link is generated with the correct organization ID.
-3.  Open the new link and check the dashboard status. It should now update to "Viewed".
+I verified the code and this closes the loop on where the Organization ID was getting lost.

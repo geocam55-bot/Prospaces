@@ -221,7 +221,26 @@ export async function createQuoteClient(data: any) {
       throw new Error('Not authenticated');
     }
 
-    const organizationId = user.user_metadata?.organizationId;
+    // CRITICAL: Ensure we get organization_id from profile if not in metadata
+    // Metadata can be missing if user signed up via frontend without server-side sync
+    let organizationId = user.user_metadata?.organizationId;
+    
+    if (!organizationId) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single();
+          
+        if (profile) {
+          organizationId = profile.organization_id;
+          console.log('[quotes-client] Retrieved organization_id from profile:', organizationId);
+        }
+      } catch (profileError) {
+        console.warn('[quotes-client] Failed to fetch profile for organizationId:', profileError);
+      }
+    }
     
     // Generate quote number if not provided
     const generateQuoteNumber = () => {

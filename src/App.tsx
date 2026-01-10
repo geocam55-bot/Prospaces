@@ -136,7 +136,7 @@ function App() {
       // Load user profile
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, email, role, name, avatar_url, organization_id, manager_id')
+        .select('id, email, role, organization_id, manager_id')
         .eq('id', supabaseUser.id)
         .single();
 

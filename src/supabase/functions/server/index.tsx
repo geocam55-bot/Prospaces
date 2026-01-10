@@ -28,10 +28,35 @@ async function verifyUser(authHeader: string | null) {
   return user;
 }
 
-// Helper function to get user metadata
+// Helper function to get user metadata with robust fallback to profiles table
 async function getUserData(userId: string) {
   try {
-    const userData = await kv.get(`user:${userId}`);
+    let userData = await kv.get(`user:${userId}`);
+    
+    // Check if userData needs hydration (missing organizationId)
+    if (!userData || !userData.organizationId) {
+        // Fallback: fetch from profiles table
+        const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('organization_id, role, name, email')
+            .eq('id', userId)
+            .single();
+            
+        if (profile && !error) {
+            userData = {
+                ...(userData || {}),
+                id: userId,
+                organizationId: profile.organization_id,
+                role: profile.role,
+                name: profile.name,
+                email: profile.email
+            };
+            // Cache it to avoid future DB lookups
+            await kv.set(`user:${userId}`, userData);
+            console.log('Hydrated user data from profiles table:', userId);
+        }
+    }
+    
     return userData;
   } catch (error) {
     console.error('Error getting user data:', error);
@@ -2342,7 +2367,29 @@ app.get('/make-server-8405be07/quotes/tracking-status', async (c) => {
     }
 
     const userData = await getUserData(user.id);
-    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+    let organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+
+    // Fallback: If organizationId is missing (e.g. user created via frontend), fetch from profiles table
+    if (!organizationId) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          organizationId = profile.organization_id;
+          // Optionally cache this in KV to avoid future lookups
+          if (userData) {
+             userData.organizationId = organizationId;
+             await kv.set(`user:${user.id}`, userData);
+          }
+        }
+      } catch (profileError) {
+        console.error('Error fetching profile for organizationId:', profileError);
+      }
+    }
 
     const statusKey = `tracking_status:${organizationId}:quotes`;
     const statusMap = await kv.get(statusKey) || {};
