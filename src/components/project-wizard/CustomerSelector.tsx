@@ -15,12 +15,14 @@ interface CustomerSelectorProps {
   organizationId: string;
   selectedCustomer: Customer | null;
   onCustomerSelect: (customer: Customer | null) => void;
+  userId?: string;
 }
 
 export function CustomerSelector({ 
   organizationId, 
   selectedCustomer, 
-  onCustomerSelect 
+  onCustomerSelect,
+  userId
 }: CustomerSelectorProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,17 +50,24 @@ export function CustomerSelector({
   const loadCustomers = async () => {
     setIsLoading(true);
     try {
+      // Filter customers to only show those owned by the current user OR unassigned
+      // Note: This matches the user's request to "only look at the Users Customers"
       let query = createClient()
         .from('contacts')
         .select('id, name, email, phone, company, price_level')
         .eq('organization_id', organizationId)
         .order('name');
 
+      // If userId is provided, only show contacts owned by this user
+      if (userId) {
+        query = query.eq('owner_id', userId);
+      }
+
       if (searchQuery) {
         query = query.or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,company.ilike.%${searchQuery}%`);
       }
 
-      const { data, error } = await query.limit(10);
+      const { data, error } = await query.limit(50); // Increased limit slightly
 
       if (error) throw error;
       setCustomers(data || []);

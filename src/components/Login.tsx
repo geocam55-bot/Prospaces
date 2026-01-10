@@ -463,7 +463,14 @@ export function Login({ onLogin }: LoginProps) {
 
       onLogin(user, signInData.session.access_token);
     } catch (err: any) {
-      console.error('Sign in error:', err);
+      // Only log unexpected errors to console to avoid alarm
+      if (err.message !== 'INVALID_CREDENTIALS' && 
+          err.message !== 'EMAIL_NOT_CONFIRMED' && 
+          err.message !== 'EMAIL_NOT_CONFIRMED_OR_WRONG_PASSWORD') {
+        console.error('Sign in error:', err);
+      } else {
+        console.log('Sign in failed (expected):', err.message);
+      }
       
       // Handle specific error types
       if (err.message === 'EMAIL_NOT_CONFIRMED') {

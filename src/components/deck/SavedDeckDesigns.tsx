@@ -194,7 +194,6 @@ export function SavedDeckDesigns({
           organization_id: user.organizationId,
           user_id: user.id,
           customer_id: selectedCustomer?.id || null,
-          opportunity_id: selectedOpportunity?.id || null,
           name: saveName.trim(),
           description: saveDescription.trim() || null,
           config: currentConfig,
@@ -218,7 +217,7 @@ export function SavedDeckDesigns({
           organization_id: user.organizationId,
           contact_id: selectedCustomer.id,
           title: `Deck Design - ${saveName.trim()}`,
-          description: saveDescription.trim() || `${currentConfig.width}' × ${currentConfig.length}' ${currentConfig.shape} deck`,
+          // description: saveDescription.trim() || `${currentConfig.width}' × ${currentConfig.length}' ${currentConfig.shape} deck`, // Removed as column doesn't exist
           line_items: materials.map(item => ({
             description: item.description,
             quantity: item.quantity,
@@ -344,6 +343,7 @@ export function SavedDeckDesigns({
             organizationId={user.organizationId}
             selectedCustomer={selectedCustomer}
             onCustomerSelect={setSelectedCustomer}
+            userId={user.id}
           />
           
           <OpportunitySelector

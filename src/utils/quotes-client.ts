@@ -252,11 +252,16 @@ export async function updateQuoteClient(id: string, data: any) {
       .update(updateData)
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
     
     if (error) {
       console.error('[quotes-client] Error updating quote:', error.message);
       throw error;
+    }
+
+    if (!quote) {
+      console.error('[quotes-client] Error updating quote: Quote not found or permission denied');
+      throw new Error('Quote not found or permission denied');
     }
     
     return { quote };

@@ -17,6 +17,7 @@ import {
   Loader2,
   MoreVertical,
   User,
+  Send,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { BidLineItems, LineItemsTable } from './BidLineItems';
+import { EmailQuoteDialog } from './EmailQuoteDialog';
 
 interface Opportunity {
   id: string;
@@ -67,8 +69,9 @@ interface Bid {
   items: LineItem[];
   notes?: string;
   createdAt: string;
-  contacts?: { id: string; name: string; company: string };
+  contacts?: { id: string; name: string; company: string; email?: string };
   project_managers?: { id: string; name: string };
+  contactEmail?: string;
 }
 
 interface Contact {
@@ -110,6 +113,11 @@ export function OpportunityDetail({ opportunity, user, onBack, onEdit }: Opportu
   const [editingBid, setEditingBid] = useState<Bid | null>(null);
   const [taxRate, setTaxRate] = useState(0);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Email Dialog State
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+  const [emailBid, setEmailBid] = useState<any | null>(null); // Using any to match EmailQuoteDialog expectations
+  const [sentBids, setSentBids] = useState<Set<string>>(new Set());
   
   // Other state variables
   const [newBid, setNewBid] = useState({
@@ -485,6 +493,31 @@ export function OpportunityDetail({ opportunity, user, onBack, onEdit }: Opportu
     }
     console.log('Edit state - editingBid:', bid, 'currentLineItems:', bid.items || []);
     setIsEditBidDialogOpen(true);
+  };
+
+  const handleEmailBid = (bid: Bid) => {
+    // Enrich bid with contact info for the email dialog
+    const enrichedBid = {
+      ...bid,
+      quoteNumber: bid.title,
+      contactEmail: opportunity.contactEmail || (bid.contacts as any)?.email || '',
+      contactName: (bid.contacts as any)?.name || (bid.contacts as any)?.company || opportunity.customerName || 'Customer',
+      organizationName: user.user_metadata?.organizationName || 'ProSpaces',
+    };
+    setEmailBid(enrichedBid);
+    setIsEmailDialogOpen(true);
+  };
+
+  const handleEmailSuccess = async () => {
+    if (emailBid) {
+      setSentBids(prev => new Set(prev).add(emailBid.id));
+      
+      // Update status if needed (e.g. from Draft to Sent)
+      // This is a UI-only update for now, ideally we should update the DB status too
+      if (emailBid.status === 'Draft' || emailBid.status === 'draft') {
+        loadData(); // Reload to get latest status if API updated it
+      }
+    }
   };
 
   // Filter bids by project manager
@@ -864,13 +897,23 @@ export function OpportunityDetail({ opportunity, user, onBack, onEdit }: Opportu
                       </div>
                     </div>
                     {canChange('bids', user.role) && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleEmailBid(bid)}
+                          className="gap-2"
+                        >
+                          <Send className="h-4 w-4" />
+                          {bid.status.toLowerCase() === 'sent' || sentBids.has(bid.id) ? 'Resend' : 'Send'}
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openEditDialog(bid)}>
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
@@ -886,6 +929,7 @@ export function OpportunityDetail({ opportunity, user, onBack, onEdit }: Opportu
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1123,14 +1167,21 @@ export function OpportunityDetail({ opportunity, user, onBack, onEdit }: Opportu
       {/* Alert */}
       {alert && (
         <div
-          className={`p-4 rounded-lg mb-4 ${
-            alert.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          className={`fixed bottom-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
+            alert.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
           }`}
         >
           <p className="font-semibold">{alert.type === 'success' ? 'Success' : 'Error'}</p>
           <p className="text-sm">{alert.message}</p>
         </div>
       )}
+
+      <EmailQuoteDialog
+        open={isEmailDialogOpen}
+        onOpenChange={setIsEmailDialogOpen}
+        quote={emailBid}
+        onSuccess={handleEmailSuccess}
+      />
     </div>
   );
 }

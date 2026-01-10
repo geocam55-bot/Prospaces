@@ -172,11 +172,11 @@ export function Contacts({ user }: ContactsProps) {
     
     // 🔍 Enhanced search: search across multiple fields
     return contacts.filter(contact =>
-      contact.name.toLowerCase().includes(query) ||
-      contact.email.toLowerCase().includes(query) ||
-      contact.company.toLowerCase().includes(query) ||
-      contact.phone.includes(query) ||
-      contact.status.toLowerCase().includes(query)
+      (contact.name || '').toLowerCase().includes(query) ||
+      (contact.email || '').toLowerCase().includes(query) ||
+      (contact.company || '').toLowerCase().includes(query) ||
+      (contact.phone || '').includes(query) ||
+      (contact.status || '').toLowerCase().includes(query)
     );
   }, [contacts, debouncedSearchQuery]);
 
@@ -827,10 +827,10 @@ export function Contacts({ user }: ContactsProps) {
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                            {contact.name.charAt(0)}
+                            {(contact.name || '?').charAt(0)}
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-900">{contact.name}</span>
+                            <span className="text-sm text-gray-900">{contact.name || 'Unknown'}</span>
                             {(() => {
                               const status = contactsWithOpportunities.get(contact.id);
                               if (!status) return null;

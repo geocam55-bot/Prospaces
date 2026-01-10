@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useDebounce } from '../utils/useDebounce';
 import { advancedSearch } from '../utils/advanced-search';
+import { EmailQuoteDialog } from './EmailQuoteDialog';
 
 interface LineItem {
   id: string;
@@ -122,6 +123,11 @@ export function Bids({ user }: BidsProps) {
   const [newStatus, setNewStatus] = useState<Quote['status']>('draft');
   const [isLoading, setIsLoading] = useState(true);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Email Dialog State
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailQuote, setEmailQuote] = useState<Quote | null>(null);
+  const [sentQuotes, setSentQuotes] = useState<Set<string>>(new Set());
 
   // Organization settings
   const [orgSettings, setOrgSettings] = useState<{
@@ -397,11 +403,21 @@ export function Bids({ user }: BidsProps) {
         // Use quote's terms if they exist, otherwise use org defaults
         terms: quote.terms || orgSettings.quoteTerms,
       });
-      // Ensure line items have cost field for backwards compatibility
-      const lineItemsWithCost = quote.lineItems.map(item => ({
-        ...item,
-        cost: item.cost ?? 0
-      }));
+      // Ensure line items have cost field and valid total
+      const lineItemsWithCost = quote.lineItems.map(item => {
+        // Calculate what the total *should* be
+        const calculatedTotal = item.quantity * item.unitPrice * (1 - (item.discount || 0) / 100);
+        
+        // If the stored total is 0 but we have valid quantity and price, use the calculated total
+        // This fixes the issue where imported bids might have 0 total
+        const shouldUseCalculated = item.total === 0 && calculatedTotal > 0;
+        
+        return {
+          ...item,
+          cost: item.cost ?? 0,
+          total: shouldUseCalculated ? calculatedTotal : (item.total ?? calculatedTotal)
+        };
+      });
       setCurrentLineItems(lineItemsWithCost);
     } else {
       setEditingQuote(null);
@@ -575,6 +591,36 @@ export function Bids({ user }: BidsProps) {
     } catch (error) {
       console.error('Failed to update status:', error);
       showAlert('error', 'Failed to update status');
+    }
+  };
+
+  const handleEmailQuote = (quote: Quote) => {
+    // If quote doesn't have email, try to find it from contacts list
+    let quoteToEmail = { ...quote };
+    if (!quoteToEmail.contactEmail && quoteToEmail.contactId) {
+      const contact = contacts.find(c => c.id === quoteToEmail.contactId);
+      if (contact && contact.email) {
+        quoteToEmail.contactEmail = contact.email;
+      }
+    }
+    
+    setEmailQuote(quoteToEmail);
+    setShowEmailDialog(true);
+  };
+
+  const handleEmailSuccess = async () => {
+    if (emailQuote) {
+      setSentQuotes(prev => new Set(prev).add(emailQuote.id));
+      
+      // Update quote status to 'sent' if it's currently 'draft'
+      if (emailQuote.status === 'draft') {
+        try {
+          await quotesAPI.update(emailQuote.id, { ...emailQuote, status: 'sent' });
+          loadData(); // Reload to reflect status change
+        } catch (error) {
+          console.error('Failed to update quote status after sending email:', error);
+        }
+      }
     }
   };
 
@@ -784,13 +830,23 @@ export function Bids({ user }: BidsProps) {
                         <p className="text-sm text-gray-600 mt-1">Quote #{quote.quoteNumber}</p>
                         <p className="text-sm text-gray-600">Contact: {quote.contactName}</p>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => handleEmailQuote(quote)}
+                          className="gap-2"
+                        >
+                          <Send className="h-4 w-4" />
+                          {quote.status === 'sent' || sentQuotes.has(quote.id) ? 'Resend Quote' : 'Send Quote'}
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handlePreview(quote)}>
                             <Eye className="h-4 w-4 mr-2" />
                             Preview
@@ -835,6 +891,7 @@ export function Bids({ user }: BidsProps) {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
+                  </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
                       <div>
@@ -1485,6 +1542,13 @@ export function Bids({ user }: BidsProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      <EmailQuoteDialog
+        open={showEmailDialog}
+        onOpenChange={setShowEmailDialog}
+        quote={emailQuote}
+        onSuccess={handleEmailSuccess}
+      />
     </div>
   );
 }
