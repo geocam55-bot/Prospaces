@@ -584,12 +584,20 @@ export const emailAPI = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+      // Map fields to match database schema, similar to saveEmailToSupabase in Email.tsx
     const newEmail = {
-      ...emailData,
-      sender_id: user.id,
+      user_id: user.id,
       organization_id: user.user_metadata?.organizationId,
-      sent_at: new Date().toISOString(),
-      status: 'sent',
+      account_id: emailData.account_id || emailData.accountId,
+      message_id: emailData.message_id || emailData.id || crypto.randomUUID(),
+      from_email: emailData.from_email || emailData.from,
+      to_email: emailData.to_email || emailData.to,
+      subject: emailData.subject,
+      body: emailData.body,
+      is_read: emailData.is_read !== undefined ? emailData.is_read : (emailData.read !== undefined ? emailData.read : true),
+      is_starred: emailData.is_starred !== undefined ? emailData.is_starred : (emailData.starred || false),
+      folder: emailData.folder || 'sent',
+      received_at: emailData.received_at || emailData.date || new Date().toISOString(),
     };
 
     const { data, error } = await supabase

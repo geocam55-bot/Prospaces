@@ -32,9 +32,72 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
       // Pre-fill form
       setTo(quote.contactEmail || '');
       setSubject(`Quote #${quote.quoteNumber} from ${quote.organizationName || 'ProSpaces'}`);
-      setBody(`Dear ${quote.contactName},\n\nPlease find attached the quote #${quote.quoteNumber}.\n\nBest regards,\nProSpaces Team`);
+      setBody(`Dear ${quote.contactName},\n\nPlease find below the quote #${quote.quoteNumber}.\n\nBest regards,\nProSpaces Team`);
     }
   }, [open, quote]);
+
+  const generateQuoteHtml = (quote: any) => {
+    const formatCurrency = (amount: number) => {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
+    };
+
+    const lineItemsHtml = quote.lineItems?.map((item: any) => `
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 8px;">${item.itemName || item.title || 'Item'}</td>
+        <td style="padding: 8px;">${item.description || ''}</td>
+        <td style="padding: 8px; text-align: center;">${item.quantity || 1}</td>
+        <td style="padding: 8px; text-align: right;">${formatCurrency(item.unitPrice || item.price)}</td>
+        <td style="padding: 8px; text-align: right;">${formatCurrency(item.total || (item.quantity * item.unitPrice))}</td>
+      </tr>
+    `).join('') || '';
+
+    return `
+      <div style="margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; font-family: sans-serif;">
+        <div style="background-color: #f8f9fa; padding: 15px; border-bottom: 1px solid #ddd;">
+          <h3 style="margin: 0; color: #333;">Quote #${quote.quoteNumber || quote.title}</h3>
+          <p style="margin: 5px 0 0; color: #666; font-size: 14px;">Date: ${new Date().toLocaleDateString()}</p>
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <thead>
+            <tr style="background-color: #f1f1f1;">
+              <th style="padding: 10px; text-align: left;">Item</th>
+              <th style="padding: 10px; text-align: left;">Description</th>
+              <th style="padding: 10px; text-align: center;">Qty</th>
+              <th style="padding: 10px; text-align: right;">Price</th>
+              <th style="padding: 10px; text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lineItemsHtml}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4" style="padding: 10px; text-align: right; font-weight: bold;">Subtotal:</td>
+              <td style="padding: 10px; text-align: right;">${formatCurrency(quote.subtotal)}</td>
+            </tr>
+            ${quote.taxAmount > 0 ? `
+            <tr>
+              <td colspan="4" style="padding: 10px; text-align: right;">Tax:</td>
+              <td style="padding: 10px; text-align: right;">${formatCurrency(quote.taxAmount)}</td>
+            </tr>
+            ` : ''}
+            <tr style="background-color: #f8f9fa;">
+              <td colspan="4" style="padding: 10px; text-align: right; font-weight: bold; font-size: 16px;">Total:</td>
+              <td style="padding: 10px; text-align: right; font-weight: bold; font-size: 16px;">${formatCurrency(quote.total)}</td>
+            </tr>
+          </tfoot>
+        </table>
+        
+        ${quote.notes ? `
+        <div style="padding: 15px; background-color: #fdfdfd; border-top: 1px solid #eee;">
+          <strong style="font-size: 14px;">Notes:</strong>
+          <p style="margin: 5px 0 0; font-size: 14px; color: #555;">${quote.notes}</p>
+        </div>
+        ` : ''}
+      </div>
+    `;
+  };
 
   const loadAccounts = async () => {
     try {
@@ -68,6 +131,15 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
       const account = accounts.find(a => a.id === selectedAccount);
       if (!account) throw new Error('Account not found');
 
+      // Construct HTML body with quote details
+      const quoteHtml = generateQuoteHtml(quote);
+      const fullHtmlBody = `
+        <div style="font-family: Arial, sans-serif;">
+          <div style="white-space: pre-wrap;">${body.replace(/\n/g, '<br/>')}</div>
+          ${quoteHtml}
+        </div>
+      `;
+
       let response;
 
       // Determine sending method based on account type
@@ -77,7 +149,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
             accountId: selectedAccount,
             to,
             subject,
-            body,
+            body: fullHtmlBody,
           },
         });
       } else if (account.nylas_grant_id) {
@@ -86,7 +158,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
             accountId: selectedAccount,
             to,
             subject,
-            body,
+            body: fullHtmlBody,
           },
         });
       } else {
@@ -96,7 +168,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
            const payload = {
             to: to.trim(),
             subject: subject.trim(),
-            body: body.trim(),
+            body: fullHtmlBody,
             from: account.email,
             smtpConfig: {
               host: account.smtp_host,
@@ -116,7 +188,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
               accountId: selectedAccount,
               to,
               subject,
-              body,
+              body: fullHtmlBody,
             },
           });
         }
@@ -156,7 +228,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
         from_email: account.email,
         to_email: to,
         subject,
-        body,
+        body: fullHtmlBody, // Save the full HTML body
         is_read: true,
         is_starred: false,
         folder: 'sent',

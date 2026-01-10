@@ -240,12 +240,72 @@ export async function createQuoteClient(data: any) {
 
 export async function updateQuoteClient(id: string, data: any) {
   try {
+    // Sanitize and map data to snake_case
+    const allowedColumns = [
+      'quote_number', 'title', 'contact_id', 'contact_name', 
+      'price_tier', 'status', 'valid_until', 'line_items', 
+      'subtotal', 'discount_percent', 'discount_amount', 
+      'tax_percent', 'tax_percent_2', 'tax_amount', 'tax_amount_2', 
+      'total', 'notes', 'terms', 'organization_id', 'created_by', 
+      'created_at', 'updated_at'
+    ];
+    
+    const dbData: any = {};
+    
+    // Helper to map camelCase to snake_case
+    const toSnakeCase = (str: string) => str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+    
+    // Explicit mappings for fields that might not match simple snake_case conversion
+    const mappings: Record<string, string> = {
+      'quoteNumber': 'quote_number',
+      'contactId': 'contact_id',
+      'contactName': 'contact_name',
+      'priceTier': 'price_tier',
+      'validUntil': 'valid_until',
+      'lineItems': 'line_items',
+      'discountPercent': 'discount_percent',
+      'discountAmount': 'discount_amount',
+      'taxPercent': 'tax_percent',
+      'taxPercent2': 'tax_percent_2',
+      'taxAmount': 'tax_amount',
+      'taxAmount2': 'tax_amount_2',
+    };
+
+    Object.keys(data).forEach(key => {
+      // 1. Check if key is already a valid column
+      if (allowedColumns.includes(key)) {
+        dbData[key] = data[key];
+        return;
+      }
+      
+      // 2. Check explicit mappings
+      if (mappings[key] && allowedColumns.includes(mappings[key])) {
+        // Special handling for line_items - stringify if array
+        if (mappings[key] === 'line_items' && Array.isArray(data[key])) {
+          dbData[mappings[key]] = JSON.stringify(data[key]);
+        } else {
+          dbData[mappings[key]] = data[key];
+        }
+        return;
+      }
+      
+      // 3. Try auto-conversion to snake_case
+      const snakeKey = toSnakeCase(key);
+      if (allowedColumns.includes(snakeKey)) {
+        dbData[snakeKey] = data[key];
+        return;
+      }
+      
+      // If we reach here, the key is not recognized/allowed (e.g. contactEmail)
+      // and will be dropped.
+    });
+
     const updateData: any = {
-      ...data,
+      ...dbData,
       updated_at: new Date().toISOString(),
     };
     
-    console.log('[quotes-client] Updating quote with data:', updateData);
+    console.log('[quotes-client] Updating quote with sanitized data:', updateData);
     
     const { data: quote, error } = await supabase
       .from('quotes')
