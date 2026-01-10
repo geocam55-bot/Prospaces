@@ -213,17 +213,26 @@ export function SavedDeckDesigns({
       
       // 2. Create quote if requested
       if (createQuote && selectedCustomer) {
+        // Generate quote number
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        const quoteNumber = `QT-${year}${month}-${random}`;
+
         const quoteData = {
+          quote_number: quoteNumber,
           organization_id: user.organizationId,
           contact_id: selectedCustomer.id,
           title: `Deck Design - ${saveName.trim()}`,
           // description: saveDescription.trim() || `${currentConfig.width}' × ${currentConfig.length}' ${currentConfig.shape} deck`, // Removed as column doesn't exist
           line_items: materials.map(item => ({
+            id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             description: item.description,
             quantity: item.quantity,
             unit: item.unit,
             unit_price: item.price || 0,
-            total_price: (item.price || 0) * item.quantity,
+            total: (item.price || 0) * item.quantity, // Use 'total' instead of 'total_price' to match schema
           })),
           subtotal: totalCost,
           total: totalCost,
