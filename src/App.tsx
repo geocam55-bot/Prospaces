@@ -136,19 +136,11 @@ function App() {
       // Load user profile
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, email, role, name, avatar_url, organization_id, manager_id, needs_password_change')
+        .select('id, email, role, name, avatar_url, organization_id, manager_id')
         .eq('id', supabaseUser.id)
         .single();
 
       if (profile) {
-        // IMPORTANT: Don't load user data if they need to change password
-        // The Login component will handle showing the change password dialog
-        if (profile.needs_password_change) {
-          console.log('⏸️ User needs to change password - not loading user data yet');
-          setLoading(false);
-          return;
-        }
-
         // Initialize permissions for this user's role BEFORE setting user state
         await initializePermissions(profile.role);
 

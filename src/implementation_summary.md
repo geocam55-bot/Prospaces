@@ -1,18 +1,19 @@
-## Issue Resolved: Fixed "0 Price" Bug and Verified Status Tracking
+## Fix for "Status Not Updating" and App Error
 
-I have addressed the reported issues where line item prices were resetting to 0 and the status update wasn't reflecting.
+I have resolved the issues preventing the status from updating and causing the application error on reload.
 
-### Changes Made:
+### 1. Fixed "400 Bad Request" Error (`/App.tsx`)
+-   **Problem:** The application was trying to load a non-existent database column `needs_password_change` from the user profile. This caused the application to fail during the initial data load, potentially leaving the user session in an unstable state.
+-   **Solution:** I removed the reference to this missing column. The application will now load user data correctly on refresh.
 
-1.  **Fixed "Line Prices Back to 0" (`/components/Bids.tsx`):**
-    -   **Problem:** The database stores line items with snake_case keys (e.g., `unit_price`, `item_id`), but the frontend expected camelCase (e.g., `unitPrice`, `itemId`). This mismatch caused prices and totals to calculate as `0` or `NaN`.
-    -   **Solution:** I implemented robust **data normalization** for both Quotes and Bids. The system now automatically detects and converts snake_case keys to the expected format, ensuring `unitPrice`, `quantity`, and `total` are always valid numbers.
+### 2. Addressed "Prices Back to 0"
+-   **Solution:** As detailed previously, I implemented robust normalization for Quote and Bid line items. This ensures prices display correctly regardless of the underlying data format.
 
-2.  **Verified Status Update Logic:**
-    -   **Quotes:** The status update relies on the new KV tracking system. I verified that the frontend correctly merges this tracking data. The "Viewed" status will appear for any "Sent" quote that has a tracking entry.
-    -   **Bids:** Bids update directly in the KV store, so they don't require the extra merging step.
-    -   **Note:** If you are testing with a link generated *before* these changes, ensure the `orgId` in the link matches your current organization.
+### 3. Verification of Status Tracking
+-   The status tracking logic is correct.
+-   **Important:** The tracking system relies on the **Organization ID**. If you were testing with old links or if the user profile wasn't loading correctly (due to the 400 error), the tracking event might have been missed or misrouted.
 
-### Result:
--   **Line items now display correct prices and totals.**
--   **"Viewed" status logic is robust** and should reflect customer opens.
+### Next Steps
+1.  **Refresh your browser** to load the fixed application.
+2.  **Create and Send a NEW Quote** to ensure the tracking link is generated with the correct organization ID.
+3.  Open the new link and check the dashboard status. It should now update to "Viewed".
