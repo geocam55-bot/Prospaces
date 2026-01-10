@@ -2226,7 +2226,7 @@ app.get('/make-server-8405be07/track/click', async (c) => {
   }
 });
 
-app.post('/make-server-8405be07/track/event', async (c) => {
+app.post('/make-server-8405be07/public/events', async (c) => {
   try {
     const { type, entityType, entityId, orgId, url, userAgent } = await c.req.json();
     
@@ -2247,7 +2247,14 @@ app.post('/make-server-8405be07/track/event', async (c) => {
         
         // Update entity status
         if (entityType === 'quote') {
-            await supabase.from('quotes').update({ status: 'viewed', read_at: timestamp }).eq('id', entityId);
+            const { error: updateError } = await supabase
+                .from('quotes')
+                .update({ status: 'viewed', read_at: timestamp })
+                .eq('id', entityId);
+
+            if (updateError) {
+                console.error('Failed to update quote status (open event):', updateError);
+            }
         } else if (entityType === 'bid') {
              const bidKey = `bid:${orgId}:${entityId}`;
              const bid = await kv.get(bidKey);
@@ -2266,7 +2273,16 @@ app.post('/make-server-8405be07/track/event', async (c) => {
         await kv.set(trackingKey, clicks);
 
         if (entityType === 'quote') {
-            await supabase.from('quotes').update({ status: 'viewed', read_at: timestamp }).eq('id', entityId);
+             const { error: updateError } = await supabase
+                .from('quotes')
+                .update({ status: 'viewed', read_at: timestamp })
+                .eq('id', entityId);
+
+            if (updateError) {
+                console.error('Failed to update quote status (click event):', updateError);
+                // Try fallback
+                 await supabase.from('quotes').update({ read_at: timestamp }).eq('id', entityId);
+            }
         } else if (entityType === 'bid') {
              const bidKey = `bid:${orgId}:${entityId}`;
              const bid = await kv.get(bidKey);
