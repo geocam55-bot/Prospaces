@@ -37,6 +37,7 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { FaviconGenerator } from './components/FaviconGenerator';
 import { TrackingRedirect } from './components/TrackingRedirect';
+import { PublicQuoteView } from './components/PublicQuoteView';
 import { OpportunitiesDiagnostic } from './components/OpportunitiesDiagnostic';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -83,9 +84,14 @@ function App() {
   const isFaviconGenerator = urlParams.get('view') === 'favicon-generator';
   const isOpportunitiesDiagnostic = urlParams.get('view') === 'opportunities-diagnostic';
   const isTrackingRedirect = urlParams.get('view') === 'redirect';
+  const isPublicQuote = urlParams.get('view') === 'public-quote';
 
   if (isTrackingRedirect) {
     return <TrackingRedirect />;
+  }
+
+  if (isPublicQuote) {
+    return <PublicQuoteView />;
   }
 
   if (isFaviconGenerator) {

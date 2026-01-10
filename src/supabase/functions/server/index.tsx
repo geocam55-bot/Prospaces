@@ -2287,4 +2287,36 @@ app.post('/make-server-8405be07/track/event', async (c) => {
   }
 });
 
+// Public Quote/Bid View
+app.get('/make-server-8405be07/public/view', async (c) => {
+    try {
+        const id = c.req.query('id');
+        const orgId = c.req.query('orgId');
+        const type = c.req.query('type'); // 'quote' or 'bid'
+
+        if (!id || !orgId) return c.json({error: 'Missing params'}, 400);
+
+        // Fetch from DB or KV
+        if (type === 'bid') {
+            const key = `bid:${orgId}:${id}`;
+            const data = await kv.get(key);
+            if (data) return c.json({ data });
+            return c.json({error: 'Not found'}, 404);
+        } else {
+            // Assume quote (Postgres)
+            // We need to use service role to fetch public quote since user is anon
+            // But we are in server, so we use the global supabase client (which uses service role)
+            const { data, error } = await supabase.from('quotes').select('*').eq('id', id).maybeSingle();
+            
+            if (error) throw error;
+            if (data) return c.json({ data });
+            
+            return c.json({error: 'Not found'}, 404);
+        }
+    } catch (error) {
+        console.error('Public view error:', error);
+        return c.json({ error: 'Failed to load document' }, 500);
+    }
+});
+
 Deno.serve(app.fetch);

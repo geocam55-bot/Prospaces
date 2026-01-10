@@ -142,9 +142,11 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
       
       // 1. View Online Link (for Click tracking)
       // We route through the frontend to handle auth headers securely
-      const targetUrl = `${appUrl}/quotes/${quoteId}?utm_source=email&utm_medium=email&utm_campaign=quote_${quote.quoteNumber || quoteId}`;
+      // Use query parameters instead of path parameters to avoid 404s on static host
+      const type = quote.quoteNumber ? 'quote' : 'bid'; // Simple heuristic
+      const targetUrl = `${appUrl}/?view=public-quote&id=${quoteId}&orgId=${orgId}&type=${type}`;
       const encodedTargetUrl = encodeURIComponent(targetUrl);
-      const trackingLinkUrl = `${appUrl}/?view=redirect&url=${encodedTargetUrl}&id=${quoteId}&orgId=${orgId}&type=quote`;
+      const trackingLinkUrl = `${appUrl}/?view=redirect&url=${encodedTargetUrl}&id=${quoteId}&orgId=${orgId}&type=${type}`;
       
       // 2. Tracking Pixel (Disabled for now as it requires auth headers which email clients can't send)
       // const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
