@@ -2057,6 +2057,10 @@
     border-color: var(--color-green-600);
   }
 
+  .border-indigo-200 {
+    border-color: var(--color-indigo-200);
+  }
+
   .border-input {
     border-color: oklch(.922 0 0);
   }

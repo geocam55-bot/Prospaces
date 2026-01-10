@@ -70,6 +70,7 @@ interface Quote {
   createdAt: string;
   updatedAt: string;
   ownerId: string;
+  readAt?: string;
 }
 
 interface BidsProps {
@@ -269,6 +270,7 @@ export function Bids({ user }: BidsProps) {
           priceTier: q.priceTier ?? q.price_tier ?? 1,
           createdAt: q.createdAt ?? q.created_at,
           updatedAt: q.updatedAt ?? q.updated_at,
+          readAt: q.readAt ?? q.read_at,
         };
       });
 
@@ -310,6 +312,7 @@ export function Bids({ user }: BidsProps) {
           status: b.status ?? 'draft',
           createdAt: b.createdAt ?? b.created_at,
           updatedAt: b.updatedAt ?? b.updated_at,
+          readAt: b.readAt ?? b.read_at,
           _source: 'bids', // Tag to identify source table
         };
       });
@@ -637,10 +640,11 @@ export function Bids({ user }: BidsProps) {
         quote.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         quote.quoteNumber.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const status = (quote.status || '').toLowerCase();
+      const effectiveStatus = (quote.status === 'sent' && quote.readAt) ? 'viewed' : (quote.status || '');
+      const status = effectiveStatus.toLowerCase();
       const matchesStatus = statusFilter === 'all' || 
                             (statusFilter === 'open' && status !== 'accepted' && status !== 'rejected' && status !== 'won' && status !== 'lost') ||
-                            quote.status === statusFilter;
+                            status === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
@@ -665,6 +669,7 @@ export function Bids({ user }: BidsProps) {
       case 'accepted': return 'bg-green-100 text-green-700 border-green-200';
       case 'rejected': return 'bg-red-100 text-red-700 border-red-200';
       case 'sent': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'viewed': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
       case 'expired': return 'bg-orange-100 text-orange-700 border-orange-200';
       case 'draft': return 'bg-gray-100 text-gray-700 border-gray-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
@@ -784,6 +789,7 @@ export function Bids({ user }: BidsProps) {
                 <SelectItem value="open">Open (Not Accepted/Rejected)</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="sent">Sent</SelectItem>
+                <SelectItem value="viewed">Viewed</SelectItem>
                 <SelectItem value="accepted">Accepted</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
                 <SelectItem value="expired">Expired</SelectItem>
@@ -823,9 +829,14 @@ export function Bids({ user }: BidsProps) {
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="text-lg text-gray-900">{quote.title}</h3>
-                          <Badge variant="outline" className={getStatusColor(quote.status)}>
-                            {quote.status}
-                          </Badge>
+                          {(() => {
+                            const displayStatus = (quote.status === 'sent' && quote.readAt) ? 'viewed' : quote.status;
+                            return (
+                              <Badge variant="outline" className={getStatusColor(displayStatus)}>
+                                {displayStatus}
+                              </Badge>
+                            );
+                          })()}
                         </div>
                         <p className="text-sm text-gray-600 mt-1">Quote #{quote.quoteNumber}</p>
                         <p className="text-sm text-gray-600">Contact: {quote.contactName}</p>
