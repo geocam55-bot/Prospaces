@@ -2197,36 +2197,41 @@ async function updateContactLeadScore(organizationId: string, contactId: string,
 async function createFollowUpTask(entity: any, type: 'quote' | 'bid' = 'quote') {
   const createdBy = entity.created_by || entity.createdBy || entity.ownerId;
   const orgId = entity.organization_id || entity.organizationId;
-  const contactId = entity.contact_id || entity.contactId;
   const title = entity.title || entity.quote_number || entity.id;
-  const id = entity.id;
 
   if (!entity || !createdBy || !orgId) return;
 
   try {
-    const taskId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const task = {
-      id: taskId,
+    const taskData = {
       title: `Follow up: ${title}`,
       description: `Customer viewed ${type} ${title}. Follow up to close the deal.`,
       status: 'pending',
       priority: 'high',
-      dueDate: tomorrow.toISOString().split('T')[0], // YYYY-MM-DD
-      assignedTo: createdBy,
-      ownerId: createdBy,
-      organizationId: orgId,
-      relatedTo: { type: type, id: id },
-      contactId: contactId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      due_date: tomorrow.toISOString().split('T')[0],
+      assigned_to: createdBy,
+      owner_id: createdBy,
+      organization_id: orgId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
-    // Save to KV
-    await kv.set(`task:${orgId}:${taskId}`, task);
-    console.log(`Created follow-up task for ${type}:`, taskId);
+    // Save to Postgres
+    const { data, error } = await supabase
+      .from('tasks')
+      .insert([taskData])
+      .select()
+      .single();
+    
+    if (error) {
+        console.error('Failed to create Postgres task:', error);
+        // Fallback or retry? For now just log.
+        return;
+    }
+
+    console.log(`Created follow-up task for ${type}:`, data.id);
   } catch (e) {
     console.error(`Failed to create follow-up task for ${type}:`, e);
   }

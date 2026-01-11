@@ -38,6 +38,10 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
   }, [open, quote]);
 
   const generateQuoteHtml = (quote: any) => {
+    const formatCurrency = (amount: number) => {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
+    };
+
     // Simplified HTML that only shows basic info, forcing user to click link for details
     return `
       <div style="margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; font-family: sans-serif; max-width: 600px;">
@@ -50,7 +54,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
           <p style="font-size: 16px; line-height: 1.5; color: #555; margin-bottom: 0;">
             This quote includes <strong>${quote.lineItems?.length || 0} item(s)</strong>.
             <br/>
-            Please view the full document online to accept or reject this proposal.
+            Total Value: <strong>${formatCurrency(quote.total)}</strong>
           </p>
         </div>
       </div>
