@@ -2156,15 +2156,23 @@ app.get('/make-server-8405be07/track/open', async (c) => {
 
       // 2. Update entity status
       if (type === 'quote') {
-        // Try updating Postgres table
-        // We only update if it hasn't been read yet or to update last viewed
+        // Update Postgres table status
+        // Note: We avoid updating read_at since the column might not exist
         await supabase
           .from('quotes')
           .update({ 
-            status: 'viewed', 
-            read_at: timestamp 
+            status: 'viewed'
           })
           .eq('id', id);
+
+        // Update KV tracking index for timestamps
+        const statusKey = `tracking_status:${orgId}:quotes`;
+        const statusMap = await kv.get(statusKey) || {};
+        // Only update if not already tracked or to update timestamp
+        if (!statusMap[id]) {
+          statusMap[id] = { readAt: timestamp, status: 'viewed' };
+          await kv.set(statusKey, statusMap);
+        }
       } else if (type === 'bid') {
         // Update KV bid
         const bidKey = `bid:${orgId}:${id}`;
@@ -2222,6 +2230,9 @@ app.get('/make-server-8405be07/track/click', async (c) => {
 
       // 2. Update entity status
        if (type === 'quote') {
+        // Update Postgres status
+        await supabase.from('quotes').update({ status: 'viewed' }).eq('id', id);
+
         // Update KV tracking index for quotes (since Postgres table lacks read_at)
         const statusKey = `tracking_status:${orgId}:quotes`;
         const statusMap = await kv.get(statusKey) || {};
@@ -2346,7 +2357,25 @@ app.get('/make-server-8405be07/public/view', async (c) => {
             const { data, error } = await supabase.from('quotes').select('*').eq('id', id).maybeSingle();
             
             if (error) throw error;
-            if (data) return c.json({ data });
+            if (data) {
+                // Track view if not already accepted/rejected and status is not already viewed
+                if (data.status !== 'accepted' && data.status !== 'rejected') {
+                    const timestamp = new Date().toISOString();
+                    
+                    // Update Postgres status
+                    await supabase.from('quotes').update({ status: 'viewed' }).eq('id', id);
+
+                    // Update KV tracking index
+                    const orgIdToUse = data.organization_id || orgId;
+                    const statusKey = `tracking_status:${orgIdToUse}:quotes`;
+                    const statusMap = await kv.get(statusKey) || {};
+                    if (!statusMap[id]) {
+                        statusMap[id] = { readAt: timestamp, status: 'viewed' };
+                        await kv.set(statusKey, statusMap);
+                    }
+                }
+                return c.json({ data });
+            }
             
             return c.json({error: 'Not found'}, 404);
         }

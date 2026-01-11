@@ -1,13 +1,16 @@
-## Quote Schema Fix
+## Quote Status Tracking Fix
 
-The error occurred because I tried to save the **Contact Name** and **Email** directly into the Quotes table, but the database is designed to only store the **Contact ID** (it looks up the name and email automatically from the Contacts table).
+I identified two issues preventing the Quote status from updating to "Viewed":
+1.  **Public Page:** The server endpoint that renders the Quote HTML (`/public/view`) was *fetching* the data but not *updating* the status.
+2.  **Tracking Pixel:** The tracking code was trying to update a `read_at` column in the database that doesn't exist, causing the "Viewed" update to fail silently.
 
 ### The Fix
-I have updated the **Deck Planner** (`SavedDeckDesigns.tsx`) to:
--   **Remove** `contact_name` and `contact_email` from the save operation.
--   **Keep** `contact_id`, which is the correct way to link the quote to the customer.
+I updated the server logic (`/supabase/functions/server/index.tsx`) to:
+1.  **Automatically mark the quote as "Viewed"** whenever the Public Quote page is loaded.
+2.  **Fix the tracking pixel** and link click handlers to correctly update the status in both the database (so you see it in the UI) and the internal tracking system.
 
 ### Instructions
 1.  **Refresh your browser**.
-2.  Try saving the design with "Create Quote" again.
-3.  It should now succeed without error.
+2.  Send a test quote to yourself (or open an existing public link).
+3.  View the page.
+4.  Check the **Bids/Quotes** tab—the status should now update to **"Viewed"**.
