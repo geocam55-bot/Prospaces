@@ -4,6 +4,7 @@ import { Kitchen3DRenderer } from './Kitchen3DRenderer';
 import { KitchenConfigurator } from './KitchenConfigurator';
 import { SavedKitchenDesigns } from './SavedKitchenDesigns';
 import { PlannerDefaults } from '../PlannerDefaults';
+import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { calculateKitchenMaterials } from '../../utils/kitchenCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { KitchenConfig, PlacedCabinet, CABINET_CATALOG, CabinetItem, Appliance } from '../../types/kitchen';
@@ -626,7 +627,16 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         {activeTab === 'materials' && (
           <div className="flex-1 overflow-auto p-6 bg-gray-50">
             <div className="max-w-6xl mx-auto">
-              <h2 className="text-2xl font-semibold mb-6">Materials & Cost Breakdown</h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-semibold">Materials & Cost Breakdown</h2>
+                <ProjectQuoteGenerator 
+                  user={user}
+                  projectType="kitchen"
+                  materials={flatMaterials}
+                  totalCost={totalPrice}
+                  projectData={config}
+                />
+              </div>
               <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-gray-50">

@@ -2135,6 +2135,103 @@ app.delete('/make-server-8405be07/user-planner-defaults/:organizationId/:userId'
 // TRACKING ROUTES
 // ============================================================================
 
+// Helper to update lead score
+async function updateContactLeadScore(organizationId: string, contactId: string, points: number, action: string) {
+  if (!contactId || !organizationId) return;
+
+  try {
+    // Check if table exists/is accessible
+    const { data: existing, error: fetchError } = await supabase
+      .from('lead_scores')
+      .select('*')
+      .eq('contact_id', contactId)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+       // Table might not exist
+       return;
+    }
+
+    const newScore = (existing?.score || 0) + points;
+    let status = 'unscored';
+    if (newScore >= 80) status = 'hot';
+    else if (newScore >= 50) status = 'warm';
+    else if (newScore > 0) status = 'cold';
+
+    const scoreHistory = existing?.score_history || [];
+    scoreHistory.push({
+        action,
+        change: points,
+        timestamp: new Date().toISOString()
+    });
+
+    if (existing) {
+        await supabase
+            .from('lead_scores')
+            .update({
+                score: newScore,
+                status,
+                last_activity: new Date().toISOString(),
+                score_history: scoreHistory
+            })
+            .eq('id', existing.id);
+    } else {
+        await supabase
+            .from('lead_scores')
+            .insert([{
+                contact_id: contactId,
+                organization_id: organizationId,
+                score: newScore,
+                status,
+                last_activity: new Date().toISOString(),
+                score_history: scoreHistory
+            }]);
+    }
+  } catch (e) {
+      console.error('Lead scoring update failed:', e);
+  }
+}
+
+// Helper to create follow-up task
+async function createFollowUpTask(entity: any, type: 'quote' | 'bid' = 'quote') {
+  const createdBy = entity.created_by || entity.createdBy || entity.ownerId;
+  const orgId = entity.organization_id || entity.organizationId;
+  const contactId = entity.contact_id || entity.contactId;
+  const title = entity.title || entity.quote_number || entity.id;
+  const id = entity.id;
+
+  if (!entity || !createdBy || !orgId) return;
+
+  try {
+    const taskId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const task = {
+      id: taskId,
+      title: `Follow up: ${title}`,
+      description: `Customer viewed ${type} ${title}. Follow up to close the deal.`,
+      status: 'pending',
+      priority: 'high',
+      dueDate: tomorrow.toISOString().split('T')[0], // YYYY-MM-DD
+      assignedTo: createdBy,
+      ownerId: createdBy,
+      organizationId: orgId,
+      relatedTo: { type: type, id: id },
+      contactId: contactId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Save to KV
+    await kv.set(`task:${orgId}:${taskId}`, task);
+    console.log(`Created follow-up task for ${type}:`, taskId);
+  } catch (e) {
+    console.error(`Failed to create follow-up task for ${type}:`, e);
+  }
+}
+
 app.get('/make-server-8405be07/track/open', async (c) => {
   try {
     const id = c.req.query('id');
@@ -2156,14 +2253,35 @@ app.get('/make-server-8405be07/track/open', async (c) => {
 
       // 2. Update entity status
       if (type === 'quote') {
-        // Update Postgres table status
-        // Note: We avoid updating read_at since the column might not exist
-        await supabase
+        // Fetch quote to get contact details for lead scoring
+        const { data: quote } = await supabase
           .from('quotes')
-          .update({ 
-            status: 'viewed'
-          })
-          .eq('id', id);
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        // Check if newly viewed
+        const isNewView = quote && quote.status !== 'viewed' && quote.status !== 'accepted' && quote.status !== 'rejected';
+
+        // Update Postgres table status
+        if (quote && quote.status !== 'viewed' && quote.status !== 'accepted' && quote.status !== 'rejected') {
+            await supabase
+            .from('quotes')
+            .update({ 
+                status: 'viewed'
+            })
+            .eq('id', id);
+        }
+
+        if (isNewView) {
+            // Update Lead Score
+            if (quote?.contact_id) {
+               await updateContactLeadScore(quote.organization_id || orgId, quote.contact_id, 5, 'Quote Viewed');
+            }
+
+            // Create Follow Up Task
+            await createFollowUpTask(quote);
+        }
 
         // Update KV tracking index for timestamps
         const statusKey = `tracking_status:${orgId}:quotes`;
@@ -2178,10 +2296,16 @@ app.get('/make-server-8405be07/track/open', async (c) => {
         const bidKey = `bid:${orgId}:${id}`;
         const bid = await kv.get(bidKey);
         if (bid) {
+          const isNewView = bid.status !== 'viewed';
           bid.read = true;
           bid.readAt = timestamp;
           bid.status = 'viewed';
           await kv.set(bidKey, bid);
+          
+          if (isNewView) {
+             if (!bid.organizationId) bid.organizationId = orgId;
+             await createFollowUpTask(bid, 'bid');
+          }
         }
       }
     }
@@ -2230,8 +2354,30 @@ app.get('/make-server-8405be07/track/click', async (c) => {
 
       // 2. Update entity status
        if (type === 'quote') {
+        // Fetch quote for lead scoring
+        const { data: quote } = await supabase
+          .from('quotes')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        // Check if newly viewed
+        const isNewView = quote && quote.status !== 'viewed' && quote.status !== 'accepted' && quote.status !== 'rejected';
+
         // Update Postgres status
-        await supabase.from('quotes').update({ status: 'viewed' }).eq('id', id);
+        if (quote && quote.status !== 'viewed' && quote.status !== 'accepted' && quote.status !== 'rejected') {
+            await supabase.from('quotes').update({ status: 'viewed' }).eq('id', id);
+        }
+
+        if (isNewView) {
+            // Update Lead Score (+10 for click)
+            if (quote?.contact_id) {
+               await updateContactLeadScore(quote.organization_id || orgId, quote.contact_id, 10, 'Quote Link Clicked');
+            }
+
+            // Create Follow Up Task
+            await createFollowUpTask(quote);
+        }
 
         // Update KV tracking index for quotes (since Postgres table lacks read_at)
         const statusKey = `tracking_status:${orgId}:quotes`;
@@ -2244,11 +2390,17 @@ app.get('/make-server-8405be07/track/click', async (c) => {
         const bidKey = `bid:${orgId}:${id}`;
         const bid = await kv.get(bidKey);
         if (bid) {
+          const isNewView = bid.status !== 'viewed';
           bid.read = true;
           bid.readAt = timestamp;
           bid.clicked = true;
           bid.status = 'viewed';
           await kv.set(bidKey, bid);
+          
+          if (isNewView) {
+             if (!bid.organizationId) bid.organizationId = orgId;
+             await createFollowUpTask(bid, 'bid');
+          }
         }
       }
     }
@@ -2294,10 +2446,16 @@ app.post('/make-server-8405be07/public/events', async (c) => {
              const bidKey = `bid:${orgId}:${entityId}`;
              const bid = await kv.get(bidKey);
              if (bid) {
+               const isNewView = bid.status !== 'viewed';
                bid.read = true;
                bid.readAt = timestamp;
                bid.status = 'viewed';
                await kv.set(bidKey, bid);
+
+               if (isNewView) {
+                    if (!bid.organizationId) bid.organizationId = orgId;
+                    await createFollowUpTask(bid, 'bid');
+               }
              }
         }
     } else if (type === 'click') {
@@ -2319,11 +2477,17 @@ app.post('/make-server-8405be07/public/events', async (c) => {
              const bidKey = `bid:${orgId}:${entityId}`;
              const bid = await kv.get(bidKey);
              if (bid) {
+               const isNewView = bid.status !== 'viewed';
                bid.read = true;
                bid.readAt = timestamp;
                bid.clicked = true;
                bid.status = 'viewed';
                await kv.set(bidKey, bid);
+
+               if (isNewView) {
+                    if (!bid.organizationId) bid.organizationId = orgId;
+                    await createFollowUpTask(bid, 'bid');
+               }
              }
         }
     }
@@ -2348,7 +2512,21 @@ app.get('/make-server-8405be07/public/view', async (c) => {
         if (type === 'bid') {
             const key = `bid:${orgId}:${id}`;
             const data = await kv.get(key);
-            if (data) return c.json({ data });
+            if (data) {
+                const isNewView = data.status !== 'viewed';
+                if (data.status !== 'accepted' && data.status !== 'rejected') {
+                    data.status = 'viewed';
+                    data.read = true;
+                    if (!data.readAt) data.readAt = new Date().toISOString();
+                    await kv.set(key, data);
+                    
+                    if (isNewView) {
+                         if (!data.organizationId) data.organizationId = orgId;
+                         await createFollowUpTask(data, 'bid');
+                    }
+                }
+                return c.json({ data });
+            }
             return c.json({error: 'Not found'}, 404);
         } else {
             // Assume quote (Postgres)
@@ -2360,18 +2538,29 @@ app.get('/make-server-8405be07/public/view', async (c) => {
             if (data) {
                 // Track view if not already accepted/rejected and status is not already viewed
                 if (data.status !== 'accepted' && data.status !== 'rejected') {
+                    const isNewView = data.status !== 'viewed';
                     const timestamp = new Date().toISOString();
                     
-                    // Update Postgres status
-                    await supabase.from('quotes').update({ status: 'viewed' }).eq('id', id);
+                    if (isNewView) {
+                        // Update Postgres status
+                        await supabase.from('quotes').update({ status: 'viewed' }).eq('id', id);
 
-                    // Update KV tracking index
-                    const orgIdToUse = data.organization_id || orgId;
-                    const statusKey = `tracking_status:${orgIdToUse}:quotes`;
-                    const statusMap = await kv.get(statusKey) || {};
-                    if (!statusMap[id]) {
-                        statusMap[id] = { readAt: timestamp, status: 'viewed' };
-                        await kv.set(statusKey, statusMap);
+                        // Update Lead Score
+                        const orgIdToUse = data.organization_id || orgId;
+                        if (data.contact_id) {
+                             await updateContactLeadScore(orgIdToUse, data.contact_id, 5, 'Quote Viewed Online');
+                        }
+
+                        // Create Follow Up Task
+                        await createFollowUpTask(data);
+
+                        // Update KV tracking index
+                        const statusKey = `tracking_status:${orgIdToUse}:quotes`;
+                        const statusMap = await kv.get(statusKey) || {};
+                        if (!statusMap[id]) {
+                            statusMap[id] = { readAt: timestamp, status: 'viewed' };
+                            await kv.set(statusKey, statusMap);
+                        }
                     }
                 }
                 return c.json({ data });

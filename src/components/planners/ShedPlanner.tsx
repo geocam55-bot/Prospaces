@@ -7,6 +7,7 @@ import { ShedTemplates } from '../shed/ShedTemplates';
 import { SavedShedDesigns } from '../shed/SavedShedDesigns';
 import { PrintableShedDesign } from '../project-wizard/PrintableShedDesign';
 import { PlannerDefaults } from '../PlannerDefaults';
+import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { calculateMaterials } from '../../utils/shedCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { ShedConfig } from '../../types/shed';
@@ -300,17 +301,28 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
         {activeTab === 'materials' && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              {enrichedMaterials.length > 0 && totalT1Price > 0 && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-green-700">Total Estimated Cost (Tier 1 Pricing)</p>
-                      <p className="text-xs text-green-600 mt-1">Based on your organization's default pricing</p>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                {enrichedMaterials.length > 0 && totalT1Price > 0 ? (
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex-1 w-full sm:w-auto">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-green-700">Total Estimated Cost (Tier 1 Pricing)</p>
+                        <p className="text-xs text-green-600 mt-1">Based on your organization's default pricing</p>
+                      </div>
+                      <p className="text-2xl font-semibold text-green-900">${totalT1Price.toLocaleString()}</p>
                     </div>
-                    <p className="text-2xl font-semibold text-green-900">${totalT1Price.toLocaleString()}</p>
                   </div>
-                </div>
-              )}
+                ) : <div className="flex-1"></div>}
+                
+                <ProjectQuoteGenerator 
+                  user={user}
+                  projectType="shed"
+                  materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+                  totalCost={totalT1Price}
+                  projectData={config}
+                />
+              </div>
+
               <ShedMaterialsList 
                 materials={getEnrichedMaterialsStructure()} 
                 compact={false} 

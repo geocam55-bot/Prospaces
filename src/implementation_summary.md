@@ -1,16 +1,26 @@
-## Quote Status Tracking Fix
+## Planner Tracking Integration
 
-I identified two issues preventing the Quote status from updating to "Viewed":
-1.  **Public Page:** The server endpoint that renders the Quote HTML (`/public/view`) was *fetching* the data but not *updating* the status.
-2.  **Tracking Pixel:** The tracking code was trying to update a `read_at` column in the database that doesn't exist, causing the "Viewed" update to fail silently.
+I've successfully extended the quote tracking and lead scoring functionality to the **Roof Planner**, **Shed Planner**, and **Kitchen Planner**.
 
-### The Fix
-I updated the server logic (`/supabase/functions/server/index.tsx`) to:
-1.  **Automatically mark the quote as "Viewed"** whenever the Public Quote page is loaded.
-2.  **Fix the tracking pixel** and link click handlers to correctly update the status in both the database (so you see it in the UI) and the internal tracking system.
+### Implemented Changes
 
-### Instructions
-1.  **Refresh your browser**.
-2.  Send a test quote to yourself (or open an existing public link).
-3.  View the page.
-4.  Check the **Bids/Quotes** tab—the status should now update to **"Viewed"**.
+1.  **Unified Quote Generation:**
+    - Modified `ProjectQuoteGenerator` to support `roof` and `kitchen` project types (in addition to existing types).
+    - Added the **"Create Quote for Customer"** button to the **Materials** tab of:
+        - **Roof Planner**
+        - **Shed Planner**
+        - **Kitchen Planner**
+        - **Deck Planner** (ensured consistency)
+
+2.  **Tracking & Scoring:**
+    - Any quote created from these planners will now:
+        - Be saved to the central `quotes` database.
+        - Include a tracking pixel when emailed/viewed.
+        - **Automatically trigger Lead Scoring** (+5 points for view, +10 for click) when the customer interacts with it.
+
+### How to Use
+1.  Open any planner (e.g., Roof Planner).
+2.  Design the project.
+3.  Go to the **Materials** tab.
+4.  Click **"Create Quote for Customer"**.
+5.  The generated quote is now fully tracked by the Marketing Module.

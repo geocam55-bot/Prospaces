@@ -8,6 +8,7 @@ import { SavedDeckDesigns } from '../deck/SavedDeckDesigns';
 import { DiagnosticPanel } from '../DiagnosticPanel';
 import { PrintableDeckDesign } from '../project-wizard/PrintableDeckDesign';
 import { PlannerDefaults } from '../PlannerDefaults';
+import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { calculateMaterials } from '../../utils/deckCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { DeckConfig } from '../../types/deck';
@@ -305,17 +306,28 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
         {activeTab === 'materials' && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              {enrichedMaterials.length > 0 && totalT1Price > 0 && (
-                <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-purple-700">Total Estimated Cost (Tier 1 Pricing)</p>
-                      <p className="text-xs text-purple-600 mt-1">Based on your organization's default pricing</p>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                {enrichedMaterials.length > 0 && totalT1Price > 0 ? (
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg flex-1 w-full sm:w-auto">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-purple-700">Total Estimated Cost (Tier 1 Pricing)</p>
+                        <p className="text-xs text-purple-600 mt-1">Based on your organization's default pricing</p>
+                      </div>
+                      <p className="text-2xl font-semibold text-purple-900">${totalT1Price.toLocaleString()}</p>
                     </div>
-                    <p className="text-2xl font-semibold text-purple-900">${totalT1Price.toLocaleString()}</p>
                   </div>
-                </div>
-              )}
+                ) : <div className="flex-1"></div>}
+                
+                <ProjectQuoteGenerator 
+                  user={user}
+                  projectType="deck"
+                  materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+                  totalCost={totalT1Price}
+                  projectData={config}
+                />
+              </div>
+
               <MaterialsList 
                 materials={getEnrichedMaterialsStructure()} 
                 compact={false} 

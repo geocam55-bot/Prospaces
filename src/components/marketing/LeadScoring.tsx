@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
@@ -14,6 +14,8 @@ import { Badge } from '../ui/badge';
 import { Plus, TrendingUp, Star, Mail, MousePointer, FileText, Calendar, Edit, Trash2 } from 'lucide-react';
 import { Slider } from '../ui/slider';
 import type { User } from '../../App';
+import { getLeadScores, getLeadScoreStats } from '../../utils/marketing-client';
+import { toast } from 'sonner';
 
 interface LeadScoringProps {
   user: User;
@@ -21,31 +23,58 @@ interface LeadScoringProps {
 
 export function LeadScoring({ user }: LeadScoringProps) {
   const [isCreateRuleOpen, setIsCreateRuleOpen] = useState(false);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+
+  useEffect(() => {
+    if (user.organization_id) {
+      loadData();
+    }
+  }, [user.organization_id]);
+
+  const loadData = async () => {
+    try {
+      const [leadsData, statsData] = await Promise.all([
+        getLeadScores(user.organization_id!),
+        getLeadScoreStats(user.organization_id!)
+      ]);
+      setLeads(leadsData);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error loading lead scoring data:', error);
+      // Don't show error toast on initial load as tables might be empty
+    }
+  };
 
   const scoringRules = [
-    { id: 1, action: 'Email Opened', points: 5, category: 'Engagement' },
-    { id: 2, action: 'Link Clicked', points: 10, category: 'Engagement' },
-    { id: 3, action: 'Form Submitted', points: 25, category: 'Conversion' },
-    { id: 4, action: 'Downloaded Resource', points: 15, category: 'Interest' },
-    { id: 5, action: 'Visited Pricing Page', points: 20, category: 'Intent' },
-    { id: 6, action: 'Requested Demo', points: 50, category: 'Intent' },
-    { id: 7, action: 'Inactive for 30 days', points: -10, category: 'Decay' },
-    { id: 8, action: 'Unsubscribed', points: -50, category: 'Negative' },
+    { id: 1, action: 'Quote Viewed', points: 5, category: 'Engagement' },
+    { id: 2, action: 'Quote Link Clicked', points: 10, category: 'Engagement' },
+    { id: 3, action: 'Email Opened', points: 5, category: 'Engagement' },
+    { id: 4, action: 'Link Clicked', points: 10, category: 'Engagement' },
+    { id: 5, action: 'Form Submitted', points: 25, category: 'Conversion' },
+    { id: 6, action: 'Downloaded Resource', points: 15, category: 'Interest' },
+    { id: 7, action: 'Visited Pricing Page', points: 20, category: 'Intent' },
+    { id: 8, action: 'Requested Demo', points: 50, category: 'Intent' },
+    { id: 9, action: 'Inactive for 30 days', points: -10, category: 'Decay' },
+    { id: 10, action: 'Unsubscribed', points: -50, category: 'Negative' },
   ];
 
-  const topLeads = [
-    { id: 1, name: 'Sarah Johnson', email: 'sarah@techco.com', score: 95, status: 'Hot', company: 'TechCo', lastActivity: '2 hours ago' },
-    { id: 2, name: 'Michael Brown', email: 'michael@startup.io', score: 87, status: 'Hot', company: 'Startup Inc', lastActivity: '5 hours ago' },
-    { id: 3, name: 'Emily Davis', email: 'emily@corp.com', score: 78, status: 'Warm', company: 'BigCorp', lastActivity: '1 day ago' },
-    { id: 4, name: 'David Wilson', email: 'david@company.com', score: 72, status: 'Warm', company: 'Company LLC', lastActivity: '2 days ago' },
-    { id: 5, name: 'Lisa Anderson', email: 'lisa@business.com', score: 65, status: 'Warm', company: 'Business Inc', lastActivity: '3 days ago' },
-  ];
+  // Use real leads if available, otherwise show empty state or fallback
+  const displayLeads = leads.length > 0 ? leads.map(lead => ({
+    id: lead.id,
+    name: lead.contacts ? `${lead.contacts.first_name || ''} ${lead.contacts.last_name || ''}`.trim() || lead.contacts.email : 'Unknown Contact',
+    email: lead.contacts?.email || '',
+    company: lead.contacts?.company || '',
+    score: lead.score,
+    status: lead.status?.charAt(0).toUpperCase() + lead.status?.slice(1) || 'Unscored',
+    lastActivity: lead.last_activity ? new Date(lead.last_activity).toLocaleDateString() : 'N/A'
+  })) : [];
 
-  const segments = [
-    { name: 'Hot Leads (80-100)', count: 45, percentage: 5 },
-    { name: 'Warm Leads (50-79)', count: 234, percentage: 25 },
-    { name: 'Cold Leads (1-49)', count: 456, percentage: 50 },
-    { name: 'Unscored', count: 187, percentage: 20 },
+  const displaySegments = stats?.segments || [
+    { name: 'Hot Leads (80-100)', count: 0, percentage: 0 },
+    { name: 'Warm Leads (50-79)', count: 0, percentage: 0 },
+    { name: 'Cold Leads (1-49)', count: 0, percentage: 0 },
+    { name: 'Unscored', count: 0, percentage: 0 },
   ];
 
   const getScoreColor = (score: number) => {
@@ -53,6 +82,7 @@ export function LeadScoring({ user }: LeadScoringProps) {
     if (score >= 50) return 'text-orange-600';
     return 'text-blue-600';
   };
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -182,7 +212,7 @@ export function LeadScoring({ user }: LeadScoringProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {segments.map((segment, index) => (
+              {displaySegments.map((segment, index) => (
                 <div key={index}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-gray-900">{segment.name}</span>
@@ -224,34 +254,42 @@ export function LeadScoring({ user }: LeadScoringProps) {
                 </tr>
               </thead>
               <tbody>
-                {topLeads.map((lead) => (
-                  <tr key={lead.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">
-                      <div>
-                        <p className="text-sm text-gray-900">{lead.name}</p>
-                        <p className="text-xs text-gray-500">{lead.email}</p>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-sm text-gray-600">{lead.company}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <Star className={`h-4 w-4 ${getScoreColor(lead.score)}`} />
-                        <span className={`text-lg ${getScoreColor(lead.score)}`}>{lead.score}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge className={getStatusBadge(lead.status)}>{lead.status}</Badge>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="text-sm text-gray-600">{lead.lastActivity}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <Button variant="outline" size="sm">Contact</Button>
+                {displayLeads.length > 0 ? (
+                  displayLeads.map((lead) => (
+                    <tr key={lead.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <div>
+                          <p className="text-sm text-gray-900">{lead.name}</p>
+                          <p className="text-xs text-gray-500">{lead.email}</p>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-gray-600">{lead.company}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <Star className={`h-4 w-4 ${getScoreColor(lead.score)}`} />
+                          <span className={`text-lg ${getScoreColor(lead.score)}`}>{lead.score}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge className={getStatusBadge(lead.status)}>{lead.status}</Badge>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-gray-600">{lead.lastActivity}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Button variant="outline" size="sm">Contact</Button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-gray-500">
+                      No leads scored yet. Interaction with quotes will appear here.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

@@ -13,7 +13,7 @@ import type { User as AppUser } from '../App';
 
 interface ProjectQuoteGeneratorProps {
   user: AppUser;
-  projectType: 'deck' | 'garage' | 'shed';
+  projectType: 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen';
   materials: any[];
   totalCost: number;
   projectData: any;

@@ -176,7 +176,7 @@ function App() {
         if (profile.organization_id) {
           const { data: org } = await supabase
             .from('organizations')
-            .select('id, name, status, logo, created_at, updated_at, ai_suggestions_enabled, marketing_enabled, inventory_enabled, import_export_enabled, documents_enabled, appointments_enabled')
+            .select('*')
             .eq('id', profile.organization_id)
             .single();
 
