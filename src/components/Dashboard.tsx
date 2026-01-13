@@ -58,13 +58,10 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
   const [appointments, setAppointments] = useState<any[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
-  const [permissionsVersion, setPermissionsVersion] = useState(0);
 
   useEffect(() => {
-    const unsubscribe = onPermissionsChanged(() => setPermissionsVersion(v => v + 1));
     loadDashboardData();
-    return () => unsubscribe();
-  }, [user, permissionsVersion]);
+  }, [user.id]); // Only reload when user changes, not on permission updates
 
   const hasModuleAccess = (module: string) => canView(module, user.role);
 
@@ -107,6 +104,9 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       const winRate = totalClosed > 0 ? (wonDeals.length / totalClosed) * 100 : 0;
 
       // 5. Avg Days to Close (Calculated from won deals)
+      console.log('🔍 DEBUG: Won deals for avg calculation:', wonDeals);
+      console.log('🔍 DEBUG: Won deals count:', wonDeals.length);
+      
       const totalDaysToClose = wonDeals.reduce((sum, d) => {
         // Use updated_at as proxy for close date if not available
         // In real app, we should use a specific 'closed_at' field
@@ -114,12 +114,23 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
         const createdField = d.created_at || d.createdAt;
         const updatedField = d.updated_at || d.updatedAt || d.created_at || d.createdAt;
         
+        console.log('🔍 DEBUG: Deal dates -', {
+          id: d.id,
+          status: d.status,
+          created: createdField,
+          updated: updatedField
+        });
+        
         const created = new Date(createdField).getTime();
         const closed = new Date(updatedField).getTime();
         
-        if (isNaN(created) || isNaN(closed)) return sum;
+        if (isNaN(created) || isNaN(closed)) {
+          console.log('⚠️ Invalid dates for deal:', d.id);
+          return sum;
+        }
         
         const days = Math.max(0, (closed - created) / (1000 * 60 * 60 * 24));
+        console.log('🔍 DEBUG: Days to close for deal', d.id, ':', days);
         return sum + days;
       }, 0);
       
