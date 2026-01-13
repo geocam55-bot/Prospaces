@@ -46,6 +46,9 @@ import type { User as UserType } from '../App';
 import type { Organization } from '../App';
 import { canView } from '../utils/permissions';
 import { useTheme } from './ThemeProvider';
+import { useAISuggestions } from '../hooks/useAISuggestions';
+import { useUnreadEmails } from '../hooks/useUnreadEmails';
+import { useBidNotifications } from '../hooks/useBidNotifications';
 
 interface NavigationProps {
   user: UserType;
@@ -57,6 +60,9 @@ interface NavigationProps {
 
 export function Navigation({ user, organization, currentView, onNavigate, onLogout }: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { suggestions } = useAISuggestions(user);
+  const { unreadCount } = useUnreadEmails(user);
+  const { unreadCount: unreadBidsCount, markAsRead: markBidsRead } = useBidNotifications(user);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     'opportunities': false,
     'email': false,
@@ -192,6 +198,9 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
   }, [currentView]);
 
   const handleNavClick = (view: string) => {
+    if (view === 'bids') {
+      markBidsRead();
+    }
     onNavigate(view);
     setIsMobileMenuOpen(false);
   };
@@ -505,6 +514,54 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
             </h1>
           </div>
           <div className="flex items-center gap-4">
+            {/* AI Suggestions Icon */}
+            {suggestions.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                onClick={() => handleNavClick('ai-suggestions')}
+                title={`${suggestions.length} AI Suggestions`}
+              >
+                <Sparkles className="h-5 w-5 text-purple-600 animate-pulse" />
+                <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
+                  {suggestions.length > 9 ? '9+' : suggestions.length}
+                </span>
+              </Button>
+            )}
+
+            {/* Bid Notifications Icon */}
+            {unreadBidsCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                onClick={() => handleNavClick('bids')}
+                title={`${unreadBidsCount} Bid Updates`}
+              >
+                <FileText className="h-5 w-5 text-orange-600 animate-pulse" />
+                <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
+                  {unreadBidsCount > 9 ? '9+' : unreadBidsCount}
+                </span>
+              </Button>
+            )}
+
+            {/* Email Icon */}
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                onClick={() => handleNavClick('email')}
+                title={`${unreadCount} Unread Emails`}
+              >
+                <Mail className="h-5 w-5 text-blue-600 animate-pulse" />
+                <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              </Button>
+            )}
+
             {organization && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
                 <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />

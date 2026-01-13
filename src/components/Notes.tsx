@@ -12,9 +12,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import type { User } from '../App';
 import { useDebounce } from '../utils/useDebounce';
-import { notesAPI } from '../utils/api';
+import { notesAPI, contactsAPI } from '../utils/api';
 import { toast } from 'sonner';
 
 interface Note {
@@ -36,6 +43,7 @@ export function Notes({ user }: NotesProps) {
   const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,16 +54,21 @@ export function Notes({ user }: NotesProps) {
   });
 
   useEffect(() => {
-    loadNotes();
+    loadData();
   }, []);
 
-  const loadNotes = async () => {
+  const loadData = async () => {
     try {
       setIsLoading(true);
-      const { notes: data } = await notesAPI.getAll();
+      const [{ notes: notesData }, { contacts: contactsData }] = await Promise.all([
+        notesAPI.getAll(),
+        contactsAPI.getAll()
+      ]);
+      
+      setContacts(contactsData || []);
       
       // Map DB fields to component interface
-      const mappedNotes: Note[] = data.map((item: any) => ({
+      const mappedNotes: Note[] = notesData.map((item: any) => ({
         id: item.id,
         title: item.title || 'Untitled Note',
         content: item.content || '',
@@ -67,21 +80,48 @@ export function Notes({ user }: NotesProps) {
 
       setNotes(mappedNotes);
     } catch (error) {
-      console.error('Failed to load notes:', error);
+      console.error('Failed to load data:', error);
       toast.error('Failed to load notes');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const loadNotes = async () => {
+    try {
+      const { notes: data } = await notesAPI.getAll();
+      const mappedNotes: Note[] = data.map((item: any) => ({
+        id: item.id,
+        title: item.title || 'Untitled Note',
+        content: item.content || '',
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+        linkedTo: item.contact_id || undefined,
+        ownerId: item.owner_id,
+      }));
+      setNotes(mappedNotes);
+    } catch (error) {
+      console.error('Failed to reload notes:', error);
+    }
+  };
+
+  const getContactName = (contactId?: string) => {
+    if (!contactId) return null;
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return contactId; // Fallback to ID if not found
+    return `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.email || 'Unknown Contact';
+  };
+
   const filteredNotes = notes.filter(note => {
     const query = debouncedSearchQuery.toLowerCase().trim();
     if (!query) return true;
     
+    const contactName = getContactName(note.linkedTo);
+    
     // 🔍 Enhanced search: search across multiple fields
     return note.title.toLowerCase().includes(query) ||
       note.content.toLowerCase().includes(query) ||
-      (note.linkedTo && note.linkedTo.toLowerCase().includes(query));
+      (contactName && contactName.toLowerCase().includes(query));
   });
 
   const handleAddNote = async (e: React.FormEvent) => {
@@ -99,12 +139,8 @@ export function Notes({ user }: NotesProps) {
       let contentToSave = newNote.content;
       let contactId = null;
 
-      // Simple check if linkedTo looks like a UUID
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (newNote.linkedTo && uuidRegex.test(newNote.linkedTo)) {
+      if (newNote.linkedTo) {
         contactId = newNote.linkedTo;
-      } else if (newNote.linkedTo) {
-        contentToSave += `\n\n[Linked to: ${newNote.linkedTo}]`;
       }
 
       await notesAPI.create({
@@ -185,13 +221,23 @@ export function Notes({ user }: NotesProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="linkedTo">Link to (optional)</Label>
-                <Input
-                  id="linkedTo"
+                <Label htmlFor="linkedTo">Link to Contact (optional)</Label>
+                <Select
                   value={newNote.linkedTo}
-                  onChange={(e) => setNewNote({ ...newNote, linkedTo: e.target.value })}
-                  placeholder="e.g., Contact: John Smith"
-                />
+                  onValueChange={(value) => setNewNote({ ...newNote, linkedTo: value === 'none' ? '' : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a contact" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {contacts.map(contact => (
+                      <SelectItem key={contact.id} value={contact.id}>
+                        {contact.first_name || contact.last_name ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : contact.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1" disabled={isSubmitting}>
@@ -218,7 +264,7 @@ export function Notes({ user }: NotesProps) {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search notes by title, content, or linked item..."
+              placeholder="Search notes by title, content, or contact name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -266,7 +312,7 @@ export function Notes({ user }: NotesProps) {
                   {note.linkedTo && (
                     <div className="mb-3">
                       <span className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">
-                        {note.linkedTo}
+                        Link: {getContactName(note.linkedTo)}
                       </span>
                     </div>
                   )}

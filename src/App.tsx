@@ -104,7 +104,14 @@ function App() {
 
   useEffect(() => {
     // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.warn("Session validation failed:", error.message);
+        handleLogout();
+        setLoading(false);
+        return;
+      }
+      
       setSession(session);
       if (session?.user) {
         loadUserData(session.user);
@@ -116,7 +123,17 @@ function App() {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+        // Clear state immediately
+        setSession(null);
+        setUser(null);
+        setOrganization(null);
+        setCurrentView('landing');
+        setLoading(false);
+        return;
+      }
+
       setSession(session);
       if (session?.user) {
         loadUserData(session.user);
@@ -197,10 +214,16 @@ function App() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setOrganization(null);
-    setCurrentView('landing');
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    } finally {
+      setUser(null);
+      setOrganization(null);
+      setCurrentView('landing');
+      setSession(null);
+    }
   };
 
   if (loading) {

@@ -7,9 +7,12 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { User, LogOut, Building2 } from 'lucide-react';
+import { User, LogOut, Building2, Sparkles, Mail } from 'lucide-react';
 import type { User as UserType, Organization } from '../App';
 import { useTheme } from './ThemeProvider';
+import { useAISuggestions } from '../hooks/useAISuggestions';
+import { useUnreadEmails } from '../hooks/useUnreadEmails';
+import { Button } from './ui/button';
 
 interface TopBarProps {
   user: UserType;
@@ -20,6 +23,8 @@ interface TopBarProps {
 
 export function TopBar({ user, organization, onNavigate, onLogout }: TopBarProps) {
   const { theme } = useTheme();
+  const { suggestions } = useAISuggestions(user);
+  const { unreadCount } = useUnreadEmails(user);
   
   // Get user initials for avatar fallback
   const getInitials = (name: string | undefined) => {
@@ -42,6 +47,38 @@ export function TopBar({ user, organization, onNavigate, onLogout }: TopBarProps
       }}
     >
       <div className="flex items-center justify-end gap-4 px-6 py-3">
+        {/* Email Icon */}
+        {unreadCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            onClick={() => onNavigate('email')}
+            title={`${unreadCount} Unread Emails`}
+          >
+            <Mail className="h-5 w-5 text-blue-600 animate-pulse" />
+            <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          </Button>
+        )}
+
+        {/* AI Suggestions Icon */}
+        {suggestions.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            onClick={() => onNavigate('ai-suggestions')}
+            title={`${suggestions.length} AI Suggestions`}
+          >
+            <Sparkles className="h-5 w-5 text-purple-600 animate-pulse" />
+            <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
+              {suggestions.length > 9 ? '9+' : suggestions.length}
+            </span>
+          </Button>
+        )}
+
         {/* Organization Info */}
         {organization && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg border"
