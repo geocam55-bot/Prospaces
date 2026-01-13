@@ -44,34 +44,48 @@ export async function getAllBidsClient() {
       .from('bids')
       .select('*');
     
-    // Apply role-based filtering
+    // Apply role-based filtering - PERSONAL DASHBOARD ALWAYS SHOWS USER'S OWN DATA
+    // For organization-wide data, use getAllBidsForOrganization() instead
     if (userRole === 'super_admin') {
-      // Super Admin: Can see all bids
-      console.log('🔓 Super Admin - Loading all bids');
-      // Include NULL organization_ids for backwards compatibility
-      // query = query; // no filter needed
-    } else if (userRole === 'admin') {
-      // Admin: Can ONLY see their own bids (strict filtering for personal view)
-      console.log('🔒 Admin - Loading own bids only (strict filtering)');
-      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      // Super Admin: Can see all bids from their organization (or all if no org)
+      console.log('🔓 Super Admin - Loading bids for user:', authUser.id);
       query = query.eq('created_by', authUser.id);
-    } else if (userRole === 'manager') {
-      // Manager: Can ONLY see their own bids (strict filtering for personal view)
-      console.log('👔 Manager - Loading own bids only (strict filtering)');
-      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
-      query = query.eq('created_by', authUser.id);
-    } else if (userRole === 'marketing') {
-      // Marketing: Can see all bids within their organization (for campaigns)
-      console.log('📢 Marketing - Loading bids for organization:', userOrgId);
-      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
     } else {
-      // Standard User: Can ONLY see their own bids
-      console.log('👤 Standard User - Loading only own bids');
+      // All roles: Show only THEIR OWN bids on Personal Dashboard
+      console.log('👤 Loading only own bids for user:', authUser.id, 'Role:', userRole);
       query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
       query = query.eq('created_by', authUser.id);
     }
     
     const { data: bids, error } = await query;
+    
+    console.log('📊 Bids query result:', {
+      userRole,
+      userId: authUser.id,
+      userOrgId,
+      totalBids: bids?.length || 0,
+      bidSample: bids?.slice(0, 2).map(b => ({
+        id: b.id,
+        status: b.status,
+        created_by: b.created_by,
+        organization_id: b.organization_id
+      }))
+    });
+    
+    // DEBUG: Let's see what bids actually exist in the database (without filters)
+    const { data: allBidsDebug } = await supabase.from('bids').select('id, status, created_by, organization_id').limit(10);
+    console.log('🔍 DEBUG: ALL bids in database (no filters, first 10):', allBidsDebug);
+    
+    // DEBUG: Also check the quotes table to see if that's where the "viewed" items are
+    const { data: allQuotesDebug } = await supabase.from('quotes').select('id, status, created_by, organization_id').limit(10);
+    console.log('🔍 DEBUG: ALL quotes in database (no filters, first 10):', allQuotesDebug);
+    console.log('🔍 DEBUG: Your user ID is:', authUser.id);
+    console.log('🔍 DEBUG: Quote owners vs your ID:', allQuotesDebug?.map(q => ({ 
+      id: q.id, 
+      status: q.status,
+      owner: q.created_by,
+      matchesYou: q.created_by === authUser.id 
+    })));
     
     if (error) {
       // If table doesn't exist, return empty array
@@ -81,8 +95,6 @@ export async function getAllBidsClient() {
       }
       throw error;
     }
-    
-    console.log('📊 Bids filtered data - Total rows:', bids?.length || 0);
     
     return { bids: bids || [] };
   } catch (error: any) {

@@ -104,7 +104,7 @@ export async function initializePermissions(role: UserRole) {
  */
 function initializeDefaultPermissions() {
   const modules = [
-    'dashboard', 'ai-suggestions', 'contacts', 'tasks', 'appointments', 'opportunities', 'bids', 'notes',
+    'dashboard', 'ai-suggestions', 'contacts', 'tasks', 'appointments', 'opportunities', 'bids', 'quotes', 'notes',
     'email', 'marketing', 'inventory', 'users', 'settings', 'tenants', 'security', 'import-export',
     'documents', 'team-dashboard', 'reports', 'project-wizards', 'admin', 'kitchen-planner'
   ];
@@ -141,12 +141,12 @@ function initializeDefaultPermissions() {
           });
         }
       } else if (role === 'marketing') {
-        // Marketing cannot see tenants, security, users, settings, bids, or import-export
+        // Marketing cannot see tenants, security, users, settings, bids, quotes, or import-export
         if (module === 'tenants' || module === 'security' || module === 'users' || module === 'settings' || module === 'import-export') {
           permissionsCache.set(key, { visible: false, add: false, change: false, delete: false });
         } else {
           permissionsCache.set(key, {
-            visible: module !== 'bids',
+            visible: module !== 'bids' && module !== 'quotes',
             add: module === 'marketing' || module === 'contacts' || module === 'email' || module === 'opportunities',
             change: module === 'marketing' || module === 'contacts' || module === 'email' || module === 'opportunities',
             delete: module === 'marketing',
@@ -159,7 +159,7 @@ function initializeDefaultPermissions() {
         
         // Explicitly deny these modules
         if (module === 'tenants' || module === 'security' || module === 'import-export' || 
-            module === 'users' || module === 'settings' || module === 'bids' || module === 'opportunities' ||
+            module === 'users' || module === 'settings' || module === 'bids' || module === 'quotes' || module === 'opportunities' ||
             module === 'email' || module === 'marketing' || module === 'inventory') {
           permissionsCache.set(key, { visible: false, add: false, change: false, delete: false });
         } else {
@@ -230,7 +230,7 @@ export function getPermissions(module: string, role: UserRole): Permission {
 export function debugPermissions(role: UserRole) {
   console.log(`\n🔍 DEBUG: All permissions for ${role}:`);
   const modules = [
-    'dashboard', 'ai-suggestions', 'contacts', 'tasks', 'appointments', 'opportunities', 'bids', 'notes',
+    'dashboard', 'ai-suggestions', 'contacts', 'tasks', 'appointments', 'opportunities', 'bids', 'quotes', 'notes',
     'email', 'marketing', 'inventory', 'users', 'settings', 'tenants', 'security', 'import-export',
     'documents', 'team-dashboard', 'reports', 'project-wizards', 'admin', 'kitchen-planner'
   ];

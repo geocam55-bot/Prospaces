@@ -5,7 +5,10 @@ import { toast } from 'sonner@2.0.3';
 import { 
   DollarSign, 
   Activity,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Calendar
 } from 'lucide-react';
 import { ExplicitChartContainer } from './ui/ExplicitChartContainer';
 import { 
@@ -51,6 +54,9 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
     projection: [] as any[]
   });
 
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [permissionsVersion, setPermissionsVersion] = useState(0);
 
@@ -67,10 +73,12 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       setIsLoading(true);
       
       // Fetch data in parallel
-      const [bidsData, quotesData, oppsData] = await Promise.all([
+      const [bidsData, quotesData, oppsData, tasksData, appointmentsData] = await Promise.all([
         hasModuleAccess('bids') ? bidsAPI.getAll() : { bids: [] },
         hasModuleAccess('quotes') ? quotesAPI.getAll() : { quotes: [] },
-        hasModuleAccess('opportunities') ? opportunitiesAPI.getAll() : { opportunities: [] }
+        hasModuleAccess('opportunities') ? opportunitiesAPI.getAll() : { opportunities: [] },
+        hasModuleAccess('tasks') ? tasksAPI.getAll() : { tasks: [] },
+        hasModuleAccess('appointments') ? appointmentsAPI.getAll() : { appointments: [] }
       ]);
 
       const allBidsRaw = [...(bidsData.bids || []), ...(quotesData.quotes || [])];
@@ -171,12 +179,18 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       // 1. Sales Pipeline (Donut) - Combined Opportunities and Bids by Status
       const statusCounts: Record<string, number> = {};
       
+      console.log('📊 About to count pipeline data:');
+      console.log('  - allBids.length:', allBids.length);
+      console.log('  - opportunities.length:', opportunities.length);
+      console.log('  - allBids data:', allBids);
+      
       // Count Opportunities by status
       opportunities.forEach((o: any) => {
         const status = o.status || 'open';
         const displayName = status === 'in_progress' ? 'In Progress' : 
                            status.charAt(0).toUpperCase() + status.slice(1);
         statusCounts[displayName] = (statusCounts[displayName] || 0) + 1;
+        console.log('  - Adding opportunity:', status, '->', displayName);
       });
       
       // Count Bids by status
@@ -184,9 +198,14 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
         const status = b.status || 'draft';
         const displayName = status.charAt(0).toUpperCase() + status.slice(1);
         statusCounts[displayName] = (statusCounts[displayName] || 0) + 1;
+        console.log('  - Adding bid:', status, '->', displayName);
       });
       
+      console.log('📊 Pipeline Status Counts:', statusCounts);
+      
       const pipelineData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+      
+      console.log('📊 Pipeline Chart Data:', pipelineData);
       
       // No fallback data - show actual database data only
 
@@ -249,6 +268,10 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
         lossReasons: lossReasonData,
         projection: projectionData
       });
+
+      // Set tasks and appointments
+      setTasks(tasksData.tasks || []);
+      setAppointments(appointmentsData.appointments || []);
 
     } catch (error) {
       console.error('Error loading dashboard:', error);
@@ -431,6 +454,71 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
         </Card>
 
       </div>
+
+      {/* Tasks & Appointments Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Tasks Section */}
+        {hasModuleAccess('tasks') && (
+          <Card className="shadow-sm border-0">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-gray-700 flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-indigo-600" />
+                My Tasks
+              </CardTitle>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => onNavigate?.('tasks')}
+              >
+                View All
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {tasks.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No tasks found</p>
+              ) : (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {tasks.slice(0, 10).map((task) => (
+                    <TaskItem key={task.id} task={task} />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Appointments Section */}
+        {hasModuleAccess('appointments') && (
+          <Card className="shadow-sm border-0">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-gray-700 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-blue-600" />
+                Upcoming Appointments
+              </CardTitle>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => onNavigate?.('appointments')}
+              >
+                View All
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {appointments.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No appointments scheduled</p>
+              ) : (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {appointments.slice(0, 10).map((appointment) => (
+                    <AppointmentItem key={appointment.id} appointment={appointment} />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+      </div>
     </div>
   );
 }
@@ -443,5 +531,80 @@ function MetricCard({ title, value, className }: { title: string, value: string,
         <p className="text-3xl font-bold mt-2">{value}</p>
       </CardContent>
     </Card>
+  );
+}
+
+function TaskItem({ task }: { task: any }) {
+  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'completed';
+  const priorityColors = {
+    high: 'text-red-600 bg-red-50',
+    medium: 'text-yellow-600 bg-yellow-50',
+    low: 'text-green-600 bg-green-50'
+  };
+
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+      <div className={`mt-0.5 ${task.status === 'completed' ? 'text-green-600' : 'text-gray-400'}`}>
+        <CheckCircle2 className="h-5 w-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`font-medium text-gray-900 ${task.status === 'completed' ? 'line-through text-gray-500' : ''}`}>
+          {task.title}
+        </p>
+        {task.description && (
+          <p className="text-sm text-gray-600 mt-1 truncate">{task.description}</p>
+        )}
+        <div className="flex items-center gap-2 mt-2">
+          {task.priority && (
+            <span className={`text-xs px-2 py-1 rounded-full ${priorityColors[task.priority as keyof typeof priorityColors] || 'text-gray-600 bg-gray-100'}`}>
+              {task.priority}
+            </span>
+          )}
+          {task.dueDate && (
+            <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>
+              <Clock className="h-3 w-3" />
+              {new Date(task.dueDate).toLocaleDateString()}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AppointmentItem({ appointment }: { appointment: any }) {
+  const startDate = new Date(appointment.startTime || appointment.start_time);
+  const endDate = new Date(appointment.endTime || appointment.end_time);
+  const isToday = startDate.toDateString() === new Date().toDateString();
+  const isPast = startDate < new Date();
+
+  return (
+    <div className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+      isToday ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+    }`}>
+      <div className={`mt-0.5 ${isToday ? 'text-blue-600' : isPast ? 'text-gray-400' : 'text-indigo-600'}`}>
+        <Calendar className="h-5 w-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-gray-900">{appointment.title}</p>
+        {appointment.description && (
+          <p className="text-sm text-gray-600 mt-1 truncate">{appointment.description}</p>
+        )}
+        <div className="flex items-center gap-3 mt-2 text-sm text-gray-600">
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {' - '}
+            {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+          {!isToday && (
+            <span>{startDate.toLocaleDateString()}</span>
+          )}
+        </div>
+        {appointment.location && (
+          <p className="text-xs text-gray-500 mt-1">{appointment.location}</p>
+        )}
+      </div>
+    </div>
   );
 }

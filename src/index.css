@@ -1221,6 +1221,10 @@
     max-height: 300px;
   }
 
+  .max-h-\[400px\] {
+    max-height: 400px;
+  }
+
   .max-h-\[500px\] {
     max-height: 500px;
   }
@@ -1638,6 +1642,10 @@
 
   .flex-col-reverse {
     flex-direction: column-reverse;
+  }
+
+  .flex-row {
+    flex-direction: row;
   }
 
   .flex-wrap {
@@ -3360,6 +3368,10 @@
 
   .text-green-900 {
     color: var(--color-green-900);
+  }
+
+  .text-indigo-600 {
+    color: var(--color-indigo-600);
   }
 
   .text-indigo-700 {

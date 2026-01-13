@@ -69,6 +69,12 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
       const opportunities = oppsData.opportunities || [];
       const users = usersData.users || [];
       
+      console.log('🔍 [Team Dashboard] Data fetched:', {
+        bids: allBids.length,
+        opportunities: opportunities.length,
+        users: users.length
+      });
+      
       setOpportunities(opportunities);
       setUserProfiles(users);
 
@@ -156,6 +162,15 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
         openDeals: openDealsCount,
         weightedValue,
         avgOpenDealAge
+      });
+      
+      console.log('📊 [Team Dashboard] Metrics calculated:', {
+        totalSales: `$${(totalSales / 1000).toFixed(1)}k`,
+        winRate: `${winRate.toFixed(1)}%`,
+        avgDaysToClose: avgDaysToClose.toFixed(1),
+        pipelineValue: `$${(pipelineValue / 1000).toFixed(1)}k`,
+        openDeals: openDealsCount,
+        avgOpenDealAge: avgOpenDealAge.toFixed(1)
       });
 
       // --- Prepare Chart Data ---

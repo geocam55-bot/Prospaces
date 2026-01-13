@@ -36,20 +36,20 @@ export async function getAllOpportunitiesClient() {
       // Super Admin: Can see all opportunities
       console.log('🔓 Super Admin - Loading all opportunities');
     } else if (userRole === 'admin') {
-      // Admin: Can ONLY see their own opportunities (strict filtering for personal view)
-      console.log('🔒 Admin - Loading own opportunities only (strict filtering)');
-      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
+      // Admin: Can see ALL opportunities in their organization (for Team Dashboard)
+      console.log('🔒 Admin - Loading all organization opportunities');
+      query = query.eq('organization_id', userOrgId);
     } else if (userRole === 'manager') {
-      // Manager: Can ONLY see their own opportunities (strict filtering for personal view)
-      console.log('👔 Manager - Loading own opportunities only (strict filtering)');
-      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
+      // Manager: Can see ALL opportunities in their organization (for Team Dashboard)
+      console.log('👔 Manager - Loading all organization opportunities');
+      query = query.eq('organization_id', userOrgId);
     } else if (userRole === 'marketing') {
       // Marketing: Can see all opportunities within their organization (for campaigns)
       console.log('📢 Marketing - Loading opportunities for organization:', userOrgId);
       query = query.eq('organization_id', userOrgId);
     } else {
-      // Standard User: Only show their own opportunities (strict filtering)
-      console.log('👤 Standard User - Loading only own opportunities (strict filtering)');
+      // Standard User: Only show their own opportunities
+      console.log('👤 Standard User - Loading only own opportunities');
       query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
     }
 

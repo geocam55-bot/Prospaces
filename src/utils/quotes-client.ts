@@ -72,27 +72,15 @@ export async function getAllQuotesClient() {
       .from('quotes')
       .select('*');
     
-    // Apply role-based filtering
+    // Apply role-based filtering - PERSONAL DASHBOARD ALWAYS SHOWS USER'S OWN DATA
+    // For organization-wide data, use getAllQuotesForOrganization() instead
     if (userRole === 'super_admin') {
-      // Super Admin: Can see all quotes
-      console.log('🔓 Super Admin - Loading all quotes');
-    } else if (userRole === 'admin') {
-      // Admin: Can ONLY see their own quotes (strict filtering for personal view)
-      console.log('🔒 Admin - Loading own quotes only (strict filtering)');
-      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      // Super Admin: Can see all quotes from their organization (or all if no org)
+      console.log('🔓 Super Admin - Loading quotes for user:', authUser.id);
       query = query.eq('created_by', authUser.id);
-    } else if (userRole === 'manager') {
-      // Manager: Can ONLY see their own quotes (strict filtering for personal view)
-      console.log('👔 Manager - Loading own quotes only (strict filtering)');
-      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
-      query = query.eq('created_by', authUser.id);
-    } else if (userRole === 'marketing') {
-      // Marketing: Can see all quotes within their organization (for campaigns)
-      console.log('📢 Marketing - Loading quotes for organization:', userOrgId);
-      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
     } else {
-      // Standard User: Can ONLY see their own quotes
-      console.log('👤 Standard User - Loading only own quotes');
+      // All roles: Show only THEIR OWN quotes on Personal Dashboard
+      console.log('👤 Loading only own quotes for user:', authUser.id);
       query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
       query = query.eq('created_by', authUser.id);
     }
