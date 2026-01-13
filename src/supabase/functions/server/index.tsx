@@ -2624,4 +2624,212 @@ app.get('/make-server-8405be07/quotes/tracking-status', async (c) => {
   }
 });
 
+// ============================================================================
+// MARKETING ROUTES
+// ============================================================================
+
+// JOURNEYS
+app.get('/make-server-8405be07/marketing/journeys', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+    const userData = await getUserData(user.id);
+    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+
+    const journeys = await kv.getByPrefix(`journey:${organizationId}:`);
+    return c.json({ journeys: journeys || [] });
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch journeys: ' + error.message }, 500);
+  }
+});
+
+app.post('/make-server-8405be07/marketing/journeys', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+    const userData = await getUserData(user.id);
+    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+    const journeyData = await c.req.json();
+    const journeyId = journeyData.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const journey = {
+      id: journeyId,
+      ...journeyData,
+      organizationId,
+      createdBy: user.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await kv.set(`journey:${organizationId}:${journeyId}`, journey);
+    return c.json({ journey }, 201);
+  } catch (error) {
+    return c.json({ error: 'Failed to create journey: ' + error.message }, 500);
+  }
+});
+
+app.put('/make-server-8405be07/marketing/journeys/:id', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+    const userData = await getUserData(user.id);
+    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+    const journeyId = c.req.param('id');
+    const updates = await c.req.json();
+
+    const existingJourney = await kv.get(`journey:${organizationId}:${journeyId}`);
+    if (!existingJourney) return c.json({ error: 'Journey not found' }, 404);
+
+    const updatedJourney = {
+      ...existingJourney,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await kv.set(`journey:${organizationId}:${journeyId}`, updatedJourney);
+    return c.json({ journey: updatedJourney });
+  } catch (error) {
+    return c.json({ error: 'Failed to update journey: ' + error.message }, 500);
+  }
+});
+
+app.delete('/make-server-8405be07/marketing/journeys/:id', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+    const userData = await getUserData(user.id);
+    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+    const journeyId = c.req.param('id');
+
+    await kv.del(`journey:${organizationId}:${journeyId}`);
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ error: 'Failed to delete journey: ' + error.message }, 500);
+  }
+});
+
+// LANDING PAGES
+app.get('/make-server-8405be07/marketing/landing-pages', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+    const userData = await getUserData(user.id);
+    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+
+    const pages = await kv.getByPrefix(`landing_page:${organizationId}:`);
+    return c.json({ pages: pages || [] });
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch landing pages: ' + error.message }, 500);
+  }
+});
+
+app.post('/make-server-8405be07/marketing/landing-pages', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+    const userData = await getUserData(user.id);
+    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+    const pageData = await c.req.json();
+    const pageId = pageData.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const page = {
+      id: pageId,
+      ...pageData,
+      organizationId,
+      createdBy: user.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await kv.set(`landing_page:${organizationId}:${pageId}`, page);
+    return c.json({ page }, 201);
+  } catch (error) {
+    return c.json({ error: 'Failed to create landing page: ' + error.message }, 500);
+  }
+});
+
+app.put('/make-server-8405be07/marketing/landing-pages/:id', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+    const userData = await getUserData(user.id);
+    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+    const pageId = c.req.param('id');
+    const updates = await c.req.json();
+
+    const existingPage = await kv.get(`landing_page:${organizationId}:${pageId}`);
+    if (!existingPage) return c.json({ error: 'Landing page not found' }, 404);
+
+    const updatedPage = {
+      ...existingPage,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await kv.set(`landing_page:${organizationId}:${pageId}`, updatedPage);
+    return c.json({ page: updatedPage });
+  } catch (error) {
+    return c.json({ error: 'Failed to update landing page: ' + error.message }, 500);
+  }
+});
+
+app.delete('/make-server-8405be07/marketing/landing-pages/:id', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+    const userData = await getUserData(user.id);
+    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+    const pageId = c.req.param('id');
+
+    await kv.del(`landing_page:${organizationId}:${pageId}`);
+    return c.json({ success: true });
+  } catch (error) {
+    return c.json({ error: 'Failed to delete landing page: ' + error.message }, 500);
+  }
+});
+
+// LEAD SCORES
+app.get('/make-server-8405be07/marketing/lead-scores', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+
+    const userData = await getUserData(user.id);
+    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+
+    // Use Postgres table 'lead_scores'
+    const { data, error } = await supabase
+      .from('lead_scores')
+      .select('*, contacts(first_name, last_name, email, company)')
+      .eq('organization_id', organizationId);
+
+    if (error) {
+        // Fallback to KV if table doesn't exist
+        const scores = await kv.getByPrefix(`lead_score:${organizationId}:`);
+        return c.json({ scores: scores || [] });
+    }
+
+    return c.json({ scores: data || [] });
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch lead scores: ' + error.message }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

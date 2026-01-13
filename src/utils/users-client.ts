@@ -1,5 +1,4 @@
 import { createClient } from './supabase/client';
-import { getAccessToken } from './api';
 
 const supabase = createClient();
 
@@ -19,15 +18,9 @@ export interface ClientUser {
  */
 async function getCurrentUser() {
   try {
-    const token = getAccessToken();
-    
-    if (!token) {
-      console.error('[users-client] No access token available');
-      return null;
-    }
-    
-    // Get user with the access token
-    const { data: { user }, error } = await supabase.auth.getUser(token);
+    // Get user directly from Supabase client
+    // This is more robust than relying on a potentially unset global token
+    const { data: { user }, error } = await supabase.auth.getUser();
     
     if (error || !user) {
       console.error('[users-client] User error:', error);
@@ -35,8 +28,11 @@ async function getCurrentUser() {
     }
     
     return user;
-  } catch (error) {
-    console.error('[users-client] Exception in getCurrentUser:', error);
+  } catch (error: any) {
+    // Only log actual errors, not "Failed to fetch" network glitches which are common
+    if (error?.message !== 'Failed to fetch' && error?.message !== 'Load failed') {
+      console.error('[users-client] Exception in getCurrentUser:', error);
+    }
     return null;
   }
 }
@@ -80,7 +76,8 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
     
     if (!user) {
       console.error('[users-client] Not authenticated');
-      throw new Error('Not authenticated');
+      // Return empty array instead of throwing to prevent dashboard crashes
+      return { users: [] };
     }
 
     const currentUserRole = user.user_metadata?.role || 'standard_user';
@@ -89,9 +86,22 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
     console.log(`[users-client] Current user: ${user.email}, Role: ${currentUserRole}, Org: ${currentUserOrgId}`);
 
     // Check permissions
-    if (currentUserRole !== 'super_admin' && currentUserRole !== 'admin') {
+    if (currentUserRole !== 'super_admin' && currentUserRole !== 'admin' && currentUserRole !== 'manager') {
       console.error('[users-client] Insufficient permissions');
-      throw new Error('Forbidden: Insufficient permissions');
+      // Return just the current user if they don't have permission to see others
+      // This prevents the "Not authenticated" error from crashing the UI
+      return { 
+        users: [{
+          id: user.id,
+          email: user.email!,
+          name: user.user_metadata?.name || user.email!,
+          role: currentUserRole,
+          organization_id: currentUserOrgId,
+          status: 'active',
+          last_login: user.last_sign_in_at || undefined,
+          created_at: user.created_at!,
+        }] 
+      };
     }
 
     // Always include current user
@@ -124,7 +134,7 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
     try {
       let query = supabase.from('profiles').select('*');
       
-      // Filter by organization for regular admins
+      // Filter by organization for regular admins and managers
       if (currentUserRole !== 'super_admin' && currentUserOrgId) {
         console.log(`[users-client] Filtering by organization: ${currentUserOrgId}`);
         query = query.eq('organization_id', currentUserOrgId);
@@ -174,8 +184,12 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
       return { users: [currentUserData] };
     }
   } catch (error: any) {
-    console.error('[users-client] Error in getAllUsersClient:', error);
-    throw error;
+    // Only log actual errors, not "Failed to fetch" network glitches
+    if (error?.message !== 'Failed to fetch' && error?.message !== 'Load failed') {
+      console.error('[users-client] Error in getAllUsersClient:', error);
+    }
+    // Return empty array instead of throwing to be safe
+    return { users: [] };
   }
 }
 

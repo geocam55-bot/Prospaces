@@ -102,14 +102,14 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       
       console.log('🤖 AI Task Generator: Starting analysis...');
 
-      // Fetch all relevant data
+      // Fetch all relevant data - FILTERED BY USER
       const [bidsResult, quotesResult, opportunitiesResult, contactsResult, tasksResult, appointmentsResult] = await Promise.all([
-        supabase.from('bids').select('*').eq('organization_id', user.organizationId),
-        supabase.from('quotes').select('*').eq('organization_id', user.organizationId),
-        supabase.from('opportunities').select('*').eq('organization_id', user.organizationId),
-        supabase.from('contacts').select('*').eq('organization_id', user.organizationId),
-        supabase.from('tasks').select('*').eq('organization_id', user.organizationId),
-        supabase.from('appointments').select('*').eq('organization_id', user.organizationId),
+        supabase.from('bids').select('*').eq('organization_id', user.organizationId).eq('created_by', user.id),
+        supabase.from('quotes').select('*').eq('organization_id', user.organizationId).eq('created_by', user.id),
+        supabase.from('opportunities').select('*').eq('organization_id', user.organizationId).eq('owner_id', user.id),
+        supabase.from('contacts').select('*').eq('organization_id', user.organizationId).eq('owner_id', user.id),
+        supabase.from('tasks').select('*').eq('organization_id', user.organizationId).eq('owner_id', user.id),
+        supabase.from('appointments').select('*').eq('organization_id', user.organizationId).eq('owner_id', user.id),
       ]);
 
       const bids = bidsResult.data || [];
@@ -119,7 +119,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       const tasks = tasksResult.data || [];
       const appointments = appointmentsResult.data || [];
 
-      console.log('📊 Data loaded:', {
+      console.log('📊 Data loaded (user-specific):', {
         bids: bids.length,
         quotes: quotes.length,
         opportunities: opportunities.length,

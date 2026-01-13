@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import * as RechartsPrimitive from "recharts";
+import { ExplicitChartContainer } from "./ExplicitChartContainer";
 
 import { cn } from "./utils";
 
@@ -61,9 +62,14 @@ function ChartContainer({
         {...props}
       >
         <ChartStyle id={chartId} config={config} />
-        <RechartsPrimitive.ResponsiveContainer>
-          {children}
-        </RechartsPrimitive.ResponsiveContainer>
+        <div className="relative w-full h-full min-w-0">
+          <div className="absolute inset-0">
+            {/* Swapped ResponsiveContainer for ExplicitChartContainer to fix width(-1) errors */}
+            <ExplicitChartContainer>
+              {children as React.ReactElement}
+            </ExplicitChartContainer>
+          </div>
+        </div>
       </div>
     </ChartContext.Provider>
   );

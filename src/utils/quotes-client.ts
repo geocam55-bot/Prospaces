@@ -16,13 +16,19 @@ export async function getQuoteTrackingStatusClient() {
     });
 
     if (!response.ok) {
-      console.error('Failed to fetch tracking status:', response.statusText);
+      // Don't log 404s (function not deployed yet) or 503s (booting) as critical errors
+      if (response.status !== 404 && response.status !== 503) {
+        console.warn('Failed to fetch tracking status:', response.statusText);
+      }
       return { trackingStatus: {} };
     }
 
     return await response.json();
-  } catch (error) {
-    console.error('Failed to get tracking status:', error);
+  } catch (error: any) {
+    // Only log actual errors, not "Failed to fetch" network glitches
+    if (error?.message !== 'Failed to fetch' && error?.message !== 'Load failed') {
+      console.warn('Failed to get tracking status:', error);
+    }
     return { trackingStatus: {} };
   }
 }
@@ -70,32 +76,20 @@ export async function getAllQuotesClient() {
     if (userRole === 'super_admin') {
       // Super Admin: Can see all quotes
       console.log('🔓 Super Admin - Loading all quotes');
-    } else if (userRole === 'admin' || userRole === 'marketing') {
-      // Admin & Marketing: Can see all quotes within their organization
-      console.log('🔒 Admin/Marketing - Loading quotes for organization:', userOrgId);
+    } else if (userRole === 'admin') {
+      // Admin: Can ONLY see their own quotes (strict filtering for personal view)
+      console.log('🔒 Admin - Loading own quotes only (strict filtering)');
       query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      query = query.eq('created_by', authUser.id);
     } else if (userRole === 'manager') {
-      // Manager: Can see their own quotes + quotes from users they manage
-      console.log('👔 Manager - Loading quotes for team');
-      
-      // Get list of users this manager oversees
-      const { data: teamMembers } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('manager_id', authUser.id)
-        .eq('organization_id', userOrgId);
-
-      const teamIds = teamMembers?.map(m => m.id) || [];
-      const allowedUserIds = [authUser.id, ...teamIds];
-      
-      // Filter by organization and created_by
+      // Manager: Can ONLY see their own quotes (strict filtering for personal view)
+      console.log('👔 Manager - Loading own quotes only (strict filtering)');
       query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
-      
-      if (allowedUserIds.length > 1) {
-        query = query.in('created_by', allowedUserIds);
-      } else {
-        query = query.eq('created_by', authUser.id);
-      }
+      query = query.eq('created_by', authUser.id);
+    } else if (userRole === 'marketing') {
+      // Marketing: Can see all quotes within their organization (for campaigns)
+      console.log('📢 Marketing - Loading quotes for organization:', userOrgId);
+      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
     } else {
       // Standard User: Can ONLY see their own quotes
       console.log('👤 Standard User - Loading only own quotes');

@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Search, Plus, StickyNote, MoreVertical, Trash2 } from 'lucide-react';
+import { Search, Plus, StickyNote, MoreVertical, Trash2, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,8 @@ import {
 } from './ui/dropdown-menu';
 import type { User } from '../App';
 import { useDebounce } from '../utils/useDebounce';
+import { notesAPI } from '../utils/api';
+import { toast } from 'sonner';
 
 interface Note {
   id: string;
@@ -34,12 +36,43 @@ export function Notes({ user }: NotesProps) {
   const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [newNote, setNewNote] = useState({
     title: '',
     content: '',
     linkedTo: '',
   });
+
+  useEffect(() => {
+    loadNotes();
+  }, []);
+
+  const loadNotes = async () => {
+    try {
+      setIsLoading(true);
+      const { notes: data } = await notesAPI.getAll();
+      
+      // Map DB fields to component interface
+      const mappedNotes: Note[] = data.map((item: any) => ({
+        id: item.id,
+        title: item.title || 'Untitled Note',
+        content: item.content || '',
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+        linkedTo: item.contact_id || undefined, // Display ID for now if linked
+        ownerId: item.owner_id,
+      }));
+
+      setNotes(mappedNotes);
+    } catch (error) {
+      console.error('Failed to load notes:', error);
+      toast.error('Failed to load notes');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredNotes = notes.filter(note => {
     const query = debouncedSearchQuery.toLowerCase().trim();
@@ -51,23 +84,58 @@ export function Notes({ user }: NotesProps) {
       (note.linkedTo && note.linkedTo.toLowerCase().includes(query));
   });
 
-  const handleAddNote = (e: React.FormEvent) => {
+  const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    const now = new Date().toISOString();
-    const note: Note = {
-      id: Date.now().toString(),
-      ...newNote,
-      createdAt: now,
-      updatedAt: now,
-      ownerId: user.id,
-    };
-    setNotes([note, ...notes]);
-    setNewNote({ title: '', content: '', linkedTo: '' });
-    setIsAddDialogOpen(false);
+    if (!newNote.title.trim() || !newNote.content.trim()) {
+      toast.error('Title and content are required');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Append linkedTo info to content if provided, as schema might only support contact_id
+      // If the user provided a valid UUID in linkedTo, we could use it as contact_id, 
+      // but for free text we'll save it in content to preserve it.
+      let contentToSave = newNote.content;
+      let contactId = null;
+
+      // Simple check if linkedTo looks like a UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (newNote.linkedTo && uuidRegex.test(newNote.linkedTo)) {
+        contactId = newNote.linkedTo;
+      } else if (newNote.linkedTo) {
+        contentToSave += `\n\n[Linked to: ${newNote.linkedTo}]`;
+      }
+
+      await notesAPI.create({
+        title: newNote.title,
+        content: contentToSave,
+        contact_id: contactId
+      });
+
+      toast.success('Note created successfully');
+      setNewNote({ title: '', content: '', linkedTo: '' });
+      setIsAddDialogOpen(false);
+      loadNotes(); // Reload list
+    } catch (error: any) {
+      console.error('Failed to create note:', error);
+      toast.error(error.message || 'Failed to create note');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDeleteNote = (id: string) => {
-    setNotes(notes.filter(n => n.id !== id));
+  const handleDeleteNote = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this note?')) return;
+    
+    try {
+      await notesAPI.delete(id);
+      toast.success('Note deleted');
+      setNotes(notes.filter(n => n.id !== id));
+    } catch (error: any) {
+      console.error('Failed to delete note:', error);
+      toast.error('Failed to delete note');
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -126,10 +194,19 @@ export function Notes({ user }: NotesProps) {
                 />
               </div>
               <div className="flex gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1">
+                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1" disabled={isSubmitting}>
                   Cancel
                 </Button>
-                <Button type="submit" className="flex-1">Add Note</Button>
+                <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Add Note'
+                  )}
+                </Button>
               </div>
             </form>
           </DialogContent>
@@ -149,7 +226,17 @@ export function Notes({ user }: NotesProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : filteredNotes.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <StickyNote className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No notes found</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredNotes.map((note) => (
               <Card key={note.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="pt-6">
@@ -175,7 +262,7 @@ export function Notes({ user }: NotesProps) {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-3">{note.content}</p>
+                  <p className="text-sm text-gray-600 mb-3 line-clamp-3 whitespace-pre-wrap">{note.content}</p>
                   {note.linkedTo && (
                     <div className="mb-3">
                       <span className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">
@@ -187,7 +274,8 @@ export function Notes({ user }: NotesProps) {
                 </CardContent>
               </Card>
             ))}
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

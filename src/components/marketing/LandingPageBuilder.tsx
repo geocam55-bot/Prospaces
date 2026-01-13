@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -18,7 +18,8 @@ import {
   Image as ImageIcon,
   Video,
   FileText,
-  GripVertical
+  GripVertical,
+  Loader2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { toast } from 'sonner';
 import type { User } from '../../App';
+import { landingPagesAPI } from '../../utils/api';
 
 interface LandingPageBuilderProps {
   user: User;
@@ -53,7 +55,11 @@ interface PageSettings {
 }
 
 export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
-  const [selectedPage, setSelectedPage] = useState<number | null>(null);
+  const [selectedPage, setSelectedPage] = useState<string | null>(null);
+  const [landingPages, setLandingPages] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
   const [pageElements, setPageElements] = useState<PageElement[]>([]);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [pageSettings, setPageSettings] = useState<PageSettings>({
@@ -64,49 +70,116 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
     trackingCode: ''
   });
 
-  const pages = [
-    {
-      id: 1,
-      name: 'Product Launch 2025',
-      url: '/landing/product-launch',
-      status: 'Published',
-      views: 12450,
-      conversions: 892,
-      conversionRate: 7.2,
-      lastEdited: '2 days ago'
-    },
-    {
-      id: 2,
-      name: 'Free Trial Signup',
-      url: '/landing/free-trial',
-      status: 'Published',
-      views: 8932,
-      conversions: 1234,
-      conversionRate: 13.8,
-      lastEdited: '5 days ago'
-    },
-    {
-      id: 3,
-      name: 'Webinar Registration',
-      url: '/landing/webinar-2025',
-      status: 'Draft',
-      views: 0,
-      conversions: 0,
-      conversionRate: 0,
-      lastEdited: '1 hour ago'
-    },
-    {
-      id: 4,
-      name: 'eBook Download',
-      url: '/landing/ebook-guide',
-      status: 'Published',
-      views: 5432,
-      conversions: 456,
-      conversionRate: 8.4,
-      lastEdited: '1 week ago'
-    },
-  ];
+  useEffect(() => {
+    loadLandingPages();
+  }, [user.organizationId]);
 
+  const loadLandingPages = async () => {
+    if (!user.organizationId) return;
+    setIsLoading(true);
+    try {
+      const data = await landingPagesAPI.getAll(user.organizationId);
+      setLandingPages(data);
+    } catch (error) {
+      console.error('Failed to load landing pages:', error);
+      toast.error('Failed to load landing pages');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreatePage = async () => {
+    if (!user.organizationId) return;
+    setIsSaving(true);
+    try {
+      const newPage = {
+        name: 'New Landing Page ' + new Date().toLocaleDateString(),
+        slug: 'new-page-' + Date.now(),
+        status: 'draft',
+        content: {
+          elements: [],
+          settings: {
+            title: '',
+            slug: '',
+            metaDescription: '',
+            conversionGoal: '',
+            trackingCode: ''
+          }
+        },
+        views_count: 0,
+        conversions_count: 0,
+        conversion_rate: 0
+      };
+      const created = await landingPagesAPI.create(newPage, user.organizationId);
+      setLandingPages([created, ...landingPages]);
+      handleSelectPage(created);
+      toast.success('Landing page created');
+    } catch (error) {
+      console.error('Failed to create landing page:', error);
+      toast.error('Failed to create landing page');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSavePage = async () => {
+    if (!selectedPage || !user.organizationId) return;
+    setIsSaving(true);
+    try {
+      const content = {
+        elements: pageElements,
+        settings: pageSettings
+      };
+      
+      const updated = await landingPagesAPI.update(selectedPage, {
+        content,
+        name: pageSettings.title || 'Untitled Page',
+        slug: pageSettings.slug,
+        updated_at: new Date().toISOString()
+      });
+      
+      setLandingPages(landingPages.map(p => p.id === selectedPage ? updated : p));
+      toast.success('Page saved successfully');
+    } catch (error) {
+      console.error('Failed to save page:', error);
+      toast.error('Failed to save page');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeletePage = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this page?')) return;
+    try {
+      await landingPagesAPI.delete(id);
+      setLandingPages(landingPages.filter(p => p.id !== id));
+      if (selectedPage === id) {
+        setSelectedPage(null);
+        setPageElements([]);
+        setPageSettings({ title: '', slug: '', metaDescription: '', conversionGoal: '', trackingCode: '' });
+      }
+      toast.success('Page deleted');
+    } catch (error) {
+      console.error('Failed to delete page:', error);
+      toast.error('Failed to delete page');
+    }
+  };
+
+  const handleSelectPage = (page: any) => {
+    setSelectedPage(page.id);
+    const content = page.content || {};
+    setPageElements(content.elements || []);
+    setPageSettings(content.settings || {
+      title: page.name || '',
+      slug: page.slug || '',
+      metaDescription: '',
+      conversionGoal: '',
+      trackingCode: ''
+    });
+  };
+
+  // ... (rest of the builder logic: elements array, add/update/delete element functions)
+  
   const builderElements = [
     { icon: Type, name: 'Heading', type: 'heading' as const, category: 'Text', defaultContent: 'Your Heading Here' },
     { icon: FileText, name: 'Paragraph', type: 'paragraph' as const, category: 'Text', defaultContent: 'Add your paragraph text here. You can customize this content to match your message.' },
@@ -118,11 +191,11 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Published':
+      case 'published':
         return 'bg-green-100 text-green-700';
-      case 'Draft':
+      case 'draft':
         return 'bg-gray-100 text-gray-700';
-      case 'Archived':
+      case 'archived':
         return 'bg-red-100 text-red-700';
       default:
         return 'bg-gray-100 text-gray-700';
@@ -305,18 +378,8 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
           <h2 className="text-xl text-gray-900">Landing Page Builder</h2>
           <p className="text-sm text-gray-600 mt-1">Create high-converting landing pages with drag-and-drop</p>
         </div>
-        <Button className="flex items-center gap-2" onClick={() => {
-          setPageElements([]);
-          setPageSettings({
-            title: '',
-            slug: '',
-            metaDescription: '',
-            conversionGoal: '',
-            trackingCode: ''
-          });
-          toast.success('New page created');
-        }}>
-          <Plus className="h-4 w-4" />
+        <Button className="flex items-center gap-2" onClick={handleCreatePage} disabled={isSaving}>
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           New Landing Page
         </Button>
       </div>
@@ -324,8 +387,23 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pages List */}
         <div className="space-y-4">
-          {pages.map((page) => (
-            <Card key={page.id} className="hover:shadow-md transition-shadow">
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : landingPages.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-gray-500">
+                <p>No landing pages found</p>
+                <p className="text-sm mt-2">Create one to get started</p>
+              </CardContent>
+            </Card>
+          ) : (
+            landingPages.map((page) => (
+            <Card key={page.id} 
+              className={`hover:shadow-md transition-shadow cursor-pointer ${selectedPage === page.id ? 'ring-2 ring-blue-500' : ''}`}
+              onClick={() => handleSelectPage(page)}
+            >
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3 flex-1">
@@ -334,37 +412,33 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                     </div>
                     <div className="flex-1">
                       <CardTitle className="text-base">{page.name}</CardTitle>
-                      <p className="text-xs text-gray-500 mt-1">{page.url}</p>
+                      <p className="text-xs text-gray-500 mt-1">{page.slug ? `/landing/${page.slug}` : 'No slug set'}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <Badge className={getStatusColor(page.status)}>{page.status}</Badge>
-                        <span className="text-xs text-gray-500">• {page.lastEdited}</span>
+                        <span className="text-xs text-gray-500">• {new Date(page.updatedAt || page.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => toast.info('Opening editor...')}>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSelectPage(page); }}>
                         <Edit className="h-4 w-4 mr-2" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => toast.info('Opening preview...')}>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); toast.info('Preview mode active'); handleSelectPage(page); }}>
                         <Eye className="h-4 w-4 mr-2" />
                         Preview
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => toast.info('Viewing analytics...')}>
+                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); toast.info('Viewing analytics...'); }}>
                         <BarChart3 className="h-4 w-4 mr-2" />
                         Analytics
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => toast.success('Page duplicated')}>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Duplicate
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600" onClick={() => toast.success('Page deleted')}>
+                      <DropdownMenuItem className="text-red-600" onClick={(e) => { e.stopPropagation(); handleDeletePage(page.id); }}>
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
                       </DropdownMenuItem>
@@ -376,26 +450,33 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <p className="text-xs text-gray-500">Views</p>
-                    <p className="text-lg text-gray-900 mt-1">{page.views.toLocaleString()}</p>
+                    <p className="text-lg text-gray-900 mt-1">{(page.views_count || 0).toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Conversions</p>
-                    <p className="text-lg text-gray-900 mt-1">{page.conversions.toLocaleString()}</p>
+                    <p className="text-lg text-gray-900 mt-1">{(page.conversions_count || 0).toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Conv. Rate</p>
-                    <p className="text-lg text-green-600 mt-1">{page.conversionRate}%</p>
+                    <p className="text-lg text-green-600 mt-1">{page.conversion_rate || 0}%</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )))}
         </div>
 
         {/* Page Builder Preview */}
+        {selectedPage ? (
         <Card>
           <CardHeader>
-            <CardTitle>Page Builder</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Page Builder</CardTitle>
+              <Button size="sm" onClick={handleSavePage} disabled={isSaving}>
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Save Changes
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="builder">
@@ -482,13 +563,12 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
 
                 {pageElements.length > 0 && (
                   <div className="flex gap-2">
-                    <Button onClick={() => toast.success('Page saved!')}>
-                      Save Page
-                    </Button>
                     <Button variant="outline" onClick={() => {
-                      setPageElements([]);
-                      setSelectedElement(null);
-                      toast.success('Canvas cleared');
+                      if (confirm('Clear all elements?')) {
+                        setPageElements([]);
+                        setSelectedElement(null);
+                        toast.success('Canvas cleared');
+                      }
                     }}>
                       Clear Canvas
                     </Button>
@@ -543,9 +623,6 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                       rows={4}
                     />
                   </div>
-                  <Button onClick={() => toast.success('Settings saved!')}>
-                    Save Settings
-                  </Button>
                 </div>
               </TabsContent>
 
@@ -568,7 +645,7 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                   <div className="bg-white p-8 min-h-96 space-y-6">
                     {pageElements.length === 0 ? (
                       <div className="max-w-2xl mx-auto text-center py-20">
-                        <h1 className="text-4xl text-gray-900 mb-4">Your Landing Page Title</h1>
+                        <h1 className="text-4xl text-gray-900 mb-4">{pageSettings.title || 'Your Landing Page Title'}</h1>
                         <p className="text-lg text-gray-600 mb-8">
                           Compelling description that converts visitors into customers
                         </p>
@@ -587,6 +664,15 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
             </Tabs>
           </CardContent>
         </Card>
+        ) : (
+          <Card className="h-full flex items-center justify-center min-h-[400px]">
+            <CardContent className="text-center text-gray-500">
+              <Layout className="h-16 w-16 mx-auto mb-4 opacity-20" />
+              <p className="text-lg font-medium">Select a page to edit</p>
+              <p className="text-sm mt-2">Or create a new one to get started</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Templates */}
@@ -608,16 +694,20 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                 key={template.name}
                 className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-500 cursor-pointer transition-colors"
                 onClick={() => {
-                  // Load a template
-                  if (template.name === 'Lead Capture') {
-                    setPageElements([
-                      { id: 'temp-1', type: 'heading', content: 'Get Your Free Guide', styles: { alignment: 'center' } },
-                      { id: 'temp-2', type: 'paragraph', content: 'Join thousands of professionals who have already transformed their business with our expert insights.', styles: { alignment: 'center' } },
-                      { id: 'temp-3', type: 'form', content: 'Download Now', styles: { alignment: 'center' } },
-                    ]);
-                    toast.success('Template loaded!');
+                  if (selectedPage) {
+                    // Load a template into selected page
+                    if (template.name === 'Lead Capture') {
+                      setPageElements([
+                        { id: 'temp-1', type: 'heading', content: 'Get Your Free Guide', styles: { alignment: 'center' } },
+                        { id: 'temp-2', type: 'paragraph', content: 'Join thousands of professionals who have already transformed their business with our expert insights.', styles: { alignment: 'center' } },
+                        { id: 'temp-3', type: 'form', content: 'Download Now', styles: { alignment: 'center' } },
+                      ]);
+                      toast.success('Template loaded into current page!');
+                    } else {
+                      toast.success(`${template.name} template loaded!`);
+                    }
                   } else {
-                    toast.success(`${template.name} template loaded!`);
+                    toast.info('Select or create a page first to apply a template');
                   }
                 }}
               >

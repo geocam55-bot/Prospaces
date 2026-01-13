@@ -51,13 +51,15 @@ export async function getAllBidsClient() {
       // Include NULL organization_ids for backwards compatibility
       // query = query; // no filter needed
     } else if (userRole === 'admin') {
-      // Admin: Can ONLY see their own bids (Team Dashboard shows team data)
+      // Admin: Can ONLY see their own bids (strict filtering for personal view)
       console.log('🔒 Admin - Loading own bids only (strict filtering)');
-      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`).eq('created_by', authUser.id);
+      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      query = query.eq('created_by', authUser.id);
     } else if (userRole === 'manager') {
-      // Manager: Can ONLY see their own bids (Team Dashboard shows team data)
+      // Manager: Can ONLY see their own bids (strict filtering for personal view)
       console.log('👔 Manager - Loading own bids only (strict filtering)');
-      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`).eq('created_by', authUser.id);
+      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      query = query.eq('created_by', authUser.id);
     } else if (userRole === 'marketing') {
       // Marketing: Can see all bids within their organization (for campaigns)
       console.log('📢 Marketing - Loading bids for organization:', userOrgId);

@@ -1,4 +1,13 @@
 import { createClient } from './supabase/client';
+import { projectId } from './supabase/info';
+
+const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
+
+async function getAuthHeader() {
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ? `Bearer ${session.access_token}` : null;
+}
 
 const supabase = createClient();
 
@@ -50,6 +59,7 @@ export interface LeadScore {
   score_history?: any[];
   created_at?: string;
   updated_at?: string;
+  contacts?: any;
 }
 
 export interface Journey {
@@ -87,7 +97,7 @@ export interface LandingPage {
   updated_at?: string;
 }
 
-// Campaign Functions
+// Campaign Functions (Keep using Supabase Tables for now as they likely exist)
 export async function getCampaigns(organizationId: string): Promise<Campaign[]> {
   const { data, error } = await supabase
     .from('marketing_campaigns')
@@ -166,7 +176,7 @@ export async function duplicateCampaign(id: string, organizationId: string): Pro
   return data;
 }
 
-// Lead Scoring Functions
+// Lead Scoring Functions (Keep rules in tables if possible, but access scores via API)
 export async function getScoringRules(organizationId: string): Promise<ScoringRule[]> {
   const { data, error } = await supabase
     .from('lead_scoring_rules')
@@ -217,27 +227,34 @@ export async function deleteScoringRule(id: string): Promise<void> {
 }
 
 export async function getLeadScores(organizationId: string): Promise<LeadScore[]> {
-  const { data, error } = await supabase
-    .from('lead_scores')
-    .select(`
-      *,
-      contacts (
-        id,
-        first_name,
-        last_name,
-        email,
-        company
-      )
-    `)
-    .eq('organization_id', organizationId)
-    .order('score', { ascending: false });
+  // Use server endpoint to handle fallback
+  const authHeader = await getAuthHeader();
+  if (!authHeader) return [];
 
-  if (error) throw error;
-  return data || [];
+  try {
+    const response = await fetch(`${BASE_URL}/marketing/lead-scores`, {
+      headers: { 
+        'Authorization': authHeader,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) throw new Error('Failed to fetch lead scores');
+    
+    const data = await response.json();
+    return data.scores || [];
+  } catch (error) {
+    console.error('Error fetching lead scores:', error);
+    return [];
+  }
 }
 
 export async function updateLeadScore(contactId: string, organizationId: string, scoreChange: number, action: string): Promise<LeadScore> {
-  // Get existing score or create new one
+  // Keeping this using Supabase client as it's complex logic better handled by direct DB if available
+  // or by a specific server endpoint if not.
+  // Currently index.tsx uses this logic internally for tracking.
+  // If we need manual update, we might need a server endpoint or keep using Supabase if table exists.
+  
   const { data: existing } = await supabase
     .from('lead_scores')
     .select('*')
@@ -293,104 +310,152 @@ export async function updateLeadScore(contactId: string, organizationId: string,
   }
 }
 
-// Journey Functions
+// Journey Functions - Using KV Store via Server
 export async function getJourneys(organizationId: string): Promise<Journey[]> {
-  const { data, error } = await supabase
-    .from('customer_journeys')
-    .select('*')
-    .eq('organization_id', organizationId)
-    .order('created_at', { ascending: false });
+  const authHeader = await getAuthHeader();
+  if (!authHeader) return [];
 
-  if (error) throw error;
-  return data || [];
+  try {
+    const response = await fetch(`${BASE_URL}/marketing/journeys`, {
+      headers: { 
+        'Authorization': authHeader,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) throw new Error('Failed to fetch journeys');
+    
+    const data = await response.json();
+    return data.journeys || [];
+  } catch (error) {
+    console.error('Error fetching journeys:', error);
+    return [];
+  }
 }
 
 export async function createJourney(journey: Journey, organizationId: string): Promise<Journey> {
-  const { data: userData } = await supabase.auth.getUser();
-  
-  const { data, error } = await supabase
-    .from('customer_journeys')
-    .insert([{
-      ...journey,
-      organization_id: organizationId,
-      created_by: userData?.user?.id
-    }])
-    .select()
-    .single();
+  const authHeader = await getAuthHeader();
+  if (!authHeader) throw new Error('Not authenticated');
 
-  if (error) throw error;
-  return data;
+  const response = await fetch(`${BASE_URL}/marketing/journeys`, {
+    method: 'POST',
+    headers: {
+      'Authorization': authHeader,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(journey)
+  });
+
+  if (!response.ok) throw new Error('Failed to create journey');
+  const data = await response.json();
+  return data.journey;
 }
 
 export async function updateJourney(id: string, updates: Partial<Journey>): Promise<Journey> {
-  const { data, error } = await supabase
-    .from('customer_journeys')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
+  const authHeader = await getAuthHeader();
+  if (!authHeader) throw new Error('Not authenticated');
 
-  if (error) throw error;
-  return data;
+  const response = await fetch(`${BASE_URL}/marketing/journeys/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': authHeader,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(updates)
+  });
+
+  if (!response.ok) throw new Error('Failed to update journey');
+  const data = await response.json();
+  return data.journey;
 }
 
 export async function deleteJourney(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('customer_journeys')
-    .delete()
-    .eq('id', id);
+  const authHeader = await getAuthHeader();
+  if (!authHeader) throw new Error('Not authenticated');
 
-  if (error) throw error;
+  const response = await fetch(`${BASE_URL}/marketing/journeys/${id}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': authHeader,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!response.ok) throw new Error('Failed to delete journey');
 }
 
-// Landing Page Functions
+// Landing Page Functions - Using KV Store via Server
 export async function getLandingPages(organizationId: string): Promise<LandingPage[]> {
-  const { data, error } = await supabase
-    .from('landing_pages')
-    .select('*')
-    .eq('organization_id', organizationId)
-    .order('created_at', { ascending: false });
+  const authHeader = await getAuthHeader();
+  if (!authHeader) return [];
 
-  if (error) throw error;
-  return data || [];
+  try {
+    const response = await fetch(`${BASE_URL}/marketing/landing-pages`, {
+      headers: { 
+        'Authorization': authHeader,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) throw new Error('Failed to fetch landing pages');
+    
+    const data = await response.json();
+    return data.pages || [];
+  } catch (error) {
+    console.error('Error fetching landing pages:', error);
+    return [];
+  }
 }
 
 export async function createLandingPage(page: LandingPage, organizationId: string): Promise<LandingPage> {
-  const { data: userData } = await supabase.auth.getUser();
-  
-  const { data, error } = await supabase
-    .from('landing_pages')
-    .insert([{
-      ...page,
-      organization_id: organizationId,
-      created_by: userData?.user?.id
-    }])
-    .select()
-    .single();
+  const authHeader = await getAuthHeader();
+  if (!authHeader) throw new Error('Not authenticated');
 
-  if (error) throw error;
-  return data;
+  const response = await fetch(`${BASE_URL}/marketing/landing-pages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': authHeader,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(page)
+  });
+
+  if (!response.ok) throw new Error('Failed to create landing page');
+  const data = await response.json();
+  return data.page;
 }
 
 export async function updateLandingPage(id: string, updates: Partial<LandingPage>): Promise<LandingPage> {
-  const { data, error } = await supabase
-    .from('landing_pages')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
+  const authHeader = await getAuthHeader();
+  if (!authHeader) throw new Error('Not authenticated');
 
-  if (error) throw error;
-  return data;
+  const response = await fetch(`${BASE_URL}/marketing/landing-pages/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': authHeader,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(updates)
+  });
+
+  if (!response.ok) throw new Error('Failed to update landing page');
+  const data = await response.json();
+  return data.page;
 }
 
 export async function deleteLandingPage(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('landing_pages')
-    .delete()
-    .eq('id', id);
+  const authHeader = await getAuthHeader();
+  if (!authHeader) throw new Error('Not authenticated');
 
-  if (error) throw error;
+  const response = await fetch(`${BASE_URL}/marketing/landing-pages/${id}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': authHeader,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (!response.ok) throw new Error('Failed to delete landing page');
 }
 
 // Analytics Functions
@@ -439,10 +504,8 @@ export async function getCampaignStats(organizationId: string) {
 }
 
 export async function getLeadScoreStats(organizationId: string) {
-  const { data: scores } = await supabase
-    .from('lead_scores')
-    .select('*')
-    .eq('organization_id', organizationId);
+  // Use lead scores from API or DB
+  const scores = await getLeadScores(organizationId);
 
   const totalLeads = scores?.length || 0;
   const hotLeads = scores?.filter(s => s.status === 'hot').length || 0;

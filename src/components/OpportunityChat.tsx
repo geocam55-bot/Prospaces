@@ -26,6 +26,7 @@ import {
   Loader2,
   Edit
 } from 'lucide-react';
+import { ExplicitChartContainer } from './ui/ExplicitChartContainer';
 import { PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { opportunitiesAPI, bidsAPI, quotesAPI, notesAPI } from '../utils/api';
 import type { User } from '../App';
@@ -678,7 +679,10 @@ export function OpportunityChat({ opportunityId, user, opportunity, onClose, onE
                     <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
                       {/* Pie Chart */}
                       <div className="w-full lg:w-1/2 flex justify-center">
-                        <PieChart width={400} height={400}>
+                        <div className="relative h-[400px] w-full min-w-0">
+                          <div className="absolute inset-0">
+                            <ExplicitChartContainer>
+                              <PieChart>
                           <Pie
                             data={[
                               ...bids.map((bid, index) => ({
@@ -730,7 +734,10 @@ export function OpportunityChat({ opportunityId, user, opportunity, onClose, onE
                               return `${value} ($${(bid?.bidAmount || 0).toLocaleString()})`;
                             }}
                           />
-                        </PieChart>
+                              </PieChart>
+                            </ExplicitChartContainer>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Bid Details List */}

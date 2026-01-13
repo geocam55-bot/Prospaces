@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -15,7 +15,8 @@ import {
   Clock,
   GitBranch,
   Filter,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -24,61 +25,75 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import type { User } from '../../App';
+import { journeysAPI } from '../../utils/api';
+import { toast } from 'sonner';
 
 interface JourneyBuilderProps {
   user: User;
 }
 
 export function JourneyBuilder({ user }: JourneyBuilderProps) {
-  const [selectedJourney, setSelectedJourney] = useState<number | null>(null);
+  const [selectedJourney, setSelectedJourney] = useState<string | null>(null);
+  const [journeys, setJourneys] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
 
-  const journeys = [
-    {
-      id: 1,
-      name: 'Welcome Series',
-      status: 'Active',
-      trigger: 'New Contact Created',
-      enrolled: 234,
-      completed: 187,
-      steps: 5,
-      avgTime: '7 days',
-      conversionRate: 24
-    },
-    {
-      id: 2,
-      name: 'Abandoned Cart Recovery',
-      status: 'Active',
-      trigger: 'Cart Abandoned',
-      enrolled: 456,
-      completed: 289,
-      steps: 3,
-      avgTime: '24 hours',
-      conversionRate: 18
-    },
-    {
-      id: 3,
-      name: 'Re-engagement Campaign',
-      status: 'Paused',
-      trigger: 'Inactive for 30 days',
-      enrolled: 123,
-      completed: 45,
-      steps: 4,
-      avgTime: '14 days',
-      conversionRate: 12
-    },
-    {
-      id: 4,
-      name: 'Product Education Series',
-      status: 'Active',
-      trigger: 'Product Purchased',
-      enrolled: 89,
-      completed: 67,
-      steps: 6,
-      avgTime: '10 days',
-      conversionRate: 31
-    },
-  ];
+  useEffect(() => {
+    loadJourneys();
+  }, [user.organizationId]);
 
+  const loadJourneys = async () => {
+    if (!user.organizationId) return;
+    setIsLoading(true);
+    try {
+      const data = await journeysAPI.getAll(user.organizationId);
+      setJourneys(data);
+    } catch (error) {
+      console.error('Failed to load journeys:', error);
+      toast.error('Failed to load journeys');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateJourney = async () => {
+    if (!user.organizationId) return;
+    setIsCreating(true);
+    try {
+      const newJourney = {
+        name: 'New Journey ' + new Date().toLocaleDateString(),
+        status: 'draft',
+        trigger_type: 'Manual',
+        steps: [],
+        enrolled_count: 0,
+        completed_count: 0
+      };
+      const created = await journeysAPI.create(newJourney, user.organizationId);
+      setJourneys([created, ...journeys]);
+      setSelectedJourney(created.id);
+      toast.success('Journey created');
+    } catch (error) {
+      console.error('Failed to create journey:', error);
+      toast.error('Failed to create journey');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleDeleteJourney = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this journey?')) return;
+    try {
+      await journeysAPI.delete(id);
+      setJourneys(journeys.filter(j => j.id !== id));
+      if (selectedJourney === id) setSelectedJourney(null);
+      toast.success('Journey deleted');
+    } catch (error) {
+      console.error('Failed to delete journey:', error);
+      toast.error('Failed to delete journey');
+    }
+  };
+
+  // Static steps for visualization (in a real app, these would come from the selected journey)
   const journeySteps = [
     { type: 'trigger', icon: Play, title: 'Trigger: Form Submitted', color: 'green' },
     { type: 'delay', icon: Clock, title: 'Wait 1 hour', color: 'blue' },
@@ -94,11 +109,11 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Active':
+      case 'active':
         return 'bg-green-100 text-green-700';
-      case 'Paused':
+      case 'paused':
         return 'bg-yellow-100 text-yellow-700';
-      case 'Draft':
+      case 'draft':
         return 'bg-gray-100 text-gray-700';
       default:
         return 'bg-gray-100 text-gray-700';
@@ -112,8 +127,8 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
           <h2 className="text-xl text-gray-900">Customer Journey Builder</h2>
           <p className="text-sm text-gray-600 mt-1">Create automated workflows based on customer behavior</p>
         </div>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
+        <Button onClick={handleCreateJourney} disabled={isCreating} className="flex items-center gap-2">
+          {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           Create Journey
         </Button>
       </div>
@@ -121,7 +136,19 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Journey List */}
         <div className="lg:col-span-1 space-y-4">
-          {journeys.map((journey) => (
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : journeys.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-gray-500">
+                <p>No journeys found</p>
+                <p className="text-sm mt-2">Create one to get started</p>
+              </CardContent>
+            </Card>
+          ) : (
+            journeys.map((journey) => (
             <Card
               key={journey.id}
               className={`cursor-pointer transition-all ${
@@ -151,7 +178,7 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem>
-                        {journey.status === 'Active' ? (
+                        {journey.status === 'active' ? (
                           <>
                             <Pause className="h-4 w-4 mr-2" />
                             Pause
@@ -167,7 +194,10 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
                         <Copy className="h-4 w-4 mr-2" />
                         Duplicate
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">
+                      <DropdownMenuItem className="text-red-600" onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteJourney(journey.id);
+                      }}>
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
                       </DropdownMenuItem>
@@ -179,28 +209,28 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-600">Trigger:</span>
-                    <span className="text-gray-900">{journey.trigger}</span>
+                    <span className="text-gray-900">{journey.trigger_type || 'Manual'}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-600">Enrolled:</span>
-                    <span className="text-gray-900">{journey.enrolled}</span>
+                    <span className="text-gray-900">{journey.enrolled_count || 0}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-600">Completed:</span>
-                    <span className="text-gray-900">{journey.completed}</span>
+                    <span className="text-gray-900">{journey.completed_count || 0}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">Avg. Time:</span>
-                    <span className="text-gray-900">{journey.avgTime}</span>
+                    <span className="text-gray-600">Avg. Duration:</span>
+                    <span className="text-gray-900">{journey.avg_duration_days || 0} days</span>
                   </div>
                   <div className="pt-2 border-t">
                     <p className="text-xs text-gray-600">Conversion Rate</p>
-                    <p className="text-lg text-green-600">{journey.conversionRate}%</p>
+                    <p className="text-lg text-green-600">{journey.conversion_rate || 0}%</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )))}
         </div>
 
         {/* Journey Visual Builder */}

@@ -36,11 +36,11 @@ export async function getAllOpportunitiesClient() {
       // Super Admin: Can see all opportunities
       console.log('🔓 Super Admin - Loading all opportunities');
     } else if (userRole === 'admin') {
-      // Admin: Can see ALL opportunities in their organization
-      console.log('🔒 Admin - Loading all opportunities for organization:', userOrgId);
-      query = query.eq('organization_id', userOrgId);
+      // Admin: Can ONLY see their own opportunities (strict filtering for personal view)
+      console.log('🔒 Admin - Loading own opportunities only (strict filtering)');
+      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
     } else if (userRole === 'manager') {
-      // Manager: Can ONLY see their own opportunities (Team Dashboard shows team data)
+      // Manager: Can ONLY see their own opportunities (strict filtering for personal view)
       console.log('👔 Manager - Loading own opportunities only (strict filtering)');
       query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
     } else if (userRole === 'marketing') {
@@ -48,40 +48,9 @@ export async function getAllOpportunitiesClient() {
       console.log('📢 Marketing - Loading opportunities for organization:', userOrgId);
       query = query.eq('organization_id', userOrgId);
     } else {
-      // Standard User: Should see opportunities for contacts they own
-      console.log('👤 Standard User - Loading opportunities for contacts owned by user ID:', user.id);
-      
-      // First, get all contact IDs owned by this user
-      const { data: ownedContacts } = await supabase
-        .from('contacts')
-        .select('id')
-        .eq('organization_id', userOrgId)
-        .eq('owner_id', user.id);
-      
-      const contactIds = (ownedContacts || []).map(c => c.id);
-      
-      console.log('👤 User owns', contactIds.length, 'contacts');
-      console.log('👤 Contact IDs:', contactIds);
-      
-      if (contactIds.length === 0) {
-        // No contacts = no opportunities
-        return { opportunities: [] };
-      }
-      
-      // Get ALL opportunities in org to debug
-      const { data: allOpps } = await supabase
-        .from('opportunities')
-        .select('id, title, customer_id, owner_id')
-        .eq('organization_id', userOrgId);
-      
-      console.log('👤 ALL opportunities in org:', allOpps);
-      
-      // Filter opportunities by customer_id (contact) instead of owner_id
-      query = query
-        .eq('organization_id', userOrgId)
-        .in('customer_id', contactIds);
-      
-      console.log('👤 Filter: organization_id =', userOrgId, 'AND customer_id IN', contactIds.length, 'contacts');
+      // Standard User: Only show their own opportunities (strict filtering)
+      console.log('👤 Standard User - Loading only own opportunities (strict filtering)');
+      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
     }
 
     let { data: opportunities, error } = await query.order('created_at', { ascending: false });

@@ -10,6 +10,12 @@ import { getAllInventoryClient, createInventoryClient, updateInventoryClient, de
 import { getAllOpportunitiesClient, getOpportunitiesByCustomerClient, createOpportunityClient, updateOpportunityClient, deleteOpportunityClient } from './opportunities-client';
 import { getAllCampaignsClient, createCampaignClient, updateCampaignClient, deleteCampaignClient } from './campaigns-client';
 import { 
+  getJourneys, createJourney, updateJourney, deleteJourney,
+  getLandingPages, createLandingPage, updateLandingPage, deleteLandingPage,
+  getLeadScores, updateLeadScore, getScoringRules, createScoringRule, updateScoringRule, deleteScoringRule,
+  getLeadScoreStats
+} from './marketing-client';
+import { 
   getAllProjectManagersClient, 
   getProjectManagersByCustomerClient, 
   createProjectManagerClient, 
@@ -718,4 +724,31 @@ export const campaignsAPI = {
   create: (data: any) => createCampaignClient(data),
   update: (id: string, data: any) => updateCampaignClient(id, data),
   delete: (id: string) => deleteCampaignClient(id),
+};
+
+// Journeys APIs
+export const journeysAPI = {
+  getAll: (organizationId: string) => getJourneys(organizationId),
+  create: (data: any, organizationId: string) => createJourney(data, organizationId),
+  update: (id: string, data: any) => updateJourney(id, data),
+  delete: (id: string) => deleteJourney(id),
+};
+
+// Landing Pages APIs
+export const landingPagesAPI = {
+  getAll: (organizationId: string) => getLandingPages(organizationId),
+  create: (data: any, organizationId: string) => createLandingPage(data, organizationId),
+  update: (id: string, data: any) => updateLandingPage(id, data),
+  delete: (id: string) => deleteLandingPage(id),
+};
+
+// Lead Scoring APIs
+export const leadScoresAPI = {
+  getAll: (organizationId: string) => getLeadScores(organizationId),
+  updateScore: (contactId: string, organizationId: string, score: number, action: string) => updateLeadScore(contactId, organizationId, score, action),
+  getRules: (organizationId: string) => getScoringRules(organizationId),
+  createRule: (data: any, organizationId: string) => createScoringRule(data, organizationId),
+  updateRule: (id: string, data: any) => updateScoringRule(id, data),
+  deleteRule: (id: string) => deleteScoringRule(id),
+  getStats: (organizationId: string) => getLeadScoreStats(organizationId),
 };
