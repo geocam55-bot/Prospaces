@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
+import { useNotificationPreferences } from './useNotificationPreferences';
 import type { User } from '../App';
 
 export interface BidNotification {
@@ -13,16 +14,26 @@ export interface BidNotification {
 export function useBidNotifications(user: User) {
   const [notifications, setNotifications] = useState<BidNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const { preferences } = useNotificationPreferences(user);
 
   useEffect(() => {
+    // If notifications are disabled, set count to 0 and stop
+    if (!preferences.bids) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
     if (user) {
       checkBidUpdates();
       const interval = setInterval(checkBidUpdates, 5 * 60 * 1000); // Poll every 5 mins
       return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [user, preferences.bids]);
 
   const checkBidUpdates = async () => {
+    if (!preferences.bids) return;
+
     try {
       // Get last checked timestamp from local storage, default to 24 hours ago if not set
       const lastCheckedStr = localStorage.getItem('prospaces_last_checked_bids');
@@ -75,5 +86,10 @@ export function useBidNotifications(user: User) {
     setUnreadCount(0);
   };
 
-  return { notifications, unreadCount, markAsRead, refresh: checkBidUpdates };
+  return { 
+    notifications: preferences.bids ? notifications : [], 
+    unreadCount: preferences.bids ? unreadCount : 0, 
+    markAsRead, 
+    refresh: checkBidUpdates 
+  };
 }

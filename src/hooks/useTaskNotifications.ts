@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
+import { useNotificationPreferences } from './useNotificationPreferences';
 import type { User } from '../App';
 
 export function useTaskNotifications(user: User) {
   const [taskCount, setTaskCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const { preferences } = useNotificationPreferences(user);
 
   useEffect(() => {
+    // If notifications are disabled, set count to 0 and stop
+    if (!preferences.taskAssignments) {
+      setTaskCount(0);
+      setIsLoading(false);
+      return;
+    }
+
     if (user) {
       loadTaskCount();
       
@@ -58,9 +67,11 @@ export function useTaskNotifications(user: User) {
         supabase.removeChannel(channel);
       };
     }
-  }, [user]);
+  }, [user, preferences.taskAssignments]);
 
   const loadTaskCount = async () => {
+    if (!preferences.taskAssignments) return;
+
     try {
       setIsLoading(true);
       const supabase = createClient();
@@ -86,5 +97,5 @@ export function useTaskNotifications(user: User) {
     }
   };
 
-  return { taskCount, isLoading };
+  return { taskCount: preferences.taskAssignments ? taskCount : 0, isLoading };
 }

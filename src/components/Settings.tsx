@@ -73,7 +73,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
     push: true,
     taskAssignments: true,
     appointments: true,
-    bids: false,
+    bids: true,
   });
 
   // Layout configuration state

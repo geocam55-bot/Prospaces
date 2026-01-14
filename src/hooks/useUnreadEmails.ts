@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
+import { useNotificationPreferences } from './useNotificationPreferences';
 import type { User } from '../App';
 
 export function useUnreadEmails(user: User) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const { preferences } = useNotificationPreferences(user);
 
   useEffect(() => {
+    // If notifications are disabled, set count to 0 and stop
+    if (!preferences.email) {
+      setUnreadCount(0);
+      setIsLoading(false);
+      return;
+    }
+
     if (user) {
       loadUnreadCount();
       
@@ -58,9 +67,11 @@ export function useUnreadEmails(user: User) {
         supabase.removeChannel(channel);
       };
     }
-  }, [user]);
+  }, [user, preferences.email]);
 
   const loadUnreadCount = async () => {
+    if (!preferences.email) return;
+
     try {
       setIsLoading(true);
       const supabase = createClient();
@@ -132,5 +143,5 @@ export function useUnreadEmails(user: User) {
     }
   };
 
-  return { unreadCount, isLoading, refresh: loadUnreadCount };
+  return { unreadCount: preferences.email ? unreadCount : 0, isLoading, refresh: loadUnreadCount };
 }

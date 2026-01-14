@@ -28,7 +28,7 @@ export function DashboardTabs({ activeTab, onTabChange }: DashboardTabsProps) {
         }`}
         onClick={() => onTabChange('agents')}
       >
-        Agents
+        Team
       </Button>
       <Button
         variant={activeTab === 'deals' ? 'secondary' : 'ghost'}

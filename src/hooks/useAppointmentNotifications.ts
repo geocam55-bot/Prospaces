@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
+import { useNotificationPreferences } from './useNotificationPreferences';
 import type { User } from '../App';
 
 export function useAppointmentNotifications(user: User) {
   const [appointmentCount, setAppointmentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const { preferences } = useNotificationPreferences(user);
 
   useEffect(() => {
+    // If notifications are disabled, set count to 0 and stop
+    if (!preferences.appointments) {
+      setAppointmentCount(0);
+      setIsLoading(false);
+      return;
+    }
+
     if (user) {
       loadAppointmentCount();
       
@@ -58,9 +67,11 @@ export function useAppointmentNotifications(user: User) {
         supabase.removeChannel(channel);
       };
     }
-  }, [user]);
+  }, [user, preferences.appointments]);
 
   const loadAppointmentCount = async () => {
+    if (!preferences.appointments) return;
+
     try {
       setIsLoading(true);
       const supabase = createClient();
@@ -88,5 +99,5 @@ export function useAppointmentNotifications(user: User) {
     }
   };
 
-  return { appointmentCount, isLoading };
+  return { appointmentCount: preferences.appointments ? appointmentCount : 0, isLoading };
 }

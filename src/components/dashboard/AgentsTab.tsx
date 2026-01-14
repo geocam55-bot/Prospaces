@@ -66,6 +66,13 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
       const status = (opp.status || '').toLowerCase();
       const value = parseFloat(opp.value) || 0;
       
+      // Handle snake_case vs camelCase
+      const createdStr = opp.created_at || opp.createdAt;
+      const updatedStr = opp.updated_at || opp.updatedAt;
+      
+      const createdAt = createdStr ? new Date(createdStr).getTime() : 0;
+      const updatedAt = updatedStr ? new Date(updatedStr).getTime() : 0;
+      
       // Stage counting for chart
       // Use status as stage for now since they are often mixed
       const stageName = opp.stage || opp.status || 'Unknown';
@@ -76,22 +83,26 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
         m.closedAmount += value;
         
         // Avg days to close
-        if (opp.createdAt && opp.updatedAt) { // Assuming updated_at is close date for won
-             const start = new Date(opp.createdAt).getTime();
-             const end = new Date(opp.updatedAt).getTime();
-             const days = (end - start) / (1000 * 60 * 60 * 24);
+        if (createdAt && updatedAt) {
+             const days = (updatedAt - createdAt) / (1000 * 60 * 60 * 24);
              if (days >= 0) {
                 m.totalDuration += days;
                 m.closedCount++;
              }
+        } else if (createdAt && !updatedAt) {
+             // Fallback: if won but no update date, assume closed now? 
+             // Or better to skip to avoid skewing data with 0 if we assume instant close?
+             // Actually, if we use current time it might be wrong.
+             // If we use 0 (instant close), it lowers the average.
+             // Let's assume instant close (0 days) if missing updated date but has created date
+             // m.closedCount++;
+             // Actually, let's just skip invalid data to be safe.
         }
       } else if (status === 'lost' || status === 'rejected' || status === 'closed lost') {
         m.lostDeals++;
-        // Also counts towards closed deals for duration? Usually yes.
-        if (opp.createdAt && opp.updatedAt) {
-             const start = new Date(opp.createdAt).getTime();
-             const end = new Date(opp.updatedAt).getTime();
-             const days = (end - start) / (1000 * 60 * 60 * 24);
+        // Also counts towards closed deals for duration
+        if (createdAt && updatedAt) {
+             const days = (updatedAt - createdAt) / (1000 * 60 * 60 * 24);
              if (days >= 0) {
                 m.totalDuration += days;
                 m.closedCount++;
@@ -100,10 +111,9 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
       } else {
         m.openDeals++;
         // Avg open deal age
-        if (opp.createdAt) {
-             const start = new Date(opp.createdAt).getTime();
+        if (createdAt) {
              const now = new Date().getTime();
-             const days = (now - start) / (1000 * 60 * 60 * 24);
+             const days = (now - createdAt) / (1000 * 60 * 60 * 24);
              if (days >= 0) {
                 m.totalOpenAge += days;
                 m.openDealsCount++;
