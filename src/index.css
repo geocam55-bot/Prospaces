@@ -626,6 +626,10 @@
     inset-block: calc(var(--spacing) * 0);
   }
 
+  .-top-0\.5 {
+    top: calc(var(--spacing) * -.5);
+  }
+
   .-top-6 {
     top: calc(var(--spacing) * -6);
   }
@@ -672,6 +676,10 @@
 
   .top-\[50\%\] {
     top: 50%;
+  }
+
+  .-right-0\.5 {
+    right: calc(var(--spacing) * -.5);
   }
 
   .right-0 {
@@ -2872,6 +2880,10 @@
     padding: calc(var(--spacing) * 1);
   }
 
+  .p-1\.5 {
+    padding: calc(var(--spacing) * 1.5);
+  }
+
   .p-2 {
     padding: calc(var(--spacing) * 2);
   }
@@ -3175,6 +3187,10 @@
   .text-xs {
     font-size: var(--text-xs);
     line-height: var(--tw-leading, var(--text-xs--line-height));
+  }
+
+  .text-\[9px\] {
+    font-size: 9px;
   }
 
   .text-\[10px\] {

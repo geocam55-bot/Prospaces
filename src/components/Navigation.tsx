@@ -402,7 +402,87 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
             </div>
             <span className="font-semibold">ProSpaces CRM</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            {/* AI Suggestions Icon */}
+            {suggestions.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                onClick={() => handleNavClick('ai-suggestions')}
+                title={`${suggestions.length} AI Suggestions`}
+              >
+                <Sparkles className="h-4 w-4 text-purple-600 animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 text-[9px] flex items-center justify-center bg-red-500 text-white rounded-full">
+                  {suggestions.length > 9 ? '9+' : suggestions.length}
+                </span>
+              </Button>
+            )}
+
+            {/* Bid Notifications Icon */}
+            {unreadBidsCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                onClick={() => handleNavClick('bids')}
+                title={`${unreadBidsCount} Bid Updates`}
+              >
+                <FileText className="h-4 w-4 text-orange-600 animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 text-[9px] flex items-center justify-center bg-red-500 text-white rounded-full">
+                  {unreadBidsCount > 9 ? '9+' : unreadBidsCount}
+                </span>
+              </Button>
+            )}
+
+            {/* Task Notifications Icon */}
+            {taskCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                onClick={() => handleNavClick('tasks')}
+                title={`${taskCount} Pending Tasks`}
+              >
+                <CheckSquare className="h-4 w-4 text-green-600 animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 text-[9px] flex items-center justify-center bg-red-500 text-white rounded-full">
+                  {taskCount > 9 ? '9+' : taskCount}
+                </span>
+              </Button>
+            )}
+
+            {/* Appointment Notifications Icon */}
+            {appointmentCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                onClick={() => handleNavClick('appointments')}
+                title={`${appointmentCount} Upcoming Appointments`}
+              >
+                <Calendar className="h-4 w-4 text-purple-600 animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 text-[9px] flex items-center justify-center bg-red-500 text-white rounded-full">
+                  {appointmentCount > 9 ? '9+' : appointmentCount}
+                </span>
+              </Button>
+            )}
+
+            {/* Email Icon */}
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                onClick={() => handleNavClick('email')}
+                title={`${unreadCount} Unread Emails`}
+              >
+                <Mail className="h-4 w-4 text-blue-600 animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 text-[9px] flex items-center justify-center bg-red-500 text-white rounded-full">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              </Button>
+            )}
+
             <DropdownMenu>
               <DropdownMenuTrigger className="focus:outline-none">
                 <Avatar className="h-8 w-8">
