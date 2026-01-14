@@ -39,11 +39,37 @@ export function useUnreadEmails(user: User) {
       setIsLoading(true);
       const supabase = createClient();
       
-      // Fetch latest emails to count unread, matching Email.tsx logic
-      // We fetch the data and filter in memory to avoid SQL/Null folder filtering issues
+      // 1. Fetch ALL email accounts (matching Email.tsx behavior)
+      // The Email component defaults to showing the FIRST account returned.
+      // To match the UI "0" count, we must also only look at that first account.
+      const { data: accounts, error: accountsError } = await supabase
+        .from('email_accounts')
+        .select('id')
+        .eq('user_id', user.id);
+
+      if (accountsError) {
+        console.error('Error loading email accounts for badge:', accountsError);
+        return;
+      }
+
+      // If no accounts, 0 unread
+      if (!accounts || accounts.length === 0) {
+        setUnreadCount(0);
+        setIsLoading(false);
+        return;
+      }
+
+      // STRICT MATCHING: Only count the "Primary" account (the first one)
+      // This ensures the badge matches the default view of the Email component.
+      const primaryAccountId = accounts[0].id;
+      
+      // 2. Fetch GLOBAL latest 100 emails (exactly matching Email.tsx)
+      // We must NOT filter by account_id in the query, because Email.tsx doesn't.
+      // If we filtered by account here, we might find old unread emails that are 
+      // not in the "Global Top 100" that Email.tsx loads, causing a mismatch.
       const { data, error } = await supabase
         .from('emails')
-        .select('is_read, folder')
+        .select('is_read, folder, account_id')
         .eq('user_id', user.id)
         .order('received_at', { ascending: false })
         .limit(100);
@@ -55,20 +81,24 @@ export function useUnreadEmails(user: User) {
 
       if (data) {
         const count = data.filter(email => {
-          // Check if unread (false or null)
+          // 1. Must match the PRIMARY account strictly
+          if (email.account_id !== primaryAccountId) {
+            return false;
+          }
+
+          // 2. Must be strictly unread
           const isUnread = email.is_read === false || email.is_read === null;
           
-          // Check folder
-          // We exclude system folders that shouldn't contribute to notification count
-          const folder = (email.folder || '').toLowerCase();
-          const isExcluded = ['sent', 'trash', 'spam', 'drafts'].includes(folder);
+          // 3. Must be strictly in 'inbox'
+          const isInbox = email.folder === 'inbox';
           
-          return isUnread && !isExcluded;
+          return isUnread && isInbox;
         }).length;
         
-        console.log('Unread emails count (JS calculated):', count);
+        console.log(`Unread emails (Global Top 100 filtered for Account ${primaryAccountId.slice(0,4)}...):`, count);
         setUnreadCount(count);
       }
+
     } catch (error) {
       console.error('Failed to load unread emails count:', error);
     } finally {

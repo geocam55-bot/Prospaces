@@ -49,6 +49,8 @@ import { useTheme } from './ThemeProvider';
 import { useAISuggestions } from '../hooks/useAISuggestions';
 import { useUnreadEmails } from '../hooks/useUnreadEmails';
 import { useBidNotifications } from '../hooks/useBidNotifications';
+import { useTaskNotifications } from '../hooks/useTaskNotifications';
+import { useAppointmentNotifications } from '../hooks/useAppointmentNotifications';
 
 interface NavigationProps {
   user: UserType;
@@ -63,6 +65,8 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
   const { suggestions } = useAISuggestions(user);
   const { unreadCount } = useUnreadEmails(user);
   const { unreadCount: unreadBidsCount, markAsRead: markBidsRead } = useBidNotifications(user);
+  const { taskCount } = useTaskNotifications(user);
+  const { appointmentCount } = useAppointmentNotifications(user);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     'opportunities': false,
     'email': false,
@@ -542,6 +546,38 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
                 <FileText className="h-5 w-5 text-orange-600 animate-pulse" />
                 <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
                   {unreadBidsCount > 9 ? '9+' : unreadBidsCount}
+                </span>
+              </Button>
+            )}
+
+            {/* Task Notifications Icon */}
+            {taskCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                onClick={() => handleNavClick('tasks')}
+                title={`${taskCount} Pending Tasks`}
+              >
+                <CheckSquare className="h-5 w-5 text-green-600 animate-pulse" />
+                <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
+                  {taskCount > 9 ? '9+' : taskCount}
+                </span>
+              </Button>
+            )}
+
+            {/* Appointment Notifications Icon */}
+            {appointmentCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                onClick={() => handleNavClick('appointments')}
+                title={`${appointmentCount} Upcoming Appointments`}
+              >
+                <Calendar className="h-5 w-5 text-purple-600 animate-pulse" />
+                <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
+                  {appointmentCount > 9 ? '9+' : appointmentCount}
                 </span>
               </Button>
             )}
