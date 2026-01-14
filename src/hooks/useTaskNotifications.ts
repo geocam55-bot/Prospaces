@@ -14,13 +14,39 @@ export function useTaskNotifications(user: User) {
       const supabase = createClient();
       const channel = supabase
         .channel('task-notifications')
+        // Listen for INSERT and UPDATE where the user is assigned
         .on(
           'postgres_changes',
           {
-            event: '*',
+            event: 'INSERT',
             schema: 'public',
             table: 'tasks',
             filter: `assigned_to=eq.${user.id}`,
+          },
+          () => {
+            loadTaskCount();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'tasks',
+            filter: `assigned_to=eq.${user.id}`,
+          },
+          () => {
+            loadTaskCount();
+          }
+        )
+        // Listen for ANY DELETE because we can't filter by assigned_to on delete
+        // (assigned_to is not present in the delete payload without REPLICA IDENTITY FULL)
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'tasks',
           },
           () => {
             loadTaskCount();

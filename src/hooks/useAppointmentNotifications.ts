@@ -14,13 +14,39 @@ export function useAppointmentNotifications(user: User) {
       const supabase = createClient();
       const channel = supabase
         .channel('appointment-notifications')
+        // Listen for INSERT and UPDATE where the user is the owner
         .on(
           'postgres_changes',
           {
-            event: '*',
+            event: 'INSERT',
             schema: 'public',
             table: 'appointments',
             filter: `owner_id=eq.${user.id}`,
+          },
+          () => {
+            loadAppointmentCount();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'appointments',
+            filter: `owner_id=eq.${user.id}`,
+          },
+          () => {
+            loadAppointmentCount();
+          }
+        )
+        // Listen for ANY DELETE because we can't filter by owner_id on delete
+        // (owner_id is not present in the delete payload without REPLICA IDENTITY FULL)
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'appointments',
           },
           () => {
             loadAppointmentCount();

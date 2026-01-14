@@ -14,13 +14,39 @@ export function useUnreadEmails(user: User) {
       const supabase = createClient();
       const channel = supabase
         .channel('unread-emails-count')
+        // Listen for INSERT and UPDATE where the user is the owner
         .on(
           'postgres_changes',
           {
-            event: '*',
+            event: 'INSERT',
             schema: 'public',
             table: 'emails',
             filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            loadUnreadCount();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'emails',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => {
+            loadUnreadCount();
+          }
+        )
+        // Listen for ANY DELETE because we can't filter by user_id on delete
+        // (user_id is not present in the delete payload without REPLICA IDENTITY FULL)
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'emails',
           },
           () => {
             loadUnreadCount();
