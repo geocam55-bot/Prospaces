@@ -174,17 +174,15 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
         'Site visit and consultation scheduling',
         'Automated appointment reminders (SMS/Email)',
         'Crew availability and assignment tracking',
-        'Weather-dependent rescheduling alerts',
         'Job site location mapping and directions',
         'Inspection and walkthrough scheduling',
         'Recurring appointments (maintenance visits)',
-        'Travel time calculation between job sites',
         'Homeowner appointment confirmation tracking'
       ],
       benefits: [
         'Never double-book site visits or crews',
         'Reduce no-shows with automated reminders',
-        'Optimize crew schedules and travel routes',
+        'Optimize crew schedules',
         'Professional service with timely arrivals'
       ],
       useCases: [
@@ -194,7 +192,7 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
         },
         {
           title: 'Design Consultations',
-          description: 'Book in-home design meetings for kitchens, bathrooms, and additions with travel time optimization.'
+          description: 'Book in-home design meetings for kitchens, bathrooms, and additions.'
         },
         {
           title: 'Multi-Crew Coordination',
@@ -215,14 +213,12 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
       features: [
         'Building material inventory tracking',
         'Tool and equipment management',
-        'Multi-location stock tracking (warehouse, trucks, job sites)',
+        'Stock location tracking',
         'Low stock alerts for critical materials',
         'Product categorization (roofing, lumber, hardware, etc.)',
         'Supplier pricing and lead time tracking',
         'Material purchase order management',
-        'Job costing and material allocation',
-        'Seasonal inventory planning',
-        'Material waste and return tracking'
+        'Job costing and material allocation'
       ],
       benefits: [
         'Never run out of critical materials mid-job',
@@ -264,7 +260,6 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
         'Campaign performance analytics',
         'Email template library for contractors',
         'Lead nurturing sequences',
-        'Referral program automation',
         'ROI tracking per marketing channel'
       ],
       benefits: [

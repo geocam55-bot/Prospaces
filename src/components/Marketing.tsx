@@ -19,6 +19,7 @@ import { LeadScoring } from './marketing/LeadScoring';
 import { JourneyBuilder } from './marketing/JourneyBuilder';
 import { LandingPageBuilder } from './marketing/LandingPageBuilder';
 import { MarketingAnalytics } from './marketing/MarketingAnalytics';
+import { ReferralsTab } from './marketing/referrals/ReferralsTab';
 import type { User } from '../App';
 
 interface MarketingProps {
@@ -32,7 +33,7 @@ export function Marketing({ user }: MarketingProps) {
     <div className="p-6 space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-6">
+          <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-7">
             <TabsTrigger value="dashboard" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
               <BarChart3 className="h-4 w-4 flex-shrink-0" />
               <span className="text-xs sm:text-sm">Dashboard</span>
@@ -52,6 +53,10 @@ export function Marketing({ user }: MarketingProps) {
             <TabsTrigger value="pages" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
               <Globe className="h-4 w-4 flex-shrink-0" />
               <span className="text-xs sm:text-sm">Landing Pages</span>
+            </TabsTrigger>
+            <TabsTrigger value="referrals" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
+              <Users className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">Referrals</span>
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">
               <TrendingUp className="h-4 w-4 flex-shrink-0" />
@@ -78,6 +83,10 @@ export function Marketing({ user }: MarketingProps) {
 
         <TabsContent value="pages" className="mt-6">
           <LandingPageBuilder user={user} />
+        </TabsContent>
+
+        <TabsContent value="referrals" className="mt-6">
+          <ReferralsTab user={user} />
         </TabsContent>
 
         <TabsContent value="analytics" className="mt-6">
