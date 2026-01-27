@@ -129,7 +129,7 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
         referred_lead_email: newReferral.referred_lead_email,
         referred_lead_phone: newReferral.referred_lead_phone,
         notes: newReferral.notes,
-        status: 'pending'
+        status: 'new'
       });
 
       if (error) throw error;
@@ -413,26 +413,26 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
 
 function StatusSelect({ status, onChange }: { status: string, onChange: (s: string) => void }) {
   const styles: Record<string, string> = {
-    pending: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
-    qualified: 'bg-blue-100 text-blue-800 hover:bg-blue-200',
+    new: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
+    engaged: 'bg-blue-100 text-blue-800 hover:bg-blue-200',
     converted: 'bg-purple-100 text-purple-800 hover:bg-purple-200',
     reward_due: 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200',
     reward_paid: 'bg-green-100 text-green-800 hover:bg-green-200',
-    rejected: 'bg-red-100 text-red-800 hover:bg-red-200'
+    inactive: 'bg-red-100 text-red-800 hover:bg-red-200'
   };
 
   return (
     <Select value={status} onValueChange={onChange}>
-        <SelectTrigger className={`w-[130px] h-8 text-xs border-0 ${styles[status]}`}>
+        <SelectTrigger className={`w-[130px] h-8 text-xs border-0 ${styles[status] || styles.new}`}>
             <SelectValue />
         </SelectTrigger>
         <SelectContent>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="qualified">Qualified</SelectItem>
+            <SelectItem value="new">New Lead</SelectItem>
+            <SelectItem value="engaged">Engaged</SelectItem>
             <SelectItem value="converted">Converted</SelectItem>
             <SelectItem value="reward_due">Reward Due</SelectItem>
             <SelectItem value="reward_paid">Paid</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
         </SelectContent>
     </Select>
   );

@@ -12,7 +12,7 @@ export function ReferralSystemSetup({ onComplete }: { onComplete: () => void }) 
 ALTER TABLE contacts ADD COLUMN IF NOT EXISTS referral_code TEXT;
 CREATE INDEX IF NOT EXISTS idx_contacts_referral_code ON contacts(referral_code);
 
--- 2. Create referrals table
+-- 2. Create referrals table if it doesn't exist
 CREATE TABLE IF NOT EXISTS referrals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id TEXT NOT NULL,
@@ -21,35 +21,41 @@ CREATE TABLE IF NOT EXISTS referrals (
   referred_lead_name TEXT,
   referred_lead_email TEXT,
   referred_lead_phone TEXT,
-  status TEXT DEFAULT 'pending',
+  status TEXT DEFAULT 'new',
   reward_amount NUMERIC DEFAULT 0,
   reward_type TEXT DEFAULT 'cash',
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  CONSTRAINT referrals_status_check CHECK (status IN ('pending', 'qualified', 'converted', 'reward_due', 'reward_paid', 'rejected'))
+  CONSTRAINT referrals_status_check CHECK (status IN ('new', 'engaged', 'inactive', 'converted', 'reward_due', 'reward_paid'))
 );
 
--- Ensure organization_id is text (fix for potential schema mismatch if table already exists)
+-- 3. Drop existing policies to allow column modifications
+DROP POLICY IF EXISTS "Users can view their organization's referrals" ON referrals;
+DROP POLICY IF EXISTS "Users can insert their organization's referrals" ON referrals;
+DROP POLICY IF EXISTS "Users can update their organization's referrals" ON referrals;
+DROP POLICY IF EXISTS "Users can delete their organization's referrals" ON referrals;
+
+-- 4. Ensure organization_id is text (fix for potential schema mismatch if table already exists)
 ALTER TABLE referrals ALTER COLUMN organization_id TYPE TEXT;
 
--- 3. Enable RLS
+-- 5. Update status check constraint to match Marketing Audience Segments
+ALTER TABLE referrals DROP CONSTRAINT IF EXISTS referrals_status_check;
+ALTER TABLE referrals ADD CONSTRAINT referrals_status_check CHECK (status IN ('new', 'engaged', 'inactive', 'converted', 'reward_due', 'reward_paid'));
+
+-- 6. Enable RLS
 ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
 
--- 4. Create Policies (Drop first to ensure idempotency)
-DROP POLICY IF EXISTS "Users can view their organization's referrals" ON referrals;
+-- 7. Recreate Policies
 CREATE POLICY "Users can view their organization's referrals" ON referrals
   FOR SELECT USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
-DROP POLICY IF EXISTS "Users can insert their organization's referrals" ON referrals;
 CREATE POLICY "Users can insert their organization's referrals" ON referrals
   FOR INSERT WITH CHECK (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
-DROP POLICY IF EXISTS "Users can update their organization's referrals" ON referrals;
 CREATE POLICY "Users can update their organization's referrals" ON referrals
   FOR UPDATE USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 
-DROP POLICY IF EXISTS "Users can delete their organization's referrals" ON referrals;
 CREATE POLICY "Users can delete their organization's referrals" ON referrals
   FOR DELETE USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
 `;
