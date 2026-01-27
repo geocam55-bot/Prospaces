@@ -92,7 +92,7 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
     // Build query with server-side filtering
     let query = supabase
       .from('inventory')
-      .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, organization_id, created_at, updated_at', { count: 'exact' })
+      .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, image_url, organization_id, created_at, updated_at', { count: 'exact' })
       .eq('organization_id', organizationId);
     
     // ⚡ Enhanced server-side search with natural language support

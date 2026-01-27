@@ -103,6 +103,14 @@ export async function getAllInventoryClient() {
     const items = allData ? allData.map(mapInventoryItem) : [];
     console.log('✅ Mapped inventory items count:', items.length);
     console.log('✅ Sample mapped items (first 2):', items.slice(0, 2));
+    
+    // DEBUG: Check if any items have images
+    const itemsWithImages = items.filter((item: any) => item.imageUrl);
+    console.log('🖼️ Items with images:', itemsWithImages.length);
+    if (itemsWithImages.length > 0) {
+      console.log('🖼️ First item with image:', itemsWithImages[0]);
+    }
+    
     return { items };
   } catch (error: any) {
     console.error('❌ Error loading inventory:', error?.message || error);
@@ -328,9 +336,16 @@ export async function updateInventoryClient(id: string, itemData: any) {
       .single();
 
     if (error) throw error;
+    
+    // DEBUG: Verify the data was actually saved
+    console.log('🔍 Raw data returned from update:', data);
+    console.log('🔍 Does it have image_url?', 'image_url' in data, data.image_url);
 
     // Convert snake_case to camelCase and map to expected format
     const item = data ? mapInventoryItem(data) : null;
+    console.log('🔍 Mapped item:', item);
+    console.log('🔍 Does mapped item have imageUrl?', item?.imageUrl);
+    
     return { item };
   } catch (error: any) {
     console.error('Error updating inventory item:', error);
