@@ -729,6 +729,85 @@ app.get('/make-server-8405be07/bids/opportunity/:opportunityId', async (c) => {
 });
 
 // ============================================================================
+// IMAGE UPLOAD ROUTES
+// ============================================================================
+
+// Upload image to Supabase Storage
+app.post('/make-server-8405be07/upload-image', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const userData = await getUserData(user.id);
+    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+
+    // Ensure the bucket exists
+    const bucketName = 'make-8405be07-landing-pages';
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
+    
+    if (!bucketExists) {
+      await supabase.storage.createBucket(bucketName, {
+        public: false,
+        fileSizeLimit: 5242880, // 5MB
+      });
+    }
+
+    // Get the base64 image from request
+    const { imageData, fileName } = await c.req.json();
+    
+    if (!imageData) {
+      return c.json({ error: 'No image data provided' }, 400);
+    }
+
+    // Convert base64 to buffer
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+
+    // Generate unique file name
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substr(2, 9);
+    const fileExt = fileName?.split('.').pop() || 'png';
+    const uniqueFileName = `${organizationId}/${timestamp}-${randomStr}.${fileExt}`;
+
+    // Upload to storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(bucketName)
+      .upload(uniqueFileName, buffer, {
+        contentType: `image/${fileExt}`,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return c.json({ error: 'Failed to upload image: ' + uploadError.message }, 500);
+    }
+
+    // Get signed URL (valid for 1 year)
+    const { data: urlData, error: urlError } = await supabase.storage
+      .from(bucketName)
+      .createSignedUrl(uniqueFileName, 31536000); // 1 year in seconds
+
+    if (urlError) {
+      console.error('URL generation error:', urlError);
+      return c.json({ error: 'Failed to generate image URL: ' + urlError.message }, 500);
+    }
+
+    return c.json({ 
+      url: urlData.signedUrl,
+      path: uniqueFileName 
+    }, 201);
+  } catch (error) {
+    console.error('Image upload error:', error);
+    return c.json({ error: 'Failed to upload image: ' + error.message }, 500);
+  }
+});
+
+// ============================================================================
 // NOTES ROUTES
 // ============================================================================
 

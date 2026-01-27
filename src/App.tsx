@@ -293,7 +293,7 @@ function App() {
               {currentView === 'appointments' && <Appointments user={user} />}
               {currentView === 'documents' && <Documents user={user} />}
               {currentView === 'email' && <Email user={user} />}
-              {currentView === 'marketing' && <Marketing user={user} />}
+              {currentView === 'marketing' && <Marketing user={user} accessToken={session?.access_token} />}
               {currentView === 'inventory' && <Inventory user={user} />}
               {currentView === 'reports' && <Reports user={user} organization={organization} />}
               {currentView === 'team-dashboard' && <ManagerDashboard user={user} organization={organization} />}

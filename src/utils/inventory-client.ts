@@ -57,7 +57,7 @@ export async function getAllInventoryClient() {
     while (hasMore) {
       const batchQuery = supabase
         .from('inventory')
-        .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, organization_id, created_at, updated_at', { count: 'exact' })
+        .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, image_url, organization_id, created_at, updated_at', { count: 'exact' })
         .eq('organization_id', userOrgId)
         .order('name', { ascending: true })
         .range(offset, offset + batchSize - 1);
@@ -146,7 +146,7 @@ export async function searchInventoryClient(filters?: {
 
     let query = supabase
       .from('inventory')
-      .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, organization_id, created_at, updated_at');
+      .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, image_url, organization_id, created_at, updated_at');
 
     // Apply organization filter based on user's role
     // ALL roles should only see inventory from their own organization
@@ -252,6 +252,7 @@ export async function createInventoryClient(itemData: any) {
         : itemData.cost;
       cleanData.cost = Math.round(cost * 100);
     }
+    if (itemData.image_url !== undefined) cleanData.image_url = itemData.image_url;
 
     console.log('➕ Creating inventory item with clean data:', cleanData);
 
@@ -311,10 +312,13 @@ export async function updateInventoryClient(id: string, itemData: any) {
         : itemData.cost;
       cleanData.cost = Math.round(cost * 100);
     }
+    if (itemData.image_url !== undefined) cleanData.image_url = itemData.image_url;
     // Note: Cost field temporarily removed from update to avoid PGRST204 error
     // Will be re-enabled after database migration
 
     console.log('🔄 Updating inventory item with clean data:', cleanData);
+    console.log('🔍 Fields being updated:', Object.keys(cleanData));
+    console.log('🔍 image_url value:', cleanData.image_url);
 
     const { data, error } = await supabase
       .from('inventory')
@@ -415,6 +419,7 @@ export async function upsertInventoryBySKUClient(itemData: any) {
         : itemData.cost;
       cleanData.cost = Math.round(cost * 100);
     }
+    if (itemData.image_url !== undefined) cleanData.image_url = itemData.image_url;
     // Note: Cost field temporarily removed from upsert to avoid PGRST204 error
     // Will be re-enabled after database migration
 
@@ -426,7 +431,7 @@ export async function upsertInventoryBySKUClient(itemData: any) {
     if (itemData.sku) {
       const { data, error } = await supabase
         .from('inventory')
-        .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, organization_id, created_at, updated_at')
+        .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, image_url, organization_id, created_at, updated_at')
         .eq('sku', itemData.sku)
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: true }); // Oldest first
@@ -565,6 +570,7 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
           : itemData.cost;
         cleanData.cost = Math.round(cost * 100);
       }
+      if (itemData.image_url !== undefined) cleanData.image_url = itemData.image_url;
 
       return cleanData;
     });

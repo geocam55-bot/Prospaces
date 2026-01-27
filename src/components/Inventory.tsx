@@ -28,10 +28,16 @@ import {
   AlertCircle,
   Sparkles,
   Zap,
+  Upload,
+  Clipboard,
+  X,
+  Loader2,
 } from 'lucide-react';
 import { inventoryAPI } from '../utils/api';
 import type { User } from '../App';
 import { DatabaseInit } from './DatabaseInit';
+import { toast } from 'sonner@2.0.3';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { advancedSearch, getSearchSuggestions } from '../utils/advanced-search';
 import { InventorySearchHelp } from './InventorySearchHelp';
 import { useDebounce } from '../utils/useDebounce';
@@ -146,6 +152,9 @@ export function Inventory({ user }: InventoryProps) {
     status: 'active' as 'active' | 'inactive' | 'discontinued',
   });
 
+  // Access token for image uploads
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+
   // 🚀 Debounce search query for suggestions (300ms delay)
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   
@@ -153,6 +162,16 @@ export function Inventory({ user }: InventoryProps) {
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
   useEffect(() => {
+    // Get access token for image uploads
+    const getAccessToken = async () => {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        setAccessToken(session.access_token);
+      }
+    };
+    getAccessToken();
+    
     loadInventory();
   }, [currentPage, itemsPerPage, debouncedSearchQuery, categoryFilter, statusFilter]);
 
@@ -197,6 +216,7 @@ export function Inventory({ user }: InventoryProps) {
       priceTier5: unitPriceInDollars,
       status: 'active',
       tags: [],
+      imageUrl: dbItem.image_url || '',
       createdAt: dbItem.created_at || '',
       updatedAt: dbItem.updated_at || '',
     };
@@ -477,6 +497,80 @@ export function Inventory({ user }: InventoryProps) {
     setShowDialog(true);
   };
 
+  // Helper function to convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // Handle image upload from file
+  const handleImageUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (!accessToken) {
+      toast.error('Authentication required to upload images');
+      return;
+    }
+
+    const loadingToast = toast.loading('Uploading image...');
+
+    try {
+      // Convert file to base64
+      const base64 = await fileToBase64(file);
+      
+      // Upload to server
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData: base64,
+          fileName: file.name,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Upload failed');
+      }
+
+      const { url } = await response.json();
+      
+      // Update form data with permanent URL
+      setFormData(prev => ({ ...prev, imageUrl: url }));
+      toast.success('Image uploaded successfully', { id: loadingToast });
+    } catch (error) {
+      console.error('Failed to upload image:', error);
+      toast.error(`Failed to upload image: ${error.message}`, { id: loadingToast });
+    }
+  };
+
+  // Handle image paste
+  const handleImagePaste = async (event: React.ClipboardEvent) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        event.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) {
+          await handleImageUpload(file);
+        }
+        break;
+      }
+    }
+  };
+
   const handleSave = async () => {
     try {
       console.log('💾 [Inventory] handleSave - Starting save...');
@@ -503,6 +597,7 @@ export function Inventory({ user }: InventoryProps) {
         quantity: Number(formData.quantityOnHand) || 0,
         quantity_on_order: Number(formData.quantityOnOrder) || 0,
         unit_price: Number(formData.priceTier1) || 0,
+        image_url: formData.imageUrl || '',
       };
 
       console.log('💾 [Inventory] Item data to save:', itemData);
@@ -858,6 +953,21 @@ export function Inventory({ user }: InventoryProps) {
                 }>
                   <CardContent className="pt-6">
                     <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                      {/* Product Image */}
+                      <div className="w-full lg:w-32 h-32 flex-shrink-0">
+                        {item.imageUrl ? (
+                          <img 
+                            src={item.imageUrl} 
+                            alt={item.name} 
+                            className="w-full h-full object-contain rounded border bg-gray-50" 
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center rounded border bg-gray-100">
+                            <ImageIcon className="h-12 w-12 text-gray-300" />
+                          </div>
+                        )}
+                      </div>
+                      
                       {/* Left Section - Item Info */}
                       <div className="flex-1">
                         <div className="flex items-start justify-between">
@@ -1181,7 +1291,7 @@ export function Inventory({ user }: InventoryProps) {
 
       {/* Add/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onPaste={handleImagePaste}>
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
             <DialogDescription>
@@ -1446,6 +1556,68 @@ export function Inventory({ user }: InventoryProps) {
                     rows={3}
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Product Image */}
+            <div className="space-y-4">
+              <h3 className="text-sm text-gray-900">Product Image</h3>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <label className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file);
+                      }}
+                      className="hidden"
+                    />
+                    <Button 
+                      variant="outline" 
+                      className="w-full" 
+                      type="button" 
+                      onClick={(e) => {
+                        const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                        input?.click();
+                      }}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Image
+                    </Button>
+                  </label>
+                  <Button 
+                    variant="outline" 
+                    type="button"
+                    onClick={() => {
+                      toast.info('Press Ctrl+V (or Cmd+V on Mac) to paste an image');
+                    }}
+                    title="Paste image from clipboard"
+                  >
+                    <Clipboard className="h-4 w-4" />
+                  </Button>
+                </div>
+                {formData.imageUrl && (
+                  <div className="relative mt-2">
+                    <img 
+                      src={formData.imageUrl} 
+                      alt="Product" 
+                      className="w-full h-48 object-contain rounded border bg-gray-50" 
+                    />
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="absolute top-2 right-2"
+                      onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500">
+                  Upload an image or paste from clipboard (Ctrl+V / Cmd+V)
+                </p>
               </div>
             </div>
           </div>

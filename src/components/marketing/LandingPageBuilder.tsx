@@ -1,56 +1,56 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Textarea } from '../ui/textarea';
-import { Badge } from '../ui/badge';
-import { 
-  Plus, 
-  Globe,
-  Edit,
-  Copy,
-  Trash2,
-  MoreVertical,
-  Eye,
-  BarChart3,
-  Layout,
-  Type,
-  Image as ImageIcon,
-  Video,
-  FileText,
-  GripVertical,
-  Loader2,
-  X,
-  Package,
-  Search,
-  ShoppingCart,
-  DollarSign
-} from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import * as DialogPrimitive from '@radix-ui/react-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogPortal,
-  DialogOverlay,
-} from '../ui/dialog';
 import { toast } from 'sonner';
 import type { User } from '../../App';
 import { landingPagesAPI, inventoryAPI } from '../../utils/api';
 import { advancedSearch } from '../../utils/advanced-search';
 import { useDebounce } from '../../utils/useDebounce';
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
+import { Badge } from '../ui/badge';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle,
+  DialogOverlay,
+  DialogPortal
+} from '../ui/dialog';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '../ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { 
+  Plus, 
+  Globe, 
+  Edit, 
+  Trash2, 
+  Eye, 
+  BarChart3, 
+  MoreVertical, 
+  Loader2,
+  Type,
+  FileText,
+  Image as ImageIcon,
+  Video,
+  Layout,
+  Package,
+  Search,
+  X,
+  Upload,
+  Clipboard
+} from 'lucide-react';
 
 interface LandingPageBuilderProps {
   user: User;
+  accessToken?: string;
 }
 
 interface InventoryItem {
@@ -74,9 +74,20 @@ interface PageElement {
     alignment?: 'left' | 'center' | 'right';
     size?: string;
   };
+  products?: Array<{
+    id: string;
+    name: string;
+    sku?: string;
+    price: number;
+    image?: string;
+    description?: string;
+    additionalText?: string;
+  }>;
+  // Keep for backwards compatibility
   productData?: {
     id: string;
     name: string;
+    sku?: string;
     price: number;
     image?: string;
     description?: string;
@@ -92,7 +103,7 @@ interface PageSettings {
   trackingCode: string;
 }
 
-export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
+export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProps) {
   const [selectedPage, setSelectedPage] = useState<string | null>(null);
   const [landingPages, setLandingPages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,6 +111,7 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
 
   const [pageElements, setPageElements] = useState<PageElement[]>([]);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [editingProductIndexes, setEditingProductIndexes] = useState<Record<string, number>>({});
   const [pageSettings, setPageSettings] = useState<PageSettings>({
     title: '',
     slug: '',
@@ -346,6 +358,34 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
   };
 
   const handleAddProduct = (item: InventoryItem) => {
+    // Check if we're editing an existing product widget
+    if (selectedElement) {
+      const element = pageElements.find(el => el.id === selectedElement);
+      if (element && element.type === 'product' && element.products) {
+        const editingIndex = editingProductIndexes[selectedElement] || 0;
+        const updatedProducts = [...element.products];
+        updatedProducts[editingIndex] = {
+          id: item.id,
+          name: item.name,
+          sku: item.sku,
+          price: item.priceTier1 || 0,
+          image: item.imageUrl,
+          description: item.description,
+          additionalText: ''
+        };
+        
+        setPageElements(pageElements.map(el => 
+          el.id === selectedElement 
+            ? { ...el, products: updatedProducts }
+            : el
+        ));
+        setShowProductSelector(false);
+        toast.success(`Product ${editingIndex + 1} updated`);
+        return;
+      }
+    }
+    
+    // Creating a new product widget
     const newElement: PageElement = {
       id: `element-${Date.now()}`,
       type: 'product',
@@ -354,18 +394,40 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
         alignment: 'center',
         size: 'medium'
       },
-      productData: {
-        id: item.id,
-        name: item.name,
-        price: item.priceTier1 || 0,
-        image: item.imageUrl,
-        description: item.description,
-        additionalText: ''
-      }
+      products: [
+        {
+          id: item.id,
+          name: item.name,
+          sku: item.sku,
+          price: item.priceTier1 || 0,
+          image: item.imageUrl,
+          description: item.description,
+          additionalText: ''
+        },
+        {
+          id: `empty-${Date.now()}-1`,
+          name: 'Product 2',
+          sku: '',
+          price: 0,
+          image: '',
+          description: 'Add product description',
+          additionalText: ''
+        },
+        {
+          id: `empty-${Date.now()}-2`,
+          name: 'Product 3',
+          sku: '',
+          price: 0,
+          image: '',
+          description: 'Add product description',
+          additionalText: ''
+        }
+      ]
     };
+    console.log('Adding product with data:', newElement.products);
     setPageElements([...pageElements, newElement]);
     setShowProductSelector(false);
-    toast.success('Product added to page');
+    toast.success('Product widget added to page (3 products)');
   };
 
   const handleUpdateElement = (id: string, content: string) => {
@@ -374,8 +436,20 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
     ));
   };
   
-  const handleUpdateProductData = (id: string, field: keyof NonNullable<PageElement['productData']>, value: any) => {
+  const handleUpdateProductData = (id: string, field: string, value: any, productIndex: number = 0) => {
     setPageElements(pageElements.map(el => {
+      if (el.id === id && el.products) {
+        const updatedProducts = [...el.products];
+        updatedProducts[productIndex] = {
+          ...updatedProducts[productIndex],
+          [field]: value
+        };
+        return {
+          ...el,
+          products: updatedProducts
+        };
+      }
+      // Backwards compatibility with old productData structure
       if (el.id === id && el.productData) {
         return {
           ...el,
@@ -410,6 +484,80 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
     }
   };
 
+  // Helper function to convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // Handle product image upload from file
+  const handleProductImageUpload = async (elementId: string, file: File, productIndex: number = 0) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (!accessToken) {
+      toast.error('Authentication required to upload images');
+      return;
+    }
+
+    const loadingToast = toast.loading('Uploading image...');
+
+    try {
+      // Convert file to base64
+      const base64 = await fileToBase64(file);
+      
+      // Upload to server with user's access token
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData: base64,
+          fileName: file.name,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Upload failed');
+      }
+
+      const { url } = await response.json();
+      
+      // Update element with permanent URL
+      handleUpdateProductData(elementId, 'image', url, productIndex);
+      toast.success('Image uploaded successfully', { id: loadingToast });
+    } catch (error) {
+      console.error('Failed to upload image:', error);
+      toast.error(`Failed to upload image: ${error.message}`, { id: loadingToast });
+    }
+  };
+
+  // Handle product image paste
+  const handleProductImagePaste = async (elementId: string, event: React.ClipboardEvent, productIndex: number = 0) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        event.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) {
+          await handleProductImageUpload(elementId, file, productIndex);
+        }
+        break;
+      }
+    }
+  };
+
   const renderElement = (element: PageElement, isPreview: boolean = false) => {
     const isSelected = selectedElement === element.id;
     const alignment = element.styles?.alignment || 'center';
@@ -425,11 +573,24 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
         return (
           <div className={`${alignmentClass} ${!isPreview && 'cursor-pointer hover:bg-blue-50 p-4 rounded-lg transition-colors'} ${isSelected && !isPreview ? 'bg-blue-50 ring-2 ring-blue-500' : ''}`}>
             {!isPreview && isSelected ? (
-              <Input
-                value={element.content}
-                onChange={(e) => handleUpdateElement(element.id, e.target.value)}
-                className="text-3xl font-bold text-gray-900 text-center"
-              />
+              <div className="space-y-3">
+                <Input
+                  value={element.content}
+                  onChange={(e) => handleUpdateElement(element.id, e.target.value)}
+                  className="text-3xl font-bold text-gray-900 text-center"
+                />
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  className="w-full" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedElement(null);
+                  }}
+                >
+                  Done
+                </Button>
+              </div>
             ) : (
               <h1 className="text-4xl font-bold text-gray-900">{element.content}</h1>
             )}
@@ -440,12 +601,25 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
         return (
           <div className={`${alignmentClass} ${!isPreview && 'cursor-pointer hover:bg-blue-50 p-4 rounded-lg transition-colors'} ${isSelected && !isPreview ? 'bg-blue-50 ring-2 ring-blue-500' : ''}`}>
             {!isPreview && isSelected ? (
-              <Textarea
-                value={element.content}
-                onChange={(e) => handleUpdateElement(element.id, e.target.value)}
-                className="text-gray-700 min-h-24"
-                rows={4}
-              />
+              <div className="space-y-3">
+                <Textarea
+                  value={element.content}
+                  onChange={(e) => handleUpdateElement(element.id, e.target.value)}
+                  className="text-gray-700 min-h-24"
+                  rows={4}
+                />
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  className="w-full" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedElement(null);
+                  }}
+                >
+                  Done
+                </Button>
+              </div>
             ) : (
               <p className="text-lg text-gray-700">{element.content}</p>
             )}
@@ -463,6 +637,17 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                   placeholder="Image URL"
                 />
                 <img src={element.content} alt="Preview" className="w-full max-w-2xl mx-auto rounded-lg" />
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  className="w-full" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedElement(null);
+                  }}
+                >
+                  Done
+                </Button>
               </div>
             ) : (
               <img src={element.content} alt="Content" className="w-full max-w-2xl mx-auto rounded-lg" />
@@ -486,6 +671,17 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                 />
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  className="w-full" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedElement(null);
+                  }}
+                >
+                  Done
+                </Button>
               </div>
             ) : (
               <iframe
@@ -502,11 +698,24 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
         return (
           <div className={`${alignmentClass} ${!isPreview && 'cursor-pointer hover:bg-blue-50 p-4 rounded-lg transition-colors'} ${isSelected && !isPreview ? 'bg-blue-50 ring-2 ring-blue-500' : ''}`}>
             {!isPreview && isSelected ? (
-              <Input
-                value={element.content}
-                onChange={(e) => handleUpdateElement(element.id, e.target.value)}
-                className="text-center"
-              />
+              <div className="space-y-3">
+                <Input
+                  value={element.content}
+                  onChange={(e) => handleUpdateElement(element.id, e.target.value)}
+                  className="text-center"
+                />
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  className="w-full" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedElement(null);
+                  }}
+                >
+                  Done
+                </Button>
+              </div>
             ) : (
               <Button size="lg" className="text-lg px-8 py-6">{element.content}</Button>
             )}
@@ -518,12 +727,25 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
           <div className={`${alignmentClass} ${!isPreview && 'cursor-pointer hover:bg-blue-50 p-4 rounded-lg transition-colors'} ${isSelected && !isPreview ? 'bg-blue-50 ring-2 ring-blue-500' : ''}`}>
             <div className="max-w-md mx-auto space-y-4 p-6 bg-gray-50 rounded-lg">
               {!isPreview && isSelected ? (
-                <Input
-                  value={element.content}
-                  onChange={(e) => handleUpdateElement(element.id, e.target.value)}
-                  placeholder="Form title"
-                  className="text-center font-semibold"
-                />
+                <div className="space-y-3">
+                  <Input
+                    value={element.content}
+                    onChange={(e) => handleUpdateElement(element.id, e.target.value)}
+                    placeholder="Form title"
+                    className="text-center font-semibold"
+                  />
+                  <Button 
+                    size="sm"
+                    variant="outline"
+                    className="w-full" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedElement(null);
+                    }}
+                  >
+                    Done
+                  </Button>
+                </div>
               ) : (
                 <h3 className="text-xl font-semibold text-gray-900">{element.content}</h3>
               )}
@@ -534,20 +756,133 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
         );
 
       case 'product':
-        const productData = element.productData;
-        if (!productData) return null;
+        // Support both new products array and old productData for backwards compatibility
+        const products = element.products || (element.productData ? [element.productData] : []);
+        if (!products || products.length === 0) return null;
+        
+        const editingProductIndex = editingProductIndexes[element.id] || 0;
+        const productToEdit = products[editingProductIndex];
         
         return (
           <div className={`${alignmentClass} ${!isPreview && 'cursor-pointer hover:bg-blue-50 p-4 rounded-lg transition-colors'} ${isSelected && !isPreview ? 'bg-blue-50 ring-2 ring-blue-500' : ''}`}>
             {!isPreview && isSelected ? (
-               <div className="space-y-4 max-w-md mx-auto p-4 bg-white rounded border border-gray-200 shadow-sm text-left">
-                  <div className="font-medium text-center border-b pb-2 mb-2 text-gray-900">Editing Product</div>
+               <div 
+                 className="space-y-4 max-w-md mx-auto p-4 bg-white rounded border border-gray-200 shadow-sm text-left"
+                 onPaste={(e) => handleProductImagePaste(element.id, e, editingProductIndex)}
+               >
+                  <div className="font-medium text-center border-b pb-2 mb-2 text-gray-900">Editing Product Widget</div>
+                  
+                  {/* Product selector tabs */}
+                  {products.length > 1 && (
+                    <div className="flex gap-2 mb-4">
+                      {products.map((_, index) => (
+                        <Button
+                          key={index}
+                          size="sm"
+                          variant={editingProductIndex === index ? "default" : "outline"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingProductIndexes({
+                              ...editingProductIndexes,
+                              [element.id]: index
+                            });
+                          }}
+                          className="flex-1"
+                        >
+                          Product {index + 1}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div className="mb-4">
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowProductSelector(true);
+                      }}
+                    >
+                      <Search className="h-4 w-4 mr-2" />
+                      Select Product {products.length > 1 ? `${editingProductIndex + 1} ` : ''}from Inventory
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-gray-500">Product Image</label>
+                    <div className="flex gap-2">
+                      <label className="flex-1">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleProductImageUpload(element.id, file, editingProductIndex);
+                          }}
+                          className="hidden"
+                        />
+                        <Button variant="outline" className="w-full" type="button" onClick={(e) => {
+                          const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                          input?.click();
+                        }}>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload Image
+                        </Button>
+                      </label>
+                      <Button 
+                        variant="outline" 
+                        type="button"
+                        onClick={() => {
+                          toast.info('Press Ctrl+V (or Cmd+V on Mac) to paste an image');
+                        }}
+                        title="Paste image from clipboard"
+                      >
+                        <Clipboard className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {productToEdit.image && (
+                      <div className="relative mt-2">
+                        <img src={productToEdit.image} alt="Product" className="w-full h-32 object-contain rounded border bg-gray-50" />
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="absolute top-1 right-1"
+                          onClick={() => handleUpdateProductData(element.id, 'image', undefined, editingProductIndex)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-gray-500">Product Name</label>
                     <Input 
-                      value={productData.name} 
-                      onChange={(e) => handleUpdateProductData(element.id, 'name', e.target.value)}
+                      value={productToEdit.name} 
+                      onChange={(e) => handleUpdateProductData(element.id, 'name', e.target.value, editingProductIndex)}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-gray-500">Product Number (SKU)</label>
+                    <Input 
+                      value={productToEdit.sku || ''} 
+                      onChange={(e) => handleUpdateProductData(element.id, 'sku', e.target.value, editingProductIndex)}
+                      placeholder="Enter SKU"
+                      disabled
+                      className="bg-gray-50"
+                    />
+                    <p className="text-xs text-gray-400">SKU is set from inventory</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-gray-500">Description</label>
+                    <Textarea 
+                      value={productToEdit.description || ''} 
+                      onChange={(e) => handleUpdateProductData(element.id, 'description', e.target.value, editingProductIndex)}
+                      placeholder="Product description"
+                      rows={3}
                     />
                   </div>
                   
@@ -555,45 +890,77 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                     <label className="text-xs font-medium text-gray-500">Price ($)</label>
                     <Input 
                       type="number" 
-                      value={productData.price} 
-                      onChange={(e) => handleUpdateProductData(element.id, 'price', parseFloat(e.target.value))}
+                      value={productToEdit.price} 
+                      onChange={(e) => handleUpdateProductData(element.id, 'price', parseFloat(e.target.value), editingProductIndex)}
                     />
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-gray-500">Additional Text</label>
                     <Textarea 
-                      value={productData.additionalText || ''} 
-                      onChange={(e) => handleUpdateProductData(element.id, 'additionalText', e.target.value)}
+                      value={productToEdit.additionalText || ''} 
+                      onChange={(e) => handleUpdateProductData(element.id, 'additionalText', e.target.value, editingProductIndex)}
                       placeholder="Add specific details or promo text..."
                       rows={3}
                     />
                   </div>
+                  
+                  <div className="pt-4 border-t">
+                    <Button 
+                      className="w-full" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedElement(null);
+                      }}
+                    >
+                      Done Editing
+                    </Button>
+                  </div>
                </div>
             ) : (
-              <div className="max-w-sm mx-auto bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 text-left">
-                {productData.image ? (
-                  <div className="h-48 w-full bg-gray-100 relative">
-                     <img className="h-full w-full object-cover" src={productData.image} alt={productData.name} />
-                  </div>
-                ) : (
-                  <div className="h-48 w-full bg-gray-100 flex items-center justify-center">
-                    <Package className="h-12 w-12 text-gray-300" />
-                  </div>
-                )}
-                <div className="p-6">
-                  <div className="uppercase tracking-wide text-sm text-indigo-500 font-semibold">{productData.name}</div>
-                  <p className="mt-2 text-slate-500 text-sm line-clamp-3">{productData.description || 'No description available.'}</p>
-                  {productData.additionalText && (
-                    <div className="mt-4 p-3 bg-indigo-50 rounded text-gray-700 text-sm">
-                      {productData.additionalText}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-7xl mx-auto px-4">
+                {products.map((productData, index) => (
+                  <div key={index} className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 text-left hover:shadow-lg transition-shadow">
+                    {productData.image ? (
+                      <div className="h-48 w-full bg-gray-50 relative flex items-center justify-center">
+                         <img className="max-h-full max-w-full object-contain p-2" src={productData.image} alt={productData.name} />
+                      </div>
+                    ) : (
+                      <div className="h-48 w-full bg-gray-100 flex items-center justify-center">
+                        <Package className="h-12 w-12 text-gray-300" />
+                      </div>
+                    )}
+                    <div className="p-6">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="uppercase tracking-wide text-sm text-indigo-500 font-semibold">{productData.name}</div>
+                        {productData.sku ? (
+                          <div className="text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded font-mono whitespace-nowrap">
+                            #{productData.sku}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded italic">
+                            No SKU
+                          </div>
+                        )}
+                      </div>
+                      <p className="mt-2 text-slate-700 text-sm leading-relaxed">
+                        {productData.description || <span className="text-gray-400 italic">No description available</span>}
+                      </p>
+                      {productData.additionalText && (
+                        <div className="mt-4 p-3 bg-indigo-50 rounded text-gray-700 text-sm">
+                          {productData.additionalText}
+                        </div>
+                      )}
+                      <div className="mt-4 flex items-center justify-between">
+                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-lg shadow-md">
+                          <div className="text-xs font-medium opacity-90 uppercase tracking-wide">Price</div>
+                          <div className="text-3xl font-bold">${productData.price.toFixed(2)}</div>
+                        </div>
+                        <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">Buy Now</Button>
+                      </div>
                     </div>
-                  )}
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="text-2xl font-bold text-gray-900">${productData.price.toLocaleString()}</span>
-                    <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">Buy Now</Button>
                   </div>
-                </div>
+                ))}
               </div>
             )}
           </div>
@@ -944,7 +1311,7 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                             case 'Show Home Reveal':
                               newElements = [
                                 { id: `temp-${timestamp}-1`, type: 'heading', content: 'Visit Our New Luxury Show Home', styles: { alignment: 'center' } },
-                                { id: `temp-${timestamp}-2`, type: 'image', content: 'https://images.unsplash.com/photo-1758548157275-d939cf0f0e32?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBsdXh1cnklMjBraXRjaGVuJTIwcmVub3ZhdGlvbiUyMGJyaWdodHxlbnwxfHx8fDE3Njk0Nzg4MzF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral', styles: { alignment: 'center' } },
+                                { id: `temp-${timestamp}-2`, type: 'image', content: 'https://images.unsplash.com/photo-1758548157275-d939cf0f0e32?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBsdXh1cnklMjBraXRjaGVuJTIwcmVub3ZhdGlvbiUyMGJyaWdodxlbnwxfHx8fDE3Njk0Nzg4MzF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral', styles: { alignment: 'center' } },
                                 { id: `temp-${timestamp}-3`, type: 'paragraph', content: 'Experience the quality of our craftsmanship firsthand. Join us for the grand opening of the "Evergreen Estate" model home this weekend.', styles: { alignment: 'center' } },
                                 { id: `temp-${timestamp}-4`, type: 'button', content: 'Book a Private Tour', styles: { alignment: 'center' } },
                                 { id: `temp-${timestamp}-5`, type: 'video', content: 'https://www.youtube.com/embed/dQw4w9WgXcQ', styles: { alignment: 'center' } },
@@ -1057,8 +1424,8 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                     className="p-4 hover:bg-gray-50 cursor-pointer flex items-center justify-between group transition-colors"
                     onClick={() => handleAddProduct(item)}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 bg-gray-100 rounded-md overflow-hidden flex-shrink-0 border border-gray-200">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="h-16 w-16 bg-gray-100 rounded-md overflow-hidden flex-shrink-0 border border-gray-200">
                          {item.imageUrl ? (
                            <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
                          ) : (
@@ -1067,16 +1434,19 @@ export function LandingPageBuilder({ user }: LandingPageBuilderProps) {
                            </div>
                          )}
                       </div>
-                      <div>
+                      <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{item.name}</h4>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <span className="bg-gray-100 px-1.5 py-0.5 rounded text-xs">{item.sku}</span>
+                        <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5">
+                          <span className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono">{item.sku}</span>
                           <span>•</span>
                           <span>{item.category}</span>
                         </div>
+                        {item.description && (
+                          <p className="text-sm text-gray-600 mt-1.5 line-clamp-2">{item.description}</p>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right ml-4 flex-shrink-0">
                       <div className="font-bold text-gray-900 text-lg">${(item.priceTier1 || 0).toLocaleString()}</div>
                       <div className={`text-xs ${item.quantityOnHand > 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {item.quantityOnHand > 0 ? `${item.quantityOnHand} in stock` : 'Out of stock'}

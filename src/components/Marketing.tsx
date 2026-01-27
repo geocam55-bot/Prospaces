@@ -24,9 +24,10 @@ import type { User } from '../App';
 
 interface MarketingProps {
   user: User;
+  accessToken?: string;
 }
 
-export function Marketing({ user }: MarketingProps) {
+export function Marketing({ user, accessToken }: MarketingProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
@@ -82,7 +83,7 @@ export function Marketing({ user }: MarketingProps) {
         </TabsContent>
 
         <TabsContent value="pages" className="mt-6">
-          <LandingPageBuilder user={user} />
+          <LandingPageBuilder user={user} accessToken={accessToken} />
         </TabsContent>
 
         <TabsContent value="referrals" className="mt-6">
