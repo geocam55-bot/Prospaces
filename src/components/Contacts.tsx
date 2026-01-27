@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
-import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, MapPin, Eye, Target } from 'lucide-react';
+import { Badge } from './ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, MapPin, Eye, Target, X, Tag } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +20,8 @@ import { PermissionGate, PermissionButton } from './PermissionGate';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { ContactDetail } from './ContactDetail';
 import { useDebounce } from '../utils/useDebounce';
+import { useAudienceSegments } from '../hooks/useAudienceSegments';
+import { TagSelector } from './TagSelector';
 
 interface Contact {
   id: string;
@@ -39,6 +43,7 @@ interface Contact {
   lyrGpPercent?: number;
   address?: string;
   notes?: string;
+  tags?: string[];
 }
 
 interface ProjectManager {
@@ -71,6 +76,14 @@ export function Contacts({ user }: ContactsProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
   
+  // Load predefined audience segments
+  const { segments: audienceSegments } = useAudienceSegments(user.organizationId);
+  
+  // Tags state
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string>('all');
+  const [tagInput, setTagInput] = useState('');
+  const [editTagInput, setEditTagInput] = useState('');
+  
   // Form state
   const [isSaving, setIsSaving] = useState(false);
   const [newContact, setNewContact] = useState({
@@ -84,6 +97,7 @@ export function Contacts({ user }: ContactsProps) {
     accountOwnerNumber: user.email || '', // Default to logged in user's email
     address: '',
     notes: '',
+    tags: [] as string[],
     ptdSales: '',
     ptdGpPercent: '',
     ytdSales: '',
@@ -167,18 +181,30 @@ export function Contacts({ user }: ContactsProps) {
 
   // ⚡ Performance: Memoize filtered contacts to avoid re-filtering on every render
   const filteredContacts = useMemo(() => {
-    const query = debouncedSearchQuery.toLowerCase().trim();
-    if (!query) return contacts;
+    let filtered = contacts;
     
-    // 🔍 Enhanced search: search across multiple fields
-    return contacts.filter(contact =>
-      (contact.name || '').toLowerCase().includes(query) ||
-      (contact.email || '').toLowerCase().includes(query) ||
-      (contact.company || '').toLowerCase().includes(query) ||
-      (contact.phone || '').includes(query) ||
-      (contact.status || '').toLowerCase().includes(query)
-    );
-  }, [contacts, debouncedSearchQuery]);
+    // Filter by tag
+    if (selectedTagFilter && selectedTagFilter !== 'all') {
+      filtered = filtered.filter(contact => 
+        contact.tags && contact.tags.includes(selectedTagFilter)
+      );
+    }
+    
+    // Filter by search query
+    const query = debouncedSearchQuery.toLowerCase().trim();
+    if (query) {
+      filtered = filtered.filter(contact =>
+        (contact.name || '').toLowerCase().includes(query) ||
+        (contact.email || '').toLowerCase().includes(query) ||
+        (contact.company || '').toLowerCase().includes(query) ||
+        (contact.phone || '').includes(query) ||
+        (contact.status || '').toLowerCase().includes(query) ||
+        (contact.tags || []).some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+    
+    return filtered;
+  }, [contacts, debouncedSearchQuery, selectedTagFilter]);
 
   // ⚡ Performance: Paginate filtered contacts - only render current page
   const paginatedContacts = useMemo(() => {
@@ -188,6 +214,54 @@ export function Contacts({ user }: ContactsProps) {
 
   // Calculate total pages
   const totalPages = Math.ceil(filteredContacts.length / itemsPerPage);
+  
+  // Get all unique tags from contacts
+  const allTags = useMemo(() => {
+    const tagsSet = new Set<string>();
+    contacts.forEach(contact => {
+      if (contact.tags && Array.isArray(contact.tags)) {
+        contact.tags.forEach(tag => tagsSet.add(tag));
+      }
+    });
+    return Array.from(tagsSet).sort();
+  }, [contacts]);
+  
+  // Tag management functions
+  const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && tagInput.trim()) {
+      e.preventDefault();
+      const trimmedTag = tagInput.trim();
+      if (!newContact.tags.includes(trimmedTag)) {
+        setNewContact({ ...newContact, tags: [...newContact.tags, trimmedTag] });
+      }
+      setTagInput('');
+    }
+  };
+  
+  const handleRemoveTag = (tagToRemove: string) => {
+    setNewContact({ ...newContact, tags: newContact.tags.filter(tag => tag !== tagToRemove) });
+  };
+  
+  const handleAddEditTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && editTagInput.trim() && editingContact) {
+      e.preventDefault();
+      const trimmedTag = editTagInput.trim();
+      const currentTags = editingContact.tags || [];
+      if (!currentTags.includes(trimmedTag)) {
+        setEditingContact({ ...editingContact, tags: [...currentTags, trimmedTag] });
+      }
+      setEditTagInput('');
+    }
+  };
+  
+  const handleRemoveEditTag = (tagToRemove: string) => {
+    if (editingContact) {
+      setEditingContact({ 
+        ...editingContact, 
+        tags: (editingContact.tags || []).filter(tag => tag !== tagToRemove) 
+      });
+    }
+  };
 
   // Reset to page 1 when search query changes
   useEffect(() => {
@@ -210,6 +284,7 @@ export function Contacts({ user }: ContactsProps) {
         accountOwnerNumber: newContact.accountOwnerNumber,
         address: newContact.address,
         notes: newContact.notes,
+        tags: newContact.tags,
         ptdSales: newContact.ptdSales ? parseFloat(newContact.ptdSales) : undefined,
         ptdGpPercent: newContact.ptdGpPercent ? parseFloat(newContact.ptdGpPercent) : undefined,
         ytdSales: newContact.ytdSales ? parseFloat(newContact.ytdSales) : undefined,
@@ -220,7 +295,8 @@ export function Contacts({ user }: ContactsProps) {
       
       const { contact } = await contactsAPI.create(contactData);
       setContacts([...contacts, contact]);
-      setNewContact({ name: '', email: '', phone: '', company: '', status: 'Prospect', priceLevel: 'Retail', legacyNumber: '', accountOwnerNumber: user.email || '', address: '', notes: '', ptdSales: '', ptdGpPercent: '', ytdSales: '', ytdGpPercent: '', lyrSales: '', lyrGpPercent: '' });
+      setNewContact({ name: '', email: '', phone: '', company: '', status: 'Prospect', priceLevel: 'Retail', legacyNumber: '', accountOwnerNumber: user.email || '', address: '', notes: '', tags: [], ptdSales: '', ptdGpPercent: '', ytdSales: '', ytdGpPercent: '', lyrSales: '', lyrGpPercent: '' });
+      setTagInput('');
       setIsAddDialogOpen(false);
     } catch (error: any) {
       console.error('Failed to create contact:', error);
@@ -260,6 +336,7 @@ export function Contacts({ user }: ContactsProps) {
         accountOwnerNumber: editingContact.accountOwnerNumber,
         address: editingContact.address,
         notes: editingContact.notes,
+        tags: editingContact.tags,
         ptdSales: editingContact.ptdSales,
         ptdGpPercent: editingContact.ptdGpPercent,
         ytdSales: editingContact.ytdSales,
@@ -470,6 +547,13 @@ export function Contacts({ user }: ContactsProps) {
                   placeholder="Optional"
                 />
               </div>
+              <TagSelector
+                label="Tags (for segmentation)"
+                tags={editingContact?.tags || []}
+                availableTags={audienceSegments}
+                onTagsChange={(tags) => setEditingContact(editingContact ? { ...editingContact, tags } : null)}
+                htmlFor="edit-tags"
+              />
               <div className="space-y-2">
                 <Label htmlFor="edit-ptdSales">PTD Sales</Label>
                 <Input
@@ -668,6 +752,13 @@ export function Contacts({ user }: ContactsProps) {
                       placeholder="Optional"
                     />
                   </div>
+                  <TagSelector
+                    label="Tags (for segmentation)"
+                    tags={newContact.tags}
+                    availableTags={audienceSegments}
+                    onTagsChange={(tags) => setNewContact({ ...newContact, tags })}
+                    htmlFor="tags"
+                  />
                   <div className="space-y-2">
                     <Label htmlFor="ptdSales">PTD Sales</Label>
                     <Input
@@ -751,15 +842,44 @@ export function Contacts({ user }: ContactsProps) {
         <Card>
           <CardHeader>
             <div className="space-y-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search contacts by name, email, company, phone, or status..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search contacts by name, email, company, phone, or status..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={selectedTagFilter} onValueChange={setSelectedTagFilter}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Filter by tag" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Contacts</SelectItem>
+                    {allTags.map((tag) => (
+                      <SelectItem key={tag} value={tag}>
+                        {tag}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              {selectedTagFilter && selectedTagFilter !== 'all' && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    <Tag className="h-3 w-3" />
+                    Filtered by: {selectedTagFilter}
+                    <button
+                      onClick={() => setSelectedTagFilter('all')}
+                      className="ml-1 hover:text-red-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -775,6 +895,7 @@ export function Contacts({ user }: ContactsProps) {
                     <th className="text-left py-3 px-4 text-sm text-gray-600">Account Owner</th>
                     <th className="text-left py-3 px-4 text-sm text-gray-600">Status</th>
                     <th className="text-left py-3 px-4 text-sm text-gray-600">Price Level</th>
+                    <th className="text-left py-3 px-4 text-sm text-gray-600">Tags</th>
                     <th className="text-left py-3 px-4 text-sm text-gray-600">Created</th>
                   </tr>
                 </thead>
@@ -890,6 +1011,19 @@ export function Contacts({ user }: ContactsProps) {
                         </span>
                       </td>
                       <td className="py-3 px-4">
+                        <div className="flex flex-wrap gap-1">
+                          {contact.tags && contact.tags.length > 0 ? (
+                            contact.tags.map((tag) => (
+                              <Badge key={tag} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
                         <span className="text-sm text-gray-600">
                           {contact.createdAt ? new Date(contact.createdAt).toLocaleDateString('en-US', {
                             month: 'short',
@@ -902,7 +1036,7 @@ export function Contacts({ user }: ContactsProps) {
                   ))}
                   {filteredContacts.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-gray-500">
+                      <td colSpan={10} className="py-8 text-center text-gray-500">
                         No contacts found
                       </td>
                     </tr>
@@ -1079,6 +1213,13 @@ export function Contacts({ user }: ContactsProps) {
                 placeholder="Optional"
               />
             </div>
+            <TagSelector
+              label="Tags (for segmentation)"
+              tags={editingContact?.tags || []}
+              availableTags={audienceSegments}
+              onTagsChange={(tags) => setEditingContact(editingContact ? { ...editingContact, tags } : null)}
+              htmlFor="edit-tags-2"
+            />
             <div className="space-y-2">
               <Label htmlFor="edit-ptdSales">PTD Sales</Label>
               <Input

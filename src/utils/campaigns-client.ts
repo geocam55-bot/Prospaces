@@ -145,3 +145,40 @@ export async function deleteCampaignClient(id: string) {
     throw error;
   }
 }
+
+export async function sendCampaignClient(id: string) {
+  try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      throw new Error('User not authenticated');
+    }
+
+    const profile = await ensureUserProfile(session.user.id);
+    
+    // Get project ID from Supabase URL
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const projectId = supabaseUrl.split('//')[1].split('.')[0];
+
+    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/campaigns/${id}/send`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to send campaign');
+    }
+
+    console.log('✅ Campaign sent:', result);
+    return result;
+  } catch (error: any) {
+    console.error('Error sending campaign:', error);
+    throw error;
+  }
+}

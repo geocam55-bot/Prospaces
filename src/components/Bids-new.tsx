@@ -624,7 +624,7 @@ export function Bids({ user }: BidsProps) {
                         className="mb-2"
                       />
                     </div>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {filteredProjectManagers.map(pm => (
                       <SelectItem key={pm.id} value={pm.id}>
                         {pm.name}{pm.email ? ` (${pm.email})` : ''}

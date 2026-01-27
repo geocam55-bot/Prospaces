@@ -22,6 +22,7 @@ export interface OrganizationSettings {
   default_price_level: string;
   quote_terms: string;
   organization_name?: string;
+  audience_segments?: string[]; // Marketing audience segments
   created_at?: string;
   updated_at?: string;
 }

@@ -1,36 +1,18 @@
-import { getAllContactsClient, createContactClient, updateContactClient, deleteContactClient, claimUnassignedContactsClient, upsertContactByLegacyNumberClient } from './contacts-client';
-import { diagnoseContactsRLS } from './contacts-diagnostic';
-import { getAllUsersClient, inviteUserClient, updateUserClient, deleteUserClient, resetPasswordClient } from './users-client';
-import { getAllBidsClient, getBidsByOpportunityClient, createBidClient, updateBidClient, deleteBidClient, fixBidOrganizationIds } from './bids-client';
+import { createClient } from './supabase/client';
+import { getAllCampaignsClient, createCampaignClient, updateCampaignClient, deleteCampaignClient, sendCampaignClient } from './campaigns-client';
 import { getAllQuotesClient, getQuotesByOpportunityClient, createQuoteClient, updateQuoteClient, deleteQuoteClient, getQuoteTrackingStatusClient } from './quotes-client';
-import { getAllAppointmentsClient, createAppointmentClient, deleteAppointmentClient } from './appointments-client';
-import { getAllTasksClient, createTaskClient, updateTaskClient, deleteTaskClient } from './tasks-client';
-import { getAllNotesClient, createNoteClient, deleteNoteClient } from './notes-client';
 import { getAllInventoryClient, createInventoryClient, updateInventoryClient, deleteInventoryClient, upsertInventoryBySKUClient, bulkUpsertInventoryBySKUClient, searchInventoryClient } from './inventory-client';
 import { getAllOpportunitiesClient, getOpportunitiesByCustomerClient, createOpportunityClient, updateOpportunityClient, deleteOpportunityClient } from './opportunities-client';
-import { getAllCampaignsClient, createCampaignClient, updateCampaignClient, deleteCampaignClient } from './campaigns-client';
-import { 
-  getJourneys, createJourney, updateJourney, deleteJourney,
-  getLandingPages, createLandingPage, updateLandingPage, deleteLandingPage,
-  getLeadScores, updateLeadScore, getScoringRules, createScoringRule, updateScoringRule, deleteScoringRule,
-  getLeadScoreStats
-} from './marketing-client';
-import { 
-  getAllProjectManagersClient, 
-  getProjectManagersByCustomerClient, 
-  createProjectManagerClient, 
-  updateProjectManagerClient, 
-  deleteProjectManagerClient 
-} from './project-managers-client';
-import { 
-  getUserPreferencesClient, 
-  upsertUserPreferencesClient, 
-  getOrganizationSettingsClient, 
-  upsertOrganizationSettingsClient,
-  updateOrganizationNameClient,
-  updateUserProfileClient
-} from './settings-client';
-import { createClient } from './supabase/client';
+import { getAllProjectManagersClient, getProjectManagersByCustomerClient, createProjectManagerClient, updateProjectManagerClient, deleteProjectManagerClient } from './project-managers-client';
+import { getAllContactsClient, createContactClient, updateContactClient, deleteContactClient, claimUnassignedContactsClient, upsertContactByLegacyNumberClient, getSegmentsClient } from './contacts-client';
+import { diagnoseContactsRLS } from './contacts-diagnostic';
+import { getAllUsersClient, inviteUserClient, updateUserClient, deleteUserClient, resetPasswordClient } from './users-client';
+import { getAllAppointmentsClient, createAppointmentClient, deleteAppointmentClient } from './appointments-client';
+import { getAllBidsClient, getBidsByOpportunityClient, createBidClient, updateBidClient, deleteBidClient, fixBidOrganizationIds } from './bids-client';
+import { getAllTasksClient, createTaskClient, updateTaskClient, deleteTaskClient } from './tasks-client';
+import { getAllNotesClient, createNoteClient, deleteNoteClient } from './notes-client';
+import { getUserPreferencesClient, upsertUserPreferencesClient, getOrganizationSettingsClient, upsertOrganizationSettingsClient, updateOrganizationNameClient, updateUserProfileClient } from './settings-client';
+import { getJourneys, createJourney, updateJourney, deleteJourney, getLandingPages, createLandingPage, updateLandingPage, deleteLandingPage, getLeadScores, updateLeadScore, getScoringRules, createScoringRule, updateScoringRule, deleteScoringRule, getLeadScoreStats } from './marketing-client';
 
 const supabase = createClient();
 
@@ -112,16 +94,6 @@ export const authAPI = {
     
     return { session, user: null };
   },
-};
-
-// Quotes APIs - use direct Supabase client
-export const quotesAPI = {
-  getAll: () => getAllQuotesClient(),
-  getQuotesByOpportunity: (opportunityId: string) => getQuotesByOpportunityClient(opportunityId),
-  getTrackingStatus: () => getQuoteTrackingStatusClient(),
-  create: (data: any) => createQuoteClient(data),
-  update: (id: string, data: any) => updateQuoteClient(id, data),
-  delete: (id: string) => deleteQuoteClient(id),
 };
 
 // Security APIs - use direct Supabase client
@@ -665,6 +637,7 @@ export const contactsAPI = {
   claimUnassigned: () => claimUnassignedContactsClient(),
   upsertByLegacyNumber: (data: any) => upsertContactByLegacyNumberClient(data),
   diagnoseRLS: () => diagnoseContactsRLS(),
+  getSegments: () => getSegmentsClient(),
 };
 
 // Users APIs - use direct Supabase client
@@ -724,6 +697,17 @@ export const campaignsAPI = {
   create: (data: any) => createCampaignClient(data),
   update: (id: string, data: any) => updateCampaignClient(id, data),
   delete: (id: string) => deleteCampaignClient(id),
+  send: (id: string) => sendCampaignClient(id),
+};
+
+// Quotes APIs - use direct Supabase client
+export const quotesAPI = {
+  getAll: () => getAllQuotesClient(),
+  getByOpportunity: (opportunityId: string) => getQuotesByOpportunityClient(opportunityId),
+  create: (data: any) => createQuoteClient(data),
+  update: (id: string, data: any) => updateQuoteClient(id, data),
+  delete: (id: string) => deleteQuoteClient(id),
+  getTrackingStatus: (id: string) => getQuoteTrackingStatusClient(id),
 };
 
 // Journeys APIs

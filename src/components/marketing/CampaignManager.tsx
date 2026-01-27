@@ -1,44 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Label } from '../ui/label';
-import { Input } from '../ui/input';
-import { Textarea } from '../ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
-import { 
-  Plus, 
-  Mail, 
-  MessageSquare, 
-  Facebook, 
-  Instagram,
-  Play,
-  Pause,
-  Copy,
-  Trash2,
-  MoreVertical,
-  Calendar,
-  Users,
-  TrendingUp,
-  Edit
-} from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
+import { Plus, Mail, MessageSquare, Facebook, Instagram, MoreVertical, Edit, Pause, Play, Copy, Trash2, BarChart, Send } from 'lucide-react';
 import { campaignsAPI } from '../../utils/api';
 import { toast } from 'sonner';
 import type { User } from '../../App';
+import { getLandingPages } from '../../utils/marketing-client';
+import { contactsAPI } from '../../utils/api';
+import { CampaignAnalytics } from './CampaignAnalytics';
+import { useAudienceSegments } from '../../hooks/useAudienceSegments';
 
 interface CampaignManagerProps {
   user: User;
@@ -47,13 +25,22 @@ interface CampaignManagerProps {
 export function CampaignManager({ user }: CampaignManagerProps) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isABTestDialogOpen, setIsABTestDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAnalyticsDialogOpen, setIsAnalyticsDialogOpen] = useState(false);
   const [selectedCampaignType, setSelectedCampaignType] = useState('email');
   const [isCreating, setIsCreating] = useState(false);
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [editingCampaign, setEditingCampaign] = useState<any | null>(null);
+  const [viewingCampaign, setViewingCampaign] = useState<any | null>(null);
+  const [landingPages, setLandingPages] = useState<any[]>([]);
+  
+  // Load predefined audience segments from Settings
+  const { segments: customerSegments } = useAudienceSegments(user.organizationId);
   
   // Form state
   const [campaignName, setCampaignName] = useState('');
   const [audienceSegment, setAudienceSegment] = useState('');
+  const [selectedLandingPage, setSelectedLandingPage] = useState('');
   const [subjectLine, setSubjectLine] = useState('');
   const [previewText, setPreviewText] = useState('');
   const [emailContent, setEmailContent] = useState('');
@@ -63,15 +50,27 @@ export function CampaignManager({ user }: CampaignManagerProps) {
   // Load campaigns on mount
   useEffect(() => {
     loadCampaigns();
+    loadLandingPages();
   }, []);
 
   const loadCampaigns = async () => {
     try {
       const { campaigns: data } = await campaignsAPI.getAll();
+      console.log('📊 Loaded campaigns:', data);
       setCampaigns(data || []);
     } catch (error) {
       console.error('Error loading campaigns:', error);
       toast.error('Failed to load campaigns');
+    }
+  };
+
+  const loadLandingPages = async () => {
+    try {
+      const pages = await getLandingPages();
+      setLandingPages(pages || []);
+    } catch (error) {
+      console.error('Error loading landing pages:', error);
+      toast.error('Failed to load landing pages');
     }
   };
 
@@ -88,6 +87,14 @@ export function CampaignManager({ user }: CampaignManagerProps) {
         type: selectedCampaignType,
         status: scheduleType === 'now' ? 'active' : 'scheduled',
         description: emailContent || previewText,
+        audience_segment: audienceSegment || 'all',
+        // Don't send landing_page_id - it's stored in KV store with non-UUID IDs
+        // Store the landing page reference in description or a separate field later
+        // landing_page_id: selectedLandingPage || null,
+        // Note: subject_line and preview_text stored in description for now
+        // TODO: Uncomment after Supabase schema cache refresh
+        // subject_line: subjectLine,
+        // preview_text: previewText,
         start_date: scheduleType === 'schedule' && scheduleDateTime ? new Date(scheduleDateTime).toISOString() : new Date().toISOString(),
       };
 
@@ -98,6 +105,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
       // Reset form
       setCampaignName('');
       setAudienceSegment('');
+      setSelectedLandingPage('');
       setSubjectLine('');
       setPreviewText('');
       setEmailContent('');
@@ -118,6 +126,131 @@ export function CampaignManager({ user }: CampaignManagerProps) {
     setIsABTestDialogOpen(true);
   };
 
+  const handleEditCampaign = (campaign: any) => {
+    setEditingCampaign(campaign);
+    setCampaignName(campaign.name);
+    setEmailContent(campaign.description || '');
+    setSelectedCampaignType(campaign.type || 'email');
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateCampaign = async () => {
+    if (!editingCampaign || !campaignName.trim()) {
+      toast.error('Please enter a campaign name');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const campaignData = {
+        name: campaignName,
+        type: selectedCampaignType,
+        description: emailContent || previewText,
+      };
+
+      await campaignsAPI.update(editingCampaign.id, campaignData);
+      toast.success('Campaign updated successfully!');
+      setIsEditDialogOpen(false);
+      
+      // Reset form
+      setCampaignName('');
+      setEmailContent('');
+      setEditingCampaign(null);
+      
+      // Reload campaigns
+      await loadCampaigns();
+    } catch (error: any) {
+      console.error('Error updating campaign:', error);
+      toast.error(error.message || 'Failed to update campaign');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleToggleStatus = async (campaign: any) => {
+    try {
+      const newStatus = campaign.status === 'Active' ? 'Paused' : 'Active';
+      await campaignsAPI.update(campaign.id, { status: newStatus });
+      toast.success(`Campaign ${newStatus === 'Active' ? 'activated' : 'paused'} successfully!`);
+      await loadCampaigns();
+    } catch (error: any) {
+      console.error('Error toggling campaign status:', error);
+      toast.error(error.message || 'Failed to update campaign status');
+    }
+  };
+
+  const handleDuplicateCampaign = async (campaign: any) => {
+    try {
+      const duplicatedData = {
+        name: `${campaign.name} (Copy)`,
+        type: campaign.type,
+        status: 'Paused',
+        description: campaign.description,
+        start_date: new Date().toISOString(),
+      };
+      await campaignsAPI.create(duplicatedData);
+      toast.success('Campaign duplicated successfully!');
+      await loadCampaigns();
+    } catch (error: any) {
+      console.error('Error duplicating campaign:', error);
+      toast.error(error.message || 'Failed to duplicate campaign');
+    }
+  };
+
+  const handleDeleteCampaign = async (campaign: any) => {
+    if (!confirm(`Are you sure you want to delete "${campaign.name}"? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      await campaignsAPI.delete(campaign.id);
+      toast.success('Campaign deleted successfully!');
+      await loadCampaigns();
+    } catch (error: any) {
+      console.error('Error deleting campaign:', error);
+      toast.error(error.message || 'Failed to delete campaign');
+    }
+  };
+
+  const handleSendCampaign = async (campaign: any) => {
+    const segment = campaign.audience_segment || 'all';
+    const confirmMessage = segment === 'all' 
+      ? `Are you sure you want to send "${campaign.name}" to ALL contacts in your organization?`
+      : `Are you sure you want to send "${campaign.name}" to all contacts with the "${segment}" tag?`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+    
+    try {
+      toast.info('Sending campaign...');
+      const result = await campaignsAPI.send(campaign.id);
+      
+      toast.success(
+        `Campaign sent successfully! ${result.sent} emails sent to: ${result.sentTo.join(', ')}`,
+        { duration: 8000 }
+      );
+      
+      if (result.failed > 0) {
+        toast.warning(
+          `${result.failed} emails failed to send. Check console for details.`,
+          { duration: 5000 }
+        );
+        console.warn('Failed contacts:', result.failedContacts);
+      }
+      
+      await loadCampaigns();
+    } catch (error: any) {
+      console.error('Error sending campaign:', error);
+      toast.error(error.message || 'Failed to send campaign');
+    }
+  };
+
+  const handleViewAnalytics = (campaign: any) => {
+    setViewingCampaign(campaign);
+    setIsAnalyticsDialogOpen(true);
+  };
+
   const getChannelIcon = (channel: string) => {
     switch (channel) {
       case 'email':
@@ -134,7 +267,10 @@ export function CampaignManager({ user }: CampaignManagerProps) {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    // Normalize status to handle lowercase
+    const normalizedStatus = status?.charAt(0).toUpperCase() + status?.slice(1).toLowerCase();
+    
+    switch (normalizedStatus) {
       case 'Active':
         return 'bg-green-100 text-green-700';
       case 'Paused':
@@ -184,29 +320,33 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Audience Segment</Label>
-                      <Select>
+                      <Select value={audienceSegment} onValueChange={setAudienceSegment}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select segment" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Contacts</SelectItem>
-                          <SelectItem value="engaged">Engaged Users</SelectItem>
-                          <SelectItem value="inactive">Inactive Users</SelectItem>
-                          <SelectItem value="new">New Leads</SelectItem>
+                          {customerSegments.map((segment) => (
+                            <SelectItem key={segment} value={segment}>
+                              {segment}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Campaign Type</Label>
-                      <Select>
+                      <Label>Landing Page (Optional)</Label>
+                      <Select value={selectedLandingPage} onValueChange={setSelectedLandingPage}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
+                          <SelectValue placeholder="Select landing page" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="one-time">One-time Send</SelectItem>
-                          <SelectItem value="drip">Drip Campaign</SelectItem>
-                          <SelectItem value="trigger">Trigger-based</SelectItem>
-                          <SelectItem value="recurring">Recurring</SelectItem>
+                          <SelectItem value="none">No Landing Page</SelectItem>
+                          {landingPages.map((page: any) => (
+                            <SelectItem key={page.id} value={page.id}>
+                              {page.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -262,14 +402,17 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                   </div>
                   <div className="space-y-2">
                     <Label>Audience Segment</Label>
-                    <Select>
+                    <Select value={audienceSegment} onValueChange={setAudienceSegment}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select segment" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All SMS Subscribers</SelectItem>
-                        <SelectItem value="vip">VIP Customers</SelectItem>
-                        <SelectItem value="cart">Abandoned Cart</SelectItem>
+                        {customerSegments.map((segment) => (
+                          <SelectItem key={segment} value={segment}>
+                            {segment}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -413,15 +556,89 @@ export function CampaignManager({ user }: CampaignManagerProps) {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Campaign Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Campaign</DialogTitle>
+            <DialogDescription>Update your campaign details.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Campaign Name</Label>
+              <Input 
+                placeholder="e.g., Spring Newsletter" 
+                value={campaignName} 
+                onChange={(e) => setCampaignName(e.target.value)} 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Campaign Type</Label>
+              <Select value={selectedCampaignType} onValueChange={setSelectedCampaignType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="sms">SMS</SelectItem>
+                  <SelectItem value="social">Social</SelectItem>
+                  <SelectItem value="multi">Multi-channel</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Description/Content</Label>
+              <Textarea 
+                placeholder="Campaign description or content..."
+                rows={8}
+                value={emailContent}
+                onChange={(e) => setEmailContent(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-6">
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button className="flex-1" onClick={handleUpdateCampaign} disabled={isCreating}>
+              {isCreating ? 'Updating...' : 'Update Campaign'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Campaign Analytics Dialog */}
+      <Dialog open={isAnalyticsDialogOpen} onOpenChange={setIsAnalyticsDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Campaign Analytics</DialogTitle>
+            <DialogDescription>View detailed analytics for your campaign</DialogDescription>
+          </DialogHeader>
+          {viewingCampaign && <CampaignAnalytics campaign={viewingCampaign} />}
+          <div className="flex gap-2 mt-6">
+            <Button variant="outline" onClick={() => setIsAnalyticsDialogOpen(false)} className="flex-1">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Campaigns Grid */}
       <div className="grid grid-cols-1 gap-6">
-        {campaigns.map((campaign) => (
+        {campaigns.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <p className="text-gray-500">No campaigns yet. Create your first campaign to get started!</p>
+            </CardContent>
+          </Card>
+        ) : (
+          campaigns.map((campaign) => (
           <Card key={campaign.id}>
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-3">
                   <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                    {getChannelIcon(campaign.channel)}
+                    {getChannelIcon(campaign.type || campaign.channel)}
                   </div>
                   <div>
                     <CardTitle className="text-lg">{campaign.name}</CardTitle>
@@ -439,11 +656,11 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleEditCampaign(campaign)}>
                       <Edit className="h-4 w-4 mr-2" />
                       Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleToggleStatus(campaign)}>
                       {campaign.status === 'Active' ? (
                         <>
                           <Pause className="h-4 w-4 mr-2" />
@@ -456,13 +673,21 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                         </>
                       )}
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDuplicateCampaign(campaign)}>
                       <Copy className="h-4 w-4 mr-2" />
                       Duplicate
                     </DropdownMenuItem>
-                    <DropdownMenuItem className="text-red-600">
+                    <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteCampaign(campaign)}>
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleViewAnalytics(campaign)}>
+                      <BarChart className="h-4 w-4 mr-2" />
+                      View Analytics
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleSendCampaign(campaign)}>
+                      <Send className="h-4 w-4 mr-2" />
+                      Send Campaign
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -504,7 +729,8 @@ export function CampaignManager({ user }: CampaignManagerProps) {
               </div>
             </CardContent>
           </Card>
-        ))}
+        ))
+        )}
       </div>
     </div>
   );

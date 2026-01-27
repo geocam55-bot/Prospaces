@@ -415,7 +415,7 @@ export function Documents({ user }: DocumentsProps) {
                       <SelectValue placeholder="Select a contact (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="none">None</SelectItem>
                       {contacts.map((contact) => (
                         <SelectItem key={contact.id} value={contact.id}>
                           {contact.name} - {contact.company}
@@ -756,7 +756,7 @@ export function Documents({ user }: DocumentsProps) {
                   <SelectValue placeholder="Select a contact (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {contacts.map((contact) => (
                     <SelectItem key={contact.id} value={contact.id}>
                       {contact.name} - {contact.company}

@@ -41,7 +41,10 @@ import {
   LayoutGrid,
   Monitor,
   Grid,
-  Eye
+  Eye,
+  Users,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import type { User } from '../App';
 import { tenantsAPI, settingsAPI } from '../utils/api';
@@ -92,7 +95,11 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
     taxRate2: 0,
     defaultPriceLevel: 'Retail',
     quoteTerms: 'Payment due within 30 days. All prices in USD.',
+    audienceSegments: ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'], // Marketing segments
   });
+
+  // New segment input
+  const [newSegment, setNewSegment] = useState('');
 
   // Load settings from Supabase on mount
   useEffect(() => {
@@ -140,6 +147,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           taxRate2: orgSettings.tax_rate_2 || 0,
           defaultPriceLevel: orgSettings.default_price_level,
           quoteTerms: orgSettings.quote_terms || 'Payment due within 30 days. All prices in USD.',
+          audienceSegments: orgSettings.audience_segments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'], // Marketing segments
         });
         
         // Load organization name
@@ -157,6 +165,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             taxRate2: parsedSettings.taxRate2 || 0,
             defaultPriceLevel: parsedSettings.defaultPriceLevel || 'Retail',
             quoteTerms: parsedSettings.quoteTerms || 'Payment due within 30 days. All prices in USD.',
+            audienceSegments: parsedSettings.audienceSegments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'], // Marketing segments
           });
         }
         
@@ -432,6 +441,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         default_price_level: globalSettings.defaultPriceLevel,
         quote_terms: globalSettings.quoteTerms,
         organization_name: orgName,
+        audience_segments: globalSettings.audienceSegments, // Marketing segments
       });
       
       // Keep localStorage as backup (always save regardless of Supabase status)
@@ -792,6 +802,56 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                     <p className="text-xs text-gray-500">
                       These terms will be used as default when creating new quotes and bids
                     </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="audienceSegments">Audience Segments</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="audienceSegments"
+                        value={newSegment}
+                        onChange={(e) => setNewSegment(e.target.value)}
+                        placeholder="Add new segment"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (newSegment.trim()) {
+                            setGlobalSettings(prev => ({
+                              ...prev,
+                              audienceSegments: [...prev.audienceSegments, newSegment.trim()],
+                            }));
+                            setNewSegment('');
+                          }
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                    <div className="mt-2">
+                      <Label className="text-sm text-gray-500">Current Segments</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {globalSettings.audienceSegments.map((segment, index) => (
+                          <div key={index} className="bg-gray-100 px-2 py-1 rounded text-sm">
+                            {segment}
+                            <button
+                              type="button"
+                              className="ml-2 text-red-500"
+                              onClick={() => {
+                                setGlobalSettings(prev => ({
+                                  ...prev,
+                                  audienceSegments: prev.audienceSegments.filter(s => s !== segment),
+                                }));
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   <Button onClick={handleSaveGlobalSettings} disabled={isSavingGlobal}>

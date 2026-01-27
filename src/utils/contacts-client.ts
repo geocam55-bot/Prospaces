@@ -35,6 +35,10 @@ function transformToDbFormat(contactData: any) {
     }
     delete transformed.legacyNumber;
   }
+  if ('tags' in transformed) {
+    // Tags field for segmentation
+    transformed.tags = transformed.tags;
+  }
   // Remove accountOwnerNumber transformation - column doesn't exist
   if ('accountOwnerNumber' in transformed) {
     delete transformed.accountOwnerNumber;
@@ -301,105 +305,66 @@ export async function createContactClient(contactData: any) {
 export async function upsertContactByLegacyNumberClient(contactData: any) {
   try {
     const supabase = createClient();
-    
-    console.log('🔄 Upsert contact by Legacy #:', contactData.legacyNumber);
-    
-    // Transform data before processing
-    const dbData = transformToDbFormat(contactData);
-
-    // Get current user for organization_id
     const { data: { user } } = await supabase.auth.getUser();
+    
     if (!user) {
       throw new Error('User not authenticated');
     }
+
+    const profile = await ensureUserProfile(user.id);
+
+    // Transform data from camelCase to snake_case
+    const transformedData = transformToDbFormat(contactData);
     
-    dbData.organization_id = user.user_metadata?.organizationId;
+    // Query to find existing contact by legacy_number
+    const { data: existingContact, error: fetchError } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('organization_id', profile.organization_id)
+      .eq('legacy_number', contactData.legacyNumber)
+      .single();
 
-    // Try to find existing contact
-    let existingContact = null;
-    
-    // First, try to find by legacy_number if provided (only if column exists)
-    if (contactData.legacyNumber) {
-      console.log('🔍 Checking for existing contact with legacy_number:', contactData.legacyNumber);
-      
-      const { data: existingContacts, error: searchError } = await supabase
-        .from('contacts')
-        .select('*')
-        .eq('legacy_number', contactData.legacyNumber)
-        .limit(1);
-
-      // If the column doesn't exist, searchError will be set - that's okay, we'll try email
-      if (!searchError && existingContacts && existingContacts.length > 0) {
-        existingContact = existingContacts[0];
-        console.log('✅ Found existing contact by legacy_number');
-      } else if (searchError && searchError.code === '42703') {
-        // Column doesn't exist yet - this is expected if migration hasn't been run
-        console.log('⚠️ legacy_number column does not exist yet, will check by email instead');
-        // Remove legacy_number from dbData to prevent errors
-        delete dbData.legacy_number;
-      } else if (searchError) {
-        // Some other error
-        throw searchError;
-      }
-    }
-    
-    // If not found by legacy_number, try to find by email
-    if (!existingContact && contactData.email) {
-      console.log('🔍 Checking for existing contact with email:', contactData.email);
-      
-      const { data: existingContacts, error: emailSearchError } = await supabase
-        .from('contacts')
-        .select('*')
-        .eq('email', contactData.email)
-        .eq('organization_id', dbData.organization_id)
-        .limit(1);
-
-      if (emailSearchError) throw emailSearchError;
-
-      if (existingContacts && existingContacts.length > 0) {
-        existingContact = existingContacts[0];
-        console.log('✅ Found existing contact by email');
-      }
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      throw fetchError;
     }
 
-    // If contact exists - UPDATE
     if (existingContact) {
-      console.log('✏️ Updating existing contact:', existingContact.id, existingContact.name);
-      
-      // Don't update organization_id or created_by for existing contacts
-      delete dbData.organization_id;
-      delete dbData.created_by;
-      
-      const { data: updatedContact, error: updateError } = await supabase
+      // Update existing contact
+      const { data, error } = await supabase
         .from('contacts')
-        .update(dbData)
+        .update({
+          ...transformedData,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', existingContact.id)
         .select()
         .single();
 
-      if (updateError) throw updateError;
-      
-      console.log('✅ Contact updated successfully');
-      return { contact: transformFromDbFormat(updatedContact), action: 'updated' };
+      if (error) throw error;
+
+      console.log('✅ Contact updated (by legacy number):', data);
+      return { contact: transformFromDbFormat(data) };
+    } else {
+      // Insert new contact
+      const { data, error } = await supabase
+        .from('contacts')
+        .insert([{
+          ...transformedData,
+          owner_id: user.id,
+          organization_id: profile.organization_id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log('✅ Contact created (via legacy number upsert):', data);
+      return { contact: transformFromDbFormat(data) };
     }
-
-    // Contact doesn't exist - INSERT
-    console.log('➕ Creating new contact:', contactData.name);
-    // Set owner_id to current user (can be reassigned later by managers)
-    dbData.owner_id = user.id;
-    
-    const { data: newContact, error: insertError } = await supabase
-      .from('contacts')
-      .insert([dbData])
-      .select()
-      .single();
-
-    if (insertError) throw insertError;
-    
-    console.log('✅ Contact created successfully');
-    return { contact: transformFromDbFormat(newContact), action: 'created' };
   } catch (error: any) {
-    console.error('Error upserting contact:', error);
+    console.error('Error upserting contact by legacy number:', error);
     throw error;
   }
 }
@@ -560,5 +525,43 @@ export async function claimUnassignedContactsClient(accountOwnerEmail: string) {
   } catch (error: any) {
     console.error('❌ Error claiming unassigned contacts:', error);
     throw error;
+  }
+}
+
+export async function getSegmentsClient() {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      console.warn('⚠️ User not authenticated, returning empty segments');
+      return { segments: [] };
+    }
+
+    const profile = await ensureUserProfile(user.id);
+
+    // Get all unique tags from contacts
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('tags')
+      .eq('organization_id', profile.organization_id)
+      .not('tags', 'is', null);
+
+    if (error) throw error;
+
+    // Extract unique tags
+    const tagsSet = new Set<string>();
+    data?.forEach((contact: any) => {
+      if (contact.tags && Array.isArray(contact.tags)) {
+        contact.tags.forEach((tag: string) => tagsSet.add(tag));
+      }
+    });
+
+    const segments = Array.from(tagsSet).sort();
+    console.log('✅ Loaded segments:', segments);
+    return { segments };
+  } catch (error: any) {
+    console.error('Error loading segments:', error);
+    return { segments: [] };
   }
 }

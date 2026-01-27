@@ -2911,4 +2911,162 @@ app.get('/make-server-8405be07/marketing/lead-scores', async (c) => {
   }
 });
 
+// ============================================================================
+// CAMPAIGN SEND ROUTE
+// ============================================================================
+
+app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const userData = await getUserData(user.id);
+    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+    const campaignId = c.req.param('id');
+
+    // Get campaign from database
+    const { data: campaign, error: campaignError } = await supabase
+      .from('campaigns')
+      .select('*')
+      .eq('id', campaignId)
+      .eq('organization_id', organizationId)
+      .single();
+
+    if (campaignError || !campaign) {
+      console.error('Campaign not found:', campaignError);
+      return c.json({ error: 'Campaign not found' }, 404);
+    }
+
+    console.log('📧 Sending campaign:', campaign.name, 'Audience segment:', campaign.audience_segment);
+
+    // Get all contacts in the organization
+    const { data: allContacts, error: contactsError } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('organization_id', organizationId);
+
+    if (contactsError) {
+      console.error('Error fetching contacts:', contactsError);
+      return c.json({ error: 'Failed to fetch contacts: ' + contactsError.message }, 500);
+    }
+
+    // Filter contacts by audience segment (tags)
+    let targetContacts = allContacts || [];
+    
+    if (campaign.audience_segment && campaign.audience_segment !== 'all') {
+      targetContacts = targetContacts.filter((contact: any) => {
+        const tags = contact.tags || [];
+        // Check if contact has the segment tag
+        return tags.includes(campaign.audience_segment);
+      });
+      console.log(`📊 Filtered to ${targetContacts.length} contacts with tag: ${campaign.audience_segment}`);
+    } else {
+      console.log(`📊 Sending to all ${targetContacts.length} contacts`);
+    }
+
+    // Validate we have contacts to send to
+    if (targetContacts.length === 0) {
+      return c.json({ 
+        error: `No contacts found with segment "${campaign.audience_segment}". Please add contacts with this tag first.`,
+        sent: 0,
+        failed: 0,
+        total: 0
+      }, 400);
+    }
+
+    // Track email sends
+    const sentEmails: any[] = [];
+    const failedEmails: any[] = [];
+
+    // Simulate sending emails to each contact
+    // In production, this would integrate with an email service like SendGrid, Mailgun, etc.
+    for (const contact of targetContacts) {
+      try {
+        if (!contact.email) {
+          console.warn(`⚠️ Contact ${contact.name} has no email address, skipping`);
+          failedEmails.push({ contact: contact.name, reason: 'No email address' });
+          continue;
+        }
+
+        // Log the email send (simulated)
+        console.log(`📧 Sending campaign "${campaign.name}" to ${contact.email}`);
+        
+        // Store campaign email send record
+        const emailRecordId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        await kv.set(`campaign_email:${organizationId}:${campaignId}:${emailRecordId}`, {
+          id: emailRecordId,
+          campaignId: campaign.id,
+          campaignName: campaign.name,
+          contactId: contact.id,
+          contactEmail: contact.email,
+          contactName: contact.name,
+          sentAt: new Date().toISOString(),
+          opened: false,
+          clicked: false,
+          converted: false,
+        });
+
+        sentEmails.push({ 
+          contact: contact.name, 
+          email: contact.email 
+        });
+
+      } catch (sendError: any) {
+        console.error(`Failed to send to ${contact.email}:`, sendError);
+        failedEmails.push({ 
+          contact: contact.name, 
+          reason: sendError.message 
+        });
+      }
+    }
+
+    // Update campaign statistics in database
+    const { error: updateError } = await supabase
+      .from('campaigns')
+      .update({
+        sent: sentEmails.length,
+        audience: targetContacts.length,
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', campaignId);
+
+    if (updateError) {
+      console.error('Error updating campaign stats:', updateError);
+    }
+
+    // Log audit trail
+    const auditId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    await kv.set(`audit:${organizationId}:${auditId}`, {
+      id: auditId,
+      timestamp: new Date().toISOString(),
+      user: userData?.name || user.email,
+      userId: user.id,
+      action: 'Sent campaign',
+      module: 'campaigns',
+      changes: `Sent campaign "${campaign.name}" to ${sentEmails.length} contacts`,
+    });
+
+    console.log(`✅ Campaign sent: ${sentEmails.length} successful, ${failedEmails.length} failed`);
+
+    return c.json({
+      success: true,
+      sent: sentEmails.length,
+      failed: failedEmails.length,
+      total: targetContacts.length,
+      sentTo: sentEmails.map(e => e.email),
+      failedContacts: failedEmails,
+      message: `Campaign "${campaign.name}" sent to ${sentEmails.length} contacts successfully!`,
+    }, 200);
+
+  } catch (error: any) {
+    console.error('Campaign send error:', error);
+    return c.json({ error: 'Failed to send campaign: ' + error.message }, 500);
+  }
+});
+
 Deno.serve(app.fetch);
