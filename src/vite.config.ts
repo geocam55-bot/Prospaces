@@ -92,6 +92,9 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // Enable SPA fallback for client-side routing
+    proxy: {},
+    historyApiFallback: true,
   },
   optimizeDeps: {
     include: ['three'], // Pre-bundle Three.js for better performance

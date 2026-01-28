@@ -104,9 +104,17 @@ function App() {
   const path = window.location.pathname;
   const isLandingPage = path.startsWith('/landing/');
   const landingPageSlug = isLandingPage ? path.split('/landing/')[1] : null;
+  
+  // Also support query parameter routing: ?view=landing&slug=WinterBlast
+  const isLandingPageQuery = urlParams.get('view') === 'landing';
+  const landingPageQuerySlug = urlParams.get('slug');
 
   if (isLandingPage && landingPageSlug) {
     return <PublicLandingPage slug={landingPageSlug} />;
+  }
+  
+  if (isLandingPageQuery && landingPageQuerySlug) {
+    return <PublicLandingPage slug={landingPageQuerySlug} />;
   }
 
   if (isTrackingRedirect) {
