@@ -41,6 +41,7 @@ import { PublicQuoteView } from './components/PublicQuoteView';
 import { PublicLandingPage } from './components/marketing/PublicLandingPage';
 import { LandingPageDebug } from './components/LandingPageDebug';
 import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnostic';
+import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDiagnosticTest';
 import { OpportunitiesDiagnostic } from './components/OpportunitiesDiagnostic';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -90,6 +91,14 @@ function App() {
   const isPublicQuote = urlParams.get('view') === 'public-quote';
   const isLandingPageDebug = urlParams.get('view') === 'landing-page-debug';
   const isLandingPageDiagnostic = urlParams.get('view') === 'landing-page-diagnostic';
+  const isLandingPageDiagnosticTest = urlParams.get('view') === 'landing-page-diagnostic-test';
+
+  // Debug logging
+  console.log('URL Params:', {
+    view: urlParams.get('view'),
+    isLandingPageDiagnostic,
+    allParams: Object.fromEntries(urlParams.entries())
+  });
 
   // Check path-based routing for public landing pages
   const path = window.location.pathname;
@@ -122,6 +131,10 @@ function App() {
 
   if (isLandingPageDiagnostic) {
     return <LandingPageDiagnostic />;
+  }
+
+  if (isLandingPageDiagnosticTest) {
+    return <LandingPageDiagnosticTest />;
   }
 
   useEffect(() => {

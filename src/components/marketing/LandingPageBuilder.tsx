@@ -1098,10 +1098,20 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
           <h2 className="text-xl text-gray-900">Landing Page Builder</h2>
           <p className="text-sm text-gray-600 mt-1">Create high-converting landing pages with drag-and-drop</p>
         </div>
-        <Button className="flex items-center gap-2" onClick={handleCreatePage} disabled={isSaving}>
-          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          New Landing Page
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            className="flex items-center gap-2" 
+            onClick={() => window.open('?view=landing-page-diagnostic', '_blank')}
+          >
+            <Search className="h-4 w-4" />
+            Debug Pages
+          </Button>
+          <Button className="flex items-center gap-2" onClick={handleCreatePage} disabled={isSaving}>
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            New Landing Page
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -9,13 +9,31 @@ export function LandingPageDiagnostic() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
 
+  console.log('LandingPageDiagnostic component rendered');
+  console.log('Current state:', { loading, hasResult: !!result });
+
   const runDiagnostic = async () => {
     setLoading(true);
     try {
+      console.log('Running landing page diagnostic...');
+      console.log('Fetching from:', `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/debug/landing-pages`);
+      
       const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/debug/landing-pages`);
+      
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+      
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('Error response:', text);
+        throw new Error(`Server returned ${response.status}: ${text}`);
+      }
+      
       const data = await response.json();
+      console.log('Diagnostic data:', data);
       setResult(data);
     } catch (error: any) {
+      console.error('Diagnostic error:', error);
       setResult({ error: error.message });
     } finally {
       setLoading(false);
