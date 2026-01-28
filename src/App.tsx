@@ -39,6 +39,7 @@ import { FaviconGenerator } from './components/FaviconGenerator';
 import { TrackingRedirect } from './components/TrackingRedirect';
 import { PublicQuoteView } from './components/PublicQuoteView';
 import { PublicLandingPage } from './components/marketing/PublicLandingPage';
+import { LandingPageDebug } from './components/LandingPageDebug';
 import { OpportunitiesDiagnostic } from './components/OpportunitiesDiagnostic';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -86,6 +87,7 @@ function App() {
   const isOpportunitiesDiagnostic = urlParams.get('view') === 'opportunities-diagnostic';
   const isTrackingRedirect = urlParams.get('view') === 'redirect';
   const isPublicQuote = urlParams.get('view') === 'public-quote';
+  const isLandingPageDebug = urlParams.get('view') === 'landing-page-debug';
 
   // Check path-based routing for public landing pages
   const path = window.location.pathname;
@@ -110,6 +112,10 @@ function App() {
 
   if (isOpportunitiesDiagnostic) {
     return <OpportunitiesDiagnostic />;
+  }
+
+  if (isLandingPageDebug) {
+    return <LandingPageDebug />;
   }
 
   useEffect(() => {
