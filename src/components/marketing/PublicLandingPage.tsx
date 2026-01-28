@@ -44,21 +44,37 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
   useEffect(() => {
     const fetchPage = async () => {
       try {
-        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/landing-page/${slug}`);
+        const url = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/landing-page/${slug}`;
+        console.log('[PublicLandingPage] Fetching from:', url);
+        console.log('[PublicLandingPage] Slug:', slug);
+        
+        const response = await fetch(url);
+        console.log('[PublicLandingPage] Response status:', response.status);
+        console.log('[PublicLandingPage] Response ok:', response.ok);
+        
         if (!response.ok) {
+          const text = await response.text();
+          console.error('[PublicLandingPage] Error response:', text);
           if (response.status === 404) throw new Error('Page not found');
           throw new Error('Failed to load page');
         }
         const data = await response.json();
+        console.log('[PublicLandingPage] Data received:', data);
         setPage(data.page);
       } catch (err: any) {
+        console.error('[PublicLandingPage] Error:', err);
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    if (slug) fetchPage();
+    if (slug) {
+      console.log('[PublicLandingPage] Starting fetch for slug:', slug);
+      fetchPage();
+    } else {
+      console.log('[PublicLandingPage] No slug provided');
+    }
   }, [slug]);
 
   if (loading) {
