@@ -98,8 +98,24 @@ export function CampaignManager({ user }: CampaignManagerProps) {
         start_date: scheduleType === 'schedule' && scheduleDateTime ? new Date(scheduleDateTime).toISOString() : new Date().toISOString(),
       };
 
-      await campaignsAPI.create(campaignData);
-      toast.success('Campaign created successfully!');
+      const { campaign } = await campaignsAPI.create(campaignData);
+      
+      if (scheduleType === 'now') {
+        toast.info('Initiating campaign send...');
+        try {
+          const result = await campaignsAPI.send(campaign.id);
+          toast.success(
+            `Campaign created and sent! ${result.sent} emails sent.`,
+            { duration: 5000 }
+          );
+        } catch (sendError: any) {
+          console.error('Error sending campaign immediately:', sendError);
+          toast.warning('Campaign created but failed to send immediately. Please try sending manually.');
+        }
+      } else {
+        toast.success('Campaign created successfully!');
+      }
+
       setIsCreateDialogOpen(false);
       
       // Reset form
@@ -724,7 +740,9 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Schedule</p>
-                  <p className="text-sm text-gray-900 mt-1">{campaign.schedule || 'Not scheduled'}</p>
+                  <p className="text-sm text-gray-900 mt-1">
+                    {campaign.schedule || (campaign.start_date ? new Date(campaign.start_date).toLocaleDateString() : 'Not scheduled')}
+                  </p>
                 </div>
               </div>
             </CardContent>

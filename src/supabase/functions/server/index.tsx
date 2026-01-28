@@ -2978,12 +2978,43 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
       }, 400);
     }
 
+    // Fetch email accounts to send from
+    const accountsKey = `email:accounts:${organizationId}:${user.id}`;
+    let accounts = [];
+    try {
+      accounts = await kv.get(accountsKey) || [];
+    } catch (e) {
+      console.warn('Failed to fetch accounts from KV, checking DB fallback');
+    }
+
+    // If no accounts in KV, try DB
+    if (!accounts || accounts.length === 0) {
+       const { data: dbAccounts } = await supabase
+        .from('email_accounts')
+        .select('*')
+        .eq('user_id', user.id);
+       accounts = dbAccounts || [];
+    }
+
+    if (accounts.length === 0) {
+        return c.json({ 
+            error: 'No email accounts connected. Please connect an email account to send campaigns.',
+            sent: 0,
+            failed: 0,
+            total: targetContacts.length
+        }, 400);
+    }
+
+    // Select the best account (prioritize connected ones, or first one)
+    // TODO: Allow user to select sender account in campaign settings
+    const senderAccount = accounts[0];
+    console.log(`📧 Sending campaign from account: ${senderAccount.email} (${senderAccount.provider})`);
+
     // Track email sends
     const sentEmails: any[] = [];
     const failedEmails: any[] = [];
 
-    // Simulate sending emails to each contact
-    // In production, this would integrate with an email service like SendGrid, Mailgun, etc.
+    // Send emails to each contact using the existing email functions
     for (const contact of targetContacts) {
       try {
         if (!contact.email) {
@@ -2992,9 +3023,59 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
           continue;
         }
 
-        // Log the email send (simulated)
         console.log(`📧 Sending campaign "${campaign.name}" to ${contact.email}`);
         
+        // Personalize body
+        let body = campaign.content || '';
+        body = body.replace(/{{name}}/g, contact.first_name || contact.name || 'Valued Customer');
+        body = body.replace(/{{first_name}}/g, contact.first_name || 'Valued Customer');
+        body = body.replace(/{{last_name}}/g, contact.last_name || '');
+        body = body.replace(/{{email}}/g, contact.email);
+        
+        // Add footer/unsubscribe
+        // TODO: Add real unsubscribe link
+        const unsubscribeLink = `<br/><br/><div style="font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 10px;">
+          <p>You are receiving this email because you are a valued contact of ${userData?.organizationName || 'our company'}.</p>
+        </div>`;
+        
+        const fullBody = body + unsubscribeLink;
+
+        // Send using the appropriate provider function
+        let response;
+        const payload = {
+            accountId: senderAccount.id,
+            to: contact.email,
+            subject: campaign.subject || campaign.name,
+            body: fullBody
+        };
+
+        if (senderAccount.provider === 'outlook') {
+            response = await supabase.functions.invoke('azure-send-email', {
+                body: payload,
+                headers: { Authorization: authHeader }
+            });
+        } else if (senderAccount.nylas_grant_id) {
+            response = await supabase.functions.invoke('nylas-send-email', {
+                body: payload,
+                headers: { Authorization: authHeader }
+            });
+        } else {
+            // SMTP / Generic
+            response = await supabase.functions.invoke('send-email', {
+                body: payload,
+                headers: { Authorization: authHeader }
+            });
+        }
+
+        if (response.error) {
+            throw new Error(response.error.message || 'Function invocation failed');
+        }
+        
+        // Check if the function itself returned an error
+        if (response.data && !response.data.success) {
+             throw new Error(response.data.error || 'Email sending failed');
+        }
+
         // Store campaign email send record
         const emailRecordId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         await kv.set(`campaign_email:${organizationId}:${campaignId}:${emailRecordId}`, {

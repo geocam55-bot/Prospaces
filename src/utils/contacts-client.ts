@@ -35,32 +35,52 @@ function transformToDbFormat(contactData: any) {
     }
     delete transformed.legacyNumber;
   }
+  if ('accountOwnerNumber' in transformed) {
+    if (transformed.accountOwnerNumber) {
+      transformed.account_owner_number = transformed.accountOwnerNumber;
+    }
+    delete transformed.accountOwnerNumber;
+  }
   if ('tags' in transformed) {
     // Tags field for segmentation
     transformed.tags = transformed.tags;
   }
-  // Remove accountOwnerNumber transformation - column doesn't exist
-  if ('accountOwnerNumber' in transformed) {
-    delete transformed.accountOwnerNumber;
-  }
-  // Remove all sales/GP fields - columns don't exist in database
+  
+  // Transform sales/GP fields
   if ('ptdSales' in transformed) {
+    if (transformed.ptdSales !== undefined && transformed.ptdSales !== '') {
+      transformed.ptd_sales = transformed.ptdSales;
+    }
     delete transformed.ptdSales;
   }
   if ('ptdGpPercent' in transformed) {
+    if (transformed.ptdGpPercent !== undefined && transformed.ptdGpPercent !== '') {
+      transformed.ptd_gp_percent = transformed.ptdGpPercent;
+    }
     delete transformed.ptdGpPercent;
   }
   if ('ytdSales' in transformed) {
+    if (transformed.ytdSales !== undefined && transformed.ytdSales !== '') {
+      transformed.ytd_sales = transformed.ytdSales;
+    }
     delete transformed.ytdSales;
   }
   if ('ytdGpPercent' in transformed) {
+    if (transformed.ytdGpPercent !== undefined && transformed.ytdGpPercent !== '') {
+      transformed.ytd_gp_percent = transformed.ytdGpPercent;
+    }
     delete transformed.ytdGpPercent;
   }
   if ('lyrSales' in transformed) {
+    if (transformed.lyrSales !== undefined && transformed.lyrSales !== '') {
+      transformed.lyr_sales = transformed.lyrSales;
+    }
     delete transformed.lyrSales;
   }
-  // Remove lyrGpPercent transformation - column doesn't exist in database
   if ('lyrGpPercent' in transformed) {
+    if (transformed.lyrGpPercent !== undefined && transformed.lyrGpPercent !== '') {
+      transformed.lyr_gp_percent = transformed.lyrGpPercent;
+    }
     delete transformed.lyrGpPercent;
   }
   
@@ -143,6 +163,36 @@ function transformFromDbFormat(contactData: any) {
   if ('legacy_number' in transformed) {
     transformed.legacyNumber = transformed.legacy_number;
     delete transformed.legacy_number;
+  }
+  if ('account_owner_number' in transformed) {
+    transformed.accountOwnerNumber = transformed.account_owner_number;
+    delete transformed.account_owner_number;
+  }
+  
+  // Transform sales/GP fields
+  if ('ptd_sales' in transformed) {
+    transformed.ptdSales = transformed.ptd_sales;
+    delete transformed.ptd_sales;
+  }
+  if ('ptd_gp_percent' in transformed) {
+    transformed.ptdGpPercent = transformed.ptd_gp_percent;
+    delete transformed.ptd_gp_percent;
+  }
+  if ('ytd_sales' in transformed) {
+    transformed.ytdSales = transformed.ytd_sales;
+    delete transformed.ytd_sales;
+  }
+  if ('ytd_gp_percent' in transformed) {
+    transformed.ytdGpPercent = transformed.ytd_gp_percent;
+    delete transformed.ytd_gp_percent;
+  }
+  if ('lyr_sales' in transformed) {
+    transformed.lyrSales = transformed.lyr_sales;
+    delete transformed.lyr_sales;
+  }
+  if ('lyr_gp_percent' in transformed) {
+    transformed.lyrGpPercent = transformed.lyr_gp_percent;
+    delete transformed.lyr_gp_percent;
   }
   
   return transformed;
@@ -388,12 +438,12 @@ export async function updateContactClient(id: string, contactData: any) {
     // Only include fields that exist in the database schema
     const baseFields = [
       'name', 'email', 'phone', 'company', 'status',
-      'price_level', 'owner_id'
+      'price_level', 'owner_id', 'tags'
     ];
     
     // Advanced fields that may not exist yet (require migration)
     const advancedFields = [
-      'legacy_number',
+      'legacy_number', 'account_owner_number',
       'address', 'notes',
       'ptd_sales', 'ptd_gp_percent',
       'ytd_sales', 'ytd_gp_percent',
