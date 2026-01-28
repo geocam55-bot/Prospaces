@@ -9,8 +9,11 @@ import {
   TrendingUp, 
   Users,
   Eye,
-  Target
+  Target,
+  Globe
 } from 'lucide-react';
+import { projectId } from '../../utils/supabase/info';
+import { createClient } from '../../utils/supabase/client';
 
 interface CampaignAnalyticsProps {
   campaign: any;
@@ -25,6 +28,51 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
     conversions: campaign.converted || 0,
     revenue: campaign.revenue || 0,
   });
+  
+  const [landingPageAnalytics, setLandingPageAnalytics] = useState<any>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+
+  // Fetch landing page analytics
+  useEffect(() => {
+    const fetchLandingPageAnalytics = async () => {
+      if (!campaign.landing_page_slug || !campaign.id) return;
+      
+      setLoadingAnalytics(true);
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          console.error('No session found');
+          return;
+        }
+
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/analytics/campaign/${campaign.id}/landing-page`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setLandingPageAnalytics(data);
+          console.log('Landing page analytics:', data);
+        } else {
+          console.error('Failed to fetch landing page analytics:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching landing page analytics:', error);
+      } finally {
+        setLoadingAnalytics(false);
+      }
+    };
+
+    fetchLandingPageAnalytics();
+  }, [campaign.id, campaign.landing_page_slug]);
 
   // Calculate rates
   const openRate = analytics.emailsSent > 0 
@@ -206,6 +254,61 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Landing Page Analytics */}
+      {campaign.landing_page_slug && landingPageAnalytics && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Landing Page Analytics
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <p className="text-xs text-gray-600 mb-1">Page Visits</p>
+                <p className="text-2xl font-bold text-gray-900">{landingPageAnalytics.stats.visits}</p>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg">
+                <p className="text-xs text-gray-600 mb-1">Conversions</p>
+                <p className="text-2xl font-bold text-gray-900">{landingPageAnalytics.stats.conversions}</p>
+              </div>
+              <div className="p-4 bg-purple-50 rounded-lg">
+                <p className="text-xs text-gray-600 mb-1">Conversion Rate</p>
+                <p className="text-2xl font-bold text-gray-900">{landingPageAnalytics.stats.conversionRate}%</p>
+              </div>
+            </div>
+
+            {/* UTM Source Breakdown */}
+            {Object.keys(landingPageAnalytics.utmBreakdown || {}).length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Traffic Sources</h4>
+                <div className="space-y-2">
+                  {Object.entries(landingPageAnalytics.utmBreakdown).map(([source, data]: [string, any]) => (
+                    <div key={source} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline" className="capitalize">{source}</Badge>
+                        <span className="text-sm text-gray-600">
+                          {data.visits} visit{data.visits !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-gray-600">
+                          {data.conversions} conversion{data.conversions !== 1 ? 's' : ''}
+                        </span>
+                        <Badge className="bg-green-100 text-green-700">
+                          {data.visits > 0 ? ((data.conversions / data.visits) * 100).toFixed(1) : 0}% CVR
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
-import { Plus, Mail, MessageSquare, Facebook, Instagram, MoreVertical, Edit, Pause, Play, Copy, Trash2, BarChart, Send } from 'lucide-react';
+import { Plus, Mail, MessageSquare, Facebook, Instagram, MoreVertical, Edit, Pause, Play, Copy, Trash2, BarChart, Send, Globe, ExternalLink } from 'lucide-react';
 import { campaignsAPI } from '../../utils/api';
 import { toast } from 'sonner';
 import type { User } from '../../App';
@@ -88,13 +88,9 @@ export function CampaignManager({ user }: CampaignManagerProps) {
         status: scheduleType === 'now' ? 'active' : 'scheduled',
         description: emailContent || previewText,
         audience_segment: audienceSegment || 'all',
-        // Don't send landing_page_id - it's stored in KV store with non-UUID IDs
-        // Store the landing page reference in description or a separate field later
-        // landing_page_id: selectedLandingPage || null,
-        // Note: subject_line and preview_text stored in description for now
-        // TODO: Uncomment after Supabase schema cache refresh
-        // subject_line: subjectLine,
-        // preview_text: previewText,
+        landing_page_slug: selectedLandingPage && selectedLandingPage !== 'none' ? selectedLandingPage : null,
+        subject_line: subjectLine || null,
+        preview_text: previewText || null,
         start_date: scheduleType === 'schedule' && scheduleDateTime ? new Date(scheduleDateTime).toISOString() : new Date().toISOString(),
       };
 
@@ -383,6 +379,12 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                       value={emailContent}
                       onChange={(e) => setEmailContent(e.target.value)}
                     />
+                    {selectedLandingPage && selectedLandingPage !== 'none' && (
+                      <div className="text-xs bg-blue-50 text-blue-700 p-3 rounded-lg border border-blue-200">
+                        💡 <strong>Tip:</strong> Your landing page link will be automatically added as a "Learn More" button. 
+                        Or use <code className="bg-blue-100 px-1 rounded">{'{{landing_page}}'}</code> in your content to insert the tracked link.
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Schedule</Label>
@@ -745,6 +747,49 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                   </p>
                 </div>
               </div>
+              
+              {/* Landing Page Link */}
+              {campaign.landing_page_slug && (
+                <div className="mt-6 pt-6 border-t border-gray-100">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2 flex-1">
+                      <Globe className="h-4 w-4 text-blue-600" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-gray-500 mb-1">Campaign Landing Page (with UTM tracking)</p>
+                        <div className="flex items-center gap-2">
+                          <code className="text-sm text-gray-900 bg-gray-50 px-2 py-1 rounded border border-gray-200 font-mono truncate block">
+                            {window.location.origin}?view=landing&slug={campaign.landing_page_slug}&campaign={campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign={encodeURIComponent(campaign.name)}
+                          </code>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              const url = `${window.location.origin}?view=landing&slug=${campaign.landing_page_slug}&campaign=${campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign=${encodeURIComponent(campaign.name)}`;
+                              navigator.clipboard.writeText(url);
+                              toast.success('Landing page URL copied to clipboard!');
+                            }}
+                            className="flex-shrink-0"
+                          >
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copy
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              window.open(`?view=landing&slug=${campaign.landing_page_slug}&campaign=${campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign=${encodeURIComponent(campaign.name)}`, '_blank');
+                            }}
+                            className="flex-shrink-0"
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Preview
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))

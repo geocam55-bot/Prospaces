@@ -3211,6 +3211,25 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
         body = body.replace(/{{last_name}}/g, contact.last_name || '');
         body = body.replace(/{{email}}/g, contact.email);
         
+        // Auto-insert landing page link if campaign has one
+        if (campaign.landing_page_slug) {
+          const baseUrl = Deno.env.get('SUPABASE_URL')?.replace('//', '//').split('/')[2].split('.')[0];
+          const landingPageUrl = `https://${baseUrl}.supabase.co?view=landing&slug=${campaign.landing_page_slug}&campaign=${campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign=${encodeURIComponent(campaign.name)}`;
+          
+          // Replace {{landing_page}} placeholder or append CTA button
+          if (body.includes('{{landing_page}}')) {
+            body = body.replace(/{{landing_page}}/g, landingPageUrl);
+          } else {
+            // Auto-append a landing page CTA button
+            const ctaButton = `<br/><br/><div style="text-align: center; margin: 30px 0;">
+              <a href="${landingPageUrl}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                Learn More
+              </a>
+            </div>`;
+            body = body + ctaButton;
+          }
+        }
+        
         // Add footer/unsubscribe
         // TODO: Add real unsubscribe link
         const unsubscribeLink = `<br/><br/><div style="font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 10px;">
@@ -3358,6 +3377,174 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
   } catch (error: any) {
     console.error('Campaign send error:', error);
     return c.json({ error: 'Failed to send campaign: ' + error.message }, 500);
+  }
+});
+
+// ============================================================================
+// LANDING PAGE ANALYTICS TRACKING
+// ============================================================================
+
+// Track landing page visit
+app.post('/make-server-8405be07/analytics/landing-page/visit', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { slug, campaignId, utmSource, utmMedium, utmCampaign, referrer } = body;
+
+    if (!slug) {
+      return c.json({ error: 'Missing slug parameter' }, 400);
+    }
+
+    const timestamp = new Date().toISOString();
+    const visitId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Store the visit record
+    const visitData = {
+      id: visitId,
+      slug,
+      campaignId: campaignId || null,
+      utmSource: utmSource || null,
+      utmMedium: utmMedium || null,
+      utmCampaign: utmCampaign || null,
+      referrer: referrer || null,
+      timestamp,
+    };
+
+    await kv.set(`landing_visit:${slug}:${visitId}`, visitData);
+
+    // If campaign-specific, also track under campaign
+    if (campaignId) {
+      await kv.set(`campaign_landing_visit:${campaignId}:${visitId}`, visitData);
+      
+      // Increment campaign visit counter
+      const statsKey = `campaign_landing_stats:${campaignId}`;
+      const stats = await kv.get(statsKey) || { visits: 0, conversions: 0 };
+      stats.visits = (stats.visits || 0) + 1;
+      await kv.set(statsKey, stats);
+    }
+
+    // Track overall landing page stats
+    const pageStatsKey = `landing_page_stats:${slug}`;
+    const pageStats = await kv.get(pageStatsKey) || { visits: 0, conversions: 0 };
+    pageStats.visits = (pageStats.visits || 0) + 1;
+    await kv.set(pageStatsKey, pageStats);
+
+    console.log(`📊 Landing page visit tracked: ${slug}${campaignId ? ` (campaign: ${campaignId})` : ''}`);
+
+    return c.json({ success: true, visitId });
+  } catch (error: any) {
+    console.error('Error tracking landing page visit:', error);
+    return c.json({ error: 'Failed to track visit: ' + error.message }, 500);
+  }
+});
+
+// Track landing page conversion
+app.post('/make-server-8405be07/analytics/landing-page/conversion', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { slug, campaignId, conversionType, conversionData } = body;
+
+    if (!slug) {
+      return c.json({ error: 'Missing slug parameter' }, 400);
+    }
+
+    const timestamp = new Date().toISOString();
+    const conversionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Store the conversion record
+    const conversion = {
+      id: conversionId,
+      slug,
+      campaignId: campaignId || null,
+      conversionType: conversionType || 'general',
+      conversionData: conversionData || {},
+      timestamp,
+    };
+
+    await kv.set(`landing_conversion:${slug}:${conversionId}`, conversion);
+
+    // If campaign-specific, also track under campaign
+    if (campaignId) {
+      await kv.set(`campaign_landing_conversion:${campaignId}:${conversionId}`, conversion);
+      
+      // Increment campaign conversion counter
+      const statsKey = `campaign_landing_stats:${campaignId}`;
+      const stats = await kv.get(statsKey) || { visits: 0, conversions: 0 };
+      stats.conversions = (stats.conversions || 0) + 1;
+      await kv.set(statsKey, stats);
+    }
+
+    // Track overall landing page stats
+    const pageStatsKey = `landing_page_stats:${slug}`;
+    const pageStats = await kv.get(pageStatsKey) || { visits: 0, conversions: 0 };
+    pageStats.conversions = (pageStats.conversions || 0) + 1;
+    await kv.set(pageStatsKey, pageStats);
+
+    console.log(`🎯 Landing page conversion tracked: ${slug}${campaignId ? ` (campaign: ${campaignId})` : ''}`);
+
+    return c.json({ success: true, conversionId });
+  } catch (error: any) {
+    console.error('Error tracking landing page conversion:', error);
+    return c.json({ error: 'Failed to track conversion: ' + error.message }, 500);
+  }
+});
+
+// Get landing page analytics for a campaign
+app.get('/make-server-8405be07/analytics/campaign/:campaignId/landing-page', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    const user = await verifyUser(authHeader);
+
+    if (!user) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const campaignId = c.req.param('campaignId');
+    
+    // Get stats
+    const statsKey = `campaign_landing_stats:${campaignId}`;
+    const stats = await kv.get(statsKey) || { visits: 0, conversions: 0 };
+
+    // Get recent visits
+    const visits = await kv.getByPrefix(`campaign_landing_visit:${campaignId}:`);
+    
+    // Get conversions
+    const conversions = await kv.getByPrefix(`campaign_landing_conversion:${campaignId}:`);
+
+    // Calculate conversion rate
+    const conversionRate = stats.visits > 0 ? (stats.conversions / stats.visits) * 100 : 0;
+
+    // Group visits by UTM source
+    const utmBreakdown: any = {};
+    visits.forEach((visit: any) => {
+      const source = visit.utmSource || 'direct';
+      if (!utmBreakdown[source]) {
+        utmBreakdown[source] = { visits: 0, conversions: 0 };
+      }
+      utmBreakdown[source].visits++;
+    });
+
+    // Add conversions to UTM breakdown
+    conversions.forEach((conversion: any) => {
+      const matchingVisit = visits.find((v: any) => v.timestamp <= conversion.timestamp);
+      const source = matchingVisit?.utmSource || 'direct';
+      if (utmBreakdown[source]) {
+        utmBreakdown[source].conversions++;
+      }
+    });
+
+    return c.json({
+      stats: {
+        visits: stats.visits || 0,
+        conversions: stats.conversions || 0,
+        conversionRate: conversionRate.toFixed(2),
+      },
+      utmBreakdown,
+      recentVisits: visits.slice(0, 20),
+      recentConversions: conversions.slice(0, 20),
+    });
+  } catch (error: any) {
+    console.error('Error fetching landing page analytics:', error);
+    return c.json({ error: 'Failed to fetch analytics: ' + error.message }, 500);
   }
 });
 

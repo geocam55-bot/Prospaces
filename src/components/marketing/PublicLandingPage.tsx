@@ -3,6 +3,7 @@ import { projectId, publicAnonKey } from '../../utils/supabase/info';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Loader2, Package } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface PageElement {
   id: string;
@@ -40,15 +41,101 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
   const [page, setPage] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+
+  // Track page visit
+  useEffect(() => {
+    const trackVisit = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const campaignId = urlParams.get('campaign');
+      const utmSource = urlParams.get('utm_source');
+      const utmMedium = urlParams.get('utm_medium');
+      const utmCampaign = urlParams.get('utm_campaign');
+
+      try {
+        await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/analytics/landing-page/visit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            slug,
+            campaignId,
+            utmSource,
+            utmMedium,
+            utmCampaign,
+            referrer: document.referrer,
+          }),
+        });
+        console.log('📊 Visit tracked successfully');
+      } catch (err) {
+        console.error('Failed to track visit:', err);
+      }
+    };
+
+    if (slug && page) {
+      trackVisit();
+    }
+  }, [slug, page]);
+
+  // Track conversion
+  const trackConversion = async (conversionType: string, conversionData?: any) => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const campaignId = urlParams.get('campaign');
+
+    try {
+      await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/analytics/landing-page/conversion`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          slug,
+          campaignId,
+          conversionType,
+          conversionData,
+        }),
+      });
+      console.log('🎯 Conversion tracked:', conversionType);
+    } catch (err) {
+      console.error('Failed to track conversion:', err);
+    }
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast.error('Please enter your email');
+      return;
+    }
+    
+    await trackConversion('form_submission', { email });
+    toast.success('Thank you for subscribing!');
+    setEmail('');
+  };
+
+  const handleButtonClick = async (buttonText: string) => {
+    await trackConversion('button_click', { buttonText });
+  };
+
+  const handleProductClick = async (productData: any) => {
+    await trackConversion('product_click', { productId: productData.id, productName: productData.name });
+    toast.success(`${productData.name} added to cart!`);
+  };
 
   useEffect(() => {
     const fetchPage = async () => {
       try {
+        // Get campaign parameter for tracking
+        const urlParams = new URLSearchParams(window.location.search);
+        const campaignId = urlParams.get('campaign');
+        
         const url = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/landing-page/${slug}`;
         console.log('[PublicLandingPage] Fetching from:', url);
         console.log('[PublicLandingPage] Slug:', slug);
-        console.log('[PublicLandingPage] *** UPDATED VERSION WITH AUTH HEADER ***');
-        console.log('[PublicLandingPage] Auth header:', `Bearer ${publicAnonKey.substring(0, 20)}...`);
+        if (campaignId) {
+          console.log('[PublicLandingPage] Campaign ID:', campaignId);
+        }
         
         const response = await fetch(url, {
           headers: {
@@ -160,7 +247,7 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
       case 'button':
         return (
           <div className={`${alignmentClass} py-6`}>
-            <Button size="lg" className="text-lg px-8 py-6 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+            <Button size="lg" className="text-lg px-8 py-6 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5" onClick={() => handleButtonClick(element.content)}>
               {element.content}
             </Button>
           </div>
@@ -172,8 +259,8 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
             <div className="max-w-md mx-auto space-y-4 p-8 bg-gray-50 rounded-xl border border-gray-100 shadow-sm">
               <h3 className="text-xl font-semibold text-gray-900">{element.content}</h3>
               <div className="space-y-3">
-                <Input placeholder="Enter your email" type="email" className="h-12 bg-white" />
-                <Button className="w-full h-12 text-base font-medium">Submit</Button>
+                <Input placeholder="Enter your email" type="email" className="h-12 bg-white" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <Button className="w-full h-12 text-base font-medium" onClick={handleFormSubmit}>Submit</Button>
               </div>
               <p className="text-xs text-gray-500 text-center">We respect your privacy.</p>
             </div>
@@ -223,7 +310,7 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
                         <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Price</span>
                         <span className="text-2xl font-bold text-gray-900">${productData.price.toFixed(2)}</span>
                       </div>
-                      <Button size="lg" className="bg-blue-600 hover:bg-blue-700 shadow-sm px-6">
+                      <Button size="lg" className="bg-blue-600 hover:bg-blue-700 shadow-sm px-6" onClick={() => handleProductClick(productData)}>
                         Buy Now
                       </Button>
                     </div>
