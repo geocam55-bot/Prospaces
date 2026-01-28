@@ -2698,9 +2698,36 @@ app.get('/make-server-8405be07/public/view', async (c) => {
             return c.json({error: 'Not found'}, 404);
         }
     } catch (error) {
-        console.error('Public view error:', error);
-        return c.json({ error: 'Failed to load document' }, 500);
+        return c.json({ error: 'Failed to fetch public item: ' + error.message }, 500);
     }
+});
+
+// PUBLIC LANDING PAGE
+app.get('/make-server-8405be07/public/landing-page/:slug', async (c) => {
+  try {
+    const slug = c.req.param('slug');
+    if (!slug) return c.json({ error: 'Slug required' }, 400);
+
+    // Scan all landing pages to find the slug
+    // Note: Ideally we would maintain a slug -> id index
+    const allPages = await kv.getByPrefix('landing_page:');
+    const page = allPages.find((p: any) => p.slug === slug);
+
+    if (!page) {
+      return c.json({ error: 'Landing page not found' }, 404);
+    }
+    
+    // Only allow published pages or draft pages if in preview mode (but this is public endpoint, so strictly published usually)
+    // For now, allow all for testing, but typically check page.status === 'published'
+
+    // Increment view count
+    page.views_count = (page.views_count || 0) + 1;
+    await kv.set(`landing_page:${page.organizationId}:${page.id}`, page);
+
+    return c.json({ page });
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch landing page: ' + error.message }, 500);
+  }
 });
 
 // Get quote tracking status

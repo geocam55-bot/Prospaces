@@ -38,6 +38,7 @@ import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { FaviconGenerator } from './components/FaviconGenerator';
 import { TrackingRedirect } from './components/TrackingRedirect';
 import { PublicQuoteView } from './components/PublicQuoteView';
+import { PublicLandingPage } from './components/marketing/PublicLandingPage';
 import { OpportunitiesDiagnostic } from './components/OpportunitiesDiagnostic';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -85,6 +86,15 @@ function App() {
   const isOpportunitiesDiagnostic = urlParams.get('view') === 'opportunities-diagnostic';
   const isTrackingRedirect = urlParams.get('view') === 'redirect';
   const isPublicQuote = urlParams.get('view') === 'public-quote';
+
+  // Check path-based routing for public landing pages
+  const path = window.location.pathname;
+  const isLandingPage = path.startsWith('/landing/');
+  const landingPageSlug = isLandingPage ? path.split('/landing/')[1] : null;
+
+  if (isLandingPage && landingPageSlug) {
+    return <PublicLandingPage slug={landingPageSlug} />;
+  }
 
   if (isTrackingRedirect) {
     return <TrackingRedirect />;
