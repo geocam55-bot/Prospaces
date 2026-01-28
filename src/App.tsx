@@ -40,8 +40,8 @@ import { TrackingRedirect } from './components/TrackingRedirect';
 import { PublicQuoteView } from './components/PublicQuoteView';
 import { PublicLandingPage } from './components/marketing/PublicLandingPage';
 import { LandingPageDebug } from './components/LandingPageDebug';
+import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnostic';
 import { OpportunitiesDiagnostic } from './components/OpportunitiesDiagnostic';
-import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
 import { initializePermissions } from './utils/permissions';
@@ -88,6 +88,7 @@ function App() {
   const isTrackingRedirect = urlParams.get('view') === 'redirect';
   const isPublicQuote = urlParams.get('view') === 'public-quote';
   const isLandingPageDebug = urlParams.get('view') === 'landing-page-debug';
+  const isLandingPageDiagnostic = urlParams.get('view') === 'landing-page-diagnostic';
 
   // Check path-based routing for public landing pages
   const path = window.location.pathname;
@@ -116,6 +117,10 @@ function App() {
 
   if (isLandingPageDebug) {
     return <LandingPageDebug />;
+  }
+
+  if (isLandingPageDiagnostic) {
+    return <LandingPageDiagnostic />;
   }
 
   useEffect(() => {

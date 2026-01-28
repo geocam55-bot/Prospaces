@@ -1886,6 +1886,10 @@
     row-gap: calc(var(--spacing) * .5);
   }
 
+  .gap-y-1 {
+    row-gap: calc(var(--spacing) * 1);
+  }
+
   .gap-y-3 {
     row-gap: calc(var(--spacing) * 3);
   }
@@ -2438,6 +2442,10 @@
 
   .bg-gray-500 {
     background-color: var(--color-gray-500);
+  }
+
+  .bg-gray-800 {
+    background-color: var(--color-gray-800);
   }
 
   .bg-gray-900 {
@@ -4757,6 +4765,12 @@
   @media (hover: hover) {
     .hover\:underline:hover {
       text-decoration-line: underline;
+    }
+  }
+
+  @media (hover: hover) {
+    .hover\:opacity-80:hover {
+      opacity: .8;
     }
   }
 
