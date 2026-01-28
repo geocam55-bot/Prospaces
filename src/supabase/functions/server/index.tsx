@@ -3,6 +3,7 @@ import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
 const app = new Hono();
 
@@ -62,6 +63,50 @@ async function getUserData(userId: string) {
     console.error('Error getting user data:', error);
     return null;
   }
+}
+
+// Helper function for SMTP email sending
+async function sendEmailViaSMTP(account: any, to: string, subject: string, body: string, html: string) {
+    if (!account.imap_host || !account.imap_username || !account.imap_password) {
+      // If IMAP details are missing, check if we have explicit SMTP details (sometimes stored differently)
+      // For now, assume if provider is 'generic', we might need these.
+      // If it's a known provider like Gmail but fell back here, it implies OAuth failed, so we can't use SMTP without password.
+      throw new Error('Email account not configured for SMTP (missing host/username/password)');
+    }
+
+    // Heuristic for SMTP settings based on IMAP settings
+    const smtpPort = account.imap_port === 993 ? 465 : (account.imap_port === 143 ? 587 : 587);
+    let smtpHost = account.imap_host;
+    if (smtpHost.startsWith('imap.')) {
+      smtpHost = smtpHost.replace('imap.', 'smtp.');
+    } else if (smtpHost.includes('outlook.office365.com')) {
+        smtpHost = 'smtp.office365.com';
+    } else if (smtpHost.includes('gmail.com')) {
+        smtpHost = 'smtp.gmail.com';
+    }
+
+    const client = new SMTPClient({
+      connection: {
+        hostname: smtpHost,
+        port: smtpPort,
+        tls: smtpPort === 465,
+        auth: {
+            username: account.imap_username,
+            password: account.imap_password,
+        },
+      },
+    });
+
+    await client.send({
+      from: account.email,
+      to,
+      subject,
+      content: body,
+      html,
+    });
+
+    await client.close();
+    return { success: true };
 }
 
 // ============================================================================
@@ -2925,20 +2970,65 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
     }
 
     const userData = await getUserData(user.id);
-    const organizationId = userData?.organizationId || user.user_metadata?.organizationId;
-    const campaignId = c.req.param('id');
+    let organizationId = userData?.organizationId || user.user_metadata?.organizationId;
+    
+    if (!organizationId) {
+      console.error('❌ User has no organization ID');
+      return c.json({ error: 'User organization not found. Please contact support.' }, 400);
+    }
 
-    // Get campaign from database
-    const { data: campaign, error: campaignError } = await supabase
-      .from('campaigns')
-      .select('*')
-      .eq('id', campaignId)
-      .eq('organization_id', organizationId)
-      .single();
+    const campaignId = c.req.param('id');
+    
+    console.log(`🔍 Lookup campaign: ${campaignId} for user in org: ${organizationId}`);
+
+    // Get campaign from database - query by ID first to ensure existence
+    // Add retry logic for potential read-replica lag
+    let campaign = null;
+    let campaignError = null;
+    
+    for (let i = 0; i < 3; i++) {
+        const result = await supabase
+          .from('campaigns')
+          .select('*')
+          .eq('id', campaignId)
+          .single();
+        
+        campaign = result.data;
+        campaignError = result.error;
+        
+        if (campaign) break;
+        // Wait 500ms before retry
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
 
     if (campaignError || !campaign) {
-      console.error('Campaign not found:', campaignError);
+      console.error(`❌ Campaign not found by ID: ${campaignId}`, campaignError);
       return c.json({ error: 'Campaign not found' }, 404);
+    }
+    
+    // Verify organization ownership
+    if (campaign.organization_id !== organizationId) {
+      console.error(`❌ Campaign org mismatch: Campaign ${campaign.organization_id} vs User ${organizationId}`);
+      
+      // Attempt to re-hydrate user organization from DB to ensure it's not a stale cache issue
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single();
+        
+      if (profile && profile.organization_id === campaign.organization_id) {
+          console.log(`✅ Organization match confirmed after re-fetching profile. Updating cache.`);
+          // Update local variable and cache
+          organizationId = profile.organization_id;
+          if (userData) {
+              userData.organizationId = organizationId;
+              await kv.set(`user:${user.id}`, userData);
+          }
+      } else {
+          // Genuine mismatch
+          return c.json({ error: 'Campaign not found' }, 404);
+      }
     }
 
     console.log('📧 Sending campaign:', campaign.name, 'Audience segment:', campaign.audience_segment);
@@ -3008,7 +3098,7 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
     // Select the best account (prioritize connected ones, or first one)
     // TODO: Allow user to select sender account in campaign settings
     const senderAccount = accounts[0];
-    console.log(`📧 Sending campaign from account: ${senderAccount.email} (${senderAccount.provider})`);
+    console.log(`📧 Sending campaign from account: ${senderAccount.email} (Provider: ${senderAccount.provider}, ID: ${senderAccount.id})`);
 
     // Track email sends
     const sentEmails: any[] = [];
@@ -3044,35 +3134,68 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
         let response;
         const payload = {
             accountId: senderAccount.id,
+            from: senderAccount.email,
+            sender_name: userData?.name || 'ProSpaces CRM',
             to: contact.email,
             subject: campaign.subject || campaign.name,
-            body: fullBody
+            body: fullBody,
+            html: fullBody // Add html field as fallback for providers expecting it
         };
 
-        if (senderAccount.provider === 'outlook') {
-            response = await supabase.functions.invoke('azure-send-email', {
-                body: payload,
-                headers: { Authorization: authHeader }
-            });
-        } else if (senderAccount.nylas_grant_id) {
-            response = await supabase.functions.invoke('nylas-send-email', {
-                body: payload,
-                headers: { Authorization: authHeader }
-            });
-        } else {
-            // SMTP / Generic
-            response = await supabase.functions.invoke('send-email', {
-                body: payload,
-                headers: { Authorization: authHeader }
-            });
+        console.log(`🚀 Invoking email function for provider: ${senderAccount.provider || 'generic'}`);
+
+        try {
+            if (senderAccount.provider === 'outlook' || senderAccount.provider === 'azure') {
+                response = await supabase.functions.invoke('azure-send-email', {
+                    body: payload,
+                    headers: { Authorization: authHeader }
+                });
+            } else if (senderAccount.nylas_grant_id) {
+                response = await supabase.functions.invoke('nylas-send-email', {
+                    body: payload,
+                    headers: { Authorization: authHeader }
+                });
+            } else if (senderAccount.provider === 'google' || senderAccount.provider === 'gmail') {
+                // Try gmail-send-email if it exists
+                response = await supabase.functions.invoke('gmail-send-email', {
+                    body: payload,
+                    headers: { Authorization: authHeader }
+                });
+            } else {
+                throw new Error('Using generic provider'); // Trigger fallback
+            }
+
+            // Check if the specific provider function failed
+            if (response.error) {
+                console.warn(`Provider function invocation failed: ${response.error.message}`);
+                throw new Error(response.error.message);
+            }
+            
+            if (response.data && !response.data.success) {
+                 console.warn(`Provider function returned failure: ${response.data.error}`);
+                 throw new Error(response.data.error || 'Provider returned failure');
+            }
+
+        } catch (providerError: any) {
+            console.warn(`⚠️ Specific provider send failed or not configured (${providerError.message}). Falling back to generic/SMTP send-email.`);
+            
+            try {
+                 await sendEmailViaSMTP(senderAccount, contact.email, campaign.subject || campaign.name, fullBody, fullBody);
+                 response = { data: { success: true }, error: null };
+            } catch (smtpError: any) {
+                 console.error('SMTP send error:', smtpError);
+                 response = { data: null, error: { message: smtpError.message || 'SMTP sending failed' } };
+            }
         }
 
         if (response.error) {
-            throw new Error(response.error.message || 'Function invocation failed');
+            console.error('Final email send invocation error:', response.error, JSON.stringify(response));
+            throw new Error(response.error.message || 'Function invocation failed with unknown error');
         }
         
         // Check if the function itself returned an error
         if (response.data && !response.data.success) {
+             console.error('Final email send logic error:', response.data.error);
              throw new Error(response.data.error || 'Email sending failed');
         }
 
@@ -3109,8 +3232,7 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
     const { error: updateError } = await supabase
       .from('campaigns')
       .update({
-        sent: sentEmails.length,
-        audience: targetContacts.length,
+        // sent column removed to avoid PGRST204 error
         status: 'active',
         updated_at: new Date().toISOString(),
       })

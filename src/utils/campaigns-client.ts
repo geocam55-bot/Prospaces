@@ -1,5 +1,6 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
+import { projectId } from './supabase/info';
 
 export async function getAllCampaignsClient() {
   try {
@@ -157,10 +158,7 @@ export async function sendCampaignClient(id: string) {
 
     const profile = await ensureUserProfile(session.user.id);
     
-    // Get project ID from Supabase URL
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const projectId = supabaseUrl.split('//')[1].split('.')[0];
-
+    // Use imported projectId
     const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/campaigns/${id}/send`, {
       method: 'POST',
       headers: {
