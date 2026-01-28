@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { projectId } from '../../utils/supabase/info';
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Loader2, Package } from 'lucide-react';
@@ -47,8 +47,14 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
         const url = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/landing-page/${slug}`;
         console.log('[PublicLandingPage] Fetching from:', url);
         console.log('[PublicLandingPage] Slug:', slug);
+        console.log('[PublicLandingPage] *** UPDATED VERSION WITH AUTH HEADER ***');
+        console.log('[PublicLandingPage] Auth header:', `Bearer ${publicAnonKey.substring(0, 20)}...`);
         
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`
+          }
+        });
         console.log('[PublicLandingPage] Response status:', response.status);
         console.log('[PublicLandingPage] Response ok:', response.ok);
         
