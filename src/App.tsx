@@ -97,7 +97,8 @@ function App() {
   console.log('URL Params:', {
     view: urlParams.get('view'),
     isLandingPageDiagnostic,
-    allParams: Object.fromEntries(urlParams.entries())
+    allParams: Object.fromEntries(urlParams.entries()),
+    buildTimestamp: '2026-01-28T17:52:00Z' // Force rebuild
   });
 
   // Check path-based routing for public landing pages
