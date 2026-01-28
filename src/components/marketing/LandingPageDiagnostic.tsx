@@ -3,7 +3,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Loader2, Search, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
-import { projectId } from '../../utils/supabase/info';
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
 export function LandingPageDiagnostic() {
   const [loading, setLoading] = useState(true);
@@ -19,8 +19,13 @@ export function LandingPageDiagnostic() {
     try {
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/debug/landing-pages`;
       console.log('Fetching from:', url);
+      console.log('Using auth token:', publicAnonKey.substring(0, 20) + '...');
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`
+        }
+      });
       console.log('Response:', { status: response.status, ok: response.ok });
       
       if (!response.ok) {
