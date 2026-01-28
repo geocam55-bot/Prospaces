@@ -558,6 +558,70 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
     }
   };
 
+  // Handle general image upload from file (for Image widget)
+  const handleImageUpload = async (elementId: string, file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (!accessToken) {
+      toast.error('Authentication required to upload images');
+      return;
+    }
+
+    const loadingToast = toast.loading('Uploading image...');
+
+    try {
+      // Convert file to base64
+      const base64 = await fileToBase64(file);
+      
+      // Upload to server with user's access token
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData: base64,
+          fileName: file.name,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Upload failed');
+      }
+
+      const { url } = await response.json();
+      
+      // Update element with permanent URL
+      handleUpdateElement(elementId, url);
+      toast.success('Image uploaded successfully', { id: loadingToast });
+    } catch (error) {
+      console.error('Failed to upload image:', error);
+      toast.error(`Failed to upload image: ${error.message}`, { id: loadingToast });
+    }
+  };
+
+  // Handle general image paste (for Image widget)
+  const handleImagePaste = async (elementId: string, event: React.ClipboardEvent) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        event.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) {
+          await handleImageUpload(elementId, file);
+        }
+        break;
+      }
+    }
+  };
+
   const renderElement = (element: PageElement, isPreview: boolean = false) => {
     const isSelected = selectedElement === element.id;
     const alignment = element.styles?.alignment || 'center';
@@ -630,24 +694,80 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
         return (
           <div className={`${alignmentClass} ${!isPreview && 'cursor-pointer hover:bg-blue-50 p-4 rounded-lg transition-colors'} ${isSelected && !isPreview ? 'bg-blue-50 ring-2 ring-blue-500' : ''}`}>
             {!isPreview && isSelected ? (
-              <div className="space-y-2">
-                <Input
-                  value={element.content}
-                  onChange={(e) => handleUpdateElement(element.id, e.target.value)}
-                  placeholder="Image URL"
-                />
-                <img src={element.content} alt="Preview" className="w-full max-w-2xl mx-auto rounded-lg" />
-                <Button 
-                  size="sm"
-                  variant="outline"
-                  className="w-full" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedElement(null);
-                  }}
-                >
-                  Done
-                </Button>
+              <div 
+                className="space-y-4 max-w-md mx-auto p-4 bg-white rounded border border-gray-200 shadow-sm text-left"
+                onPaste={(e) => handleImagePaste(element.id, e)}
+              >
+                <div className="font-medium text-center border-b pb-2 mb-2 text-gray-900">Editing Image Widget</div>
+                
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-gray-500">Image URL</label>
+                  <Input
+                    value={element.content}
+                    onChange={(e) => handleUpdateElement(element.id, e.target.value)}
+                    placeholder="Enter Image URL or Upload below"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-gray-500">Upload Image</label>
+                  <div className="flex gap-2">
+                    <label className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleImageUpload(element.id, file);
+                        }}
+                        className="hidden"
+                      />
+                      <Button variant="outline" className="w-full" type="button" onClick={(e) => {
+                        const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                        input?.click();
+                      }}>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Image
+                      </Button>
+                    </label>
+                    <Button 
+                      variant="outline" 
+                      type="button"
+                      onClick={() => {
+                        toast.info('Press Ctrl+V (or Cmd+V on Mac) to paste an image');
+                      }}
+                      title="Paste image from clipboard"
+                    >
+                      <Clipboard className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {element.content && (
+                  <div className="relative mt-2">
+                    <img src={element.content} alt="Preview" className="w-full h-auto max-h-64 object-contain rounded border bg-gray-50" />
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="absolute top-1 right-1"
+                      onClick={() => handleUpdateElement(element.id, '')}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                
+                <div className="pt-4 border-t">
+                    <Button 
+                      className="w-full" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedElement(null);
+                      }}
+                    >
+                      Done Editing
+                    </Button>
+                  </div>
               </div>
             ) : (
               <img src={element.content} alt="Content" className="w-full max-w-2xl mx-auto rounded-lg" />
