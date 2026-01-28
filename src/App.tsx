@@ -42,6 +42,7 @@ import { PublicLandingPage } from './components/marketing/PublicLandingPage';
 import { LandingPageDebug } from './components/LandingPageDebug';
 import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnostic';
 import { OpportunitiesDiagnostic } from './components/OpportunitiesDiagnostic';
+import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
 import { initializePermissions } from './utils/permissions';
