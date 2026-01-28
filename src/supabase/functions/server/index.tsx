@@ -2706,18 +2706,31 @@ app.get('/make-server-8405be07/public/view', async (c) => {
 app.get('/make-server-8405be07/debug/landing-pages', async (c) => {
   try {
     const allPages = await kv.getByPrefix('landing_page:');
-    const pageList = allPages.map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      organizationId: p.organizationId,
-      createdAt: p.createdAt
-    }));
+    console.log(`[DEBUG /debug/landing-pages] Found ${allPages.length} landing pages with prefix 'landing_page:'`);
+    
+    const pageList = allPages.map((p: any) => {
+      console.log(`[DEBUG] Page: id=${p.id}, name=${p.name}, slug=${p.slug}, orgId=${p.organizationId}`);
+      return {
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        organizationId: p.organizationId,
+        createdAt: p.createdAt,
+        hasContent: !!p.content,
+        contentKeys: p.content ? Object.keys(p.content) : []
+      };
+    });
+    
     return c.json({ 
       count: pageList.length,
-      pages: pageList 
+      pages: pageList,
+      debug: {
+        kvPrefix: 'landing_page:',
+        timestamp: new Date().toISOString()
+      }
     });
   } catch (error) {
+    console.error('[DEBUG ERROR]', error);
     return c.json({ error: 'Failed to list landing pages: ' + error.message }, 500);
   }
 });
@@ -2726,25 +2739,44 @@ app.get('/make-server-8405be07/debug/landing-pages', async (c) => {
 app.get('/make-server-8405be07/public/landing-page/:slug', async (c) => {
   try {
     const slug = c.req.param('slug');
-    if (!slug) return c.json({ error: 'Slug required' }, 400);
+    console.log(`[PUBLIC LANDING PAGE] Request for slug: "${slug}"`);
+    
+    if (!slug) {
+      console.log('[PUBLIC LANDING PAGE] ERROR: No slug provided');
+      return c.json({ error: 'Slug required' }, 400);
+    }
 
     // Scan all landing pages to find the slug
     // Note: Ideally we would maintain a slug -> id index
     const allPages = await kv.getByPrefix('landing_page:');
-    console.log(`[DEBUG] Looking for slug "${slug}" among ${allPages.length} pages`);
-    console.log('[DEBUG] Available slugs:', allPages.map((p: any) => p.slug));
+    console.log(`[PUBLIC LANDING PAGE] Found ${allPages.length} pages total in KV store`);
+    console.log('[PUBLIC LANDING PAGE] Available slugs:', allPages.map((p: any) => `"${p.slug}"`).join(', '));
+    console.log('[PUBLIC LANDING PAGE] Page details:', JSON.stringify(allPages.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      orgId: p.organizationId
+    })), null, 2));
+    
     const page = allPages.find((p: any) => p.slug === slug);
+    console.log(`[PUBLIC LANDING PAGE] Slug match result: ${page ? 'FOUND' : 'NOT FOUND'}`);
 
     if (!page) {
+      console.log('[PUBLIC LANDING PAGE] ERROR: Page not found');
       return c.json({ 
         error: 'Landing page not found',
         debug: {
           requestedSlug: slug,
-          availableSlugs: allPages.map((p: any) => p.slug),
-          totalPages: allPages.length
+          availableSlugs: allPages.map((p: any) => p.slug).filter(Boolean),
+          totalPages: allPages.length,
+          hint: allPages.length === 0 
+            ? 'No landing pages exist in the system. Create one in Marketing > Landing Pages.'
+            : 'The requested slug does not match any existing landing page. Check the slug in the page settings.'
         }
       }, 404);
     }
+    
+    console.log('[PUBLIC LANDING PAGE] SUCCESS: Returning page:', page.name);
     
     // Only allow published pages or draft pages if in preview mode (but this is public endpoint, so strictly published usually)
     // For now, allow all for testing, but typically check page.status === 'published'
@@ -2755,6 +2787,7 @@ app.get('/make-server-8405be07/public/landing-page/:slug', async (c) => {
 
     return c.json({ page });
   } catch (error) {
+    console.error('[PUBLIC LANDING PAGE] Exception:', error);
     return c.json({ error: 'Failed to fetch landing page: ' + error.message }, 500);
   }
 });

@@ -1133,6 +1133,7 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
                       <p className="text-xs text-gray-500 mt-1">{page.slug ? `/landing/${page.slug}` : 'No slug set'}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <Badge className={getStatusColor(page.status)}>{page.status}</Badge>
+                        {!page.slug && <Badge variant="destructive" className="text-xs">No Public URL</Badge>}
                         <span className="text-xs text-gray-500">• {new Date(page.updatedAt || page.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
@@ -1335,6 +1336,23 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
                             onChange={(e) => setPageSettings({...pageSettings, slug: e.target.value})}
                           />
                         </div>
+                        {!pageSettings.slug && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mt-2">
+                            <p className="text-sm text-yellow-800 font-medium">⚠️ URL slug is required</p>
+                            <p className="text-xs text-yellow-700 mt-1">
+                              Without a slug, your landing page won't be publicly accessible. 
+                              Enter a URL-friendly slug like "winter-blast" or "WinterBlast".
+                            </p>
+                          </div>
+                        )}
+                        {pageSettings.slug && (
+                          <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2 mt-2">
+                            <span className="font-medium">Public URL:</span>
+                            <code className="bg-white px-2 py-0.5 rounded border border-green-300">
+                              /landing/{pageSettings.slug}
+                            </code>
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm text-gray-700 font-medium">SEO Meta Description</label>

@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { projectId } from '../utils/supabase/info';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Loader2, RefreshCw, ExternalLink } from 'lucide-react';
+import { Loader2, RefreshCw, ExternalLink, AlertTriangle, CheckCircle } from 'lucide-react';
 
 export function LandingPageDebug() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [testingSlug, setTestingSlug] = useState('');
+  const [testResult, setTestResult] = useState<any>(null);
 
   const fetchDebugData = async () => {
     setLoading(true);
@@ -19,7 +21,8 @@ export function LandingPageDebug() {
       );
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const text = await response.text();
+        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${text}`);
       }
       
       const result = await response.json();
@@ -29,6 +32,31 @@ export function LandingPageDebug() {
       console.error('Debug fetch error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const testSlugAccess = async (slug: string) => {
+    if (!slug) return;
+    setTestingSlug(slug);
+    setTestResult(null);
+    
+    try {
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/landing-page/${slug}`
+      );
+      
+      const result = await response.json();
+      setTestResult({
+        status: response.status,
+        ok: response.ok,
+        data: result
+      });
+    } catch (err: any) {
+      setTestResult({
+        status: 'error',
+        ok: false,
+        error: err.message
+      });
     }
   };
 
@@ -88,6 +116,13 @@ export function LandingPageDebug() {
                   <p className="text-yellow-700 text-sm mt-1">
                     Create a landing page in the Marketing Module → Landing Pages section
                   </p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-3"
+                    onClick={() => window.location.href = '/?module=marketing&tab=landing-pages'}
+                  >
+                    Go to Landing Page Builder
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -167,6 +202,38 @@ export function LandingPageDebug() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {testingSlug && testResult && (
+                <div className="mt-6 pt-6 border-t">
+                  <h4 className="font-semibold mb-2">Test Result for <code className="bg-gray-100 px-1 rounded">/landing/{testingSlug}</code>:</h4>
+                  {testResult.ok ? (
+                    <div className="bg-green-50 border border-green-200 rounded p-4">
+                      <p className="text-green-800 font-semibold">Success!</p>
+                      <p className="text-green-600 text-sm mt-1">
+                        The landing page is accessible. You can visit it at <a href={`/landing/${testingSlug}`} target="_blank" className="text-blue-500 underline">/landing/{testingSlug}</a>.
+                      </p>
+                      <div className="flex items-center mt-2">
+                        <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                        <p className="text-sm text-gray-600">Status: {testResult.status}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-red-50 border border-red-200 rounded p-4">
+                      <p className="text-red-800 font-semibold">Error!</p>
+                      <p className="text-red-600 text-sm mt-1">
+                        The landing page is not accessible. Please check the slug and try again.
+                      </p>
+                      <div className="flex items-center mt-2">
+                        <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
+                        <p className="text-sm text-gray-600">Status: {testResult.status}</p>
+                      </div>
+                      {testResult.error && (
+                        <p className="text-sm text-gray-600 mt-1">Error Message: {testResult.error}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
