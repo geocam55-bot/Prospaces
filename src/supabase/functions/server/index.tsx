@@ -3215,6 +3215,9 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
           metadata = { emailContent: campaign.description };
         }
         
+        console.log(`📋 Contact info - name: ${contact.name}, first: ${contact.first_name}, last: ${contact.last_name}, email: ${contact.email}`);
+        console.log(`📝 Email content source - metadata.emailContent exists: ${!!metadata.emailContent}, length: ${metadata.emailContent?.length || 0}`);
+        
         // Personalize body - use emailContent from metadata if available
         let body = metadata.emailContent || campaign.content || '';
         
@@ -3317,6 +3320,8 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
 </body>
 </html>
         `.trim();
+
+        console.log(`📧 Final email HTML length: ${fullBody.length}, starts with: ${fullBody.substring(0, 50)}`);
 
         // Send using the appropriate provider function
         let response;

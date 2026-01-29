@@ -88,13 +88,24 @@ serve(async (req) => {
 
     // Prepare the email payload for Nylas Send API v3
     // Nylas v3 API format: https://developer.nylas.com/docs/api/v3/eml/#post-/v3/grants/-grant_id-/messages/send
-    // For HTML emails, Nylas v3 expects the body field to contain HTML content directly
-    // It will automatically set the appropriate MIME type
+    // For HTML emails, we need to detect if content is HTML and set content_type accordingly
+    const isHtml = finalEmailBody.includes('<html>') || finalEmailBody.includes('<!DOCTYPE');
+    
+    console.log(`🔍 HTML Detection - isHtml: ${isHtml}, body starts with: "${finalEmailBody.substring(0, 100)}"`);
+    
     const nylasPayload: any = {
       to: Array.isArray(to) ? to.map((email: string) => ({ email })) : [{ email: to }],
       subject: subject,
-      body: finalEmailBody, // Nylas v3 auto-detects HTML vs plain text based on content
+      body: finalEmailBody,
     };
+
+    // Explicitly set content type for HTML emails
+    if (isHtml) {
+      nylasPayload.content_type = 'text/html';
+      console.log('✅ Setting content_type to text/html');
+    } else {
+      console.log('⚠️ No HTML detected, sending as plain text');
+    }
 
     // Add optional fields
     if (cc) {
@@ -104,7 +115,7 @@ serve(async (req) => {
       nylasPayload.bcc = Array.isArray(bcc) ? bcc.map((email: string) => ({ email })) : [{ email: bcc }];
     }
 
-    console.log('Nylas send payload:', JSON.stringify(nylasPayload, null, 2));
+    console.log('Nylas send payload (content_type):', nylasPayload.content_type);
 
     // Send email using Nylas Send API
     const nylasResponse = await fetch(
