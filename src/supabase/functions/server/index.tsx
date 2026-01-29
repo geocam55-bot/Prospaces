@@ -97,12 +97,17 @@ async function sendEmailViaSMTP(account: any, to: string, subject: string, body:
       },
     });
 
+    // SMTPClient needs the 'html' field ONLY for HTML emails
+    // The 'content' field causes quoted-printable encoding issues
+    console.log('📤 Sending via SMTP to:', to);
+    console.log('📧 Email is HTML:', html.includes('<!DOCTYPE'));
+    
     await client.send({
       from: account.email,
       to,
       subject,
-      content: body,
-      html,
+      // Only send html field for HTML emails - don't use 'content' at all
+      html: html || body,
     });
 
     await client.close();
