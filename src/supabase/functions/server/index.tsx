@@ -3217,6 +3217,12 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
         
         // Personalize body - use emailContent from metadata if available
         let body = metadata.emailContent || campaign.content || '';
+        
+        // Convert line breaks to HTML <br> tags if not already HTML
+        if (!body.includes('<br') && !body.includes('<p>') && !body.includes('<div>')) {
+          body = body.replace(/\n/g, '<br/>');
+        }
+        
         body = body.replace(/{{name}}/g, contact.first_name || contact.name || 'Valued Customer');
         body = body.replace(/{{first_name}}/g, contact.first_name || 'Valued Customer');
         body = body.replace(/{{last_name}}/g, contact.last_name || '');
@@ -3237,23 +3243,80 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
           if (body.includes('{{landing_page}}')) {
             body = body.replace(/{{landing_page}}/g, landingPageUrl);
           } else {
-            // Auto-append a landing page CTA button
-            const ctaButton = `<br/><br/><div style="text-align: center; margin: 30px 0;">
-              <a href="${landingPageUrl}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">
-                Learn More
-              </a>
-            </div>`;
+            // Auto-append a landing page CTA button with table-based layout for better email client support
+            const ctaButton = `
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 30px 0;">
+                <tr>
+                  <td align="center">
+                    <table border="0" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td align="center" style="border-radius: 6px; background-color: #2563eb;">
+                          <a href="${landingPageUrl}" target="_blank" style="display: inline-block; padding: 14px 28px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 16px; color: #ffffff; text-decoration: none; font-weight: 600; border-radius: 6px;">
+                            Learn More
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            `;
             body = body + ctaButton;
           }
         }
         
-        // Add footer/unsubscribe
-        // TODO: Add real unsubscribe link
-        const unsubscribeLink = `<br/><br/><div style="font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 10px;">
-          <p>You are receiving this email because you are a valued contact of ${userData?.organizationName || 'our company'}.</p>
-        </div>`;
-        
-        const fullBody = body + unsubscribeLink;
+        // Wrap content in proper HTML email template
+        const fullBody = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${campaign.subject || campaign.name}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f5f5f5;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      padding: 40px;
+    }
+    .email-content {
+      color: #333;
+      font-size: 16px;
+    }
+    .email-footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e5e5;
+      font-size: 12px;
+      color: #888;
+      text-align: center;
+    }
+    a {
+      color: #2563eb;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="email-content">
+      ${body}
+    </div>
+    <div class="email-footer">
+      <p>You are receiving this email because you are a valued contact of ${userData?.organizationName || 'our company'}.</p>
+    </div>
+  </div>
+</body>
+</html>
+        `.trim();
 
         // Send using the appropriate provider function
         let response;
