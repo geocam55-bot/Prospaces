@@ -3204,17 +3204,34 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
 
         console.log(`📧 Sending campaign "${campaign.name}" to ${contact.email}`);
         
-        // Personalize body
-        let body = campaign.content || '';
+        // Parse metadata from description field (which stores JSON)
+        let metadata: any = {};
+        try {
+          if (campaign.description) {
+            metadata = JSON.parse(campaign.description);
+          }
+        } catch (e) {
+          // If description is not JSON, treat it as plain text
+          metadata = { emailContent: campaign.description };
+        }
+        
+        // Personalize body - use emailContent from metadata if available
+        let body = metadata.emailContent || campaign.content || '';
         body = body.replace(/{{name}}/g, contact.first_name || contact.name || 'Valued Customer');
         body = body.replace(/{{first_name}}/g, contact.first_name || 'Valued Customer');
         body = body.replace(/{{last_name}}/g, contact.last_name || '');
         body = body.replace(/{{email}}/g, contact.email);
         
-        // Auto-insert landing page link if campaign has one
-        if (campaign.landing_page_slug) {
-          const baseUrl = Deno.env.get('SUPABASE_URL')?.replace('//', '//').split('/')[2].split('.')[0];
-          const landingPageUrl = `https://${baseUrl}.supabase.co?view=landing&slug=${campaign.landing_page_slug}&campaign=${campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign=${encodeURIComponent(campaign.name)}`;
+        // Auto-insert landing page link if campaign has one (check metadata)
+        const landingPageSlug = metadata.landingPageSlug || campaign.landing_page_slug;
+        if (landingPageSlug) {
+          // Use the client-side app URL for landing pages (not the server endpoint)
+          // The PublicLandingPage component handles rendering at /landing/{slug}
+          const appUrl = Deno.env.get('APP_URL') || 'https://your-app.com';
+          
+          // Construct proper landing page URL with UTM tracking
+          // Using query parameter routing for immediate compatibility
+          const landingPageUrl = `${appUrl}?view=landing&slug=${landingPageSlug}&campaign=${campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign=${encodeURIComponent(campaign.name)}`;
           
           // Replace {{landing_page}} placeholder or append CTA button
           if (body.includes('{{landing_page}}')) {

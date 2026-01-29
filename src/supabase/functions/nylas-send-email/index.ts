@@ -42,10 +42,13 @@ serve(async (req) => {
 
     // Get the request body
     const body = await req.json();
-    const { accountId, to, subject, body: emailBody, cc, bcc } = body;
+    const { accountId, to, subject, body: emailBody, html: emailHtml, cc, bcc } = body;
+
+    // Prefer html field over body field for HTML content
+    const finalEmailBody = emailHtml || emailBody;
 
     // Validate required fields
-    if (!accountId || !to || !subject || !emailBody) {
+    if (!accountId || !to || !subject || !finalEmailBody) {
       throw new Error('Missing required fields: accountId, to, subject, body');
     }
 
@@ -83,11 +86,14 @@ serve(async (req) => {
 
     console.log('Sending via Nylas for account:', account.email, 'grant_id:', account.nylas_grant_id);
 
-    // Prepare the email payload for Nylas Send API
-    const nylasPayload = {
+    // Prepare the email payload for Nylas Send API v3
+    // Nylas v3 API format: https://developer.nylas.com/docs/api/v3/eml/#post-/v3/grants/-grant_id-/messages/send
+    // For HTML emails, Nylas v3 expects the body field to contain HTML content directly
+    // It will automatically set the appropriate MIME type
+    const nylasPayload: any = {
       to: Array.isArray(to) ? to.map((email: string) => ({ email })) : [{ email: to }],
       subject: subject,
-      body: emailBody,
+      body: finalEmailBody, // Nylas v3 auto-detects HTML vs plain text based on content
     };
 
     // Add optional fields
@@ -145,7 +151,7 @@ serve(async (req) => {
       cc_email: cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : null,
       bcc_email: bcc ? (Array.isArray(bcc) ? bcc.join(', ') : bcc) : null,
       subject: subject,
-      body: emailBody,
+      body: finalEmailBody,
       folder: 'sent',
       is_read: true,
       is_starred: false,

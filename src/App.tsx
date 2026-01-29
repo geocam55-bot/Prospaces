@@ -103,17 +103,26 @@ function App() {
   // Check path-based routing for public landing pages
   const path = window.location.pathname;
   const isLandingPage = path.startsWith('/landing/');
-  const landingPageSlug = isLandingPage ? path.split('/landing/')[1] : null;
+  const landingPageSlug = isLandingPage ? path.split('/landing/')[1]?.split('?')[0] : null;
+  
+  console.log('[App.tsx] Routing Debug:', {
+    path,
+    isLandingPage,
+    landingPageSlug,
+    fullURL: window.location.href
+  });
   
   // Also support query parameter routing: ?view=landing&slug=WinterBlast
   const isLandingPageQuery = urlParams.get('view') === 'landing';
   const landingPageQuerySlug = urlParams.get('slug');
 
   if (isLandingPage && landingPageSlug) {
+    console.log('[App.tsx] Rendering PublicLandingPage with slug:', landingPageSlug);
     return <PublicLandingPage slug={landingPageSlug} />;
   }
   
   if (isLandingPageQuery && landingPageQuerySlug) {
+    console.log('[App.tsx] Rendering PublicLandingPage (query) with slug:', landingPageQuerySlug);
     return <PublicLandingPage slug={landingPageQuerySlug} />;
   }
 

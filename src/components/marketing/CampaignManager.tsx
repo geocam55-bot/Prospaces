@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
-import { Plus, Mail, MessageSquare, Facebook, Instagram, MoreVertical, Edit, Pause, Play, Copy, Trash2, BarChart, Send, Globe, ExternalLink } from 'lucide-react';
+import { Plus, Mail, MessageSquare, Facebook, Instagram, MoreVertical, Edit, Pause, Play, Copy, Trash2, BarChart, Send, Globe, ExternalLink, ChevronDown } from 'lucide-react';
 import { campaignsAPI } from '../../utils/api';
 import { toast } from 'sonner';
 import type { User } from '../../App';
@@ -17,6 +17,7 @@ import { getLandingPages } from '../../utils/marketing-client';
 import { contactsAPI } from '../../utils/api';
 import { CampaignAnalytics } from './CampaignAnalytics';
 import { useAudienceSegments } from '../../hooks/useAudienceSegments';
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
 interface CampaignManagerProps {
   user: User;
@@ -46,6 +47,29 @@ export function CampaignManager({ user }: CampaignManagerProps) {
   const [emailContent, setEmailContent] = useState('');
   const [scheduleType, setScheduleType] = useState('now');
   const [scheduleDateTime, setScheduleDateTime] = useState('');
+
+  // Sample email template
+  const sampleEmailContent = `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+  <h2 style="color: #2563eb;">Hello {{first_name}}!</h2>
+  
+  <p>We hope this message finds you well. We're excited to share some updates with you!</p>
+  
+  <p>As a valued member of our community, you're among the first to hear about our latest offerings and exclusive opportunities.</p>
+  
+  <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <h3 style="margin-top: 0; color: #1f2937;">What's New?</h3>
+    <p>We've been working hard to bring you innovative solutions that make your life easier. Stay tuned for exciting announcements!</p>
+  </div>
+  
+  <p>We truly appreciate your continued support and trust in us.</p>
+  
+  <p>Best regards,<br/>
+  The Team</p>
+  
+  <p style="font-size: 12px; color: #6b7280; margin-top: 30px;">
+    You're receiving this email because you're a valued contact at {{email}}.
+  </p>
+</div>`; 
 
   // Load campaigns on mount
   useEffect(() => {
@@ -82,17 +106,24 @@ export function CampaignManager({ user }: CampaignManagerProps) {
 
     setIsCreating(true);
     try {
-      const campaignData = {
+      // Build campaign data - DO NOT include landing_page_slug since database doesn't have this column
+      // Instead, we'll store it in the campaign's metadata/description field as JSON
+      const campaignData: any = {
         name: campaignName,
         type: selectedCampaignType,
         status: scheduleType === 'now' ? 'active' : 'scheduled',
-        description: emailContent || previewText,
         audience_segment: audienceSegment || 'all',
-        landing_page_slug: selectedLandingPage && selectedLandingPage !== 'none' ? selectedLandingPage : null,
         subject_line: subjectLine || null,
         preview_text: previewText || null,
         start_date: scheduleType === 'schedule' && scheduleDateTime ? new Date(scheduleDateTime).toISOString() : new Date().toISOString(),
       };
+
+      // Store landing page slug and email content in description field as JSON metadata
+      const metadata = {
+        emailContent: emailContent || previewText,
+        landingPageSlug: selectedLandingPage && selectedLandingPage !== 'none' ? selectedLandingPage : null,
+      };
+      campaignData.description = JSON.stringify(metadata);
 
       const { campaign } = await campaignsAPI.create(campaignData);
       
@@ -263,6 +294,39 @@ export function CampaignManager({ user }: CampaignManagerProps) {
     setIsAnalyticsDialogOpen(true);
   };
 
+  // Insert dynamic field into email content
+  const insertDynamicField = (field: string) => {
+    if (!emailContentRef.current) return;
+    
+    const start = emailContentRef.current.selectionStart;
+    const end = emailContentRef.current.selectionEnd;
+    const text = emailContent;
+    const before = text.substring(0, start);
+    const after = text.substring(end);
+    
+    const newContent = before + field + after;
+    setEmailContent(newContent);
+    
+    // Set cursor position after inserted field
+    setTimeout(() => {
+      if (emailContentRef.current) {
+        emailContentRef.current.focus();
+        const newPosition = start + field.length;
+        emailContentRef.current.setSelectionRange(newPosition, newPosition);
+      }
+    }, 0);
+    
+    toast.success(`Inserted ${field}`);
+  };
+
+  // Load sample email template
+  const loadSampleTemplate = () => {
+    setEmailContent(sampleEmailContent);
+    setSubjectLine('Welcome! We\'re Excited to Connect');
+    setPreviewText('Discover what\'s new and stay connected with us');
+    toast.success('Sample template loaded!');
+  };
+
   const getChannelIcon = (channel: string) => {
     switch (channel) {
       case 'email':
@@ -295,6 +359,8 @@ export function CampaignManager({ user }: CampaignManagerProps) {
         return 'bg-gray-100 text-gray-700';
     }
   };
+
+  const emailContentRef = useRef<HTMLTextAreaElement | null>(null);
 
   return (
     <div className="space-y-6">
@@ -355,7 +421,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                         <SelectContent>
                           <SelectItem value="none">No Landing Page</SelectItem>
                           {landingPages.map((page: any) => (
-                            <SelectItem key={page.id} value={page.id}>
+                            <SelectItem key={page.id} value={page.slug}>
                               {page.name}
                             </SelectItem>
                           ))}
@@ -372,12 +438,57 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                     <Input placeholder="This appears after the subject in inbox" value={previewText} onChange={(e) => setPreviewText(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Email Content</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Email Content</Label>
+                      <div className="flex gap-2">
+                        <Button 
+                          type="button"
+                          variant="outline" 
+                          size="sm" 
+                          onClick={loadSampleTemplate}
+                          className="text-xs"
+                        >
+                          Load Sample Template
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button type="button" variant="outline" size="sm" className="text-xs">
+                              Insert Field <ChevronDown className="h-3 w-3 ml-1" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => insertDynamicField('{{first_name}}')}>
+                              <span className="font-mono text-xs">{'{{first_name}}'}</span>
+                              <span className="ml-2 text-xs text-gray-500">- Contact's first name</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => insertDynamicField('{{last_name}}')}>
+                              <span className="font-mono text-xs">{'{{last_name}}'}</span>
+                              <span className="ml-2 text-xs text-gray-500">- Contact's last name</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => insertDynamicField('{{name}}')}>
+                              <span className="font-mono text-xs">{'{{name}}'}</span>
+                              <span className="ml-2 text-xs text-gray-500">- Full name</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => insertDynamicField('{{email}}')}>
+                              <span className="font-mono text-xs">{'{{email}}'}</span>
+                              <span className="ml-2 text-xs text-gray-500">- Email address</span>
+                            </DropdownMenuItem>
+                            {selectedLandingPage && selectedLandingPage !== 'none' && (
+                              <DropdownMenuItem onClick={() => insertDynamicField('{{landing_page}}')}>
+                                <span className="font-mono text-xs">{'{{landing_page}}'}</span>
+                                <span className="ml-2 text-xs text-gray-500">- Landing page URL</span>
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
                     <Textarea 
-                      placeholder="Write your email content here... (Supports dynamic fields like {{firstName}}, {{company}})"
+                      placeholder="Write your email content here... (Supports dynamic fields like {{first_name}}, {{email}})"
                       rows={8}
                       value={emailContent}
                       onChange={(e) => setEmailContent(e.target.value)}
+                      ref={emailContentRef}
                     />
                     {selectedLandingPage && selectedLandingPage !== 'none' && (
                       <div className="text-xs bg-blue-50 text-blue-700 p-3 rounded-lg border border-blue-200">
@@ -749,7 +860,17 @@ export function CampaignManager({ user }: CampaignManagerProps) {
               </div>
               
               {/* Landing Page Link */}
-              {campaign.landing_page_slug && (
+              {(() => {
+                // Parse landing page slug from campaign metadata
+                let landingPageSlug = null;
+                try {
+                  const metadata = JSON.parse(campaign.description || '{}');
+                  landingPageSlug = metadata.landingPageSlug;
+                } catch (e) {
+                  landingPageSlug = campaign.landing_page_slug; // Fallback to old field
+                }
+                
+                return landingPageSlug ? (
                 <div className="mt-6 pt-6 border-t border-gray-100">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 flex-1">
@@ -758,13 +879,13 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                         <p className="text-xs text-gray-500 mb-1">Campaign Landing Page (with UTM tracking)</p>
                         <div className="flex items-center gap-2">
                           <code className="text-sm text-gray-900 bg-gray-50 px-2 py-1 rounded border border-gray-200 font-mono truncate block">
-                            {window.location.origin}?view=landing&slug={campaign.landing_page_slug}&campaign={campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign={encodeURIComponent(campaign.name)}
+                            {window.location.origin}?view=landing&slug={landingPageSlug}&campaign={campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign={encodeURIComponent(campaign.name)}
                           </code>
                           <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => {
-                              const url = `${window.location.origin}?view=landing&slug=${campaign.landing_page_slug}&campaign=${campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign=${encodeURIComponent(campaign.name)}`;
+                              const url = `${window.location.origin}?view=landing&slug=${landingPageSlug}&campaign=${campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign=${encodeURIComponent(campaign.name)}`;
                               navigator.clipboard.writeText(url);
                               toast.success('Landing page URL copied to clipboard!');
                             }}
@@ -777,7 +898,8 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                             variant="outline" 
                             size="sm"
                             onClick={() => {
-                              window.open(`?view=landing&slug=${campaign.landing_page_slug}&campaign=${campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign=${encodeURIComponent(campaign.name)}`, '_blank');
+                              const url = `${window.location.origin}?view=landing&slug=${landingPageSlug}&campaign=${campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign=${encodeURIComponent(campaign.name)}`;
+                              window.open(url, '_blank');
                             }}
                             className="flex-shrink-0"
                           >
@@ -789,7 +911,8 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                     </div>
                   </div>
                 </div>
-              )}
+                ) : null;
+              })()}
             </CardContent>
           </Card>
         ))

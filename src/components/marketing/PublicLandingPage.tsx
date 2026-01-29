@@ -137,6 +137,7 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
           console.log('[PublicLandingPage] Campaign ID:', campaignId);
         }
         
+        // Use the public anon key for public endpoint access
         const response = await fetch(url, {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`
