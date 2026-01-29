@@ -85,6 +85,10 @@ async function sendEmailViaSMTP(account: any, to: string, subject: string, body:
         smtpHost = 'smtp.gmail.com';
     }
 
+    console.log('📤 Attempting SMTP send to:', to);
+    console.log('📧 Email is HTML:', html.includes('<!DOCTYPE'));
+    
+    // Denomailer has issues with HTML encoding. Use nodemailer-style config
     const client = new SMTPClient({
       connection: {
         hostname: smtpHost,
@@ -97,21 +101,29 @@ async function sendEmailViaSMTP(account: any, to: string, subject: string, body:
       },
     });
 
-    // SMTPClient needs the 'html' field ONLY for HTML emails
-    // The 'content' field causes quoted-printable encoding issues
-    console.log('📤 Sending via SMTP to:', to);
-    console.log('📧 Email is HTML:', html.includes('<!DOCTYPE'));
+    // Create email with proper encoding - denomailer's 'html' field should work
+    // but we need to ensure it's not being double-encoded
+    const emailContent = html || body;
     
-    await client.send({
-      from: account.email,
-      to,
-      subject,
-      // Only send html field for HTML emails - don't use 'content' at all
-      html: html || body,
-    });
-
-    await client.close();
-    return { success: true };
+    try {
+      await client.send({
+        from: account.email,
+        to,
+        subject,
+        content: emailContent,
+        mimeContent: [
+          `Content-Type: text/html; charset=UTF-8`,
+          `Content-Transfer-Encoding: 8bit`,
+        ],
+      });
+      
+      await client.close();
+      console.log('✅ SMTP send successful');
+      return { success: true };
+    } catch (error) {
+      await client.close();
+      throw error;
+    }
 }
 
 // ============================================================================
@@ -3220,8 +3232,16 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
           metadata = { emailContent: campaign.description };
         }
         
-        console.log(`📋 Contact info - name: ${contact.name}, first: ${contact.first_name}, last: ${contact.last_name}, email: ${contact.email}`);
+        console.log(`📋 Contact info - name: ${contact.name}, email: ${contact.email}`);
+        console.log(`🔍 Raw contact data:`, JSON.stringify(contact));
         console.log(`📝 Email content source - metadata.emailContent exists: ${!!metadata.emailContent}, length: ${metadata.emailContent?.length || 0}`);
+        
+        // Extract first and last name from name field (since contacts table doesn't have first_name/last_name columns)
+        const nameParts = (contact.name || '').split(' ');
+        const firstName = nameParts[0] || 'Valued Customer';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        console.log(`👤 Extracted names - firstName: ${firstName}, lastName: ${lastName}`);
         
         // Personalize body - use emailContent from metadata if available
         let body = metadata.emailContent || campaign.content || '';
@@ -3231,9 +3251,9 @@ app.post('/make-server-8405be07/campaigns/:id/send', async (c) => {
           body = body.replace(/\n/g, '<br/>');
         }
         
-        body = body.replace(/{{name}}/g, contact.first_name || contact.name || 'Valued Customer');
-        body = body.replace(/{{first_name}}/g, contact.first_name || 'Valued Customer');
-        body = body.replace(/{{last_name}}/g, contact.last_name || '');
+        body = body.replace(/{{name}}/g, firstName);
+        body = body.replace(/{{first_name}}/g, firstName);
+        body = body.replace(/{{last_name}}/g, lastName);
         body = body.replace(/{{email}}/g, contact.email);
         
         // Auto-insert landing page link if campaign has one (check metadata)
