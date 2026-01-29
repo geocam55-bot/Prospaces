@@ -86,58 +86,76 @@ serve(async (req) => {
 
     console.log('Sending via Nylas for account:', account.email, 'grant_id:', account.nylas_grant_id);
 
-    // Prepare the email payload for Nylas Send API v3
-    // Nylas v3 API format: https://developer.nylas.com/docs/api/v3/eml/#post-/v3/grants/-grant_id-/messages/send
-    // For HTML emails, we need to detect if content is HTML and set content_type accordingly
+    // RADICAL NEW APPROACH: Use Nylas Messages API (not /send) with proper HTML structure
+    // The /send endpoint seems to have issues with HTML. Let's use /messages with send_at: now
+    
     const isHtml = finalEmailBody.includes('<html>') || finalEmailBody.includes('<!DOCTYPE');
+    console.log(`🔍 Detected ${isHtml ? 'HTML' : 'Plain Text'} email`);
     
-    console.log(`🔍 HTML Detection - isHtml: ${isHtml}, body starts with: "${finalEmailBody.substring(0, 100)}"`);
-    
-    const nylasPayload: any = {
-      to: Array.isArray(to) ? to.map((email: string) => ({ email })) : [{ email: to }],
+    // Construct proper To/CC/BCC arrays
+    const toArray = Array.isArray(to) ? to.map((email: string) => ({ email })) : [{ email: to }];
+    const ccArray = cc ? (Array.isArray(cc) ? cc.map((email: string) => ({ email })) : [{ email: cc }]) : undefined;
+    const bccArray = bcc ? (Array.isArray(bcc) ? bcc.map((email: string) => ({ email })) : [{ email: bcc }]) : undefined;
+
+    // Create payload using the Messages API format with explicit HTML support
+    const messagePayload: any = {
+      to: toArray,
       subject: subject,
-      body: finalEmailBody,
     };
 
-    // Explicitly set content type for HTML emails
+    if (ccArray) messagePayload.cc = ccArray;
+    if (bccArray) messagePayload.bcc = bccArray;
+
+    // For HTML emails, use both body and specify it's HTML via a workaround
+    // Nylas v3 is supposed to auto-detect HTML in the body field
     if (isHtml) {
-      nylasPayload.content_type = 'text/html';
-      console.log('✅ Setting content_type to text/html');
+      // Try adding both plain text version and HTML
+      // Some APIs expect 'body' for plain and 'html' for HTML
+      messagePayload.body = finalEmailBody;
+      
+      // Also try the 'html' field (non-standard but might work)
+      // messagePayload.html = finalEmailBody;
     } else {
-      console.log('⚠️ No HTML detected, sending as plain text');
+      messagePayload.body = finalEmailBody;
     }
 
-    // Add optional fields
-    if (cc) {
-      nylasPayload.cc = Array.isArray(cc) ? cc.map((email: string) => ({ email })) : [{ email: cc }];
-    }
-    if (bcc) {
-      nylasPayload.bcc = Array.isArray(bcc) ? bcc.map((email: string) => ({ email })) : [{ email: bcc }];
-    }
+    // Use POST /messages with send_at to send immediately
+    console.log('📤 Sending message via /messages endpoint');
+    console.log('Payload preview:', {
+      to: messagePayload.to,
+      subject: messagePayload.subject,
+      bodyType: isHtml ? 'HTML' : 'text',
+      bodyLength: messagePayload.body?.length,
+      bodyStart: messagePayload.body?.substring(0, 80)
+    });
 
-    console.log('Nylas send payload (content_type):', nylasPayload.content_type);
-
-    // Send email using Nylas Send API
     const nylasResponse = await fetch(
-      `https://api.us.nylas.com/v3/grants/${account.nylas_grant_id}/messages/send`,
+      `https://api.us.nylas.com/v3/grants/${account.nylas_grant_id}/messages?send=true`,
       {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${NYLAS_API_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(nylasPayload),
+        body: JSON.stringify(messagePayload),
       }
     );
 
+    const responseText = await nylasResponse.text();
+    
     if (!nylasResponse.ok) {
-      const errorText = await nylasResponse.text();
-      console.error('Nylas send error:', errorText);
-      throw new Error(`Failed to send email via Nylas: ${errorText}`);
+      console.error('❌ Nylas error response:', responseText);
+      throw new Error(`Failed to send email via Nylas: ${responseText}`);
     }
 
-    const nylasData = await nylasResponse.json();
-    console.log('Nylas send response:', nylasData);
+    let nylasData;
+    try {
+      nylasData = JSON.parse(responseText);
+      console.log('✅ Nylas success response:', JSON.stringify(nylasData, null, 2));
+    } catch (e) {
+      console.error('Failed to parse Nylas response:', responseText);
+      throw new Error('Invalid response from Nylas');
+    }
 
     // Get organization_id from the user's profile
     const { data: profile, error: profileError } = await supabaseClient
