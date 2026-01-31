@@ -14,7 +14,7 @@ import { Badge } from '../ui/badge';
 import { Plus, TrendingUp, Star, Mail, MousePointer, FileText, Calendar, Edit, Trash2 } from 'lucide-react';
 import { Slider } from '../ui/slider';
 import type { User } from '../../App';
-import { getLeadScores, getLeadScoreStats } from '../../utils/marketing-client';
+import { getLeadScores, getLeadScoreStats, getScoringRules } from '../../utils/marketing-client';
 import { toast } from 'sonner';
 
 interface LeadScoringProps {
@@ -26,6 +26,8 @@ export function LeadScoring({ user }: LeadScoringProps) {
   const [leads, setLeads] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
 
+  const [scoringRules, setScoringRules] = useState<any[]>([]);
+
   useEffect(() => {
     if (user.organization_id) {
       loadData();
@@ -34,30 +36,18 @@ export function LeadScoring({ user }: LeadScoringProps) {
 
   const loadData = async () => {
     try {
-      const [leadsData, statsData] = await Promise.all([
+      const [leadsData, statsData, rulesData] = await Promise.all([
         getLeadScores(user.organization_id!),
-        getLeadScoreStats(user.organization_id!)
+        getLeadScoreStats(user.organization_id!),
+        getScoringRules(user.organization_id!)
       ]);
       setLeads(leadsData);
       setStats(statsData);
+      setScoringRules(rulesData);
     } catch (error) {
       console.error('Error loading lead scoring data:', error);
-      // Don't show error toast on initial load as tables might be empty
     }
   };
-
-  const scoringRules = [
-    { id: 1, action: 'Quote Viewed', points: 5, category: 'Engagement' },
-    { id: 2, action: 'Quote Link Clicked', points: 10, category: 'Engagement' },
-    { id: 3, action: 'Email Opened', points: 5, category: 'Engagement' },
-    { id: 4, action: 'Link Clicked', points: 10, category: 'Engagement' },
-    { id: 5, action: 'Form Submitted', points: 25, category: 'Conversion' },
-    { id: 6, action: 'Downloaded Resource', points: 15, category: 'Interest' },
-    { id: 7, action: 'Visited Pricing Page', points: 20, category: 'Intent' },
-    { id: 8, action: 'Requested Demo', points: 50, category: 'Intent' },
-    { id: 9, action: 'Inactive for 30 days', points: -10, category: 'Decay' },
-    { id: 10, action: 'Unsubscribed', points: -50, category: 'Negative' },
-  ];
 
   // Use real leads if available, otherwise show empty state or fallback
   const displayLeads = leads.length > 0 ? leads.map(lead => ({

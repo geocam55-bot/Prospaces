@@ -826,26 +826,26 @@ export function CampaignManager({ user }: CampaignManagerProps) {
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                 <div>
                   <p className="text-xs text-gray-500">Audience</p>
-                  <p className="text-lg text-gray-900 mt-1">{(campaign.audience || 0).toLocaleString()}</p>
+                  <p className="text-lg text-gray-900 mt-1">{(campaign.audience_count || campaign.audience || 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Sent</p>
-                  <p className="text-lg text-gray-900 mt-1">{(campaign.sent || 0).toLocaleString()}</p>
+                  <p className="text-lg text-gray-900 mt-1">{(campaign.sent_count || campaign.sent || 0).toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Opened</p>
-                  <p className="text-lg text-gray-900 mt-1">{campaign.opened || 0}</p>
-                  <p className="text-xs text-gray-500">{(campaign.sent || 0) > 0 ? (((campaign.opened || 0) / (campaign.sent || 1)) * 100).toFixed(1) : 0}%</p>
+                  <p className="text-lg text-gray-900 mt-1">{campaign.opened_count || campaign.opened || 0}</p>
+                  <p className="text-xs text-gray-500">{(campaign.sent_count || campaign.sent || 0) > 0 ? (((campaign.opened_count || campaign.opened || 0) / (campaign.sent_count || campaign.sent || 1)) * 100).toFixed(1) : 0}%</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Clicked</p>
-                  <p className="text-lg text-gray-900 mt-1">{campaign.clicked || 0}</p>
-                  <p className="text-xs text-gray-500">{(campaign.opened || 0) > 0 ? (((campaign.clicked || 0) / (campaign.opened || 1)) * 100).toFixed(1) : 0}%</p>
+                  <p className="text-lg text-gray-900 mt-1">{campaign.clicked_count || campaign.clicked || 0}</p>
+                  <p className="text-xs text-gray-500">{(campaign.opened_count || campaign.opened || 0) > 0 ? (((campaign.clicked_count || campaign.clicked || 0) / (campaign.opened_count || campaign.opened || 1)) * 100).toFixed(1) : 0}%</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Converted</p>
-                  <p className="text-lg text-gray-900 mt-1">{campaign.converted || 0}</p>
-                  <p className="text-xs text-green-600">{(campaign.sent || 0) > 0 ? (((campaign.converted || 0) / (campaign.sent || 1)) * 100).toFixed(1) : 0}%</p>
+                  <p className="text-lg text-gray-900 mt-1">{campaign.converted_count || campaign.converted || 0}</p>
+                  <p className="text-xs text-green-600">{(campaign.sent_count || campaign.sent || 0) > 0 ? (((campaign.converted_count || campaign.converted || 0) / (campaign.sent_count || campaign.sent || 1)) * 100).toFixed(1) : 0}%</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Revenue</p>

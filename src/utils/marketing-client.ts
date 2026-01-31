@@ -178,14 +178,29 @@ export async function duplicateCampaign(id: string, organizationId: string): Pro
 
 // Lead Scoring Functions (Keep rules in tables if possible, but access scores via API)
 export async function getScoringRules(organizationId: string): Promise<ScoringRule[]> {
-  const { data, error } = await supabase
-    .from('lead_scoring_rules')
-    .select('*')
-    .eq('organization_id', organizationId)
-    .order('category', { ascending: true });
+  try {
+    const { data, error } = await supabase
+      .from('lead_scoring_rules')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .order('category', { ascending: true });
 
-  if (error) throw error;
-  return data || [];
+    if (error) {
+      // If table doesn't exist, return empty array
+      if (error.code === '42P01' || error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+        return [];
+      }
+      throw error;
+    }
+    return data || [];
+  } catch (error: any) {
+    // If table doesn't exist, return empty array
+    if (error.code === '42P01' || error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+      return [];
+    }
+    console.error('Error fetching scoring rules:', error);
+    return [];
+  }
 }
 
 export async function createScoringRule(rule: ScoringRule, organizationId: string): Promise<ScoringRule> {

@@ -93,19 +93,8 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
     }
   };
 
-  // Static steps for visualization (in a real app, these would come from the selected journey)
-  const journeySteps = [
-    { type: 'trigger', icon: Play, title: 'Trigger: Form Submitted', color: 'green' },
-    { type: 'delay', icon: Clock, title: 'Wait 1 hour', color: 'blue' },
-    { type: 'email', icon: Mail, title: 'Send Welcome Email', color: 'purple' },
-    { type: 'delay', icon: Clock, title: 'Wait 2 days', color: 'blue' },
-    { type: 'condition', icon: GitBranch, title: 'Did they open email?', color: 'orange' },
-    { type: 'email', icon: Mail, title: 'Send Follow-up (Yes)', color: 'purple' },
-    { type: 'email', icon: Mail, title: 'Send Re-engagement (No)', color: 'purple' },
-    { type: 'delay', icon: Clock, title: 'Wait 3 days', color: 'blue' },
-    { type: 'sms', icon: MessageSquare, title: 'Send SMS Reminder', color: 'indigo' },
-    { type: 'end', icon: CheckCircle, title: 'Journey Complete', color: 'green' },
-  ];
+  // Placeholder steps for visualization (in a real app, these would come from the selected journey)
+  const journeySteps: any[] = [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -119,6 +108,8 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
         return 'bg-gray-100 text-gray-700';
     }
   };
+
+  const currentJourney = journeys.find(j => j.id === selectedJourney);
 
   return (
     <div className="space-y-6">
@@ -255,51 +246,59 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
                 <div className="space-y-4">
                   <div className="relative">
                     {/* Journey Steps Visualization */}
-                    <div className="space-y-6">
-                      {journeySteps.map((step, index) => {
-                        const Icon = step.icon;
-                        const isCondition = step.type === 'condition';
-                        
-                        return (
-                          <div key={index} className="relative">
-                            {index > 0 && !isCondition && (
-                              <div className="absolute left-6 -top-6 w-0.5 h-6 bg-gray-300" />
-                            )}
-                            
-                            {isCondition && (
-                              <div className="absolute left-6 top-12 w-0.5 h-full bg-gray-300" />
-                            )}
-                            
-                            <div className={`flex items-start gap-4 ${isCondition ? 'ml-0' : ''}`}>
-                              <div className={`h-12 w-12 rounded-lg bg-${step.color}-100 flex items-center justify-center flex-shrink-0`}>
-                                <Icon className={`h-6 w-6 text-${step.color}-600`} />
+                    {currentJourney?.steps && currentJourney.steps.length > 0 ? (
+                      <div className="space-y-6">
+                        {currentJourney.steps.map((step: any, index: number) => {
+                          const Icon = step.type === 'email' ? Mail : step.type === 'sms' ? MessageSquare : step.type === 'delay' ? Clock : step.type === 'condition' ? GitBranch : step.type === 'end' ? CheckCircle : Play;
+                          const isCondition = step.type === 'condition';
+                          const color = step.type === 'email' ? 'purple' : step.type === 'sms' ? 'indigo' : step.type === 'delay' ? 'blue' : step.type === 'condition' ? 'orange' : step.type === 'end' ? 'green' : 'gray';
+                          
+                          return (
+                            <div key={index} className="relative">
+                              {index > 0 && !isCondition && (
+                                <div className="absolute left-6 -top-6 w-0.5 h-6 bg-gray-300" />
+                              )}
+                              
+                              {isCondition && (
+                                <div className="absolute left-6 top-12 w-0.5 h-full bg-gray-300" />
+                              )}
+                              
+                              <div className={`flex items-start gap-4 ${isCondition ? 'ml-0' : ''}`}>
+                                <div className={`h-12 w-12 rounded-lg bg-${color}-100 flex items-center justify-center flex-shrink-0`}>
+                                  <Icon className={`h-6 w-6 text-${color}-600`} />
+                                </div>
+                                <div className="flex-1 bg-white border-2 border-gray-200 rounded-lg p-4 hover:border-blue-500 cursor-pointer transition-colors">
+                                  <p className="text-sm text-gray-900">{step.title || step.name || 'Untitled Step'}</p>
+                                  <p className="text-xs text-gray-500 mt-1 capitalize">{step.type}</p>
+                                </div>
+                                <Button variant="ghost" size="sm">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
                               </div>
-                              <div className="flex-1 bg-white border-2 border-gray-200 rounded-lg p-4 hover:border-blue-500 cursor-pointer transition-colors">
-                                <p className="text-sm text-gray-900">{step.title}</p>
-                                <p className="text-xs text-gray-500 mt-1 capitalize">{step.type}</p>
-                              </div>
-                              <Button variant="ghost" size="sm">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </div>
 
-                            {/* Branch visualization for conditions */}
-                            {isCondition && (
-                              <div className="ml-12 mt-4 space-y-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-0.5 bg-gray-300" />
-                                  <Badge className="bg-green-100 text-green-700">Yes</Badge>
+                              {/* Branch visualization for conditions */}
+                              {isCondition && (
+                                <div className="ml-12 mt-4 space-y-4">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-0.5 bg-gray-300" />
+                                    <Badge className="bg-green-100 text-green-700">Yes</Badge>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-0.5 bg-gray-300" />
+                                    <Badge className="bg-red-100 text-red-700">No</Badge>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-0.5 bg-gray-300" />
-                                  <Badge className="bg-red-100 text-red-700">No</Badge>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 text-gray-500">
+                        <p>No steps configured for this journey yet.</p>
+                        <p className="text-sm mt-2">Add a step to get started.</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Journey Stats */}
@@ -308,19 +307,19 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
                       <div className="grid grid-cols-4 gap-4">
                         <div>
                           <p className="text-xs text-gray-600">Total Steps</p>
-                          <p className="text-xl text-gray-900 mt-1">{journeySteps.length}</p>
+                          <p className="text-xl text-gray-900 mt-1">{currentJourney?.steps?.length || 0}</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-600">Avg. Duration</p>
-                          <p className="text-xl text-gray-900 mt-1">7 days</p>
+                          <p className="text-xl text-gray-900 mt-1">{currentJourney?.avg_duration_days || 0} days</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-600">Active Users</p>
-                          <p className="text-xl text-gray-900 mt-1">156</p>
+                          <p className="text-xl text-gray-900 mt-1">{currentJourney?.enrolled_count || 0}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600">Drop-off Rate</p>
-                          <p className="text-xl text-red-600 mt-1">8%</p>
+                          <p className="text-xs text-gray-600">Completed</p>
+                          <p className="text-xl text-green-600 mt-1">{currentJourney?.completed_count || 0}</p>
                         </div>
                       </div>
                     </CardContent>

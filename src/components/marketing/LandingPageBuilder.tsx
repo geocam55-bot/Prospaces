@@ -403,31 +403,13 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
           image: item.imageUrl,
           description: item.description,
           additionalText: ''
-        },
-        {
-          id: `empty-${Date.now()}-1`,
-          name: 'Product 2',
-          sku: '',
-          price: 0,
-          image: '',
-          description: 'Add product description',
-          additionalText: ''
-        },
-        {
-          id: `empty-${Date.now()}-2`,
-          name: 'Product 3',
-          sku: '',
-          price: 0,
-          image: '',
-          description: 'Add product description',
-          additionalText: ''
         }
       ]
     };
     console.log('Adding product with data:', newElement.products);
     setPageElements([...pageElements, newElement]);
     setShowProductSelector(false);
-    toast.success('Product widget added to page (3 products)');
+    toast.success('Product widget added to page');
   };
 
   const handleUpdateElement = (id: string, content: string) => {

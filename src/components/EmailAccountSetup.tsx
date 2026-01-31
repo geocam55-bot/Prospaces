@@ -159,7 +159,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
       // Use Azure OAuth for Outlook, Nylas for Gmail/Apple
       const isOutlook = selectedProvider === 'outlook';
-      const endpoint = isOutlook ? 'azure-oauth-init' : 'nylas-connect';
+      const endpoint = isOutlook ? 'make-server-8405be07/azure-oauth-init' : 'nylas-connect';
       
       console.log('Attempting to connect to:', `${supabaseUrl}/functions/v1/${endpoint}`);
       console.log('Using access token:', session.access_token.substring(0, 20) + '...');
@@ -600,6 +600,19 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
                   {getProviderInfo()?.icon}
                 </div>
               </div>
+
+              {selectedProvider === 'outlook' && (
+                <Alert className="bg-blue-50 border-blue-200">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-800">
+                    <strong>Microsoft 365 / Outlook:</strong>
+                    <br />
+                    You will be redirected to Microsoft to log in.
+                    <br />
+                    If your organization uses <strong>Microsoft Authenticator</strong>, please have your device ready to approve the login request.
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {selectedProvider === 'gmail' && (
                 <Alert>

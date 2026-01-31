@@ -20,22 +20,84 @@ interface CampaignAnalyticsProps {
 }
 
 export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
+  // Parse landing page slug from campaign description metadata
+  let landingPageSlug = null;
+  try {
+    const metadata = JSON.parse(campaign.description || '{}');
+    landingPageSlug = metadata.landingPageSlug;
+  } catch (e) {
+    landingPageSlug = campaign.landing_page_slug; // Fallback to old field
+  }
+  
   const [analytics, setAnalytics] = useState({
-    emailsSent: campaign.sent || 0,
-    emailsOpened: campaign.opened || 0,
-    landingPageClicks: campaign.landing_page_clicks || 0,
+    emailsSent: campaign.sent_count || campaign.sent || 0,
+    emailsOpened: campaign.opened_count || campaign.opened || 0,
+    landingPageClicks: campaign.clicked_count || campaign.clicked || campaign.landing_page_clicks || 0,
     avgTimeSpent: campaign.avg_time_spent || 0,
-    conversions: campaign.converted || 0,
+    conversions: campaign.converted_count || campaign.converted || 0,
     revenue: campaign.revenue || 0,
   });
   
   const [landingPageAnalytics, setLandingPageAnalytics] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
+  // Fetch fresh campaign stats from DB
+  useEffect(() => {
+    const fetchCampaignStats = async () => {
+      if (!campaign.id) return;
+      
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('id', campaign.id)
+        .single();
+        
+      if (data) {
+        setAnalytics(prev => ({
+          ...prev,
+          emailsSent: data.sent_count || data.sent || 0,
+          emailsOpened: data.opened_count || data.opened || 0,
+          landingPageClicks: data.clicked_count || data.clicked || data.landing_page_clicks || prev.landingPageClicks,
+          conversions: data.converted_count || data.converted || prev.conversions,
+          revenue: data.revenue || prev.revenue,
+        }));
+      }
+    };
+    
+    fetchCampaignStats();
+
+    // Subscribe to real-time updates for this campaign
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`campaign-${campaign.id}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'campaigns', 
+        filter: `id=eq.${campaign.id}` 
+      }, (payload: any) => {
+        const data = payload.new;
+        setAnalytics(prev => ({
+          ...prev,
+          emailsSent: data.sent_count || data.sent || 0,
+          emailsOpened: data.opened_count || data.opened || 0,
+          landingPageClicks: data.clicked_count || data.clicked || data.landing_page_clicks || prev.landingPageClicks,
+          conversions: data.converted_count || data.converted || prev.conversions,
+          revenue: data.revenue || prev.revenue,
+        }));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [campaign.id]);
+
   // Fetch landing page analytics
   useEffect(() => {
     const fetchLandingPageAnalytics = async () => {
-      if (!campaign.landing_page_slug || !campaign.id) return;
+      if (!campaign.id) return;
       
       setLoadingAnalytics(true);
       try {
@@ -46,6 +108,8 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
           console.error('No session found');
           return;
         }
+
+        console.log(`[CampaignAnalytics] Fetching analytics for campaign: ${campaign.id}`);
 
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/analytics/campaign/${campaign.id}/landing-page`,
@@ -60,19 +124,29 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
         if (response.ok) {
           const data = await response.json();
           setLandingPageAnalytics(data);
-          console.log('Landing page analytics:', data);
+          
+          // Update analytics with landing page data if available
+          if (data.stats) {
+            setAnalytics(prev => ({
+              ...prev,
+              landingPageClicks: data.stats.visits || 0,
+              conversions: data.stats.conversions || 0,
+            }));
+          }
+          
+          console.log('[CampaignAnalytics] Landing page analytics loaded:', data);
         } else {
-          console.error('Failed to fetch landing page analytics:', response.statusText);
+          console.error('[CampaignAnalytics] Failed to fetch landing page analytics:', response.statusText);
         }
       } catch (error) {
-        console.error('Error fetching landing page analytics:', error);
+        console.error('[CampaignAnalytics] Error fetching landing page analytics:', error);
       } finally {
         setLoadingAnalytics(false);
       }
     };
 
     fetchLandingPageAnalytics();
-  }, [campaign.id, campaign.landing_page_slug]);
+  }, [campaign.id]);
 
   // Calculate rates
   const openRate = analytics.emailsSent > 0 
@@ -256,12 +330,12 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
       </Card>
 
       {/* Landing Page Analytics */}
-      {campaign.landing_page_slug && landingPageAnalytics && (
+      {landingPageAnalytics && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Globe className="h-4 w-4" />
-              Landing Page Analytics
+              {landingPageSlug ? 'Landing Page Analytics' : 'Campaign Landing Page Activity'}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">

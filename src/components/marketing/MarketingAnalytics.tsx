@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -11,47 +12,92 @@ import {
   Target,
   BarChart3,
   PieChart,
-  Activity
+  Activity,
+  MessageSquare,
+  Facebook,
+  Instagram,
+  Linkedin
 } from 'lucide-react';
 import type { User } from '../../App';
+import { campaignsAPI } from '../../utils/api';
 
 interface MarketingAnalyticsProps {
   user: User;
 }
 
 export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
-  const channelPerformance = [
-    { channel: 'Email', sent: 15420, opened: 4389, clicked: 982, converted: 156, revenue: 87500, cost: 2100 },
-    { channel: 'SMS', sent: 8950, opened: 7605, clicked: 1521, converted: 203, revenue: 101500, cost: 1800 },
-    { channel: 'Facebook Ads', sent: 45000, opened: 13500, clicked: 2250, converted: 315, revenue: 157500, cost: 8500 },
-    { channel: 'Instagram', sent: 32000, opened: 9600, clicked: 1920, converted: 256, revenue: 128000, cost: 6400 },
-    { channel: 'LinkedIn', sent: 12500, opened: 3750, clicked: 625, converted: 94, revenue: 94000, cost: 3750 },
-  ];
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState('30days');
 
-  const campaignAttribution = [
-    { campaign: 'Summer Product Launch', leads: 1245, opportunities: 342, customers: 89, revenue: 445000, roi: 312, cost: 12000 },
-    { campaign: 'Re-engagement Campaign', leads: 892, opportunities: 267, customers: 67, revenue: 335000, roi: 287, cost: 9500 },
-    { campaign: 'Webinar Series Q1', leads: 1567, opportunities: 423, customers: 124, revenue: 620000, roi: 345, cost: 15000 },
-    { campaign: 'Free Trial Promotion', leads: 2134, opportunities: 598, customers: 187, revenue: 935000, roi: 421, cost: 18500 },
-    { campaign: 'Partner Referral Program', leads: 734, opportunities: 198, customers: 56, revenue: 280000, roi: 289, cost: 8200 },
-  ];
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const { campaigns: data } = await campaignsAPI.getAll();
+        setCampaigns(data || []);
+      } catch (error) {
+        console.error('Error loading campaigns for analytics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [user.organizationId]);
 
+  // Aggregate data from campaigns
+  const totalSent = campaigns.reduce((sum, c) => sum + (c.sent_count || c.sent || 0), 0);
+  const totalOpened = campaigns.reduce((sum, c) => sum + (c.opened_count || c.opened || 0), 0);
+  const totalClicked = campaigns.reduce((sum, c) => sum + (c.clicked_count || c.clicked || c.landing_page_clicks || 0), 0);
+  const totalConverted = campaigns.reduce((sum, c) => sum + (c.converted_count || c.converted || 0), 0);
+  const totalRevenue = campaigns.reduce((sum, c) => sum + (c.revenue || 0), 0);
+  
+  // Calculate specific metrics
+  const conversionRate = totalSent > 0 ? ((totalConverted / totalSent) * 100).toFixed(1) : '0.0';
+  
+  // Group by Channel (Type)
+  const channelStats: Record<string, any> = {};
+  
+  campaigns.forEach(c => {
+    const type = c.type || 'email';
+    const channelName = type.charAt(0).toUpperCase() + type.slice(1);
+    
+    if (!channelStats[channelName]) {
+      channelStats[channelName] = { 
+        channel: channelName, 
+        sent: 0, 
+        opened: 0, 
+        clicked: 0, 
+        converted: 0, 
+        revenue: 0 
+      };
+    }
+    
+    channelStats[channelName].sent += (c.sent_count || c.sent || 0);
+    channelStats[channelName].opened += (c.opened_count || c.opened || 0);
+    channelStats[channelName].clicked += (c.clicked_count || c.clicked || c.landing_page_clicks || 0);
+    channelStats[channelName].converted += (c.converted_count || c.converted || 0);
+    channelStats[channelName].revenue += (c.revenue || 0);
+  });
+  
+  const channelPerformance = Object.values(channelStats);
+  
+  // Fallback for channel performance if empty (so chart isn't just blank)
+  if (channelPerformance.length === 0) {
+    channelPerformance.push({ channel: 'Email', sent: 0, opened: 0, clicked: 0, converted: 0, revenue: 0 });
+  }
+
+  // Funnel Data
   const funnelData = [
-    { stage: 'Awareness', count: 125340, dropoff: 0 },
-    { stage: 'Interest', count: 78920, dropoff: 37 },
-    { stage: 'Consideration', count: 45680, dropoff: 42 },
-    { stage: 'Intent', count: 16290, dropoff: 64 },
-    { stage: 'Purchase', count: 8945, dropoff: 45 },
+    { stage: 'Sent', count: totalSent, dropoff: 0 },
+    { stage: 'Opened', count: totalOpened, dropoff: totalSent > 0 ? (100 - (totalOpened/totalSent)*100).toFixed(1) : 0 },
+    { stage: 'Clicked', count: totalClicked, dropoff: totalOpened > 0 ? (100 - (totalClicked/totalOpened)*100).toFixed(1) : 0 },
+    { stage: 'Converted', count: totalConverted, dropoff: totalClicked > 0 ? (100 - (totalConverted/totalClicked)*100).toFixed(1) : 0 },
   ];
 
-  const contentPerformance = [
-    { title: 'Ultimate Guide to CRM Implementation', type: 'eBook', downloads: 3456, views: 12340, leads: 892, revenue: 445000 },
-    { title: 'Webinar: Sales Automation Best Practices', type: 'Webinar', downloads: 2134, views: 8920, leads: 623, revenue: 311500 },
-    { title: 'Case Study: Enterprise Success Story', type: 'Case Study', downloads: 1890, views: 6780, leads: 478, revenue: 239000 },
-    { title: 'Industry Report 2025', type: 'Report', downloads: 4567, views: 15670, leads: 1234, revenue: 617000 },
-    { title: 'Product Demo Video Series', type: 'Video', downloads: 0, views: 23450, leads: 1567, revenue: 783500 },
-    { title: 'ROI Calculator Tool', type: 'Interactive', downloads: 2890, views: 9340, leads: 734, revenue: 367000 },
-  ];
+  // Content Performance (Placeholder as we don't have this data yet)
+  const contentPerformance: any[] = [];
 
   return (
     <div className="space-y-6">
@@ -60,7 +106,7 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
           <h2 className="text-xl text-gray-900">Marketing Analytics</h2>
           <p className="text-sm text-gray-600 mt-1">Track performance and optimize your campaigns</p>
         </div>
-        <Select defaultValue="30days">
+        <Select value={timeRange} onValueChange={setTimeRange}>
           <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
@@ -79,7 +125,6 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
           <TabsTrigger value="channels">Channels</TabsTrigger>
           <TabsTrigger value="attribution">Attribution</TabsTrigger>
           <TabsTrigger value="funnel">Funnel</TabsTrigger>
-          <TabsTrigger value="content">Content</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-6">
@@ -88,33 +133,33 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
             {[
               { 
                 title: 'Total Revenue', 
-                value: '$0', 
-                change: '+0%', 
-                trend: 'up', 
+                value: `$${totalRevenue.toLocaleString()}`, 
+                change: 'from campaigns', 
+                trend: 'neutral', 
                 icon: DollarSign,
                 color: 'green' 
               },
               { 
-                title: 'Marketing ROI', 
-                value: '0%', 
-                change: '+0 points', 
-                trend: 'up', 
-                icon: TrendingUp,
+                title: 'Campaigns', 
+                value: campaigns.length.toString(), 
+                change: 'total', 
+                trend: 'neutral', 
+                icon: BarChart3,
                 color: 'blue' 
               },
               { 
                 title: 'Conversion Rate', 
-                value: '0%', 
-                change: '+0%', 
-                trend: 'up', 
+                value: `${conversionRate}%`, 
+                change: 'overall', 
+                trend: 'neutral', 
                 icon: Target,
                 color: 'purple' 
               },
               { 
-                title: 'Cost per Lead', 
-                value: '$0', 
-                change: '-$0', 
-                trend: 'down', 
+                title: 'Total Leads', 
+                value: totalConverted.toLocaleString(), 
+                change: 'conversions', 
+                trend: 'neutral', 
                 icon: Users,
                 color: 'orange' 
               },
@@ -128,12 +173,7 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                         <p className="text-sm text-gray-600">{metric.title}</p>
                         <p className="text-2xl text-gray-900 mt-2">{metric.value}</p>
                         <div className="flex items-center gap-1 mt-2">
-                          {metric.trend === 'up' ? (
-                            <TrendingUp className="h-3 w-3 text-green-600" />
-                          ) : (
-                            <TrendingDown className="h-3 w-3 text-green-600" />
-                          )}
-                          <span className="text-xs text-green-600">{metric.change}</span>
+                          <span className="text-xs text-gray-500">{metric.change}</span>
                         </div>
                       </div>
                       <div className={`h-12 w-12 rounded-lg bg-${metric.color}-100 flex items-center justify-center`}>
@@ -146,30 +186,35 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
             })}
           </div>
 
-          {/* Performance Chart */}
+          {/* Performance Chart Placeholder - Could be replaced with Recharts if we have historical data points */}
           <Card>
             <CardHeader>
-              <CardTitle>Performance Trend</CardTitle>
+              <CardTitle>Recent Campaign Performance</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64 flex items-end justify-between gap-2">
-                {[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map((value, index) => (
-                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="w-full bg-blue-500 rounded-t" style={{ height: `${value}%` }} />
-                    <span className="text-xs text-gray-500">{index + 1}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-center gap-8 mt-6">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-blue-500" />
-                  <span className="text-sm text-gray-600">Revenue</span>
+              {campaigns.length > 0 ? (
+                <div className="h-64 flex items-end justify-between gap-2 px-2">
+                  {campaigns.slice(0, 12).reverse().map((c, index) => {
+                    // Simple visualization: bar height relative to max revenue or sent count
+                    const maxVal = Math.max(...campaigns.map(cam => cam.revenue || 100));
+                    const height = c.revenue ? Math.max(10, (c.revenue / maxVal) * 100) : 5;
+                    return (
+                      <div key={c.id || index} className="flex-1 flex flex-col items-center gap-2 group relative">
+                        <div className="w-full bg-blue-500 rounded-t opacity-80 hover:opacity-100 transition-opacity" style={{ height: `${height}%` }}>
+                          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block bg-black text-white text-xs p-2 rounded whitespace-nowrap z-10">
+                            {c.name}<br/>${(c.revenue || 0).toLocaleString()}
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-500 truncate w-full text-center">{c.name?.substring(0, 6)}..</span>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-green-500" />
-                  <span className="text-sm text-gray-600">Conversions</span>
+              ) : (
+                <div className="h-64 flex items-center justify-center text-gray-400">
+                  No campaign data available
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -190,19 +235,23 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                       <th className="text-left py-3 px-4 text-sm text-gray-600">Clicked</th>
                       <th className="text-left py-3 px-4 text-sm text-gray-600">Converted</th>
                       <th className="text-left py-3 px-4 text-sm text-gray-600">Revenue</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">ROI</th>
                     </tr>
                   </thead>
                   <tbody>
                     {channelPerformance.map((channel) => (
                       <tr key={channel.channel} className="border-b border-gray-100">
-                        <td className="py-3 px-4 text-sm text-gray-900">{channel.channel}</td>
+                        <td className="py-3 px-4 text-sm text-gray-900 flex items-center gap-2">
+                          {channel.channel === 'Email' && <Mail className="h-4 w-4 text-gray-500" />}
+                          {channel.channel === 'Sms' && <MessageSquare className="h-4 w-4 text-gray-500" />}
+                          {channel.channel === 'Facebook' && <Facebook className="h-4 w-4 text-gray-500" />}
+                          {channel.channel}
+                        </td>
                         <td className="py-3 px-4 text-sm text-gray-600">{channel.sent.toLocaleString()}</td>
                         <td className="py-3 px-4">
                           <div>
                             <p className="text-sm text-gray-900">{channel.opened.toLocaleString()}</p>
                             <p className="text-xs text-gray-500">
-                              {((channel.opened / channel.sent) * 100).toFixed(1)}%
+                              {channel.sent > 0 ? ((channel.opened / channel.sent) * 100).toFixed(1) : 0}%
                             </p>
                           </div>
                         </td>
@@ -210,7 +259,7 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                           <div>
                             <p className="text-sm text-gray-900">{channel.clicked.toLocaleString()}</p>
                             <p className="text-xs text-gray-500">
-                              {((channel.clicked / channel.opened) * 100).toFixed(1)}%
+                              {channel.opened > 0 ? ((channel.clicked / channel.opened) * 100).toFixed(1) : 0}%
                             </p>
                           </div>
                         </td>
@@ -218,15 +267,12 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                           <div>
                             <p className="text-sm text-gray-900">{channel.converted}</p>
                             <p className="text-xs text-green-600">
-                              {((channel.converted / channel.sent) * 100).toFixed(1)}%
+                              {channel.sent > 0 ? ((channel.converted / channel.sent) * 100).toFixed(1) : 0}%
                             </p>
                           </div>
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-900">
                           ${channel.revenue.toLocaleString()}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-green-600">
-                          {((channel.revenue / (channel.sent * 0.5)) * 100).toFixed(0)}%
                         </td>
                       </tr>
                     ))}
@@ -248,42 +294,34 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                   <thead>
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-4 text-sm text-gray-600">Campaign</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Leads</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Opportunities</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Customers</th>
+                      <th className="text-left py-3 px-4 text-sm text-gray-600">Type</th>
+                      <th className="text-left py-3 px-4 text-sm text-gray-600">Sent</th>
+                      <th className="text-left py-3 px-4 text-sm text-gray-600">Converted</th>
                       <th className="text-left py-3 px-4 text-sm text-gray-600">Revenue</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">ROI</th>
+                      <th className="text-left py-3 px-4 text-sm text-gray-600">Date</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {campaignAttribution.map((campaign) => (
-                      <tr key={campaign.campaign} className="border-b border-gray-100">
-                        <td className="py-3 px-4 text-sm text-gray-900">{campaign.campaign}</td>
-                        <td className="py-3 px-4 text-sm text-gray-600">{campaign.leads}</td>
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="text-sm text-gray-900">{campaign.opportunities}</p>
-                            <p className="text-xs text-gray-500">
-                              {((campaign.opportunities / campaign.leads) * 100).toFixed(1)}%
-                            </p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="text-sm text-gray-900">{campaign.customers}</p>
-                            <p className="text-xs text-green-600">
-                              {((campaign.customers / campaign.leads) * 100).toFixed(1)}%
-                            </p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-900">
-                          ${campaign.revenue.toLocaleString()}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-green-600">
-                          {campaign.roi}%
-                        </td>
+                    {campaigns.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-gray-500">No campaigns found</td>
                       </tr>
-                    ))}
+                    ) : (
+                      campaigns.map((campaign) => (
+                        <tr key={campaign.id} className="border-b border-gray-100">
+                          <td className="py-3 px-4 text-sm text-gray-900 font-medium">{campaign.name}</td>
+                          <td className="py-3 px-4 text-sm text-gray-600 capitalize">{campaign.type}</td>
+                          <td className="py-3 px-4 text-sm text-gray-600">{(campaign.sent_count || campaign.sent || 0).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-sm text-gray-600">{(campaign.converted_count || campaign.converted || 0).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-sm text-green-600">
+                            ${(campaign.revenue || 0).toLocaleString()}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">
+                            {campaign.created_at ? new Date(campaign.created_at).toLocaleDateString() : '-'}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -311,10 +349,10 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                     </div>
                     <div className="h-12 bg-gray-200 rounded-lg overflow-hidden relative">
                       <div
-                        className="h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center text-white"
-                        style={{ width: `${(stage.count / funnelData[0].count) * 100}%` }}
+                        className="h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center text-white transition-all duration-500"
+                        style={{ width: `${funnelData[0].count > 0 ? (stage.count / funnelData[0].count) * 100 : 0}%` }}
                       >
-                        {((stage.count / funnelData[0].count) * 100).toFixed(1)}%
+                        {funnelData[0].count > 0 ? ((stage.count / funnelData[0].count) * 100).toFixed(1) : 0}%
                       </div>
                     </div>
                   </div>
@@ -322,54 +360,16 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
               </div>
 
               <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-                <h3 className="text-sm text-gray-900 mb-2">Optimization Suggestions</h3>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li>• Largest drop-off is between Consideration → Intent (64.3%)</li>
-                  <li>• Consider retargeting campaigns for users in Consideration stage</li>
-                  <li>• Overall conversion rate: {((funnelData[4].count / funnelData[0].count) * 100).toFixed(2)}%</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="content" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Content Performance</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Content</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Type</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Engagement</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Leads Generated</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {contentPerformance.map((content) => (
-                      <tr key={content.title} className="border-b border-gray-100">
-                        <td className="py-3 px-4 text-sm text-gray-900">{content.title}</td>
-                        <td className="py-3 px-4">
-                          <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
-                            {content.type}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
-                          {content.downloads || content.views?.toLocaleString()}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-900">{content.leads}</td>
-                        <td className="py-3 px-4 text-sm text-green-600">
-                          ${content.revenue.toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <h3 className="text-sm text-gray-900 mb-2">Funnel Insights</h3>
+                {totalSent > 0 ? (
+                  <ul className="space-y-2 text-sm text-gray-600">
+                    <li>• Open rate: {((totalOpened / totalSent) * 100).toFixed(1)}%</li>
+                    <li>• Click-through rate: {totalOpened > 0 ? ((totalClicked / totalOpened) * 100).toFixed(1) : 0}% of opens</li>
+                    <li>• Overall conversion rate: {conversionRate}%</li>
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-600">Start sending campaigns to see funnel insights.</p>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -33,6 +33,11 @@ export interface OrganizationSettings {
 export async function getUserPreferencesClient(userId: string, organizationId: string): Promise<UserPreferences | null> {
   console.log('[settings-client] 📊 Fetching user preferences for user:', userId);
   
+  if (!userId || !organizationId) {
+    console.warn('[settings-client] ⚠️ Missing userId or organizationId', { userId, organizationId });
+    return null;
+  }
+
   try {
     const { data, error } = await supabase
       .from('user_preferences')

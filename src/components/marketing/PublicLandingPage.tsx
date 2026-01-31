@@ -45,15 +45,25 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
 
   // Track page visit
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const campaignId = urlParams.get('campaign');
+    const utmSource = urlParams.get('utm_source');
+    const utmMedium = urlParams.get('utm_medium');
+    const utmCampaign = urlParams.get('utm_campaign');
+
     const trackVisit = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const campaignId = urlParams.get('campaign');
-      const utmSource = urlParams.get('utm_source');
-      const utmMedium = urlParams.get('utm_medium');
-      const utmCampaign = urlParams.get('utm_campaign');
+      console.log('🔍 Landing Page Visit Tracking:', {
+        slug,
+        campaignId,
+        utmSource,
+        utmMedium,
+        utmCampaign,
+        referrer: document.referrer,
+        fullURL: window.location.href
+      });
 
       try {
-        await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/analytics/landing-page/visit`, {
+        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/analytics/landing-page/visit`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -67,14 +77,29 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
             referrer: document.referrer,
           }),
         });
-        console.log('📊 Visit tracked successfully');
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Failed to track visit (Response not OK):', response.status, errorText);
+          return;
+        }
+
+        const result = await response.json();
+        console.log('📊 Visit tracked successfully:', result);
       } catch (err) {
-        console.error('Failed to track visit:', err);
+        console.error('❌ Failed to track visit (Network/Error):', err);
       }
     };
 
     if (slug && page) {
+      if (campaignId) {
+        console.log('✅ Tracking visit for slug:', slug, 'Campaign ID:', campaignId);
+      } else {
+         console.warn('⚠️ Tracking visit for slug:', slug, 'BUT No Campaign ID found in URL parameters');
+      }
       trackVisit();
+    } else {
+      console.log('⏳ Waiting for slug and page:', { slug, pageLoaded: !!page });
     }
   }, [slug, page]);
 
