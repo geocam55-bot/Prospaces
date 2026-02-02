@@ -157,9 +157,9 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      // Use Azure OAuth for Outlook, Nylas for Gmail/Apple
-      const isOutlook = selectedProvider === 'outlook';
-      const endpoint = isOutlook ? 'make-server-8405be07/azure-oauth-init' : 'nylas-connect';
+      // Use Nylas for all providers if preferred, or maintain Azure for Outlook if configured.
+      // Since we are switching to Nylas for everything based on user preference:
+      const endpoint = 'make-server-8405be07/nylas-connect';
       
       console.log('Attempting to connect to:', `${supabaseUrl}/functions/v1/${endpoint}`);
       console.log('Using access token:', session.access_token.substring(0, 20) + '...');

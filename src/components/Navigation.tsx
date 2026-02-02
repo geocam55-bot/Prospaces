@@ -122,7 +122,6 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
       icon: Wand2,
       hasSubmenu: true,
       submenu: [
-        { id: 'kitchen-planner', label: 'Kitchen Planner', icon: ChefHat },
         { id: 'deck-planner', label: 'Deck Planner', icon: Hammer },
         { id: 'garage-planner', label: 'Garage Planner', icon: Warehouse },
         { id: 'shed-planner', label: 'Shed Planner', icon: Home },

@@ -227,32 +227,80 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
       leanRoof.receiveShadow = true;
       scene.add(leanRoof);
     } else if (config.style === 'barn') {
-      // Gambrel roof (barn style)
-      const lowerRise = roofRise * 0.4;
-      const upperRise = roofRise * 0.6;
-      const lowerRoofAngle = Math.atan2(lowerRise, shedWidth / 4);
-      const upperRoofAngle = Math.atan2(upperRise, shedWidth / 4) + Math.PI / 6;
+      // Gambrel roof (barn style) - simplified and corrected
+      const lowerRise = roofRise * 0.5; // Lower section rises 50% of total
+      const upperRise = roofRise * 0.5; // Upper section rises the remaining 50%
       
-      // Lower left
-      const lowerRoofLength = Math.sqrt(Math.pow(shedWidth / 4, 2) + Math.pow(lowerRise, 2));
+      // Lower sections (steeper angle from wall to mid-point)
+      const lowerWidth = shedWidth / 4; // Quarter of the width for lower section
+      const lowerRoofLength = Math.sqrt(Math.pow(lowerWidth, 2) + Math.pow(lowerRise, 2));
+      const lowerRoofAngle = Math.atan2(lowerRise, lowerWidth);
+      
+      // Lower left roof panel
       const lowerLeftRoof = new Mesh(
         new BoxGeometry(lowerRoofLength + 0.1, 0.08, shedLength + 0.3),
         roofMaterial
       );
-      lowerLeftRoof.position.set(-shedWidth * 0.375, wallHeight + 0.2 + lowerRise / 2, 0);
+      // Position at 3/8 from left (-3/8 of width), halfway up the lower rise
+      lowerLeftRoof.position.set(
+        -(shedWidth / 2 - lowerWidth / 2),
+        wallHeight + 0.2 + lowerRise / 2,
+        0
+      );
       lowerLeftRoof.rotation.z = lowerRoofAngle;
       lowerLeftRoof.castShadow = true;
+      lowerLeftRoof.receiveShadow = true;
       scene.add(lowerLeftRoof);
       
-      // Lower right
+      // Lower right roof panel
       const lowerRightRoof = new Mesh(
         new BoxGeometry(lowerRoofLength + 0.1, 0.08, shedLength + 0.3),
         roofMaterial
       );
-      lowerRightRoof.position.set(shedWidth * 0.375, wallHeight + 0.2 + lowerRise / 2, 0);
+      lowerRightRoof.position.set(
+        (shedWidth / 2 - lowerWidth / 2),
+        wallHeight + 0.2 + lowerRise / 2,
+        0
+      );
       lowerRightRoof.rotation.z = -lowerRoofAngle;
       lowerRightRoof.castShadow = true;
+      lowerRightRoof.receiveShadow = true;
       scene.add(lowerRightRoof);
+      
+      // Upper sections (gentler angle from mid-point to peak)
+      const upperWidth = shedWidth / 4; // Quarter of the width for upper section
+      const upperRoofLength = Math.sqrt(Math.pow(upperWidth, 2) + Math.pow(upperRise, 2));
+      const upperRoofAngle = Math.atan2(upperRise, upperWidth);
+      
+      // Upper left roof panel
+      const upperLeftRoof = new Mesh(
+        new BoxGeometry(upperRoofLength + 0.1, 0.08, shedLength + 0.3),
+        roofMaterial
+      );
+      upperLeftRoof.position.set(
+        -upperWidth / 2,
+        wallHeight + 0.2 + lowerRise + upperRise / 2,
+        0
+      );
+      upperLeftRoof.rotation.z = upperRoofAngle;
+      upperLeftRoof.castShadow = true;
+      upperLeftRoof.receiveShadow = true;
+      scene.add(upperLeftRoof);
+      
+      // Upper right roof panel
+      const upperRightRoof = new Mesh(
+        new BoxGeometry(upperRoofLength + 0.1, 0.08, shedLength + 0.3),
+        roofMaterial
+      );
+      upperRightRoof.position.set(
+        upperWidth / 2,
+        wallHeight + 0.2 + lowerRise + upperRise / 2,
+        0
+      );
+      upperRightRoof.rotation.z = -upperRoofAngle;
+      upperRightRoof.castShadow = true;
+      upperRightRoof.receiveShadow = true;
+      scene.add(upperRightRoof);
     }
 
     // Door
