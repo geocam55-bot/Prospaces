@@ -9,12 +9,13 @@ serve(async (req) => {
     const url = new URL(req.url);
     
     // Nylas Hosted Auth sends grant_id directly (no code exchange needed)
-    const grant_id = url.searchParams.get('grant_id');
-    const email = url.searchParams.get('email');
-    const provider = url.searchParams.get('provider');
+    let grant_id = url.searchParams.get('grant_id');
+    let email = url.searchParams.get('email');
+    let provider = url.searchParams.get('provider');
     const state = url.searchParams.get('state');
     const success = url.searchParams.get('success');
     const error = url.searchParams.get('error');
+    const code = url.searchParams.get('code');
 
     // Try to extract returnUrl from state for error handling
     if (state) {
@@ -26,51 +27,71 @@ serve(async (req) => {
       }
     }
     
-    // Log ALL parameters to debug
-    const allParams: Record<string, string> = {};
-    url.searchParams.forEach((value, key) => {
-      allParams[key] = value;
-    });
-
     console.log('Callback received:', {
       hasGrantId: !!grant_id,
+      hasCode: !!code,
       hasEmail: !!email,
       hasState: !!state,
       hasError: !!error,
       success,
-      url: req.url,
-      allParams
+      url: req.url
     });
 
     // Handle OAuth errors
     if (error) {
       console.error('OAuth error from provider:', error);
-      return new Response(
-        `
-        <!DOCTYPE html>
-        <html>
-          <head><title>OAuth Error</title></head>
-          <body>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'nylas-oauth-error',
-                  error: '${error}'
-                }, '*');
-                window.close();
-              }
-            </script>
-            <p>OAuth error: ${error}. This window should close automatically.</p>
-          </body>
-        </html>
-        `,
-        { headers: { 'Content-Type': 'text/html' } }
-      );
+      throw new Error(error);
+    }
+    
+    // CODE EXCHANGE LOGIC
+    // If we received a code but no grant_id, we need to exchange it
+    if (code && !grant_id) {
+       console.log('Received auth code, exchanging for token...');
+       
+       const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
+       const NYLAS_CLIENT_ID = Deno.env.get('NYLAS_CLIENT_ID') || NYLAS_API_KEY;
+       // The redirect URI must match exactly what was sent in the auth request
+       // We assume the auth request used this function's URL as redirect_uri
+       const redirect_uri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/nylas-callback`;
+       
+       if (!NYLAS_API_KEY || !NYLAS_CLIENT_ID) {
+           throw new Error('Missing Nylas configuration (API Key/Client ID) for code exchange');
+       }
+       
+       const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              client_id: NYLAS_CLIENT_ID,
+              client_secret: NYLAS_API_KEY,
+              grant_type: 'authorization_code',
+              code: code,
+              redirect_uri: redirect_uri, 
+          })
+      });
+      
+      const tokenData = await tokenResponse.json();
+      
+      if (!tokenResponse.ok) {
+          console.error('Token exchange failed:', tokenData);
+          throw new Error(`Token exchange failed: ${JSON.stringify(tokenData)}`);
+      }
+      
+      console.log('Token exchange success:', { 
+          hasGrantId: !!tokenData.grant_id, 
+          email: tokenData.email,
+          provider: tokenData.provider 
+      });
+      
+      // Update variables with exchanged data
+      grant_id = tokenData.grant_id;
+      email = tokenData.email;
+      provider = tokenData.provider;
     }
 
     // Check for required parameters
     if (!grant_id || !state || !email) {
-      throw new Error(`Missing required parameters. grant_id: ${!!grant_id}, state: ${!!state}, email: ${!!email}`);
+      throw new Error(`Missing required parameters after processing. grant_id: ${!!grant_id}, state: ${!!state}, email: ${!!email}`);
     }
 
     // Parse state to get user info
@@ -83,18 +104,13 @@ serve(async (req) => {
     }
 
     console.log('State data:', { userId, orgId, returnUrl });
-    console.log('Grant details:', { grant_id, email, provider });
-
-    // Nylas Hosted Auth already completed the OAuth flow
-    // We have the grant_id, email, and provider directly
-    console.log('Using Nylas Hosted Auth grant - no token exchange needed');
-
+    
     // Map Nylas provider names to our database values
     const dbProvider = provider === 'google' ? 'gmail' : 
                       provider === 'microsoft' ? 'outlook' : 
                       provider || 'gmail';
 
-    console.log('Mapped provider:', { nylasProvider: provider, dbProvider });
+    console.log('Saving account:', { dbProvider, email });
 
     // Create a Supabase client with service role key to insert data
     const supabaseClient = createClient(
@@ -105,7 +121,7 @@ serve(async (req) => {
     // Store the email account in the database
     const { data: account, error: insertError } = await supabaseClient
       .from('email_accounts')
-      .insert({
+      .upsert({
         user_id: userId,
         organization_id: orgId,
         provider: dbProvider,
@@ -114,7 +130,7 @@ serve(async (req) => {
         nylas_access_token: null, // Hosted auth uses grant_id directly
         connected: true,
         last_sync: new Date().toISOString(),
-      })
+      }, { onConflict: 'user_id, email' }) // Use upsert to update existing accounts
       .select()
       .single();
 
@@ -186,7 +202,12 @@ serve(async (req) => {
               provider: '${account.provider}'
             });
             
-            // Google's COOP policy blocks postMessage communication
+            // Send message to opener
+            if (window.opener) {
+                window.opener.postMessage({ type: 'nylas-oauth-success', account: { email: '${account.email}' } }, '*');
+            }
+
+            // Google's COOP policy blocks postMessage communication sometimes
             // Instead, we'll just close the window and let the parent poll for updates
             setTimeout(() => {
               console.log('[Nylas Callback] Closing popup window in 1 second...');
@@ -224,19 +245,19 @@ serve(async (req) => {
             if (window.opener) {
               window.opener.postMessage({
                 type: 'nylas-oauth-error',
-                error: '${error.message}'
+                error: '${error.message || error}'
               }, '*');
               setTimeout(() => window.close(), 2000);
             } else {
               // Redirect back to app with error
               setTimeout(() => {
-                window.location.href = '${appUrl}?calendar_connected=error&message=${encodeURIComponent(error.message)}';
+                window.location.href = '${appUrl}?calendar_connected=error&message=${encodeURIComponent(error.message || error)}';
               }, 2000);
             }
           </script>
           <div style="font-family: system-ui; padding: 2rem; text-align: center;">
             <h1 style="color: #ef4444;">✗ Connection Failed</h1>
-            <p>Error: ${error.message}</p>
+            <p>Error: ${error.message || error}</p>
             <p>Redirecting back to app...</p>
           </div>
         </body>

@@ -8,11 +8,18 @@ export const nylasOAuth = (app: Hono) => {
       const body = await c.req.json();
       const { provider, email } = body;
       
+      const authHeader = c.req.header('Authorization');
+      if (!authHeader) {
+        return c.json({ error: 'Authorization header required' }, 401);
+      }
+
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
       const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
       // Fallback to API Key as Client ID if not explicitly set (common in Nylas v3)
       const NYLAS_CLIENT_ID = Deno.env.get('NYLAS_CLIENT_ID') || NYLAS_API_KEY;
-      const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-      const defaultRedirectUri = `${SUPABASE_URL}/functions/v1/make-server-8405be07/nylas-callback`;
+      
+      // Use the generic nylas-callback function which is likely already whitelisted
+      const defaultRedirectUri = `${SUPABASE_URL}/functions/v1/nylas-callback`;
       const NYLAS_REDIRECT_URI = Deno.env.get('NYLAS_REDIRECT_URI') || defaultRedirectUri;
       
       console.log('Nylas Auth Config:', { 
@@ -60,32 +67,25 @@ export const nylasOAuth = (app: Hono) => {
         scopes = ['email', 'calendar'];
       }
       
-      // State handling
-      const state = crypto.randomUUID();
-      
-      const supabaseClient = createClient(
+      // Get user for state
+      const userClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
       );
       
-      // Get user from auth header
-      const authHeader = c.req.header('Authorization');
-      if (authHeader) {
-         const userClient = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-          { global: { headers: { Authorization: authHeader } } }
-        );
-        const { data: { user } } = await userClient.auth.getUser();
-        if (user) {
-             await supabaseClient.from('oauth_states').insert({
-                state: state,
-                user_id: user.id,
-                provider: 'nylas',
-                created_at: new Date().toISOString(),
-             });
-        }
+      const { data: { user }, error: userError } = await userClient.auth.getUser();
+      
+      if (userError || !user) {
+        return c.json({ error: 'Invalid user token' }, 401);
       }
+
+      // State handling - JSON format to match nylas-callback expectations
+      const state = JSON.stringify({
+          userId: user.id,
+          orgId: user.user_metadata?.organizationId || 'default_org',
+          returnUrl: c.req.header('origin') || c.req.header('referer')
+      });
 
       // Generate OAuth authorization URL using Nylas API
       // This is the preferred method for Nylas v3 Hosted Auth
@@ -141,86 +141,6 @@ export const nylasOAuth = (app: Hono) => {
     } catch (error) {
       console.error('Nylas init error:', error);
       return c.json({ error: error.message }, 400);
-    }
-  });
-
-  // Callback route
-  app.get('/make-server-8405be07/nylas-callback', async (c) => {
-    try {
-      const code = c.req.query('code');
-      const state = c.req.query('state');
-      const error = c.req.query('error');
-
-      if (error) {
-        return c.html(`<h1>Error: ${error}</h1>`);
-      }
-      
-      const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
-      const NYLAS_CLIENT_ID = Deno.env.get('NYLAS_CLIENT_ID') || NYLAS_API_KEY;
-      const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-      const defaultRedirectUri = `${SUPABASE_URL}/functions/v1/make-server-8405be07/nylas-callback`;
-      const NYLAS_REDIRECT_URI = Deno.env.get('NYLAS_REDIRECT_URI') || defaultRedirectUri;
-
-      if (!NYLAS_CLIENT_ID || !NYLAS_API_KEY) {
-           return c.html(`<h1>Error: Missing Nylas Config</h1>`);
-      }
-
-      // Exchange code
-      const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-              client_id: NYLAS_CLIENT_ID,
-              client_secret: NYLAS_API_KEY,
-              grant_type: 'authorization_code',
-              code: code,
-              redirect_uri: NYLAS_REDIRECT_URI, 
-          })
-      });
-      
-      const tokenData = await tokenResponse.json();
-      
-      if (!tokenResponse.ok) {
-          return c.html(`<h1>Error exchanging token: ${JSON.stringify(tokenData)}</h1>`);
-      }
-      
-      // Store in DB
-       const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
-      
-      // Verify state to get user_id
-      const { data: stateData } = await supabaseClient
-        .from('oauth_states')
-        .select('*')
-        .eq('state', state)
-        .single();
-        
-      if (stateData) {
-          await supabaseClient.from('email_accounts').upsert({
-              user_id: stateData.user_id,
-              provider: stateData.provider || 'nylas', // or specific provider from tokenData if available
-              email: tokenData.email,
-              nylas_grant_id: tokenData.grant_id,
-              access_token: tokenData.access_token,
-              connected: true,
-              updated_at: new Date().toISOString()
-          }, { onConflict: 'user_id, email' });
-          
-          // Cleanup state
-          await supabaseClient.from('oauth_states').delete().eq('id', stateData.id);
-      }
-      
-      return c.html(`
-        <script>
-          window.opener.postMessage({ type: 'nylas-oauth-success', account: { email: '${tokenData.email}' } }, '*');
-          window.close();
-        </script>
-      `);
-
-    } catch (e) {
-        return c.html(`<h1>Error: ${e.message}</h1>`);
     }
   });
 };
