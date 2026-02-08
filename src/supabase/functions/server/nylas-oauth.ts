@@ -62,7 +62,14 @@ export const nylasOAuth = (app: Hono) => {
           "https://www.googleapis.com/auth/calendar.events",
         ];
       } else if (nylasProvider === 'microsoft') {
-        scopes = ['email', 'calendar'];
+        // Nylas v3 requires native Microsoft Graph scopes
+        scopes = [
+            'User.Read',
+            'Mail.Read', 
+            'Mail.Send',
+            'Calendars.Read',
+            'Calendars.ReadWrite'
+        ];
       } else {
         scopes = ['email', 'calendar'];
       }
