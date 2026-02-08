@@ -68,31 +68,14 @@ export const nylasOAuth = (app: Hono) => {
             'Mail.Read', 
             'Mail.Send',
             'Calendars.Read',
-            'Calendars.ReadWrite'
+            'Calendars.ReadWrite',
+            'offline_access'
         ];
       } else {
         scopes = ['email', 'calendar'];
       }
-      
-      // Get user for state
-      const userClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: authHeader } } }
-      );
-      
-      const { data: { user }, error: userError } = await userClient.auth.getUser();
-      
-      if (userError || !user) {
-        return c.json({ error: 'Invalid user token' }, 401);
-      }
 
-      // State handling - JSON format to match nylas-callback expectations
-      const state = JSON.stringify({
-          userId: user.id,
-          orgId: user.user_metadata?.organizationId || 'default_org',
-          returnUrl: c.req.header('origin') || c.req.header('referer')
-      });
+      // ...
 
       // Generate OAuth authorization URL using Nylas API
       // This is the preferred method for Nylas v3 Hosted Auth
@@ -102,8 +85,8 @@ export const nylasOAuth = (app: Hono) => {
         redirect_uri: NYLAS_REDIRECT_URI,
         state: state,
         scope: scopes,
-        // prompt: 'login' removed because Nylas API rejects it in the body
-        login_hint: email
+        // login_hint removed to ensure user has to type email (avoids auto-selecting wrong state)
+        // login_hint: email 
       };
       
       const response = await fetch('https://api.us.nylas.com/v3/connect/auth', {
