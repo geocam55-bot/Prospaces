@@ -75,7 +75,25 @@ export const nylasOAuth = (app: Hono) => {
         scopes = ['email', 'calendar'];
       }
 
-      // ...
+      // Get user for state
+      const userClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      
+      const { data: { user }, error: userError } = await userClient.auth.getUser();
+      
+      if (userError || !user) {
+        return c.json({ error: 'Invalid user token' }, 401);
+      }
+
+      // State handling - JSON format to match nylas-callback expectations
+      const state = JSON.stringify({
+          userId: user.id,
+          orgId: user.user_metadata?.organizationId || 'default_org',
+          returnUrl: c.req.header('origin') || c.req.header('referer')
+      });
 
       // Generate OAuth authorization URL using Nylas API
       // This is the preferred method for Nylas v3 Hosted Auth
