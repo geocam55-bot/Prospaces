@@ -597,9 +597,15 @@ export function Bids({ user }: BidsProps) {
 
       if (editingQuote) {
         if ((editingQuote as any)._source === 'bids') {
-          // For bids, we need to map the data correctly if needed, but the structure is similar
-          // Bids might use snake_case for everything
-          await bidsAPI.update(editingQuote.id, quoteData);
+          // For bids table, use opportunity_id instead of contact_id
+          // We must remove contact_id if it doesn't exist on the table to avoid errors
+          // Also check other fields that might not exist on bids table
+          const { contact_id, ...rest } = quoteData;
+          const bidData = {
+            ...rest,
+            opportunity_id: formData.contactId,
+          };
+          await bidsAPI.update(editingQuote.id, bidData);
         } else {
           await quotesAPI.update(editingQuote.id, quoteData);
         }
