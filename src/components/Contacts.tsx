@@ -7,14 +7,14 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, MapPin, Eye, Target, X, Tag } from 'lucide-react';
+import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, MapPin, Eye, X, Tag } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { contactsAPI, projectManagersAPI, opportunitiesAPI } from '../utils/api';
+import { contactsAPI, projectManagersAPI } from '../utils/api';
 import type { User } from '../App';
 import { PermissionGate, PermissionButton } from './PermissionGate';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
@@ -118,13 +118,8 @@ export function Contacts({ user }: ContactsProps) {
     mailingAddress: ''
   });
   
-  // Opportunities state - for showing icon on contacts with opportunities
-  // Map of contactId -> opportunity status
-  const [contactsWithOpportunities, setContactsWithOpportunities] = useState<Map<string, string>>(new Map());
-
   useEffect(() => {
     loadContacts();
-    loadOpportunities();
   }, []);
 
   const loadContacts = async () => {
@@ -136,46 +131,6 @@ export function Contacts({ user }: ContactsProps) {
       console.error('Failed to load contacts:', error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const loadOpportunities = async () => {
-    try {
-      const { opportunities } = await opportunitiesAPI.getAll();
-      console.log('Loaded opportunities:', opportunities);
-      
-      // Create a Map of contact IDs to their opportunity status
-      const contactStatusMap = new Map<string, string>();
-      
-      opportunities.forEach((opp: any) => {
-        const customerId = opp.customerId || opp.customer_id;
-        if (customerId) {
-          const status = opp.status?.toLowerCase() || '';
-          
-          // Priority: active > won > lost
-          // If contact already has a status, only update if new status has higher priority
-          const currentStatus = contactStatusMap.get(customerId);
-          
-          if (!currentStatus) {
-            contactStatusMap.set(customerId, status);
-          } else {
-            // Active statuses take priority
-            if ((status === 'open' || status === 'in_progress') && 
-                (currentStatus === 'won' || currentStatus === 'lost')) {
-              contactStatusMap.set(customerId, status);
-            }
-            // Won takes priority over lost
-            else if (status === 'won' && currentStatus === 'lost') {
-              contactStatusMap.set(customerId, status);
-            }
-          }
-        }
-      });
-      
-      console.log('Contacts with opportunities map:', Array.from(contactStatusMap.entries()));
-      setContactsWithOpportunities(contactStatusMap);
-    } catch (error) {
-      console.error('Failed to load opportunities:', error);
     }
   };
 
@@ -952,24 +907,6 @@ export function Contacts({ user }: ContactsProps) {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-sm text-gray-900">{contact.name || 'Unknown'}</span>
-                            {(() => {
-                              const status = contactsWithOpportunities.get(contact.id);
-                              if (!status) return null;
-                              
-                              // Determine icon color and tooltip based on status
-                              let colorClass = 'text-green-600';
-                              let tooltip = 'Active Opportunity';
-                              
-                              if (status === 'won') {
-                                colorClass = 'text-yellow-600';
-                                tooltip = 'Won Opportunity';
-                              } else if (status === 'lost') {
-                                colorClass = 'text-red-600';
-                                tooltip = 'Lost Opportunity';
-                              }
-                              
-                              return <Target className={`h-4 w-4 ${colorClass}`} title={tooltip} />;
-                            })()}
                           </div>
                         </div>
                       </td>

@@ -137,10 +137,10 @@ export function BidsTableMigration() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Database className="h-5 w-5" />
-          Bids Table Migration
+          Deals Table Migration (Internal: Bids Table)
         </CardTitle>
         <CardDescription>
-          Add missing columns to the bids table to support line items, notes, and tax calculations
+          Add missing columns to the deals (bids) table to support line items, notes, and tax calculations
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -163,17 +163,17 @@ export function BidsTableMigration() {
             This migration will add the following columns to the bids table:
           </p>
           <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
-            <li><code>notes</code> - Text notes for the bid</li>
+            <li><code>notes</code> - Text notes for the deal</li>
             <li><code>line_items</code> - JSON array of line items</li>
-            <li><code>subtotal</code> - Bid subtotal before tax</li>
+            <li><code>subtotal</code> - Deal subtotal before tax</li>
             <li><code>discount_percent</code> - Discount percentage</li>
             <li><code>discount_amount</code> - Calculated discount amount</li>
             <li><code>tax_percent</code> - Tax percentage</li>
             <li><code>tax_amount</code> - Calculated tax amount</li>
             <li><code>total</code> - Final total amount</li>
-            <li><code>valid_until</code> - Bid expiration date</li>
+            <li><code>valid_until</code> - Deal expiration date</li>
             <li><code>project_manager_id</code> - Reference to project manager</li>
-            <li><code>created_by</code> - User who created the bid</li>
+            <li><code>created_by</code> - User who created the deal</li>
           </ul>
         </div>
 

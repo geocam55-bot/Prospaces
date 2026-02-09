@@ -19,7 +19,7 @@ import {
   Calendar,
   FileText,
   Target,
-  User,
+  User as UserIcon,
   ArrowRight,
   RefreshCw,
   Star,

@@ -33,7 +33,7 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
     try {
       console.log('📊 [BidProposalReports] Fetching data for org:', user.organizationId);
 
-      // Fetch bids and quotes (filtered by organization)
+      // Fetch bids (filtered by organization)
       const { data: bids, error: bidsError } = await supabase
         .from('bids')
         .select('*')
@@ -56,16 +56,27 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
       console.log('✅ [BidProposalReports] Fetched bids:', bids?.length || 0, 'quotes:', quotes?.length || 0);
 
       if (allBids.length > 0) {
-        const wonBids = allBids.filter(b => b.status === 'accepted' || b.status === 'won').length;
-        const lostBids = allBids.filter(b => b.status === 'rejected' || b.status === 'lost').length;
-        const totalValue = allBids.reduce((sum, b) => sum + (b.total_amount || 0), 0);
+        const wonBids = allBids.filter(b => 
+          ['accepted', 'won'].includes((b.status || '').toLowerCase())
+        ).length;
+        
+        const lostBids = allBids.filter(b => 
+          ['rejected', 'lost'].includes((b.status || '').toLowerCase())
+        ).length;
+        
+        const totalValue = allBids.reduce((sum, b) => sum + (parseFloat(b.total || b.amount) || 0), 0);
         
         // Calculate average cycle time
-        const bidsWithDates = allBids.filter(b => b.created_at && (b.accepted_date || b.closed_date));
+        const bidsWithDates = allBids.filter(b => {
+          const created = b.created_at || b.createdAt;
+          const closed = b.accepted_date || b.closed_date || b.updated_at || b.updatedAt;
+          return created && closed && ['accepted', 'won', 'rejected', 'lost'].includes((b.status || '').toLowerCase());
+        });
+        
         const avgCycle = bidsWithDates.length > 0
           ? Math.round(bidsWithDates.reduce((sum, b) => {
-              const start = new Date(b.created_at);
-              const end = new Date(b.accepted_date || b.closed_date);
+              const start = new Date(b.created_at || b.createdAt);
+              const end = new Date(b.accepted_date || b.closed_date || b.updated_at || b.updatedAt);
               return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
             }, 0) / bidsWithDates.length)
           : 0;
@@ -92,8 +103,8 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
         if (users) {
           const repStats = users.map(u => {
             const userBids = allBids.filter(b => b.created_by === u.id || b.assigned_to === u.id);
-            const userWon = userBids.filter(b => b.status === 'accepted' || b.status === 'won').length;
-            const userLost = userBids.filter(b => b.status === 'rejected' || b.status === 'lost').length;
+            const userWon = userBids.filter(b => ['accepted', 'won'].includes((b.status || '').toLowerCase())).length;
+            const userLost = userBids.filter(b => ['rejected', 'lost'].includes((b.status || '').toLowerCase())).length;
             const userTotal = userWon + userLost;
             
             return {
@@ -103,7 +114,7 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
               lost: userLost,
               winRate: userTotal > 0 ? Math.round((userWon / userTotal) * 100) : 0,
               avgValue: userBids.length > 0 
-                ? Math.round(userBids.reduce((sum, b) => sum + (b.total_amount || 0), 0) / userBids.length)
+                ? Math.round(userBids.reduce((sum, b) => sum + (parseFloat(b.total || b.amount) || 0), 0) / userBids.length)
                 : 0,
             };
           }).filter(r => r.total > 0).slice(0, 5);
@@ -121,7 +132,7 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
 
   if (loading) {
     return <div className="flex items-center justify-center h-64">
-      <div className="text-gray-500">Loading bid reports...</div>
+      <div className="text-gray-500">Loading deal reports...</div>
     </div>;
   }
 
@@ -137,7 +148,7 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl text-gray-900">Bid & Proposal Reports</h2>
+        <h2 className="text-xl text-gray-900">Deal & Proposal Reports</h2>
         <Select defaultValue="30days">
           <SelectTrigger className="w-40">
             <SelectValue />
@@ -172,7 +183,7 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Bids Submitted</p>
+                <p className="text-sm text-gray-600">Total Deals Created</p>
                 <p className="text-2xl mt-2 text-gray-900">{stats.totalBids}</p>
                 <div className="flex items-center gap-1 mt-2">
                   <TrendingUp className="h-3 w-3 text-green-600" />
@@ -187,7 +198,7 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Avg Bid Value</p>
+                <p className="text-sm text-gray-600">Avg Deal Value</p>
                 <p className="text-2xl mt-2 text-gray-900">${(stats.avgValue / 1000).toFixed(0)}K</p>
                 <div className="flex items-center gap-1 mt-2">
                   <TrendingUp className="h-3 w-3 text-green-600" />
@@ -217,7 +228,7 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
       {/* Win Rate by Sales Rep */}
       <Card>
         <CardHeader>
-          <CardTitle>Bid Win Rate by Sales Representative</CardTitle>
+          <CardTitle>Deal Win Rate by Sales Representative</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -225,7 +236,7 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 text-sm text-gray-600">Sales Rep</th>
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Total Bids</th>
+                  <th className="text-left py-3 px-4 text-sm text-gray-600">Total Deals</th>
                   <th className="text-left py-3 px-4 text-sm text-gray-600">Won</th>
                   <th className="text-left py-3 px-4 text-sm text-gray-600">Lost</th>
                   <th className="text-left py-3 px-4 text-sm text-gray-600">Win Rate</th>
@@ -270,7 +281,7 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Average Bid Value Trend</CardTitle>
+            <CardTitle>Average Deal Value Trend</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-64 flex items-end justify-between gap-2">

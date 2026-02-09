@@ -23,7 +23,7 @@ import {
   Cell, 
   Legend 
 } from 'recharts';
-import { bidsAPI, quotesAPI, opportunitiesAPI, appointmentsAPI, tasksAPI } from '../utils/api';
+import { bidsAPI, quotesAPI, appointmentsAPI, tasksAPI } from '../utils/api';
 import { canView } from '../utils/permissions';
 import { onPermissionsChanged } from '../utils/permissions';
 import { createClient } from '../utils/supabase/client';
@@ -70,20 +70,17 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       setIsLoading(true);
       
       // Fetch data in parallel
-      const [bidsData, quotesData, oppsData, tasksData, appointmentsData] = await Promise.all([
-        hasModuleAccess('bids') ? bidsAPI.getAll() : { bids: [] },
+      const [bidsData, quotesData, tasksData, appointmentsData] = await Promise.all([
+        hasModuleAccess('bids') ? bidsAPI.getAll() : { bids: [] }, // Using bids table for Deals
         hasModuleAccess('quotes') ? quotesAPI.getAll() : { quotes: [] },
-        hasModuleAccess('opportunities') ? opportunitiesAPI.getAll() : { opportunities: [] },
         hasModuleAccess('tasks') ? tasksAPI.getAll() : { tasks: [] },
         hasModuleAccess('appointments') ? appointmentsAPI.getAll() : { appointments: [] }
       ]);
 
       const allBidsRaw = [...(bidsData.bids || []), ...(quotesData.quotes || [])];
-      const opportunitiesRaw = oppsData.opportunities || [];
 
       // Filter data for the "Personal Dashboard" - show only data owned/created by the current user
       const allBids = allBidsRaw.filter((item: any) => item.created_by === user.id);
-      const opportunities = opportunitiesRaw.filter((item: any) => item.ownerId === user.id);
 
       // --- Calculate Metrics ---
 
@@ -91,12 +88,15 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       const wonDeals = allBids.filter(b => ['accepted', 'won'].includes((b.status || '').toLowerCase()));
       const totalSales = wonDeals.reduce((sum, b) => sum + (parseFloat(b.amount || b.total) || 0), 0);
 
-      // 2. Pipeline Value (Open Opportunities)
-      const openOpps = opportunities.filter((o: any) => !['won', 'lost', 'closed'].includes((o.status || '').toLowerCase()));
-      const pipelineValue = openOpps.reduce((sum: number, o: any) => sum + (parseFloat(o.value || o.estimatedValue) || 0), 0);
+      // 2. Pipeline Value (Open Deals)
+      const openBids = allBids.filter(b => {
+        const status = (b.status || '').toLowerCase();
+        return !['accepted', 'won', 'rejected', 'lost', 'expired'].includes(status);
+      });
+      const pipelineValue = openBids.reduce((sum, b) => sum + (parseFloat(b.total || b.amount) || 0), 0);
 
       // 3. Open Deals Count
-      const openDealsCount = openOpps.length;
+      const openDealsCount = openBids.length;
 
       // 4. Win Rate (Won / (Won + Lost))
       const lostDeals = allBids.filter(b => ['rejected', 'lost'].includes((b.status || '').toLowerCase()));
@@ -138,21 +138,21 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       
       console.log('📊 Avg Days to Close - Won deals:', wonDeals.length, 'Avg days:', avgDaysToClose.toFixed(1));
 
-      // 6. Weighted Value (Pipeline Value * Probability - using rough stage probabilities)
-      const weightedValue = openOpps.reduce((sum: number, o: any) => {
-        const val = parseFloat(o.value || o.estimatedValue) || 0;
-        const stage = (o.stage || '').toLowerCase();
-        let prob = 0.1;
-        if (stage === 'proposal') prob = 0.5;
-        if (stage === 'negotiation') prob = 0.8;
+      // 6. Weighted Value (Pipeline Value * Probability)
+      const weightedValue = openBids.reduce((sum, b) => {
+        const val = parseFloat(b.total || b.amount) || 0;
+        const status = (b.status || '').toLowerCase();
+        let prob = 0.1; // draft
+        if (status === 'sent') prob = 0.4;
+        if (status === 'viewed') prob = 0.6;
         return sum + (val * prob);
       }, 0);
 
       // 7. Avg Open Deal Age (Today - CreatedAt)
       const now = new Date().getTime();
-      const totalAge = openOpps.reduce((sum: number, o: any) => {
+      const totalAge = openBids.reduce((sum, b) => {
         // Handle both snake_case and camelCase field names
-        const createdField = o.created_at || o.createdAt;
+        const createdField = b.created_at || b.createdAt;
         const createdAt = createdField ? new Date(createdField).getTime() : 0;
         
         // Skip invalid dates
@@ -166,13 +166,13 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       }, 0);
       
       // Calculate average only if we have deals, otherwise default to 0
-      const validDealsCount = openOpps.filter((o: any) => {
-        const createdField = o.created_at || o.createdAt;
+      const validDealsCount = openBids.filter(b => {
+        const createdField = b.created_at || b.createdAt;
         return createdField && !isNaN(new Date(createdField).getTime());
       }).length;
       const avgOpenDealAge = validDealsCount > 0 ? totalAge / validDealsCount : 0;
       
-      console.log('📊 Avg Open Deal Age - Open opps:', openOpps.length, 'Valid:', validDealsCount, 'Avg days:', avgOpenDealAge.toFixed(1));
+      console.log('📊 Avg Open Deal Age - Open bids:', openBids.length, 'Valid:', validDealsCount, 'Avg days:', avgOpenDealAge.toFixed(1));
       
       setMetrics({
         totalSales,
@@ -187,29 +187,20 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
 
       // --- Prepare Chart Data ---
 
-      // 1. Sales Pipeline (Donut) - Combined Opportunities and Bids by Status
+      // 1. Sales Pipeline (Donut) - Deals by Status
       const statusCounts: Record<string, number> = {};
       
       console.log('📊 About to count pipeline data:');
       console.log('  - allBids.length:', allBids.length);
-      console.log('  - opportunities.length:', opportunities.length);
       console.log('  - allBids data:', allBids);
       
-      // Count Opportunities by status
-      opportunities.forEach((o: any) => {
-        const status = o.status || 'open';
-        const displayName = status === 'in_progress' ? 'In Progress' : 
-                           status.charAt(0).toUpperCase() + status.slice(1);
-        statusCounts[displayName] = (statusCounts[displayName] || 0) + 1;
-        console.log('  - Adding opportunity:', status, '->', displayName);
-      });
-      
-      // Count Bids by status
+      // Count Deals by status
       allBids.forEach((b: any) => {
         const status = b.status || 'draft';
+        // Normalize 'sent' and 'viewed' to 'Active' for simpler chart if desired, or keep granular
         const displayName = status.charAt(0).toUpperCase() + status.slice(1);
         statusCounts[displayName] = (statusCounts[displayName] || 0) + 1;
-        console.log('  - Adding bid:', status, '->', displayName);
+        console.log('  - Adding deal:', status, '->', displayName);
       });
       
       console.log('📊 Pipeline Status Counts:', statusCounts);
@@ -245,8 +236,8 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
         value 
       }));
 
-      // 4. Projection (Line) - Remove mock data, calculate from actual opportunities
-      // For projection, we'll show open opportunities by expected close month
+      // 4. Projection (Line) - Calculate from open deals
+      // For projection, we'll show open deals by valid until month (proxy for expected close)
       const projectionData = months.map(m => ({
         name: m,
         projected: 0,
@@ -261,12 +252,13 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
         projectionData[monthIdx].actual += amount;
       });
       
-      // Add open opportunities to projected (based on expected_close_date if available)
-      openOpps.forEach((o: any) => {
-        if (o.expectedCloseDate || o.expected_close_date) {
-          const closeDate = new Date(o.expectedCloseDate || o.expected_close_date);
+      // Add open deals to projected
+      openBids.forEach((b: any) => {
+        // Use validUntil as proxy for expected close date
+        if (b.validUntil || b.valid_until) {
+          const closeDate = new Date(b.validUntil || b.valid_until);
           const monthIdx = closeDate.getMonth();
-          const amount = parseFloat(o.value || o.estimatedValue) || 0;
+          const amount = parseFloat(b.total || b.amount) || 0;
           if (monthIdx >= 0 && monthIdx < 12) {
             projectionData[monthIdx].projected += amount;
           }

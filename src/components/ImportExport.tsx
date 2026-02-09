@@ -826,7 +826,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       ].join('\n');
 
       downloadCSV(csvContent, 'bids_export.csv');
-      toast.success('Bids exported successfully');
+      toast.success('Deals exported successfully');
     } catch (error: any) {
       toast.error('Failed to export bids: ' + error.message);
     } finally {
@@ -1185,15 +1185,15 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                 </CardContent>
               </Card>
 
-              {/* Import Bids */}
+              {/* Import Deals */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="h-5 w-5" />
-                    Import Bids (Sales & Quotes)
+                    Import Deals (Sales & Quotes)
                   </CardTitle>
                   <CardDescription>
-                    Import sales bids and quotes from CSV or Excel files
+                    Import sales deals and quotes from CSV or Excel files
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1318,15 +1318,15 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
             </CardContent>
           </Card>
 
-          {/* Export Bids */}
+          {/* Export Deals */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Export Bids (Sales & Quotes)
+                Export Deals (Sales & Quotes)
               </CardTitle>
               <CardDescription>
-                Download all sales bids and quotes as CSV
+                Download all sales deals and quotes as CSV
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1340,7 +1340,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
-                {isExporting ? 'Exporting...' : 'Export Bids'}
+                {isExporting ? 'Exporting...' : 'Export Deals'}
               </Button>
               <Button
                 variant="outline"

@@ -235,7 +235,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col bg-white">
         <DialogHeader>
           <DialogTitle>Email Quote</DialogTitle>
           <DialogDescription>

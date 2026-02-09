@@ -44,7 +44,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { projectManagersAPI, opportunitiesAPI, bidsAPI, quotesAPI, inventoryAPI } from '../utils/api';
+import { projectManagersAPI, bidsAPI, quotesAPI, inventoryAPI } from '../utils/api';
 import type { User } from '../App';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { BidLineItems, LineItemsTable } from './BidLineItems';
@@ -153,13 +153,10 @@ interface ContactDetailProps {
 
 export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailProps) {
   const [projectManagers, setProjectManagers] = useState<ProjectManager[]>([]);
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingOpps, setIsLoadingOpps] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isAddPMDialogOpen, setIsAddPMDialogOpen] = useState(false);
   const [isEditPMDialogOpen, setIsEditPMDialogOpen] = useState(false);
-  const [isAddOppDialogOpen, setIsAddOppDialogOpen] = useState(false);
   const [editingPM, setEditingPM] = useState<ProjectManager | null>(null);
   const [tableNotFound, setTableNotFound] = useState(false);
   const [newPM, setNewPM] = useState({
@@ -168,18 +165,10 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     phone: '',
     mailingAddress: '',
   });
-  const [newOpp, setNewOpp] = useState({
-    title: '',
-    description: '',
-    status: 'open' as 'open' | 'in_progress' | 'won' | 'lost',
-    value: '',
-    expectedCloseDate: '',
-  });
   const [documents, setDocuments] = useState<Document[]>([]);
   
   // Bids management state
   const [isBidsDialogOpen, setIsBidsDialogOpen] = useState(false);
-  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [bids, setBids] = useState<Bid[]>([]);
   const [isLoadingBids, setIsLoadingBids] = useState(false);
   const [isAddBidDialogOpen, setIsAddBidDialogOpen] = useState(false);
@@ -250,9 +239,9 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
   // Check if contact has a valid UUID
   useEffect(() => {
     loadProjectManagers();
-    loadOpportunities();
     loadDocuments();
     loadInventoryItems();
+    loadBids();
   }, [contact.id]);
 
   // Auto-calculate subtotal from line items
@@ -276,18 +265,6 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       }
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const loadOpportunities = async () => {
-    try {
-      setIsLoadingOpps(true);
-      const { opportunities: opps } = await opportunitiesAPI.getByCustomer(contact.id);
-      setOpportunities(opps || []);
-    } catch (error: any) {
-      console.error('Failed to load opportunities:', error);
-    } finally {
-      setIsLoadingOpps(false);
     }
   };
 
@@ -369,27 +346,6 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     }
   };
 
-  const handleAddOpportunity = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-
-    try {
-      const { opportunity } = await opportunitiesAPI.create({
-        ...newOpp,
-        customerId: contact.id,
-        value: parseFloat(newOpp.value) || 0,
-      });
-      setOpportunities([...opportunities, opportunity]);
-      setNewOpp({ title: '', description: '', status: 'open', value: '', expectedCloseDate: '' });
-      setIsAddOppDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to create opportunity:', error);
-      alert('Failed to create opportunity. Please try again.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleUploadDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -440,25 +396,25 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     }
   };
 
-  const loadBids = async (opportunityId: string) => {
+  const loadBids = async () => {
     try {
       setIsLoadingBids(true);
-      console.log('[ContactDetail.loadBids] Loading bids for opportunity:', opportunityId);
-      console.log('[ContactDetail.loadBids] Current contact:', contact?.id, contact?.name);
+      console.log('[ContactDetail.loadBids] Loading bids for contact:', contact.id);
       
       // Load both bids and quotes
       const [bidsResult, quotesResult] = await Promise.all([
-        bidsAPI.getByOpportunity(opportunityId),
+        bidsAPI.getAll(),
         quotesAPI.getAll(),
       ]);
       
-      const bidList = bidsResult.bids || [];
+      const bidList = (bidsResult.bids || []).filter((b: any) => 
+        b.contactId === contact.id || b.contact_id === contact.id || b.customerId === contact.id
+      );
+      
       const allQuotes = quotesResult.quotes || [];
       
       console.log('[loadBids] Raw bid data from API:', bidList);
       console.log('[loadBids] All quotes from API:', allQuotes.length);
-      console.log('[loadBids] Current contact ID:', contact?.id);
-      console.log('[loadBids] First quote contact_id:', allQuotes[0]?.contact_id || allQuotes[0]?.contactId);
       
       // Filter quotes by contact_id matching this contact
       const quotesForContact = allQuotes.filter((q: any) => 
@@ -487,7 +443,6 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             console.error('Failed to parse line items for bid:', bid.id, error);
           }
         }
-        console.log(`[loadBids] Bid ${bid.id} has ${parsedLineItems.length} line items:`, parsedLineItems);
         return {
           ...bid,
           line_items: parsedLineItems,
@@ -520,7 +475,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         return {
           id: quote.id,
           title: quote.title || 'Quote',
-          opportunity_id: opportunityId,
+          opportunity_id: '',
           amount: quote.total || quote.amount || 0,
           status: quote.status || 'draft',
           valid_until: quote.valid_until || quote.validUntil || new Date().toISOString(),
@@ -596,7 +551,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       
       const { bid } = await bidsAPI.create({
         ...newBid,
-        opportunityId: selectedOpportunity?.id || '',
+        contactId: contact.id, // Direct link to contact
         amount: total,
         projectManagerId: newBid.projectManagerId || undefined,
         items: lineItems, // Save line items
@@ -609,9 +564,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       });
       
       // Reload bids from server to ensure we have the latest data
-      if (selectedOpportunity?.id) {
-        await loadBids(selectedOpportunity.id);
-      }
+      await loadBids();
       
       setNewBid({ title: '', amount: '', status: 'draft', validUntil: '', notes: '', projectManagerId: '' });
       setLineItems([]);
@@ -705,9 +658,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       });
       
       // Reload bids from server to ensure we have the latest data
-      if (selectedOpportunity?.id) {
-        await loadBids(selectedOpportunity.id);
-      }
+      await loadBids();
       
       setEditingBid(null);
       setEditingBidLineItems([]);
@@ -726,9 +677,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     try {
       await bidsAPI.delete(id);
       // Reload bids from server to ensure we have the latest data
-      if (selectedOpportunity?.id) {
-        await loadBids(selectedOpportunity.id);
-      }
+      await loadBids();
     } catch (error) {
       console.error('Failed to delete bid:', error);
       alert('Failed to delete bid. Please try again.');
@@ -1076,81 +1025,106 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         </CardContent>
       </Card>
 
-      {/* Opportunities */}
+      {/* Bids */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Opportunities & Bids</CardTitle>
+            <CardTitle>Deals & Proposals</CardTitle>
             <div className="flex items-center gap-2">
               {canAdd('contacts', user.role) && (
-                <Button size="sm" onClick={() => setIsAddOppDialogOpen(true)}>
+                <Button size="sm" onClick={() => setIsAddBidDialogOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Opportunity
+                  Add Deal
                 </Button>
               )}
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          {isLoadingOpps ? (
+          {isLoadingBids ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
             </div>
-          ) : opportunities.length === 0 ? (
+          ) : bids.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
-              <Target className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No opportunities added yet</p>
-              <p className="text-sm mt-1">Create opportunities to track potential business and manage bids</p>
+              <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No deals added yet</p>
+              <p className="text-sm mt-1">Create deals to send proposals to this contact</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {opportunities.map((opp) => {
+              {bids.map((bid) => {
                 const statusColors = {
-                  open: 'bg-blue-100 text-blue-700',
-                  in_progress: 'bg-yellow-100 text-yellow-700',
+                  draft: 'bg-gray-100 text-gray-700',
+                  sent: 'bg-blue-100 text-blue-700',
+                  viewed: 'bg-indigo-100 text-indigo-700',
+                  accepted: 'bg-green-100 text-green-700',
+                  rejected: 'bg-red-100 text-red-700',
                   won: 'bg-green-100 text-green-700',
                   lost: 'bg-red-100 text-red-700',
+                  expired: 'bg-orange-100 text-orange-700',
                 };
                 
+                // Safe access to status color with fallback
+                const status = (bid.status || 'draft').toLowerCase();
+                const badgeClass = statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-700';
+                
                 return (
-                  <div key={opp.id} className="border rounded-lg p-4 hover:bg-gray-50 transition">
+                  <div key={bid.id} className="border rounded-lg p-4 hover:bg-gray-50 transition">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <Target className="h-5 w-5 text-blue-600" />
-                          <h4 className="font-semibold text-gray-900">{opp.title}</h4>
-                          <Badge className={statusColors[opp.status]}>
-                            {opp.status === 'in_progress' ? 'In Progress' : opp.status.charAt(0).toUpperCase() + opp.status.slice(1)}
+                          <FileText className="h-5 w-5 text-blue-600" />
+                          <h4 className="font-semibold text-gray-900">{bid.title}</h4>
+                          <Badge variant="outline">{bid._source === 'quotes' ? 'Quote' : 'Deal'}</Badge>
+                          <Badge className={badgeClass}>
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-600 mb-3 ml-7">{opp.description}</p>
+                        {bid.notes && <p className="text-sm text-gray-600 mb-3 ml-7">{bid.notes}</p>}
                         <div className="ml-7 flex items-center gap-4 text-sm">
                           <div className="flex items-center gap-1 text-gray-600">
                             <DollarSign className="h-4 w-4" />
-                            <span>${opp.value.toLocaleString()}</span>
+                            <span>${(bid.amount || bid.total || 0).toLocaleString()}</span>
                           </div>
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <Calendar className="h-4 w-4" />
-                            <span>Close: {new Date(opp.expectedCloseDate).toLocaleDateString()}</span>
-                          </div>
+                          {bid.valid_until && (
+                            <div className="flex items-center gap-1 text-gray-600">
+                              <Calendar className="h-4 w-4" />
+                              <span>Valid Until: {new Date(bid.valid_until).toLocaleDateString()}</span>
+                            </div>
+                          )}
                           <div className="flex items-center gap-1 text-gray-600">
                             <TrendingUp className="h-4 w-4" />
-                            <span>Created: {new Date(opp.createdAt).toLocaleDateString()}</span>
+                            <span>Created: {new Date(bid.created_at).toLocaleDateString()}</span>
                           </div>
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedOpportunity(opp);
-                          loadBids(opp.id);
-                          setIsBidsDialogOpen(true);
-                        }}
-                      >
-                        <Receipt className="h-4 w-4 mr-2" />
-                        View & Manage Bids
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            setEditingBid(bid);
+                            // Ensure line items are typed correctly
+                            const items = Array.isArray(bid.line_items) ? bid.line_items : [];
+                            setEditingBidLineItems(items as LineItem[]);
+                            // Set tax rate from bid or default
+                            setBidTaxRate(bid.tax_percent ? bid.tax_percent.toString() : getGlobalTaxRate().toString());
+                            setBidDiscountPercent(bid.discount_percent || 0);
+                            setIsEditBidDialogOpen(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeleteBid(bid.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1321,102 +1295,9 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         </DialogContent>
       </Dialog>
 
-      {/* Add Opportunity Dialog */}
-      <Dialog open={isAddOppDialogOpen} onOpenChange={setIsAddOppDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add Opportunity</DialogTitle>
-            <DialogDescription>
-              Add a new opportunity for {contact.name}
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleAddOpportunity} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="opp-title">Title *</Label>
-              <Input
-                id="opp-title"
-                value={newOpp.title}
-                onChange={(e) => setNewOpp({ ...newOpp, title: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="opp-description">Description *</Label>
-              <Textarea
-                id="opp-description"
-                value={newOpp.description}
-                onChange={(e) => setNewOpp({ ...newOpp, description: e.target.value })}
-                rows={3}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="opp-status">Status *</Label>
-              <Select
-                value={newOpp.status}
-                onValueChange={(value) => setNewOpp({ ...newOpp, status: value as 'open' | 'in_progress' | 'won' | 'lost' })}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue>{newOpp.status}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="open">Open</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="won">Won</SelectItem>
-                  <SelectItem value="lost">Lost</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="opp-value">Value *</Label>
-              <Input
-                id="opp-value"
-                type="number"
-                value={newOpp.value}
-                onChange={(e) => setNewOpp({ ...newOpp, value: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="opp-expectedCloseDate">Expected Close Date *</Label>
-              <Input
-                id="opp-expectedCloseDate"
-                type="date"
-                value={newOpp.expectedCloseDate}
-                onChange={(e) => setNewOpp({ ...newOpp, expectedCloseDate: e.target.value })}
-                required
-              />
-            </div>
-            <div className="flex gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setNewOpp({ title: '', description: '', status: 'open', value: '', expectedCloseDate: '' });
-                  setIsAddOppDialogOpen(false);
-                }}
-                className="flex-1"
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" className="flex-1" disabled={isSaving}>
-                {isSaving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  'Add Opportunity'
-                )}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
 
-      {/* Add Bid Dialog */}
+
+      {/* Add Deal Dialog */}
       <Dialog open={isAddBidDialogOpen} onOpenChange={(open) => {
         setIsAddBidDialogOpen(open);
         if (!open) {
@@ -1427,9 +1308,9 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       }}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add Bid</DialogTitle>
+            <DialogTitle>Add Deal</DialogTitle>
             <DialogDescription>
-              Add a new bid for {selectedOpportunity?.title}
+              Add a new deal for {contact.name}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddBid} className="space-y-6">
@@ -1482,7 +1363,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500">
-                  Bids and quotes will be emailed to this person
+                  Deals and quotes will be emailed to this person
                 </p>
               </div>
               <div className="space-y-2">
@@ -1577,7 +1458,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                         </span>
                       </div>
                       <div className="flex justify-between pt-2 border-t border-blue-300">
-                        <span className="text-gray-900">Total Bid Amount:</span>
+                        <span className="text-gray-900">Total Deal Amount:</span>
                         <span className="text-gray-900">
                           ${(parseFloat(bidSubtotal || '0') * (1 + parseFloat(bidTaxRate) / 100)).toFixed(2)}
                         </span>
@@ -1586,7 +1467,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                   )}
                   {parseFloat(bidTaxRate) === 0 && (
                     <div className="flex justify-between pt-2 border-t border-blue-300">
-                      <span className="text-gray-900">Total Bid Amount:</span>
+                      <span className="text-gray-900">Total Deal Amount:</span>
                       <span className="text-gray-900">${parseFloat(bidSubtotal || '0').toFixed(2)}</span>
                     </div>
                   )}
@@ -1631,7 +1512,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                     Adding...
                   </>
                 ) : (
-                  'Add Bid'
+                  'Add Deal'
                 )}
               </Button>
             </div>
@@ -1649,13 +1530,13 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         priceTier={priceLevelToTier(contact.priceLevel || 'Retail')}
       />
 
-      {/* Edit Bid Dialog */}
+      {/* Edit Deal Dialog */}
       <Dialog open={isEditBidDialogOpen} onOpenChange={setIsEditBidDialogOpen}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Bid</DialogTitle>
+            <DialogTitle>Edit Deal</DialogTitle>
             <DialogDescription>
-              Update the bid's information and line items
+              Update the deal's information and line items
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditBid} className="space-y-6">
@@ -2060,195 +1941,6 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         </DialogContent>
       </Dialog>
 
-      {/* View & Manage Bids Dialog */}
-      <Dialog open={isBidsDialogOpen} onOpenChange={setIsBidsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Bids for {selectedOpportunity?.title}</DialogTitle>
-            <DialogDescription>
-              View and manage bids for this opportunity
-            </DialogDescription>
-          </DialogHeader>
-          
-          {/* Opportunity Summary */}
-          {selectedOpportunity && (
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600">Opportunity Value</p>
-                  <p className="text-xl font-semibold">${selectedOpportunity.value.toLocaleString()}</p>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600">Expected Close</p>
-                  <p className="text-xl font-semibold">{new Date(selectedOpportunity.expectedCloseDate).toLocaleDateString()}</p>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600">Status</p>
-                  <Badge className={
-                    selectedOpportunity.status === 'open' ? 'bg-blue-100 text-blue-700' :
-                    selectedOpportunity.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
-                    selectedOpportunity.status === 'won' ? 'bg-green-100 text-green-700' :
-                    'bg-red-100 text-red-700'
-                  }>
-                    {selectedOpportunity.status === 'in_progress' ? 'In Progress' : selectedOpportunity.status.charAt(0).toUpperCase() + selectedOpportunity.status.slice(1)}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Bids List */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Bids ({bids.length})</h3>
-              {canAdd('contacts', user.role) && (
-                <Button size="sm" onClick={() => setIsAddBidDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Bid
-                </Button>
-              )}
-            </div>
-
-            {isLoadingBids ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-              </div>
-            ) : bids.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 border rounded-lg">
-                <Receipt className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No bids added yet</p>
-                <p className="text-sm mt-1">Click "Add Bid" to create your first bid for this opportunity</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {bids.map((bid) => {
-                  const statusColors = {
-                    draft: 'bg-gray-100 text-gray-700',
-                    submitted: 'bg-blue-100 text-blue-700',
-                    accepted: 'bg-green-100 text-green-700',
-                    rejected: 'bg-red-100 text-red-700',
-                  };
-                  
-                  return (
-                    <div key={bid.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Receipt className="h-5 w-5 text-blue-600" />
-                            <h4 className="font-semibold text-gray-900">{bid.title}</h4>
-                            <Badge className={statusColors[bid.status as keyof typeof statusColors] || statusColors.draft}>
-                              {bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}
-                            </Badge>
-                          </div>
-                          <div className="ml-7 space-y-1">
-                            <div className="flex items-center gap-4 text-sm">
-                              <div className="flex items-center gap-1 text-gray-600">
-                                <DollarSign className="h-4 w-4" />
-                                <span className="font-semibold">${bid.amount.toLocaleString()}</span>
-                              </div>
-                              <div className="flex items-center gap-1 text-gray-600">
-                                <Calendar className="h-4 w-4" />
-                                <span>Valid until: {new Date(bid.valid_until).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                            {bid.project_managers && (
-                              <div className="flex items-center gap-1 text-sm text-gray-600">
-                                <UserPlus className="h-4 w-4" />
-                                <span>PM: {bid.project_managers.name}</span>
-                              </div>
-                            )}
-                            {bid.notes && (
-                              <p className="text-sm text-gray-600 mt-2">{bid.notes}</p>
-                            )}
-                            
-                            {/* Line Items Section */}
-                            {bid.line_items && Array.isArray(bid.line_items) && bid.line_items.length > 0 && (
-                              <div className="mt-3 pt-3 border-t">
-                                <p className="text-xs font-semibold text-gray-700 mb-2">Line Items ({bid.line_items.length})</p>
-                                <div className="space-y-1">
-                                  {bid.line_items.map((item: LineItem, idx: number) => (
-                                    <div key={item.id || idx} className="flex items-center justify-between text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium">{item.itemName}</span>
-                                        {item.sku && <span className="text-gray-400">({item.sku})</span>}
-                                      </div>
-                                      <div className="flex items-center gap-3">
-                                        <span>Qty: {item.quantity}</span>
-                                        <span>@${item.unitPrice.toFixed(2)}</span>
-                                        {item.discount > 0 && <span className="text-red-600">-{item.discount}%</span>}
-                                        <span className="font-semibold">${item.total.toFixed(2)}</span>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            <p className="text-xs text-gray-500 mt-1">
-                              Created: {new Date(bid.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        {canChange('contacts', user.role) && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  // Parse line items if they exist
-                                  let parsedLineItems: LineItem[] = [];
-                                  if (bid.line_items) {
-                                    try {
-                                      if (typeof bid.line_items === 'string') {
-                                        parsedLineItems = JSON.parse(bid.line_items);
-                                      } else if (Array.isArray(bid.line_items)) {
-                                        parsedLineItems = bid.line_items;
-                                      }
-                                    } catch (error) {
-                                      console.error('Failed to parse line items:', error);
-                                    }
-                                  }
-                                  setEditingBid(bid);
-                                  setEditingBidLineItems(parsedLineItems);
-                                  setBidDiscountPercent(bid.discount_percent || 0);
-                                  setBidTaxRate((bid.tax_percent || getGlobalTaxRate()).toString());
-                                  setIsEditBidDialogOpen(true);
-                                }}
-                              >
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              {canDelete('contacts', user.role) && (
-                                <DropdownMenuItem
-                                  className="text-red-600"
-                                  onClick={() => handleDeleteBid(bid.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end pt-4 border-t">
-            <Button variant="outline" onClick={() => setIsBidsDialogOpen(false)}>
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

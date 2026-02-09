@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import { bidsAPI, quotesAPI, opportunitiesAPI, usersAPI } from '../utils/api';
+import { bidsAPI, quotesAPI, usersAPI } from '../utils/api';
 import { canView } from '../utils/permissions';
 import { onPermissionsChanged } from '../utils/permissions';
 import type { User } from '../App';
@@ -58,15 +58,14 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
       setIsLoading(true);
       
       // Fetch data in parallel
-      const [bidsData, quotesData, oppsData, usersData] = await Promise.all([
+      const [bidsData, quotesData, usersData] = await Promise.all([
         hasModuleAccess('bids') ? bidsAPI.getAll() : { bids: [] },
         hasModuleAccess('quotes') ? quotesAPI.getAll() : { quotes: [] },
-        hasModuleAccess('opportunities') ? opportunitiesAPI.getAll() : { opportunities: [] },
         usersAPI.getAll() // Fetch all users for Agents tab
       ]);
 
       const allBids = [...(bidsData.bids || []), ...(quotesData.quotes || [])];
-      const opportunities = oppsData.opportunities || [];
+      const opportunities: any[] = []; // Removed opportunities
       const users = usersData.users || [];
       
       console.log('🔍 [Team Dashboard] Data fetched:', {
@@ -80,7 +79,7 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
 
       // --- Calculate Overview Metrics ---
 
-      // 1. Total Sales (Won Bids/Quotes)
+      // 1. Total Sales (Won Deals/Quotes)
       const wonDeals = allBids.filter(b => ['accepted', 'won'].includes((b.status || '').toLowerCase()));
       const totalSales = wonDeals.reduce((sum, b) => sum + (parseFloat(b.amount || b.total) || 0), 0);
 
@@ -175,7 +174,7 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
 
       // --- Prepare Chart Data ---
 
-      // 1. Sales Pipeline (Donut) - Combined Opportunities and Bids by Status
+      // 1. Sales Pipeline (Donut) - Combined Opportunities and Deals by Status
       const statusCounts: Record<string, number> = {};
       
       // Count Opportunities by status
@@ -186,7 +185,7 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
         statusCounts[displayName] = (statusCounts[displayName] || 0) + 1;
       });
       
-      // Count Bids by status
+      // Count Deals by status
       allBids.forEach((b: any) => {
         const status = b.status || 'draft';
         const displayName = status.charAt(0).toUpperCase() + status.slice(1);

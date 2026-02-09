@@ -8,7 +8,8 @@ import {
   CheckCircle, 
   Calendar,
   Mail,
-  Award
+  Award,
+  FileText
 } from 'lucide-react';
 import type { User } from '../../App';
 import { createClient } from '../../utils/supabase/client';
@@ -22,7 +23,7 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
-    totalOpportunities: 0,
+    totalBids: 0,
     pipelineValue: 0,
     pipelineCost: 0,
     winRate: 0,
@@ -31,7 +32,7 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
     activeCampaigns: 0,
   });
   const [previousStats, setPreviousStats] = useState({
-    totalOpportunities: 0,
+    totalBids: 0,
     pipelineValue: 0,
     tasksCompleted: 0,
     winRate: 0,
@@ -56,17 +57,19 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
 
       console.log('📊 [ManagerSummaryReports] Fetching data for org:', user.organizationId);
 
-      // Fetch opportunities (filtered by organization)
-      const { data: opportunities, error: oppError } = await supabase
-        .from('opportunities')
+      // Fetch bids (filtered by organization)
+      const { data: bids, error: bidsError } = await supabase
+        .from('bids')
         .select('*')
         .eq('organization_id', user.organizationId);
 
-      if (oppError) {
-        console.error('❌ [ManagerSummaryReports] Error fetching opportunities:', oppError);
-      } else {
-        console.log('✅ [ManagerSummaryReports] Fetched opportunities:', opportunities?.length || 0);
-      }
+      // Fetch quotes (filtered by organization)
+      const { data: quotes, error: quotesError } = await supabase
+        .from('quotes')
+        .select('*')
+        .eq('organization_id', user.organizationId);
+
+      const allBids = [...(bids || []), ...(quotes || [])];
 
       // Fetch tasks (filtered by organization)
       const { data: tasks, error: tasksError } = await supabase
@@ -75,20 +78,12 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
         .eq('organization_id', user.organizationId)
         .eq('status', 'completed');
 
-      if (tasksError) {
-        console.error('❌ [ManagerSummaryReports] Error fetching tasks:', tasksError);
-      }
-
       // Fetch appointments (filtered by organization)
       const { data: appointments, error: apptError } = await supabase
         .from('appointments')
         .select('*')
         .eq('organization_id', user.organizationId)
         .gte('start_time', new Date().toISOString());
-
-      if (apptError) {
-        console.error('❌ [ManagerSummaryReports] Error fetching appointments:', apptError);
-      }
 
       // Fetch campaigns (filtered by organization)
       const { data: campaigns, error: campaignsError } = await supabase
@@ -97,29 +92,21 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
         .eq('organization_id', user.organizationId)
         .eq('status', 'active');
 
-      if (campaignsError) {
-        console.error('❌ [ManagerSummaryReports] Error fetching campaigns:', campaignsError);
-      }
-
       // Fetch users for team performance (filtered by organization)
       const { data: users, error: usersError } = await supabase
         .from('profiles')
         .select('*')
         .eq('organization_id', user.organizationId);
 
-      if (usersError) {
-        console.error('❌ [ManagerSummaryReports] Error fetching users:', usersError);
-      }
-
       // Create user lookup map
       const userMap = new Map(users?.map(u => [u.id, u.name]) || []);
 
       // Calculate current period stats
-      const currentOpps = opportunities?.filter(o => new Date(o.created_at) >= thirtyDaysAgo) || [];
-      const previousOpps = opportunities?.filter(o => {
-        const created = new Date(o.created_at);
+      const currentBids = allBids.filter(b => new Date(b.created_at || b.createdAt) >= thirtyDaysAgo);
+      const previousBids = allBids.filter(b => {
+        const created = new Date(b.created_at || b.createdAt);
         return created >= sixtyDaysAgo && created < thirtyDaysAgo;
-      }) || [];
+      });
 
       const currentTasks = tasks?.filter(t => new Date(t.updated_at) >= thirtyDaysAgo) || [];
       const previousTasks = tasks?.filter(t => {
@@ -127,101 +114,113 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
         return updated >= sixtyDaysAgo && updated < thirtyDaysAgo;
       }) || [];
 
-      const totalOpps = opportunities?.length || 0;
-      const pipelineValue = opportunities?.reduce((sum, opp) => sum + (opp.value || 0), 0) || 0;
-      const pipelineCost = opportunities?.reduce((sum, opp) => sum + (opp.cost || 0), 0) || 0;
-      const closedWon = opportunities?.filter(o => o.stage === 'Closed Won').length || 0;
-      const closedLost = opportunities?.filter(o => o.stage === 'Closed Lost').length || 0;
-      const winRate = closedWon + closedLost > 0 ? Math.round((closedWon / (closedWon + closedLost)) * 100) : 0;
+      // Stats helper
+      const calculateBidStats = (bidList: any[]) => {
+        const total = bidList.length;
+        const value = bidList.reduce((sum, b) => sum + (parseFloat(b.total || b.amount) || 0), 0);
+        // Cost not strictly tracked in bids usually, but check for it
+        const cost = bidList.reduce((sum, b) => sum + (parseFloat(b.cost) || 0), 0);
+        
+        const won = bidList.filter(b => ['accepted', 'won'].includes((b.status || '').toLowerCase())).length;
+        const lost = bidList.filter(b => ['rejected', 'lost'].includes((b.status || '').toLowerCase())).length;
+        const winRate = won + lost > 0 ? Math.round((won / (won + lost)) * 100) : 0;
+        
+        return { total, value, cost, winRate };
+      };
 
-      // Calculate previous period stats for comparison
-      const prevClosedWon = previousOpps.filter(o => o.stage === 'Closed Won').length;
-      const prevClosedLost = previousOpps.filter(o => o.stage === 'Closed Lost').length;
-      const prevWinRate = prevClosedWon + prevClosedLost > 0 ? Math.round((prevClosedWon / (prevClosedLost + prevClosedWon)) * 100) : 0;
-      const prevPipelineValue = previousOpps.reduce((sum, opp) => sum + (opp.value || 0), 0);
+      const currStats = calculateBidStats(currentBids);
+      const prevStats = calculateBidStats(previousBids);
 
       setStats({
-        totalOpportunities: totalOpps,
-        pipelineValue,
-        pipelineCost,
-        winRate,
+        totalBids: currStats.total,
+        pipelineValue: currStats.value,
+        pipelineCost: currStats.cost,
+        winRate: currStats.winRate,
         tasksCompleted: tasks?.length || 0,
         upcomingAppointments: appointments?.length || 0,
         activeCampaigns: campaigns?.length || 0,
       });
 
       setPreviousStats({
-        totalOpportunities: previousOpps.length,
-        pipelineValue: prevPipelineValue,
+        totalBids: prevStats.total,
+        pipelineValue: prevStats.value,
         tasksCompleted: previousTasks.length,
-        winRate: prevWinRate,
+        winRate: prevStats.winRate,
         upcomingAppointments: 0,
         activeCampaigns: 0,
       });
 
       // Calculate team performance
-      if (users && opportunities && tasks) {
+      if (users && allBids && tasks) {
         const teamStats = users
           .map(u => {
-            const userOpps = opportunities.filter(o => o.assigned_to === u.id);
+            const userBids = allBids.filter(b => b.created_by === u.id || b.assigned_to === u.id);
             const userTasks = tasks.filter(t => t.assigned_to === u.id);
-            const userClosedWon = userOpps.filter(o => o.stage === 'Closed Won').length;
-            const userClosedTotal = userOpps.filter(o => o.stage === 'Closed Won' || o.stage === 'Closed Lost').length;
+            const userWon = userBids.filter(b => ['accepted', 'won'].includes((b.status || '').toLowerCase())).length;
+            const userTotalClosed = userBids.filter(b => ['accepted', 'won', 'rejected', 'lost'].includes((b.status || '').toLowerCase())).length;
             
             return {
               name: u.name,
-              opportunities: userOpps.length,
-              value: `$${Math.round(userOpps.reduce((sum, o) => sum + (o.value || 0), 0) / 1000)}K`,
-              winRate: userClosedTotal > 0 ? Math.round((userClosedWon / userClosedTotal) * 100) : 0,
+              bids: userBids.length,
+              value: `$${Math.round(userBids.reduce((sum, b) => sum + (parseFloat(b.total || b.amount) || 0), 0) / 1000)}K`,
+              winRate: userTotalClosed > 0 ? Math.round((userWon / userTotalClosed) * 100) : 0,
               tasksCompleted: userTasks.length,
             };
           })
-          .filter(member => member.opportunities > 0 || member.tasksCompleted > 0)
-          .sort((a, b) => b.opportunities - a.opportunities)
+          .filter(member => member.bids > 0 || member.tasksCompleted > 0)
+          .sort((a, b) => b.bids - a.bids)
           .slice(0, 5);
         
         setTeamPerformance(teamStats);
       }
 
-      // Get recent activity (from opportunities) with user names
-      if (opportunities) {
-        const recent = opportunities
-          .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      // Get recent activity (from bids) with user names
+      if (allBids.length > 0) {
+        const recent = allBids
+          .sort((a, b) => {
+            const dateA = new Date(a.updated_at || a.updatedAt || a.created_at || a.createdAt).getTime();
+            const dateB = new Date(b.updated_at || b.updatedAt || b.created_at || b.createdAt).getTime();
+            return dateB - dateA;
+          })
           .slice(0, 5)
-          .map(opp => ({
-            type: opp.stage === 'Closed Won' ? 'won' : opp.stage === 'Closed Lost' ? 'lost' : 'meeting',
-            description: opp.name,
-            value: `$${Math.round((opp.value || 0) / 1000)}K`,
-            user: userMap.get(opp.assigned_to) || 'Unassigned',
-            time: getRelativeTime(opp.updated_at),
-          }));
+          .map(bid => {
+            const status = (bid.status || '').toLowerCase();
+            const type = ['accepted', 'won'].includes(status) ? 'won' : 
+                         ['rejected', 'lost'].includes(status) ? 'lost' : 'bid';
+            
+            return {
+              type,
+              description: bid.title || bid.quote_number || 'Untitled Bid',
+              value: `$${Math.round((parseFloat(bid.total || bid.amount) || 0) / 1000)}K`,
+              user: userMap.get(bid.created_by) || 'Unassigned',
+              time: getRelativeTime(bid.updated_at || bid.updatedAt || bid.created_at || bid.createdAt),
+            };
+          });
         
         setRecentActivity(recent);
       }
 
       // Get monthly trend data for current year
-      if (opportunities) {
-        const currentYear = new Date().getFullYear();
-        const trendData = Array.from({ length: 12 }, (_, i) => {
-          const monthStart = new Date(currentYear, i, 1);
-          const monthEnd = new Date(currentYear, i + 1, 0, 23, 59, 59);
-          
-          const monthOpps = opportunities.filter(o => {
-            const created = new Date(o.created_at);
-            return created >= monthStart && created <= monthEnd;
-          });
-          
-          const monthValue = monthOpps.reduce((sum, o) => sum + (o.value || 0), 0);
-          
-          return {
-            month: monthStart.toLocaleString('default', { month: 'short' }),
-            value: monthValue,
-            count: monthOpps.length
-          };
+      const currentYear = new Date().getFullYear();
+      const trendData = Array.from({ length: 12 }, (_, i) => {
+        const monthStart = new Date(currentYear, i, 1);
+        const monthEnd = new Date(currentYear, i + 1, 0, 23, 59, 59);
+        
+        const monthBids = allBids.filter(b => {
+          const created = new Date(b.created_at || b.createdAt);
+          return created >= monthStart && created <= monthEnd;
         });
         
-        setMonthlyTrend(trendData);
-      }
+        const monthValue = monthBids.reduce((sum, b) => sum + (parseFloat(b.total || b.amount) || 0), 0);
+        
+        return {
+          month: monthStart.toLocaleString('default', { month: 'short' }),
+          value: monthValue,
+          count: monthBids.length
+        };
+      });
+      
+      setMonthlyTrend(trendData);
 
       setLoading(false);
     } catch (error) {
@@ -232,6 +231,7 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
   };
 
   const getRelativeTime = (date: string) => {
+    if (!date) return 'Unknown';
     const now = new Date();
     const past = new Date(date);
     const diffMs = now.getTime() - past.getTime();
@@ -268,18 +268,18 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
     };
   };
 
-  const oppsChange = calculateChange(stats.totalOpportunities, previousStats.totalOpportunities);
+  const bidsChange = calculateChange(stats.totalBids, previousStats.totalBids);
   const valueChange = calculateChange(stats.pipelineValue, previousStats.pipelineValue);
   const winRateChange = calculateChange(stats.winRate, previousStats.winRate);
   const tasksChange = calculateChange(stats.tasksCompleted, previousStats.tasksCompleted);
 
   const kpis = [
     {
-      title: 'Total Opportunities',
-      value: stats.totalOpportunities.toString(),
-      change: oppsChange.change,
-      trend: oppsChange.trend,
-      icon: Target,
+      title: 'Total Bids',
+      value: stats.totalBids.toString(),
+      change: bidsChange.change,
+      trend: bidsChange.trend,
+      icon: FileText,
       color: 'blue'
     },
     {
@@ -375,7 +375,7 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
                   <thead>
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-2 text-sm text-gray-600">Team Member</th>
-                      <th className="text-left py-3 px-2 text-sm text-gray-600">Opps</th>
+                      <th className="text-left py-3 px-2 text-sm text-gray-600">Bids</th>
                       <th className="text-left py-3 px-2 text-sm text-gray-600">Value</th>
                       <th className="text-left py-3 px-2 text-sm text-gray-600">Win Rate</th>
                       <th className="text-left py-3 px-2 text-sm text-gray-600">Tasks</th>
@@ -385,7 +385,7 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
                     {teamPerformance.map((member, index) => (
                       <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-2 text-sm text-gray-900">{member.name}</td>
-                        <td className="py-3 px-2 text-sm text-gray-600">{member.opportunities}</td>
+                        <td className="py-3 px-2 text-sm text-gray-600">{member.bids}</td>
                         <td className="py-3 px-2 text-sm text-gray-900">{member.value}</td>
                         <td className="py-3 px-2">
                           <span className="text-sm text-green-600">{member.winRate}%</span>
@@ -423,7 +423,7 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
                       {activity.type === 'won' && <TrendingUp className="h-5 w-5 text-green-600" />}
                       {activity.type === 'lost' && <TrendingDown className="h-5 w-5 text-red-600" />}
                       {activity.type === 'meeting' && <Calendar className="h-5 w-5 text-blue-600" />}
-                      {activity.type === 'bid' && <Target className="h-5 w-5 text-purple-600" />}
+                      {activity.type === 'bid' && <FileText className="h-5 w-5 text-purple-600" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-900">{activity.description}</p>
@@ -451,7 +451,7 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
       {/* Pipeline Overview Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Monthly Pipeline Trend</CardTitle>
+          <CardTitle>Monthly Bid Value Trend</CardTitle>
         </CardHeader>
         <CardContent>
           {monthlyTrend.length > 0 ? (
@@ -480,7 +480,7 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
               <div className="flex items-center justify-center gap-8 mt-6">
                 <div className="flex items-center gap-2">
                   <div className="h-3 w-3 rounded-full bg-blue-500" />
-                  <span className="text-sm text-gray-600">Pipeline Value</span>
+                  <span className="text-sm text-gray-600">Bid Value</span>
                 </div>
               </div>
             </>

@@ -58,9 +58,19 @@ interface NavigationProps {
   currentView: string;
   onNavigate: (view: string) => void;
   onLogout: () => void;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
-export function Navigation({ user, organization, currentView, onNavigate, onLogout }: NavigationProps) {
+export function Navigation({ 
+  user, 
+  organization, 
+  currentView, 
+  onNavigate, 
+  onLogout,
+  isSidebarCollapsed = false,
+  onToggleSidebar
+}: NavigationProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { suggestions } = useAISuggestions(user);
   const { unreadCount } = useUnreadEmails(user);
@@ -68,7 +78,6 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
   const { taskCount } = useTaskNotifications(user);
   const { appointmentCount } = useAppointmentNotifications(user);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
-    'opportunities': false,
     'email': false,
     'admin': false,
     'project-wizards': false,
@@ -88,15 +97,7 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
     // Only show AI Suggestions if enabled for the organization
     ...(organization?.ai_suggestions_enabled ? [{ id: 'ai-suggestions', label: 'AI Suggestions', icon: Sparkles }] : []),
     { id: 'contacts', label: 'Contacts', icon: Users },
-    { 
-      id: 'opportunities', 
-      label: 'Opportunities', 
-      icon: Target,
-      hasSubmenu: true,
-      submenu: [
-        { id: 'bids', label: 'Bids', icon: FileText },
-      ]
-    },
+    { id: 'bids', label: 'Deals', icon: FileText },
     { id: 'notes', label: 'Notes', icon: StickyNote },
     // Show Appointments for all users (including Admin for calendar sync testing)
     { 
@@ -218,13 +219,13 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
     if (item.hasSubmenu) {
       return (
         <div key={item.id}>
-          <div className="relative">
+          <div className="relative" title={isSidebarCollapsed ? item.label : undefined}>
             {/* For Admin menu and Project Wizards, make entire button toggle (no navigation). For others, split between navigate and toggle */}
             {(item.id === 'admin' || item.id === 'project-wizards') ? (
               <button
                 onClick={() => toggleSubmenu(item.id)}
-                className={`w-full group flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors ${
-                  isSubmenuItem ? 'pl-6' : ''
+                className={`w-full group flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2 text-sm rounded-md transition-colors ${
+                  isSubmenuItem && !isSidebarCollapsed ? 'pl-6' : ''
                 }`}
                 style={{
                   backgroundColor: hasActiveChild ? theme.colors.navActive : 'transparent',
@@ -241,24 +242,26 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
                   }
                 }}
               >
-                <div className="flex items-center">
-                  <Icon className="mr-3 h-5 w-5 flex-shrink-0" 
+                <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+                  <Icon className={`${isSidebarCollapsed ? 'mr-0' : 'mr-3'} h-5 w-5 flex-shrink-0`} 
                     style={{ opacity: hasActiveChild ? 1 : 0.7 }}
                   />
-                  {item.label}
+                  {!isSidebarCollapsed && item.label}
                 </div>
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4" style={{ opacity: 0.7 }} />
-                ) : (
-                  <ChevronRight className="h-4 w-4" style={{ opacity: 0.7 }} />
+                {!isSidebarCollapsed && (
+                  isExpanded ? (
+                    <ChevronDown className="h-4 w-4" style={{ opacity: 0.7 }} />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" style={{ opacity: 0.7 }} />
+                  )
                 )}
               </button>
             ) : (
               <>
                 <button
                   onClick={() => handleNavClick(item.id)}
-                  className={`w-full group flex items-center pr-8 px-3 py-2 text-sm rounded-md transition-colors ${
-                    isSubmenuItem ? 'pl-6' : ''
+                  className={`w-full group flex items-center ${isSidebarCollapsed ? 'justify-center pr-2 px-2' : 'pr-8 px-3'} py-2 text-sm rounded-md transition-colors ${
+                    isSubmenuItem && !isSidebarCollapsed ? 'pl-6' : ''
                   }`}
                   style={{
                     backgroundColor: (isActive || hasActiveChild) ? theme.colors.navActive : 'transparent',
@@ -275,29 +278,31 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
                     }
                   }}
                 >
-                  <Icon className="mr-3 h-5 w-5 flex-shrink-0" 
+                  <Icon className={`${isSidebarCollapsed ? 'mr-0' : 'mr-3'} h-5 w-5 flex-shrink-0`} 
                     style={{ opacity: (isActive || hasActiveChild) ? 1 : 0.7 }}
                   />
-                  {item.label}
+                  {!isSidebarCollapsed && item.label}
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleSubmenu(item.id);
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10 transition-colors"
-                  aria-label={isExpanded ? 'Collapse submenu' : 'Expand submenu'}
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4" style={{ opacity: 0.7 }} />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" style={{ opacity: 0.7 }} />
-                  )}
-                </button>
+                {!isSidebarCollapsed && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSubmenu(item.id);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10 transition-colors"
+                    aria-label={isExpanded ? 'Collapse submenu' : 'Expand submenu'}
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" style={{ opacity: 0.7 }} />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" style={{ opacity: 0.7 }} />
+                    )}
+                  </button>
+                )}
               </>
             )}
           </div>
-          {isExpanded && item.submenu && (
+          {(isExpanded || (isSidebarCollapsed && hasActiveChild)) && item.submenu && (
             <div className="mt-1 space-y-1">
               {item.submenu.map((subItem: any) => renderNavItem(subItem, true))}
             </div>
@@ -310,13 +315,14 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
       <button
         key={item.id}
         onClick={() => handleNavClick(item.id)}
-        className={`w-full group flex items-center px-3 py-2 text-sm rounded-md transition-colors ${
-          isSubmenuItem ? 'pl-11' : ''
+        className={`w-full group flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2 text-sm rounded-md transition-colors ${
+          isSubmenuItem && !isSidebarCollapsed ? 'pl-11' : ''
         }`}
         style={{
           backgroundColor: isActive ? theme.colors.navActive : 'transparent',
           color: theme.colors.navText,
         }}
+        title={isSidebarCollapsed ? item.label : undefined}
         onMouseEnter={(e) => {
           if (!isActive) {
             e.currentTarget.style.backgroundColor = theme.colors.navHover;
@@ -328,10 +334,10 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
           }
         }}
       >
-        <Icon className="mr-3 h-5 w-5 flex-shrink-0" 
+        <Icon className={`${isSidebarCollapsed ? 'mr-0' : 'mr-3'} h-5 w-5 flex-shrink-0`} 
           style={{ opacity: isActive ? 1 : 0.7 }}
         />
-        {item.label}
+        {!isSidebarCollapsed && item.label}
       </button>
     );
   };
@@ -425,7 +431,7 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
                 size="sm"
                 className="relative p-1.5 rounded-full hover:bg-white/10 transition-colors"
                 onClick={() => handleNavClick('bids')}
-                title={`${unreadBidsCount} Bid Updates`}
+                title={`${unreadBidsCount} Deal Updates`}
               >
                 <FileText className="h-4 w-4 text-orange-600 animate-pulse" />
                 <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 text-[9px] flex items-center justify-center bg-red-500 text-white rounded-full">
@@ -538,7 +544,7 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
+      <div className={`hidden lg:fixed lg:inset-y-0 lg:flex lg:flex-col transition-all duration-300 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-64'}`}>
         <div 
           className="flex flex-col flex-grow border-r pt-5 pb-4 overflow-y-auto"
           style={{
@@ -547,15 +553,37 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
             borderColor: theme.colors.border
           }}
         >
-          <div className="flex items-center flex-shrink-0 px-4 gap-2">
-            <div 
-              className="h-10 w-10 rounded-lg flex items-center justify-center bg-blue-600"
-            >
-              <Building2 className="h-6 w-6 text-white" />
+          <div className={`flex items-center flex-shrink-0 px-4 gap-2 ${isSidebarCollapsed ? 'justify-center flex-col' : 'justify-between'}`}>
+            <div className={`flex items-center gap-2 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+              <div 
+                className="h-10 w-10 rounded-lg flex items-center justify-center bg-blue-600"
+              >
+                <Building2 className="h-6 w-6 text-white" />
+              </div>
+              {!isSidebarCollapsed && (
+                <span className="text-xl font-semibold" style={{ color: theme.colors.navText }}>
+                  ProSpaces
+                </span>
+              )}
             </div>
-            <span className="text-xl font-semibold" style={{ color: theme.colors.navText }}>
-              ProSpaces CRM
-            </span>
+            
+            {/* Sidebar Toggle Button */}
+            <button
+              onClick={onToggleSidebar}
+              className={`p-1.5 rounded-md transition-colors ${isSidebarCollapsed ? 'mt-4' : ''}`}
+              style={{ color: theme.colors.navText, opacity: 0.7 }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = theme.colors.navHover;
+                e.currentTarget.style.opacity = '1';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.opacity = '0.7';
+              }}
+              title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
           </div>
           
           <nav className="mt-8 flex-1 px-2 space-y-1">
@@ -585,7 +613,7 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
       )}
 
       {/* Desktop header */}
-      <div className="hidden lg:block fixed top-0 left-64 right-0 border-b bg-white dark:bg-slate-900 z-40 h-16 shadow-sm">
+      <div className={`hidden lg:block fixed top-0 right-0 border-b bg-white dark:bg-slate-900 z-40 h-16 shadow-sm transition-all duration-300 ${isSidebarCollapsed ? 'left-20' : 'left-64'}`}>
         <div className="flex items-center justify-between h-full px-6 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-3">
             {(() => {
@@ -620,7 +648,7 @@ export function Navigation({ user, organization, currentView, onNavigate, onLogo
                 size="sm"
                 className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 onClick={() => handleNavClick('bids')}
-                title={`${unreadBidsCount} Bid Updates`}
+                title={`${unreadBidsCount} Deal Updates`}
               >
                 <FileText className="h-5 w-5 text-orange-600 animate-pulse" />
                 <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">

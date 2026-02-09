@@ -2,7 +2,6 @@ import { createClient } from './supabase/client';
 import { getAllCampaignsClient, createCampaignClient, updateCampaignClient, deleteCampaignClient, sendCampaignClient } from './campaigns-client';
 import { getAllQuotesClient, getQuotesByOpportunityClient, createQuoteClient, updateQuoteClient, deleteQuoteClient, getQuoteTrackingStatusClient } from './quotes-client';
 import { getAllInventoryClient, createInventoryClient, updateInventoryClient, deleteInventoryClient, upsertInventoryBySKUClient, bulkUpsertInventoryBySKUClient, searchInventoryClient } from './inventory-client';
-import { getAllOpportunitiesClient, getOpportunitiesByCustomerClient, createOpportunityClient, updateOpportunityClient, deleteOpportunityClient } from './opportunities-client';
 import { getAllProjectManagersClient, getProjectManagersByCustomerClient, createProjectManagerClient, updateProjectManagerClient, deleteProjectManagerClient } from './project-managers-client';
 import { getAllContactsClient, createContactClient, updateContactClient, deleteContactClient, claimUnassignedContactsClient, upsertContactByLegacyNumberClient, getSegmentsClient } from './contacts-client';
 import { diagnoseContactsRLS } from './contacts-diagnostic';
@@ -608,15 +607,6 @@ export const emailAPI = {
     if (error) throw error;
     return { success: true };
   },
-};
-
-// Opportunities APIs - use direct Supabase client
-export const opportunitiesAPI = {
-  getAll: () => getAllOpportunitiesClient(),
-  getByCustomer: (customerId: string) => getOpportunitiesByCustomerClient(customerId),
-  create: (data: any) => createOpportunityClient(data),
-  update: (id: string, data: any) => updateOpportunityClient(id, data),
-  delete: (id: string) => deleteOpportunityClient(id),
 };
 
 // Project Managers APIs - use direct Supabase client

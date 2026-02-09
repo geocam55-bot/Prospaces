@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, User, Target, DollarSign, Loader2, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import { FileText, User, DollarSign, Loader2, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -7,7 +7,7 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
-import { contactsAPI, opportunitiesAPI, quotesAPI, settingsAPI } from '../utils/api';
+import { contactsAPI, quotesAPI, settingsAPI } from '../utils/api';
 import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms } from '../lib/global-settings';
 import type { User as AppUser } from '../App';
 
@@ -27,13 +27,6 @@ interface Contact {
   priceLevel?: string; // Named price level like 'Retail', 'Wholesale', 'Contractor', 'Premium', 'Standard'
 }
 
-interface Opportunity {
-  id: string;
-  opportunity_name: string;
-  status: string;
-  value: number;
-}
-
 export function ProjectQuoteGenerator({ 
   user, 
   projectType, 
@@ -43,9 +36,7 @@ export function ProjectQuoteGenerator({
 }: ProjectQuoteGeneratorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [selectedContact, setSelectedContact] = useState<string>('');
-  const [selectedOpportunity, setSelectedOpportunity] = useState<string>('none');
   const [quoteTitle, setQuoteTitle] = useState('');
   const [quoteNotes, setQuoteNotes] = useState('');
   const [customerPriceLevel, setCustomerPriceLevel] = useState<string>('Retail');
@@ -84,10 +75,7 @@ export function ProjectQuoteGenerator({
         setCustomerPriceLevel(priceLevel);
         console.log('[ProjectQuoteGenerator] Customer price level:', priceLevel);
       }
-      loadOpportunities(selectedContact);
     } else {
-      setOpportunities([]);
-      setSelectedOpportunity('none');
       setCustomerPriceLevel('Retail'); // Reset to default
     }
   }, [selectedContact, contacts]);
@@ -129,15 +117,6 @@ export function ProjectQuoteGenerator({
       showAlert('error', 'Failed to load contacts');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const loadOpportunities = async (contactId: string) => {
-    try {
-      const { opportunities: data } = await opportunitiesAPI.getByCustomer(contactId);
-      setOpportunities(data || []);
-    } catch (error) {
-      console.error('Error loading opportunities:', error);
     }
   };
 
@@ -209,7 +188,6 @@ export function ProjectQuoteGenerator({
       const quoteData = {
         title: quoteTitle,
         contact_id: selectedContact,
-        opportunity_id: selectedOpportunity !== 'none' ? selectedOpportunity : null,
         subtotal: subtotal,
         discount_percent: discountPercent,
         discount_amount: discountAmount,
@@ -237,7 +215,6 @@ export function ProjectQuoteGenerator({
         setQuoteTitle('');
         setQuoteNotes('');
         setSelectedContact('');
-        setSelectedOpportunity('none');
       }, 2000);
 
     } catch (error: any) {
@@ -326,37 +303,6 @@ export function ProjectQuoteGenerator({
                 No contacts found. Create a contact first.
               </p>
             )}
-          </div>
-
-          {/* Opportunity Selection */}
-          <div>
-            <Label htmlFor="opportunity" className="flex items-center gap-1.5 mb-1.5 text-sm">
-              <Target className="w-3.5 h-3.5" />
-              Link to Opportunity (Optional)
-            </Label>
-            <Select 
-              value={selectedOpportunity} 
-              onValueChange={setSelectedOpportunity}
-              disabled={!selectedContact}
-            >
-              <SelectTrigger id="opportunity" className="h-9">
-                <SelectValue placeholder="Select an opportunity..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None - Standalone quote</SelectItem>
-                {opportunities.length > 0 ? (
-                  opportunities.map((opp) => (
-                    <SelectItem key={opp.id} value={opp.id}>
-                      {opp.opportunity_name || 'Untitled Opportunity'} ({opp.status})
-                    </SelectItem>
-                  ))
-                ) : (
-                  <div className="p-2 text-center text-xs text-slate-500">
-                    No opportunities for this customer
-                  </div>
-                )}
-              </SelectContent>
-            </Select>
           </div>
         </div>
 

@@ -34,7 +34,7 @@ const MODULES = [
   { id: 'tasks', name: 'Tasks', description: 'Task and to-do management' },
   { id: 'appointments', name: 'Appointments', description: 'Calendar and scheduling' },
   { id: 'opportunities', name: 'Opportunities', description: 'Business opportunities and pipeline' },
-  { id: 'bids', name: 'Bids', description: 'Quotes and proposals' },
+  { id: 'bids', name: 'Deals', description: 'Quotes and proposals' },
   { id: 'notes', name: 'Notes', description: 'Notes and documentation' },
   { id: 'documents', name: 'Documents', description: 'Document storage and management' },
   { id: 'email', name: 'Email', description: 'Email integration and campaigns' },

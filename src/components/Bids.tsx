@@ -27,13 +27,17 @@ import {
   DollarSign, 
   ShoppingCart, 
   MoreVertical, 
-  RefreshCw 
+  RefreshCw,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { useDebounce } from '../utils/useDebounce';
 import { advancedSearch } from '../utils/advanced-search';
 import { EmailQuoteDialog } from './EmailQuoteDialog';
 
-interface LineItem {
+import { DealsKanban } from './DealsKanban';
+
+export interface LineItem {
   id: string;
   itemId: string;
   itemName: string;
@@ -46,7 +50,7 @@ interface LineItem {
   total: number;
 }
 
-interface Quote {
+export interface Quote {
   id: string;
   quoteNumber: string;
   title: string;
@@ -54,7 +58,7 @@ interface Quote {
   contactName: string;
   contactEmail?: string;
   priceTier: number;
-  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'completed';
   validUntil: string;
   lineItems: LineItem[];
   subtotal: number;
@@ -114,6 +118,7 @@ export function Bids({ user }: BidsProps) {
   const [projectManagers, setProjectManagers] = useState<ProjectManager[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'list' | 'board'>('board');
   const [showDialog, setShowDialog] = useState(false);
   const [showLineItemDialog, setShowLineItemDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
@@ -591,11 +596,20 @@ export function Bids({ user }: BidsProps) {
       };
 
       if (editingQuote) {
-        await quotesAPI.update(editingQuote.id, quoteData);
-        showAlert('success', 'Quote updated successfully');
+        if ((editingQuote as any)._source === 'bids') {
+          // For bids, we need to map the data correctly if needed, but the structure is similar
+          // Bids might use snake_case for everything
+          await bidsAPI.update(editingQuote.id, quoteData);
+        } else {
+          await quotesAPI.update(editingQuote.id, quoteData);
+        }
+        showAlert('success', 'Deal updated successfully');
       } else {
+        // Default to creating quotes for now, or switch to bids if that's the intention
+        // Given the prompt "Deals (mapped to bids)", we might want to create bids, 
+        // but let's stick to quotes to avoid breaking changes unless requested.
         await quotesAPI.create(quoteData);
-        showAlert('success', 'Quote created successfully');
+        showAlert('success', 'Deal created successfully');
       }
 
       setShowDialog(false);
@@ -607,22 +621,31 @@ export function Bids({ user }: BidsProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this quote?')) return;
+    if (!confirm('Are you sure you want to delete this deal?')) return;
 
     try {
-      await quotesAPI.delete(id);
-      showAlert('success', 'Quote deleted successfully');
+      const quoteToDelete = quotes.find(q => q.id === id);
+      if (quoteToDelete && (quoteToDelete as any)._source === 'bids') {
+        await bidsAPI.delete(id);
+      } else {
+        await quotesAPI.delete(id);
+      }
+      showAlert('success', 'Deal deleted successfully');
       loadData();
     } catch (error) {
-      console.error('Failed to delete quote:', error);
-      showAlert('error', 'Failed to delete quote');
+      console.error('Failed to delete deal:', error);
+      showAlert('error', 'Failed to delete deal');
     }
   };
 
   const handleStatusChange = async (quote: Quote, newStatus: Quote['status']) => {
     try {
-      await quotesAPI.update(quote.id, { ...quote, status: newStatus });
-      showAlert('success', 'Quote status updated');
+      if ((quote as any)._source === 'bids') {
+        await bidsAPI.update(quote.id, { ...quote, status: newStatus });
+      } else {
+        await quotesAPI.update(quote.id, { ...quote, status: newStatus });
+      }
+      showAlert('success', 'Deal status updated');
       loadData();
     } catch (error) {
       console.error('Failed to update status:', error);
@@ -651,10 +674,14 @@ export function Bids({ user }: BidsProps) {
       // Update quote status to 'sent' if it's currently 'draft'
       if (emailQuote.status === 'draft') {
         try {
-          await quotesAPI.update(emailQuote.id, { ...emailQuote, status: 'sent' });
+          if ((emailQuote as any)._source === 'bids') {
+            await bidsAPI.update(emailQuote.id, { ...emailQuote, status: 'sent' });
+          } else {
+            await quotesAPI.update(emailQuote.id, { ...emailQuote, status: 'sent' });
+          }
           loadData(); // Reload to reflect status change
         } catch (error) {
-          console.error('Failed to update quote status after sending email:', error);
+          console.error('Failed to update deal status after sending email:', error);
         }
       }
     }
@@ -676,7 +703,7 @@ export function Bids({ user }: BidsProps) {
       const effectiveStatus = (quote.status === 'sent' && quote.readAt) ? 'viewed' : (quote.status || '');
       const status = effectiveStatus.toLowerCase();
       const matchesStatus = statusFilter === 'all' || 
-                            (statusFilter === 'open' && status !== 'accepted' && status !== 'rejected' && status !== 'won' && status !== 'lost') ||
+                            (statusFilter === 'open' && status !== 'accepted' && status !== 'rejected' && status !== 'won' && status !== 'lost' && status !== 'completed') ||
                             status === statusFilter;
 
       return matchesSearch && matchesStatus;
@@ -700,6 +727,7 @@ export function Bids({ user }: BidsProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'accepted': return 'bg-green-100 text-green-700 border-green-200';
+      case 'completed': return 'bg-teal-100 text-teal-700 border-teal-200';
       case 'rejected': return 'bg-red-100 text-red-700 border-red-200';
       case 'sent': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'viewed': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
@@ -733,7 +761,7 @@ export function Bids({ user }: BidsProps) {
         <div className="flex items-center justify-end gap-3">
           <Button onClick={() => handleOpenDialog()}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Quote
+            Create Deal
           </Button>
         </div>
       </div>
@@ -756,7 +784,7 @@ export function Bids({ user }: BidsProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Quotes</p>
+                <p className="text-sm text-gray-600">Total Deals</p>
                 <p className="text-2xl text-gray-900 mt-1">{stats.total}</p>
               </div>
               <FileText className="h-8 w-8 text-blue-600" />
@@ -789,7 +817,7 @@ export function Bids({ user }: BidsProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Open Quotes</p>
+                <p className="text-sm text-gray-600">Open Deals</p>
                 <p className="text-2xl text-gray-900 mt-1">{stats.open}</p>
               </div>
               <Send className="h-8 w-8 text-orange-600" />
@@ -801,53 +829,82 @@ export function Bids({ user }: BidsProps) {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <div className="flex-1 w-full">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search quotes..."
+                  placeholder="Search deals..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="open">Open (Not Accepted/Rejected)</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="sent">Sent</SelectItem>
-                <SelectItem value="viewed">Viewed</SelectItem>
-                <SelectItem value="accepted">Accepted</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="open">Open (Not Accepted/Rejected)</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="sent">Sent</SelectItem>
+                  <SelectItem value="viewed">Viewed</SelectItem>
+                  <SelectItem value="accepted">Accepted</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <div className="flex items-center border rounded-md bg-white shadow-sm">
+                <Button
+                  variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className="rounded-none rounded-l-md px-3 gap-2"
+                  title="List View"
+                >
+                  <List className="h-4 w-4" />
+                  <span className="hidden sm:inline">List</span>
+                </Button>
+                <div className="w-[1px] h-6 bg-gray-200" />
+                <Button
+                  variant={viewMode === 'board' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('board')}
+                  className="rounded-none rounded-r-md px-3 gap-2"
+                  title="Board View"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  <span className="hidden sm:inline">Board</span>
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Quotes List */}
-      <div className="grid grid-cols-1 gap-4">
+      {/* Quotes List or Kanban Board */}
+      {viewMode === 'list' ? (
+        <>
+        <div className="grid grid-cols-1 gap-4">
         {isLoading ? (
           <Card>
             <CardContent className="py-12 text-center text-gray-500">
-              Loading quotes...
+              Loading deals...
             </CardContent>
           </Card>
         ) : filteredQuotes.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-gray-500">No quotes found</p>
+              <p className="text-gray-500">No deals found</p>
               <Button className="mt-4" onClick={() => handleOpenDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
-                Create Your First Quote
+                Create Your First Deal
               </Button>
             </CardContent>
           </Card>
@@ -871,7 +928,7 @@ export function Bids({ user }: BidsProps) {
                             );
                           })()}
                         </div>
-                        <p className="text-sm text-gray-600 mt-1">Quote #{quote.quoteNumber}</p>
+                        <p className="text-sm text-gray-600 mt-1">Deal #{quote.quoteNumber}</p>
                         <p className="text-sm text-gray-600">Contact: {quote.contactName}</p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -882,7 +939,7 @@ export function Bids({ user }: BidsProps) {
                           className="gap-2"
                         >
                           <Send className="h-4 w-4" />
-                          {quote.status === 'sent' || sentQuotes.has(quote.id) ? 'Resend Quote' : 'Send Quote'}
+                          {quote.status === 'sent' || sentQuotes.has(quote.id) ? 'Resend Deal' : 'Send Deal'}
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -924,6 +981,12 @@ export function Bids({ user }: BidsProps) {
                                 Mark as Rejected
                               </DropdownMenuItem>
                             </>
+                          )}
+                          {quote.status === 'accepted' && (
+                            <DropdownMenuItem onClick={() => handleStatusChange(quote, 'completed')}>
+                              <CheckCircle2 className="h-4 w-4 mr-2" />
+                              Mark as Completed
+                            </DropdownMenuItem>
                           )}
                           <DropdownMenuItem
                             className="text-red-600"
@@ -1023,14 +1086,27 @@ export function Bids({ user }: BidsProps) {
           </Button>
         </div>
       )}
+      </>
+      ) : (
+        <div className="h-[calc(100vh-28rem)] min-h-[300px] mt-6">
+          <DealsKanban 
+            quotes={filteredQuotes} 
+            onStatusChange={handleStatusChange}
+            onEdit={handleOpenDialog}
+            onPreview={handlePreview}
+            onDelete={handleDelete}
+            onEmail={handleEmailQuote}
+          />
+        </div>
+      )}
 
-      {/* Create/Edit Quote Dialog */}
+      {/* Create/Edit Deal Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
-            <DialogTitle>{editingQuote ? 'Edit Quote' : 'Create New Quote'}</DialogTitle>
+            <DialogTitle>{editingQuote ? 'Edit Deal' : 'Create New Deal'}</DialogTitle>
             <DialogDescription>
-              {editingQuote ? 'Update the quote details below.' : 'Fill in the details to create a new quote with line items and pricing.'}
+              {editingQuote ? 'Update the deal details below.' : 'Fill in the details to create a new deal with line items and pricing.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1038,11 +1114,11 @@ export function Bids({ user }: BidsProps) {
             {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Quote Title *</Label>
+                <Label>Deal Title *</Label>
                 <Input
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Enter quote title"
+                  placeholder="Enter deal title"
                 />
               </div>
               <div>
@@ -1272,7 +1348,7 @@ export function Bids({ user }: BidsProps) {
 
       {/* Add Line Item Dialog */}
       <Dialog open={showLineItemDialog} onOpenChange={setShowLineItemDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Add Line Item</DialogTitle>
             <DialogDescription>
@@ -1416,7 +1492,7 @@ export function Bids({ user }: BidsProps) {
 
       {/* Preview Quote Dialog */}
       <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Quote Preview</DialogTitle>
             <DialogDescription>
@@ -1535,7 +1611,7 @@ export function Bids({ user }: BidsProps) {
 
       {/* Change Status Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl bg-white">
           <DialogHeader>
             <DialogTitle>Change Quote Status</DialogTitle>
             <DialogDescription>

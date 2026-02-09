@@ -4,11 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { Loader2, CheckCircle2, XCircle, Database, Trash2 } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
-import { contactsAPI, opportunitiesAPI, bidsAPI, projectManagersAPI } from '../utils/api';
+import { contactsAPI, bidsAPI, projectManagersAPI } from '../utils/api';
 
 interface TestDataStats {
   contacts: number;
-  opportunities: number;
   bids: number;
   projectManagers: number;
 }
@@ -21,7 +20,6 @@ export function TestDataGenerator() {
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [generatedData, setGeneratedData] = useState<{
     contacts: any[];
-    opportunities: any[];
     bids: any[];
     projectManagers: any[];
   } | null>(null);
@@ -44,29 +42,6 @@ export function TestDataGenerator() {
         issues.push('✅ Contacts table exists');
       }
 
-      // Check opportunities table
-      const { data: oppSample, error: oppError } = await supabase
-        .from('opportunities')
-        .select('*')
-        .limit(1);
-      
-      if (oppError) {
-        issues.push(`❌ Opportunities table: ${oppError.message}`);
-      } else {
-        issues.push('✅ Opportunities table exists');
-        // Check if it has the correct columns
-        if (oppSample && oppSample.length > 0) {
-          const columns = Object.keys(oppSample[0]);
-          const hasCustomerId = columns.includes('customer_id');
-          const hasStatus = columns.includes('status') || columns.includes('stage');
-          const hasOwnerId = columns.includes('owner_id') || columns.includes('created_by');
-          
-          if (!hasCustomerId) issues.push('⚠️ Opportunities missing customer_id column');
-          if (!hasStatus) issues.push('⚠️ Opportunities missing status/stage column');
-          if (!hasOwnerId) issues.push('⚠️ Opportunities missing owner_id/created_by column');
-        }
-      }
-
       // Check bids table
       const { data: bidSample, error: bidError } = await supabase
         .from('bids')
@@ -80,11 +55,11 @@ export function TestDataGenerator() {
         // Check bid columns
         if (bidSample && bidSample.length > 0) {
           const columns = Object.keys(bidSample[0]);
-          const hasOpportunityId = columns.includes('opportunity_id');
+          const hasContactId = columns.includes('contact_id') || columns.includes('customer_id');
           const hasOrgId = columns.includes('organization_id');
           const hasProjectManagerId = columns.includes('project_manager_id');
           
-          if (!hasOpportunityId) issues.push('⚠️ Bids missing opportunity_id column');
+          if (!hasContactId) issues.push('⚠️ Bids missing contact_id/customer_id column');
           if (!hasOrgId) issues.push('⚠️ Bids missing organization_id column');
           if (hasProjectManagerId) issues.push('✅ Bids has project_manager_id column');
         }
@@ -129,16 +104,14 @@ export function TestDataGenerator() {
       setSchemaIssues(schemaResults);
 
       // Get all data counts
-      const [contactsData, oppsData, bidsData, pmsData] = await Promise.all([
+      const [contactsData, bidsData, pmsData] = await Promise.all([
         contactsAPI.getAll(),
-        opportunitiesAPI.getAll(),
         bidsAPI.getAll(),
         projectManagersAPI.getAll().catch(() => ({ projectManagers: [] })),
       ]);
 
       const currentStats: TestDataStats = {
         contacts: contactsData.contacts?.length || 0,
-        opportunities: oppsData.opportunities?.length || 0,
         bids: bidsData.bids?.length || 0,
         projectManagers: pmsData.projectManagers?.length || 0,
       };
@@ -146,7 +119,7 @@ export function TestDataGenerator() {
       setStats(currentStats);
       setMessage({ 
         type: 'info', 
-        text: `Current data: ${currentStats.contacts} contacts, ${currentStats.opportunities} opportunities, ${currentStats.bids} bids, ${currentStats.projectManagers} project managers` 
+        text: `Current data: ${currentStats.contacts} contacts, ${currentStats.bids} bids, ${currentStats.projectManagers} project managers` 
       });
     } catch (error: any) {
       console.error('Error checking data:', error);
@@ -161,7 +134,6 @@ export function TestDataGenerator() {
     setMessage(null);
     const generated = {
       contacts: [] as any[],
-      opportunities: [] as any[],
       bids: [] as any[],
       projectManagers: [] as any[],
     };
@@ -213,55 +185,38 @@ export function TestDataGenerator() {
         console.log('Created project manager:', pmResult.projectManager);
       }
 
-      // Step 3: Create opportunities for each contact
-      setMessage({ type: 'info', text: 'Creating opportunities...' });
+      // Step 3: Create bids for each contact
+      setMessage({ type: 'info', text: 'Creating bids...' });
       
-      const oppTitles = [
+      const bidTitles = [
         'Q1 2024 Software License',
         'Office Equipment Upgrade',
         'Annual Service Contract',
       ];
-
+      
       for (let i = 0; i < generated.contacts.length; i++) {
         const contact = generated.contacts[i];
-        const oppResult = await opportunitiesAPI.create({
-          title: oppTitles[i],
-          description: `Strategic opportunity for ${contact.name}`,
-          customerId: contact.id,
-          status: 'open',
-          value: (i + 1) * 50000,
-          expectedCloseDate: new Date(Date.now() + (i + 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        });
-        generated.opportunities.push(oppResult.opportunity);
-        console.log('Created opportunity:', oppResult.opportunity);
-      }
-
-      // Step 4: Create bids for each opportunity
-      setMessage({ type: 'info', text: 'Creating bids...' });
-      
-      for (let i = 0; i < generated.opportunities.length; i++) {
-        const opp = generated.opportunities[i];
-        const contact = generated.contacts[i];
         const pm = generated.projectManagers[i];
+        const baseTitle = bidTitles[i] || 'New Project Proposal';
+        const baseValue = (i + 1) * 50000;
         
-        // Create 2 bids per opportunity
+        // Create 2 bids per contact
         for (let j = 0; j < 2; j++) {
-          const bidAmount = opp.value * (0.8 + (j * 0.2)); // 80% and 100% of opportunity value
+          const bidAmount = baseValue * (0.8 + (j * 0.2)); // 80% and 100% of base value
           const taxRate = 8.5; // 8.5% tax
           const subtotal = bidAmount / (1 + taxRate / 100);
           const taxAmount = bidAmount - subtotal;
           
           const bidData = {
-            title: `${opp.title} - Proposal ${j + 1}`,
-            opportunity_id: opp.id,
+            title: `${baseTitle} - Proposal ${j + 1}`,
+            contact_id: contact.id, // Direct link to contact
             project_manager_id: pm.id,
             amount: bidAmount,
             subtotal: Math.round(subtotal * 100) / 100,
             tax_rate: taxRate,
             tax_amount: Math.round(taxAmount * 100) / 100,
             status: j === 0 ? 'draft' : 'submitted',
-            description: `Test bid ${j + 1} for ${opp.title}`,
-            notes: `This is a test bid created by the data generator. It includes ${j === 0 ? 'draft' : 'submitted'} status.`,
+            notes: `Test bid ${j + 1} for ${baseTitle}. Created by data generator.`,
             valid_until: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             submitted_date: j === 1 ? new Date().toISOString().split('T')[0] : null,
             items: JSON.stringify([
@@ -295,7 +250,7 @@ export function TestDataGenerator() {
       setGeneratedData(generated);
       setMessage({ 
         type: 'success', 
-        text: `✅ Successfully created ${generated.contacts.length} contacts, ${generated.projectManagers.length} project managers, ${generated.opportunities.length} opportunities, and ${generated.bids.length} bids!` 
+        text: `✅ Successfully created ${generated.contacts.length} contacts, ${generated.projectManagers.length} project managers, and ${generated.bids.length} bids!` 
       });
       
       // Refresh stats
@@ -331,8 +286,12 @@ export function TestDataGenerator() {
       setMessage({ type: 'info', text: 'Deleting bids...' });
       await supabase.from('bids').delete().eq('organization_id', organizationId);
 
-      setMessage({ type: 'info', text: 'Deleting opportunities...' });
-      await supabase.from('opportunities').delete().eq('organization_id', organizationId);
+      // Clean up orphaned opportunities if any (optional)
+      try {
+        await supabase.from('opportunities').delete().eq('organization_id', organizationId);
+      } catch (e) {
+        // Ignore error if table doesn't exist
+      }
 
       setMessage({ type: 'info', text: 'Deleting project managers...' });
       await supabase.from('project_managers').delete().eq('organization_id', organizationId);
@@ -471,19 +430,6 @@ export function TestDataGenerator() {
                 
                 <details className="bg-gray-50 p-2 rounded">
                   <summary className="cursor-pointer font-medium">
-                    Opportunities ({generatedData.opportunities.length})
-                  </summary>
-                  <ul className="mt-2 ml-4 space-y-1">
-                    {generatedData.opportunities.map((o) => (
-                      <li key={o.id} className="font-mono text-xs">
-                        {o.title} - ID: {o.id}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-                
-                <details className="bg-gray-50 p-2 rounded">
-                  <summary className="cursor-pointer font-medium">
                     Bids ({generatedData.bids.length})
                   </summary>
                   <ul className="mt-2 ml-4 space-y-1">
@@ -503,7 +449,7 @@ export function TestDataGenerator() {
             <h4 className="font-semibold">Instructions:</h4>
             <ol className="list-decimal ml-4 space-y-1">
               <li><strong>Check Database:</strong> Verifies your database schema and counts existing data</li>
-              <li><strong>Generate Test Data:</strong> Creates 3 contacts, 3 project managers, 3 opportunities, and 6 bids</li>
+              <li><strong>Generate Test Data:</strong> Creates 3 contacts, 3 project managers, and 6 bids</li>
               <li><strong>Delete All Data:</strong> Removes all data from your current organization (use with caution!)</li>
             </ol>
           </div>

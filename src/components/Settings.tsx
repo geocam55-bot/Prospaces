@@ -663,8 +663,8 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               </div>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Bid Updates</Label>
-                  <p className="text-sm text-gray-500">Updates on bid status changes</p>
+                  <Label>Deal Updates</Label>
+                  <p className="text-sm text-gray-500">Updates on deal status changes</p>
                 </div>
                 <Switch
                   checked={notifications.bids}

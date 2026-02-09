@@ -10,7 +10,6 @@ import { Dashboard } from './components/Dashboard';
 import { Contacts } from './components/Contacts';
 import { Tasks } from './components/Tasks';
 import { Appointments } from './components/Appointments';
-import { Opportunities } from './components/Opportunities';
 import { Notes } from './components/Notes';
 import { Email } from './components/Email';
 import { Marketing } from './components/Marketing';
@@ -42,7 +41,6 @@ import { PublicLandingPage } from './components/marketing/PublicLandingPage';
 import { LandingPageDebug } from './components/LandingPageDebug';
 import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnostic';
 import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDiagnosticTest';
-import { OpportunitiesDiagnostic } from './components/OpportunitiesDiagnostic';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
@@ -82,11 +80,11 @@ function App() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [currentView, setCurrentView] = useState('landing');
   const [loading, setLoading] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Check if accessing favicon generator (no auth required)
   const urlParams = new URLSearchParams(window.location.search);
   const isFaviconGenerator = urlParams.get('view') === 'favicon-generator';
-  const isOpportunitiesDiagnostic = urlParams.get('view') === 'opportunities-diagnostic';
   const isTrackingRedirect = urlParams.get('view') === 'redirect';
   const isPublicQuote = urlParams.get('view') === 'public-quote';
   const isLandingPageDebug = urlParams.get('view') === 'landing-page-debug';
@@ -136,10 +134,6 @@ function App() {
 
   if (isFaviconGenerator) {
     return <FaviconGenerator />;
-  }
-
-  if (isOpportunitiesDiagnostic) {
-    return <OpportunitiesDiagnostic />;
   }
 
   if (isLandingPageDebug) {
@@ -328,9 +322,14 @@ function App() {
             currentView={currentView}
             onNavigate={setCurrentView}
             onLogout={handleLogout}
+            isSidebarCollapsed={isSidebarCollapsed}
+            onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           />
 
-          <main className="flex-1 overflow-auto lg:ml-64" style={{ background: 'var(--color-background-secondary)' }}>
+          <main 
+            className={`flex-1 overflow-auto transition-all duration-300 ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`} 
+            style={{ background: 'var(--color-background-secondary)' }}
+          >
             <OfflineIndicator />
             <PWAInstallPrompt />
 
@@ -339,7 +338,6 @@ function App() {
               {currentView === 'ai-suggestions' && <AITaskSuggestions user={user} />}
               {currentView === 'contacts' && <Contacts user={user} />}
               {currentView === 'tasks' && <Tasks user={user} />}
-              {currentView === 'opportunities' && <Opportunities user={user} />}
               {currentView === 'bids' && <Bids user={user} />}
               {currentView === 'notes' && <Notes user={user} />}
               {currentView === 'appointments' && <Appointments user={user} />}

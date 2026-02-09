@@ -66,7 +66,7 @@ export function Security({ user }: SecurityProps) {
     { id: 'tasks', name: 'Tasks', icon: '✓' },
     { id: 'appointments', name: 'Appointments', icon: '📅' },
     { id: 'opportunities', name: 'Opportunities', icon: '🎯' },
-    { id: 'bids', name: 'Bids', icon: '📄' },
+    { id: 'bids', name: 'Deals', icon: '📄' },
     { id: 'notes', name: 'Notes', icon: '📝' },
     { id: 'documents', name: 'Documents', icon: '📁' },
     { id: 'email', name: 'Email', icon: '✉️' },
