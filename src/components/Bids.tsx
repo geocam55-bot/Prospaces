@@ -58,7 +58,7 @@ export interface Quote {
   contactName: string;
   contactEmail?: string;
   priceTier: number;
-  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'completed';
+  status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'completed';
   validUntil: string;
   lineItems: LineItem[];
   subtotal: number;

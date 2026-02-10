@@ -29,7 +29,7 @@ export interface Quote {
   contactName: string;
   contactEmail?: string;
   priceTier: number;
-  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'completed';
+  status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'completed';
   validUntil: string;
   lineItems: LineItem[];
   subtotal: number;
@@ -108,6 +108,7 @@ const DealCard = ({
             quote.status === 'accepted' ? '#22c55e' : 
             quote.status === 'completed' ? '#14b8a6' :
             quote.status === 'rejected' ? '#ef4444' : 
+            quote.status === 'viewed' ? '#6366f1' :
             quote.status === 'sent' ? (isViewed ? '#6366f1' : '#3b82f6') : 
             quote.status === 'expired' ? '#f97316' : 
             '#9ca3af' 
@@ -266,6 +267,7 @@ export function DealsKanban({ quotes, onStatusChange, onEdit, onPreview, onDelet
   const columns = [
     { id: 'draft', title: 'Draft' },
     { id: 'sent', title: 'Sent' },
+    { id: 'viewed', title: 'Viewed' },
     { id: 'accepted', title: 'Accepted' },
     { id: 'completed', title: 'Completed' },
     { id: 'rejected', title: 'Rejected' },
@@ -273,12 +275,14 @@ export function DealsKanban({ quotes, onStatusChange, onEdit, onPreview, onDelet
   ];
 
   const handleDrop = (item: DragItem, newStatus: string) => {
-    if (item.status !== newStatus) {
-      // Find the quote to pass full object if needed, but the ID is enough for the update
-      const quote = quotes.find(q => q.id === item.id);
-      if (quote) {
+    // Determine effective current status (handling the implicit "viewed" state)
+    const quote = quotes.find(q => q.id === item.id);
+    if (!quote) return;
+
+    const currentEffectiveStatus = (quote.status === 'sent' && quote.readAt) ? 'viewed' : quote.status;
+
+    if (currentEffectiveStatus !== newStatus) {
         onStatusChange(quote, newStatus as Quote['status']);
-      }
     }
   };
 
@@ -290,7 +294,11 @@ export function DealsKanban({ quotes, onStatusChange, onEdit, onPreview, onDelet
             key={col.id}
             title={col.title}
             status={col.id}
-            quotes={quotes.filter(q => q.status === col.id)}
+            quotes={quotes.filter(q => {
+              if (col.id === 'viewed') return q.status === 'viewed' || (q.status === 'sent' && !!q.readAt);
+              if (col.id === 'sent') return q.status === 'sent' && !q.readAt;
+              return q.status === col.id;
+            })}
             onDrop={handleDrop}
             onEdit={onEdit}
             onPreview={onPreview}
