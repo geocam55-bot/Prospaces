@@ -1718,11 +1718,18 @@ export function Bids({ user }: BidsProps) {
                       return (
                         <SelectItem key={item.id} value={item.id}>
                           <div className="flex items-center justify-between gap-4 w-full">
-                            <div>
-                              <span className="font-medium">{item.name}</span>
-                              <span className="text-xs text-gray-500 ml-2">({item.sku})</span>
+                            <div className="flex flex-col items-start text-left overflow-hidden">
+                              <div>
+                                <span className="font-medium">{item.name}</span>
+                                <span className="text-xs text-gray-500 ml-2">({item.sku})</span>
+                              </div>
+                              {item.description && (
+                                <span className="text-xs text-gray-400 truncate w-full max-w-[300px] block" title={item.description}>
+                                  {item.description}
+                                </span>
+                              )}
                             </div>
-                            <span className="text-sm text-gray-600">${price.toFixed(2)}</span>
+                            <span className="text-sm text-gray-600 whitespace-nowrap ml-2">${price.toFixed(2)}</span>
                           </div>
                         </SelectItem>
                       );

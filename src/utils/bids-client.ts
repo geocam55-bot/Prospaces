@@ -44,16 +44,23 @@ export async function getAllBidsClient() {
       .from('bids')
       .select('*');
     
-    // Apply role-based filtering - PERSONAL DASHBOARD ALWAYS SHOWS USER'S OWN DATA
-    // For organization-wide data, use getAllBidsForOrganization() instead
-    if (userRole === 'super_admin') {
-      // Super Admin: Can see all bids from their organization (or all if no org)
-      console.log('🔓 Super Admin - Loading bids for user:', authUser.id);
-      query = query.eq('created_by', authUser.id);
+    // Apply role-based filtering
+    // - Super Admin/Admin/Manager: Can see ALL bids in their organization
+    // - Standard User: Can see only THEIR OWN bids (Personal Dashboard)
+    
+    if (['super_admin', 'admin', 'manager'].includes(userRole)) {
+      console.log('🔓 Organization View - Loading all bids for organization:', userOrgId);
+      // Filter by organization (or null organization which might be legacy/global)
+      if (userOrgId) {
+        query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      }
+      // Do NOT filter by created_by for these roles
     } else {
-      // All roles: Show only THEIR OWN bids on Personal Dashboard
-      console.log('👤 Loading only own bids for user:', authUser.id, 'Role:', userRole);
-      query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      // Standard User: Show only THEIR OWN bids
+      console.log('👤 Personal View - Loading only own bids for user:', authUser.id);
+      if (userOrgId) {
+        query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      }
       query = query.eq('created_by', authUser.id);
     }
     

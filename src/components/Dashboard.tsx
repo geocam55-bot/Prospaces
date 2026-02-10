@@ -65,35 +65,68 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
 
   const hasModuleAccess = (module: string) => canView(module, user.role);
 
+  // Helper to parse amounts safely (handling numbers, strings, currency symbols)
+  const parseAmount = (val: any): number => {
+    if (typeof val === 'number') return val;
+    if (!val) return 0;
+    if (typeof val === 'string') {
+      // Remove currency symbols (except -/.) and commas
+      const clean = val.replace(/[^0-9.-]/g, '');
+      return parseFloat(clean) || 0;
+    }
+    return 0;
+  };
+
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
       
-      // Fetch data in parallel
+      // Fetch data in parallel - Fetch ALL data regardless of frontend permission cache
+      // The API handles security/filtering based on user role.
+      // This prevents race conditions where permissions aren't loaded yet.
       const [bidsData, quotesData, tasksData, appointmentsData] = await Promise.all([
-        hasModuleAccess('bids') ? bidsAPI.getAll() : { bids: [] }, // Using bids table for Deals
-        hasModuleAccess('quotes') ? quotesAPI.getAll() : { quotes: [] },
-        hasModuleAccess('tasks') ? tasksAPI.getAll() : { tasks: [] },
-        hasModuleAccess('appointments') ? appointmentsAPI.getAll() : { appointments: [] }
+        bidsAPI.getAll(), 
+        quotesAPI.getAll(),
+        tasksAPI.getAll(),
+        appointmentsAPI.getAll()
       ]);
+
+      console.log('🔍 DASHBOARD DEBUG:', {
+        user: { id: user.id, role: user.role, org: user.organizationId },
+        rawData: {
+          bidsCount: bidsData?.bids?.length,
+          quotesCount: quotesData?.quotes?.length,
+          bidsRaw: bidsData,
+          quotesRaw: quotesData
+        }
+      });
 
       const allBidsRaw = [...(bidsData.bids || []), ...(quotesData.quotes || [])];
 
-      // Filter data for the "Personal Dashboard" - show only data owned/created by the current user
-      const allBids = allBidsRaw.filter((item: any) => item.created_by === user.id);
+      // Filter data - "Personal Dashboard" for standard users, "Org Dashboard" for admins/managers
+      // Normalize role to lowercase to be safe
+      const userRole = (user.role || '').toLowerCase();
+      const allBids = ['super_admin', 'admin', 'manager', 'marketing'].includes(userRole)
+        ? allBidsRaw
+        : allBidsRaw.filter((item: any) => {
+            // Check multiple fields for ownership
+            return item.created_by === user.id || 
+                   item.ownerId === user.id || 
+                   item.owner_id === user.id;
+          });
 
       // --- Calculate Metrics ---
 
       // 1. Total Sales (Won Bids/Quotes)
-      const wonDeals = allBids.filter(b => ['accepted', 'won'].includes((b.status || '').toLowerCase()));
-      const totalSales = wonDeals.reduce((sum, b) => sum + (parseFloat(b.amount || b.total) || 0), 0);
+      const wonDeals = allBids.filter(b => ['accepted', 'won', 'completed'].includes((b.status || '').toLowerCase()));
+      const totalSales = wonDeals.reduce((sum, b) => sum + parseAmount(b.amount || b.total), 0);
 
       // 2. Pipeline Value (Open Deals)
       const openBids = allBids.filter(b => {
         const status = (b.status || '').toLowerCase();
-        return !['accepted', 'won', 'rejected', 'lost', 'expired'].includes(status);
+        return !['accepted', 'won', 'completed', 'rejected', 'lost', 'expired'].includes(status);
       });
-      const pipelineValue = openBids.reduce((sum, b) => sum + (parseFloat(b.total || b.amount) || 0), 0);
+      const pipelineValue = openBids.reduce((sum, b) => sum + parseAmount(b.total || b.amount), 0);
 
       // 3. Open Deals Count
       const openDealsCount = openBids.length;
@@ -140,7 +173,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
 
       // 6. Weighted Value (Pipeline Value * Probability)
       const weightedValue = openBids.reduce((sum, b) => {
-        const val = parseFloat(b.total || b.amount) || 0;
+        const val = parseAmount(b.total || b.amount);
         const status = (b.status || '').toLowerCase();
         let prob = 0.1; // draft
         if (status === 'sent') prob = 0.4;
@@ -219,7 +252,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       wonDeals.forEach(d => {
         const date = new Date(d.updated_at || d.created_at);
         const monthIdx = date.getMonth();
-        const amount = parseFloat(d.amount || d.total) || 0;
+        const amount = parseAmount(d.amount || d.total);
         trendData[monthIdx].value += amount;
         trendData[monthIdx].deals += 1;
       });
@@ -248,7 +281,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       wonDeals.forEach(d => {
         const date = new Date(d.updated_at || d.created_at);
         const monthIdx = date.getMonth();
-        const amount = parseFloat(d.amount || d.total) || 0;
+        const amount = parseAmount(d.amount || d.total);
         projectionData[monthIdx].actual += amount;
       });
       
@@ -258,7 +291,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
         if (b.validUntil || b.valid_until) {
           const closeDate = new Date(b.validUntil || b.valid_until);
           const monthIdx = closeDate.getMonth();
-          const amount = parseFloat(b.total || b.amount) || 0;
+          const amount = parseAmount(b.total || b.amount);
           if (monthIdx >= 0 && monthIdx < 12) {
             projectionData[monthIdx].projected += amount;
           }
