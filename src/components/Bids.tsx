@@ -176,6 +176,191 @@ export function Bids({ user }: BidsProps) {
     loadData();
   }, []);
 
+  // 🛠️ Fix: Patch line items with missing data by matching against inventory (by ID, Name, or Description)
+  // This automatically repairs imported deals where line items might have lost their connection to inventory
+  // or have zeroed out prices.
+  useEffect(() => {
+    if (showDialog && inventory.length > 0 && currentLineItems.length > 0) {
+      const contact = contacts.find(c => c.id === formData.contactId);
+      const priceTier = priceLevelToTier(contact?.priceLevel || 'Retail');
+      
+      let hasChanges = false;
+      const updatedItems = currentLineItems.map(item => {
+        let newItem = { ...item };
+        let changed = false;
+
+        // 1. Try to find inventory item by ID
+        let inventoryItem = inventory.find(inv => inv.id === newItem.itemId);
+        
+        const cleanStr = (s: string) => (s || '').toLowerCase().trim();
+
+        // 2. Fallback: Match by SKU (if exists)
+        if (!inventoryItem && newItem.sku) {
+             inventoryItem = inventory.find(inv => inv.sku && cleanStr(inv.sku) === cleanStr(newItem.sku));
+        }
+
+        // 3. Fallback: Fuzzy match by Name or Description if ID lookup failed
+        if (!inventoryItem) {
+          const name = cleanStr(newItem.itemName);
+          const desc = cleanStr(newItem.description);
+
+          inventoryItem = inventory.find(inv => {
+             const invName = cleanStr(inv.name);
+             const invDesc = cleanStr(inv.description);
+             
+             return (
+               (name && invName === name) || 
+               (desc && invName === desc) || 
+               (desc && invDesc === desc) ||
+               (name && invDesc === name)
+             );
+          });
+
+          if (inventoryItem) {
+            // Found a match! Link it up
+            newItem.itemId = inventoryItem.id;
+            newItem.itemName = inventoryItem.name;
+            newItem.sku = inventoryItem.sku;
+            // Only update description if it was missing or generic "Item"
+            if (!newItem.description || newItem.description === newItem.itemName || newItem.itemName === 'Item') {
+                newItem.description = inventoryItem.description;
+            }
+            changed = true;
+          }
+        }
+
+        // 3. If we have a valid inventory item (either found by ID or patched), fill in missing prices
+        if (inventoryItem) {
+          // Fix zero cost
+          if ((!newItem.cost || newItem.cost === 0) && inventoryItem.cost > 0) {
+            newItem.cost = inventoryItem.cost;
+            changed = true;
+          }
+
+          // Fix zero unit price
+          if ((!newItem.unitPrice || newItem.unitPrice === 0)) {
+             const tieredPrice = getPriceForTier(inventoryItem, priceTier);
+             if (tieredPrice > 0) {
+               newItem.unitPrice = tieredPrice;
+               changed = true;
+             }
+          }
+        }
+
+        // 4. Recalculate Total if price/qty changed or if it was zero
+        // Ensure we respect any manual discount that might be on the line item
+        const expectedTotal = newItem.quantity * newItem.unitPrice * (1 - (newItem.discount || 0) / 100);
+        if (Math.abs(newItem.total - expectedTotal) > 0.01) {
+            newItem.total = expectedTotal;
+            changed = true;
+        }
+
+        if (changed) hasChanges = true;
+        return newItem;
+      });
+
+      if (hasChanges) {
+        setCurrentLineItems(updatedItems);
+      }
+    }
+  }, [showDialog, inventory, formData.contactId]); 
+
+  // ⚡ Manual Price Refresh Handler
+  const handleRefreshPrices = async () => {
+      if (!confirm('This will update all line item prices to current inventory pricing based on the selected contact. Continue?')) return;
+      
+      let activeInventory = inventory;
+
+      // 🔄 Auto-reload inventory if empty
+      if (activeInventory.length === 0) {
+        try {
+          const res = await inventoryAPI.getAll();
+          if (res && res.items) {
+            setInventory(res.items);
+            activeInventory = res.items;
+          }
+        } catch (e) {
+          console.error("Failed to reload inventory", e);
+        }
+      }
+
+      if (activeInventory.length === 0) {
+        showAlert('error', 'Cannot refresh prices: No inventory loaded.');
+        return;
+      }
+
+      const contact = contacts.find(c => c.id === formData.contactId);
+      const priceTier = priceLevelToTier(contact?.priceLevel || 'Retail');
+      const cleanStr = (s: string) => (s || '').toLowerCase().trim();
+      
+      let updateCount = 0;
+
+      const updatedItems = currentLineItems.map(item => {
+        let inventoryItem = activeInventory.find(inv => inv.id === item.itemId);
+
+        // Fallback: Robust search if ID lookup fails
+        if (!inventoryItem) {
+             // 1. Try SKU
+             if (item.sku) {
+                 inventoryItem = activeInventory.find(inv => inv.sku && cleanStr(inv.sku) === cleanStr(item.sku));
+             }
+             
+             // 2. Try Name/Description
+             if (!inventoryItem) {
+                const name = cleanStr(item.itemName);
+                const desc = cleanStr(item.description);
+                
+                inventoryItem = activeInventory.find(inv => {
+                     const invName = cleanStr(inv.name);
+                     const invDesc = cleanStr(inv.description);
+                     return (
+                       (name && invName === name) || 
+                       (desc && invName === desc) || 
+                       (desc && invDesc === desc) ||
+                       (name && invDesc === name)
+                     );
+                });
+             }
+        }
+
+        if (!inventoryItem) {
+            console.log(`Could not find match for item: ${item.itemName} (SKU: ${item.sku})`);
+            return item;
+        }
+
+        // Found the item! Update everything to current values
+        const newUnitPrice = getPriceForTier(inventoryItem, priceTier);
+        const newCost = inventoryItem.cost;
+        
+        // Calculate new total, respecting existing discount
+        const newTotal = item.quantity * newUnitPrice * (1 - (item.discount || 0) / 100);
+
+        // Check if anything actually changed to avoid unnecessary updates/counting
+        if (item.unitPrice !== newUnitPrice || item.cost !== newCost || Math.abs(item.total - newTotal) > 0.01) {
+            updateCount++;
+            return {
+              ...item,
+              itemId: inventoryItem.id, // Repair ID link
+              itemName: inventoryItem.name, // Refresh Name
+              sku: inventoryItem.sku, // Refresh SKU
+              description: inventoryItem.description, // Refresh Description
+              unitPrice: newUnitPrice,
+              cost: newCost,
+              total: newTotal
+            };
+        }
+        
+        return item;
+      });
+
+      if (updateCount > 0) {
+          setCurrentLineItems(updatedItems);
+          showAlert('success', `Updated prices for ${updateCount} items.`);
+      } else {
+          showAlert('error', 'No items matched current inventory or prices are already up to date.');
+      }
+  }; 
+
   // 🚀 Debounce search query (200ms delay for fast typing)
   const debouncedInventorySearch = useDebounce(inventorySearchQuery, 200);
 
@@ -380,7 +565,7 @@ export function Bids({ user }: BidsProps) {
         projectManagersAPI.getAll(),
       ]);
       
-      setInventory((inventoryData.items || []).filter((item: InventoryItem) => item.status === 'active'));
+      setInventory(inventoryData.items || []);
       setProjectManagers(projectManagersData.projectManagers || []);
     } catch (error) {
       console.error('Failed to load inventory/managers:', error);
@@ -1164,15 +1349,27 @@ export function Bids({ user }: BidsProps) {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm text-gray-900">Line Items</h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowLineItemDialog(true)}
-                  disabled={!formData.contactId}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Item
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefreshPrices}
+                    title="Update prices to current inventory rates"
+                    disabled={!formData.contactId || currentLineItems.length === 0}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh Prices
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowLineItemDialog(true)}
+                    disabled={!formData.contactId}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Item
+                  </Button>
+                </div>
               </div>
 
               {currentLineItems.length === 0 ? (
@@ -1198,19 +1395,30 @@ export function Bids({ user }: BidsProps) {
                     </thead>
                     <tbody>
                       {currentLineItems.map(item => {
-                        // Find current cost from inventory table
+                        // Find current details from inventory table to supplement snapshot
                         const inventoryItem = inventory.find(inv => inv.id === item.itemId);
+                        
+                        // Use inventory data if snapshot is missing details
+                        const displaySku = item.sku || inventoryItem?.sku || '';
+                        const displayDesc = item.description || inventoryItem?.description || '';
+                        const displayName = item.itemName || inventoryItem?.name || 'Unknown Item';
                         const currentCost = inventoryItem?.cost ?? item.cost ?? 0;
+                        
                         return (
                           <tr key={item.id} className="border-t">
                             <td className="py-2 px-4">
-                              <p className="text-sm text-gray-900">{item.itemName}</p>
-                              <p className="text-xs text-gray-500">SKU: {item.sku}</p>
+                              <p className="text-sm font-medium text-gray-900">{displayName}</p>
+                              {displayDesc && (
+                                <p className="text-xs text-gray-500 truncate max-w-[300px] mt-0.5">{displayDesc}</p>
+                              )}
+                              {displaySku && (
+                                <p className="text-xs text-gray-400 mt-0.5">SKU: {displaySku}</p>
+                              )}
                             </td>
                             <td className="py-2 px-4 text-right text-sm">
                               ${currentCost.toFixed(2)}
-                              {!inventoryItem && (
-                                <span className="block text-xs text-red-500">Item not in inventory</span>
+                              {!inventoryItem && inventory.length > 0 && (
+                                <span className="block text-[10px] text-orange-500">Archived</span>
                               )}
                             </td>
                             <td className="py-2 px-4 text-right text-sm">{item.quantity}</td>
@@ -1346,7 +1554,7 @@ export function Bids({ user }: BidsProps) {
               Cancel
             </Button>
             <Button onClick={handleSave}>
-              {editingQuote ? 'Update Quote' : 'Create Quote'}
+              {editingQuote ? 'Update Deal' : 'Create Quote'}
             </Button>
           </div>
         </DialogContent>
