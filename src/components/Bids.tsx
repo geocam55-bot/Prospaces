@@ -171,6 +171,7 @@ export function Bids({ user }: BidsProps) {
   // Inventory search state for Add Line Item dialog
   const [inventorySearchQuery, setInventorySearchQuery] = useState('');
   const [isSearchingInventory, setIsSearchingInventory] = useState(false);
+  const [editingLineItemId, setEditingLineItemId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -295,36 +296,98 @@ export function Bids({ user }: BidsProps) {
       
       let updateCount = 0;
 
+      const cleanSearchTerm = (str: string) => {
+        if (!str) return '';
+        return str.toLowerCase()
+            // Remove common punctuation but keep meaningful chars for dimensions like . / -
+            .replace(/["'(),]/g, '') 
+            .replace(/\s+/g, ' ')
+            .trim();
+      };
+
       const updatedItems = currentLineItems.map(item => {
         let inventoryItem = activeInventory.find(inv => inv.id === item.itemId);
 
         // Fallback: Robust search if ID lookup fails
         if (!inventoryItem) {
-             // 1. Try SKU
-             if (item.sku) {
-                 inventoryItem = activeInventory.find(inv => inv.sku && cleanStr(inv.sku) === cleanStr(item.sku));
+             const cleanItemName = cleanStr(item.itemName);
+             const cleanSku = cleanStr(item.sku);
+
+             // 1. Try Exact SKU Match (Highest Confidence)
+             if (cleanSku) {
+                 inventoryItem = activeInventory.find(inv => cleanStr(inv.sku) === cleanSku);
              }
              
-             // 2. Try Name/Description
+             // 2. Fuzzy/Smart Search using advancedSearch
              if (!inventoryItem) {
-                const name = cleanStr(item.itemName);
-                const desc = cleanStr(item.description);
+                // Construct a search query
+                const queryParts = [];
                 
-                inventoryItem = activeInventory.find(inv => {
-                     const invName = cleanStr(inv.name);
-                     const invDesc = cleanStr(inv.description);
-                     return (
-                       (name && invName === name) || 
-                       (desc && invName === desc) || 
-                       (desc && invDesc === desc) ||
-                       (name && invDesc === name)
-                     );
-                });
+                if (item.sku) queryParts.push(item.sku);
+                
+                // Add Name if it's not generic "Item" or "Product"
+                if (cleanItemName && cleanItemName !== 'item' && cleanItemName !== 'product') {
+                     queryParts.push(item.itemName);
+                }
+                
+                // Add Description - usually the most valuable field for imports
+                if (item.description) {
+                     queryParts.push(item.description);
+                }
+                
+                const rawQuery = queryParts.join(' ');
+                const searchQuery = cleanSearchTerm(rawQuery);
+
+                if (searchQuery.length > 1) {
+                     // Use advanced search with lenient scoring
+                     const matches = advancedSearch(activeInventory, searchQuery, {
+                         fuzzyThreshold: 0.3, // Slightly stricter fuzzy to prefer word matches
+                         includeInactive: false,
+                         minScore: 0.05,       // Very low threshold to catch partial matches
+                         maxResults: 1
+                     });
+
+                     if (matches.length > 0) {
+                         inventoryItem = matches[0].item;
+                         console.log(`✨ Fuzzy matched: "${searchQuery}" -> "${inventoryItem.name}" (Score: ${matches[0].score})`);
+                     } else {
+                         // Fallback: Manual Keyword Match in Description
+                         // This catches cases where fuzzy search fails on long descriptions
+                         const keywords = searchQuery.split(' ').filter(k => k.length > 1);
+                         
+                         let bestMatch = null;
+                         let maxMatches = 0;
+
+                         for (const inv of activeInventory) {
+                             const invDesc = cleanStr(inv.description || inv.name);
+                             let matchCount = 0;
+                             
+                             for (const keyword of keywords) {
+                                 if (invDesc.includes(keyword)) {
+                                     matchCount++;
+                                 }
+                             }
+
+                             // Require at least 50% of keywords to match, and better than previous best
+                             if (matchCount > maxMatches && matchCount >= Math.ceil(keywords.length * 0.5)) {
+                                 maxMatches = matchCount;
+                                 bestMatch = inv;
+                             }
+                         }
+
+                         if (bestMatch) {
+                             inventoryItem = bestMatch;
+                             console.log(`✨ Keyword matched: "${searchQuery}" -> "${inventoryItem.name}" (${maxMatches}/${keywords.length} keywords)`);
+                         } else {
+                             console.log(`🔍 Search failed for query: "${searchQuery}"`);
+                         }
+                     }
+                }
              }
         }
 
         if (!inventoryItem) {
-            console.log(`Could not find match for item: ${item.itemName} (SKU: ${item.sku})`);
+            console.log(`❌ Could not find match for item. ID: ${item.itemId}, Name: "${item.itemName}", Desc: "${item.description}"`);
             return item;
         }
 
@@ -386,9 +449,14 @@ export function Bids({ user }: BidsProps) {
   // Initialize when dialog opens
   useEffect(() => {
     if (showLineItemDialog) {
-      setInventorySearchQuery('');
+      if (!editingLineItemId) {
+          setInventorySearchQuery('');
+      }
+    } else {
+        // Reset edit mode when dialog closes
+        setEditingLineItemId(null);
     }
-  }, [showLineItemDialog]);
+  }, [showLineItemDialog, editingLineItemId]);
 
   // Auto-populate unit price when inventory item is selected
   useEffect(() => {
@@ -695,6 +763,15 @@ export function Bids({ user }: BidsProps) {
     }
   };
 
+  const handleEditLineItem = (item: LineItem) => {
+    setEditingLineItemId(item.id);
+    setSelectedInventoryId(item.itemId);
+    setLineItemQuantity(item.quantity);
+    setLineItemUnitPrice(item.unitPrice);
+    setInventorySearchQuery(item.itemName);
+    setShowLineItemDialog(true);
+  };
+
   const handleAddLineItem = () => {
     if (!selectedInventoryId) {
       showAlert('error', 'Please select a product');
@@ -713,25 +790,49 @@ export function Bids({ user }: BidsProps) {
     // Use the custom unit price (already set via useEffect or manually edited)
     const total = lineItemQuantity * lineItemUnitPrice;
 
-    const lineItem: LineItem = {
-      id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      itemId: item.id,
-      itemName: item.name,
-      sku: item.sku,
-      description: item.description,
-      quantity: lineItemQuantity,
-      unitPrice: lineItemUnitPrice, // Use editable unit price
-      cost: item.cost || 0,
-      discount: 0, // Keep for backwards compatibility but not used
-      total,
-    };
+    if (editingLineItemId) {
+        // UPDATE EXISTING ITEM
+        const updatedItems = currentLineItems.map(line => {
+            if (line.id === editingLineItemId) {
+                return {
+                    ...line,
+                    itemId: item.id,
+                    itemName: item.name,
+                    sku: item.sku,
+                    description: item.description,
+                    quantity: lineItemQuantity,
+                    unitPrice: lineItemUnitPrice,
+                    cost: item.cost || 0,
+                    total: total
+                };
+            }
+            return line;
+        });
+        setCurrentLineItems(updatedItems);
+        showAlert('success', 'Item updated');
+    } else {
+        // ADD NEW ITEM
+        const lineItem: LineItem = {
+          id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          itemId: item.id,
+          itemName: item.name,
+          sku: item.sku,
+          description: item.description,
+          quantity: lineItemQuantity,
+          unitPrice: lineItemUnitPrice, // Use editable unit price
+          cost: item.cost || 0,
+          discount: 0, // Keep for backwards compatibility but not used
+          total,
+        };
+        setCurrentLineItems([...currentLineItems, lineItem]);
+        showAlert('success', 'Item added to quote');
+    }
 
-    setCurrentLineItems([...currentLineItems, lineItem]);
     setSelectedInventoryId('');
     setLineItemQuantity(1);
     setLineItemUnitPrice(0);
+    setEditingLineItemId(null);
     setShowLineItemDialog(false);
-    showAlert('success', 'Item added to quote');
   };
 
   const handleRemoveLineItem = (id: string) => {
@@ -1425,13 +1526,22 @@ export function Bids({ user }: BidsProps) {
                             <td className="py-2 px-4 text-right text-sm">${(item.unitPrice ?? 0).toFixed(2)}</td>
                             <td className="py-2 px-4 text-right text-sm">${(item.total ?? 0).toFixed(2)}</td>
                             <td className="py-2 px-4">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveLineItem(item.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-600" />
-                              </Button>
+                              <div className="flex justify-end items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditLineItem(item)}
+                                >
+                                  <Edit className="h-4 w-4 text-blue-600" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveLineItem(item.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1698,7 +1808,7 @@ export function Bids({ user }: BidsProps) {
               Cancel
             </Button>
             <Button onClick={handleAddLineItem}>
-              Add Item
+              {editingLineItemId ? 'Update Item' : 'Add Item'}
             </Button>
           </div>
         </DialogContent>
