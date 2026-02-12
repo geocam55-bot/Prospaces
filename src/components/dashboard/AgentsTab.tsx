@@ -181,7 +181,7 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
                     
                     {/* Closed Amount - Blue heatmap background simulation */}
                     <td className="px-4 py-3 text-right font-medium" style={{ backgroundColor: `rgba(59, 130, 246, ${Math.min(agent.closedAmount / 100000, 0.3)})` }}>
-                        ${(agent.closedAmount / 1000).toFixed(1)}K
+                        ${(agent.closedAmount / 1000).toFixed(2)}K
                     </td>
                     
                     {/* Deals - Green heatmap */}

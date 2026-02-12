@@ -43,7 +43,7 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard 
           title="Total sales" 
-          value={`$${(metrics.totalSales / 1000).toFixed(1)}k`} 
+          value={`$${(metrics.totalSales / 1000).toFixed(2)}k`} 
           className="bg-indigo-600 text-white min-w-0" 
         />
         <MetricCard 
@@ -67,7 +67,7 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard 
           title="Pipeline value" 
-          value={`$${(metrics.pipelineValue / 1000).toFixed(1)}k`} 
+          value={`$${(metrics.pipelineValue / 1000).toFixed(2)}k`} 
           className="bg-indigo-500 text-white min-w-0" 
         />
         <MetricCard 
@@ -77,7 +77,7 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
         />
         <MetricCard 
           title="Weighted value" 
-          value={`$${(metrics.weightedValue / 1000).toFixed(1)}k`} 
+          value={`$${(metrics.weightedValue / 1000).toFixed(2)}k`} 
           className="bg-sky-500 text-white min-w-0" 
         />
         <MetricCard 
