@@ -47,6 +47,8 @@ import { createClient } from './utils/supabase/client';
 import { initializePermissions } from './utils/permissions';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
+import { AdminFixUsers } from './components/AdminFixUsers';
+
 export type UserRole = 'standard_user' | 'manager' | 'admin' | 'super_admin' | 'marketing';
 
 export interface User {
@@ -90,6 +92,7 @@ function App() {
   const isLandingPageDebug = urlParams.get('view') === 'landing-page-debug';
   const isLandingPageDiagnostic = urlParams.get('view') === 'landing-page-diagnostic';
   const isLandingPageDiagnosticTest = urlParams.get('view') === 'landing-page-diagnostic-test';
+  const isFixLogin = urlParams.get('view') === 'fix-login';
 
   // Debug logging
   console.log('URL Params:', {
@@ -146,6 +149,10 @@ function App() {
 
   if (isLandingPageDiagnosticTest) {
     return <LandingPageDiagnosticTest />;
+  }
+
+  if (isFixLogin) {
+    return <AdminFixUsers />;
   }
 
   useEffect(() => {

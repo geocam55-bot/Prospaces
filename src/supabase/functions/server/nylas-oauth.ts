@@ -18,8 +18,8 @@ export const nylasOAuth = (app: Hono) => {
       // Fallback to API Key as Client ID if not explicitly set (common in Nylas v3)
       const NYLAS_CLIENT_ID = Deno.env.get('NYLAS_CLIENT_ID') || NYLAS_API_KEY;
       
-      // Use the generic nylas-callback function which is likely already whitelisted
-      const defaultRedirectUri = `${SUPABASE_URL}/functions/v1/nylas-callback`;
+      // Use the correct callback URL that points to this server function
+      const defaultRedirectUri = `${SUPABASE_URL}/functions/v1/make-server-8405be07/nylas-callback`;
       const NYLAS_REDIRECT_URI = Deno.env.get('NYLAS_REDIRECT_URI') || defaultRedirectUri;
       
       console.log('Nylas Auth Config:', { 
@@ -92,7 +92,7 @@ export const nylasOAuth = (app: Hono) => {
       const state = JSON.stringify({
           userId: user.id,
           orgId: user.user_metadata?.organizationId || 'default_org',
-          returnUrl: c.req.header('origin') || c.req.header('referer')
+          provider: provider // Pass the original provider name
       });
 
       // Generate OAuth authorization URL using Nylas API
@@ -151,4 +151,172 @@ export const nylasOAuth = (app: Hono) => {
       return c.json({ error: error.message }, 400);
     }
   });
+
+  // Callback route
+  app.get('/make-server-8405be07/nylas-callback', async (c) => {
+    try {
+      const code = c.req.query('code');
+      const state = c.req.query('state');
+      const error = c.req.query('error');
+      const errorDescription = c.req.query('error_description');
+
+      if (error) {
+        console.error('Nylas OAuth error:', error, errorDescription);
+        return c.html(getHtmlResponse({ error: errorDescription || error }));
+      }
+
+      if (!code) {
+        return c.html(getHtmlResponse({ error: 'Missing authorization code' }));
+      }
+
+      const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
+      const NYLAS_CLIENT_ID = Deno.env.get('NYLAS_CLIENT_ID') || NYLAS_API_KEY;
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+      
+      // Must match the init route's redirect URI
+      const defaultRedirectUri = `${SUPABASE_URL}/functions/v1/make-server-8405be07/nylas-callback`;
+      const NYLAS_REDIRECT_URI = Deno.env.get('NYLAS_REDIRECT_URI') || defaultRedirectUri;
+
+      if (!NYLAS_API_KEY || !NYLAS_CLIENT_ID) {
+        return c.html(getHtmlResponse({ error: 'Server configuration error: Missing Nylas keys' }));
+      }
+
+      // Exchange code for token
+      const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${NYLAS_API_KEY}` // API Key is used as secret/token for v3
+        },
+        body: JSON.stringify({
+          client_id: NYLAS_CLIENT_ID,
+          client_secret: NYLAS_API_KEY,
+          grant_type: 'authorization_code',
+          code: code,
+          redirect_uri: NYLAS_REDIRECT_URI,
+        }),
+      });
+
+      const tokenData = await tokenResponse.json();
+
+      if (!tokenResponse.ok) {
+        console.error('Token exchange failed:', tokenData);
+        return c.html(getHtmlResponse({ error: tokenData.error || 'Failed to exchange token' }));
+      }
+
+      // Parse state to get user context
+      let userId, orgId, provider;
+      try {
+        if (state) {
+          const stateObj = JSON.parse(state);
+          userId = stateObj.userId;
+          orgId = stateObj.orgId;
+          provider = stateObj.provider;
+        }
+      } catch (e) {
+        console.error('Failed to parse state:', e);
+      }
+
+      if (!userId) {
+         return c.html(getHtmlResponse({ error: 'Invalid state: missing user ID' }));
+      }
+
+      const grantId = tokenData.grant_id;
+      const email = tokenData.email;
+      const providerType = tokenData.provider; // google, microsoft, etc.
+
+      // Map back to our provider names
+      let appProvider = provider || 'gmail'; // Default to gmail if unknown
+      if (providerType === 'microsoft') appProvider = 'outlook';
+      if (providerType === 'icloud') appProvider = 'apple';
+      if (providerType === 'google') appProvider = 'gmail';
+
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      // Store/Update account in database
+      const accountData = {
+        user_id: userId,
+        organization_id: orgId,
+        provider: appProvider,
+        email: email,
+        nylas_grant_id: grantId,
+        connected: true,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Check if account exists
+      const { data: existingAccount } = await supabaseClient
+        .from('email_accounts')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('email', email)
+        .single();
+
+      let resultAccount;
+
+      if (existingAccount) {
+        const { data, error } = await supabaseClient
+          .from('email_accounts')
+          .update(accountData)
+          .eq('id', existingAccount.id)
+          .select()
+          .single();
+        if (error) throw error;
+        resultAccount = data;
+      } else {
+        const { data, error } = await supabaseClient
+          .from('email_accounts')
+          .insert({ ...accountData, created_at: new Date().toISOString() })
+          .select()
+          .single();
+        if (error) throw error;
+        resultAccount = data;
+      }
+
+      return c.html(getHtmlResponse({ 
+        success: true, 
+        account: {
+          id: resultAccount.id,
+          email: resultAccount.email,
+          last_sync: resultAccount.updated_at
+        }
+      }));
+
+    } catch (error) {
+      console.error('Nylas Callback error:', error);
+      return c.html(getHtmlResponse({ error: error.message }));
+    }
+  });
 };
+
+function getHtmlResponse(data: any) {
+  const jsonData = JSON.stringify(data);
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Authentication Complete</title>
+      </head>
+      <body>
+        <div style="font-family: system-ui, sans-serif; text-align: center; padding: 40px;">
+          <h2>${data.success ? 'Authentication Successful' : 'Authentication Failed'}</h2>
+          <p>${data.error || 'You can close this window now.'}</p>
+        </div>
+        <script>
+          const data = ${jsonData};
+          const message = data.success 
+            ? { type: 'nylas-oauth-success', account: data.account }
+            : { type: 'nylas-oauth-error', error: data.error };
+            
+          if (window.opener) {
+            window.opener.postMessage(message, '*');
+            setTimeout(() => window.close(), 1000);
+          }
+        </script>
+      </body>
+    </html>
+  `;
+}

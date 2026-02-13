@@ -9,9 +9,28 @@ export function createClient() {
     return supabaseClient;
   }
 
-  const supabaseUrl = `https://${projectId}.supabase.co`;
+  // Use environment variables if available (exposed via vite.config.ts define), otherwise fallback to info.tsx
+  // process.env is replaced by Vite at build time
+  let envUrl, envKey;
+  try {
+    // @ts-ignore
+    envUrl = process.env.SUPABASE_URL;
+    // @ts-ignore
+    envKey = process.env.SUPABASE_ANON_KEY;
+  } catch (e) {
+    // process is not defined, ignore
+  }
 
-  supabaseClient = createSupabaseClient<Database>(supabaseUrl, publicAnonKey, {
+  const supabaseUrl = envUrl || `https://${projectId}.supabase.co`;
+  const supabaseKey = envKey || publicAnonKey;
+
+  if (!envUrl) {
+    console.log('Using default Supabase URL from info.tsx');
+  } else {
+    console.log('Using Supabase URL from environment variables');
+  }
+
+  supabaseClient = createSupabaseClient<Database>(supabaseUrl, supabaseKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,

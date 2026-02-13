@@ -484,7 +484,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900">
         {step === 'select' && (
           <>
             <DialogHeader>

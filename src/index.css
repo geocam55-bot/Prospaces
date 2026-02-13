@@ -2489,6 +2489,16 @@
     background-color: var(--color-green-50);
   }
 
+  .bg-green-50\/50 {
+    background-color: color-mix(in srgb, oklch(.982 .018 155.826) 50%, transparent);
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-green-50\/50 {
+      background-color: color-mix(in oklab, var(--color-green-50) 50%, transparent);
+    }
+  }
+
   .bg-green-100 {
     background-color: var(--color-green-100);
   }
@@ -3347,6 +3357,10 @@
 
   .font-mono {
     font-family: var(--font-mono);
+  }
+
+  .font-sans {
+    font-family: var(--font-sans);
   }
 
   .text-2xl {

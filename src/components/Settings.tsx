@@ -10,6 +10,7 @@ import { FullCRMDatabaseSetup } from './FullCRMDatabaseSetup';
 import { OrganizationFeatureMigration } from './OrganizationFeatureMigration';
 import { ProjectWizardSettings } from './ProjectWizardSettings';
 import { ReassignContacts } from './admin/ReassignContacts';
+import { DataDiagnostic } from './DataDiagnostic';
 import { AIToggleSwitch } from './AIToggleSwitch';
 import { EmailCustomFoldersMigration } from './EmailCustomFoldersMigration';
 import { PlannerDefaultsMigrationStatus } from './PlannerDefaultsMigrationStatus';
@@ -495,6 +496,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             {canManageSettings && <TabsTrigger value="organization" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Organization</TabsTrigger>}
             {canManageSettings && <TabsTrigger value="features" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Features</TabsTrigger>}
             {canAccessSecurity && <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Permissions</TabsTrigger>}
+            {canManageSettings && <TabsTrigger value="diagnostics" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Diagnostics</TabsTrigger>}
             <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
             {canManageSettings && <TabsTrigger value="testdata" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Test Data</TabsTrigger>}
           </TabsList>
@@ -933,6 +935,10 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             <Security user={user} />
           </TabsContent>
         )}
+
+        <TabsContent value="diagnostics" className="space-y-4">
+          <DataDiagnostic />
+        </TabsContent>
 
         <TabsContent value="appearance" className="space-y-4">
           <Card>
