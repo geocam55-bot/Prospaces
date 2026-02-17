@@ -445,12 +445,12 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-white text-gray-900 [&_*]:text-inherit">
         {step === 'select' && (
           <>
             <DialogHeader>
-              <DialogTitle>Add Email Account</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-gray-900">Add Email Account</DialogTitle>
+              <DialogDescription className="text-gray-600">
                 Choose how you want to connect your email account
               </DialogDescription>
             </DialogHeader>

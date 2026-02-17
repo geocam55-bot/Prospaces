@@ -6378,6 +6378,10 @@
     }
   }
 
+  .\[\&_\*\]\:text-inherit * {
+    color: inherit;
+  }
+
   .\[\&_p\]\:leading-relaxed p {
     --tw-leading: var(--leading-relaxed);
     line-height: var(--leading-relaxed);
