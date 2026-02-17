@@ -43,6 +43,7 @@ import { LandingPageDebug } from './components/LandingPageDebug';
 import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnostic';
 import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDiagnosticTest';
 import { OAuthCallback } from './components/OAuthCallback';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
@@ -97,12 +98,14 @@ function App() {
   const isLandingPageDiagnostic = urlParams.get('view') === 'landing-page-diagnostic';
   const isLandingPageDiagnosticTest = urlParams.get('view') === 'landing-page-diagnostic-test';
   const isFixLogin = urlParams.get('view') === 'fix-login';
+  const isPrivacyPolicy = urlParams.get('view') === 'privacy-policy';
   
   // Check path-based routing for public landing pages
   const path = window.location.pathname;
   const isLandingPage = path.startsWith('/landing/');
   const landingPageSlug = isLandingPage ? path.split('/landing/')[1]?.split('?')[0] : null;
   const isOAuthCallback = path === '/oauth-callback';
+  const isPrivacyPolicyPath = path === '/privacy-policy';
   
   console.log('[App.tsx] Routing Debug:', {
     path,
@@ -156,6 +159,10 @@ function App() {
 
   if (isFixLogin) {
     return <AdminFixUsers />;
+  }
+
+  if (isPrivacyPolicy || isPrivacyPolicyPath) {
+    return <PrivacyPolicy />;
   }
 
   useEffect(() => {
