@@ -26,33 +26,29 @@ export const nylasOAuth = (app: Hono) => {
     }
 
     // Ensure we point to nylas-callback regardless of how we were called
-    // (e.g. if called at root / or /nylas-connect)
     const parts = url.pathname.split('/');
-    // Remove last part if it looks like a function name or action
-    const lastPart = parts[parts.length - 1];
-    if (['nylas-connect', 'nylas-token-exchange', '', 'make-server-8405be07', 'server'].includes(lastPart)) {
-        parts[parts.length - 1] = 'nylas-callback';
+    const cleanParts = parts.filter(p => !['nylas-connect', 'nylas-token-exchange'].includes(p));
+    const lastPart = cleanParts[cleanParts.length - 1];
+    
+    if (lastPart === 'server' || lastPart === 'make-server-8405be07' || lastPart === '' || !lastPart) {
+        if (lastPart === '') cleanParts.pop();
+        cleanParts.push('nylas-callback');
     } else {
-        parts.push('nylas-callback');
+         cleanParts[cleanParts.length - 1] = 'nylas-callback';
     }
     
-    url.pathname = parts.join('/');
+    url.pathname = cleanParts.join('/');
     return url.toString();
   };
 
   // 2. Determine the best Redirect URI to use
   const determineRedirectUri = (req: Request, clientProvided?: string) => {
-    // A. Manual Override
-    if (MANUAL_CALLBACK_URL && MANUAL_CALLBACK_URL.length > 0) {
-        return MANUAL_CALLBACK_URL;
-    }
+    if (MANUAL_CALLBACK_URL && MANUAL_CALLBACK_URL.length > 0) return MANUAL_CALLBACK_URL;
 
-    // B. Client Provided (Frontend-Centric)
     if (clientProvided && !clientProvided.includes('localhost') && !clientProvided.includes('127.0.0.1')) {
         return clientProvided;
     }
 
-    // C. Environment Variable
     const envVar = Deno.env.get('NYLAS_REDIRECT_URI') || Deno.env.get('CALENDAR_REDIRECT_URI');
     if (envVar && !envVar.includes('localhost') && !envVar.includes('127.0.0.1')) {
         if (!envVar.includes('nylas-callback')) {
@@ -61,13 +57,14 @@ export const nylasOAuth = (app: Hono) => {
         return envVar;
     }
 
-    // D. Backend Fallback
     return getBackendUrl(req);
   };
 
   // Init route handler
   const initHandler = async (c: any) => {
     try {
+      console.log(`[InitHandler] Processing request to ${c.req.path}`);
+      
       const body = await c.req.json();
       const { provider, email, redirect_uri, endpoint } = body;
       
@@ -320,19 +317,34 @@ export const nylasOAuth = (app: Hono) => {
     return c.json({ status: 'ok', timestamp: new Date().toISOString() });
   };
 
+  // --------------------------------------------------------------------------
+  // ROUTING LOGIC - EXPLICIT PATHS
+  // --------------------------------------------------------------------------
+  
+  // 1. Explicit sub-routes always first
+  app.post('/nylas-token-exchange', tokenExchangeHandler);
+  app.post('/*/nylas-token-exchange', tokenExchangeHandler);
+  
+  app.get('/nylas-health', healthHandler);
+  app.get('/*/nylas-health', healthHandler);
+  
+  app.get('/nylas-callback', callbackHandler);
+  app.get('/*/nylas-callback', callbackHandler);
+  
+  // 2. Explicit Init Routes
+  // We explicitly handle the root '/' and common function name paths
+  // to ensure the router matches them regardless of how Hono sees the path.
+  app.post('/', initHandler);
+  app.post('/server', initHandler);
+  app.post('/make-server-8405be07', initHandler);
+  app.post('/nylas-connect', initHandler);
+  
+  // 3. Fallback Catch-all for Init
+  // Use a wildcard but exclude paths that might be handled by other routers (like azure) if they were defined after (which they aren't, but safety first)
   app.post('*', async (c: any, next: any) => {
-    const path = c.req.path;
-    // Handle both specific path AND root path (for direct invoke)
-    if (path.endsWith('/nylas-connect') || path === '/' || path === '') return initHandler(c);
-    if (path.endsWith('/nylas-token-exchange')) return tokenExchangeHandler(c);
-    await next();
-  });
-
-  app.get('*', async (c: any, next: any) => {
-    const path = c.req.path;
-    if (path.endsWith('/nylas-callback')) return callbackHandler(c);
-    if (path.endsWith('/nylas-health')) return healthHandler(c);
-    await next();
+     const path = c.req.path;
+     if (path.includes('azure')) { await next(); return; }
+     return initHandler(c);
   });
 };
 

@@ -42,36 +42,21 @@ interface EmailAccount {
 // We fallback to checking for 'make-server' (old style) or 'server' (new style)
 async function findActiveFunctionName(supabaseUrl: string, accessToken?: string): Promise<string> {
   const candidates = [
+    'server', // Prioritize 'server' as per user instruction
     'make-server-8405be07', 
-    'server',
-    'nylas-connect' // Legacy root function
+    'nylas-connect'
   ];
-
-  console.log('Probing for active Edge Function...');
 
   for (const candidate of candidates) {
     try {
-      // Use nylas-health as a safe probe endpoint
-      const functionName = candidate.includes('/') ? candidate : `${candidate}/nylas-health`;
-      
-      // Use functions.invoke which handles AUTH headers automatically
-      // But for probing we might want to be careful.
-      // Let's use fetch with the known URL structure to be precise.
       const url = `${supabaseUrl}/functions/v1/${candidate}/nylas-health`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000); 
 
-      // Note: We need the anon key for this probe, but we don't have it imported here directly
-      // except via projectId which doesn't give us the key.
-      // So we'll rely on the fact that if we get a 401, it EXISTS.
-      // If we get a 404 or connection refused, it DOES NOT exist.
-      
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-           // If we have accessToken, use it. If not, we can't auth easily without anon key.
-           // However, most projects expose health endpoints or return 401.
            'Authorization': accessToken ? `Bearer ${accessToken}` : '',
         },
         signal: controller.signal
@@ -80,7 +65,6 @@ async function findActiveFunctionName(supabaseUrl: string, accessToken?: string)
       clearTimeout(timeoutId);
 
       if (response.ok || response.status === 401) {
-        console.log(`✅ Found active function: ${candidate}`);
         return candidate;
       }
     } catch (e) {
@@ -88,9 +72,7 @@ async function findActiveFunctionName(supabaseUrl: string, accessToken?: string)
     }
   }
 
-  // Fallback to the one specified in system prompt if nothing else responds
-  console.warn('❌ Could not find active function. Defaulting to "make-server-8405be07"');
-  return 'make-server-8405be07';
+  return 'server'; // Default to server if all else fails
 }
 
 export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAccount }: EmailAccountSetupProps) {
@@ -205,21 +187,54 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      // Find the correct function name dynamically
       const functionName = await findActiveFunctionName(supabaseUrl, session.access_token);
-      console.log('Invoking function:', functionName);
       
-      // We are calling the root of the function which now accepts POST for init
-      const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
-        body: {
+      const payload = {
           provider: selectedProvider,
           email: email || `user@${selectedProvider}.com`,
-          endpoint: functionName // Pass the name so we know where to route callback
-        }
+          endpoint: functionName
+      };
+
+      console.log(`Invoking ${functionName} with payload:`, payload);
+
+      const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
+        body: payload
       });
 
       if (invokeError) {
-        console.error('Invoke error:', invokeError);
+        console.error('Invoke error object:', invokeError);
+        
+        // Attempt fallback fetch to get the real error body
+        try {
+            const fallbackUrl = `${supabaseUrl}/functions/v1/${functionName}`;
+            console.log('Attempting fallback fetch to:', fallbackUrl);
+            const fallbackResponse = await fetch(fallbackUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            const fallbackText = await fallbackResponse.text();
+            console.log('Fallback response text:', fallbackText);
+            
+            try {
+                const fallbackJson = JSON.parse(fallbackText);
+                if (fallbackJson.error) {
+                    throw new Error(fallbackJson.error);
+                }
+            } catch (e) {
+                // If not JSON, throw text if it's short, else throw original
+                if (fallbackText && fallbackText.length < 200) throw new Error(fallbackText);
+            }
+        } catch (fallbackErr: any) {
+            if (fallbackErr.message && fallbackErr.message !== 'Failed to fetch') {
+                throw fallbackErr;
+            }
+        }
+
         throw new Error(invokeError.message || 'Failed to invoke backend function');
       }
 
@@ -316,8 +331,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
       const functionName = await findActiveFunctionName(supabaseUrl, session.access_token);
       
-      const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
-         body: {
+      const payload = {
           provider: 'imap',
           email: imapUsername,
           imapConfig: {
@@ -332,10 +346,35 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
             username: imapUsername,
             password: imapPassword,
           },
-        }
+      };
+
+      const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
+         body: payload
       });
 
       if (invokeError) {
+        // Attempt fallback fetch to get the real error body
+        try {
+            const fallbackUrl = `${supabaseUrl}/functions/v1/${functionName}`;
+            const fallbackResponse = await fetch(fallbackUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            const fallbackText = await fallbackResponse.text();
+            try {
+                const fallbackJson = JSON.parse(fallbackText);
+                if (fallbackJson.error) throw new Error(fallbackJson.error);
+            } catch (e) {
+                if (fallbackText && fallbackText.length < 200) throw new Error(fallbackText);
+            }
+        } catch (fallbackErr: any) {
+             if (fallbackErr.message && fallbackErr.message !== 'Failed to fetch') throw fallbackErr;
+        }
+
          throw new Error(`Failed to connect IMAP: ${invokeError.message}`);
       }
 

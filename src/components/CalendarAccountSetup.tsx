@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Calendar, CheckCircle, XCircle, Loader2, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
-import { projectId } from '../utils/supabase/info';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface CalendarAccount {
   id: string;
@@ -31,9 +31,9 @@ interface CalendarAccountSetupProps {
 // We fallback to checking for 'make-server' (old style) or 'server' (new style)
 async function findActiveFunctionName(supabaseUrl: string, accessToken?: string): Promise<string> {
   const candidates = [
-    'make-server-8405be07', 
     'server',
-    'nylas-connect' // Legacy root function
+    'make-server-8405be07', 
+    'nylas-connect' 
   ];
 
   for (const candidate of candidates) {
@@ -61,7 +61,7 @@ async function findActiveFunctionName(supabaseUrl: string, accessToken?: string)
     }
   }
 
-  return 'make-server-8405be07';
+  return 'server';
 }
 
 export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingAccount, existingAccounts = [] }: CalendarAccountSetupProps) {
@@ -141,17 +141,42 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
 
       const functionName = await findActiveFunctionName(supabaseUrl, session.access_token);
       
-      const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
-        body: {
+      const payload = {
           provider: selectedProvider === 'google' ? 'gmail' : 'outlook',
           email: email.trim(),
           returnUrl: window.location.origin,
           endpoint: functionName 
-        }
+      };
+
+      const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
+        body: payload
       });
 
       if (invokeError) {
         console.error('[Calendar] Invoke error:', invokeError);
+        
+        // Attempt fallback fetch to get the real error body
+        try {
+            const fallbackUrl = `${supabaseUrl}/functions/v1/${functionName}`;
+            const fallbackResponse = await fetch(fallbackUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            const fallbackText = await fallbackResponse.text();
+            try {
+                const fallbackJson = JSON.parse(fallbackText);
+                if (fallbackJson.error) throw new Error(fallbackJson.error);
+            } catch (e) {
+                if (fallbackText && fallbackText.length < 200) throw new Error(fallbackText);
+            }
+        } catch (fallbackErr: any) {
+             if (fallbackErr.message && fallbackErr.message !== 'Failed to fetch') throw fallbackErr;
+        }
+
         throw new Error(invokeError.message || 'Failed to initialize OAuth.');
       }
 
