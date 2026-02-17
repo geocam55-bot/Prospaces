@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Calendar, CheckCircle, XCircle, Loader2, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface CalendarAccount {
   id: string;
@@ -26,6 +27,47 @@ interface CalendarAccountSetupProps {
   existingAccounts?: CalendarAccount[];
 }
 
+// Function to find the correct active endpoint
+async function findActiveEndpoint(supabaseUrl: string, accessToken?: string): Promise<string> {
+  const candidates = [
+    'make-server-8405be07/nylas-health',
+    'make-server/nylas-health',
+    'server/nylas-health',
+    'nylas-health'
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const url = `${supabaseUrl}/functions/v1/${candidate}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); 
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': accessToken ? `Bearer ${accessToken}` : `Bearer ${publicAnonKey}`,
+          'apikey': publicAnonKey,
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const parts = candidate.split('/');
+        return parts.length > 1 ? parts[0] : '';
+      }
+      if (response.status === 401) {
+          const parts = candidate.split('/');
+          return parts.length > 1 ? parts[0] : '';
+      }
+    } catch (e) {
+      // Continue
+    }
+  }
+  return 'make-server-8405be07';
+}
+
 export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingAccount, existingAccounts = [] }: CalendarAccountSetupProps) {
   const [step, setStep] = useState<'list' | 'select' | 'oauth' | 'success'>('list');
   const [selectedProvider, setSelectedProvider] = useState<'google' | 'outlook' | null>(null);
@@ -43,7 +85,6 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
 
   useEffect(() => {
     if (!isOpen) {
-      // Reset state when dialog closes
       setTimeout(() => {
         setStep('list');
         setSelectedProvider(null);
@@ -51,7 +92,6 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         setError('');
       }, 200);
     } else {
-      // Show manage view if accounts exist, otherwise show select
       if (existingAccounts.length > 0) {
         setStep('list');
       } else {
@@ -95,6 +135,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
     setError('');
 
     try {
+      const supabaseUrl = `https://${projectId}.supabase.co`;
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -102,30 +143,37 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         throw new Error('Not authenticated');
       }
 
-      // Get user's organization from profiles table
-      const { data: userProfile, error: orgError } = await supabase
-        .from('profiles')
-        .select('organization_id')
-        .eq('id', session.user.id)
-        .single();
+      // 1. Probe for correct endpoint
+      const activePrefix = await findActiveEndpoint(supabaseUrl, session.access_token);
+      const endpoint = activePrefix ? `${activePrefix}/nylas-connect` : 'nylas-connect';
 
-      if (orgError || !userProfile || !userProfile.organization_id) {
-        throw new Error('Organization not found. Please ensure you are part of an organization.');
-      }
-
-      // Call Edge Function to initiate OAuth (Nylas unified auth)
-      const { data: oauthData, error: oauthError } = await supabase.functions.invoke('nylas-connect', {
-        body: {
+      // Call Edge Function using fetch with correct headers
+      const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': publicAnonKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           provider: selectedProvider === 'google' ? 'gmail' : 'outlook',
           email: email.trim(),
-          returnUrl: window.location.origin, // Pass current app URL for redirect after OAuth
-        }
+          returnUrl: window.location.origin,
+          endpoint: activePrefix 
+        }),
       });
 
-      if (oauthError) {
-        console.error('[Calendar] OAuth initialization error:', oauthError);
-        throw new Error(oauthError.message || 'Failed to initialize OAuth. Please ensure Edge Functions are deployed.');
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMsg = errorText;
+        try {
+            const json = JSON.parse(errorText);
+            errorMsg = json.error || errorText;
+        } catch(e) {}
+        throw new Error(errorMsg);
       }
+
+      const oauthData = await response.json();
 
       if (!oauthData?.authUrl) {
         throw new Error('Failed to get authorization URL from server.');
@@ -135,7 +183,6 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         description: `Please sign in with ${selectedProvider === 'google' ? 'Google' : 'Microsoft'}`
       });
 
-      // Open OAuth in a popup window instead of redirecting
       const width = 600;
       const height = 700;
       const left = window.screen.width / 2 - width / 2;
@@ -153,20 +200,15 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
 
       console.log('[CalendarAccountSetup] Popup opened, starting to poll for new account...');
 
-      // Since COOP blocks postMessage, we'll poll the database for the new account
       const startTime = Date.now();
-      const maxWaitTime = 5 * 60 * 1000; // 5 minutes max
+      const maxWaitTime = 5 * 60 * 1000;
       let pollAttempts = 0;
       
       const pollForAccount = async () => {
         pollAttempts++;
         const elapsed = Date.now() - startTime;
         
-        console.log(`[CalendarAccountSetup] Polling attempt ${pollAttempts} (${Math.round(elapsed/1000)}s elapsed)`);
-        
-        // Check if max time exceeded
         if (elapsed > maxWaitTime) {
-          console.log('[CalendarAccountSetup] Max wait time exceeded');
           clearInterval(pollInterval);
           setIsConnecting(false);
           setError('Connection timeout. Please try again.');
@@ -174,13 +216,10 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         }
 
         try {
-          // Check if popup is still open (best effort, may fail due to COOP)
           try {
             if (popup.closed) {
-              console.log('[CalendarAccountSetup] Popup was closed by user');
               clearInterval(pollInterval);
               
-              // Do one final check for the account
               const { data: accounts } = await supabase
                 .from('email_accounts')
                 .select('*')
@@ -191,27 +230,20 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
                 .limit(1);
               
               if (accounts && accounts.length > 0 && new Date(accounts[0].created_at).getTime() > startTime) {
-                // Account was created! Success!
-                console.log('[CalendarAccountSetup] Found newly created account after popup closed!', accounts[0]);
-                toast.success('Calendar connected!', {
-                  description: `${accounts[0].email} has been successfully connected`
-                });
+                toast.success('Calendar connected!');
                 setIsConnecting(false);
                 setStep('success');
                 onAccountAdded();
                 setTimeout(() => onClose(), 1500);
               } else {
-                // Popup closed but no account found
                 setIsConnecting(false);
                 setError('Authorization was cancelled');
               }
               return;
             }
           } catch (e) {
-            // COOP blocks this check - ignore and continue polling
           }
 
-          // Poll database for new account
           const { data: accounts, error: fetchError } = await supabase
             .from('email_accounts')
             .select('*')
@@ -222,50 +254,34 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
             .limit(1);
 
           if (fetchError) {
-            console.error('[CalendarAccountSetup] Error fetching accounts:', fetchError);
-            return; // Continue polling despite error
+            return; 
           }
 
-          // Check if we found a newly created account (created after we started)
           if (accounts && accounts.length > 0) {
             const accountCreatedAt = new Date(accounts[0].created_at).getTime();
             if (accountCreatedAt > startTime) {
-              console.log('[CalendarAccountSetup] Found newly created account!', accounts[0]);
-              
-              // Success! Stop polling
               clearInterval(pollInterval);
               
-              toast.success('Calendar connected!', {
-                description: `${accounts[0].email} has been successfully connected`
-              });
-              
+              toast.success('Calendar connected!');
               setIsConnecting(false);
               setStep('success');
               onAccountAdded();
               
-              // Close popup if still open
               try {
                 popup.close();
               } catch (e) {
-                // Ignore
               }
               
-              // Close dialog after showing success
               setTimeout(() => {
                 onClose();
               }, 1500);
             }
           }
         } catch (error: any) {
-          console.error('[CalendarAccountSetup] Error in poll:', error);
-          // Continue polling despite errors
         }
       };
 
-      // Poll every 2 seconds
       const pollInterval = setInterval(pollForAccount, 2000);
-      
-      // Do initial poll immediately
       pollForAccount();
 
     } catch (error: any) {
@@ -287,7 +303,6 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
     try {
       const supabase = createClient();
       
-      // Delete from email_accounts (Nylas unified table)
       const { error } = await supabase
         .from('email_accounts')
         .delete()
@@ -301,7 +316,6 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         description: `${email} has been removed`
       });
 
-      // Notify parent to refresh
       onAccountAdded();
 
     } catch (error: any) {

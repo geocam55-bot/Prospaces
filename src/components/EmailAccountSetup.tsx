@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Mail, CheckCircle, AlertCircle, Info, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
-import { projectId } from '../utils/supabase/info';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface EmailAccountSetupProps {
   isOpen: boolean;
@@ -41,9 +41,9 @@ interface EmailAccount {
 // Function to find the correct active endpoint
 async function findActiveEndpoint(supabaseUrl: string, accessToken?: string): Promise<string> {
   const candidates = [
-    'server/nylas-health',
-    'make-server/nylas-health',
     'make-server-8405be07/nylas-health',
+    'make-server/nylas-health',
+    'server/nylas-health',
     'nylas-health'
   ];
 
@@ -58,7 +58,8 @@ async function findActiveEndpoint(supabaseUrl: string, accessToken?: string): Pr
       const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+          'Authorization': accessToken ? `Bearer ${accessToken}` : `Bearer ${publicAnonKey}`,
+          'apikey': publicAnonKey, // CRITICAL: Supabase Gateway requires apikey header
         },
         signal: controller.signal
       });
@@ -74,15 +75,23 @@ async function findActiveEndpoint(supabaseUrl: string, accessToken?: string): Pr
         } else {
           return ''; // root function
         }
+      } else {
+          // If 401, maybe the function exists but auth failed?
+          // We assume it exists to prevent fallback to 'server' incorrectly if auth is just misconfigured
+          if (response.status === 401) {
+              console.warn(`⚠️ Endpoint ${candidate} returned 401, assuming it exists but requires valid auth.`);
+              const parts = candidate.split('/');
+              return parts.length > 1 ? parts[0] : '';
+          }
       }
     } catch (e) {
       // Continue to next candidate
     }
   }
   
-  // Default to server if none found (better than crashing?)
-  console.warn('❌ Could not find active endpoint. Defaulting to "server"');
-  return 'server';
+  // Default to make-server-8405be07 as it's the most specific deployed name usually
+  console.warn('❌ Could not find active endpoint. Defaulting to "make-server-8405be07"');
+  return 'make-server-8405be07';
 }
 
 export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAccount }: EmailAccountSetupProps) {
@@ -203,15 +212,13 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       
       console.log('Using endpoint:', endpoint);
 
-      // Do NOT specify redirect_uri - let the backend determine its own callback URL.
-      // This is crucial for avoiding dynamic URL issues in environments like Figma.
-      // The backend will handle the callback and postMessage back to us.
-
       // Call appropriate OAuth function
+      // CRITICAL: Must include 'apikey' header for Supabase Gateway
       const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
+          'apikey': publicAnonKey, 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -345,10 +352,12 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       const endpoint = activePrefix ? `${activePrefix}/nylas-connect` : 'nylas-connect';
 
       // Call Nylas connect function for IMAP using fetch
+      // CRITICAL: Must include 'apikey' header for Supabase Gateway
       const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
+          'apikey': publicAnonKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
