@@ -39,9 +39,9 @@ interface EmailAccount {
 }
 
 // Function to find the active function name
-async function findActiveFunctionName(supabaseUrl: string): Promise<string> {
-  // We'll prioritize the standard make-server format
-  return 'make-server-8405be07';
+// We fallback to checking for 'make-server' (old style) or 'server' (new style)
+async function findActiveFunctionName(supabaseUrl: string, accessToken?: string): Promise<string> {
+  return 'server';
 }
 
 export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAccount }: EmailAccountSetupProps) {
@@ -156,8 +156,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      // Use standard Supabase invoke - much more reliable for headers
-      const functionName = await findActiveFunctionName(supabaseUrl);
+      const functionName = await findActiveFunctionName(supabaseUrl, session.access_token);
       
       // We are calling the root of the function which now accepts POST for init
       const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
@@ -265,7 +264,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      const functionName = await findActiveFunctionName(supabaseUrl);
+      const functionName = await findActiveFunctionName(supabaseUrl, session.access_token);
       
       const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
          body: {

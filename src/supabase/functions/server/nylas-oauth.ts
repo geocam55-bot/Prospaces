@@ -1,40 +1,68 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+// ⬇️⬇️⬇️ EMERGENCY OVERRIDE ⬇️⬇️⬇️
+// If you continue to see "Redirect URI not allowed" errors:
+// 1. Go to Nylas Dashboard > App Settings > Authentication
+// 2. Copy ONE valid "Allowed Callback URI"
+// 3. Paste it inside the quotes below
+const MANUAL_CALLBACK_URL = ""; 
+// ⬆️⬆️⬆️ ----------------------- ⬆️⬆️⬆️
+
 export const nylasOAuth = (app: Hono) => {
   
-  // Helper to construct the callback URL dynamically based on the current request
-  // This generates the URL for the Supabase Edge Function itself.
-  const getCallbackUrl = (req: Request) => {
+  // 1. Get the Supabase Edge Function URL (Backend-Centric)
+  const getBackendUrl = (req: Request) => {
     const url = new URL(req.url);
-    
-    // Clear query params to ensure clean base URL
     url.search = '';
 
-    // 1. Force HTTPS (Supabase Edge Functions are always HTTPS)
     if (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
       url.protocol = 'https:';
     }
 
-    // 2. Fix path for Supabase
-    // Ensure we have the /functions/v1/ prefix which is required for external access
     if (url.hostname.endsWith('.supabase.co') && !url.pathname.startsWith('/functions/v1/')) {
         const path = url.pathname.startsWith('/') ? url.pathname : `/${url.pathname}`;
         url.pathname = `/functions/v1${path}`;
     }
 
-    // 3. Ensure correct suffix (nylas-callback)
-    // The callback handler is mounted at /nylas-callback
+    // Ensure we point to nylas-callback regardless of how we were called
+    // (e.g. if called at root / or /nylas-connect)
     const parts = url.pathname.split('/');
+    // Remove last part if it looks like a function name or action
     const lastPart = parts[parts.length - 1];
-    
-    // If called from init endpoint, switch to callback endpoint
-    if (lastPart === 'nylas-connect' || lastPart === 'nylas-token-exchange') {
+    if (['nylas-connect', 'nylas-token-exchange', '', 'make-server-8405be07', 'server'].includes(lastPart)) {
         parts[parts.length - 1] = 'nylas-callback';
+    } else {
+        parts.push('nylas-callback');
     }
     
     url.pathname = parts.join('/');
     return url.toString();
+  };
+
+  // 2. Determine the best Redirect URI to use
+  const determineRedirectUri = (req: Request, clientProvided?: string) => {
+    // A. Manual Override
+    if (MANUAL_CALLBACK_URL && MANUAL_CALLBACK_URL.length > 0) {
+        return MANUAL_CALLBACK_URL;
+    }
+
+    // B. Client Provided (Frontend-Centric)
+    if (clientProvided && !clientProvided.includes('localhost') && !clientProvided.includes('127.0.0.1')) {
+        return clientProvided;
+    }
+
+    // C. Environment Variable
+    const envVar = Deno.env.get('NYLAS_REDIRECT_URI') || Deno.env.get('CALENDAR_REDIRECT_URI');
+    if (envVar && !envVar.includes('localhost') && !envVar.includes('127.0.0.1')) {
+        if (!envVar.includes('nylas-callback')) {
+            return envVar.endsWith('/') ? `${envVar}nylas-callback` : `${envVar}/nylas-callback`;
+        }
+        return envVar;
+    }
+
+    // D. Backend Fallback
+    return getBackendUrl(req);
   };
 
   // Init route handler
@@ -51,23 +79,12 @@ export const nylasOAuth = (app: Hono) => {
       const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
       const NYLAS_CLIENT_ID = Deno.env.get('NYLAS_CLIENT_ID') || NYLAS_API_KEY;
       
-      // --------------------------------------------------------------------------
-      // STRICT BACKEND-CENTRIC FLOW
-      // --------------------------------------------------------------------------
-      // We purposefully IGNORE:
-      // 1. The 'redirect_uri' sent from the frontend (which is often the Vercel URL)
-      // 2. The 'NYLAS_REDIRECT_URI' env var (which is often the Vercel URL)
-      // 
-      // We FORCE the use of the Supabase Edge Function URL.
-      // This ensures the OAuth code is delivered directly to this backend for exchange.
-      // --------------------------------------------------------------------------
-      const finalRedirectUri = getCallbackUrl(c.req.raw);
+      const finalRedirectUri = determineRedirectUri(c.req.raw, redirect_uri);
       
-      console.log('Nylas Auth Config (Backend Flow):', { 
-        redirectUri: finalRedirectUri,
+      console.log('Nylas Auth Config:', { 
+        finalRedirectUri,
         provider,
-        ignoredClientUri: redirect_uri,
-        ignoredEnvVar: Deno.env.get('NYLAS_REDIRECT_URI')
+        source: MANUAL_CALLBACK_URL ? 'Manual Override' : (finalRedirectUri === redirect_uri ? 'Client Provided' : 'Backend/Env')
       });
 
       if (!NYLAS_API_KEY) return c.json({ error: 'Missing NYLAS_API_KEY' }, 500);
@@ -114,7 +131,6 @@ export const nylasOAuth = (app: Hono) => {
         return c.json({ error: 'Invalid user token' }, 401);
       }
 
-      // Store context in state
       const state = JSON.stringify({
           userId: user.id,
           orgId: user.user_metadata?.organizationId || 'default_org',
@@ -147,8 +163,7 @@ export const nylasOAuth = (app: Hono) => {
         try {
             const errorJson = JSON.parse(errorText);
             if (errorJson.error?.type === 'api.invalid_query_params' && errorJson.error?.message?.includes('RedirectURI')) {
-                // Return the EXACT URL that failed so the user can whitelist it
-                friendlyError = `⚠️ Configuration Required\n\nNylas rejected the Redirect URI. You are using the Backend-Centric flow.\n\n1. Copy this URL:\n${finalRedirectUri}\n\n2. Go to Nylas Dashboard > App Settings.\n3. Add it to "Allowed Callback URIs".`;
+                friendlyError = `⚠️ Configuration Required\n\nNylas rejected the Redirect URI.\n\nRequested URI: ${finalRedirectUri}\n\nOPTIONS TO FIX:\n1. Add the URI above to "Allowed Callback URIs" in Nylas Dashboard.\n2. OR Update your NYLAS_REDIRECT_URI env var to match what is in your dashboard.\n3. OR Edit nylas-oauth.ts and paste your URI into MANUAL_CALLBACK_URL.`;
             }
         } catch (e) { }
         return c.json({ error: friendlyError }, 400);
@@ -182,10 +197,7 @@ export const nylasOAuth = (app: Hono) => {
       const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
       const NYLAS_CLIENT_ID = Deno.env.get('NYLAS_CLIENT_ID') || NYLAS_API_KEY;
       
-      // STRICT BACKEND-CENTRIC FLOW:
-      // Must match the logic in initHandler
-      // Even if frontend sends a redirect_uri, we use the backend one because that's what was used for init.
-      const finalRedirectUri = getCallbackUrl(c.req.raw);
+      const finalRedirectUri = determineRedirectUri(c.req.raw, redirect_uri);
 
       const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
         method: 'POST',
@@ -209,7 +221,6 @@ export const nylasOAuth = (app: Hono) => {
         return c.json({ error: tokenData.error || 'Failed to exchange token' }, 400);
       }
 
-      // Parse state and save account...
       let userId, orgId, provider;
       try {
         if (state) {
@@ -251,8 +262,9 @@ export const nylasOAuth = (app: Hono) => {
       const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
       const NYLAS_CLIENT_ID = Deno.env.get('NYLAS_CLIENT_ID') || NYLAS_API_KEY;
       
-      // STRICT BACKEND-CENTRIC FLOW:
-      const NYLAS_REDIRECT_URI = getCallbackUrl(c.req.raw);
+      // Assume backend URL if we are here
+      let NYLAS_REDIRECT_URI = getBackendUrl(c.req.raw);
+      if (MANUAL_CALLBACK_URL) NYLAS_REDIRECT_URI = MANUAL_CALLBACK_URL;
 
       console.log('Callback exchanging token with URI:', NYLAS_REDIRECT_URI);
 
@@ -310,7 +322,8 @@ export const nylasOAuth = (app: Hono) => {
 
   app.post('*', async (c: any, next: any) => {
     const path = c.req.path;
-    if (path.endsWith('/nylas-connect')) return initHandler(c);
+    // Handle both specific path AND root path (for direct invoke)
+    if (path.endsWith('/nylas-connect') || path === '/' || path === '') return initHandler(c);
     if (path.endsWith('/nylas-token-exchange')) return tokenExchangeHandler(c);
     await next();
   });

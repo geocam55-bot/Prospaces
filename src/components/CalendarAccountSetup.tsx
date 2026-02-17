@@ -28,9 +28,9 @@ interface CalendarAccountSetupProps {
 }
 
 // Function to find the active function name
-async function findActiveFunctionName(supabaseUrl: string): Promise<string> {
-  // We'll prioritize the standard make-server format
-  return 'make-server-8405be07';
+// We fallback to checking for 'make-server' (old style) or 'server' (new style)
+async function findActiveFunctionName(supabaseUrl: string, accessToken?: string): Promise<string> {
+  return 'server';
 }
 
 export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingAccount, existingAccounts = [] }: CalendarAccountSetupProps) {
@@ -108,8 +108,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         throw new Error('Not authenticated');
       }
 
-      // Use standard Supabase invoke - much more reliable for headers
-      const functionName = await findActiveFunctionName(supabaseUrl);
+      const functionName = await findActiveFunctionName(supabaseUrl, session.access_token);
       
       const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
         body: {
