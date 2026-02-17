@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Calendar, CheckCircle, XCircle, Loader2, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { projectId } from '../utils/supabase/info';
 
 interface CalendarAccount {
   id: string;
@@ -30,7 +30,38 @@ interface CalendarAccountSetupProps {
 // Function to find the active function name
 // We fallback to checking for 'make-server' (old style) or 'server' (new style)
 async function findActiveFunctionName(supabaseUrl: string, accessToken?: string): Promise<string> {
-  return 'server';
+  const candidates = [
+    'make-server-8405be07', 
+    'server',
+    'nylas-connect' // Legacy root function
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const url = `${supabaseUrl}/functions/v1/${candidate}/nylas-health`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); 
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+           'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (response.ok || response.status === 401) {
+        return candidate;
+      }
+    } catch (e) {
+      // Continue
+    }
+  }
+
+  return 'make-server-8405be07';
 }
 
 export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingAccount, existingAccounts = [] }: CalendarAccountSetupProps) {

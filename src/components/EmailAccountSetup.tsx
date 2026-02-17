@@ -41,7 +41,56 @@ interface EmailAccount {
 // Function to find the active function name
 // We fallback to checking for 'make-server' (old style) or 'server' (new style)
 async function findActiveFunctionName(supabaseUrl: string, accessToken?: string): Promise<string> {
-  return 'server';
+  const candidates = [
+    'make-server-8405be07', 
+    'server',
+    'nylas-connect' // Legacy root function
+  ];
+
+  console.log('Probing for active Edge Function...');
+
+  for (const candidate of candidates) {
+    try {
+      // Use nylas-health as a safe probe endpoint
+      const functionName = candidate.includes('/') ? candidate : `${candidate}/nylas-health`;
+      
+      // Use functions.invoke which handles AUTH headers automatically
+      // But for probing we might want to be careful.
+      // Let's use fetch with the known URL structure to be precise.
+      const url = `${supabaseUrl}/functions/v1/${candidate}/nylas-health`;
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); 
+
+      // Note: We need the anon key for this probe, but we don't have it imported here directly
+      // except via projectId which doesn't give us the key.
+      // So we'll rely on the fact that if we get a 401, it EXISTS.
+      // If we get a 404 or connection refused, it DOES NOT exist.
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+           // If we have accessToken, use it. If not, we can't auth easily without anon key.
+           // However, most projects expose health endpoints or return 401.
+           'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (response.ok || response.status === 401) {
+        console.log(`✅ Found active function: ${candidate}`);
+        return candidate;
+      }
+    } catch (e) {
+      // Continue
+    }
+  }
+
+  // Fallback to the one specified in system prompt if nothing else responds
+  console.warn('❌ Could not find active function. Defaulting to "make-server-8405be07"');
+  return 'make-server-8405be07';
 }
 
 export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAccount }: EmailAccountSetupProps) {
@@ -156,7 +205,9 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
+      // Find the correct function name dynamically
       const functionName = await findActiveFunctionName(supabaseUrl, session.access_token);
+      console.log('Invoking function:', functionName);
       
       // We are calling the root of the function which now accepts POST for init
       const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
@@ -169,7 +220,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
       if (invokeError) {
         console.error('Invoke error:', invokeError);
-        // Fallback to fetch if invoke fails purely on network (unlikely) or 404
         throw new Error(invokeError.message || 'Failed to invoke backend function');
       }
 
