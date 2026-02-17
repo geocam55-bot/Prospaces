@@ -589,6 +589,56 @@ export function Navigation({
           <nav className="mt-8 flex-1 px-2 space-y-1">
             {navItems.map((item) => renderNavItem(item))}
           </nav>
+
+          {/* Sidebar Footer - Legal Links */}
+          <div className={`px-3 pt-3 mt-2 border-t ${isSidebarCollapsed ? 'text-center' : ''}`} style={{ borderColor: theme.colors.border }}>
+            {!isSidebarCollapsed ? (
+              <div className="flex items-center justify-center gap-3 pb-3">
+                <a
+                  href="?view=privacy-policy"
+                  className="text-xs transition-colors"
+                  style={{ color: theme.colors.navText, opacity: 0.5 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; }}
+                >
+                  Privacy
+                </a>
+                <span className="text-xs" style={{ color: theme.colors.navText, opacity: 0.3 }}>·</span>
+                <a
+                  href="?view=terms-of-service"
+                  className="text-xs transition-colors"
+                  style={{ color: theme.colors.navText, opacity: 0.5 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; }}
+                >
+                  Terms
+                </a>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-1 pb-3">
+                <a
+                  href="?view=privacy-policy"
+                  className="text-[10px] transition-colors"
+                  style={{ color: theme.colors.navText, opacity: 0.5 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; }}
+                  title="Privacy Policy"
+                >
+                  Privacy
+                </a>
+                <a
+                  href="?view=terms-of-service"
+                  className="text-[10px] transition-colors"
+                  style={{ color: theme.colors.navText, opacity: 0.5 }}
+                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; }}
+                  title="Terms of Service"
+                >
+                  Terms
+                </a>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -607,6 +657,27 @@ export function Navigation({
               <nav className="flex-1 px-2 space-y-1 mt-4">
                 {navItems.map((item) => renderNavItem(item))}
               </nav>
+
+              {/* Mobile Footer - Legal Links */}
+              <div className="px-3 pt-3 mt-2 border-t" style={{ borderColor: theme.colors.border }}>
+                <div className="flex items-center justify-center gap-3 pb-2">
+                  <a
+                    href="?view=privacy-policy"
+                    className="text-xs transition-colors"
+                    style={{ color: theme.colors.navText, opacity: 0.5 }}
+                  >
+                    Privacy
+                  </a>
+                  <span className="text-xs" style={{ color: theme.colors.navText, opacity: 0.3 }}>·</span>
+                  <a
+                    href="?view=terms-of-service"
+                    className="text-xs transition-colors"
+                    style={{ color: theme.colors.navText, opacity: 0.5 }}
+                  >
+                    Terms
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         </div>
