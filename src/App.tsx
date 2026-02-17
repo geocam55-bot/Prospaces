@@ -42,7 +42,7 @@ import { PublicLandingPage } from './components/marketing/PublicLandingPage';
 import { LandingPageDebug } from './components/LandingPageDebug';
 import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnostic';
 import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDiagnosticTest';
-import { NylasCallback } from './components/NylasCallback';
+import { OAuthCallback } from './components/OAuthCallback';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
@@ -102,13 +102,13 @@ function App() {
   const path = window.location.pathname;
   const isLandingPage = path.startsWith('/landing/');
   const landingPageSlug = isLandingPage ? path.split('/landing/')[1]?.split('?')[0] : null;
-  const isNylasCallback = path === '/nylas-callback';
+  const isOAuthCallback = path === '/oauth-callback';
   
   console.log('[App.tsx] Routing Debug:', {
     path,
     isLandingPage,
     landingPageSlug,
-    isNylasCallback,
+    isOAuthCallback,
     fullURL: window.location.href
   });
   
@@ -116,8 +116,8 @@ function App() {
   const isLandingPageQuery = urlParams.get('view') === 'landing';
   const landingPageQuerySlug = urlParams.get('slug');
 
-  if (isNylasCallback) {
-    return <NylasCallback />;
+  if (isOAuthCallback) {
+    return <OAuthCallback />;
   }
 
   if (isLandingPage && landingPageSlug) {

@@ -6,3 +6,6 @@ verify_jwt = true
 
 [functions.server]
 verify_jwt = false
+
+[functions.make-server]
+verify_jwt = false

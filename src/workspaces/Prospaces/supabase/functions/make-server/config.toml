@@ -1,0 +1,4 @@
+# Supabase Edge Function Configuration for make-server
+# Disable JWT verification to allow OAuth callbacks without authentication
+
+verify_jwt = false
