@@ -32,7 +32,7 @@
           "@radix-ui/react-toggle": "*",
           "@radix-ui/react-toggle-group": "*",
           "@radix-ui/react-tooltip": "*",
-          "@supabase/supabase-js": "*",
+          "@supabase/supabase-js": "^2",
           "@testing-library/jest-dom": "*",
           "@testing-library/react": "*",
           "@vitejs/plugin-react": "*",

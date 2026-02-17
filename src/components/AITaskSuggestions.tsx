@@ -510,7 +510,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
 
       {/* Email Template Dialog */}
       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Email Template</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
@@ -554,7 +554,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
 
       {/* Task Creation Dialog */}
       <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
-        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Create Task</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">

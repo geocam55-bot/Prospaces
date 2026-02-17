@@ -7,6 +7,7 @@ import { FindLarryContacts } from './FindLarryContacts';
 import { BidsTableMigration } from './BidsTableMigration';
 import { ThemeMigration } from './ThemeMigration';
 import { FullCRMDatabaseSetup } from './FullCRMDatabaseSetup';
+import { AddMissingColumns } from './AddMissingColumns';
 import { OrganizationFeatureMigration } from './OrganizationFeatureMigration';
 import { ProjectWizardSettings } from './ProjectWizardSettings';
 import { ReassignContacts } from './admin/ReassignContacts';
@@ -56,6 +57,8 @@ interface SettingsProps {
   onUserUpdate?: (updatedUser: User) => void;
   onOrganizationUpdate?: (updatedOrganization: any) => void;
 }
+
+import { EmailDebug } from './EmailDebug';
 
 export function Settings({ user, organization, onUserUpdate, onOrganizationUpdate }: SettingsProps) {
   const [orgName, setOrgName] = useState('ProSpaces Organization');
@@ -497,6 +500,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             {canManageSettings && <TabsTrigger value="features" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Features</TabsTrigger>}
             {canAccessSecurity && <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Permissions</TabsTrigger>}
             {canManageSettings && <TabsTrigger value="diagnostics" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Diagnostics</TabsTrigger>}
+            <TabsTrigger value="email-debug" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Email Status</TabsTrigger>
             <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
             {canManageSettings && <TabsTrigger value="testdata" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Test Data</TabsTrigger>}
           </TabsList>
@@ -940,6 +944,10 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           <DataDiagnostic />
         </TabsContent>
 
+        <TabsContent value="email-debug" className="space-y-4">
+          <EmailDebug />
+        </TabsContent>
+
         <TabsContent value="appearance" className="space-y-4">
           <Card>
             <CardHeader>
@@ -992,6 +1000,9 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             {/* Full CRM Database Setup */}
             <FullCRMDatabaseSetup />
             
+            {/* Add Missing Columns */}
+            <AddMissingColumns />
+            
             {/* Organization Feature Migration */}
             <OrganizationFeatureMigration />
             
@@ -1034,7 +1045,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
 
       {/* Layout Configuration Dialog */}
       <Dialog open={showLayoutDialog} onOpenChange={setShowLayoutDialog}>
-        <DialogContent className="sm:max-w-[425px] max-h-[80vh] flex flex-col">
+        <DialogContent className="sm:max-w-[425px] max-h-[80vh] flex flex-col bg-white">
           <DialogHeader>
             <DialogTitle className="text-gray-900">Configure Layout</DialogTitle>
             <DialogDescription className="text-gray-600">

@@ -376,7 +376,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
               Create Campaign
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
             <DialogHeader>
               <DialogTitle>Create New Campaign</DialogTitle>
               <DialogDescription>Choose the type of campaign you want to create.</DialogDescription>
@@ -687,7 +687,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
 
       {/* Edit Campaign Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Edit Campaign</DialogTitle>
             <DialogDescription>Update your campaign details.</DialogDescription>
@@ -738,7 +738,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
 
       {/* Campaign Analytics Dialog */}
       <Dialog open={isAnalyticsDialogOpen} onOpenChange={setIsAnalyticsDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Campaign Analytics</DialogTitle>
             <DialogDescription>View detailed analytics for your campaign</DialogDescription>

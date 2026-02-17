@@ -6,15 +6,10 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Mail, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Mail, CheckCircle, AlertCircle, Info, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
 import { projectId } from '../utils/supabase/info';
-
-// Cache backend availability check to avoid repeated failed requests
-// This prevents console spam from 404 errors when Edge Functions aren't deployed
-let backendAvailabilityCache: { checked: boolean; available: boolean; timestamp: number } | null = null;
-const CACHE_DURATION = 60000; // Cache for 1 minute
 
 interface EmailAccountSetupProps {
   isOpen: boolean;
@@ -41,6 +36,53 @@ interface EmailAccount {
     username: string;
     password: string;
   };
+}
+
+// Function to find the correct active endpoint
+async function findActiveEndpoint(supabaseUrl: string, accessToken?: string): Promise<string> {
+  const candidates = [
+    'server/nylas-health',
+    'make-server/nylas-health',
+    'make-server-8405be07/nylas-health',
+    'nylas-health'
+  ];
+
+  console.log('Probing endpoints for Nylas services...');
+
+  for (const candidate of candidates) {
+    try {
+      const url = `${supabaseUrl}/functions/v1/${candidate}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout per probe
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        console.log(`✅ Found active endpoint: ${candidate}`);
+        // Return the prefix (e.g., 'server' or 'make-server' or '')
+        const parts = candidate.split('/');
+        if (parts.length > 1) {
+          return parts[0];
+        } else {
+          return ''; // root function
+        }
+      }
+    } catch (e) {
+      // Continue to next candidate
+    }
+  }
+  
+  // Default to server if none found (better than crashing?)
+  console.warn('❌ Could not find active endpoint. Defaulting to "server"');
+  return 'server';
 }
 
 export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAccount }: EmailAccountSetupProps) {
@@ -148,8 +190,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
     try {
       const supabaseUrl = `https://${projectId}.supabase.co`;
-      
-      // Get the access token from Supabase session (more reliable than localStorage)
       const supabase = createClient();
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -157,12 +197,15 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      // Use Nylas for all providers if preferred, or maintain Azure for Outlook if configured.
-      // Since we are switching to Nylas for everything based on user preference:
-      const endpoint = 'make-server-8405be07/nylas-connect';
+      // 1. Probe for correct endpoint
+      const activePrefix = await findActiveEndpoint(supabaseUrl, session.access_token);
+      const endpoint = activePrefix ? `${activePrefix}/nylas-connect` : 'nylas-connect';
       
-      console.log('Attempting to connect to:', `${supabaseUrl}/functions/v1/${endpoint}`);
-      console.log('Using access token:', session.access_token.substring(0, 20) + '...');
+      console.log('Using endpoint:', endpoint);
+
+      // Do NOT specify redirect_uri - let the backend determine its own callback URL.
+      // This is crucial for avoiding dynamic URL issues in environments like Figma.
+      // The backend will handle the callback and postMessage back to us.
 
       // Call appropriate OAuth function
       const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
@@ -172,8 +215,9 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          provider: selectedProvider, // Send original provider name: 'gmail', 'outlook', 'apple'
-          email: email || `user@${selectedProvider}.com`, // Email will be determined after OAuth
+          provider: selectedProvider,
+          email: email || `user@${selectedProvider}.com`,
+          endpoint: activePrefix // Pass the prefix so callback knows where to look
         }),
       }).catch((fetchError) => {
         console.error('Fetch error details:', fetchError);
@@ -181,9 +225,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
           `Unable to connect to email backend. The Edge Functions may not be deployed yet.`
         );
       });
-
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -197,28 +238,13 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
           errorMessage = errorText;
         }
         
-        if (response.status === 404) {
-          throw new Error(
-            'Email integration backend not found. The Edge Functions need to be deployed.'
-          );
-        } else if (response.status === 401) {
-          throw new Error('Unauthorized. Please log out and log back in.');
-        } else if (response.status === 403) {
-          throw new Error('Access denied. Please ensure your account has email permissions enabled.');
-        } else {
-          throw new Error(`Failed to initialize OAuth (${response.status}): ${errorMessage}`);
-        }
+        throw new Error(`Failed to initialize OAuth (${response.status}): ${errorMessage}`);
       }
 
       const data = await response.json();
-      console.log('OAuth init response:', data);
-      console.log('OAuth init response - has authUrl?', !!data?.authUrl);
-      console.log('OAuth init response - authUrl value:', data?.authUrl);
-      console.log('OAuth init response - all keys:', Object.keys(data));
-
+      
       if (!data?.success || !data?.authUrl) {
-        console.error('Invalid response structure:', data);
-        throw new Error(data?.error || `Failed to generate authorization URL. Nylas response: ${JSON.stringify(data)}`);
+        throw new Error(data?.error || `Failed to generate authorization URL.`);
       }
 
       // Open OAuth popup
@@ -240,26 +266,19 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
       // Listen for OAuth callback
       const handleMessage = (event: MessageEvent) => {
-        console.log('[EmailAccountSetup] Message received:', {
-          origin: event.origin,
-          type: event.data?.type,
-          hasAccount: !!event.data?.account,
-          fullData: event.data
-        });
-        
-        // Only accept messages from our Supabase domain
-        if (!event.origin.includes('supabase.co')) {
-          console.log('[EmailAccountSetup] Ignoring message from non-Supabase origin:', event.origin);
-          return;
+        if (!event.origin.includes('supabase.co') && event.origin !== window.location.origin) {
+            // Check if origin matches Supabase OR current site (for local dev/callback)
+            return;
         }
-
-        if (event.data.type === 'gmail-oauth-success' || event.data.type === 'nylas-oauth-success' || event.data.type === 'outlook-oauth-success' || event.data.type === 'microsoft-oauth-success' || event.data.type === 'azure-oauth-success') {
+        
+        // Also allow messages from ourselves (NylasCallback posts to opener)
+        
+        if (event.data.type === 'nylas-oauth-success' || event.data.type === 'gmail-oauth-success') {
           console.log('[EmailAccountSetup] OAuth success message received!');
           window.removeEventListener('message', handleMessage);
           setIsConnecting(false);
           setStep('success');
           
-          // Convert Supabase account to EmailAccount format
           const account: EmailAccount = {
             id: event.data.account.id,
             provider: selectedProvider,
@@ -268,14 +287,12 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
             lastSync: event.data.account.last_sync,
           };
           
-          console.log('[EmailAccountSetup] Converted account:', account);
-          
           setTimeout(() => {
             onAccountAdded(account);
             handleClose();
             toast.success(`${providerName} account connected successfully!`);
           }, 1500);
-        } else if (event.data.type === 'gmail-oauth-error' || event.data.type === 'nylas-oauth-error' || event.data.type === 'outlook-oauth-error') {
+        } else if (event.data.type === 'nylas-oauth-error') {
           console.log('[EmailAccountSetup] OAuth error message received:', event.data.error);
           window.removeEventListener('message', handleMessage);
           setIsConnecting(false);
@@ -283,18 +300,17 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         }
       };
 
-      console.log('[EmailAccountSetup] Adding message listener');
       window.addEventListener('message', handleMessage);
 
       // Handle popup closed before OAuth completed
       const checkPopupClosed = setInterval(() => {
         if (popup?.closed) {
-          console.log('[EmailAccountSetup] Popup was closed');
           clearInterval(checkPopupClosed);
           window.removeEventListener('message', handleMessage);
           if (isConnecting) {
             setIsConnecting(false);
-            setError('OAuth cancelled - popup was closed before completing authentication');
+            // Don't show error if it was just closed, assumed user cancelled
+            // setError('OAuth cancelled');
           }
         }
       }, 500);
@@ -317,8 +333,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
     try {
       const supabaseUrl = `https://${projectId}.supabase.co`;
-      
-      // Get the access token from Supabase session (more reliable than localStorage)
       const supabase = createClient();
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
@@ -326,64 +340,12 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      // Check if the backend is available (silently - errors are expected if not deployed)
-      let backendAvailable = false;
-      if (backendAvailabilityCache && (Date.now() - backendAvailabilityCache.timestamp < CACHE_DURATION)) {
-        backendAvailable = backendAvailabilityCache.available;
-      } else {
-        try {
-          // Use a very short timeout and catch all errors silently
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 1000); // 1 second timeout
-          
-          const testResponse = await fetch(`${supabaseUrl}/functions/v1/nylas-connect`, {
-            method: 'HEAD',
-            signal: controller.signal,
-          });
-          
-          clearTimeout(timeoutId);
-          backendAvailable = testResponse.ok;
-        } catch (error) {
-          // Silently fail - Edge Functions not deployed is expected for many users
-          // No logging needed as this is a normal scenario
-          backendAvailable = false;
-        }
-        backendAvailabilityCache = { checked: true, available: backendAvailable, timestamp: Date.now() };
-      }
-
-      if (!backendAvailable) {
-        // Backend not available - store configuration locally for demo purposes
-        const account: EmailAccount = {
-          id: editingAccount?.id || crypto.randomUUID(),
-          provider: 'imap',
-          email: imapUsername,
-          connected: false, // Mark as not connected since backend isn't available
-          lastSync: undefined,
-          imapConfig: {
-            host: imapHost,
-            port: parseInt(imapPort),
-            username: imapUsername,
-            password: imapPassword,
-          },
-          smtpConfig: {
-            host: smtpHost,
-            port: parseInt(smtpPort),
-            username: imapUsername,
-            password: imapPassword,
-          },
-        };
-
-        setIsConnecting(false);
-        
-        // Show warning instead of success
-        onAccountAdded(account);
-        handleClose();
-        toast.warning('Email configuration saved locally. Deploy backend functions to enable live email syncing.');
-        return;
-      }
+      // 1. Probe for correct endpoint
+      const activePrefix = await findActiveEndpoint(supabaseUrl, session.access_token);
+      const endpoint = activePrefix ? `${activePrefix}/nylas-connect` : 'nylas-connect';
 
       // Call Nylas connect function for IMAP using fetch
-      const response = await fetch(`${supabaseUrl}/functions/v1/nylas-connect`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -452,11 +414,9 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
     } catch (err: any) {
       setIsConnecting(false);
       
-      // Provide helpful error messages
       let errorMessage = err.message || 'Failed to connect IMAP account';
-      
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Nylas') || errorMessage.includes('not configured')) {
-        errorMessage = '⚠️ Email backend not deployed yet.\n\nTo use live email (IMAP or OAuth), you need to deploy the backend functions first. See deployment guides for instructions.';
+        errorMessage = '⚠️ Email backend not deployed yet or unreachable.';
       }
       
       setError(errorMessage);
@@ -497,16 +457,11 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
             <Alert className="mb-4">
               <Info className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                <strong>⚠️ Edge Functions Required for OAuth</strong>
+                <strong>Connection Help:</strong>
                 <br />
-                To use OAuth (Gmail/Outlook), you need to deploy the Nylas Edge Functions first.
+                The system will automatically detect available email services.
                 <br />
-                <br />
-                <strong>Quick options:</strong>
-                <ul className="list-disc ml-4 mt-1 space-y-1">
-                  <li>Deploy functions: See deployment guide files</li>
-                  <li>Use IMAP/SMTP below (manual setup, works immediately)</li>
-                </ul>
+                If connections fail, check "Settings / Email Status" for diagnostics.
               </AlertDescription>
             </Alert>
 
@@ -548,7 +503,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    OAuth integration requires backend OAuth credentials to be configured by your administrator. IMAP/SMTP is recommended for most users.
+                    OAuth integration requires backend OAuth credentials to be configured by your administrator.
                   </AlertDescription>
                 </Alert>
                 {oauthProviders.map((provider) => (
@@ -565,7 +520,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
                         <div className="flex-1">
                           <h3 className="text-sm text-gray-900 mb-1">{provider.name}</h3>
                           <p className="text-xs text-gray-600">{provider.description}</p>
-                          <p className="text-xs text-orange-600 mt-1">Requires OAuth setup</p>
                         </div>
                         <Button variant="ghost" size="sm">
                           Connect
@@ -576,13 +530,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
                 ))}
               </TabsContent>
             </Tabs>
-
-            <Alert>
-              <Mail className="h-4 w-4" />
-              <AlertDescription>
-                Your email credentials are securely stored and encrypted. We only access emails you explicitly sync.
-              </AlertDescription>
-            </Alert>
           </>
         )}
 
@@ -608,38 +555,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
                     <strong>Microsoft 365 / Outlook:</strong>
                     <br />
                     You will be redirected to Microsoft to log in.
-                    <br />
-                    If your organization uses <strong>Microsoft Authenticator</strong>, please have your device ready to approve the login request.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {selectedProvider === 'gmail' && (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Gmail OAuth Setup:</strong>
-                    <br />
-                    Click below to authenticate with Google. You'll be redirected to Google's secure login page to grant access to your Gmail account.
-                    <br />
-                    <br />
-                    <strong>Note:</strong> OAuth must be configured by your administrator. See deployment guides for details.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {selectedProvider !== 'gmail' && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>OAuth Setup Required</strong>
-                    <br />
-                    To use OAuth authentication, your administrator needs to configure:
-                    <ul className="mt-2 ml-4 text-xs space-y-1">
-                      <li>• {selectedProvider === 'outlook' ? 'Azure AD app registration' : 'Apple Developer credentials'}</li>
-                      <li>• OAuth 2.0 client credentials</li>
-                      <li>• Authorized redirect URIs</li>
-                    </ul>
                   </AlertDescription>
                 </Alert>
               )}
@@ -688,140 +603,112 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
                   Outlook: outlook.office365.com:993
                   <br />
                   Yahoo: imap.mail.yahoo.com:993
-                  <br />
-                  <a 
-                    href="https://myaccount.google.com/apppasswords" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline mt-1 inline-block"
-                  >
-                    → Create Gmail App Password
-                  </a>
                 </AlertDescription>
               </Alert>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="imap-host">IMAP Server</Label>
-                  <Input
-                    id="imap-host"
-                    value={imapHost}
-                    onChange={(e) => setImapHost(e.target.value)}
-                    placeholder="imap.gmail.com"
-                  />
-                </div>
+              <div className="grid gap-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="imap-port">Port</Label>
+                  <Label htmlFor="email">Email Address</Label>
                   <Input
-                    id="imap-port"
-                    value={imapPort}
-                    onChange={(e) => setImapPort(e.target.value)}
-                    placeholder="993"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="imap-security">Security</Label>
-                  <Input
-                    id="imap-security"
-                    value="SSL/TLS"
-                    disabled
-                  />
-                </div>
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="imap-username">Username/Email</Label>
-                  <Input
-                    id="imap-username"
-                    type="email"
+                    id="email"
+                    placeholder="user@example.com"
                     value={imapUsername}
-                    onChange={(e) => setImapUsername(e.target.value)}
-                    placeholder="your-email@gmail.com"
+                    onChange={(e) => {
+                      setImapUsername(e.target.value);
+                      setEmail(e.target.value);
+                    }}
                   />
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="imap-password">Password</Label>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="imapHost">IMAP Host</Label>
+                    <Input
+                      id="imapHost"
+                      placeholder="imap.example.com"
+                      value={imapHost}
+                      onChange={(e) => setImapHost(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="imapPort">Port</Label>
+                    <Input
+                      id="imapPort"
+                      placeholder="993"
+                      value={imapPort}
+                      onChange={(e) => setImapPort(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="imapPassword">Password (App Password recommended)</Label>
                   <Input
-                    id="imap-password"
+                    id="imapPassword"
                     type="password"
+                    placeholder="••••••••"
                     value={imapPassword}
                     onChange={(e) => setImapPassword(e.target.value)}
-                    placeholder="App-specific password recommended"
                   />
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="smtp-host">SMTP Server</Label>
-                  <Input
-                    id="smtp-host"
-                    value={smtpHost}
-                    onChange={(e) => setSmtpHost(e.target.value)}
-                    placeholder="smtp.gmail.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="smtp-port">Port</Label>
-                  <Input
-                    id="smtp-port"
-                    value={smtpPort}
-                    onChange={(e) => setSmtpPort(e.target.value)}
-                    placeholder="465"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="smtp-security">Security</Label>
-                  <Input
-                    id="smtp-security"
-                    value="SSL/TLS"
-                    disabled
-                  />
+                
+                <div className="border-t pt-4 mt-2">
+                   <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">SMTP Settings (Sending)</Label>
+                   <div className="grid grid-cols-3 gap-4">
+                    <div className="col-span-2 space-y-2">
+                      <Label htmlFor="smtpHost">SMTP Host</Label>
+                      <Input
+                        id="smtpHost"
+                        placeholder="smtp.example.com"
+                        value={smtpHost}
+                        onChange={(e) => setSmtpHost(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="smtpPort">Port</Label>
+                      <Input
+                        id="smtpPort"
+                        placeholder="465"
+                        value={smtpPort}
+                        onChange={(e) => setSmtpPort(e.target.value)}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-xs">
-                  For Gmail and other providers with 2FA, you'll need to create an app-specific password instead of your regular password.
-                </AlertDescription>
-              </Alert>
 
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    <div className="whitespace-pre-line">{error}</div>
-                  </AlertDescription>
+                  <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
 
-              <div className="flex gap-2 pt-4">
-                <Button
-                  onClick={handleIMAPConnect}
-                  disabled={!imapHost || !imapPort || !imapUsername || !imapPassword || !smtpHost || !smtpPort || isConnecting}
-                  className="flex-1"
-                >
-                  {isConnecting ? 'Connecting...' : 'Connect Account'}
-                </Button>
+              <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={handleClose} disabled={isConnecting}>
                   Cancel
+                </Button>
+                <Button onClick={handleIMAPConnect} disabled={isConnecting}>
+                  {isConnecting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    'Connect Account'
+                  )}
                 </Button>
               </div>
             </div>
           </>
         )}
-
+        
         {step === 'success' && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Account Connected!</DialogTitle>
-            </DialogHeader>
-            <div className="py-8 text-center">
-              <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
-              <h3 className="text-lg text-gray-900 mb-2">Successfully Connected</h3>
-              <p className="text-sm text-gray-600">
-                Your email account has been connected and is ready to use.
-              </p>
-            </div>
-          </>
+           <div className="flex flex-col items-center justify-center py-6 space-y-4">
+             <CheckCircle className="h-16 w-16 text-green-500" />
+             <h3 className="text-xl font-medium">Account Connected!</h3>
+             <p className="text-center text-gray-500">
+               Your email account has been successfully connected and is now syncing.
+             </p>
+           </div>
         )}
       </DialogContent>
     </Dialog>

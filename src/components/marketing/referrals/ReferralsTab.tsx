@@ -271,7 +271,7 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
               Log Manual Referral
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] bg-white">
             <DialogHeader>
               <DialogTitle>Log New Referral</DialogTitle>
               <DialogDescription>

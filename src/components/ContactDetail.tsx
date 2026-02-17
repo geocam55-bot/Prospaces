@@ -866,7 +866,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                     Add Project Manager
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
                   <DialogHeader>
                     <DialogTitle>Add Project Manager</DialogTitle>
                     <DialogDescription>
@@ -1221,7 +1221,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
       {/* Edit Project Manager Dialog */}
       <Dialog open={isEditPMDialogOpen} onOpenChange={setIsEditPMDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Edit Project Manager</DialogTitle>
             <DialogDescription>
@@ -1306,7 +1306,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
           setBidTaxRate(getGlobalTaxRate().toString());
         }
       }}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Add Deal</DialogTitle>
             <DialogDescription>
@@ -1532,7 +1532,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
       {/* Edit Deal Dialog */}
       <Dialog open={isEditBidDialogOpen} onOpenChange={setIsEditBidDialogOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Edit Deal</DialogTitle>
             <DialogDescription>
@@ -1786,7 +1786,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
       {/* Add Line Item Dialog for Edit Bid */}
       <Dialog open={isEditLineItemDialogOpen} onOpenChange={setIsEditLineItemDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Add Line Item</DialogTitle>
             <DialogDescription>

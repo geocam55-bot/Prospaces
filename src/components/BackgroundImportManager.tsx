@@ -20,6 +20,8 @@ import { toast } from 'sonner@2.0.3';
 import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
 import { inventoryAPI } from '../utils/api';
+import { contactsAPI } from '../utils/api';
+import { bidsAPI } from '../utils/api';
 
 interface BackgroundImportManagerProps {
   user: User;
@@ -31,7 +33,7 @@ interface BackgroundImportJob {
   organization_id: string;
   created_by: string;
   job_type: 'import';
-  data_type: 'inventory';
+  data_type: 'inventory' | 'contacts' | 'bids';
   scheduled_time: string;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   created_at: string;
@@ -118,7 +120,7 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
         .from('scheduled_jobs')
         .select('*')
         .eq('organization_id', user.organizationId)
-        .eq('data_type', 'inventory')
+        .in('data_type', ['inventory', 'contacts', 'bids']) // Load all import types
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -147,14 +149,14 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
         .from('scheduled_jobs')
         .select('*')
         .eq('organization_id', user.organizationId)
-        .eq('data_type', 'inventory')
+        .in('data_type', ['inventory', 'contacts', 'bids']) // Check all import types
         .eq('status', 'pending')
         .lte('scheduled_time', now);
 
       if (error) throw error;
 
       if (dueJobs && dueJobs.length > 0) {
-        console.log(`⏰ Found ${dueJobs.length} inventory import job(s) to process`);
+        console.log(`⏰ Found ${dueJobs.length} import job(s) to process`);
         
         for (const job of dueJobs) {
           await processJob(job as BackgroundImportJob);
@@ -172,7 +174,7 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
     const supabase = createClient();
 
     try {
-      console.log(`🔄 Processing background import job ${job.id}`);
+      console.log(`🔄 Processing background import job ${job.id} (${job.data_type})`);
 
       // Mark as processing
       await supabase
@@ -186,6 +188,9 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
       let failCount = 0;
       const errors: string[] = [];
 
+      // Process based on data type
+      const dataType = job.data_type;
+
       // Process in batches of 100
       const batchSize = 100;
       for (let i = 0; i < records.length; i += batchSize) {
@@ -193,37 +198,104 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
         
         for (const record of batch) {
           try {
-            // Validate required fields
-            if (!record.name || !record.sku) {
-              throw new Error('Missing required fields: name and sku are required');
-            }
+            if (dataType === 'inventory') {
+              // Validate required fields for inventory
+              if (!record.name || !record.sku) {
+                throw new Error('Missing required fields: name and sku are required');
+              }
 
-            // Check for duplicates
-            const { data: existing } = await supabase
-              .from('inventory')
-              .select('id')
-              .eq('organization_id', user.organizationId)
-              .eq('sku', record.sku)
-              .maybeSingle();
+              // Check for duplicates
+              const { data: existing } = await supabase
+                .from('inventory')
+                .select('id')
+                .eq('organization_id', user.organizationId)
+                .eq('sku', record.sku)
+                .maybeSingle();
 
-            const inventoryData = {
-              organization_id: user.organizationId,
-              name: record.name,
-              sku: record.sku,
-              description: record.description || '',
-              category: record.category || 'Uncategorized',
-              quantity: parseFloat(record.quantity) || 0,
-              quantity_on_order: parseFloat(record.quantity_on_order) || 0,
-              unit_price: parseFloat(record.unit_price) || 0,
-              cost: parseFloat(record.cost) || 0,
-            };
+              const inventoryData = {
+                organization_id: user.organizationId,
+                name: record.name,
+                sku: record.sku,
+                description: record.description || '',
+                category: record.category || 'Uncategorized',
+                quantity: parseFloat(record.quantity) || 0,
+                quantity_on_order: parseFloat(record.quantity_on_order) || 0,
+                unit_price: parseFloat(record.unit_price) || 0,
+                cost: parseFloat(record.cost) || 0,
+                price_tier_1: parseFloat(record.price_tier_1) || 0,
+                price_tier_2: parseFloat(record.price_tier_2) || 0,
+                price_tier_3: parseFloat(record.price_tier_3) || 0,
+                price_tier_4: parseFloat(record.price_tier_4) || 0,
+                price_tier_5: parseFloat(record.price_tier_5) || 0,
+                department_code: record.department_code || '',
+              };
 
-            if (existing) {
-              // Update existing
-              await inventoryAPI.updateInventory(existing.id, inventoryData);
-            } else {
-              // Create new
-              await inventoryAPI.createInventory(inventoryData);
+              if (existing) {
+                // Update existing
+                await inventoryAPI.updateInventory(existing.id, inventoryData);
+              } else {
+                // Create new
+                await inventoryAPI.createInventory(inventoryData);
+              }
+            } else if (dataType === 'contacts') {
+              // Validate required fields for contacts
+              if (!record.name || !record.email) {
+                throw new Error('Missing required fields: name and email are required');
+              }
+
+              const contactData = {
+                name: record.name,
+                email: record.email,
+                phone: record.phone || '',
+                company: record.company || '',
+                status: record.status || 'Prospect',
+                priceLevel: record.priceLevel || 'Retail',
+                address: record.address || '',
+                notes: record.notes || '',
+                legacyNumber: record.legacyNumber || '',
+                accountOwnerNumber: record.accountOwnerNumber || '',
+                ptdSales: parseFloat(record.ptdSales) || 0,
+                ptdGpPercent: parseFloat(record.ptdGpPercent) || 0,
+                ytdSales: parseFloat(record.ytdSales) || 0,
+                ytdGpPercent: parseFloat(record.ytdGpPercent) || 0,
+                lyrSales: parseFloat(record.lyrSales) || 0,
+                lyrGpPercent: parseFloat(record.lyrGpPercent) || 0,
+              };
+
+              // Check for duplicates by email
+              const { data: existing } = await supabase
+                .from('contacts')
+                .select('id')
+                .eq('organization_id', user.organizationId)
+                .eq('email', record.email)
+                .maybeSingle();
+
+              if (existing) {
+                // Update existing
+                await contactsAPI.updateContact(existing.id, contactData);
+              } else {
+                // Create new
+                await contactsAPI.createContact(contactData);
+              }
+            } else if (dataType === 'bids') {
+              // Validate required fields for bids
+              if (!record.clientName || !record.projectName) {
+                throw new Error('Missing required fields: clientName and projectName are required');
+              }
+
+              const bidData = {
+                clientName: record.clientName,
+                projectName: record.projectName,
+                description: record.description || '',
+                subtotal: parseFloat(record.subtotal) || 0,
+                tax: parseFloat(record.tax) || 0,
+                total: parseFloat(record.total) || 0,
+                status: record.status || 'Draft',
+                validUntil: record.validUntil || null,
+              };
+
+              // Create new bid (no duplicate checking for bids)
+              await bidsAPI.createBid(bidData);
             }
 
             successCount++;
@@ -291,23 +363,26 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
   };
 
   const showCompletionNotification = (job: BackgroundImportJob) => {
+    const dataTypeLabel = job.data_type === 'inventory' ? 'items' : job.data_type === 'contacts' ? 'contacts' : 'bids';
+    const dataTypeCapitalized = job.data_type.charAt(0).toUpperCase() + job.data_type.slice(1);
+    
     if (job.status === 'completed') {
       toast.success(
         `✅ Import Complete!`,
         {
-          description: `Successfully imported ${job.record_count || 0} inventory items from ${job.file_name}`,
+          description: `Successfully imported ${job.record_count || 0} ${dataTypeLabel} from ${job.file_name}`,
           duration: 10000,
           action: {
-            label: 'View Inventory',
-            onClick: () => onNavigate?.('inventory')
+            label: `View ${dataTypeCapitalized}`,
+            onClick: () => onNavigate?.(job.data_type)
           }
         }
       );
 
       // Browser notification (if permitted)
       if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('Inventory Import Complete', {
-          body: `Successfully imported ${job.record_count || 0} items`,
+        new Notification(`${dataTypeCapitalized} Import Complete`, {
+          body: `Successfully imported ${job.record_count || 0} ${dataTypeLabel}`,
           icon: '/favicon.svg',
           badge: '/favicon.svg'
         });
@@ -408,7 +483,7 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
         <div>
           <h2 className="text-3xl">Background Import Manager</h2>
           <p className="text-muted-foreground">
-            Monitor inventory imports running in the background
+            Monitor data imports (contacts, inventory, bids) running in the background
           </p>
         </div>
         

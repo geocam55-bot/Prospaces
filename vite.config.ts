@@ -10,6 +10,7 @@
       alias: {
         'sonner@2.0.3': 'sonner',
         'react-hook-form@7.55.0': 'react-hook-form',
+        '@supabase/supabase-js@2': '@supabase/supabase-js',
         '@jsr/supabase__supabase-js@2.49.8': '@jsr/supabase__supabase-js',
         '@jsr/supabase__supabase-js@2': '@jsr/supabase__supabase-js',
         '@': path.resolve(__dirname, './src'),

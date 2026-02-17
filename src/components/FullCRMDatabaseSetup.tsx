@@ -78,6 +78,7 @@ CREATE TABLE public.profiles (
   organization_id text REFERENCES public.organizations(id) ON DELETE CASCADE,
   status text DEFAULT 'active',
   manager_id uuid,
+  needs_password_change boolean DEFAULT false,
   last_login timestamptz,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -250,6 +251,7 @@ CREATE TABLE public.bids (
   description text,
   customer_id uuid,
   owner_id uuid,
+  created_by uuid,
   organization_id text NOT NULL,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -374,6 +376,8 @@ CREATE TABLE public.inventory (
   unit_price numeric(12,2) DEFAULT 0,
   cost numeric(12,2) DEFAULT 0,
   category text,
+  department_code text,
+  image_url text,
   organization_id text NOT NULL,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()

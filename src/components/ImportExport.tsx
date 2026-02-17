@@ -4,6 +4,7 @@ import { contactsAPI, inventoryAPI, bidsAPI } from '../utils/api';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { createClient } from '../utils/supabase/client';
+import { projectId } from '../utils/supabase/info';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -81,6 +82,12 @@ const DATABASE_FIELDS = {
     { value: 'quantity_on_order', label: 'Quantity On Order', required: false },
     { value: 'unit_price', label: 'Unit Price', required: false },
     { value: 'cost', label: 'Cost', required: false },
+    { value: 'price_tier_1', label: 'Price Level 1 (Retail)', required: false },
+    { value: 'price_tier_2', label: 'Price Level 2 (Wholesale)', required: false },
+    { value: 'price_tier_3', label: 'Price Level 3 (Contractor)', required: false },
+    { value: 'price_tier_4', label: 'Price Level 4 (Premium)', required: false },
+    { value: 'price_tier_5', label: 'Price Level 5 (Standard)', required: false },
+    { value: 'department_code', label: 'Department Code', required: false },
   ],
   bids: [
     { value: 'clientName', label: 'Client Name', required: true },
@@ -222,60 +229,66 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       console.log('📋 App user ID:', user.id);
       console.log('📋 App user org:', user.organizationId);
 
-      // CRITICAL: Verify the profile exists and has an organization
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, email, organization_id, role')
-        .eq('id', authUser.id)
-        .single();
-
-      console.log('👤 Profile lookup:', profile);
-
-      if (profileError) {
-        console.error('❌ Profile error:', profileError);
-        throw new Error('Could not load your profile. Please try logging out and back in.');
+      // Get access token for server request
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No access token found');
       }
 
-      if (!profile?.organization_id) {
-        console.error('❌ Profile missing organization_id:', profile);
-        throw new Error('Your account is not associated with an organization. Please contact support.');
-      }
-
-      console.log('✅ Profile verified with org:', profile.organization_id);
-
+      // Prepare job data
       const jobData = {
-        organization_id: profile.organization_id, // Use org from verified profile
+        organization_id: user.organizationId,
         created_by: authUser.id,
-        job_type: 'import' as const,
+        job_type: 'import',
         data_type: type,
         scheduled_time: new Date().toISOString(), // Run immediately
-        status: 'pending' as const,
         creator_name: user.full_name || user.email || 'User',
         file_name: `background_import_${type}_${new Date().toISOString().split('T')[0]}.csv`,
         file_data: { records: mappedData, mapping: mapping },
       };
 
-      console.log('📤 Inserting job data:', { 
+      console.log('📤 Sending job to server:', { 
         organization_id: jobData.organization_id,
         created_by: jobData.created_by,
         job_type: jobData.job_type,
         data_type: jobData.data_type,
-        status: jobData.status,
-        file_data: '(truncated)'
+        record_count: mappedData.length
       });
 
-      const { data: insertedJob, error } = await supabase
-        .from('scheduled_jobs')
-        .insert(jobData)
-        .select()
-        .single();
+      // Call server endpoint to create job (bypasses RLS)
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server/background-jobs/create`;
+      
+      console.log('📡 Calling server endpoint:', url);
+      console.log('📡 With headers:', {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token.substring(0, 20)}...`
+      });
+      
+      const response = await fetch(
+        url,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify(jobData),
+        }
+      );
 
-      if (error) {
-        console.error('❌ Insert error:', error);
-        throw error;
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response ok:', response.ok);
+      
+      const result = await response.json();
+      
+      console.log('📡 Response body:', result);
+
+      if (!response.ok || result.error) {
+        console.error('❌ Server error:', result);
+        throw new Error(result.error || result.message || 'Failed to create background job');
       }
 
-      console.log('✅ Job created:', insertedJob);
+      console.log('✅ Job created:', result.job);
 
       toast.success(
         `Background import started for ${data.length} records!`,
@@ -385,6 +398,11 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       'unit_price': ['price', 'retail price', 'selling price', 'unit price', 'sale price'],
       'category': ['dept', 'department', 'class', 'product category'],
       'supplier': ['vendor', 'manufacturer'],
+      'price_tier_1': ['retail price', 'price 1', 'price tier 1', 'tier 1', 't1', 'retail', 'price level 1', 'level 1'],
+      'price_tier_2': ['wholesale price', 'price 2', 'price tier 2', 'tier 2', 't2', 'wholesale', 'price level 2', 'level 2'],
+      'price_tier_3': ['contractor price', 'price 3', 'price tier 3', 'tier 3', 't3', 'contractor', 'price level 3', 'level 3'],
+      'price_tier_4': ['premium price', 'price 4', 'price tier 4', 'tier 4', 't4', 'premium', 'price level 4', 'level 4'],
+      'price_tier_5': ['standard price', 'price 5', 'price tier 5', 'tier 5', 't5', 'standard', 'price level 5', 'level 5'],
     };
 
     fileColumns.forEach(fileCol => {
@@ -729,6 +747,17 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     if (item.quantity_on_order) cleanItem.quantity_on_order = parseInt(item.quantity_on_order) || 0;
     if (item.unit_price) cleanItem.unit_price = parseFloat(item.unit_price) || 0;
     if (item.cost) cleanItem.cost = parseFloat(item.cost) || 0;
+    
+    // Handle price tier fields (5 separate price levels)
+    if (item.price_tier_1) cleanItem.price_tier_1 = parseFloat(item.price_tier_1) || 0;
+    if (item.price_tier_2) cleanItem.price_tier_2 = parseFloat(item.price_tier_2) || 0;
+    if (item.price_tier_3) cleanItem.price_tier_3 = parseFloat(item.price_tier_3) || 0;
+    if (item.price_tier_4) cleanItem.price_tier_4 = parseFloat(item.price_tier_4) || 0;
+    if (item.price_tier_5) cleanItem.price_tier_5 = parseFloat(item.price_tier_5) || 0;
+    
+    // Add other new fields
+    if (item.unit_of_measure) cleanItem.unit_of_measure = item.unit_of_measure;
+    if (item.department_code) cleanItem.department_code = item.department_code;
 
     // Use upsert logic: check by SKU and update if exists, otherwise create new
     const result = await inventoryAPI.upsertBySKU(cleanItem);
@@ -858,7 +887,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         filename = 'contacts_template.csv';
         break;
       case 'inventory':
-        csvContent = 'name,sku,description,category,quantity,quantity_on_order,unit_price,cost\\nSample Item,SKU-001,Sample description,Electronics,100,50,99.99,50.00';
+        csvContent = 'name,sku,description,category,quantity,quantity_on_order,unit_price,cost,price_tier_1,price_tier_2,price_tier_3,price_tier_4,price_tier_5,unit_of_measure,department_code\\nSample Item,SKU-001,Sample description,Electronics,100,50,99.99,50.00,99.99,89.99,79.99,109.99,94.99,EA,DEPT-01';
         filename = 'inventory_template.csv';
         break;
       case 'bids':

@@ -106,7 +106,7 @@ export function ChangePasswordDialog({ open, onClose, userId }: ChangePasswordDi
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-md bg-white" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>🔐 Change Your Password</DialogTitle>
           <DialogDescription>

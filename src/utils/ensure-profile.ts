@@ -1,4 +1,5 @@
 import { createClient } from './supabase/client';
+import { projectId, publicAnonKey } from './supabase/info';
 
 /**
  * Ensures that a user profile exists for the given user ID.
@@ -161,15 +162,56 @@ export async function ensureUserProfile(userId: string) {
         } else {
           console.error('❌ Email belongs to different user. Current:', userId, 'Found:', profileByEmail.id);
           
-          // CRITICAL FIX: Instead of throwing, return the found profile
-          // This allows the user to continue using the system even with profile mismatch
-          console.log('⚠️ Returning existing profile for this email to allow system to continue');
-          return {
-            role: profileByEmail.role,
-            organization_id: profileByEmail.organization_id,
-            email: profileByEmail.email,
-            manager_id: profileByEmail.manager_id,
-          };
+          // CRITICAL FIX: Call server endpoint to fix profile mismatch with elevated permissions
+          console.log('⚠️ Calling server to fix profile mismatch with elevated permissions...');
+          
+          try {
+            const response = await fetch(
+              `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/fix-profile-mismatch`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${publicAnonKey}`,
+                },
+                body: JSON.stringify({
+                  email: userEmail,
+                  currentUserId: userId,
+                  oldUserId: profileByEmail.id,
+                }),
+              }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+              console.error('❌ Server failed to fix profile mismatch:', result.error);
+              // Return the old profile data as fallback
+              return {
+                role: profileByEmail.role,
+                organization_id: profileByEmail.organization_id,
+                email: profileByEmail.email,
+                manager_id: profileByEmail.manager_id,
+              };
+            }
+
+            console.log('✅ Server successfully fixed profile mismatch');
+            return {
+              role: result.profile.role,
+              organization_id: result.profile.organization_id,
+              email: result.profile.email,
+              manager_id: result.profile.manager_id,
+            };
+          } catch (fetchError: any) {
+            console.error('❌ Failed to call server endpoint:', fetchError);
+            // Return the old profile data as fallback
+            return {
+              role: profileByEmail.role,
+              organization_id: profileByEmail.organization_id,
+              email: profileByEmail.email,
+              manager_id: profileByEmail.manager_id,
+            };
+          }
         }
       }
     } else {

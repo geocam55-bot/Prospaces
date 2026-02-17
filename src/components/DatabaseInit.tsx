@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.inventory (
     unit_price NUMERIC(12,2) DEFAULT 0,
     cost NUMERIC(12,2) DEFAULT 0,
     category TEXT,
+    department_code TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

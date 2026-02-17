@@ -130,7 +130,7 @@ export function BidLineItems({ isOpen, onClose, inventoryItems, currentItems, on
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
         <DialogHeader>
           <DialogTitle>Add Line Item from Inventory</DialogTitle>
           <DialogDescription>

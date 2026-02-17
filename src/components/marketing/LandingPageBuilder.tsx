@@ -1532,7 +1532,7 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
       </Dialog>
 
       <Dialog open={showProductSelector} onOpenChange={setShowProductSelector}>
-        <DialogContent className="sm:max-w-3xl max-h-[80vh] flex flex-col z-[200]">
+        <DialogContent className="sm:max-w-3xl max-h-[80vh] flex flex-col z-[200] bg-white">
           <DialogHeader>
             <DialogTitle>Select Product</DialogTitle>
             <DialogDescription>

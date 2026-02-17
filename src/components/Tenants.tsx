@@ -598,7 +598,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
       {/* Create/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>{editingTenant ? 'Edit Organization' : 'Create New Organization'}</DialogTitle>
             <DialogDescription>

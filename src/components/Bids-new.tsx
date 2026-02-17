@@ -573,7 +573,7 @@ export function Bids({ user }: BidsProps) {
 
       {/* Create/Edit Quote Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>{editingQuote ? 'Edit Quote' : 'Create New Quote'}</DialogTitle>
             <DialogDescription>
@@ -660,7 +660,7 @@ export function Bids({ user }: BidsProps) {
 
       {/* Add Line Item Dialog with Manual Price Override */}
       <Dialog open={showLineItemDialog} onOpenChange={setShowLineItemDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Add Line Item</DialogTitle>
             <DialogDescription>

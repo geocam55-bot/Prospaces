@@ -27,6 +27,7 @@ import { InvalidOrgIdAlert } from './InvalidOrgIdAlert';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { useDebounce } from '../utils/useDebounce';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 const supabase = createClient();
 
@@ -462,61 +463,40 @@ export function Users({ user }: UsersProps) {
     setNewPassword(tempPassword);
     
     try {
-      // Set the temporary password using SQL function
-      console.log('🔐 Setting temporary password in database...');
-      const { data: functionResult, error: functionError } = await supabase.rpc(
-        'set_user_temporary_password',
-        {
-          user_email: orgUser.email,
-          temp_password: tempPassword
-        }
-      );
-
-      if (functionError) {
-        console.error('❌ Failed to set password:', functionError);
-        
-        // Check if function doesn't exist
-        if (functionError.code === 'PGRST202' || functionError.message?.includes('Could not find the function')) {
-          console.error('❌ SQL function not created yet!');
-          throw new Error('⚠️ DATABASE SETUP REQUIRED: The password reset function has not been created yet. Please run the SQL script in /ADD_PASSWORD_CHANGE_SUPPORT.sql first. See console for details.');
-        }
-        
-        throw new Error(`Failed to set password: ${functionError.message}`);
-      }
-
-      if (!functionResult?.success) {
-        console.error('❌ Function returned error:', functionResult?.error);
-        throw new Error(functionResult?.error || 'Failed to set password');
-      }
-
-      console.log('✅ Temporary password set successfully!');
-      console.log('✅ Function result:', JSON.stringify(functionResult, null, 2));
+      // Call the server endpoint to reset the password
+      console.log('🔐 Calling server to reset password...');
+      const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server/reset-password`;
       
-      // Verify the flag was set by querying the profile using the user_id from the function result
-      if (functionResult?.user_id) {
-        const { data: verifyProfile, error: verifyError } = await supabase
-          .from('profiles')
-          .select('needs_password_change, email, name')
-          .eq('id', functionResult.user_id)
-          .single();
-        
-        console.log('🔍 Verification - Profile after password reset:');
-        console.log('  - Profile found for user_id:', functionResult.user_id);
-        console.log('  - Email:', verifyProfile?.email);
-        console.log('  - Name:', verifyProfile?.name);
-        console.log('  - needs_password_change:', verifyProfile?.needs_password_change);
-        console.log('  - profile_rows_updated:', functionResult?.profile_rows_updated);
-        console.log('  - auth_rows_updated:', functionResult?.auth_rows_updated);
-        
-        if (!verifyProfile?.needs_password_change) {
-          console.error('⚠️ WARNING: needs_password_change is NOT TRUE after reset!');
-          console.error('⚠️ This means the user will NOT be prompted to change password on login!');
-          console.error('⚠️ SQL function may have failed silently. Check the function result:', functionResult);
-        } else {
-          console.log('✅ SUCCESS: needs_password_change flag is set correctly!');
-        }
-      } else {
-        console.error('⚠️ No user_id returned from function! Cannot verify.');
+      const response = await fetch(serverUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`
+        },
+        body: JSON.stringify({
+          userEmail: orgUser.email,
+          tempPassword: tempPassword
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        console.error('❌ Server returned error:', result);
+        throw new Error(result.error || 'Failed to reset password');
+      }
+
+      console.log('✅ Password reset successfully!');
+      console.log('✅ Server result:', JSON.stringify(result, null, 2));
+      
+      // Check if profile was updated
+      if (!result.profileUpdated && result.warning) {
+        console.warn('⚠️ WARNING:', result.warning);
+        toast.warning('Password reset successful! Note: Run the database migration to enable password change prompts.', {
+          duration: 8000,
+        });
+      } else if (result.profileUpdated) {
+        console.log('✅ Profile flags updated - user will be prompted to change password on login');
       }
       
       // Try to send password reset email (optional - not critical)
@@ -722,7 +702,7 @@ export function Users({ user }: UsersProps) {
                     Invite User
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="bg-white">
                   <DialogHeader>
                     <DialogTitle>Invite New User</DialogTitle>
                     <DialogDescription>
@@ -963,7 +943,7 @@ export function Users({ user }: UsersProps) {
 
           {/* Edit User Dialog */}
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col bg-white">
               <DialogHeader>
                 <DialogTitle>Edit User</DialogTitle>
                 <DialogDescription>
@@ -1126,7 +1106,7 @@ export function Users({ user }: UsersProps) {
 
           {/* Reset Password Dialog */}
           <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
-            <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+            <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col bg-white">
               <DialogHeader>
                 <DialogTitle>🔐 Password Generated</DialogTitle>
                 <DialogDescription>

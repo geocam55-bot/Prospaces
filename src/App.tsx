@@ -26,6 +26,7 @@ import { ImportExport } from './components/ImportExport';
 import { ScheduledJobs } from './components/ScheduledJobs';
 import { BackgroundImportManager } from './components/BackgroundImportManager';
 import { AITaskSuggestions } from './components/AITaskSuggestions';
+import { ChangePasswordDialog } from './components/ChangePasswordDialog';
 import { KitchenPlanner } from './components/planners/KitchenPlanner';
 import { DeckPlanner } from './components/planners/DeckPlanner';
 import { GaragePlanner } from './components/planners/GaragePlanner';
@@ -41,6 +42,7 @@ import { PublicLandingPage } from './components/marketing/PublicLandingPage';
 import { LandingPageDebug } from './components/LandingPageDebug';
 import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnostic';
 import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDiagnosticTest';
+import { NylasCallback } from './components/NylasCallback';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
@@ -83,6 +85,8 @@ function App() {
   const [currentView, setCurrentView] = useState('landing');
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
 
   // Check if accessing favicon generator (no auth required)
   const urlParams = new URLSearchParams(window.location.search);
@@ -93,29 +97,28 @@ function App() {
   const isLandingPageDiagnostic = urlParams.get('view') === 'landing-page-diagnostic';
   const isLandingPageDiagnosticTest = urlParams.get('view') === 'landing-page-diagnostic-test';
   const isFixLogin = urlParams.get('view') === 'fix-login';
-
-  // Debug logging
-  console.log('URL Params:', {
-    view: urlParams.get('view'),
-    isLandingPageDiagnostic,
-    allParams: Object.fromEntries(urlParams.entries())
-  });
-
+  
   // Check path-based routing for public landing pages
   const path = window.location.pathname;
   const isLandingPage = path.startsWith('/landing/');
   const landingPageSlug = isLandingPage ? path.split('/landing/')[1]?.split('?')[0] : null;
+  const isNylasCallback = path === '/nylas-callback';
   
   console.log('[App.tsx] Routing Debug:', {
     path,
     isLandingPage,
     landingPageSlug,
+    isNylasCallback,
     fullURL: window.location.href
   });
   
   // Also support query parameter routing: ?view=landing&slug=WinterBlast
   const isLandingPageQuery = urlParams.get('view') === 'landing';
   const landingPageQuerySlug = urlParams.get('slug');
+
+  if (isNylasCallback) {
+    return <NylasCallback />;
+  }
 
   if (isLandingPage && landingPageSlug) {
     console.log('[App.tsx] Rendering PublicLandingPage with slug:', landingPageSlug);
@@ -201,16 +204,56 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Periodically check if user needs to change password (in case admin resets while user is logged in)
+  useEffect(() => {
+    if (!user || !session) return;
+
+    const checkPasswordChangeRequired = async () => {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('needs_password_change')
+          .eq('id', user.id)
+          .single();
+
+        if (profile?.needs_password_change === true && !showChangePassword) {
+          console.log('⚠️ Password change required detected!');
+          setNeedsPasswordChange(true);
+          setShowChangePassword(true);
+        }
+      } catch (error) {
+        // Silently fail - this is just a background check
+        console.debug('Background password check failed:', error);
+      }
+    };
+
+    // Check immediately
+    checkPasswordChangeRequired();
+
+    // Then check every 30 seconds
+    const interval = setInterval(checkPasswordChangeRequired, 30000);
+
+    return () => clearInterval(interval);
+  }, [user, session, showChangePassword]);
+
   const loadUserData = async (supabaseUser: SupabaseUser) => {
     try {
-      // Load user profile
+      // Load user profile with needs_password_change field
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, email, role, organization_id, manager_id')
+        .select('id, email, role, organization_id, manager_id, needs_password_change')
         .eq('id', supabaseUser.id)
         .single();
 
       if (profile) {
+        // Check if user needs to change password
+        console.log('🔐 Checking needs_password_change:', profile.needs_password_change);
+        if (profile.needs_password_change === true) {
+          console.log('⚠️ User needs to change password!');
+          setNeedsPasswordChange(true);
+          setShowChangePassword(true);
+        }
+
         // Initialize permissions for this user's role BEFORE setting user state
         await initializePermissions(profile.role);
 
@@ -366,8 +409,25 @@ function App() {
               {currentView === 'garage-planner' && <GaragePlanner user={user} />}
               {currentView === 'shed-planner' && <ShedPlanner user={user} />}
               {currentView === 'roof-planner' && <RoofPlanner user={user} />}
+              {currentView === 'change-password' && <ChangePasswordDialog user={user} />}
             </div>
           </main>
+
+          {/* Password Change Dialog - Shows when user needs to change temporary password */}
+          {showChangePassword && user && (
+            <ChangePasswordDialog
+              open={showChangePassword}
+              onClose={() => {
+                setShowChangePassword(false);
+                setNeedsPasswordChange(false);
+                // Reload user data to ensure flag is cleared
+                if (session?.user) {
+                  loadUserData(session.user);
+                }
+              }}
+              userId={user.id}
+            />
+          )}
         </div>
       </ThemeProvider>
     </ErrorBoundary>

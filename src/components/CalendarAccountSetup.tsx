@@ -551,7 +551,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md bg-white">
         <DialogHeader>
           <DialogTitle>
             {step === 'list' && (existingAccounts.length > 0 ? 'Manage Calendars' : 'Connect Calendar')}

@@ -12,6 +12,7 @@ import { createClient } from '../utils/supabase/client';
 import type { User, UserRole } from '../App';
 import { CompleteDatabaseSetup } from './CompleteDatabaseSetup';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface LoginProps {
   onLogin: (user: User, token: string) => void;
@@ -364,30 +365,46 @@ export function Login({ onLogin }: LoginProps) {
               console.warn('⚠️ Profile ID mismatch detected!');
               console.warn('Auth User ID:', signInData.user.id);
               console.warn('Profile User ID:', existingProfile.id);
-              console.warn('Attempting to fix by updating profile ID...');
+              console.warn('Calling server to fix profile mismatch with elevated permissions...');
               
-              // Try to update the profile ID to match the auth user
-              const { data: fixedProfile, error: fixError } = await supabase
-                .from('profiles')
-                .update({
-                  id: signInData.user.id,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('email', signInData.user.email || email)
-                .select()
-                .single();
-              
-              if (fixError) {
-                console.error('❌ Failed to fix profile ID:', fixError);
-                console.log('⚠️ Continuing with existing profile to allow login');
-                // Use existing profile but with correct auth ID for the session
+              // Call server endpoint to fix profile mismatch with elevated permissions
+              try {
+                const response = await fetch(
+                  `https://${projectId}.supabase.co/functions/v1/make-server/fix-profile-mismatch`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${publicAnonKey}`,
+                    },
+                    body: JSON.stringify({
+                      email: signInData.user.email || email,
+                      currentUserId: signInData.user.id,
+                      oldUserId: existingProfile.id,
+                    }),
+                  }
+                );
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                  console.error('❌ Server failed to fix profile mismatch:', result.error);
+                  // Fallback: use existing profile data with correct auth ID
+                  profile = {
+                    ...existingProfile,
+                    id: signInData.user.id,
+                  };
+                } else {
+                  console.log('✅ Server successfully fixed profile mismatch');
+                  profile = result.profile;
+                }
+              } catch (fetchError: any) {
+                console.error('❌ Failed to call server endpoint:', fetchError);
+                // Fallback: use existing profile data with correct auth ID
                 profile = {
                   ...existingProfile,
-                  id: signInData.user.id, // Use auth ID for session
+                  id: signInData.user.id,
                 };
-              } else {
-                console.log('✅ Profile ID fixed successfully');
-                profile = fixedProfile;
               }
             } else {
               profile = existingProfile;

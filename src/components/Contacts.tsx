@@ -393,7 +393,7 @@ export function Contacts({ user }: ContactsProps) {
         
         {/* Edit Contact Dialog - Available from Detail View */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
             <DialogHeader>
               <DialogTitle>Edit Contact</DialogTitle>
               <DialogDescription>
@@ -611,7 +611,7 @@ export function Contacts({ user }: ContactsProps) {
                   Add Contact
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto">
+              <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
                 <DialogHeader>
                   <DialogTitle>Add New Contact</DialogTitle>
                   <DialogDescription>
@@ -1041,7 +1041,7 @@ export function Contacts({ user }: ContactsProps) {
 
       {/* Edit Contact Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Edit Contact</DialogTitle>
             <DialogDescription>
@@ -1246,7 +1246,7 @@ export function Contacts({ user }: ContactsProps) {
 
       {/* Add Project Manager Dialog */}
       <Dialog open={isAddPMDialogOpen} onOpenChange={setIsAddPMDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Add Project Manager</DialogTitle>
             <DialogDescription>
@@ -1305,7 +1305,7 @@ export function Contacts({ user }: ContactsProps) {
 
       {/* Edit Project Manager Dialog */}
       <Dialog open={isEditPMDialogOpen} onOpenChange={setIsEditPMDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>Edit Project Manager</DialogTitle>
             <DialogDescription>

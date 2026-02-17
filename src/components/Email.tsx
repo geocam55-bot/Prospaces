@@ -2010,7 +2010,7 @@ export function Email({ user }: EmailProps) {
 
       {/* Compose Dialog */}
       <Dialog open={isComposeOpen} onOpenChange={setIsComposeOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl">Compose Email</DialogTitle>
             <DialogDescription className="text-sm">
@@ -2089,7 +2089,7 @@ export function Email({ user }: EmailProps) {
 
       {/* Create Folder Dialog */}
       <Dialog open={isFolderDialogOpen} onOpenChange={setIsFolderDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[400px] bg-white">
           <DialogHeader>
             <DialogTitle>Create Custom Folder</DialogTitle>
             <DialogDescription>

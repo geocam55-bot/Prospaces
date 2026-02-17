@@ -130,6 +130,8 @@ export function Inventory({ user }: InventoryProps) {
     category: '',
     description: '',
     unitOfMeasure: 'ea',
+    priceLevels: '',
+    departmentCode: '',
     quantityOnHand: 0,
     quantityOnOrder: 0,
     reorderLevel: 0,
@@ -443,6 +445,8 @@ export function Inventory({ user }: InventoryProps) {
         category: item.category,
         description: item.description,
         unitOfMeasure: item.unitOfMeasure,
+        priceLevels: (item as any).priceLevels || '',
+        departmentCode: (item as any).departmentCode || '',
         quantityOnHand: item.quantityOnHand,
         quantityOnOrder: item.quantityOnOrder || 0,
         reorderLevel: item.reorderLevel,
@@ -472,6 +476,8 @@ export function Inventory({ user }: InventoryProps) {
         category: '',
         description: '',
         unitOfMeasure: 'ea',
+        priceLevels: '',
+        departmentCode: '',
         quantityOnHand: 0,
         quantityOnOrder: 0,
         reorderLevel: 0,
@@ -1291,7 +1297,7 @@ export function Inventory({ user }: InventoryProps) {
 
       {/* Add/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onPaste={handleImagePaste}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white" onPaste={handleImagePaste}>
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
             <DialogDescription>
@@ -1538,6 +1544,22 @@ export function Inventory({ user }: InventoryProps) {
                       <SelectItem value="discontinued">Discontinued</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-700">Price Levels</label>
+                  <Input
+                    value={formData.priceLevels}
+                    onChange={(e) => setFormData({ ...formData, priceLevels: e.target.value })}
+                    placeholder="Enter price levels"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-700">Department Code</label>
+                  <Input
+                    value={formData.departmentCode}
+                    onChange={(e) => setFormData({ ...formData, departmentCode: e.target.value })}
+                    placeholder="Enter department code"
+                  />
                 </div>
                 <div className="md:col-span-3">
                   <label className="text-sm text-gray-700">Tags (comma-separated)</label>
