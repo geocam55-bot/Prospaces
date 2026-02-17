@@ -187,59 +187,38 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      const functionName = await findActiveFunctionName(supabaseUrl, session.access_token);
-      
-      const payload = {
-          provider: selectedProvider,
-          email: email || `user@${selectedProvider}.com`,
-          endpoint: functionName
-      };
+      // Call direct Google OAuth endpoint (no Nylas)
+      const endpoint = selectedProvider === 'gmail' 
+        ? '/make-server-8405be07/google-oauth-init'
+        : selectedProvider === 'outlook'
+        ? '/make-server-8405be07/microsoft-oauth-init'
+        : null;
 
-      console.log(`Invoking ${functionName} with payload:`, payload);
-
-      const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
-        body: payload
-      });
-
-      if (invokeError) {
-        console.error('Invoke error object:', invokeError);
-        
-        // Attempt fallback fetch to get the real error body
-        try {
-            const fallbackUrl = `${supabaseUrl}/functions/v1/${functionName}`;
-            console.log('Attempting fallback fetch to:', fallbackUrl);
-            const fallbackResponse = await fetch(fallbackUrl, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            const fallbackText = await fallbackResponse.text();
-            console.log('Fallback response text:', fallbackText);
-            
-            try {
-                const fallbackJson = JSON.parse(fallbackText);
-                if (fallbackJson.error) {
-                    throw new Error(fallbackJson.error);
-                }
-            } catch (e) {
-                // If not JSON, throw text if it's short, else throw original
-                if (fallbackText && fallbackText.length < 200) throw new Error(fallbackText);
-            }
-        } catch (fallbackErr: any) {
-            if (fallbackErr.message && fallbackErr.message !== 'Failed to fetch') {
-                throw fallbackErr;
-            }
-        }
-
-        throw new Error(invokeError.message || 'Failed to invoke backend function');
+      if (!endpoint) {
+        throw new Error(`${selectedProvider} is not yet supported`);
       }
 
+      console.log(`[OAuth] Calling ${endpoint}`);
+
+      const response = await fetch(`${supabaseUrl}/functions/v1${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[OAuth] Error response:', errorText);
+        throw new Error(errorText || 'Failed to initiate OAuth');
+      }
+
+      const data = await response.json();
+
       if (!data?.success || !data?.authUrl) {
-        throw new Error(data?.error || `Failed to generate authorization URL.`);
+        throw new Error(data?.error || 'Failed to generate authorization URL.');
       }
 
       // Open OAuth popup
