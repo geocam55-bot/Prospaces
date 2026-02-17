@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Mail, CheckCircle, AlertCircle, Info, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { projectId } from '../utils/supabase/info';
 
 interface EmailAccountSetupProps {
   isOpen: boolean;
@@ -38,59 +38,9 @@ interface EmailAccount {
   };
 }
 
-// Function to find the correct active endpoint
-async function findActiveEndpoint(supabaseUrl: string, accessToken?: string): Promise<string> {
-  const candidates = [
-    'make-server-8405be07/nylas-health',
-    'make-server/nylas-health',
-    'server/nylas-health',
-    'nylas-health'
-  ];
-
-  console.log('Probing endpoints for Nylas services...');
-
-  for (const candidate of candidates) {
-    try {
-      const url = `${supabaseUrl}/functions/v1/${candidate}`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout per probe
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': accessToken ? `Bearer ${accessToken}` : `Bearer ${publicAnonKey}`,
-          'apikey': publicAnonKey, // CRITICAL: Supabase Gateway requires apikey header
-        },
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        console.log(`✅ Found active endpoint: ${candidate}`);
-        // Return the prefix (e.g., 'server' or 'make-server' or '')
-        const parts = candidate.split('/');
-        if (parts.length > 1) {
-          return parts[0];
-        } else {
-          return ''; // root function
-        }
-      } else {
-          // If 401, maybe the function exists but auth failed?
-          // We assume it exists to prevent fallback to 'server' incorrectly if auth is just misconfigured
-          if (response.status === 401) {
-              console.warn(`⚠️ Endpoint ${candidate} returned 401, assuming it exists but requires valid auth.`);
-              const parts = candidate.split('/');
-              return parts.length > 1 ? parts[0] : '';
-          }
-      }
-    } catch (e) {
-      // Continue to next candidate
-    }
-  }
-  
-  // Default to make-server-8405be07 as it's the most specific deployed name usually
-  console.warn('❌ Could not find active endpoint. Defaulting to "make-server-8405be07"');
+// Function to find the active function name
+async function findActiveFunctionName(supabaseUrl: string): Promise<string> {
+  // We'll prioritize the standard make-server format
   return 'make-server-8405be07';
 }
 
@@ -206,50 +156,24 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      // 1. Probe for correct endpoint
-      const activePrefix = await findActiveEndpoint(supabaseUrl, session.access_token);
-      const endpoint = activePrefix ? `${activePrefix}/nylas-connect` : 'nylas-connect';
+      // Use standard Supabase invoke - much more reliable for headers
+      const functionName = await findActiveFunctionName(supabaseUrl);
       
-      console.log('Using endpoint:', endpoint);
-
-      // Call appropriate OAuth function
-      // CRITICAL: Must include 'apikey' header for Supabase Gateway
-      const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': publicAnonKey, 
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // We are calling the root of the function which now accepts POST for init
+      const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
+        body: {
           provider: selectedProvider,
           email: email || `user@${selectedProvider}.com`,
-          endpoint: activePrefix // Pass the prefix so callback knows where to look
-        }),
-      }).catch((fetchError) => {
-        console.error('Fetch error details:', fetchError);
-        throw new Error(
-          `Unable to connect to email backend. The Edge Functions may not be deployed yet.`
-        );
+          endpoint: functionName // Pass the name so we know where to route callback
+        }
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OAuth init error response:', errorText);
-        
-        let errorMessage = '';
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-        
-        throw new Error(`Failed to initialize OAuth (${response.status}): ${errorMessage}`);
+      if (invokeError) {
+        console.error('Invoke error:', invokeError);
+        // Fallback to fetch if invoke fails purely on network (unlikely) or 404
+        throw new Error(invokeError.message || 'Failed to invoke backend function');
       }
 
-      const data = await response.json();
-      
       if (!data?.success || !data?.authUrl) {
         throw new Error(data?.error || `Failed to generate authorization URL.`);
       }
@@ -274,11 +198,8 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       // Listen for OAuth callback
       const handleMessage = (event: MessageEvent) => {
         if (!event.origin.includes('supabase.co') && event.origin !== window.location.origin) {
-            // Check if origin matches Supabase OR current site (for local dev/callback)
             return;
         }
-        
-        // Also allow messages from ourselves (NylasCallback posts to opener)
         
         if (event.data.type === 'nylas-oauth-success' || event.data.type === 'gmail-oauth-success') {
           console.log('[EmailAccountSetup] OAuth success message received!');
@@ -309,15 +230,12 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
       window.addEventListener('message', handleMessage);
 
-      // Handle popup closed before OAuth completed
       const checkPopupClosed = setInterval(() => {
         if (popup?.closed) {
           clearInterval(checkPopupClosed);
           window.removeEventListener('message', handleMessage);
           if (isConnecting) {
             setIsConnecting(false);
-            // Don't show error if it was just closed, assumed user cancelled
-            // setError('OAuth cancelled');
           }
         }
       }, 500);
@@ -347,20 +265,10 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      // 1. Probe for correct endpoint
-      const activePrefix = await findActiveEndpoint(supabaseUrl, session.access_token);
-      const endpoint = activePrefix ? `${activePrefix}/nylas-connect` : 'nylas-connect';
-
-      // Call Nylas connect function for IMAP using fetch
-      // CRITICAL: Must include 'apikey' header for Supabase Gateway
-      const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': publicAnonKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const functionName = await findActiveFunctionName(supabaseUrl);
+      
+      const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
+         body: {
           provider: 'imap',
           email: imapUsername,
           imapConfig: {
@@ -375,15 +283,12 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
             username: imapUsername,
             password: imapPassword,
           },
-        }),
+        }
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to connect IMAP: ${errorText}`);
+      if (invokeError) {
+         throw new Error(`Failed to connect IMAP: ${invokeError.message}`);
       }
-
-      const data = await response.json();
 
       if (!data?.success) {
         throw new Error(data?.error || 'Failed to connect IMAP account');
@@ -413,7 +318,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       setIsConnecting(false);
       setStep('success');
 
-      // Add/Update account after a short delay to show success message
       setTimeout(() => {
         onAccountAdded(account);
         handleClose();

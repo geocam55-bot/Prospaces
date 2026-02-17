@@ -27,44 +27,9 @@ interface CalendarAccountSetupProps {
   existingAccounts?: CalendarAccount[];
 }
 
-// Function to find the correct active endpoint
-async function findActiveEndpoint(supabaseUrl: string, accessToken?: string): Promise<string> {
-  const candidates = [
-    'make-server-8405be07/nylas-health',
-    'make-server/nylas-health',
-    'server/nylas-health',
-    'nylas-health'
-  ];
-
-  for (const candidate of candidates) {
-    try {
-      const url = `${supabaseUrl}/functions/v1/${candidate}`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000); 
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': accessToken ? `Bearer ${accessToken}` : `Bearer ${publicAnonKey}`,
-          'apikey': publicAnonKey,
-        },
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        const parts = candidate.split('/');
-        return parts.length > 1 ? parts[0] : '';
-      }
-      if (response.status === 401) {
-          const parts = candidate.split('/');
-          return parts.length > 1 ? parts[0] : '';
-      }
-    } catch (e) {
-      // Continue
-    }
-  }
+// Function to find the active function name
+async function findActiveFunctionName(supabaseUrl: string): Promise<string> {
+  // We'll prioritize the standard make-server format
   return 'make-server-8405be07';
 }
 
@@ -143,39 +108,24 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         throw new Error('Not authenticated');
       }
 
-      // 1. Probe for correct endpoint
-      const activePrefix = await findActiveEndpoint(supabaseUrl, session.access_token);
-      const endpoint = activePrefix ? `${activePrefix}/nylas-connect` : 'nylas-connect';
-
-      // Call Edge Function using fetch with correct headers
-      const response = await fetch(`${supabaseUrl}/functions/v1/${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': publicAnonKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Use standard Supabase invoke - much more reliable for headers
+      const functionName = await findActiveFunctionName(supabaseUrl);
+      
+      const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
+        body: {
           provider: selectedProvider === 'google' ? 'gmail' : 'outlook',
           email: email.trim(),
           returnUrl: window.location.origin,
-          endpoint: activePrefix 
-        }),
+          endpoint: functionName 
+        }
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMsg = errorText;
-        try {
-            const json = JSON.parse(errorText);
-            errorMsg = json.error || errorText;
-        } catch(e) {}
-        throw new Error(errorMsg);
+      if (invokeError) {
+        console.error('[Calendar] Invoke error:', invokeError);
+        throw new Error(invokeError.message || 'Failed to initialize OAuth.');
       }
 
-      const oauthData = await response.json();
-
-      if (!oauthData?.authUrl) {
+      if (!data?.authUrl) {
         throw new Error('Failed to get authorization URL from server.');
       }
 
@@ -189,7 +139,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
       const top = window.screen.height / 2 - height / 2;
       
       const popup = window.open(
-        oauthData.authUrl,
+        data.authUrl,
         'oauth-popup',
         `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
       );

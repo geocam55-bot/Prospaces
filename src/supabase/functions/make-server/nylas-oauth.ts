@@ -25,11 +25,15 @@ export const nylasOAuth = (app: Hono) => {
         url.pathname = `/functions/v1${path}`;
     }
 
+    // Ensure we point to nylas-callback regardless of how we were called
+    // (e.g. if called at root / or /nylas-connect)
     const parts = url.pathname.split('/');
+    // Remove last part if it looks like a function name or action
     const lastPart = parts[parts.length - 1];
-    
-    if (lastPart === 'nylas-connect' || lastPart === 'nylas-token-exchange') {
+    if (['nylas-connect', 'nylas-token-exchange', '', 'make-server-8405be07', 'server'].includes(lastPart)) {
         parts[parts.length - 1] = 'nylas-callback';
+    } else {
+        parts.push('nylas-callback');
     }
     
     url.pathname = parts.join('/');
@@ -38,31 +42,26 @@ export const nylasOAuth = (app: Hono) => {
 
   // 2. Determine the best Redirect URI to use
   const determineRedirectUri = (req: Request, clientProvided?: string) => {
-    // A. Manual Override (Hardcoded safety net)
+    // A. Manual Override
     if (MANUAL_CALLBACK_URL && MANUAL_CALLBACK_URL.length > 0) {
         return MANUAL_CALLBACK_URL;
     }
 
     // B. Client Provided (Frontend-Centric)
-    // If the frontend explicitly sends a URI (and it's not localhost), we trust it.
-    // This supports Vercel deployments where the dashboard is configured for the frontend.
     if (clientProvided && !clientProvided.includes('localhost') && !clientProvided.includes('127.0.0.1')) {
         return clientProvided;
     }
 
-    // C. Environment Variable (Config-Centric)
-    // If a specific env var is set, use it.
+    // C. Environment Variable
     const envVar = Deno.env.get('NYLAS_REDIRECT_URI') || Deno.env.get('CALENDAR_REDIRECT_URI');
     if (envVar && !envVar.includes('localhost') && !envVar.includes('127.0.0.1')) {
-        // Smart fix: If env var is just a domain, append the callback path
         if (!envVar.includes('nylas-callback')) {
             return envVar.endsWith('/') ? `${envVar}nylas-callback` : `${envVar}/nylas-callback`;
         }
         return envVar;
     }
 
-    // D. Backend Fallback (Backend-Centric)
-    // If nothing else is configured, generate the Supabase URL.
+    // D. Backend Fallback
     return getBackendUrl(req);
   };
 
@@ -198,8 +197,6 @@ export const nylasOAuth = (app: Hono) => {
       const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
       const NYLAS_CLIENT_ID = Deno.env.get('NYLAS_CLIENT_ID') || NYLAS_API_KEY;
       
-      // Critical: Use the same logic to determine the redirect URI as initHandler did
-      // This prevents "redirect_uri mismatch" errors during exchange
       const finalRedirectUri = determineRedirectUri(c.req.raw, redirect_uri);
 
       const tokenResponse = await fetch('https://api.us.nylas.com/v3/connect/token', {
@@ -265,14 +262,9 @@ export const nylasOAuth = (app: Hono) => {
       const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
       const NYLAS_CLIENT_ID = Deno.env.get('NYLAS_CLIENT_ID') || NYLAS_API_KEY;
       
-      // If we are here, Nylas redirected to the backend.
-      // We should use the URI that matches this backend endpoint.
+      // Assume backend URL if we are here
       let NYLAS_REDIRECT_URI = getBackendUrl(c.req.raw);
-      
-      // Exception: If MANUAL_CALLBACK_URL is set, we must use it (in case it differs slightly but still routed here)
-      if (MANUAL_CALLBACK_URL) {
-          NYLAS_REDIRECT_URI = MANUAL_CALLBACK_URL;
-      }
+      if (MANUAL_CALLBACK_URL) NYLAS_REDIRECT_URI = MANUAL_CALLBACK_URL;
 
       console.log('Callback exchanging token with URI:', NYLAS_REDIRECT_URI);
 
@@ -330,7 +322,8 @@ export const nylasOAuth = (app: Hono) => {
 
   app.post('*', async (c: any, next: any) => {
     const path = c.req.path;
-    if (path.endsWith('/nylas-connect')) return initHandler(c);
+    // Handle both specific path AND root path (for direct invoke)
+    if (path.endsWith('/nylas-connect') || path === '/' || path === '') return initHandler(c);
     if (path.endsWith('/nylas-token-exchange')) return tokenExchangeHandler(c);
     await next();
   });
