@@ -44,6 +44,7 @@ import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnos
 import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDiagnosticTest';
 import { OAuthCallback } from './components/OAuthCallback';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { TermsOfService } from './components/TermsOfService';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
@@ -99,6 +100,7 @@ function App() {
   const isLandingPageDiagnosticTest = urlParams.get('view') === 'landing-page-diagnostic-test';
   const isFixLogin = urlParams.get('view') === 'fix-login';
   const isPrivacyPolicy = urlParams.get('view') === 'privacy-policy';
+  const isTermsOfService = urlParams.get('view') === 'terms-of-service';
   
   // Check path-based routing for public landing pages
   const path = window.location.pathname;
@@ -106,6 +108,7 @@ function App() {
   const landingPageSlug = isLandingPage ? path.split('/landing/')[1]?.split('?')[0] : null;
   const isOAuthCallback = path === '/oauth-callback';
   const isPrivacyPolicyPath = path === '/privacy-policy';
+  const isTermsOfServicePath = path === '/terms-of-service';
   
   console.log('[App.tsx] Routing Debug:', {
     path,
@@ -163,6 +166,10 @@ function App() {
 
   if (isPrivacyPolicy || isPrivacyPolicyPath) {
     return <PrivacyPolicy />;
+  }
+
+  if (isTermsOfService || isTermsOfServicePath) {
+    return <TermsOfService />;
   }
 
   useEffect(() => {

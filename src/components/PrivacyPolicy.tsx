@@ -363,6 +363,15 @@ export function PrivacyPolicy({ onBack, standalone = true }: PrivacyPolicyProps)
           <p className="text-sm text-slate-500">
             &copy; {new Date().getFullYear()} ProSpaces CRM. All rights reserved.
           </p>
+          <div className="flex items-center justify-center gap-4 mt-3">
+            <a href="?view=privacy-policy" className="text-xs text-blue-600 hover:underline">
+              Privacy Policy
+            </a>
+            <span className="text-xs text-slate-300">|</span>
+            <a href="?view=terms-of-service" className="text-xs text-blue-600 hover:underline">
+              Terms of Service
+            </a>
+          </div>
           <p className="text-xs text-slate-400 mt-2">
             This privacy policy is effective as of {effectiveDate}.
           </p>

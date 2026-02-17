@@ -309,8 +309,19 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
               </div>
               <span className="text-xl">ProSpaces CRM</span>
             </div>
-            <div className="text-gray-400 text-sm">
-              © 2025 ProSpaces CRM. All rights reserved.
+            <div className="flex flex-col items-center md:items-end gap-2">
+              <div className="flex items-center gap-4 text-sm">
+                <a href="?view=privacy-policy" className="text-gray-400 hover:text-white transition-colors">
+                  Privacy Policy
+                </a>
+                <span className="text-gray-600">|</span>
+                <a href="?view=terms-of-service" className="text-gray-400 hover:text-white transition-colors">
+                  Terms of Service
+                </a>
+              </div>
+              <div className="text-gray-400 text-sm">
+                &copy; {new Date().getFullYear()} ProSpaces CRM. All rights reserved.
+              </div>
             </div>
           </div>
         </div>

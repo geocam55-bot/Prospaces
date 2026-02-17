@@ -937,8 +937,19 @@ export function Login({ onLogin }: LoginProps) {
         </Card>
         
         {/* Footer */}
-        <div className="text-center text-white/80 text-sm">
-          © 2025 ProSpaces CRM. All rights reserved.
+        <div className="text-center text-white/80 text-sm space-y-2">
+          <div className="flex items-center justify-center gap-3">
+            <a href="?view=privacy-policy" className="hover:text-white transition-colors underline underline-offset-2">
+              Privacy Policy
+            </a>
+            <span className="text-white/40">|</span>
+            <a href="?view=terms-of-service" className="hover:text-white transition-colors underline underline-offset-2">
+              Terms of Service
+            </a>
+          </div>
+          <div>
+            &copy; {new Date().getFullYear()} ProSpaces CRM. All rights reserved.
+          </div>
         </div>
       </div>
 
