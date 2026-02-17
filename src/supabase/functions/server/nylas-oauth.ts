@@ -20,16 +20,18 @@ export const nylasOAuth = (app: Hono) => {
       url.protocol = 'https:';
     }
 
+    // Fix path if missing /functions/v1 prefix (common in some Supabase environments)
     if (url.hostname.endsWith('.supabase.co') && !url.pathname.startsWith('/functions/v1/')) {
         const path = url.pathname.startsWith('/') ? url.pathname : `/${url.pathname}`;
         url.pathname = `/functions/v1${path}`;
     }
 
-    // Ensure we point to nylas-callback regardless of how we were called
+    // Ensure we point to nylas-callback
     const parts = url.pathname.split('/');
     const cleanParts = parts.filter(p => !['nylas-connect', 'nylas-token-exchange'].includes(p));
     const lastPart = cleanParts[cleanParts.length - 1];
     
+    // Replace the function name endpoint with nylas-callback, or append it
     if (lastPart === 'server' || lastPart === 'make-server-8405be07' || lastPart === '' || !lastPart) {
         if (lastPart === '') cleanParts.pop();
         cleanParts.push('nylas-callback');
@@ -37,26 +39,20 @@ export const nylasOAuth = (app: Hono) => {
          cleanParts[cleanParts.length - 1] = 'nylas-callback';
     }
     
-    url.pathname = cleanParts.join('/');
+    // Sanitize: ensure no double slashes
+    url.pathname = cleanParts.join('/').replace(/\/\//g, '/');
     return url.toString();
   };
 
   // 2. Determine the best Redirect URI to use
   const determineRedirectUri = (req: Request, clientProvided?: string) => {
+    // Priority 1: Manual Override (Code-level config)
     if (MANUAL_CALLBACK_URL && MANUAL_CALLBACK_URL.length > 0) return MANUAL_CALLBACK_URL;
 
-    if (clientProvided && !clientProvided.includes('localhost') && !clientProvided.includes('127.0.0.1')) {
-        return clientProvided;
-    }
-
-    const envVar = Deno.env.get('NYLAS_REDIRECT_URI') || Deno.env.get('CALENDAR_REDIRECT_URI');
-    if (envVar && !envVar.includes('localhost') && !envVar.includes('127.0.0.1')) {
-        if (!envVar.includes('nylas-callback')) {
-            return envVar.endsWith('/') ? `${envVar}nylas-callback` : `${envVar}/nylas-callback`;
-        }
-        return envVar;
-    }
-
+    // Priority 2: Backend-centric default (The Edge Function URL)
+    // We explicitly IGNORE the environment variables (NYLAS_REDIRECT_URI) here because
+    // the error logs show they are pointing to the frontend (pro-spaces.vercel.app),
+    // which is incorrect for this backend-centric architecture.
     return getBackendUrl(req);
   };
 
@@ -81,7 +77,7 @@ export const nylasOAuth = (app: Hono) => {
       console.log('Nylas Auth Config:', { 
         finalRedirectUri,
         provider,
-        source: MANUAL_CALLBACK_URL ? 'Manual Override' : (finalRedirectUri === redirect_uri ? 'Client Provided' : 'Backend/Env')
+        source: MANUAL_CALLBACK_URL ? 'Manual Override' : 'Backend Auto-Detection'
       });
 
       if (!NYLAS_API_KEY) return c.json({ error: 'Missing NYLAS_API_KEY' }, 500);
@@ -160,7 +156,7 @@ export const nylasOAuth = (app: Hono) => {
         try {
             const errorJson = JSON.parse(errorText);
             if (errorJson.error?.type === 'api.invalid_query_params' && errorJson.error?.message?.includes('RedirectURI')) {
-                friendlyError = `⚠️ Configuration Required\n\nNylas rejected the Redirect URI.\n\nRequested URI: ${finalRedirectUri}\n\nOPTIONS TO FIX:\n1. Add the URI above to "Allowed Callback URIs" in Nylas Dashboard.\n2. OR Update your NYLAS_REDIRECT_URI env var to match what is in your dashboard.\n3. OR Edit nylas-oauth.ts and paste your URI into MANUAL_CALLBACK_URL.`;
+                friendlyError = `⚠️ Callback URI Mismatch\n\nThe backend is using: ${finalRedirectUri}\n\nBut Nylas rejected it.\n\nACTION REQUIRED:\nGo to Nylas Dashboard > App Settings > Authentication and add this URI to "Allowed Callback URIs".`;
             }
         } catch (e) { }
         return c.json({ error: friendlyError }, 400);
@@ -332,15 +328,12 @@ export const nylasOAuth = (app: Hono) => {
   app.get('/*/nylas-callback', callbackHandler);
   
   // 2. Explicit Init Routes
-  // We explicitly handle the root '/' and common function name paths
-  // to ensure the router matches them regardless of how Hono sees the path.
   app.post('/', initHandler);
   app.post('/server', initHandler);
   app.post('/make-server-8405be07', initHandler);
   app.post('/nylas-connect', initHandler);
   
   // 3. Fallback Catch-all for Init
-  // Use a wildcard but exclude paths that might be handled by other routers (like azure) if they were defined after (which they aren't, but safety first)
   app.post('*', async (c: any, next: any) => {
      const path = c.req.path;
      if (path.includes('azure')) { await next(); return; }
