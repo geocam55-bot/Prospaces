@@ -1,6 +1,9 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
 
+// Shared select string for all inventory queries — must match the actual DB columns
+const INVENTORY_SELECT = 'id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, price_tier_1, price_tier_2, price_tier_3, price_tier_4, price_tier_5, department_code, unit_of_measure, image_url, organization_id, created_at, updated_at';
+
 export async function getAllInventoryClient() {
   try {
     const supabase = createClient();
@@ -57,7 +60,7 @@ export async function getAllInventoryClient() {
     while (hasMore) {
       const batchQuery = supabase
         .from('inventory')
-        .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, image_url, department_code, organization_id, created_at, updated_at', { count: 'exact' })
+        .select(INVENTORY_SELECT, { count: 'exact' })
         .eq('organization_id', userOrgId)
         .order('name', { ascending: true })
         .range(offset, offset + batchSize - 1);
@@ -154,7 +157,7 @@ export async function searchInventoryClient(filters?: {
 
     let query = supabase
       .from('inventory')
-      .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, image_url, department_code, organization_id, created_at, updated_at');
+      .select(INVENTORY_SELECT);
 
     // Apply organization filter based on user's role
     // ALL roles should only see inventory from their own organization
@@ -261,7 +264,29 @@ export async function createInventoryClient(itemData: any) {
       cleanData.cost = Math.round(cost * 100);
     }
     if (itemData.image_url !== undefined) cleanData.image_url = itemData.image_url;
+    // Price tiers (stored in cents)
+    if (itemData.price_tier_1 !== undefined) {
+      const p = typeof itemData.price_tier_1 === 'string' ? parseFloat(itemData.price_tier_1) : itemData.price_tier_1;
+      cleanData.price_tier_1 = Math.round(p * 100);
+    }
+    if (itemData.price_tier_2 !== undefined) {
+      const p = typeof itemData.price_tier_2 === 'string' ? parseFloat(itemData.price_tier_2) : itemData.price_tier_2;
+      cleanData.price_tier_2 = Math.round(p * 100);
+    }
+    if (itemData.price_tier_3 !== undefined) {
+      const p = typeof itemData.price_tier_3 === 'string' ? parseFloat(itemData.price_tier_3) : itemData.price_tier_3;
+      cleanData.price_tier_3 = Math.round(p * 100);
+    }
+    if (itemData.price_tier_4 !== undefined) {
+      const p = typeof itemData.price_tier_4 === 'string' ? parseFloat(itemData.price_tier_4) : itemData.price_tier_4;
+      cleanData.price_tier_4 = Math.round(p * 100);
+    }
+    if (itemData.price_tier_5 !== undefined) {
+      const p = typeof itemData.price_tier_5 === 'string' ? parseFloat(itemData.price_tier_5) : itemData.price_tier_5;
+      cleanData.price_tier_5 = Math.round(p * 100);
+    }
     if (itemData.department_code !== undefined) cleanData.department_code = itemData.department_code;
+    if (itemData.unit_of_measure !== undefined) cleanData.unit_of_measure = itemData.unit_of_measure;
 
     console.log('➕ Creating inventory item with clean data:', cleanData);
 
@@ -322,7 +347,29 @@ export async function updateInventoryClient(id: string, itemData: any) {
       cleanData.cost = Math.round(cost * 100);
     }
     if (itemData.image_url !== undefined) cleanData.image_url = itemData.image_url;
+    // Price tiers (stored in cents)
+    if (itemData.price_tier_1 !== undefined) {
+      const p = typeof itemData.price_tier_1 === 'string' ? parseFloat(itemData.price_tier_1) : itemData.price_tier_1;
+      cleanData.price_tier_1 = Math.round(p * 100);
+    }
+    if (itemData.price_tier_2 !== undefined) {
+      const p = typeof itemData.price_tier_2 === 'string' ? parseFloat(itemData.price_tier_2) : itemData.price_tier_2;
+      cleanData.price_tier_2 = Math.round(p * 100);
+    }
+    if (itemData.price_tier_3 !== undefined) {
+      const p = typeof itemData.price_tier_3 === 'string' ? parseFloat(itemData.price_tier_3) : itemData.price_tier_3;
+      cleanData.price_tier_3 = Math.round(p * 100);
+    }
+    if (itemData.price_tier_4 !== undefined) {
+      const p = typeof itemData.price_tier_4 === 'string' ? parseFloat(itemData.price_tier_4) : itemData.price_tier_4;
+      cleanData.price_tier_4 = Math.round(p * 100);
+    }
+    if (itemData.price_tier_5 !== undefined) {
+      const p = typeof itemData.price_tier_5 === 'string' ? parseFloat(itemData.price_tier_5) : itemData.price_tier_5;
+      cleanData.price_tier_5 = Math.round(p * 100);
+    }
     if (itemData.department_code !== undefined) cleanData.department_code = itemData.department_code;
+    if (itemData.unit_of_measure !== undefined) cleanData.unit_of_measure = itemData.unit_of_measure;
     // Note: Cost field temporarily removed from update to avoid PGRST204 error
     // Will be re-enabled after database migration
 
@@ -437,7 +484,29 @@ export async function upsertInventoryBySKUClient(itemData: any) {
       cleanData.cost = Math.round(cost * 100);
     }
     if (itemData.image_url !== undefined) cleanData.image_url = itemData.image_url;
+    // Price tiers (stored in cents)
+    if (itemData.price_tier_1 !== undefined) {
+      const p = typeof itemData.price_tier_1 === 'string' ? parseFloat(itemData.price_tier_1) : itemData.price_tier_1;
+      cleanData.price_tier_1 = Math.round(p * 100);
+    }
+    if (itemData.price_tier_2 !== undefined) {
+      const p = typeof itemData.price_tier_2 === 'string' ? parseFloat(itemData.price_tier_2) : itemData.price_tier_2;
+      cleanData.price_tier_2 = Math.round(p * 100);
+    }
+    if (itemData.price_tier_3 !== undefined) {
+      const p = typeof itemData.price_tier_3 === 'string' ? parseFloat(itemData.price_tier_3) : itemData.price_tier_3;
+      cleanData.price_tier_3 = Math.round(p * 100);
+    }
+    if (itemData.price_tier_4 !== undefined) {
+      const p = typeof itemData.price_tier_4 === 'string' ? parseFloat(itemData.price_tier_4) : itemData.price_tier_4;
+      cleanData.price_tier_4 = Math.round(p * 100);
+    }
+    if (itemData.price_tier_5 !== undefined) {
+      const p = typeof itemData.price_tier_5 === 'string' ? parseFloat(itemData.price_tier_5) : itemData.price_tier_5;
+      cleanData.price_tier_5 = Math.round(p * 100);
+    }
     if (itemData.department_code !== undefined) cleanData.department_code = itemData.department_code;
+    if (itemData.unit_of_measure !== undefined) cleanData.unit_of_measure = itemData.unit_of_measure;
     // Note: Cost field temporarily removed from upsert to avoid PGRST204 error
     // Will be re-enabled after database migration
 
@@ -449,7 +518,7 @@ export async function upsertInventoryBySKUClient(itemData: any) {
     if (itemData.sku) {
       const { data, error } = await supabase
         .from('inventory')
-        .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, image_url, department_code, organization_id, created_at, updated_at')
+        .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, image_url, organization_id, created_at, updated_at')
         .eq('sku', itemData.sku)
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: true }); // Oldest first
@@ -589,7 +658,29 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
         cleanData.cost = Math.round(cost * 100);
       }
       if (itemData.image_url !== undefined) cleanData.image_url = itemData.image_url;
+      // Price tiers (stored in cents)
+      if (itemData.price_tier_1 !== undefined) {
+        const p = typeof itemData.price_tier_1 === 'string' ? parseFloat(itemData.price_tier_1) : itemData.price_tier_1;
+        cleanData.price_tier_1 = Math.round(p * 100);
+      }
+      if (itemData.price_tier_2 !== undefined) {
+        const p = typeof itemData.price_tier_2 === 'string' ? parseFloat(itemData.price_tier_2) : itemData.price_tier_2;
+        cleanData.price_tier_2 = Math.round(p * 100);
+      }
+      if (itemData.price_tier_3 !== undefined) {
+        const p = typeof itemData.price_tier_3 === 'string' ? parseFloat(itemData.price_tier_3) : itemData.price_tier_3;
+        cleanData.price_tier_3 = Math.round(p * 100);
+      }
+      if (itemData.price_tier_4 !== undefined) {
+        const p = typeof itemData.price_tier_4 === 'string' ? parseFloat(itemData.price_tier_4) : itemData.price_tier_4;
+        cleanData.price_tier_4 = Math.round(p * 100);
+      }
+      if (itemData.price_tier_5 !== undefined) {
+        const p = typeof itemData.price_tier_5 === 'string' ? parseFloat(itemData.price_tier_5) : itemData.price_tier_5;
+        cleanData.price_tier_5 = Math.round(p * 100);
+      }
       if (itemData.department_code !== undefined) cleanData.department_code = itemData.department_code;
+      if (itemData.unit_of_measure !== undefined) cleanData.unit_of_measure = itemData.unit_of_measure;
 
       return cleanData;
     });
@@ -737,12 +828,20 @@ function mapInventoryItem(dbItem: any): any {
   // Convert cost from cents (integer) back to dollars (decimal)
   const costInDollars = dbItem.cost ? dbItem.cost / 100 : 0;
   
-  // For simplified schema: use unit_price for all price tiers
-  const priceTier1 = unitPriceInDollars;
-  const priceTier2 = unitPriceInDollars;
-  const priceTier3 = unitPriceInDollars;
-  const priceTier4 = unitPriceInDollars;
-  const priceTier5 = unitPriceInDollars;
+  // ✅ FIX: Use != null check instead of truthiness to properly handle $0.00 prices
+  // Only fall back to unitPriceInDollars when the tier is genuinely NULL/undefined (not set)
+  // A value of 0 is a legitimate price ($0.00) and should NOT trigger fallback
+  const hasTierData = dbItem.price_tier_1 != null || dbItem.price_tier_2 != null || 
+                      dbItem.price_tier_3 != null || dbItem.price_tier_4 != null || 
+                      dbItem.price_tier_5 != null;
+  
+  // If no tier data at all, fall back all tiers to unit_price (single-price item)
+  // If at least one tier is set, use actual values (null tiers show as 0)
+  const priceTier1 = dbItem.price_tier_1 != null ? dbItem.price_tier_1 / 100 : unitPriceInDollars;
+  const priceTier2 = dbItem.price_tier_2 != null ? dbItem.price_tier_2 / 100 : (hasTierData ? 0 : unitPriceInDollars);
+  const priceTier3 = dbItem.price_tier_3 != null ? dbItem.price_tier_3 / 100 : (hasTierData ? 0 : unitPriceInDollars);
+  const priceTier4 = dbItem.price_tier_4 != null ? dbItem.price_tier_4 / 100 : (hasTierData ? 0 : unitPriceInDollars);
+  const priceTier5 = dbItem.price_tier_5 != null ? dbItem.price_tier_5 / 100 : (hasTierData ? 0 : unitPriceInDollars);
   
   return {
     ...snakeToCamel(dbItem),
@@ -750,16 +849,17 @@ function mapInventoryItem(dbItem: any): any {
     quantityOnHand: dbItem.quantity || 0,
     quantityOnOrder: dbItem.quantity_on_order || 0,
     unitPrice: unitPriceInDollars,
-    cost: costInDollars, // Convert cost from cents to dollars
+    cost: costInDollars,
     priceTier1,
     priceTier2,
     priceTier3,
     priceTier4,
     priceTier5,
-    reorderLevel: 0, // Simplified schema doesn't have reorder_level - default to 0
-    minStock: 0, // Simplified schema doesn't have min_stock - default to 0
-    maxStock: 0, // Simplified schema doesn't have max_stock - default to 0
-    unitOfMeasure: 'ea',
+    departmentCode: dbItem.department_code || '',
+    unitOfMeasure: dbItem.unit_of_measure || 'ea',
+    reorderLevel: 0,
+    minStock: 0,
+    maxStock: 0,
     status: 'active',
     tags: [],
   };

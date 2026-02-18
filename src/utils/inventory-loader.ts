@@ -92,7 +92,7 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
     // Build query with server-side filtering
     let query = supabase
       .from('inventory')
-      .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, image_url, organization_id, created_at, updated_at', { count: 'exact' })
+      .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, price_tier_1, price_tier_2, price_tier_3, price_tier_4, price_tier_5, department_code, unit_of_measure, image_url, organization_id, created_at, updated_at', { count: 'exact' })
       .eq('organization_id', organizationId);
     
     // ⚡ Enhanced server-side search with natural language support
@@ -127,17 +127,19 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
       }
       
       // Apply price filter if present
+      // ✅ FIX: Convert dollar value to cents since unit_price is stored in cents
       if (priceFilter) {
-        console.log('💰 [Inventory Search] Applying price filter:', priceFilter);
+        const priceInCents = Math.round(priceFilter.value * 100);
+        console.log('💰 [Inventory Search] Applying price filter:', priceFilter, '→ cents:', priceInCents);
         
         if (priceFilter.operator === 'lt') {
-          query = query.lt('unit_price', priceFilter.value);
+          query = query.lt('unit_price', priceInCents);
         } else if (priceFilter.operator === 'gt') {
-          query = query.gt('unit_price', priceFilter.value);
+          query = query.gt('unit_price', priceInCents);
         } else if (priceFilter.operator === 'lte') {
-          query = query.lte('unit_price', priceFilter.value);
+          query = query.lte('unit_price', priceInCents);
         } else if (priceFilter.operator === 'gte') {
-          query = query.gte('unit_price', priceFilter.value);
+          query = query.gte('unit_price', priceInCents);
         }
       }
     }
@@ -189,15 +191,17 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
         }
       }
       
+      // ✅ FIX: Convert dollar value to cents for aggregate query too
       if (priceFilter) {
+        const priceInCents = Math.round(priceFilter.value * 100);
         if (priceFilter.operator === 'lt') {
-          aggregateQuery = aggregateQuery.lt('unit_price', priceFilter.value);
+          aggregateQuery = aggregateQuery.lt('unit_price', priceInCents);
         } else if (priceFilter.operator === 'gt') {
-          aggregateQuery = aggregateQuery.gt('unit_price', priceFilter.value);
+          aggregateQuery = aggregateQuery.gt('unit_price', priceInCents);
         } else if (priceFilter.operator === 'lte') {
-          aggregateQuery = aggregateQuery.lte('unit_price', priceFilter.value);
+          aggregateQuery = aggregateQuery.lte('unit_price', priceInCents);
         } else if (priceFilter.operator === 'gte') {
-          aggregateQuery = aggregateQuery.gte('unit_price', priceFilter.value);
+          aggregateQuery = aggregateQuery.gte('unit_price', priceInCents);
         }
       }
     }
@@ -254,27 +258,52 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
 }
 
 /**
- * Check for duplicate SKUs in the database (runs async without blocking UI)
+ * Check for duplicate SKUs in the database (runs async without blocking UI).
+ * Uses paginated fetch to handle 78K+ items (Supabase default limit is 1000).
  */
 export async function checkForDuplicates(organizationId: string): Promise<number> {
   try {
-    const { data } = await supabase
-      .from('inventory')
-      .select('sku')
-      .eq('organization_id', organizationId)
-      .not('sku', 'is', null);
-    
-    if (!data) return 0;
-    
-    const skuMap = new Map<string, number>();
-    data.forEach(item => {
-      if (item.sku) {
-        skuMap.set(item.sku, (skuMap.get(item.sku) || 0) + 1);
+    // Paginated fetch of all SKUs
+    let allSkus: string[] = [];
+    let offset = 0;
+    const PAGE = 10000;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('sku')
+        .eq('organization_id', organizationId)
+        .not('sku', 'is', null)
+        .range(offset, offset + PAGE - 1);
+
+      if (error) {
+        console.error('❌ Duplicate check fetch error:', error.message);
+        break;
       }
-    });
-    
-    const duplicates = Array.from(skuMap.entries()).filter(([_, count]) => count > 1);
-    return duplicates.length;
+      if (!data || data.length === 0) break;
+
+      for (const item of data) {
+        if (item.sku) allSkus.push(item.sku);
+      }
+
+      if (data.length < PAGE) break;
+      offset += data.length;
+    }
+
+    if (allSkus.length === 0) return 0;
+
+    const skuMap = new Map<string, number>();
+    for (const sku of allSkus) {
+      skuMap.set(sku, (skuMap.get(sku) || 0) + 1);
+    }
+
+    let dupCount = 0;
+    for (const [_, count] of skuMap) {
+      if (count > 1) dupCount++;
+    }
+
+    console.log(`🔍 Duplicate check: ${allSkus.length} total SKUs, ${skuMap.size} unique, ${dupCount} with duplicates`);
+    return dupCount;
   } catch (error) {
     console.error('❌ Error checking for duplicates:', error);
     return 0;

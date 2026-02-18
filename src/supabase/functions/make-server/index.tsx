@@ -11,6 +11,7 @@ import { dataMigration } from './data-migration.ts';
 import { fixProfileMismatch } from './fix-profile-mismatch.ts';
 import { handleResetPassword } from './reset-password.ts';
 import { backgroundJobs } from './background-jobs.ts';
+import { inventoryDiagnostic } from './inventory-diagnostic.ts';
 
 const app = new Hono();
 
@@ -31,6 +32,7 @@ azureOAuthCallback(app);
 dataMigration(app);
 fixProfileMismatch(app);
 backgroundJobs(app);
+inventoryDiagnostic(app);
 
 // Health check endpoint
 app.get('/health', (c) => {

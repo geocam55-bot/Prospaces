@@ -88,6 +88,7 @@ const DATABASE_FIELDS = {
     { value: 'price_tier_4', label: 'Price Level 4 (Premium)', required: false },
     { value: 'price_tier_5', label: 'Price Level 5 (Standard)', required: false },
     { value: 'department_code', label: 'Department Code', required: false },
+    { value: 'unit_of_measure', label: 'Unit of Measure', required: false },
   ],
   bids: [
     { value: 'clientName', label: 'Client Name', required: true },
@@ -217,7 +218,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
       const supabase = createClient();
 
-      // First, verify the user is authenticated
+      // Verify the user is authenticated
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !authUser) {
@@ -226,74 +227,83 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       }
 
       console.log('✅ Authenticated user:', authUser.id);
-      console.log('📋 App user ID:', user.id);
       console.log('📋 App user org:', user.organizationId);
+      console.log('📋 Total records to import:', mappedData.length);
 
-      // Get access token for server request
+      // Chunk large datasets to stay under DB/edge-function payload limits
+      const CHUNK_SIZE = 2000;
+      const chunks: any[][] = [];
+      for (let i = 0; i < mappedData.length; i += CHUNK_SIZE) {
+        chunks.push(mappedData.slice(i, i + CHUNK_SIZE));
+      }
+
+      console.log(`📦 Splitting ${mappedData.length} records into ${chunks.length} job(s) of up to ${CHUNK_SIZE} each`);
+
+      // Get session once before the loop
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('No access token found');
       }
 
-      // Prepare job data
-      const jobData = {
-        organization_id: user.organizationId,
-        created_by: authUser.id,
-        job_type: 'import',
-        data_type: type,
-        scheduled_time: new Date().toISOString(), // Run immediately
-        creator_name: user.full_name || user.email || 'User',
-        file_name: `background_import_${type}_${new Date().toISOString().split('T')[0]}.csv`,
-        file_data: { records: mappedData, mapping: mapping },
-      };
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/background-jobs/create`;
+      let totalCreated = 0;
 
-      console.log('📤 Sending job to server:', { 
-        organization_id: jobData.organization_id,
-        created_by: jobData.created_by,
-        job_type: jobData.job_type,
-        data_type: jobData.data_type,
-        record_count: mappedData.length
-      });
+      for (let idx = 0; idx < chunks.length; idx++) {
+        const chunk = chunks[idx];
+        const chunkLabel = chunks.length > 1 ? ` (part ${idx + 1}/${chunks.length})` : '';
+        const fileName = `background_import_${type}_${new Date().toISOString().split('T')[0]}${chunks.length > 1 ? `_part${idx + 1}` : ''}.csv`;
 
-      // Call server endpoint to create job (bypasses RLS)
-      const url = `https://${projectId}.supabase.co/functions/v1/make-server/background-jobs/create`;
-      
-      console.log('📡 Calling server endpoint:', url);
-      console.log('📡 With headers:', {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token.substring(0, 20)}...`
-      });
-      
-      const response = await fetch(
-        url,
-        {
+        const jobRow = {
+          organization_id: user.organizationId,
+          created_by: authUser.id,
+          job_type: 'import',
+          data_type: type,
+          scheduled_time: new Date().toISOString(),
+          status: 'pending',
+          creator_name: user.full_name || user.email || 'User',
+          file_name: fileName,
+          file_data: { records: chunk, mapping: mapping },
+          created_at: new Date().toISOString(),
+        };
+
+        console.log(`📤 Creating job${chunkLabel}: ${chunk.length} records`);
+        
+        const response = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify(jobData),
+          body: JSON.stringify(jobRow),
+        });
+
+        if (!response.ok) {
+          const errBody = await response.text();
+          let errMsg = `Server error ${response.status}`;
+          try { errMsg = JSON.parse(errBody).error || errMsg; } catch {}
+          throw new Error(`Failed to create job${chunkLabel}: ${errMsg}`);
         }
-      );
 
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response ok:', response.ok);
-      
-      const result = await response.json();
-      
-      console.log('📡 Response body:', result);
+        const result = await response.json();
+        if (result.error) {
+          throw new Error(result.error);
+        }
+        console.log(`✅ Job created via edge function${chunkLabel}:`, result.job?.id);
 
-      if (!response.ok || result.error) {
-        console.error('❌ Server error:', result);
-        throw new Error(result.error || result.message || 'Failed to create background job');
+        totalCreated += chunk.length;
+
+        // Show progress for multi-chunk imports
+        if (chunks.length > 1) {
+          toast.info(`Created job ${idx + 1} of ${chunks.length} (${totalCreated}/${mappedData.length} records)`);
+        }
       }
 
-      console.log('✅ Job created:', result.job);
-
       toast.success(
-        `Background import started for ${data.length} records!`,
+        `Background import started for ${mappedData.length} records!`,
         {
-          description: 'You can close this page. We\'ll notify you when it\'s complete.',
+          description: chunks.length > 1
+            ? `Split into ${chunks.length} jobs. Go to Background Imports to monitor progress.`
+            : 'You can close this page. We\'ll notify you when it\'s complete.',
           duration: 10000,
           action: {
             label: 'View Status',
@@ -395,7 +405,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       'name': ['item name', 'product name', 'item description', 'description', 'product description'],
       'quantity': ['qty', 'stock', 'quantity on hand', 'on hand', 'available', 'qty on hand'],
       'quantity_on_order': ['qty on order', 'on order', 'quantity on order', 'ordered', 'qty ordered'],
-      'unit_price': ['price', 'retail price', 'selling price', 'unit price', 'sale price'],
+      'unit_price': ['price', 'selling price', 'unit price', 'sale price', 'base price'],
       'category': ['dept', 'department', 'class', 'product category'],
       'supplier': ['vendor', 'manufacturer'],
       'price_tier_1': ['retail price', 'price 1', 'price tier 1', 'tier 1', 't1', 'retail', 'price level 1', 'level 1'],
@@ -403,6 +413,8 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       'price_tier_3': ['contractor price', 'price 3', 'price tier 3', 'tier 3', 't3', 'contractor', 'price level 3', 'level 3'],
       'price_tier_4': ['premium price', 'price 4', 'price tier 4', 'tier 4', 't4', 'premium', 'price level 4', 'level 4'],
       'price_tier_5': ['standard price', 'price 5', 'price tier 5', 'tier 5', 't5', 'standard', 'price level 5', 'level 5'],
+      'department_code': ['dept code', 'department', 'dept', 'department code'],
+      'unit_of_measure': ['uom', 'unit', 'measure', 'unit of measure', 'units'],
     };
 
     fileColumns.forEach(fileCol => {
@@ -748,16 +760,21 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     if (item.unit_price) cleanItem.unit_price = parseFloat(item.unit_price) || 0;
     if (item.cost) cleanItem.cost = parseFloat(item.cost) || 0;
     
-    // Handle price tier fields (5 separate price levels)
+    // Price tiers (stored in dollars here; inventory-client.ts converts to cents)
     if (item.price_tier_1) cleanItem.price_tier_1 = parseFloat(item.price_tier_1) || 0;
     if (item.price_tier_2) cleanItem.price_tier_2 = parseFloat(item.price_tier_2) || 0;
     if (item.price_tier_3) cleanItem.price_tier_3 = parseFloat(item.price_tier_3) || 0;
     if (item.price_tier_4) cleanItem.price_tier_4 = parseFloat(item.price_tier_4) || 0;
     if (item.price_tier_5) cleanItem.price_tier_5 = parseFloat(item.price_tier_5) || 0;
     
-    // Add other new fields
-    if (item.unit_of_measure) cleanItem.unit_of_measure = item.unit_of_measure;
+    // Use price_tier_1 as a fallback for unit_price if not already set
+    if (!cleanItem.unit_price && cleanItem.price_tier_1) {
+      cleanItem.unit_price = cleanItem.price_tier_1;
+    }
+    
+    // Department code and unit of measure
     if (item.department_code) cleanItem.department_code = item.department_code;
+    if (item.unit_of_measure) cleanItem.unit_of_measure = item.unit_of_measure;
 
     // Use upsert logic: check by SKU and update if exists, otherwise create new
     const result = await inventoryAPI.upsertBySKU(cleanItem);
@@ -887,7 +904,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         filename = 'contacts_template.csv';
         break;
       case 'inventory':
-        csvContent = 'name,sku,description,category,quantity,quantity_on_order,unit_price,cost,price_tier_1,price_tier_2,price_tier_3,price_tier_4,price_tier_5,unit_of_measure,department_code\\nSample Item,SKU-001,Sample description,Electronics,100,50,99.99,50.00,99.99,89.99,79.99,109.99,94.99,EA,DEPT-01';
+        csvContent = 'name,sku,description,category,quantity,quantity_on_order,unit_price,cost,price_tier_1,price_tier_2,price_tier_3,price_tier_4,price_tier_5,department_code,unit_of_measure\nSample Item,SKU-001,Sample description,Electronics,100,50,99.99,50.00,99.99,89.99,79.99,69.99,59.99,DEPT-01,ea';
         filename = 'inventory_template.csv';
         break;
       case 'bids':
@@ -1049,7 +1066,15 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-3">
+        <Button
+          variant="outline"
+          onClick={() => onNavigate ? onNavigate('background-imports') : window.location.hash = '#background-imports'}
+          className="flex items-center gap-2"
+        >
+          <Upload className="h-4 w-4" />
+          Background Imports
+        </Button>
         <Button
           variant="outline"
           onClick={() => onNavigate ? onNavigate('scheduled-jobs') : window.location.hash = '#scheduled-jobs'}

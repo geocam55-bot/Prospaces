@@ -228,14 +228,15 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
                 price_tier_4: parseFloat(record.price_tier_4) || 0,
                 price_tier_5: parseFloat(record.price_tier_5) || 0,
                 department_code: record.department_code || '',
+                unit_of_measure: record.unit_of_measure || 'ea',
               };
 
               if (existing) {
-                // Update existing
-                await inventoryAPI.updateInventory(existing.id, inventoryData);
+                // Update existing — use correct API method name
+                await inventoryAPI.update(existing.id, inventoryData);
               } else {
-                // Create new
-                await inventoryAPI.createInventory(inventoryData);
+                // Create new — use correct API method name
+                await inventoryAPI.create(inventoryData);
               }
             } else if (dataType === 'contacts') {
               // Validate required fields for contacts

@@ -46,8 +46,9 @@ import { ensureUserProfile } from '../utils/ensure-profile';
 import { InventoryOptimizationBanner } from './InventoryOptimizationBanner';
 import { InventoryDuplicateCleaner } from './InventoryDuplicateCleaner';
 import { InventoryIndexFixer } from './InventoryIndexFixer';
-import { loadInventoryPage, checkForDuplicates } from '../utils/inventory-loader';
+import { loadInventoryPage } from '../utils/inventory-loader';
 import { showOptimizationInstructions } from '../utils/show-optimization-instructions';
+import { InventoryDiagnostic } from './InventoryDiagnostic';
 
 interface InventoryProps {
   user: User;
@@ -71,6 +72,7 @@ interface InventoryItem {
   priceTier3: number;
   priceTier4: number;
   priceTier5: number;
+  departmentCode?: string;
   supplier?: string;
   supplierSKU?: string;
   leadTimeDays?: number;
@@ -91,7 +93,6 @@ export function Inventory({ user }: InventoryProps) {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showDialog, setShowDialog] = useState(false);
-  const [showDuplicateCleaner, setShowDuplicateCleaner] = useState(false);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [activeTab, setActiveTab] = useState('items');
@@ -198,24 +199,40 @@ export function Inventory({ user }: InventoryProps) {
     const unitPriceInDollars = dbItem.unit_price ? dbItem.unit_price / 100 : 0;
     const costInDollars = dbItem.cost ? dbItem.cost / 100 : 0;
     
+    // ✅ FIX: Use != null check instead of truthiness to properly handle $0.00 prices
+    // Only fall back to unitPriceInDollars when the tier is genuinely NULL/undefined (not set)
+    // A value of 0 is a legitimate price ($0.00) and should NOT trigger fallback
+    const hasTierData = dbItem.price_tier_1 != null || dbItem.price_tier_2 != null || 
+                        dbItem.price_tier_3 != null || dbItem.price_tier_4 != null || 
+                        dbItem.price_tier_5 != null;
+    
+    // If no tier data at all, fall back all tiers to unit_price (single-price item)
+    // If at least one tier is set, use actual values (null tiers show as 0)
+    const priceTier1 = dbItem.price_tier_1 != null ? dbItem.price_tier_1 / 100 : unitPriceInDollars;
+    const priceTier2 = dbItem.price_tier_2 != null ? dbItem.price_tier_2 / 100 : (hasTierData ? 0 : unitPriceInDollars);
+    const priceTier3 = dbItem.price_tier_3 != null ? dbItem.price_tier_3 / 100 : (hasTierData ? 0 : unitPriceInDollars);
+    const priceTier4 = dbItem.price_tier_4 != null ? dbItem.price_tier_4 / 100 : (hasTierData ? 0 : unitPriceInDollars);
+    const priceTier5 = dbItem.price_tier_5 != null ? dbItem.price_tier_5 / 100 : (hasTierData ? 0 : unitPriceInDollars);
+    
     return {
       id: dbItem.id,
       name: dbItem.name || '',
       sku: dbItem.sku || '',
       category: dbItem.category || '',
       description: dbItem.description || '',
-      unitOfMeasure: 'ea',
+      unitOfMeasure: dbItem.unit_of_measure || 'ea',
       quantityOnHand: dbItem.quantity || 0,
       quantityOnOrder: dbItem.quantity_on_order || 0,
       reorderLevel: 0,
       minStock: 0,
       maxStock: 0,
       cost: costInDollars,
-      priceTier1: unitPriceInDollars,
-      priceTier2: unitPriceInDollars,
-      priceTier3: unitPriceInDollars,
-      priceTier4: unitPriceInDollars,
-      priceTier5: unitPriceInDollars,
+      priceTier1,
+      priceTier2,
+      priceTier3,
+      priceTier4,
+      priceTier5,
+      departmentCode: dbItem.department_code || '',
       status: 'active',
       tags: [],
       imageUrl: dbItem.image_url || '',
@@ -241,7 +258,7 @@ export function Inventory({ user }: InventoryProps) {
       while (offset < totalCount) {
         const batchQuery = supabase
           .from('inventory')
-          .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, organization_id, created_at, updated_at')
+          .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, price_tier_1, price_tier_2, price_tier_3, price_tier_4, price_tier_5, department_code, unit_of_measure, image_url, organization_id, created_at, updated_at')
           .eq('organization_id', userOrgId)
           .order('name', { ascending: true })
           .range(offset, offset + batchSize - 1);
@@ -370,46 +387,11 @@ export function Inventory({ user }: InventoryProps) {
         }
       }
       
-      // ⚡ PERFORMANCE: Check for duplicates (async, non-blocking)
+      // ⚡ Log pagination info on first page
       if (currentPage === 1 && count > 0) {
         console.log(`✅ [Inventory] Server-side pagination active - showing page 1 of ${Math.ceil(count / itemsPerPage)}`);
-        
-        // Run duplicate detection after background load completes
-        setTimeout(async () => {
-          // ⚠️ Use optimized duplicate checker instead
-          const dupCount = await checkForDuplicates(userOrgId);
-          if (dupCount > 0) {
-            console.warn(`⚠️ Found ${dupCount} duplicate SKUs`);
-            setShowDuplicateCleaner(true);
-          }
-          return; // Exit early
-          
-          setItems(currentItems => {
-            const skuMap = new Map<string, number>();
-            currentItems.forEach(item => {
-              if (item.sku) {
-                skuMap.set(item.sku, (skuMap.get(item.sku) || 0) + 1);
-              }
-            });
-            
-            const duplicates = Array.from(skuMap.entries()).filter(([_, count]) => count > 1);
-            if (duplicates.length > 0) {
-              console.warn(`⚠️ Found ${duplicates.length} duplicate SKUs in database:`, duplicates.slice(0, 5));
-              console.warn(`🔧 Run this SQL in Supabase to find duplicates:\n` +
-                `SELECT sku, name, COUNT(*) as count\n` +
-                `FROM inventory\n` +
-                `WHERE organization_id = '${userOrgId}'\n` +
-                `GROUP BY sku, name\n` +
-                `HAVING COUNT(*) > 1\n` +
-                `ORDER BY count DESC;`);
-              
-              // Show duplicate cleaner UI
-              setShowDuplicateCleaner(true);
-            }
-            
-            return currentItems;
-          });
-        }, 100);
+        // Note: Duplicate detection is now handled by the always-mounted InventoryDuplicateCleaner component
+        // which uses the server-side dedup-scan endpoint (no client-side 78K+ SKU fetch)
       }
       
     } catch (error: any) {
@@ -594,8 +576,8 @@ export function Inventory({ user }: InventoryProps) {
         return;
       }
       
-      // Match the actual database schema (simple version)
-      const itemData = {
+      // ✅ FIX: Match the actual database schema with ALL columns including price tiers
+      const itemData: any = {
         name: formData.name.trim(),
         sku: formData.sku.trim(),
         description: formData.description || '',
@@ -603,6 +585,14 @@ export function Inventory({ user }: InventoryProps) {
         quantity: Number(formData.quantityOnHand) || 0,
         quantity_on_order: Number(formData.quantityOnOrder) || 0,
         unit_price: Number(formData.priceTier1) || 0,
+        cost: Number(formData.cost) || 0,
+        price_tier_1: Number(formData.priceTier1) || 0,
+        price_tier_2: Number(formData.priceTier2) || 0,
+        price_tier_3: Number(formData.priceTier3) || 0,
+        price_tier_4: Number(formData.priceTier4) || 0,
+        price_tier_5: Number(formData.priceTier5) || 0,
+        department_code: formData.departmentCode || '',
+        unit_of_measure: formData.unitOfMeasure || 'ea',
         image_url: formData.imageUrl || '',
       };
 
@@ -755,6 +745,9 @@ export function Inventory({ user }: InventoryProps) {
                 <Badge className="ml-2 bg-yellow-100 text-yellow-700">{lowStockItems.length}</Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="diagnostic" className="whitespace-nowrap">
+              Diagnostic
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -773,12 +766,11 @@ export function Inventory({ user }: InventoryProps) {
             />
           )}
           
-          {/* Duplicate Cleaner */}
-          {showDuplicateCleaner && organizationId && (
+          {/* Duplicate Cleaner — always mounted; self-hides if no duplicates */}
+          {organizationId && (
             <InventoryDuplicateCleaner
               organizationId={organizationId}
               onCleanupComplete={() => {
-                setShowDuplicateCleaner(false);
                 loadInventory();
               }}
             />
@@ -1083,16 +1075,32 @@ export function Inventory({ user }: InventoryProps) {
                       <div className="lg:w-80 border-l-0 lg:border-l lg:pl-4">
                         <p className="text-sm text-gray-700 mb-2">Price Tiers</p>
                         <div className="grid grid-cols-5 gap-2">
-                          {[1, 2, 3, 4, 5].map(tier => (
-                            <div key={tier} className="text-center">
-                              <div className="bg-gray-100 rounded px-2 py-1">
-                                <p className="text-xs text-gray-600">T{tier}</p>
-                                <p className="text-sm text-gray-900 mt-1">
-                                  ${item[`priceTier${tier}` as keyof InventoryItem]?.toFixed(2) || '0.00'}
-                                </p>
+                          {[1, 2, 3, 4, 5].map(tier => {
+                            const tierValue = item[`priceTier${tier}` as keyof InventoryItem] as number;
+                            const allSame = item.priceTier1 === item.priceTier2 && 
+                                          item.priceTier2 === item.priceTier3 && 
+                                          item.priceTier3 === item.priceTier4 && 
+                                          item.priceTier4 === item.priceTier5;
+                            const isDistinct = !allSame && tier > 1 && tierValue !== item.priceTier1;
+                            return (
+                              <div key={tier} className="text-center">
+                                <div className={`rounded px-2 py-1 ${
+                                  isDistinct ? 'bg-green-50 border border-green-200' : 
+                                  (tierValue === 0 && tier > 1 && !allSame) ? 'bg-yellow-50 border border-yellow-200' :
+                                  'bg-gray-100'
+                                }`}>
+                                  <p className={`text-xs ${isDistinct ? 'text-green-700 font-medium' : 'text-gray-600'}`}>T{tier}</p>
+                                  <p className={`text-sm mt-1 ${
+                                    isDistinct ? 'text-green-900 font-semibold' : 
+                                    (tierValue === 0 && tier > 1 && !allSame) ? 'text-yellow-600 italic' :
+                                    'text-gray-900'
+                                  }`}>
+                                    {tierValue === 0 && tier > 1 && !allSame ? '—' : `$${tierValue?.toFixed(2) || '0.00'}`}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                         <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
                           Margin: {item.cost > 0 ? ((item.priceTier1 - item.cost) / item.cost * 100).toFixed(1) : 0}%
@@ -1293,6 +1301,10 @@ export function Inventory({ user }: InventoryProps) {
             )}
           </div>
         </TabsContent>
+
+        <TabsContent value="diagnostic" className="space-y-4 mt-6">
+          <InventoryDiagnostic user={user} />
+        </TabsContent>
       </Tabs>
 
       {/* Add/Edit Dialog */}
@@ -1417,6 +1429,7 @@ export function Inventory({ user }: InventoryProps) {
             {/* Pricing Information */}
             <div className="space-y-4">
               <h3 className="text-sm text-gray-900">Pricing (Multi-Tier)</h3>
+              <p className="text-xs text-gray-500">Tier 1 is also used as the base Unit Price. Set each tier independently for tiered pricing.</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm text-gray-700">Cost (Base)</label>
@@ -1429,7 +1442,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Tier 1 Price</label>
+                  <label className="text-sm text-gray-700">T1 — Retail</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1439,7 +1452,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Tier 2 Price</label>
+                  <label className="text-sm text-gray-700">T2 — Wholesale</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1449,7 +1462,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Tier 3 Price</label>
+                  <label className="text-sm text-gray-700">T3 — Contractor</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1459,7 +1472,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Tier 4 Price</label>
+                  <label className="text-sm text-gray-700">T4 — Premium</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1469,7 +1482,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Tier 5 Price</label>
+                  <label className="text-sm text-gray-700">T5 — Standard</label>
                   <Input
                     type="number"
                     step="0.01"

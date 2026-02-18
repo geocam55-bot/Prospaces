@@ -3,7 +3,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 export function backgroundJobs(app: Hono) {
   // Create a background import job
-  app.post('/background-jobs/create', async (c) => {
+  app.post('/make-server-8405be07/background-jobs/create', async (c) => {
     console.log('🔵 Background jobs endpoint hit!');
     
     try {
