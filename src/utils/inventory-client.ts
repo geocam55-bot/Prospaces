@@ -1,5 +1,6 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
+import { isTierActive } from '../lib/global-settings';
 
 // Shared select string for all inventory queries — must match the actual DB columns
 const INVENTORY_SELECT = 'id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, price_tier_1, price_tier_2, price_tier_3, price_tier_4, price_tier_5, department_code, unit_of_measure, image_url, organization_id, created_at, updated_at';
@@ -829,19 +830,26 @@ function mapInventoryItem(dbItem: any): any {
   const costInDollars = dbItem.cost ? dbItem.cost / 100 : 0;
   
   // ✅ FIX: Use != null check instead of truthiness to properly handle $0.00 prices
-  // Only fall back to unitPriceInDollars when the tier is genuinely NULL/undefined (not set)
   // A value of 0 is a legitimate price ($0.00) and should NOT trigger fallback
-  const hasTierData = dbItem.price_tier_1 != null || dbItem.price_tier_2 != null || 
-                      dbItem.price_tier_3 != null || dbItem.price_tier_4 != null || 
-                      dbItem.price_tier_5 != null;
   
-  // If no tier data at all, fall back all tiers to unit_price (single-price item)
-  // If at least one tier is set, use actual values (null tiers show as 0)
+  // Auto-migrate: if T5 is inactive but has data, carry it into T2 (VIP) if T2 is NULL.
+  const t5Inactive = !isTierActive(5);
+  const t5Value = dbItem.price_tier_5 != null ? dbItem.price_tier_5 : null;
+  
+  // Determine the base/retail price (T1 or unit_price)
   const priceTier1 = dbItem.price_tier_1 != null ? dbItem.price_tier_1 / 100 : unitPriceInDollars;
-  const priceTier2 = dbItem.price_tier_2 != null ? dbItem.price_tier_2 / 100 : (hasTierData ? 0 : unitPriceInDollars);
-  const priceTier3 = dbItem.price_tier_3 != null ? dbItem.price_tier_3 / 100 : (hasTierData ? 0 : unitPriceInDollars);
-  const priceTier4 = dbItem.price_tier_4 != null ? dbItem.price_tier_4 / 100 : (hasTierData ? 0 : unitPriceInDollars);
-  const priceTier5 = dbItem.price_tier_5 != null ? dbItem.price_tier_5 / 100 : (hasTierData ? 0 : unitPriceInDollars);
+  
+  // For T2-T4: if the tier is NULL in the DB, fall back to priceTier1 (Retail).
+  // Business logic: if no specific tier price is set, the item sells at Retail.
+  // A value of 0 in the DB is a legitimate $0.00 price and is preserved as-is.
+  // T2 (VIP): also check inactive T5 for auto-migration
+  const priceTier2 = dbItem.price_tier_2 != null ? dbItem.price_tier_2 / 100 
+                   : (t5Inactive && t5Value != null) ? t5Value / 100 
+                   : priceTier1;
+  const priceTier3 = dbItem.price_tier_3 != null ? dbItem.price_tier_3 / 100 : priceTier1;
+  const priceTier4 = dbItem.price_tier_4 != null ? dbItem.price_tier_4 / 100 : priceTier1;
+  // T5: if tier is inactive, always default to 0 regardless of DB value
+  const priceTier5 = t5Inactive ? 0 : (dbItem.price_tier_5 != null ? dbItem.price_tier_5 / 100 : priceTier1);
   
   return {
     ...snakeToCamel(dbItem),

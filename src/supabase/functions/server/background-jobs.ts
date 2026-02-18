@@ -56,18 +56,29 @@ export function backgroundJobs(app: Hono) {
 
       console.log('✅ Profile verified:', profile);
 
-      // Create the job
+      // Ensure scheduled_time is always in the future relative to NOW.
+      // When bulk-uploading many chunks sequentially, earlier chunks' network time
+      // can push NOW past the client's original scheduled_time, violating the
+      // DB constraint: scheduled_time > created_at (which defaults to NOW()).
+      const now = new Date();
+      let finalScheduledTime = new Date(scheduled_time);
+      if (finalScheduledTime <= new Date(now.getTime() + 5000)) {
+        // Bump to 10 seconds from now to guarantee the constraint passes
+        finalScheduledTime = new Date(now.getTime() + 10000);
+      }
+
+      // Create the job — do NOT set created_at manually; let the DB DEFAULT NOW() handle it.
+      // This avoids clock-skew between the frontend timestamp and the server timestamp.
       const jobData = {
         organization_id,
         created_by,
         job_type,
         data_type,
-        scheduled_time,
+        scheduled_time: finalScheduledTime.toISOString(),
         status: 'pending',
         creator_name: creator_name || 'User',
         file_name: file_name || `import_${data_type}_${new Date().toISOString().split('T')[0]}.csv`,
         file_data: file_data || { records: [], mapping: {} },
-        created_at: new Date().toISOString(),
       };
 
       console.log('📤 Inserting job with service role key...');

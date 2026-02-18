@@ -29,6 +29,8 @@ import {
   Calendar as CalendarIcon
 } from 'lucide-react';
 
+import { getPriceTierLabel } from '../lib/global-settings';
+
 interface ImportExportProps {
   user: User;
   onNavigate?: (view: string) => void;
@@ -82,11 +84,11 @@ const DATABASE_FIELDS = {
     { value: 'quantity_on_order', label: 'Quantity On Order', required: false },
     { value: 'unit_price', label: 'Unit Price', required: false },
     { value: 'cost', label: 'Cost', required: false },
-    { value: 'price_tier_1', label: 'T1 — Retail', required: false },
-    { value: 'price_tier_2', label: 'T2 — VIP', required: false },
-    { value: 'price_tier_3', label: 'T3 — VIP B', required: false },
-    { value: 'price_tier_4', label: 'T4 — VIP A', required: false },
-    { value: 'price_tier_5', label: 'T5', required: false },
+    { value: 'price_tier_1', label: `T1 — ${getPriceTierLabel(1)}`, required: false },
+    { value: 'price_tier_2', label: `T2 — ${getPriceTierLabel(2)}`, required: false },
+    { value: 'price_tier_3', label: `T3 — ${getPriceTierLabel(3)}`, required: false },
+    { value: 'price_tier_4', label: `T4 — ${getPriceTierLabel(4)}`, required: false },
+    { value: 'price_tier_5', label: `T5 — ${getPriceTierLabel(5)}`, required: false },
     { value: 'department_code', label: 'Department Code', required: false },
     { value: 'unit_of_measure', label: 'Unit of Measure', required: false },
   ],
@@ -263,7 +265,8 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           creator_name: user.full_name || user.email || 'User',
           file_name: fileName,
           file_data: { records: chunk, mapping: mapping },
-          created_at: new Date().toISOString(),
+          // Note: created_at is NOT sent — the DB defaults it to NOW()
+          // and the server ensures scheduled_time > created_at
         };
 
         console.log(`Creating job${chunkLabel}: ${chunk.length} records`);
@@ -448,11 +451,11 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       'unit_price': ['price', 'selling price', 'unit price', 'sale price', 'base price'],
       'category': ['dept', 'department', 'class', 'product category'],
       'supplier': ['vendor', 'manufacturer'],
-      'price_tier_1': ['retail price', 'price 1', 'price tier 1', 'tier 1', 't1', 'retail', 'price level 1', 'level 1'],
-      'price_tier_2': ['vip price', 'price 2', 'price tier 2', 'tier 2', 't2', 'vip', 'price level 2', 'level 2', 'wholesale price', 'wholesale'],
-      'price_tier_3': ['vip b price', 'vipb price', 'price 3', 'price tier 3', 'tier 3', 't3', 'vip b', 'vipb', 'price level 3', 'level 3', 'contractor price', 'contractor'],
-      'price_tier_4': ['vip a price', 'vipa price', 'price 4', 'price tier 4', 'tier 4', 't4', 'vip a', 'vipa', 'price level 4', 'level 4', 'premium price', 'premium'],
-      'price_tier_5': ['price 5', 'price tier 5', 'tier 5', 't5', 'price level 5', 'level 5', 'standard price', 'standard'],
+      'price_tier_1': ['retail price', 'price 1', 'price tier 1', 'tier 1', 't1', 'retail', 'price level 1', 'level 1', getPriceTierLabel(1).toLowerCase(), `${getPriceTierLabel(1).toLowerCase()} price`],
+      'price_tier_2': ['vip price', 'price 2', 'price tier 2', 'tier 2', 't2', 'vip', 'price level 2', 'level 2', 'wholesale price', 'wholesale', getPriceTierLabel(2).toLowerCase(), `${getPriceTierLabel(2).toLowerCase()} price`],
+      'price_tier_3': ['vip b price', 'vipb price', 'price 3', 'price tier 3', 'tier 3', 't3', 'vip b', 'vipb', 'price level 3', 'level 3', 'contractor price', 'contractor', getPriceTierLabel(3).toLowerCase(), `${getPriceTierLabel(3).toLowerCase()} price`],
+      'price_tier_4': ['vip a price', 'vipa price', 'price 4', 'price tier 4', 'tier 4', 't4', 'vip a', 'vipa', 'price level 4', 'level 4', 'premium price', 'premium', getPriceTierLabel(4).toLowerCase(), `${getPriceTierLabel(4).toLowerCase()} price`],
+      'price_tier_5': ['price 5', 'price tier 5', 'tier 5', 't5', 'price level 5', 'level 5', getPriceTierLabel(5).toLowerCase(), `${getPriceTierLabel(5).toLowerCase()} price`],
       'department_code': ['dept code', 'department', 'dept', 'department code'],
       'unit_of_measure': ['uom', 'unit', 'measure', 'unit of measure', 'units'],
     };
@@ -747,7 +750,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       phone: contact.phone || '',
       company: contact.company || '',
       status: contact.status || 'Prospect',
-      priceLevel: contact.priceLevel || 'Retail', // Default to Retail
+      priceLevel: contact.priceLevel || getPriceTierLabel(1), // Default to tier 1 label
     };
 
     // Add optional fields only if they have values

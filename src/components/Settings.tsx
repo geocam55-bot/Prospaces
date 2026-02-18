@@ -50,6 +50,7 @@ import {
 } from 'lucide-react';
 import type { User } from '../App';
 import { tenantsAPI, settingsAPI } from '../utils/api';
+import { DEFAULT_PRICE_TIER_LABELS, type PriceTierLabels, getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings';
 
 interface SettingsProps {
   user: User;
@@ -97,9 +98,10 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   const [globalSettings, setGlobalSettings] = useState({
     taxRate: 0,
     taxRate2: 0,
-    defaultPriceLevel: 'Retail',
+    defaultPriceLevel: getPriceTierLabel(1),
     quoteTerms: 'Payment due within 30 days. All prices in USD.',
     audienceSegments: ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'], // Marketing segments
+    priceTierLabels: { ...DEFAULT_PRICE_TIER_LABELS } as PriceTierLabels,
   });
 
   // New segment input
@@ -152,6 +154,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           defaultPriceLevel: orgSettings.default_price_level,
           quoteTerms: orgSettings.quote_terms || 'Payment due within 30 days. All prices in USD.',
           audienceSegments: orgSettings.audience_segments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'], // Marketing segments
+          priceTierLabels: orgSettings.price_tier_labels || { ...DEFAULT_PRICE_TIER_LABELS },
         });
         
         // Load organization name
@@ -167,9 +170,10 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           setGlobalSettings({
             taxRate: parsedSettings.taxRate || 0,
             taxRate2: parsedSettings.taxRate2 || 0,
-            defaultPriceLevel: parsedSettings.defaultPriceLevel || 'Retail',
+            defaultPriceLevel: parsedSettings.defaultPriceLevel || getPriceTierLabel(1),
             quoteTerms: parsedSettings.quoteTerms || 'Payment due within 30 days. All prices in USD.',
             audienceSegments: parsedSettings.audienceSegments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'], // Marketing segments
+            priceTierLabels: parsedSettings.priceTierLabels || { ...DEFAULT_PRICE_TIER_LABELS },
           });
         }
         
@@ -203,7 +207,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
       const parsedSettings = JSON.parse(stored);
       setGlobalSettings({
         taxRate: parsedSettings.taxRate || 0,
-        defaultPriceLevel: parsedSettings.defaultPriceLevel || 'Retail',
+        defaultPriceLevel: parsedSettings.defaultPriceLevel || getPriceTierLabel(1),
       });
     }
     
@@ -446,6 +450,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         quote_terms: globalSettings.quoteTerms,
         organization_name: orgName,
         audience_segments: globalSettings.audienceSegments, // Marketing segments
+        price_tier_labels: globalSettings.priceTierLabels,
       });
       
       // Keep localStorage as backup (always save regardless of Supabase status)
@@ -784,16 +789,84 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                         <SelectValue placeholder="Select default price level" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Retail">T1 — Retail</SelectItem>
-                        <SelectItem value="VIP">T2 — VIP</SelectItem>
-                        <SelectItem value="VIP B">T3 — VIP B</SelectItem>
-                        <SelectItem value="VIP A">T4 — VIP A</SelectItem>
-                        <SelectItem value="T5">T5</SelectItem>
+                        {[
+                          { key: 't1' as const, tier: 1 },
+                          { key: 't2' as const, tier: 2 },
+                          { key: 't3' as const, tier: 3 },
+                          { key: 't4' as const, tier: 4 },
+                          { key: 't5' as const, tier: 5 },
+                        ]
+                          .filter(({ key }) => {
+                            const label = globalSettings.priceTierLabels[key];
+                            return label && label.trim() !== '' && label.trim() !== '0';
+                          })
+                          .map(({ key, tier }) => {
+                            const label = globalSettings.priceTierLabels[key];
+                            return (
+                              <SelectItem key={key} value={label}>
+                                T{tier} — {label}
+                              </SelectItem>
+                            );
+                          })}
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-gray-500">
                       This price level will be used as default when creating new bids and quotes
                     </p>
+                  </div>
+
+                  {/* Price Tier Labels */}
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-base font-semibold">Price Tier Labels</Label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Customize the names shown for each price tier across the entire CRM. Set a tier to "0" or leave blank to disable it.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                      {([
+                        { key: 't1' as const, tier: 1 },
+                        { key: 't2' as const, tier: 2 },
+                        { key: 't3' as const, tier: 3 },
+                        { key: 't4' as const, tier: 4 },
+                        { key: 't5' as const, tier: 5 },
+                      ]).map(({ key, tier }) => (
+                        <div key={key} className="space-y-1">
+                          <Label htmlFor={`tierLabel-${key}`} className="text-xs text-gray-600">
+                            Tier {tier} Label
+                          </Label>
+                          <Input
+                            id={`tierLabel-${key}`}
+                            value={globalSettings.priceTierLabels[key]}
+                            onChange={(e) => setGlobalSettings(prev => ({
+                              ...prev,
+                              priceTierLabels: {
+                                ...prev.priceTierLabels,
+                                [key]: e.target.value,
+                              },
+                            }))}
+                            placeholder={DEFAULT_PRICE_TIER_LABELS[key]}
+                            className="text-sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setGlobalSettings(prev => ({
+                          ...prev,
+                          priceTierLabels: { ...DEFAULT_PRICE_TIER_LABELS },
+                        }))}
+                      >
+                        Reset to Defaults
+                      </Button>
+                      <span className="text-xs text-gray-400">
+                        Defaults: Retail, VIP, VIP B, VIP A, 0
+                      </span>
+                    </div>
                   </div>
 
                   <div className="space-y-2">

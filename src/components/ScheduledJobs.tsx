@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
 import { contactsAPI, inventoryAPI, bidsAPI } from '../utils/api';
 import type { User } from '../App';
+import { getPriceTierLabel } from '../lib/global-settings';
 
 interface ScheduledJobsProps {
   user: User;
@@ -222,7 +223,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
             phone: record.phone || '',
             company: record.company || '',
             status: record.status || 'Prospect',
-            priceLevel: record.priceLevel || 'Retail',
+            priceLevel: record.priceLevel || getPriceTierLabel(1),
           };
 
           // Add optional fields

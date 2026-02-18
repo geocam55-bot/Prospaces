@@ -1,5 +1,6 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
+import { getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings';
 
 // Helper function to transform between camelCase and snake_case
 function transformToDbFormat(contactData: any) {
@@ -113,51 +114,39 @@ function transformFromDbFormat(contactData: any) {
   // Handle price_level with migration logic BEFORE deleting it
   if ('price_level' in transformed) {
     const oldValue = transformed.price_level;
-    // If it's already a named level, use it
-    if (['Retail', 'VIP', 'VIP B', 'VIP A', 'T5'].includes(oldValue)) {
+    // Check if it matches any currently configured tier label
+    const activeLabels = getActivePriceLevels();
+    if (activeLabels.includes(oldValue)) {
       transformed.priceLevel = oldValue;
     }
     // Handle legacy names from old system
-    else if (['Wholesale', 'Contractor', 'Premium', 'Standard'].includes(oldValue)) {
+    else if (['Wholesale', 'Contractor', 'Premium', 'Standard', 'VIP'].includes(oldValue)) {
       const legacyMapping: Record<string, string> = {
-        'Wholesale': 'VIP',
-        'Contractor': 'VIP B',
-        'Premium': 'VIP A',
-        'Standard': 'T5',
+        'VIP': getPriceTierLabel(2),
+        'Wholesale': getPriceTierLabel(3),
+        'Contractor': getPriceTierLabel(4),
+        'Premium': getPriceTierLabel(4),
+        'Standard': getPriceTierLabel(4),
       };
-      transformed.priceLevel = legacyMapping[oldValue] || 'Retail';
+      transformed.priceLevel = legacyMapping[oldValue] || getPriceTierLabel(1);
     }
     // If it's an old tier format (tier1, tier2, etc.), convert it
     else if (typeof oldValue === 'string' && oldValue.startsWith('tier')) {
       const tierNumber = parseInt(oldValue.replace('tier', ''));
-      const tierToLevel: Record<number, string> = {
-        1: 'Retail',
-        2: 'VIP',
-        3: 'VIP B',
-        4: 'VIP A',
-        5: 'T5',
-      };
-      transformed.priceLevel = tierToLevel[tierNumber] || 'Retail';
+      transformed.priceLevel = getPriceTierLabel(tierNumber) || getPriceTierLabel(1);
     }
     // If it's a number, convert it
     else if (typeof oldValue === 'number') {
-      const tierToLevel: Record<number, string> = {
-        1: 'Retail',
-        2: 'VIP',
-        3: 'VIP B',
-        4: 'VIP A',
-        5: 'T5',
-      };
-      transformed.priceLevel = tierToLevel[oldValue] || 'Retail';
+      transformed.priceLevel = getPriceTierLabel(oldValue) || getPriceTierLabel(1);
     }
     // Default fallback
     else {
-      transformed.priceLevel = 'Retail';
+      transformed.priceLevel = getPriceTierLabel(1);
     }
     delete transformed.price_level;
   } else {
-    // If no price_level field at all, default to Retail
-    transformed.priceLevel = 'Retail';
+    // If no price_level field at all, default to tier 1 label
+    transformed.priceLevel = getPriceTierLabel(1);
   }
   
   if ('created_by' in transformed) {

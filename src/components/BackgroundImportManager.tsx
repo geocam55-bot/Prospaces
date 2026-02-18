@@ -20,8 +20,7 @@ import { toast } from 'sonner@2.0.3';
 import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
 import { inventoryAPI } from '../utils/api';
-import { contactsAPI } from '../utils/api';
-import { bidsAPI } from '../utils/api';
+import { getPriceTierLabel } from '../lib/global-settings';
 
 interface BackgroundImportManagerProps {
   user: User;
@@ -252,7 +251,7 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
                 phone: record.phone || '',
                 company: record.company || '',
                 status: record.status || 'Prospect',
-                priceLevel: record.priceLevel || 'Retail',
+                priceLevel: record.priceLevel || getPriceTierLabel(1),
                 address: record.address || '',
                 notes: record.notes || '',
                 legacyNumber: record.legacyNumber || '',

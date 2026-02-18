@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { getGlobalTaxRate, priceLevelToTier } from '../lib/global-settings';
+import { getGlobalTaxRate, priceLevelToTier, getPriceTierLabel } from '../lib/global-settings';
 import { useDebounce } from '../utils/useDebounce';
 import { advancedSearch } from '../utils/advanced-search';
 import { 
@@ -66,7 +66,7 @@ interface Contact {
   phone: string;
   company: string;
   status: string;
-  priceLevel: 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5';
+  priceLevel: string;
   createdAt: string;
   legacyNumber?: string;
   accountOwnerNumber?: string;
@@ -229,7 +229,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     if (selectedInventoryId && contact.priceLevel) {
       const item = inventoryItems.find(i => i.id === selectedInventoryId);
       if (item) {
-        const priceTier = priceLevelToTier(contact.priceLevel || 'Retail');
+        const priceTier = priceLevelToTier(contact.priceLevel || getPriceTierLabel(1));
         const price = getPriceForTier(item, priceTier);
         setLineItemUnitPrice(price);
       }
@@ -1527,7 +1527,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         inventoryItems={inventoryItems}
         currentItems={lineItems}
         onAddItem={handleAddLineItem}
-        priceTier={priceLevelToTier(contact.priceLevel || 'Retail')}
+        priceTier={priceLevelToTier(contact.priceLevel || getPriceTierLabel(1))}
       />
 
       {/* Edit Deal Dialog */}
@@ -1582,7 +1582,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               <div className="space-y-2">
                 <Label>Contact Price Level</Label>
                 <Input
-                  value={contact.priceLevel || 'Retail'}
+                  value={contact.priceLevel || getPriceTierLabel(1)}
                   disabled
                   className="bg-gray-50"
                 />
@@ -1817,7 +1817,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 <SelectContent className="max-h-[300px] overflow-y-auto">
                   {filteredInventory.length > 0 ? (
                     filteredInventory.map(item => {
-                      const priceTier = priceLevelToTier(contact.priceLevel || 'Retail');
+                      const priceTier = priceLevelToTier(contact.priceLevel || getPriceTierLabel(1));
                       const price = getPriceForTier(item, priceTier);
                       return (
                         <SelectItem key={item.id} value={item.id}>
@@ -1863,7 +1863,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                   onChange={(e) => setLineItemUnitPrice(Number(e.target.value))}
                 />
                 {selectedInventoryId && (() => {
-                  const priceLevel = contact.priceLevel || 'Retail';
+                  const priceLevel = contact.priceLevel || getPriceTierLabel(1);
                   const priceTier = priceLevelToTier(priceLevel);
                   return (
                     <p className="text-xs text-gray-500 mt-1">

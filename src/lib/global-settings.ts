@@ -3,52 +3,115 @@
  * Provides access to organization-wide settings like tax rates and price levels
  */
 
+export interface PriceTierLabels {
+  t1: string;
+  t2: string;
+  t3: string;
+  t4: string;
+  t5: string;
+}
+
+export const DEFAULT_PRICE_TIER_LABELS: PriceTierLabels = {
+  t1: 'Retail',
+  t2: 'VIP',
+  t3: 'VIP B',
+  t4: 'VIP A',
+  t5: '0',
+};
+
 export interface GlobalSettings {
   taxRate: number;
   taxRate2?: number;
   defaultPriceLevel: string;
   quoteTerms?: string;
+  priceTierLabels?: PriceTierLabels;
 }
 
 // Price level mapping constants
-export type PriceLevel = 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5';
+// Tier labels are now configurable via Admin Settings > Organization
+// Defaults: T1=Retail, T2=VIP, T3=VIP B, T4=VIP A, T5=0
+export type PriceLevel = string;
 
-export const PRICE_LEVELS: PriceLevel[] = ['Retail', 'VIP', 'VIP B', 'VIP A', 'T5'];
+/** @deprecated Use getActivePriceLevels() instead */
+export const PRICE_LEVELS: string[] = ['Retail', 'VIP', 'VIP B', 'VIP A'];
 
 /**
- * Map price level names to inventory tier numbers
- * Retail -> Tier 1, VIP -> Tier 2, VIP B -> Tier 3, VIP A -> Tier 4, T5 -> Tier 5
+ * Get the configured price tier labels for the current organization
  */
-export function priceLevelToTier(priceLevel: string): number {
-  const mapping: Record<string, number> = {
-    'Retail': 1,
-    'VIP': 2,
-    'VIP B': 3,
-    'VIPB': 3,
-    'VIP A': 4,
-    'VIPA': 4,
-    'T5': 5,
-    // Legacy mappings for backward compatibility with existing contact data
-    'Wholesale': 2,
-    'Contractor': 3,
-    'Premium': 4,
-    'Standard': 5,
-  };
-  return mapping[priceLevel] || 1; // Default to tier 1 (Retail) if not found
+export function getPriceTierLabels(): PriceTierLabels {
+  const settings = getGlobalSettings();
+  return settings.priceTierLabels || DEFAULT_PRICE_TIER_LABELS;
 }
 
 /**
- * Map inventory tier numbers to price level names
+ * Get the display label for a single tier number (1-5)
  */
-export function tierToPriceLevel(tier: number): PriceLevel {
-  const mapping: Record<number, PriceLevel> = {
-    1: 'Retail',
-    2: 'VIP',
-    3: 'VIP B',
-    4: 'VIP A',
-    5: 'T5',
-  };
-  return mapping[tier] || 'Retail'; // Default to Retail if not found
+export function getPriceTierLabel(tier: number): string {
+  const labels = getPriceTierLabels();
+  const key = `t${tier}` as keyof PriceTierLabels;
+  return labels[key] || `T${tier}`;
+}
+
+/**
+ * Get the active (non-zero/non-empty) price levels as an array of label strings.
+ * Skips tiers whose label is '0', empty, or blank.
+ */
+export function getActivePriceLevels(): string[] {
+  const labels = getPriceTierLabels();
+  return [labels.t1, labels.t2, labels.t3, labels.t4, labels.t5]
+    .filter(l => l && l.trim() !== '' && l.trim() !== '0');
+}
+
+/**
+ * Check if a specific tier number (1-5) is active (not labeled '0' or empty)
+ */
+export function isTierActive(tier: number): boolean {
+  const labels = getPriceTierLabels();
+  const key = `t${tier}` as keyof PriceTierLabels;
+  const label = labels[key];
+  return !!label && label.trim() !== '' && label.trim() !== '0';
+}
+
+/**
+ * Get the active tier numbers (1-5) as an array
+ */
+export function getActiveTierNumbers(): number[] {
+  return [1, 2, 3, 4, 5].filter(t => isTierActive(t));
+}
+
+/**
+ * Map price level names to inventory tier numbers
+ * Dynamically built from configured tier labels + legacy fallbacks
+ */
+export function priceLevelToTier(priceLevel: string): number {
+  const labels = getPriceTierLabels();
+
+  // Build dynamic mapping from configured labels
+  const mapping: Record<string, number> = {};
+  for (let i = 1; i <= 5; i++) {
+    const label = labels[`t${i}` as keyof PriceTierLabels];
+    if (label && label.trim() !== '' && label.trim() !== '0') {
+      mapping[label] = i;
+    }
+  }
+
+  // Legacy / shorthand mappings for backward compatibility
+  if (!mapping['VIPB'])  mapping['VIPB']  = mapping['VIP B'] || 3;
+  if (!mapping['VIPA'])  mapping['VIPA']  = mapping['VIP A'] || 4;
+  if (!mapping['T5'])    mapping['T5']    = 4;
+  if (!mapping['Wholesale'])  mapping['Wholesale']  = 3;
+  if (!mapping['Contractor']) mapping['Contractor'] = 4;
+  if (!mapping['Premium'])    mapping['Premium']    = 4;
+  if (!mapping['Standard'])   mapping['Standard']   = 4;
+
+  return mapping[priceLevel] || 1; // Default to tier 1 if not found
+}
+
+/**
+ * Map inventory tier numbers to price level names (uses configured labels)
+ */
+export function tierToPriceLevel(tier: number): string {
+  return getPriceTierLabel(tier);
 }
 
 /**
@@ -70,7 +133,7 @@ export function getGlobalSettings(): GlobalSettings {
   return {
     taxRate: 0,
     taxRate2: 0,
-    defaultPriceLevel: 'Retail', // Changed default to Retail
+    defaultPriceLevel: DEFAULT_PRICE_TIER_LABELS.t1,
     quoteTerms: 'Payment due within 30 days. All prices in USD.',
   };
 }

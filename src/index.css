@@ -5614,6 +5614,12 @@
   }
 
   @media (width >= 40rem) {
+    .sm\:grid-cols-5 {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+
+  @media (width >= 40rem) {
     .sm\:flex-col {
       flex-direction: column;
     }

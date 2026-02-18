@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
 import { contactsAPI, quotesAPI, settingsAPI } from '../utils/api';
-import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms } from '../lib/global-settings';
+import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms, getPriceTierLabel } from '../lib/global-settings';
 import type { User as AppUser } from '../App';
 
 interface ProjectQuoteGeneratorProps {
@@ -24,7 +24,7 @@ interface Contact {
   name: string;
   company?: string;
   email?: string;
-  priceLevel?: string; // Named price level like 'Retail', 'VIP', 'VIP B', 'VIP A', 'T5'
+  priceLevel?: string; // Named price level (dynamically configured in Admin Settings)
 }
 
 export function ProjectQuoteGenerator({ 
@@ -39,7 +39,7 @@ export function ProjectQuoteGenerator({
   const [selectedContact, setSelectedContact] = useState<string>('');
   const [quoteTitle, setQuoteTitle] = useState('');
   const [quoteNotes, setQuoteNotes] = useState('');
-  const [customerPriceLevel, setCustomerPriceLevel] = useState<string>('Retail');
+  const [customerPriceLevel, setCustomerPriceLevel] = useState<string>(getPriceTierLabel(1));
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -71,12 +71,12 @@ export function ProjectQuoteGenerator({
       // Find selected contact and get their price level
       const contact = contacts.find(c => c.id === selectedContact);
       if (contact) {
-        const priceLevel = contact.priceLevel || 'Retail';
+        const priceLevel = contact.priceLevel || getPriceTierLabel(1);
         setCustomerPriceLevel(priceLevel);
         console.log('[ProjectQuoteGenerator] Customer price level:', priceLevel);
       }
     } else {
-      setCustomerPriceLevel('Retail'); // Reset to default
+      setCustomerPriceLevel(getPriceTierLabel(1)); // Reset to default
     }
   }, [selectedContact, contacts]);
 

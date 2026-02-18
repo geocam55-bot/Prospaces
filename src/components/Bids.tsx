@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { quotesAPI, bidsAPI, contactsAPI, inventoryAPI, projectManagersAPI, settingsAPI } from '../utils/api';
 import type { User } from '../App';
-import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms, priceLevelToTier } from '../lib/global-settings';
+import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms, priceLevelToTier, getPriceTierLabel } from '../lib/global-settings';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Input } from './ui/input';
@@ -85,7 +85,7 @@ interface Contact {
   id: string;
   name: string;
   email?: string;
-  priceLevel?: string; // Named price level like 'Retail', 'VIP', 'VIP B', 'VIP A', 'T5'
+  priceLevel?: string; // Named price level (dynamically configured in Admin Settings)
 }
 
 interface InventoryItem {
@@ -183,7 +183,7 @@ export function Bids({ user }: BidsProps) {
   useEffect(() => {
     if (showDialog && inventory.length > 0 && currentLineItems.length > 0) {
       const contact = contacts.find(c => c.id === formData.contactId);
-      const priceTier = priceLevelToTier(contact?.priceLevel || 'Retail');
+      const priceTier = priceLevelToTier(contact?.priceLevel || getPriceTierLabel(1));
       
       let hasChanges = false;
       const updatedItems = currentLineItems.map(item => {
@@ -291,7 +291,7 @@ export function Bids({ user }: BidsProps) {
       }
 
       const contact = contacts.find(c => c.id === formData.contactId);
-      const priceTier = priceLevelToTier(contact?.priceLevel || 'Retail');
+      const priceTier = priceLevelToTier(contact?.priceLevel || getPriceTierLabel(1));
       const cleanStr = (s: string) => (s || '').toLowerCase().trim();
       
       let updateCount = 0;
@@ -464,7 +464,7 @@ export function Bids({ user }: BidsProps) {
       const item = inventory.find(i => i.id === selectedInventoryId);
       const contact = contacts.find(c => c.id === formData.contactId);
       if (item && contact) {
-        const priceTier = priceLevelToTier(contact.priceLevel || 'Retail');
+        const priceTier = priceLevelToTier(contact.priceLevel || getPriceTierLabel(1));
         const price = getPriceForTier(item, priceTier);
         setLineItemUnitPrice(price);
       }
@@ -737,7 +737,7 @@ export function Bids({ user }: BidsProps) {
     if (currentLineItems.length > 0 && formData.contactId && formData.contactId !== contactId) {
       if (confirm('Changing the contact will recalculate all line item prices based on the new price level. Continue?')) {
         const newContact = contacts.find(c => c.id === contactId);
-        const newPriceTier = priceLevelToTier(newContact?.priceLevel || 'Retail');
+        const newPriceTier = priceLevelToTier(newContact?.priceLevel || getPriceTierLabel(1));
         
         // Recalculate all line items with new price tier
         const updatedLineItems = currentLineItems.map(lineItem => {
@@ -865,7 +865,7 @@ export function Bids({ user }: BidsProps) {
         title: formData.title,
         contact_id: formData.contactId,
         contact_name: contact?.name || '',
-        price_tier: priceLevelToTier(contact?.priceLevel || 'Retail'),
+        price_tier: priceLevelToTier(contact?.priceLevel || getPriceTierLabel(1)),
         status: editingQuote?.status || 'draft',
         valid_until: formData.validUntil,
         line_items: JSON.stringify(currentLineItems),
@@ -1439,7 +1439,7 @@ export function Bids({ user }: BidsProps) {
               <div>
                 <Label>Selected Contact Price Level</Label>
                 <Input
-                  value={formData.contactId ? (contacts.find(c => c.id === formData.contactId)?.priceLevel || 'Retail') : 'Select a contact'}
+                  value={formData.contactId ? (contacts.find(c => c.id === formData.contactId)?.priceLevel || getPriceTierLabel(1)) : 'Select a contact'}
                   disabled
                   className="bg-gray-50"
                 />
@@ -1713,7 +1713,7 @@ export function Bids({ user }: BidsProps) {
                   {filteredInventory.length > 0 ? (
                     filteredInventory.map(item => {
                       const contact = contacts.find(c => c.id === formData.contactId);
-                      const priceTier = priceLevelToTier(contact?.priceLevel || 'Retail');
+                      const priceTier = priceLevelToTier(contact?.priceLevel || getPriceTierLabel(1));
                       const price = getPriceForTier(item, priceTier);
                       return (
                         <SelectItem key={item.id} value={item.id}>
@@ -1760,7 +1760,7 @@ export function Bids({ user }: BidsProps) {
                 />
                 {selectedInventoryId && (() => {
                   const contact = contacts.find(c => c.id === formData.contactId);
-                  const priceLevel = contact?.priceLevel || 'Retail';
+                  const priceLevel = contact?.priceLevel || getPriceTierLabel(1);
                   const priceTier = priceLevelToTier(priceLevel);
                   return (
                     <p className="text-xs text-gray-500 mt-1">

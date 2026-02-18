@@ -20,6 +20,7 @@ import { PermissionGate, PermissionButton } from './PermissionGate';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { ContactDetail } from './ContactDetail';
 import { useDebounce } from '../utils/useDebounce';
+import { getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings';
 import { useAudienceSegments } from '../hooks/useAudienceSegments';
 import { TagSelector } from './TagSelector';
 
@@ -32,7 +33,7 @@ interface Contact {
   status: string;
   ownerId: string;
   createdAt: string;
-  priceLevel: 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5';
+  priceLevel: string;
   legacyNumber?: string;
   accountOwnerNumber?: string;
   ptdSales?: number;
@@ -92,7 +93,7 @@ export function Contacts({ user }: ContactsProps) {
     phone: '',
     company: '',
     status: 'Prospect',
-    priceLevel: 'Retail' as 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5',
+    priceLevel: getPriceTierLabel(1),
     legacyNumber: '',
     accountOwnerNumber: user.email || '', // Default to logged in user's email
     address: '',
@@ -250,7 +251,7 @@ export function Contacts({ user }: ContactsProps) {
       
       const { contact } = await contactsAPI.create(contactData);
       setContacts([...contacts, contact]);
-      setNewContact({ name: '', email: '', phone: '', company: '', status: 'Prospect', priceLevel: 'Retail', legacyNumber: '', accountOwnerNumber: user.email || '', address: '', notes: '', tags: [], ptdSales: '', ptdGpPercent: '', ytdSales: '', ytdGpPercent: '', lyrSales: '', lyrGpPercent: '' });
+      setNewContact({ name: '', email: '', phone: '', company: '', status: 'Prospect', priceLevel: getPriceTierLabel(1), legacyNumber: '', accountOwnerNumber: user.email || '', address: '', notes: '', tags: [], ptdSales: '', ptdGpPercent: '', ytdSales: '', ytdGpPercent: '', lyrSales: '', lyrGpPercent: '' });
       setTagInput('');
       setIsAddDialogOpen(false);
     } catch (error: any) {
@@ -455,15 +456,15 @@ export function Contacts({ user }: ContactsProps) {
                 <Label htmlFor="edit-priceLevel">Price Level</Label>
                 <select
                   id="edit-priceLevel"
-                  value={editingContact?.priceLevel || 'Retail'}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, priceLevel: e.target.value as 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5' } : null)}
+                  value={editingContact?.priceLevel || getPriceTierLabel(1)}
+                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, priceLevel: e.target.value } : null)}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <option value="Retail">T1 — Retail</option>
-                  <option value="VIP">T2 — VIP</option>
-                  <option value="VIP B">T3 — VIP B</option>
-                  <option value="VIP A">T4 — VIP A</option>
-                  <option value="T5">T5</option>
+                  {[1,2,3,4,5].map(t => {
+                    const label = getPriceTierLabel(t);
+                    if (!label || label.trim() === '' || label.trim() === '0') return null;
+                    return <option key={t} value={label}>T{t} — {label}</option>;
+                  })}
                 </select>
               </div>
               <div className="space-y-2">
@@ -661,14 +662,14 @@ export function Contacts({ user }: ContactsProps) {
                     <select
                       id="priceLevel"
                       value={newContact.priceLevel}
-                      onChange={(e) => setNewContact({ ...newContact, priceLevel: e.target.value as 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5' })}
+                      onChange={(e) => setNewContact({ ...newContact, priceLevel: e.target.value })}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <option value="Retail">T1 — Retail</option>
-                      <option value="VIP">T2 — VIP</option>
-                      <option value="VIP B">T3 — VIP B</option>
-                      <option value="VIP A">T4 — VIP A</option>
-                      <option value="T5">T5</option>
+                      {[1,2,3,4,5].map(t => {
+                        const label = getPriceTierLabel(t);
+                        if (!label || label.trim() === '' || label.trim() === '0') return null;
+                        return <option key={t} value={label}>T{t} — {label}</option>;
+                      })}
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -1103,15 +1104,15 @@ export function Contacts({ user }: ContactsProps) {
               <Label htmlFor="edit-priceLevel">Price Level</Label>
               <select
                 id="edit-priceLevel"
-                value={editingContact?.priceLevel || 'Retail'}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, priceLevel: e.target.value as 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5' } : null)}
+                value={editingContact?.priceLevel || getPriceTierLabel(1)}
+                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, priceLevel: e.target.value } : null)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="Retail">T1 — Retail</option>
-                <option value="VIP">T2 — VIP</option>
-                <option value="VIP B">T3 — VIP B</option>
-                <option value="VIP A">T4 — VIP A</option>
-                <option value="T5">T5</option>
+                {[1,2,3,4,5].map(t => {
+                  const label = getPriceTierLabel(t);
+                  if (!label || label.trim() === '' || label.trim() === '0') return null;
+                  return <option key={t} value={label}>T{t} — {label}</option>;
+                })}
               </select>
             </div>
             <div className="space-y-2">
