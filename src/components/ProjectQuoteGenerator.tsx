@@ -24,7 +24,7 @@ interface Contact {
   name: string;
   company?: string;
   email?: string;
-  priceLevel?: string; // Named price level like 'Retail', 'Wholesale', 'Contractor', 'Premium', 'Standard'
+  priceLevel?: string; // Named price level like 'Retail', 'VIP', 'VIP B', 'VIP A', 'T5'
 }
 
 export function ProjectQuoteGenerator({ 

@@ -66,7 +66,7 @@ interface Contact {
   phone: string;
   company: string;
   status: string;
-  priceLevel: 'Retail' | 'Wholesale' | 'Contractor' | 'Premium' | 'Standard';
+  priceLevel: 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5';
   createdAt: string;
   legacyNumber?: string;
   accountOwnerNumber?: string;

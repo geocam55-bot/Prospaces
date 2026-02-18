@@ -784,11 +784,11 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                         <SelectValue placeholder="Select default price level" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Standard">Standard</SelectItem>
-                        <SelectItem value="Premium">Premium</SelectItem>
-                        <SelectItem value="Wholesale">Wholesale</SelectItem>
-                        <SelectItem value="Retail">Retail</SelectItem>
-                        <SelectItem value="Contractor">Contractor</SelectItem>
+                        <SelectItem value="Retail">T1 — Retail</SelectItem>
+                        <SelectItem value="VIP">T2 — VIP</SelectItem>
+                        <SelectItem value="VIP B">T3 — VIP B</SelectItem>
+                        <SelectItem value="VIP A">T4 — VIP A</SelectItem>
+                        <SelectItem value="T5">T5</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-gray-500">

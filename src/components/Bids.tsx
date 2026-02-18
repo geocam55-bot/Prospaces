@@ -85,7 +85,7 @@ interface Contact {
   id: string;
   name: string;
   email?: string;
-  priceLevel?: string; // Named price level like 'Retail', 'Wholesale', etc.
+  priceLevel?: string; // Named price level like 'Retail', 'VIP', 'VIP B', 'VIP A', 'T5'
 }
 
 interface InventoryItem {

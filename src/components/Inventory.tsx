@@ -1075,7 +1075,13 @@ export function Inventory({ user }: InventoryProps) {
                       <div className="lg:w-80 border-l-0 lg:border-l lg:pl-4">
                         <p className="text-sm text-gray-700 mb-2">Price Tiers</p>
                         <div className="grid grid-cols-5 gap-2">
-                          {[1, 2, 3, 4, 5].map(tier => {
+                          {[
+                            { tier: 1, label: 'Retail' },
+                            { tier: 2, label: 'VIP' },
+                            { tier: 3, label: 'VIP B' },
+                            { tier: 4, label: 'VIP A' },
+                            { tier: 5, label: 'T5' },
+                          ].map(({ tier, label }) => {
                             const tierValue = item[`priceTier${tier}` as keyof InventoryItem] as number;
                             const allSame = item.priceTier1 === item.priceTier2 && 
                                           item.priceTier2 === item.priceTier3 && 
@@ -1089,7 +1095,7 @@ export function Inventory({ user }: InventoryProps) {
                                   (tierValue === 0 && tier > 1 && !allSame) ? 'bg-yellow-50 border border-yellow-200' :
                                   'bg-gray-100'
                                 }`}>
-                                  <p className={`text-xs ${isDistinct ? 'text-green-700 font-medium' : 'text-gray-600'}`}>T{tier}</p>
+                                  <p className={`text-xs ${isDistinct ? 'text-green-700 font-medium' : 'text-gray-600'}`} title={`T${tier} — ${label}`}>{label}</p>
                                   <p className={`text-sm mt-1 ${
                                     isDistinct ? 'text-green-900 font-semibold' : 
                                     (tierValue === 0 && tier > 1 && !allSame) ? 'text-yellow-600 italic' :
@@ -1452,7 +1458,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">T2 — Wholesale</label>
+                  <label className="text-sm text-gray-700">T2 — VIP</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1462,7 +1468,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">T3 — Contractor</label>
+                  <label className="text-sm text-gray-700">T3 — VIP B</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1472,7 +1478,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">T4 — Premium</label>
+                  <label className="text-sm text-gray-700">T4 — VIP A</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1482,7 +1488,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">T5 — Standard</label>
+                  <label className="text-sm text-gray-700">T5</label>
                   <Input
                     type="number"
                     step="0.01"

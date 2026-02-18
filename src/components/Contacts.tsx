@@ -32,7 +32,7 @@ interface Contact {
   status: string;
   ownerId: string;
   createdAt: string;
-  priceLevel: 'Retail' | 'Wholesale' | 'Contractor' | 'Premium' | 'Standard';
+  priceLevel: 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5';
   legacyNumber?: string;
   accountOwnerNumber?: string;
   ptdSales?: number;
@@ -92,7 +92,7 @@ export function Contacts({ user }: ContactsProps) {
     phone: '',
     company: '',
     status: 'Prospect',
-    priceLevel: 'Retail' as 'Retail' | 'Wholesale' | 'Contractor' | 'Premium' | 'Standard',
+    priceLevel: 'Retail' as 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5',
     legacyNumber: '',
     accountOwnerNumber: user.email || '', // Default to logged in user's email
     address: '',
@@ -456,14 +456,14 @@ export function Contacts({ user }: ContactsProps) {
                 <select
                   id="edit-priceLevel"
                   value={editingContact?.priceLevel || 'Retail'}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, priceLevel: e.target.value as 'Retail' | 'Wholesale' | 'Contractor' | 'Premium' | 'Standard' } : null)}
+                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, priceLevel: e.target.value as 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5' } : null)}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <option value="Retail">Retail</option>
-                  <option value="Wholesale">Wholesale</option>
-                  <option value="Contractor">Contractor</option>
-                  <option value="Premium">Premium</option>
-                  <option value="Standard">Standard</option>
+                  <option value="Retail">T1 — Retail</option>
+                  <option value="VIP">T2 — VIP</option>
+                  <option value="VIP B">T3 — VIP B</option>
+                  <option value="VIP A">T4 — VIP A</option>
+                  <option value="T5">T5</option>
                 </select>
               </div>
               <div className="space-y-2">
@@ -661,14 +661,14 @@ export function Contacts({ user }: ContactsProps) {
                     <select
                       id="priceLevel"
                       value={newContact.priceLevel}
-                      onChange={(e) => setNewContact({ ...newContact, priceLevel: e.target.value as 'Retail' | 'Wholesale' | 'Contractor' | 'Premium' | 'Standard' })}
+                      onChange={(e) => setNewContact({ ...newContact, priceLevel: e.target.value as 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5' })}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <option value="Retail">Retail</option>
-                      <option value="Wholesale">Wholesale</option>
-                      <option value="Contractor">Contractor</option>
-                      <option value="Premium">Premium</option>
-                      <option value="Standard">Standard</option>
+                      <option value="Retail">T1 — Retail</option>
+                      <option value="VIP">T2 — VIP</option>
+                      <option value="VIP B">T3 — VIP B</option>
+                      <option value="VIP A">T4 — VIP A</option>
+                      <option value="T5">T5</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -1104,14 +1104,14 @@ export function Contacts({ user }: ContactsProps) {
               <select
                 id="edit-priceLevel"
                 value={editingContact?.priceLevel || 'Retail'}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, priceLevel: e.target.value as 'Retail' | 'Wholesale' | 'Contractor' | 'Premium' | 'Standard' } : null)}
+                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, priceLevel: e.target.value as 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5' } : null)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value="Retail">Retail</option>
-                <option value="Wholesale">Wholesale</option>
-                <option value="Contractor">Contractor</option>
-                <option value="Premium">Premium</option>
-                <option value="Standard">Standard</option>
+                <option value="Retail">T1 — Retail</option>
+                <option value="VIP">T2 — VIP</option>
+                <option value="VIP B">T3 — VIP B</option>
+                <option value="VIP A">T4 — VIP A</option>
+                <option value="T5">T5</option>
               </select>
             </div>
             <div className="space-y-2">

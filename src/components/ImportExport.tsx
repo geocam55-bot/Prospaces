@@ -82,11 +82,11 @@ const DATABASE_FIELDS = {
     { value: 'quantity_on_order', label: 'Quantity On Order', required: false },
     { value: 'unit_price', label: 'Unit Price', required: false },
     { value: 'cost', label: 'Cost', required: false },
-    { value: 'price_tier_1', label: 'Price Level 1 (Retail)', required: false },
-    { value: 'price_tier_2', label: 'Price Level 2 (Wholesale)', required: false },
-    { value: 'price_tier_3', label: 'Price Level 3 (Contractor)', required: false },
-    { value: 'price_tier_4', label: 'Price Level 4 (Premium)', required: false },
-    { value: 'price_tier_5', label: 'Price Level 5 (Standard)', required: false },
+    { value: 'price_tier_1', label: 'T1 — Retail', required: false },
+    { value: 'price_tier_2', label: 'T2 — VIP', required: false },
+    { value: 'price_tier_3', label: 'T3 — VIP B', required: false },
+    { value: 'price_tier_4', label: 'T4 — VIP A', required: false },
+    { value: 'price_tier_5', label: 'T5', required: false },
     { value: 'department_code', label: 'Department Code', required: false },
     { value: 'unit_of_measure', label: 'Unit of Measure', required: false },
   ],
@@ -105,7 +105,7 @@ const DATABASE_FIELDS = {
 };
 
 export function ImportExport({ user, onNavigate }: ImportExportProps) {
-  console.log('🔍 ImportExport component mounted for user:', user);
+  console.log('ImportExport component mounted for user:', user);
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -222,13 +222,13 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !authUser) {
-        console.error('❌ Auth error:', authError);
+        console.error('Auth error:', authError);
         throw new Error('You must be logged in to create background imports');
       }
 
-      console.log('✅ Authenticated user:', authUser.id);
-      console.log('📋 App user org:', user.organizationId);
-      console.log('📋 Total records to import:', mappedData.length);
+      console.log('Authenticated user:', authUser.id);
+      console.log('App user org:', user.organizationId);
+      console.log('Total records to import:', mappedData.length);
 
       // Chunk large datasets to stay under DB/edge-function payload limits
       const CHUNK_SIZE = 2000;
@@ -237,7 +237,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         chunks.push(mappedData.slice(i, i + CHUNK_SIZE));
       }
 
-      console.log(`📦 Splitting ${mappedData.length} records into ${chunks.length} job(s) of up to ${CHUNK_SIZE} each`);
+      console.log(`Splitting ${mappedData.length} records into ${chunks.length} job(s) of up to ${CHUNK_SIZE} each`);
 
       // Get session once before the loop
       const { data: { session } } = await supabase.auth.getSession();
@@ -266,7 +266,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           created_at: new Date().toISOString(),
         };
 
-        console.log(`📤 Creating job${chunkLabel}: ${chunk.length} records`);
+        console.log(`Creating job${chunkLabel}: ${chunk.length} records`);
         
         const response = await fetch(url, {
           method: 'POST',
@@ -288,7 +288,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         if (result.error) {
           throw new Error(result.error);
         }
-        console.log(`✅ Job created via edge function${chunkLabel}:`, result.job?.id);
+        console.log(`Job created via edge function${chunkLabel}:`, result.job?.id);
 
         totalCreated += chunk.length;
 
@@ -372,17 +372,57 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     });
   };
 
+  // Parse a single CSV line respecting quoted fields (handles commas inside quotes)
+  const parseCSVLine = (line: string): string[] => {
+    const values: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (i + 1 < line.length && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          current += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ',') {
+          values.push(current.trim());
+          current = '';
+        } else {
+          current += ch;
+        }
+      }
+    }
+    values.push(current.trim());
+    return values;
+  };
+
   // Parse CSV data (first row is header)
   const parseCSV = (text: string): any[] => {
     const lines = text.trim().split('\n');
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.trim().replace(/['"]/g, ''));
+    const headers = parseCSVLine(lines[0]).map(h => h.replace(/^['"]|['"]$/g, '').trim());
     const data: any[] = [];
 
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/['"]/g, ''));
-      if (values.length !== headers.length) continue;
+      const line = lines[i].trim();
+      if (!line) continue;
+      
+      const values = parseCSVLine(line);
+      if (values.length !== headers.length) {
+        console.warn(`Row ${i + 1}: Expected ${headers.length} columns, got ${values.length}. Skipping.`);
+        continue;
+      }
 
       const row: any = {};
       headers.forEach((header, index) => {
@@ -409,10 +449,10 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       'category': ['dept', 'department', 'class', 'product category'],
       'supplier': ['vendor', 'manufacturer'],
       'price_tier_1': ['retail price', 'price 1', 'price tier 1', 'tier 1', 't1', 'retail', 'price level 1', 'level 1'],
-      'price_tier_2': ['wholesale price', 'price 2', 'price tier 2', 'tier 2', 't2', 'wholesale', 'price level 2', 'level 2'],
-      'price_tier_3': ['contractor price', 'price 3', 'price tier 3', 'tier 3', 't3', 'contractor', 'price level 3', 'level 3'],
-      'price_tier_4': ['premium price', 'price 4', 'price tier 4', 'tier 4', 't4', 'premium', 'price level 4', 'level 4'],
-      'price_tier_5': ['standard price', 'price 5', 'price tier 5', 'tier 5', 't5', 'standard', 'price level 5', 'level 5'],
+      'price_tier_2': ['vip price', 'price 2', 'price tier 2', 'tier 2', 't2', 'vip', 'price level 2', 'level 2', 'wholesale price', 'wholesale'],
+      'price_tier_3': ['vip b price', 'vipb price', 'price 3', 'price tier 3', 'tier 3', 't3', 'vip b', 'vipb', 'price level 3', 'level 3', 'contractor price', 'contractor'],
+      'price_tier_4': ['vip a price', 'vipa price', 'price 4', 'price tier 4', 'tier 4', 't4', 'vip a', 'vipa', 'price level 4', 'level 4', 'premium price', 'premium'],
+      'price_tier_5': ['price 5', 'price tier 5', 'tier 5', 't5', 'price level 5', 'level 5', 'standard price', 'standard'],
       'department_code': ['dept code', 'department', 'dept', 'department code'],
       'unit_of_measure': ['uom', 'unit', 'measure', 'unit of measure', 'units'],
     };
@@ -450,13 +490,13 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
       if (match) {
         mapping[fileCol] = match.value;
-        console.log(`🔗 Auto-mapped "${fileCol}" → "${match.value}" (${match.label})`);
+        console.log(`Auto-mapped "${fileCol}" -> "${match.value}" (${match.label})`);
       } else {
-        console.log(`⚠️ No match found for column "${fileCol}"`);
+        console.log(`No match found for column "${fileCol}"`);
       }
     });
 
-    console.log('📋 Final mapping:', mapping);
+    console.log('Final mapping:', mapping);
     return mapping;
   };
 
@@ -528,7 +568,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const executeImport = async () => {
     if (!mappingState) return;
 
-    console.log('🚀 Starting import...', mappingState);
+    console.log('Starting import...', mappingState);
 
     const { type, data, mapping } = mappingState;
     setIsImporting(true);
@@ -536,7 +576,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     setImportProgress({ current: 0, total: data.length });
 
     try {
-      console.log(`📊 Importing ${data.length} ${type} records...`);
+      console.log(`Importing ${data.length} ${type} records...`);
       let success = 0;
       let failed = 0;
       const errors: string[] = [];
@@ -548,12 +588,12 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const requiredFields = dbFields.filter(f => f.required);
       const mappedDbFields = Object.values(mapping);
 
-      console.log('✅ Required fields:', requiredFields.map(f => f.value));
-      console.log('✅ Mapped fields:', mappedDbFields);
+      console.log('Required fields:', requiredFields.map(f => f.value));
+      console.log('Mapped fields:', mappedDbFields);
 
       for (const reqField of requiredFields) {
         if (!mappedDbFields.includes(reqField.value)) {
-          console.error('❌ Missing required field:', reqField.label);
+          console.error('Missing required field:', reqField.label);
           toast.error(`Required field "${reqField.label}" is not mapped`);
           setIsImporting(false);
           return;
@@ -576,13 +616,13 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         const BATCH_SIZE = 50;
         const totalBatches = Math.ceil(mappedData.length / BATCH_SIZE);
         
-        console.log(`🚀 Processing ${mappedData.length} items in ${totalBatches} batches of ${BATCH_SIZE}`);
+        console.log(`Processing ${mappedData.length} items in ${totalBatches} batches of ${BATCH_SIZE}`);
 
         for (let i = 0; i < mappedData.length; i += BATCH_SIZE) {
           const batch = mappedData.slice(i, i + BATCH_SIZE);
           const batchNum = Math.floor(i / BATCH_SIZE) + 1;
           
-          console.log(`📦 Processing batch ${batchNum}/${totalBatches} (${batch.length} items)`);
+          console.log(`Processing batch ${batchNum}/${totalBatches} (${batch.length} items)`);
           
           try {
             const result = await inventoryAPI.bulkUpsertBySKU(batch);
@@ -604,7 +644,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               await new Promise(resolve => setTimeout(resolve, 100));
             }
           } catch (error: any) {
-            console.error(`❌ Batch ${batchNum} failed:`, error);
+            console.error(`Batch ${batchNum} failed:`, error);
             errors.push(`Batch ${batchNum}: ${error.message}`);
             failed += batch.length;
           }
@@ -614,13 +654,13 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         const BATCH_SIZE = 25; // Slightly smaller batches for contacts
         const totalBatches = Math.ceil(mappedData.length / BATCH_SIZE);
         
-        console.log(`🚀 Processing ${mappedData.length} contacts in ${totalBatches} batches of ${BATCH_SIZE}`);
+        console.log(`Processing ${mappedData.length} contacts in ${totalBatches} batches of ${BATCH_SIZE}`);
 
         for (let i = 0; i < mappedData.length; i += BATCH_SIZE) {
           const batch = mappedData.slice(i, i + BATCH_SIZE);
           const batchNum = Math.floor(i / BATCH_SIZE) + 1;
           
-          console.log(`📦 Processing batch ${batchNum}/${totalBatches} (${batch.length} contacts)`);
+          console.log(`Processing batch ${batchNum}/${totalBatches} (${batch.length} contacts)`);
           
           // Process contacts in parallel within the batch
           const batchPromises = batch.map(async (contact, idx) => {
@@ -729,9 +769,9 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     
     // Log whether we created or updated
     if (result.action === 'updated') {
-      console.log(`✏️ Row ${rowNum}: Updated existing contact (Legacy #: ${cleanContact.legacyNumber})`);
+      console.log(`Row ${rowNum}: Updated existing contact (Legacy #: ${cleanContact.legacyNumber})`);
     } else {
-      console.log(`➕ Row ${rowNum}: Created new contact`);
+      console.log(`Row ${rowNum}: Created new contact`);
     }
 
     return result;
@@ -754,27 +794,28 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     if (item.category) cleanItem.category = item.category;
     else cleanItem.category = 'General';
     
-    // Convert numeric fields
-    if (item.quantity) cleanItem.quantity = parseInt(item.quantity) || 0;
-    if (item.quantity_on_order) cleanItem.quantity_on_order = parseInt(item.quantity_on_order) || 0;
-    if (item.unit_price) cleanItem.unit_price = parseFloat(item.unit_price) || 0;
-    if (item.cost) cleanItem.cost = parseFloat(item.cost) || 0;
+    // Convert numeric fields — use != null to avoid skipping legitimate 0 values
+    if (item.quantity != null && item.quantity !== '') cleanItem.quantity = parseInt(item.quantity) || 0;
+    if (item.quantity_on_order != null && item.quantity_on_order !== '') cleanItem.quantity_on_order = parseInt(item.quantity_on_order) || 0;
+    if (item.unit_price != null && item.unit_price !== '') cleanItem.unit_price = parseFloat(item.unit_price) || 0;
+    if (item.cost != null && item.cost !== '') cleanItem.cost = parseFloat(item.cost) || 0;
     
     // Price tiers (stored in dollars here; inventory-client.ts converts to cents)
-    if (item.price_tier_1) cleanItem.price_tier_1 = parseFloat(item.price_tier_1) || 0;
-    if (item.price_tier_2) cleanItem.price_tier_2 = parseFloat(item.price_tier_2) || 0;
-    if (item.price_tier_3) cleanItem.price_tier_3 = parseFloat(item.price_tier_3) || 0;
-    if (item.price_tier_4) cleanItem.price_tier_4 = parseFloat(item.price_tier_4) || 0;
-    if (item.price_tier_5) cleanItem.price_tier_5 = parseFloat(item.price_tier_5) || 0;
+    // Use != null so that a CSV value of "0" or 0 is still imported (not skipped)
+    if (item.price_tier_1 != null && item.price_tier_1 !== '') cleanItem.price_tier_1 = parseFloat(item.price_tier_1) || 0;
+    if (item.price_tier_2 != null && item.price_tier_2 !== '') cleanItem.price_tier_2 = parseFloat(item.price_tier_2) || 0;
+    if (item.price_tier_3 != null && item.price_tier_3 !== '') cleanItem.price_tier_3 = parseFloat(item.price_tier_3) || 0;
+    if (item.price_tier_4 != null && item.price_tier_4 !== '') cleanItem.price_tier_4 = parseFloat(item.price_tier_4) || 0;
+    if (item.price_tier_5 != null && item.price_tier_5 !== '') cleanItem.price_tier_5 = parseFloat(item.price_tier_5) || 0;
     
     // Use price_tier_1 as a fallback for unit_price if not already set
-    if (!cleanItem.unit_price && cleanItem.price_tier_1) {
+    if (cleanItem.unit_price == null && cleanItem.price_tier_1 != null) {
       cleanItem.unit_price = cleanItem.price_tier_1;
     }
     
-    // Department code and unit of measure
-    if (item.department_code) cleanItem.department_code = item.department_code;
-    if (item.unit_of_measure) cleanItem.unit_of_measure = item.unit_of_measure;
+    // Department code and unit of measure — use != null to preserve empty-string values
+    if (item.department_code != null && item.department_code !== '') cleanItem.department_code = item.department_code;
+    if (item.unit_of_measure != null && item.unit_of_measure !== '') cleanItem.unit_of_measure = item.unit_of_measure;
 
     // Use upsert logic: check by SKU and update if exists, otherwise create new
     const result = await inventoryAPI.upsertBySKU(cleanItem);
@@ -784,9 +825,9 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const duplicateInfo = result.updatedCount && result.updatedCount > 1 
         ? ` (${result.updatedCount} duplicate records updated)` 
         : '';
-      console.log(`✏️ Row ${rowNum}: Updated existing inventory item (SKU: ${cleanItem.sku})${duplicateInfo}`);
+      console.log(`Row ${rowNum}: Updated existing inventory item (SKU: ${cleanItem.sku})${duplicateInfo}`);
     } else {
-      console.log(`➕ Row ${rowNum}: Created new inventory item`);
+      console.log(`Row ${rowNum}: Created new inventory item`);
     }
 
     return result;
@@ -842,9 +883,9 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const inventory = response.inventory || [];
 
       const csvContent = [
-        'name,sku,description,category,quantity,quantity_on_order,unit_price,cost',
+        'name,sku,description,category,quantity,quantity_on_order,unit_price,cost,price_tier_1,price_tier_2,price_tier_3,price_tier_4,price_tier_5,department_code,unit_of_measure',
         ...inventory.map((i: any) => 
-          `"${i.name}","${i.sku}","${i.description || ''}","${i.category}","${i.quantity}","${i.quantity_on_order}","${i.unit_price}","${i.cost}"`
+          `"${(i.name || '').replace(/"/g, '""')}","${(i.sku || '').replace(/"/g, '""')}","${(i.description || '').replace(/"/g, '""')}","${i.category || ''}","${i.quantity || 0}","${i.quantity_on_order || 0}","${i.unit_price ?? i.unitPrice ?? 0}","${i.cost ?? 0}","${i.priceTier1 ?? i.price_tier_1 ?? ''}","${i.priceTier2 ?? i.price_tier_2 ?? ''}","${i.priceTier3 ?? i.price_tier_3 ?? ''}","${i.priceTier4 ?? i.price_tier_4 ?? ''}","${i.priceTier5 ?? i.price_tier_5 ?? ''}","${i.departmentCode ?? i.department_code ?? ''}","${i.unitOfMeasure ?? i.unit_of_measure ?? 'ea'}"`
         )
       ].join('\n');
 
@@ -895,24 +936,34 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
   // Download sample CSV templates
   const downloadTemplate = (type: 'contacts' | 'inventory' | 'bids') => {
-    let csvContent = '';
+    let lines: string[] = [];
     let filename = '';
 
     switch (type) {
       case 'contacts':
-        csvContent = 'name,email,phone,company,address,status,priceLevel,notes,legacyNumber,accountOwnerNumber,ptdSales,ptdGpPercent,ytdSales,ytdGpPercent,lyrSales,lyrGpPercent\\nJohn Doe,john@example.com,555-1234,Acme Corp,123 Main St New York NY 10001,Prospect,Retail,Sample contact notes,LEG-12345,AO-67890,1000,20,2000,30,3000,40';
+        lines = [
+          'name,email,phone,company,address,status,priceLevel,notes,legacyNumber,accountOwnerNumber,ptdSales,ptdGpPercent,ytdSales,ytdGpPercent,lyrSales,lyrGpPercent',
+          'John Doe,john@example.com,555-1234,Acme Corp,123 Main St New York NY 10001,Prospect,Retail,Sample contact notes,LEG-12345,AO-67890,1000,20,2000,30,3000,40',
+        ];
         filename = 'contacts_template.csv';
         break;
       case 'inventory':
-        csvContent = 'name,sku,description,category,quantity,quantity_on_order,unit_price,cost,price_tier_1,price_tier_2,price_tier_3,price_tier_4,price_tier_5,department_code,unit_of_measure\nSample Item,SKU-001,Sample description,Electronics,100,50,99.99,50.00,99.99,89.99,79.99,69.99,59.99,DEPT-01,ea';
+        lines = [
+          'name,sku,description,category,quantity,quantity_on_order,unit_price,cost,price_tier_1,price_tier_2,price_tier_3,price_tier_4,price_tier_5,department_code,unit_of_measure',
+          'Sample Item,SKU-001,Sample description,Electronics,100,50,99.99,50.00,99.99,89.99,79.99,69.99,59.99,DEPT-01,ea',
+        ];
         filename = 'inventory_template.csv';
         break;
       case 'bids':
-        csvContent = 'clientName,projectName,description,subtotal,tax,total,status,validUntil,notes,terms\\nAcme Corp,Website Redesign,Complete website overhaul,10000,1000,11000,draft,2024-12-31,Sample bid,Payment due within 30 days';
+        lines = [
+          'clientName,projectName,description,subtotal,tax,total,status,validUntil,notes,terms',
+          'Acme Corp,Website Redesign,Complete website overhaul,10000,1000,11000,draft,2024-12-31,Sample bid,Payment due within 30 days',
+        ];
         filename = 'bids_template.csv';
         break;
     }
 
+    const csvContent = lines.join('\n');
     downloadCSV(csvContent, filename);
     toast.success('Template downloaded');
   };

@@ -11,17 +11,24 @@ export interface GlobalSettings {
 }
 
 // Price level mapping constants
-export type PriceLevel = 'Retail' | 'Wholesale' | 'Contractor' | 'Premium' | 'Standard';
+export type PriceLevel = 'Retail' | 'VIP' | 'VIP B' | 'VIP A' | 'T5';
 
-export const PRICE_LEVELS: PriceLevel[] = ['Retail', 'Wholesale', 'Contractor', 'Premium', 'Standard'];
+export const PRICE_LEVELS: PriceLevel[] = ['Retail', 'VIP', 'VIP B', 'VIP A', 'T5'];
 
 /**
  * Map price level names to inventory tier numbers
- * Retail -> Tier 1, Wholesale -> Tier 2, etc.
+ * Retail -> Tier 1, VIP -> Tier 2, VIP B -> Tier 3, VIP A -> Tier 4, T5 -> Tier 5
  */
 export function priceLevelToTier(priceLevel: string): number {
   const mapping: Record<string, number> = {
     'Retail': 1,
+    'VIP': 2,
+    'VIP B': 3,
+    'VIPB': 3,
+    'VIP A': 4,
+    'VIPA': 4,
+    'T5': 5,
+    // Legacy mappings for backward compatibility with existing contact data
     'Wholesale': 2,
     'Contractor': 3,
     'Premium': 4,
@@ -36,10 +43,10 @@ export function priceLevelToTier(priceLevel: string): number {
 export function tierToPriceLevel(tier: number): PriceLevel {
   const mapping: Record<number, PriceLevel> = {
     1: 'Retail',
-    2: 'Wholesale',
-    3: 'Contractor',
-    4: 'Premium',
-    5: 'Standard',
+    2: 'VIP',
+    3: 'VIP B',
+    4: 'VIP A',
+    5: 'T5',
   };
   return mapping[tier] || 'Retail'; // Default to Retail if not found
 }

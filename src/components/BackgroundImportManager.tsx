@@ -212,24 +212,26 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
                 .eq('sku', record.sku)
                 .maybeSingle();
 
-              const inventoryData = {
+              // Build inventory data — only include fields that exist in the record
+              // to avoid overwriting existing DB values with 0 when a field wasn't in the CSV
+              const inventoryData: any = {
                 organization_id: user.organizationId,
                 name: record.name,
                 sku: record.sku,
                 description: record.description || '',
                 category: record.category || 'Uncategorized',
-                quantity: parseFloat(record.quantity) || 0,
-                quantity_on_order: parseFloat(record.quantity_on_order) || 0,
-                unit_price: parseFloat(record.unit_price) || 0,
-                cost: parseFloat(record.cost) || 0,
-                price_tier_1: parseFloat(record.price_tier_1) || 0,
-                price_tier_2: parseFloat(record.price_tier_2) || 0,
-                price_tier_3: parseFloat(record.price_tier_3) || 0,
-                price_tier_4: parseFloat(record.price_tier_4) || 0,
-                price_tier_5: parseFloat(record.price_tier_5) || 0,
-                department_code: record.department_code || '',
-                unit_of_measure: record.unit_of_measure || 'ea',
               };
+              if (record.quantity != null && record.quantity !== '') inventoryData.quantity = parseFloat(record.quantity) || 0;
+              if (record.quantity_on_order != null && record.quantity_on_order !== '') inventoryData.quantity_on_order = parseFloat(record.quantity_on_order) || 0;
+              if (record.unit_price != null && record.unit_price !== '') inventoryData.unit_price = parseFloat(record.unit_price) || 0;
+              if (record.cost != null && record.cost !== '') inventoryData.cost = parseFloat(record.cost) || 0;
+              if (record.price_tier_1 != null && record.price_tier_1 !== '') inventoryData.price_tier_1 = parseFloat(record.price_tier_1) || 0;
+              if (record.price_tier_2 != null && record.price_tier_2 !== '') inventoryData.price_tier_2 = parseFloat(record.price_tier_2) || 0;
+              if (record.price_tier_3 != null && record.price_tier_3 !== '') inventoryData.price_tier_3 = parseFloat(record.price_tier_3) || 0;
+              if (record.price_tier_4 != null && record.price_tier_4 !== '') inventoryData.price_tier_4 = parseFloat(record.price_tier_4) || 0;
+              if (record.price_tier_5 != null && record.price_tier_5 !== '') inventoryData.price_tier_5 = parseFloat(record.price_tier_5) || 0;
+              if (record.department_code != null && record.department_code !== '') inventoryData.department_code = record.department_code;
+              if (record.unit_of_measure != null && record.unit_of_measure !== '') inventoryData.unit_of_measure = record.unit_of_measure;
 
               if (existing) {
                 // Update existing — use correct API method name

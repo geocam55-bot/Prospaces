@@ -114,18 +114,28 @@ function transformFromDbFormat(contactData: any) {
   if ('price_level' in transformed) {
     const oldValue = transformed.price_level;
     // If it's already a named level, use it
-    if (['Retail', 'Wholesale', 'Contractor', 'Premium', 'Standard'].includes(oldValue)) {
+    if (['Retail', 'VIP', 'VIP B', 'VIP A', 'T5'].includes(oldValue)) {
       transformed.priceLevel = oldValue;
-    } 
+    }
+    // Handle legacy names from old system
+    else if (['Wholesale', 'Contractor', 'Premium', 'Standard'].includes(oldValue)) {
+      const legacyMapping: Record<string, string> = {
+        'Wholesale': 'VIP',
+        'Contractor': 'VIP B',
+        'Premium': 'VIP A',
+        'Standard': 'T5',
+      };
+      transformed.priceLevel = legacyMapping[oldValue] || 'Retail';
+    }
     // If it's an old tier format (tier1, tier2, etc.), convert it
     else if (typeof oldValue === 'string' && oldValue.startsWith('tier')) {
       const tierNumber = parseInt(oldValue.replace('tier', ''));
       const tierToLevel: Record<number, string> = {
         1: 'Retail',
-        2: 'Wholesale',
-        3: 'Contractor',
-        4: 'Premium',
-        5: 'Standard',
+        2: 'VIP',
+        3: 'VIP B',
+        4: 'VIP A',
+        5: 'T5',
       };
       transformed.priceLevel = tierToLevel[tierNumber] || 'Retail';
     }
@@ -133,10 +143,10 @@ function transformFromDbFormat(contactData: any) {
     else if (typeof oldValue === 'number') {
       const tierToLevel: Record<number, string> = {
         1: 'Retail',
-        2: 'Wholesale',
-        3: 'Contractor',
-        4: 'Premium',
-        5: 'Standard',
+        2: 'VIP',
+        3: 'VIP B',
+        4: 'VIP A',
+        5: 'T5',
       };
       transformed.priceLevel = tierToLevel[oldValue] || 'Retail';
     }

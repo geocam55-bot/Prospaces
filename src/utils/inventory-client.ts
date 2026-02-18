@@ -518,7 +518,7 @@ export async function upsertInventoryBySKUClient(itemData: any) {
     if (itemData.sku) {
       const { data, error } = await supabase
         .from('inventory')
-        .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, image_url, organization_id, created_at, updated_at')
+        .select(INVENTORY_SELECT)
         .eq('sku', itemData.sku)
         .eq('organization_id', organizationId)
         .order('created_at', { ascending: true }); // Oldest first
