@@ -43,6 +43,10 @@ export async function getAllOpportunitiesClient() {
       // Manager: Can see ALL opportunities in their organization (for Team Dashboard)
       console.log('👔 Manager - Loading all organization opportunities');
       query = query.eq('organization_id', userOrgId);
+    } else if (userRole === 'director') {
+      // Director: Same data access as Manager - sees all organization opportunities
+      console.log('🎯 Director - Loading all organization opportunities');
+      query = query.eq('organization_id', userOrgId);
     } else if (userRole === 'marketing') {
       // Marketing: Can see all opportunities within their organization (for campaigns)
       console.log('📢 Marketing - Loading opportunities for organization:', userOrgId);
@@ -152,6 +156,7 @@ export async function getOpportunitiesByCustomerClient(customerId: string) {
     (userRole === 'admin' && contact.organization_id === userOrgId) || // Admin sees org contacts
     (userRole === 'marketing' && contact.organization_id === userOrgId) || // Marketing sees org contacts
     (userRole === 'manager' && contact.organization_id === userOrgId) || // Manager sees org contacts (TODO: improve manager logic)
+    (userRole === 'director' && contact.organization_id === userOrgId) || // Director sees org contacts
     (userRole === 'standard_user' && contact.organization_id === userOrgId); // Standard user sees org contacts (legacy data scenario)
   
   console.log('🔑 Access check:', {

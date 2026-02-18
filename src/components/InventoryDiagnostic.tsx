@@ -336,6 +336,9 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
       let grandTotalErrors = 0;
       let jobsCompleted = 0;
       let lastData: any = null;
+      // Track offset and current job for server-side resume (no 'progress' column in DB)
+      let trackingOffset = 0;
+      let trackingJobId: string | null = null;
 
       // Loop: each call processes one 500-record chunk from the first pending job.
       // When a job finishes, the next call picks up the next job automatically.
@@ -343,7 +346,12 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
         const response = await fetch(`${baseUrl}/process-all-pending`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ targetOrgId: targetOrg, batchLimit: 500 }),
+          body: JSON.stringify({
+            targetOrgId: targetOrg,
+            batchLimit: 500,
+            resumeOffset: trackingOffset,
+            currentJobId: trackingJobId,
+          }),
         });
 
         if (!response.ok) {
@@ -358,7 +366,16 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
         grandTotalInserted += data.batchInserted || 0;
         grandTotalUpdated += data.batchUpdated || 0;
         grandTotalErrors += data.batchErrors || 0;
-        if (data.currentJobDone) jobsCompleted++;
+        if (data.currentJobDone) {
+          jobsCompleted++;
+          // Reset offset for the next job
+          trackingOffset = 0;
+          trackingJobId = null;
+        } else {
+          // Track offset so the next call resumes from where we left off
+          trackingOffset = data.nextOffset || 0;
+          trackingJobId = data.currentJobId || null;
+        }
 
         setProcessProgress({
           current: data.progress || 0,

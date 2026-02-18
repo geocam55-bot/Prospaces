@@ -124,6 +124,9 @@ export function Inventory({ user }: InventoryProps) {
   
   // 📊 Track total value from server (for all filtered results)
   const [serverTotalValue, setServerTotalValue] = useState(0);
+  
+  // 📊 Track low stock count from server (qty <= 0, across all pages)
+  const [serverLowStockCount, setServerLowStockCount] = useState(0);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -203,7 +206,7 @@ export function Inventory({ user }: InventoryProps) {
     // ✅ FIX: Use != null check instead of truthiness to properly handle $0.00 prices
     // A value of 0 is a legitimate price ($0.00) and should NOT trigger fallback
     
-    // Auto-migrate: if T5 is inactive but has data, carry it into T2 (VIP) if T2 is NULL.
+    // Auto-migrate: if T5 is inactive but has data, carry it into T2 (VIP) if T2 is NULL or 0.
     const t5Inactive = !isTierActive(5);
     const t5Value = dbItem.price_tier_5 != null ? dbItem.price_tier_5 : null;
     
@@ -214,8 +217,12 @@ export function Inventory({ user }: InventoryProps) {
     // Business logic: if no specific tier price is set, the item sells at Retail.
     // A value of 0 in the DB is a legitimate $0.00 price and is preserved as-is.
     // T2 (VIP): also check inactive T5 for auto-migration
-    const priceTier2 = dbItem.price_tier_2 != null ? dbItem.price_tier_2 / 100 
-                     : (t5Inactive && t5Value != null) ? t5Value / 100 
+    // ✅ FIX: Also migrate when T2 is 0 (not just NULL) if T5 has a real non-zero value.
+    // This handles the case where a previous import put VIP data into price_tier_5.
+    const shouldMigrateT5toT2 = t5Inactive && t5Value != null && t5Value !== 0
+      && (dbItem.price_tier_2 == null || dbItem.price_tier_2 === 0);
+    const priceTier2 = shouldMigrateT5toT2 ? t5Value / 100
+                     : dbItem.price_tier_2 != null ? dbItem.price_tier_2 / 100
                      : priceTier1;
     const priceTier3 = dbItem.price_tier_3 != null ? dbItem.price_tier_3 / 100 : priceTier1;
     const priceTier4 = dbItem.price_tier_4 != null ? dbItem.price_tier_4 / 100 : priceTier1;
@@ -356,7 +363,7 @@ export function Inventory({ user }: InventoryProps) {
       setOrganizationId(userOrgId);
       
       // ⚡ Use the optimized loader with proper pagination
-      const { items: loadedItems, totalCount: count, loadTime, totalValue } = await loadInventoryPage({
+      const { items: loadedItems, totalCount: count, loadTime, totalValue, lowStockCount: serverLowStock } = await loadInventoryPage({
         organizationId: userOrgId,
         currentPage,
         itemsPerPage,
@@ -372,6 +379,7 @@ export function Inventory({ user }: InventoryProps) {
       setItems(mappedItems);
       setTotalCount(count);
       setServerTotalValue(totalValue || 0); // 📊 Store server-calculated total value
+      setServerLowStockCount(serverLowStock || 0); // 📊 Store server-calculated low stock count
       setTableExists(true);
       setIsLoading(false);
       
@@ -650,18 +658,23 @@ export function Inventory({ user }: InventoryProps) {
   // Server-side filtering now, so filteredItems = items
   // const filteredItems = items;
 
-  // 📊 Calculate stats based on filtered results
+  // 📊 KPI stats — all from server-side queries (accurate across ALL pages, not just current page)
+  // Low stock items on current page (for the low-stock tab listing)
   const lowStockItems = items.filter(item => 
-    item.status === 'active' && item.quantityOnHand <= item.reorderLevel
+    item.quantityOnHand <= 0
   );
 
-  // ✅ Use server-calculated total value (accurate for ALL filtered results)
+  // ✅ Use server-calculated total value (paginated aggregate, handles 78K+ items)
   const totalValue = serverTotalValue;
-  const activeItems = items.filter(item => item.status === 'active').length;
   
-  // ✅ Use totalCount for item counts (reflects search/filter results)
+  // ✅ Use totalCount for display (server-side exact count, not page-limited)
   const displayTotalItems = totalCount > 0 ? totalCount : items.length;
-  const displayActiveItems = searchQuery || categoryFilter !== 'all' || statusFilter !== 'all' ? totalCount : activeItems;
+  // ✅ FIX: "In Stock" shows items with quantity > 0 across ALL items, not just current page
+  // Since there's no status column in the DB, all items are "active".
+  // The meaningful KPI is: total items minus out-of-stock items.
+  const displayInStockItems = totalCount > 0 ? totalCount - serverLowStockCount : items.length;
+  // ✅ FIX: Low stock count from server (qty <= 0 across ALL pages, not just current page's 50 items)
+  const displayLowStockCount = serverLowStockCount;
 
   // Show database setup if table doesn't exist
   if (!tableExists && !isLoading) {
@@ -699,7 +712,7 @@ export function Inventory({ user }: InventoryProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Items</p>
-                <p className="text-2xl text-gray-900 mt-1">{displayTotalItems}</p>
+                <p className="text-2xl text-gray-900 mt-1">{displayTotalItems.toLocaleString()}</p>
               </div>
               <Package className="h-8 w-8 text-purple-600" />
             </div>
@@ -710,8 +723,8 @@ export function Inventory({ user }: InventoryProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Active Items</p>
-                <p className="text-2xl text-gray-900 mt-1">{displayActiveItems}</p>
+                <p className="text-sm text-gray-600">In Stock</p>
+                <p className="text-2xl text-gray-900 mt-1">{displayInStockItems.toLocaleString()}</p>
               </div>
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
@@ -722,10 +735,10 @@ export function Inventory({ user }: InventoryProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Low Stock Alerts</p>
-                <p className="text-2xl text-gray-900 mt-1">{lowStockItems.length}</p>
+                <p className="text-sm text-gray-600">Out of Stock</p>
+                <p className="text-2xl text-gray-900 mt-1">{displayLowStockCount.toLocaleString()}</p>
               </div>
-              <AlertTriangle className="h-8 w-8 text-yellow-600" />
+              <AlertTriangle className={`h-8 w-8 ${displayLowStockCount > 0 ? 'text-red-600' : 'text-yellow-600'}`} />
             </div>
           </CardContent>
         </Card>
@@ -748,9 +761,9 @@ export function Inventory({ user }: InventoryProps) {
           <TabsList className="inline-flex w-auto min-w-full">
             <TabsTrigger value="items" className="whitespace-nowrap">All Items</TabsTrigger>
             <TabsTrigger value="low-stock" className="whitespace-nowrap">
-              Low Stock
-              {lowStockItems.length > 0 && (
-                <Badge className="ml-2 bg-yellow-100 text-yellow-700">{lowStockItems.length}</Badge>
+              Out of Stock
+              {displayLowStockCount > 0 && (
+                <Badge className="ml-2 bg-red-100 text-red-700">{displayLowStockCount.toLocaleString()}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="diagnostic" className="whitespace-nowrap">
@@ -953,8 +966,8 @@ export function Inventory({ user }: InventoryProps) {
             ) : (
               filteredItems.map((item: any) => (
                 <Card key={item.id} className={
-                  item.quantityOnHand <= item.reorderLevel 
-                    ? 'border-yellow-300' 
+                  item.quantityOnHand <= 0
+                    ? 'border-red-300' 
                     : (item._searchScore && item._searchScore > 0.8 ? 'border-purple-200' : '')
                 }>
                   <CardContent className="pt-6">
@@ -987,10 +1000,10 @@ export function Inventory({ user }: InventoryProps) {
                               }>
                                 {item.status}
                               </Badge>
-                              {item.quantityOnHand <= item.reorderLevel && (
-                                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                              {item.quantityOnHand <= 0 && (
+                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
                                   <AlertTriangle className="h-3 w-3 mr-1" />
-                                  Low Stock
+                                  Out of Stock
                                 </Badge>
                               )}
                               {/* Search Match Indicators */}
@@ -1257,7 +1270,12 @@ export function Inventory({ user }: InventoryProps) {
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              The following items are at or below their reorder level and may need restocking.
+              Items with zero or negative quantity on hand.
+              {displayLowStockCount > lowStockItems.length && (
+                <span className="ml-1 font-medium">
+                  Showing {lowStockItems.length} on this page — {displayLowStockCount.toLocaleString()} total across all pages.
+                </span>
+              )}
             </AlertDescription>
           </Alert>
 
@@ -1265,40 +1283,46 @@ export function Inventory({ user }: InventoryProps) {
             {lowStockItems.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                  <p className="text-gray-500">All items are properly stocked!</p>
+                  {displayLowStockCount > 0 ? (
+                    <>
+                      <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
+                      <p className="text-gray-500">{displayLowStockCount.toLocaleString()} out-of-stock items exist but none are on this page.</p>
+                      <p className="text-sm text-gray-400 mt-1">Try searching or browsing other pages to find them.</p>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                      <p className="text-gray-500">All items are properly stocked!</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             ) : (
               lowStockItems.map(item => (
-                <Card key={item.id} className="border-yellow-300">
+                <Card key={item.id} className="border-red-300">
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                          <AlertTriangle className="h-5 w-5 text-red-600" />
                           <h3 className="text-lg text-gray-900">{item.name}</h3>
-                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700">
-                            Low Stock
+                          <Badge variant="outline" className="bg-red-50 text-red-700">
+                            Out of Stock
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-600 mt-1">SKU: {item.sku}</p>
                         <div className="flex gap-6 mt-3">
                           <div>
                             <p className="text-xs text-gray-500">Current Stock</p>
-                            <p className="text-sm text-gray-900 mt-1">{item.quantityOnHand} {item.unitOfMeasure}</p>
+                            <p className="text-sm text-red-600 font-medium mt-1">{item.quantityOnHand} {item.unitOfMeasure}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500">Reorder Level</p>
-                            <p className="text-sm text-gray-900 mt-1">{item.reorderLevel}</p>
+                            <p className="text-xs text-gray-500">Category</p>
+                            <p className="text-sm text-gray-900 mt-1">{item.category || 'N/A'}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500">Supplier</p>
-                            <p className="text-sm text-gray-900 mt-1">{item.supplier || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Lead Time</p>
-                            <p className="text-sm text-gray-900 mt-1">{item.leadTimeDays || 0} days</p>
+                            <p className="text-xs text-gray-500">Cost</p>
+                            <p className="text-sm text-gray-900 mt-1">${item.cost.toFixed(2)}</p>
                           </div>
                         </div>
                       </div>

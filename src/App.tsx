@@ -53,7 +53,7 @@ import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 import { AdminFixUsers } from './components/AdminFixUsers';
 
-export type UserRole = 'standard_user' | 'manager' | 'admin' | 'super_admin' | 'marketing';
+export type UserRole = 'standard_user' | 'manager' | 'director' | 'admin' | 'super_admin' | 'marketing';
 
 export interface User {
   id: string;

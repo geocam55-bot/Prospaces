@@ -72,6 +72,8 @@ export function Users({ user }: UsersProps) {
   const [pendingOrgChange, setPendingOrgChange] = useState<string | null>(null);
 
   // Check if user has permission to manage users
+  // Director can VIEW users but not add/edit/delete
+  const canViewUsers = user.role === 'super_admin' || user.role === 'admin' || user.role === 'director';
   const canManageUsers = user.role === 'super_admin' || user.role === 'admin';
   const canManageAllUsers = user.role === 'super_admin' || user.role === 'admin';
 
@@ -209,8 +211,8 @@ export function Users({ user }: UsersProps) {
     return matchesSearch && roleFilter;
   });
 
-  // Get list of managers for the manager dropdown
-  const managers = users.filter(u => u.role === 'manager' && u.status === 'active');
+  // Get list of managers/directors for the manager dropdown
+  const managers = users.filter(u => (u.role === 'manager' || u.role === 'director') && u.status === 'active');
 
   // Check if there's an organization mismatch (user is not seeing their own org)
   const hasOrgMismatch = users.length > 0 && user.role !== 'super_admin' && 
@@ -541,6 +543,7 @@ export function Users({ user }: UsersProps) {
     switch (role) {
       case 'super_admin': return 'bg-purple-100 text-purple-700';
       case 'admin': return 'bg-blue-100 text-blue-700';
+      case 'director': return 'bg-indigo-100 text-indigo-700';
       case 'manager': return 'bg-green-100 text-green-700';
       case 'marketing': return 'bg-amber-100 text-amber-700';
       case 'standard_user': return 'bg-gray-100 text-gray-700';
@@ -568,14 +571,14 @@ export function Users({ user }: UsersProps) {
     });
   };
 
-  if (!canManageUsers) {
+  if (!canViewUsers) {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl text-foreground">Users</h1>
         <Alert>
           <Shield className="h-4 w-4" />
           <AlertDescription>
-            You don't have permission to manage users. Only Admins and Super Admins can access this section.
+            You don't have permission to manage users. Only Admins, Directors, and Super Admins can access this section.
           </AlertDescription>
         </Alert>
       </div>
@@ -695,6 +698,7 @@ export function Users({ user }: UsersProps) {
                 </svg>
                 Refresh
               </Button>
+              {canManageUsers && (
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
                   <Button className="flex items-center gap-2">
@@ -776,6 +780,7 @@ export function Users({ user }: UsersProps) {
                           <SelectItem value="standard_user">Standard User</SelectItem>
                           <SelectItem value="marketing">Marketing</SelectItem>
                           <SelectItem value="manager">Manager</SelectItem>
+                          <SelectItem value="director">Director</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
                           {user.role === 'super_admin' && (
                             <SelectItem value="super_admin">Super Admin</SelectItem>
@@ -786,6 +791,7 @@ export function Users({ user }: UsersProps) {
                         {newUser.role === 'standard_user' && 'Can manage only their own data'}
                         {newUser.role === 'marketing' && 'Full access to marketing and campaigns, limited access to contacts'}
                         {newUser.role === 'manager' && 'Can manage data of users they oversee'}
+                        {newUser.role === 'director' && 'Same as Manager, plus full user visibility on Team Dashboard'}
                         {newUser.role === 'admin' && 'Full access within the organization'}
                         {newUser.role === 'super_admin' && 'Full access across all organizations'}
                       </p>
@@ -802,6 +808,7 @@ export function Users({ user }: UsersProps) {
                   </form>
                 </DialogContent>
               </Dialog>
+              )}
             </div>
           </div>
 
@@ -843,7 +850,7 @@ export function Users({ user }: UsersProps) {
                     <p className="text-gray-600 mb-4">
                       {searchQuery ? 'Try adjusting your search query' : 'Get started by inviting your first team member'}
                     </p>
-                    {!searchQuery && (
+                    {!searchQuery && canManageUsers && (
                       <Button onClick={() => setIsAddDialogOpen(true)}>
                         <Plus className="h-4 w-4 mr-2" />
                         Invite User
@@ -867,6 +874,7 @@ export function Users({ user }: UsersProps) {
                     <tbody>
                       {filteredUsers.map((orgUser) => (
                         <tr key={orgUser.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          {canManageUsers && (
                           <td className="py-3 px-4">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -896,6 +904,7 @@ export function Users({ user }: UsersProps) {
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </td>
+                          )}
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
                               <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
@@ -1033,6 +1042,7 @@ export function Users({ user }: UsersProps) {
                       <SelectItem value="standard_user">Standard User</SelectItem>
                       <SelectItem value="marketing">Marketing</SelectItem>
                       <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="director">Director</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                       {user.role === 'super_admin' && (
                         <SelectItem value="super_admin">Super Admin</SelectItem>
@@ -1043,6 +1053,7 @@ export function Users({ user }: UsersProps) {
                     {editUser.role === 'standard_user' && 'Can manage only their own data'}
                     {editUser.role === 'marketing' && 'Full access to marketing and campaigns, limited access to contacts'}
                     {editUser.role === 'manager' && 'Can manage data of users they oversee'}
+                    {editUser.role === 'director' && 'Same as Manager, plus full user visibility on Team Dashboard'}
                     {editUser.role === 'admin' && 'Full access within the organization'}
                     {editUser.role === 'super_admin' && 'Full access across all organizations'}
                   </p>

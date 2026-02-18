@@ -242,6 +242,10 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
       // Manager: Can ONLY see their own data (Team Dashboard shows team data)
       console.log('👔 Manager - Loading own contacts only (strict filtering)');
       query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
+    } else if (userRole === 'director') {
+      // Director: Same data access as Manager - sees only their own contacts
+      console.log('🎯 Director - Loading own contacts only (strict filtering)');
+      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
     } else if (userRole === 'marketing') {
       // Marketing: Can see all data within their organization (for campaigns)
       console.log('📢 Marketing - Loading contacts for organization:', userOrgId);

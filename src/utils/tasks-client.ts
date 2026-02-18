@@ -43,6 +43,10 @@ export async function getAllTasksClient() {
       // Manager: Can ONLY see their own tasks (Team Dashboard shows team data)
       console.log('👔 Manager - Loading own tasks only (strict filtering)');
       query = query.eq('organization_id', userOrgId).or(`owner_id.eq.${user.id},assigned_to.eq.${user.id}`);
+    } else if (userRole === 'director') {
+      // Director: Same data access as Manager - sees only their own tasks
+      console.log('🎯 Director - Loading own tasks only (strict filtering)');
+      query = query.eq('organization_id', userOrgId).or(`owner_id.eq.${user.id},assigned_to.eq.${user.id}`);
     } else if (userRole === 'marketing') {
       // Marketing: Can see all tasks within their organization
       console.log('📢 Marketing - Loading tasks for organization:', userOrgId);

@@ -70,6 +70,22 @@ export async function getAllAppointmentsClient() {
       } else {
         query = query.eq('owner_id', user.id);
       }
+    } else if (userRole === 'director') {
+      // Director: Same as Manager - sees own + team appointments
+      console.log('🎯 Director - Loading appointments for team');
+      
+      // Get list of users this director oversees
+      const { data: teamMembers } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('manager_id', user.id)
+        .eq('organization_id', userOrgId);
+
+      const teamIds = teamMembers?.map(m => m.id) || [];
+      const allowedUserIds = [user.id, ...teamIds];
+      
+      // Filter: created by director/team
+      query = query.eq('organization_id', userOrgId);
     } else {
       // Standard User: Only show their own appointments
       console.log('👤 Standard User - Loading only own appointments');

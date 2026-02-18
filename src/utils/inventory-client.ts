@@ -832,7 +832,7 @@ function mapInventoryItem(dbItem: any): any {
   // ✅ FIX: Use != null check instead of truthiness to properly handle $0.00 prices
   // A value of 0 is a legitimate price ($0.00) and should NOT trigger fallback
   
-  // Auto-migrate: if T5 is inactive but has data, carry it into T2 (VIP) if T2 is NULL.
+  // Auto-migrate: if T5 is inactive but has data, carry it into T2 (VIP) if T2 is NULL or 0.
   const t5Inactive = !isTierActive(5);
   const t5Value = dbItem.price_tier_5 != null ? dbItem.price_tier_5 : null;
   
@@ -843,8 +843,12 @@ function mapInventoryItem(dbItem: any): any {
   // Business logic: if no specific tier price is set, the item sells at Retail.
   // A value of 0 in the DB is a legitimate $0.00 price and is preserved as-is.
   // T2 (VIP): also check inactive T5 for auto-migration
-  const priceTier2 = dbItem.price_tier_2 != null ? dbItem.price_tier_2 / 100 
-                   : (t5Inactive && t5Value != null) ? t5Value / 100 
+  // ✅ FIX: Also migrate when T2 is 0 (not just NULL) if T5 has a real non-zero value.
+  // This handles the case where a previous import put VIP data into price_tier_5.
+  const shouldMigrateT5toT2 = t5Inactive && t5Value != null && t5Value !== 0
+    && (dbItem.price_tier_2 == null || dbItem.price_tier_2 === 0);
+  const priceTier2 = shouldMigrateT5toT2 ? t5Value / 100
+                   : dbItem.price_tier_2 != null ? dbItem.price_tier_2 / 100
                    : priceTier1;
   const priceTier3 = dbItem.price_tier_3 != null ? dbItem.price_tier_3 / 100 : priceTier1;
   const priceTier4 = dbItem.price_tier_4 != null ? dbItem.price_tier_4 / 100 : priceTier1;

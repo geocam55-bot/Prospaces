@@ -112,7 +112,7 @@ export function OpportunitiesDiagnostic() {
       } else {
         diagnosticResults.checks.push({
           name: 'Owned Opportunities (Your Filter)',
-          status: profile.role === 'admin' || profile.role === 'manager' ? 'warning' : 'success',
+          status: profile.role === 'admin' || profile.role === 'manager' || profile.role === 'director' ? 'warning' : 'success',
           message: `Owned by you: ${ownedOpportunities?.length || 0}`,
         });
         diagnosticResults.ownedOpportunities = ownedOpportunities || [];
@@ -182,7 +182,7 @@ export function OpportunitiesDiagnostic() {
       diagnosticResults.checks.push({
         name: 'Filtering Logic',
         status: 'info',
-        message: profile.role === 'admin' || profile.role === 'manager' 
+        message: profile.role === 'admin' || profile.role === 'manager' || profile.role === 'director' 
           ? `⚠️ Your role (${profile.role}) sees ONLY opportunities where owner_id = ${user.id}`
           : `Your role sees all org opportunities`,
       });
@@ -302,7 +302,7 @@ export function OpportunitiesDiagnostic() {
                     <strong>Owned by you (what you see):</strong>{' '}
                     {results.ownedOpportunities?.length || 0}
                   </p>
-                  {results.userProfile?.role === 'admin' || results.userProfile?.role === 'manager' ? (
+                  {results.userProfile?.role === 'admin' || results.userProfile?.role === 'manager' || results.userProfile?.role === 'director' ? (
                     <p className="text-yellow-700 font-semibold mt-3">
                       ⚠️ Your role ({results.userProfile.role}) uses STRICT filtering - you only see opportunities where owner_id matches your user ID.
                       If you create an opportunity for someone else's contact, it won't appear unless YOU are the owner.

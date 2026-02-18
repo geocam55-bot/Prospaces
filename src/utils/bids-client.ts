@@ -48,7 +48,7 @@ export async function getAllBidsClient() {
     // - Super Admin/Admin/Manager: Can see ALL bids in their organization
     // - Standard User: Can see only THEIR OWN bids (Personal Dashboard)
     
-    if (['super_admin', 'admin', 'manager'].includes(userRole)) {
+    if (['super_admin', 'admin', 'director', 'manager'].includes(userRole)) {
       console.log('🔓 Organization View - Loading all bids for organization:', userOrgId);
       // Filter by organization (or null organization which might be legacy/global)
       if (userOrgId) {
@@ -160,6 +160,7 @@ export async function getBidsByOpportunityClient(opportunityId: string) {
           userRole === 'super_admin' || // Super admin sees everything
           (userRole === 'admin' && contact.organization_id === userOrgId) || // Admin sees org contacts
           (userRole === 'marketing' && contact.organization_id === userOrgId) || // Marketing sees org contacts
+          (userRole === 'director' && contact.organization_id === userOrgId) || // Director sees org contacts
           (userRole === 'manager' && contact.organization_id === userOrgId) || // Manager sees org contacts
           (userRole === 'standard_user' && contact.organization_id === userOrgId); // Standard user sees org contacts (since they own the opportunity)
         

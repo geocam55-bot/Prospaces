@@ -81,7 +81,7 @@ export function Security({ user }: SecurityProps) {
     { id: 'import-export', name: 'Import/Export', icon: '🔄' },
   ];
 
-  const allRoles: UserRole[] = ['super_admin', 'admin', 'manager', 'marketing', 'standard_user'];
+  const allRoles: UserRole[] = ['super_admin', 'admin', 'director', 'manager', 'marketing', 'standard_user'];
   
   // Filter roles - Admin should not see or manage super_admin permissions
   const roles = allRoles.filter(role => 
@@ -91,6 +91,7 @@ export function Security({ user }: SecurityProps) {
   const roleLabels = {
     super_admin: 'Super Admin',
     admin: 'Admin',
+    director: 'Director',
     manager: 'Manager',
     marketing: 'Marketing',
     standard_user: 'Standard User',
@@ -138,6 +139,15 @@ export function Security({ user }: SecurityProps) {
                 delete: true,
               });
             } else if (role === 'manager') {
+              permsArray.push({
+                module: 'ai-suggestions',
+                role,
+                visible: true,
+                add: true,
+                change: true,
+                delete: false,
+              });
+            } else if (role === 'director') {
               permsArray.push({
                 module: 'ai-suggestions',
                 role,
@@ -226,6 +236,17 @@ export function Security({ user }: SecurityProps) {
             add: true,
             change: true,
             delete: module.id === 'users' ? false : true,
+          });
+        } else if (role === 'director') {
+          // Director has access to most modules but limited on users/settings
+          // Marketing: Full access (view, add, change campaigns/leads/analytics)
+          defaultPerms.push({
+            module: module.id,
+            role,
+            visible: true,
+            add: module.id === 'settings' || module.id === 'users' ? false : true,
+            change: module.id === 'settings' || module.id === 'users' ? false : true,
+            delete: module.id === 'marketing' ? true : false, // Directors can delete campaigns
           });
         } else if (role === 'manager') {
           // Manager has access to most modules but limited on users/settings
@@ -521,6 +542,7 @@ export function Security({ user }: SecurityProps) {
                                 <Badge variant="outline" className={
                                   role === 'super_admin' ? 'bg-red-50 text-red-700 border-red-200' :
                                   role === 'admin' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  role === 'director' ? 'bg-orange-50 text-orange-700 border-orange-200' :
                                   role === 'manager' ? 'bg-purple-50 text-purple-700 border-purple-200' :
                                   role === 'marketing' ? 'bg-green-50 text-green-700 border-green-200' :
                                   'bg-gray-50 text-gray-700 border-gray-200'
@@ -604,6 +626,7 @@ export function Security({ user }: SecurityProps) {
                         <div className="flex items-center justify-between mb-4">
                           <Badge className={
                             role === 'admin' ? 'bg-blue-100 text-blue-700' :
+                            role === 'director' ? 'bg-orange-100 text-orange-700' :
                             role === 'manager' ? 'bg-purple-100 text-purple-700' :
                             role === 'marketing' ? 'bg-green-100 text-green-700' :
                             'bg-gray-100 text-gray-700'

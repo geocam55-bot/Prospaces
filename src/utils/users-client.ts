@@ -86,7 +86,7 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
     console.log(`[users-client] Current user: ${user.email}, Role: ${currentUserRole}, Org: ${currentUserOrgId}`);
 
     // Check permissions
-    if (currentUserRole !== 'super_admin' && currentUserRole !== 'admin' && currentUserRole !== 'manager') {
+    if (currentUserRole !== 'super_admin' && currentUserRole !== 'admin' && currentUserRole !== 'director' && currentUserRole !== 'manager') {
       console.error('[users-client] Insufficient permissions');
       // Return just the current user if they don't have permission to see others
       // This prevents the "Not authenticated" error from crashing the UI

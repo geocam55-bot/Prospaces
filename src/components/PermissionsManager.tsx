@@ -52,6 +52,7 @@ const MODULES = [
 const ROLES: { value: UserRole; label: string; description: string }[] = [
   { value: 'super_admin', label: 'Super Admin', description: 'Full system access across all organizations' },
   { value: 'admin', label: 'Admin', description: 'Full access within organization' },
+  { value: 'director', label: 'Director', description: 'Same as Manager, plus full user visibility on Team Dashboard' },
   { value: 'manager', label: 'Manager', description: 'Manage teams and operations' },
   { value: 'marketing', label: 'Marketing', description: 'Marketing and campaign management' },
   { value: 'standard_user', label: 'Standard User', description: 'Basic user access' },

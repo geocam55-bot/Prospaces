@@ -42,6 +42,10 @@ export async function getAllCampaignsClient() {
       // Manager: Can see campaigns within their organization
       console.log('👔 Manager - Loading campaigns for organization:', userOrgId);
       query = query.eq('organization_id', userOrgId);
+    } else if (userRole === 'director') {
+      // Director: Same as Manager - sees campaigns within their organization
+      console.log('🎯 Director - Loading campaigns for organization:', userOrgId);
+      query = query.eq('organization_id', userOrgId);
     } else {
       // Standard User: Can see campaigns within their organization (read-only for most)
       console.log('👤 Standard User - Loading campaigns for organization:', userOrgId);

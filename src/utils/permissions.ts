@@ -108,7 +108,7 @@ function initializeDefaultPermissions() {
     'email', 'marketing', 'inventory', 'users', 'settings', 'tenants', 'security', 'import-export',
     'documents', 'team-dashboard', 'reports', 'project-wizards', 'admin', 'kitchen-planner'
   ];
-  const roles: UserRole[] = ['super_admin', 'admin', 'manager', 'marketing', 'standard_user'];
+  const roles: UserRole[] = ['super_admin', 'admin', 'director', 'manager', 'marketing', 'standard_user'];
 
   modules.forEach(module => {
     roles.forEach(role => {
@@ -132,6 +132,21 @@ function initializeDefaultPermissions() {
         // Manager cannot see tenants, security, users, settings, or import-export
         if (module === 'tenants' || module === 'security' || module === 'users' || module === 'settings' || module === 'import-export') {
           permissionsCache.set(key, { visible: false, add: false, change: false, delete: false });
+        } else {
+          permissionsCache.set(key, {
+            visible: true,
+            add: true,
+            change: true,
+            delete: module === 'marketing',
+          });
+        }
+      } else if (role === 'director') {
+        // Director: Same as Manager, but can VIEW users (read-only) and team-dashboard shows ALL users
+        if (module === 'tenants' || module === 'security' || module === 'settings' || module === 'import-export') {
+          permissionsCache.set(key, { visible: false, add: false, change: false, delete: false });
+        } else if (module === 'users') {
+          // Director can VIEW users but not add/change/delete
+          permissionsCache.set(key, { visible: true, add: false, change: false, delete: false });
         } else {
           permissionsCache.set(key, {
             visible: true,

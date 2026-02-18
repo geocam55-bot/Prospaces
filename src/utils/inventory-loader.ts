@@ -17,6 +17,8 @@ export interface LoadInventoryResult {
   loadTime: number;
   totalValue?: number; // Total inventory value for filtered results
   activeCount?: number; // Count of active items in filtered results
+  lowStockCount?: number; // Count of items with quantity <= 0
+  outOfStockCount?: number; // Count of items with quantity = 0
 }
 
 /**
@@ -169,86 +171,170 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
     }
     
     // 📊 Calculate total value for ALL filtered results (not just current page)
-    // Build same query but select aggregation columns
-    let aggregateQuery = supabase
+    // ✅ Formula: Total Value = Σ(cost × quantity_on_hand)
+    // ✅ FIX: Paginate the aggregate query since Supabase default limit is 1000 rows.
+    // Without pagination, only the first 1000 items contribute to the total — massively
+    // understating the value for inventories with 10K+ items.
+    let totalValue = 0;
+    {
+      const AGG_BATCH = 5000;
+      let aggOffset = 0;
+      let totalAggRows = 0;
+      let costDivisor = 100; // Default: assume cents. Will auto-detect from first batch.
+      let detectedFormat: 'cents' | 'dollars' | 'unknown' = 'unknown';
+
+      while (true) {
+        let aggQuery = supabase
+          .from('inventory')
+          .select('quantity, cost, unit_price')  // ✅ Include unit_price as fallback
+          .eq('organization_id', organizationId)
+          .order('id', { ascending: true })  // ✅ Deterministic order for stable pagination
+          .range(aggOffset, aggOffset + AGG_BATCH - 1);
+
+        // Apply same search/category filters as the main query
+        if (searchQuery && searchQuery.trim()) {
+          const { searchTerms, priceFilter } = parseSearchQuery(searchQuery);
+          if (searchTerms) {
+            const stemmedSearch = stem(searchTerms);
+            if (stemmedSearch !== searchTerms) {
+              aggQuery = aggQuery.or(
+                `name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%,` +
+                `name.ilike.%${stemmedSearch}%,sku.ilike.%${stemmedSearch}%,description.ilike.%${stemmedSearch}%,category.ilike.%${stemmedSearch}%`
+              );
+            } else {
+              aggQuery = aggQuery.or(`name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%`);
+            }
+          }
+          if (priceFilter) {
+            const priceInCents = Math.round(priceFilter.value * 100);
+            if (priceFilter.operator === 'lt') aggQuery = aggQuery.lt('unit_price', priceInCents);
+            else if (priceFilter.operator === 'gt') aggQuery = aggQuery.gt('unit_price', priceInCents);
+            else if (priceFilter.operator === 'lte') aggQuery = aggQuery.lte('unit_price', priceInCents);
+            else if (priceFilter.operator === 'gte') aggQuery = aggQuery.gte('unit_price', priceInCents);
+          }
+        }
+        if (categoryFilter && categoryFilter !== 'all') {
+          aggQuery = aggQuery.eq('category', categoryFilter);
+        }
+
+        const { data: aggData, error: aggError } = await aggQuery;
+        if (aggError) {
+          console.error('❌ Aggregate query error at offset', aggOffset, ':', aggError.message);
+          break;
+        }
+        if (!aggData || aggData.length === 0) break;
+
+        // 🔍 Auto-detect cost format from first batch
+        if (aggOffset === 0 && aggData.length > 0) {
+          // Gather non-null, non-zero cost values (or fall back to unit_price)
+          const sampleValues = aggData
+            .map((item: any) => item.cost ?? item.unit_price)
+            .filter((v: any) => v != null && v > 0);
+
+          if (sampleValues.length >= 5) {
+            const sorted = [...sampleValues].sort((a: number, b: number) => a - b);
+            const median = sorted[Math.floor(sorted.length / 2)];
+            const max = sorted[sorted.length - 1];
+            const avg = sampleValues.reduce((a: number, b: number) => a + b, 0) / sampleValues.length;
+
+            // Heuristic: if median cost < 200, values are almost certainly in dollars
+            // (a $2 item in cents = 200; typical products cost $5-$500)
+            // If median >= 200, values are likely in cents (a $2 item = 200, $15 = 1500)
+            // Also check: if max < 1000, almost certainly dollars (would mean max $10 in cents)
+            if (median < 200 || max < 1000) {
+              costDivisor = 1;
+              detectedFormat = 'dollars';
+            } else {
+              costDivisor = 100;
+              detectedFormat = 'cents';
+            }
+
+            console.log(`🔍 [Inventory Loader] Cost format auto-detection:`, {
+              sampleSize: sampleValues.length,
+              median,
+              avg: avg.toFixed(2),
+              max,
+              min: sorted[0],
+              detectedFormat,
+              costDivisor,
+            });
+          } else {
+            console.log(`⚠️ [Inventory Loader] Only ${sampleValues.length} non-null cost values found. Using default divisor ${costDivisor}`);
+          }
+
+          // Log sample values for debugging
+          const samples = aggData.slice(0, 5).map((item: any) => ({
+            qty: item.quantity,
+            costRaw: item.cost,
+            unitPriceRaw: item.unit_price,
+            effectiveValue: item.cost ?? item.unit_price ?? 0,
+          }));
+          console.log('🔍 [Inventory Loader] Sample values (first 5 items):', JSON.stringify(samples));
+        }
+
+        totalAggRows += aggData.length;
+        totalValue += aggData.reduce((sum: number, item: any) => {
+          const quantity = item.quantity || 0;
+          // ✅ FIX: Use cost if available, otherwise fall back to unit_price
+          const rawValue = item.cost ?? item.unit_price ?? 0;
+          // ✅ FIX: Use auto-detected divisor (1 for dollars, 100 for cents)
+          return sum + (quantity * rawValue / costDivisor);
+        }, 0);
+
+        if (aggData.length < AGG_BATCH) break;
+        aggOffset += aggData.length;
+      }
+
+      console.log(`💰 [Inventory Loader] Total value from ${totalAggRows} items: $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })} (format: ${detectedFormat}, divisor: ${costDivisor}, ${totalAggRows} rows aggregated)`);
+    }
+
+    // 📊 Get low stock count (quantity <= 0) using count-only query (very fast, no data returned)
+    let lowStockQuery = supabase
       .from('inventory')
-      .select('quantity, cost, unit_price')
-      .eq('organization_id', organizationId);
-    
-    // Apply same filters as main query
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', organizationId)
+      .lte('quantity', 0);
+
+    // Apply same filters
     if (searchQuery && searchQuery.trim()) {
       const { searchTerms, priceFilter } = parseSearchQuery(searchQuery);
-      
       if (searchTerms) {
         const stemmedSearch = stem(searchTerms);
         if (stemmedSearch !== searchTerms) {
-          aggregateQuery = aggregateQuery.or(
+          lowStockQuery = lowStockQuery.or(
             `name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%,` +
             `name.ilike.%${stemmedSearch}%,sku.ilike.%${stemmedSearch}%,description.ilike.%${stemmedSearch}%,category.ilike.%${stemmedSearch}%`
           );
         } else {
-          aggregateQuery = aggregateQuery.or(`name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%`);
+          lowStockQuery = lowStockQuery.or(`name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%`);
         }
       }
-      
-      // ✅ FIX: Convert dollar value to cents for aggregate query too
       if (priceFilter) {
         const priceInCents = Math.round(priceFilter.value * 100);
-        if (priceFilter.operator === 'lt') {
-          aggregateQuery = aggregateQuery.lt('unit_price', priceInCents);
-        } else if (priceFilter.operator === 'gt') {
-          aggregateQuery = aggregateQuery.gt('unit_price', priceInCents);
-        } else if (priceFilter.operator === 'lte') {
-          aggregateQuery = aggregateQuery.lte('unit_price', priceInCents);
-        } else if (priceFilter.operator === 'gte') {
-          aggregateQuery = aggregateQuery.gte('unit_price', priceInCents);
-        }
+        if (priceFilter.operator === 'lt') lowStockQuery = lowStockQuery.lt('unit_price', priceInCents);
+        else if (priceFilter.operator === 'gt') lowStockQuery = lowStockQuery.gt('unit_price', priceInCents);
+        else if (priceFilter.operator === 'lte') lowStockQuery = lowStockQuery.lte('unit_price', priceInCents);
+        else if (priceFilter.operator === 'gte') lowStockQuery = lowStockQuery.gte('unit_price', priceInCents);
       }
     }
-    
     if (categoryFilter && categoryFilter !== 'all') {
-      aggregateQuery = aggregateQuery.eq('category', categoryFilter);
+      lowStockQuery = lowStockQuery.eq('category', categoryFilter);
     }
-    
-    const { data: aggregateData } = await aggregateQuery;
-    
-    // Calculate total value from all filtered items
-    let totalValue = 0;
-    if (aggregateData) {
-      console.log(`📊 [Inventory Loader] Calculating total value from ${aggregateData.length} items...`);
-      
-      // Debug: Log first few items to see actual values
-      if (aggregateData.length > 0) {
-        const sample = aggregateData.slice(0, 3);
-        console.log('📊 [Sample Items]:', sample.map(item => ({
-          quantity: item.quantity,
-          cost: item.cost,
-          unit_price: item.unit_price,
-          costDollars: (item.cost || 0) / 100,
-          priceDollars: (item.unit_price || 0) / 100,
-        })));
-      }
-      
-      totalValue = aggregateData.reduce((sum, item) => {
-        const quantity = item.quantity || 0;
-        // Use cost (what we paid) for inventory value, not unit_price (selling price)
-        const cost = item.cost || 0;
-        return sum + (quantity * cost / 100); // Convert cents to dollars
-      }, 0);
-      
-      console.log(`💰 [Inventory Loader] Calculated total inventory value (Qty × Cost): $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
-    }
-    
+
+    const { count: lowStockCount } = await lowStockQuery;
+
     const endTime = performance.now();
     const loadTime = endTime - startTime;
     
     console.log(`✅ [Inventory Loader] Loaded ${data?.length || 0} items (page ${currentPage}, total: ${count}) in ${loadTime.toFixed(0)}ms`);
+    console.log(`📊 [Inventory Loader] Low stock (qty ≤ 0): ${lowStockCount}`);
     console.log(`💰 [Inventory Loader] Total value of filtered results: $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
     
     return {
       items: data || [],
       totalCount: count || 0,
       totalValue,
+      lowStockCount: lowStockCount || 0,
       loadTime,
     };
   } catch (error) {

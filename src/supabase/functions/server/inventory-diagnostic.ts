@@ -990,12 +990,11 @@ export function inventoryDiagnostic(app: Hono) {
       const progress = Math.round((nextOffset / totalRecords) * 100);
       const cumulativeInserted = (job.record_count || 0) + batchResult.inserted + batchResult.updated;
 
-      // Persist progress
+      // Persist cumulative count (no 'progress' column — offset is tracked by the frontend)
       await supabase
         .from('scheduled_jobs')
         .update({
           record_count: cumulativeInserted,
-          progress: { current: nextOffset, total: totalRecords, percent: progress },
         })
         .eq('id', jobId);
 
@@ -1051,7 +1050,7 @@ export function inventoryDiagnostic(app: Hono) {
 
       const accessToken = authHeader.split(' ')[1];
       const body = await c.req.json();
-      const { targetOrgId, batchLimit = 500 } = body;
+      const { targetOrgId, batchLimit = 500, resumeOffset = 0, currentJobId } = body;
 
       if (!targetOrgId) {
         return c.json({ error: 'targetOrgId is required' }, 400);
@@ -1068,19 +1067,30 @@ export function inventoryDiagnostic(app: Hono) {
       }
 
       // Find pending OR processing (in-progress) inventory jobs
+      // NOTE: 'progress' column does not exist in scheduled_jobs — offset is tracked by the frontend
+      // IMPORTANT: Do NOT select file_data here — it can be hundreds of MB across multiple jobs.
+      // We fetch file_data separately for just the single job we're about to process.
       const { data: pendingJobs, error: jobsError } = await supabase
         .from('scheduled_jobs')
-        .select('id, file_data, organization_id, data_type, status, progress, record_count')
+        .select('id, organization_id, data_type, status, record_count')
         .in('status', ['pending', 'processing'])
         .order('created_at', { ascending: true });
 
       if (jobsError) {
+        console.error('Failed to query pending jobs:', jobsError);
         return c.json({ error: 'Failed to query pending jobs', details: jobsError.message }, 500);
       }
 
-      const inventoryJobs = (pendingJobs || []).filter(
-        (j: any) => j.data_type === 'inventory' || j.file_data?.records?.[0]?.sku
+      // Without file_data in the initial query we can only filter by data_type.
+      // Fallback: if no jobs have data_type='inventory', try ALL pending jobs
+      // (the old code also accepted jobs whose file_data contained a sku field).
+      let inventoryJobs = (pendingJobs || []).filter(
+        (j: any) => j.data_type === 'inventory'
       );
+      if (inventoryJobs.length === 0 && (pendingJobs || []).length > 0) {
+        console.log('No jobs with data_type=inventory, falling back to all pending jobs');
+        inventoryJobs = pendingJobs || [];
+      }
 
       if (inventoryJobs.length === 0) {
         return c.json({
@@ -1092,9 +1102,21 @@ export function inventoryDiagnostic(app: Hono) {
         });
       }
 
-      // Pick the first job
+      // Pick the first job — then fetch file_data for JUST this one job
       const job = inventoryJobs[0] as any;
-      const records = job.file_data?.records || [];
+
+      const { data: jobWithData, error: jobDataError } = await supabase
+        .from('scheduled_jobs')
+        .select('file_data')
+        .eq('id', job.id)
+        .single();
+
+      if (jobDataError || !jobWithData) {
+        console.error('Failed to fetch file_data for job:', job.id, jobDataError);
+        return c.json({ error: 'Failed to fetch job data', details: jobDataError?.message }, 500);
+      }
+
+      const records = jobWithData.file_data?.records || [];
       const totalRecords = records.length;
 
       if (totalRecords === 0) {
@@ -1108,8 +1130,9 @@ export function inventoryDiagnostic(app: Hono) {
         });
       }
 
-      // Resume from stored progress
-      const batchOffset = job.progress?.current || 0;
+      // Resume from frontend-tracked offset (no 'progress' column in scheduled_jobs)
+      // If the frontend is resuming the same job, use its offset; otherwise start at 0
+      const batchOffset = (currentJobId === job.id && resumeOffset > 0) ? resumeOffset : 0;
       const startIdx = Math.min(batchOffset, totalRecords);
       const endIdx = Math.min(startIdx + batchLimit, totalRecords);
       const slice = records.slice(startIdx, endIdx);
@@ -1130,11 +1153,11 @@ export function inventoryDiagnostic(app: Hono) {
       const cumulativeInserted = (job.record_count || 0) + batchResult.inserted + batchResult.updated;
       const progress = Math.round((nextOffset / totalRecords) * 100);
 
+      // Persist cumulative count (no 'progress' column — offset tracked by frontend)
       await supabase
         .from('scheduled_jobs')
         .update({
           record_count: cumulativeInserted,
-          progress: { current: nextOffset, total: totalRecords, percent: progress },
         })
         .eq('id', job.id);
 
@@ -1161,6 +1184,7 @@ export function inventoryDiagnostic(app: Hono) {
         done: allDone,
         currentJobId: job.id,
         currentJobDone,
+        nextOffset,
         remainingJobs,
         batchInserted: batchResult.inserted,
         batchUpdated: batchResult.updated,

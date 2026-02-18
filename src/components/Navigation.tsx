@@ -134,7 +134,7 @@ export function Navigation({
 
   // Manager/Admin specific items (team dashboard - hidden from SUPER_ADMIN)
   const managerNavItems = 
-    (user.role === 'manager' || user.role === 'admin') && user.role !== 'super_admin'
+    (user.role === 'manager' || user.role === 'director' || user.role === 'admin') && user.role !== 'super_admin'
       ? [{ id: 'team-dashboard', label: 'Team Dashboard', icon: UsersRound }]
       : [];
 
@@ -157,6 +157,11 @@ export function Navigation({
       if (organization?.import_export_enabled !== false) {
         submenuItems.push({ id: 'import-export', label: 'Import/Export', icon: Upload });
       }
+    } else if (user.role === 'director') {
+      // Director can view Users (read-only) but not Security
+      submenuItems.push(
+        { id: 'users', label: 'Users', icon: UserCog }
+      );
     }
     
     // Add Settings for all users
@@ -166,7 +171,7 @@ export function Navigation({
   };
 
   // Admin menu with submenu
-  const adminNavItems = (user.role === 'super_admin' || user.role === 'admin')
+  const adminNavItems = (user.role === 'super_admin' || user.role === 'admin' || user.role === 'director')
     ? [{
         id: 'admin',
         label: 'Admin',
