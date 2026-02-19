@@ -5,6 +5,7 @@ import { Copy, Check, ExternalLink, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
+import { copyToClipboard } from '../utils/clipboard';
 
 const supabase = createClient();
 
@@ -27,14 +28,14 @@ export function ManagerMigrationHelper() {
 
   const handleCopy = async () => {
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(MIGRATION_SQL);
+      const success = await copyToClipboard(MIGRATION_SQL);
+      if (success) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
         return;
       }
     } catch (error) {
-      console.log('Clipboard API not available, using fallback...');
+      console.log('Clipboard copy failed, using fallback...');
     }
 
     try {

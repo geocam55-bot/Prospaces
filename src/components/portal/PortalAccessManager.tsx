@@ -20,6 +20,7 @@ import {
 import { createPortalInvite, revokePortalAccess, getPortalUsers } from '../../utils/portal-client';
 import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner@2.0.3';
+import { copyToClipboard } from '../../utils/clipboard';
 
 interface PortalAccessManagerProps {
   contactId: string;
@@ -82,7 +83,7 @@ export function PortalAccessManager({ contactId, contactName, contactEmail }: Po
   const portalUrl = `${window.location.origin}?view=customer-portal${inviteCode ? `&invite=${inviteCode}` : ''}`;
 
   const copyInviteLink = () => {
-    navigator.clipboard.writeText(portalUrl);
+    copyToClipboard(portalUrl);
     setCopied(true);
     toast.success('Link copied to clipboard!');
     setTimeout(() => setCopied(false), 2000);
@@ -90,7 +91,7 @@ export function PortalAccessManager({ contactId, contactName, contactEmail }: Po
 
   const copyInviteCode = () => {
     if (inviteCode) {
-      navigator.clipboard.writeText(inviteCode);
+      copyToClipboard(inviteCode);
       setCopied(true);
       toast.success('Invite code copied!');
       setTimeout(() => setCopied(false), 2000);

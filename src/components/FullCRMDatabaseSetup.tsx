@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { Copy, Database, CheckCircle, AlertTriangle, ExternalLink, RefreshCw, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { copyToClipboard as clipboardCopy } from '../utils/clipboard';
 
 interface FullCRMDatabaseSetupProps {
   onSetupComplete?: () => void;
@@ -682,19 +683,12 @@ ON CONFLICT (role, module) DO UPDATE SET
 -- ✓ Row Level Security (RLS)
 -- ============================================================================`;
 
-  const copyToClipboard = () => {
-    // Try modern Clipboard API first, fallback to legacy method
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(COMPLETE_SQL)
-        .then(() => {
-          setCopied(true);
-          toast.success('Complete SQL script copied to clipboard!');
-          setTimeout(() => setCopied(false), 2000);
-        })
-        .catch(() => {
-          // Silently fall back to legacy method
-          fallbackCopyToClipboard();
-        });
+  const copyToClipboard = async () => {
+    const success = await clipboardCopy(COMPLETE_SQL);
+    if (success) {
+      setCopied(true);
+      toast.success('Complete SQL script copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
     } else {
       fallbackCopyToClipboard();
     }

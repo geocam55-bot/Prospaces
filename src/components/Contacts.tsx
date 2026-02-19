@@ -134,7 +134,7 @@ export function Contacts({ user }: ContactsProps) {
     try {
       setIsLoading(true);
       const { contacts: loadedContacts } = await contactsAPI.getAll();
-      setContacts(loadedContacts || []);
+      setContacts((loadedContacts || []).filter(Boolean));
     } catch (error) {
       console.error('Failed to load contacts:', error);
     } finally {
@@ -264,12 +264,12 @@ export function Contacts({ user }: ContactsProps) {
 
   // ⚡ Performance: Memoize filtered contacts to avoid re-filtering on every render
   const filteredContacts = useMemo(() => {
-    let filtered = contacts;
+    let filtered = contacts.filter(Boolean);
     
     // Filter by tag
     if (selectedTagFilter && selectedTagFilter !== 'all') {
       filtered = filtered.filter(contact => 
-        contact.tags && contact.tags.includes(selectedTagFilter)
+        contact?.tags && contact.tags.includes(selectedTagFilter)
       );
     }
     
@@ -277,12 +277,12 @@ export function Contacts({ user }: ContactsProps) {
     const query = debouncedSearchQuery.toLowerCase().trim();
     if (query) {
       filtered = filtered.filter(contact =>
-        (contact.name || '').toLowerCase().includes(query) ||
-        (contact.email || '').toLowerCase().includes(query) ||
-        (contact.company || '').toLowerCase().includes(query) ||
-        (contact.phone || '').includes(query) ||
-        (contact.status || '').toLowerCase().includes(query) ||
-        (contact.tags || []).some(tag => tag.toLowerCase().includes(query))
+        (contact?.name || '').toLowerCase().includes(query) ||
+        (contact?.email || '').toLowerCase().includes(query) ||
+        (contact?.company || '').toLowerCase().includes(query) ||
+        (contact?.phone || '').includes(query) ||
+        (contact?.status || '').toLowerCase().includes(query) ||
+        (contact?.tags || []).some(tag => tag.toLowerCase().includes(query))
       );
     }
     
@@ -301,8 +301,8 @@ export function Contacts({ user }: ContactsProps) {
   // Get all unique tags from contacts
   const allTags = useMemo(() => {
     const tagsSet = new Set<string>();
-    contacts.forEach(contact => {
-      if (contact.tags && Array.isArray(contact.tags)) {
+    contacts.filter(Boolean).forEach(contact => {
+      if (contact?.tags && Array.isArray(contact.tags)) {
         contact.tags.forEach(tag => tagsSet.add(tag));
       }
     });
@@ -376,8 +376,16 @@ export function Contacts({ user }: ContactsProps) {
         lyrGpPercent: newContact.lyrGpPercent ? parseFloat(newContact.lyrGpPercent) : undefined
       };
       
-      const { contact } = await contactsAPI.create(contactData);
-      setContacts([...contacts, contact]);
+      const result = await contactsAPI.create(contactData);
+      const contact = result?.contact;
+      if (contact) {
+        // Add to beginning since contacts are sorted newest-first
+        setContacts([contact, ...contacts]);
+      } else {
+        // Contact was likely created but response was unexpected — reload to be safe
+        console.warn('[Contacts] Create returned no contact object, reloading list...');
+        await loadContacts();
+      }
       setNewContact({ name: '', email: '', phone: '', company: '', status: 'Prospect', priceLevel: getPriceTierLabel(1), legacyNumber: '', accountOwnerNumber: user.email || '', address: '', notes: '', tags: [], ptdSales: '', ptdGpPercent: '', ytdSales: '', ytdGpPercent: '', lyrSales: '', lyrGpPercent: '' });
       setTagInput('');
       setIsAddDialogOpen(false);
@@ -395,7 +403,7 @@ export function Contacts({ user }: ContactsProps) {
 
     try {
       await contactsAPI.delete(id);
-      setContacts(contacts.filter(c => c.id !== id));
+      setContacts(contacts.filter(c => c?.id !== id));
     } catch (error) {
       console.error('Failed to delete contact:', error);
       alert('Failed to delete contact. Please try again.');
@@ -427,10 +435,12 @@ export function Contacts({ user }: ContactsProps) {
         lyrSales: editingContact.lyrSales,
         lyrGpPercent: editingContact.lyrGpPercent
       });
-      setContacts(contacts.map(c => (c.id === contact.id ? contact : c)));
-      // Update the selected contact if we're viewing its detail page
-      if (selectedContact && selectedContact.id === contact.id) {
-        setSelectedContact(contact);
+      if (contact) {
+        setContacts(contacts.map(c => (c?.id === contact.id ? contact : c)));
+        // Update the selected contact if we're viewing its detail page
+        if (selectedContact && selectedContact.id === contact.id) {
+          setSelectedContact(contact);
+        }
       }
       setEditingContact(null);
       setIsEditDialogOpen(false);

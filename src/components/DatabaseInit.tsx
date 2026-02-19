@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Database, Copy, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
+import { copyToClipboard } from '../utils/clipboard';
 
 const supabase = createClient();
 
@@ -65,16 +66,15 @@ WHERE schemaname = 'public'
 AND tablename = 'inventory';`;
   };
 
-  const copySQL = () => {
+  const copySQL = async () => {
     const sql = generateInventorySQL();
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(sql).then(() => {
-        setCopied(true);
-        toast.success('✅ SQL copied! Paste it in Supabase SQL Editor.', { autoClose: 3000 });
-        setTimeout(() => setCopied(false), 3000);
-      }).catch(() => {
-        toast.error('Failed to copy. Please copy manually from the box below.');
-      });
+    const success = await copyToClipboard(sql);
+    if (success) {
+      setCopied(true);
+      toast.success('✅ SQL copied! Paste it in Supabase SQL Editor.', { autoClose: 3000 });
+      setTimeout(() => setCopied(false), 3000);
+    } else {
+      toast.error('Failed to copy. Please copy manually from the box below.');
     }
   };
 

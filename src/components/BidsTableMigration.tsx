@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Alert, AlertDescription } from './ui/alert';
 import { createClient } from '../utils/supabase/client';
 import { CheckCircle2, XCircle, Loader2, Database, Copy, Check } from 'lucide-react';
+import { copyToClipboard } from '../utils/clipboard';
 
 export function BidsTableMigration() {
   const [isRunning, setIsRunning] = useState(false);
@@ -62,11 +63,15 @@ export function BidsTableMigration() {
 
   const fullMigrationSQL = migrations.map(m => `-- ${m.name}\n${m.sql}`).join('\n\n');
 
-  const copyToClipboard = async () => {
+  const copyToClipboard_fn = async () => {
     try {
-      await navigator.clipboard.writeText(fullMigrationSQL);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      const success = await copyToClipboard(fullMigrationSQL);
+      if (success) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        console.error('Failed to copy to clipboard');
+      }
     } catch (err) {
       console.error('Failed to copy:', err);
     }
@@ -181,7 +186,7 @@ export function BidsTableMigration() {
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium">SQL Migration Script:</p>
             <Button
-              onClick={copyToClipboard}
+              onClick={copyToClipboard_fn}
               variant="outline"
               size="sm"
             >

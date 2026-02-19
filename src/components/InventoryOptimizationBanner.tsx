@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Zap, X, Info, Database, Clock } from 'lucide-react';
 import { getInventoryPerformanceMetrics, getDatabaseOptimizationInstructions } from '../utils/inventory-optimization';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface InventoryOptimizationBannerProps {
   organizationId: string;
@@ -196,7 +197,7 @@ ON inventory USING gin(description gin_trgm_ops);
 
 -- Update statistics
 ANALYZE inventory;`;
-                  navigator.clipboard.writeText(sql);
+                  copyToClipboard(sql);
                 }}
               >
                 📋 Copy SQL to Clipboard

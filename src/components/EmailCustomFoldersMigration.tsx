@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { CheckCircle2, Copy, Database } from 'lucide-react';
 import { toast } from 'sonner';
+import { copyToClipboard } from '../utils/clipboard';
 
 const SQL_MIGRATION = `-- Create email_custom_folders table for user-defined email folders
 CREATE TABLE IF NOT EXISTS email_custom_folders (
@@ -61,11 +62,15 @@ COMMENT ON TABLE email_custom_folders IS 'User-defined custom folders for email 
 export function EmailCustomFoldersMigration() {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(SQL_MIGRATION);
-    setCopied(true);
-    toast.success('SQL migration copied to clipboard!');
-    setTimeout(() => setCopied(false), 3000);
+  const handleCopy = async () => {
+    const success = await copyToClipboard(SQL_MIGRATION);
+    if (success) {
+      setCopied(true);
+      toast.success('SQL migration copied to clipboard!');
+      setTimeout(() => setCopied(false), 3000);
+    } else {
+      toast.error('Failed to copy. Please select and copy manually.');
+    }
   };
 
   return (

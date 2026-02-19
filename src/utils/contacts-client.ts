@@ -462,11 +462,55 @@ export async function createContactClient(contactData: any) {
     // Transform data before sending to database
     const dbData = transformToDbFormat(contactData);
 
-    // Get current user for organization_id and owner_id
+    // Try server endpoint first (bypasses RLS, uses profile org_id)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.access_token) {
+        console.log('[contacts-client] Creating contact via server endpoint (bypasses RLS)...');
+        
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(dbData),
+          }
+        );
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`[contacts-client] Server create successful: ${result.contact?.id}`);
+          const transformedContact = transformFromDbFormat(result.contact);
+          return { contact: transformedContact };
+        } else {
+          const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+          console.error('[contacts-client] Server create error:', response.status, errorBody);
+          // Fall through to direct Supabase insert
+        }
+      }
+    } catch (serverError: any) {
+      console.warn('[contacts-client] Server create failed, falling back to direct:', serverError.message);
+    }
+
+    // Fallback: direct Supabase insert (subject to RLS)
+    console.log('[contacts-client] Falling back to direct Supabase insert...');
+
+    // Get current user's profile for correct organization_id
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      dbData.organization_id = user.user_metadata?.organizationId;
-      // Set owner_id to current user (can be reassigned later by managers)
+      // Use profile's organization_id (authoritative), NOT user_metadata (stale JWT)
+      try {
+        const profile = await ensureUserProfile(user.id);
+        dbData.organization_id = profile.organization_id;
+      } catch (profileError) {
+        // Last-resort fallback to JWT metadata
+        console.warn('[contacts-client] Could not get profile, falling back to JWT metadata:', profileError);
+        dbData.organization_id = user.user_metadata?.organizationId;
+      }
       dbData.owner_id = user.id;
     }
 
@@ -482,8 +526,8 @@ export async function createContactClient(contactData: any) {
 
     if (error) throw error;
 
-    // Transform back to application format
-    return transformFromDbFormat(data);
+    // Transform back to application format and wrap in { contact: ... }
+    return { contact: transformFromDbFormat(data) };
   } catch (error: any) {
     console.error('Error creating contact:', error);
     throw error;
@@ -778,6 +822,40 @@ export async function updateContactClient(id: string, contactData: any) {
 export async function deleteContactClient(id: string) {
   try {
     const supabase = createClient();
+    
+    // Try server endpoint first (bypasses RLS)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.access_token) {
+        console.log(`[contacts-client] Deleting contact ${id} via server endpoint (bypasses RLS)...`);
+        
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${id}`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        
+        if (response.ok) {
+          console.log(`[contacts-client] Server delete successful for contact ${id}`);
+          return { success: true };
+        } else {
+          const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+          console.error('[contacts-client] Server delete error:', response.status, errorBody);
+          // Fall through to direct Supabase delete
+        }
+      }
+    } catch (serverError: any) {
+      console.warn('[contacts-client] Server delete failed, falling back to direct:', serverError.message);
+    }
+    
+    // Fallback: direct Supabase delete (subject to RLS)
+    console.log(`[contacts-client] Falling back to direct Supabase delete for contact ${id}`);
     const { error } = await supabase
       .from('contacts')
       .delete()

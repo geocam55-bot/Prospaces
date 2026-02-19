@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertCircle, CheckCircle, Copy, Database, RefreshCw } from 'lucide-react';
+import { copyToClipboard as clipboardCopy } from '../utils/clipboard';
 
 export function FixContactsTable() {
   const [copied, setCopied] = useState(false);
@@ -170,17 +171,12 @@ CREATE TRIGGER update_project_managers_updated_at BEFORE UPDATE ON public.projec
 -- ================================================
 SELECT 'Contacts table successfully recreated with UUID support!' AS status;`;
 
-  const copyToClipboard = () => {
+  const copyToClipboard = async () => {
     try {
-      // Try modern Clipboard API first
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(sqlScript).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }).catch(() => {
-          // Clipboard API blocked - use fallback (this is expected in some environments)
-          fallbackCopy();
-        });
+      const success = await clipboardCopy(sqlScript);
+      if (success) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
       } else {
         fallbackCopy();
       }

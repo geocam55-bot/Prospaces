@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Plus, Mail, MessageSquare, Facebook, Instagram, MoreVertical, Edit, Pause, Play, Copy, Trash2, BarChart, Send, Globe, ExternalLink, ChevronDown } from 'lucide-react';
 import { campaignsAPI } from '../../utils/api';
 import { toast } from 'sonner';
+import { copyToClipboard } from '../../utils/clipboard';
 import type { User } from '../../App';
 import { canAdd, canChange, canDelete } from '../../utils/permissions';
 import { getLandingPages } from '../../utils/marketing-client';
@@ -891,7 +892,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                             size="sm"
                             onClick={() => {
                               const url = `${window.location.origin}?view=landing&slug=${landingPageSlug}&campaign=${campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign=${encodeURIComponent(campaign.name)}`;
-                              navigator.clipboard.writeText(url);
+                              copyToClipboard(url);
                               toast.success('Landing page URL copied to clipboard!');
                             }}
                             className="flex-shrink-0"

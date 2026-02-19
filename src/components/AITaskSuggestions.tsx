@@ -9,6 +9,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Progress } from './ui/progress';
+import { copyToClipboard } from '../utils/clipboard';
 import {
   Sparkles,
   TrendingUp,
@@ -404,7 +405,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
   const handleSendEmail = async () => {
     try {
       const emailContent = `Subject: ${emailSubject}\n\n${emailBody}`;
-      await navigator.clipboard.writeText(emailContent);
+      await copyToClipboard(emailContent);
       
       setShowEmailDialog(false);
       toast.success('Email template copied to clipboard!');
@@ -508,7 +509,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
   const handleCopyEmail = async () => {
     try {
       const emailContent = `Subject: ${emailSubject}\n\n${emailBody}`;
-      await navigator.clipboard.writeText(emailContent);
+      await copyToClipboard(emailContent);
       toast.success('Email template copied to clipboard!');
     } catch (error) {
       console.error('Failed to copy email:', error);

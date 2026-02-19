@@ -3,6 +3,7 @@ import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../ui/card';
 import { CheckCircle2, Copy, AlertTriangle, Database } from 'lucide-react';
 import { toast } from 'sonner';
+import { copyToClipboard as clipboardCopy } from '../../../utils/clipboard';
 
 export function ReferralSystemSetup({ onComplete }: { onComplete: () => void }) {
   const [copied, setCopied] = useState(false);
@@ -62,27 +63,16 @@ CREATE POLICY "Users can delete their organization's referrals" ON referrals
 
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(sql);
-      setCopied(true);
-      toast.success('SQL copied to clipboard');
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      // Fallback for when Clipboard API is blocked
-      try {
-        const textArea = document.createElement("textarea");
-        textArea.value = sql;
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
+      const success = await clipboardCopy(sql);
+      if (success) {
         setCopied(true);
         toast.success('SQL copied to clipboard');
         setTimeout(() => setCopied(false), 2000);
-      } catch (fallbackErr) {
-        toast.error('Failed to copy to clipboard. Please select and copy manually.');
-        console.error('Clipboard error:', err);
+      } else {
+        toast.error('Failed to copy. Please select and copy manually.');
       }
+    } catch (err) {
+      toast.error('Failed to copy. Please select and copy manually.');
     }
   };
 

@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { Zap, Database, CheckCircle2, Copy } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
+import { copyToClipboard as clipboardCopy } from '../utils/clipboard';
 
 /**
  * Component to add performance indexes to the inventory table
@@ -56,27 +57,31 @@ ORDER BY indexname;`;
 
   const copyToClipboard = async () => {
     try {
-      // Try modern clipboard API first
-      await navigator.clipboard.writeText(SQL_INDEXES);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      // Fallback: Create a textarea and use execCommand
-      const textarea = document.createElement('textarea');
-      textarea.value = SQL_INDEXES;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      try {
-        document.execCommand('copy');
+      const success = await clipboardCopy(SQL_INDEXES);
+      if (success) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-      } catch (e) {
-        console.error('Failed to copy:', e);
-        alert('Copy failed. Please manually select and copy the SQL below.');
+      } else {
+        // Fallback: Create a textarea and use execCommand
+        const textarea = document.createElement('textarea');
+        textarea.value = SQL_INDEXES;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch (e) {
+          console.error('Failed to copy:', e);
+          alert('Copy failed. Please manually select and copy the SQL below.');
+        }
+        document.body.removeChild(textarea);
       }
-      document.body.removeChild(textarea);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      alert('Copy failed. Please manually select and copy the SQL below.');
     }
   };
 

@@ -8,34 +8,18 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { RLSSetupGuide } from './RLSSetupGuide';
+import { copyToClipboard as clipboardUtil } from '../utils/clipboard';
 
 // Helper function to copy text to clipboard
 const copyToClipboard = async (text: string) => {
   try {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(text);
-      return;
-    }
+    const success = await clipboardUtil(text);
+    if (success) return;
   } catch (error) {
-    console.log('Clipboard API failed, trying fallback method...', error);
+    console.log('Clipboard copy failed', error);
   }
-
-  // Fallback method using textarea
-  try {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.style.position = 'fixed';
-    textarea.style.top = '0';
-    textarea.style.left = '0';
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-  } catch (error) {
-    console.error('Failed to copy:', error);
-    throw error;
-  }
+  // Final fallback: show alert
+  console.error('All clipboard methods failed');
 };
 
 const supabase = createClient();

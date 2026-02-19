@@ -2,6 +2,7 @@ import { Card, CardContent } from './ui/card';
 import { Database, ExternalLink, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
+import { copyToClipboard } from '../utils/clipboard';
 
 const supabase = createClient();
 
@@ -77,17 +78,11 @@ SELECT COUNT(*) as total_synced,
 FROM public.profiles;`;
   };
 
-  const copySQL = () => {
+  const copySQL = async () => {
     const sql = generateSQL();
-    // Try modern clipboard API first
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(sql).then(() => {
-        toast.success('✅ SQL copied to clipboard! Now paste it in Supabase.', { autoClose: 3000 });
-      }).catch(() => {
-        // Fallback: show the SQL for manual copy
-        setShowSQL(true);
-        toast.info('📋 Select and copy the SQL below', { autoClose: 3000 });
-      });
+    const success = await copyToClipboard(sql);
+    if (success) {
+      toast.success('✅ SQL copied to clipboard! Now paste it in Supabase.', { autoClose: 3000 });
     } else {
       // Fallback: show the SQL for manual copy
       setShowSQL(true);

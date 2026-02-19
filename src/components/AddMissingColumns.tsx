@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { Copy, Database, CheckCircle, AlertTriangle, ExternalLink, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { copyToClipboard as clipboardCopy } from '../utils/clipboard';
 
 interface AddMissingColumnsProps {
   onComplete?: () => void;
@@ -263,17 +264,12 @@ WHERE table_schema = 'public'
   )
 ORDER BY table_name, column_name;`;
 
-  const copyToClipboard = () => {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(MIGRATION_SQL)
-        .then(() => {
-          setCopied(true);
-          toast.success('Migration SQL copied to clipboard!');
-          setTimeout(() => setCopied(false), 2000);
-        })
-        .catch(() => {
-          fallbackCopyToClipboard();
-        });
+  const copyToClipboard = async () => {
+    const success = await clipboardCopy(MIGRATION_SQL);
+    if (success) {
+      setCopied(true);
+      toast.success('Migration SQL copied to clipboard!');
+      setTimeout(() => setCopied(false), 2000);
     } else {
       fallbackCopyToClipboard();
     }

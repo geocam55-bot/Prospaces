@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/
 import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { Copy, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react';
+import { copyToClipboard } from '../utils/clipboard';
 
 const MIGRATION_SQL = `-- ============================================================================
 -- Add Organization Feature Toggle Columns Migration
@@ -37,9 +38,13 @@ export function OrganizationFeatureMigration() {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(MIGRATION_SQL);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      const success = await copyToClipboard(MIGRATION_SQL);
+      if (success) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        console.error('Failed to copy SQL');
+      }
     } catch (error) {
       console.error('Failed to copy SQL:', error);
     }

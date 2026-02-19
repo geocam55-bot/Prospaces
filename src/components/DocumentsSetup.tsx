@@ -1,6 +1,7 @@
 import { Alert, AlertDescription } from './ui/alert';
 import { CheckCircle, AlertCircle, Database, FolderOpen, Copy, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { copyToClipboard } from '../utils/clipboard';
 
 const MIGRATION_SQL = `-- ============================================================================
 -- DOCUMENTS MODULE - COMPLETE DATABASE SETUP
@@ -228,24 +229,27 @@ export function DocumentsSetup() {
 
   const handleCopy = async () => {
     try {
-      // Try modern clipboard API first
-      await navigator.clipboard.writeText(MIGRATION_SQL);
-      setCopied(true);
-      toast.success('SQL copied to clipboard!');
-      setTimeout(() => setCopied(false), 3000);
-    } catch (err) {
-      // Fallback to textarea selection method
-      if (textareaRef.current) {
-        textareaRef.current.select();
-        try {
-          document.execCommand('copy');
-          setCopied(true);
-          toast.success('SQL copied to clipboard!');
-          setTimeout(() => setCopied(false), 3000);
-        } catch (fallbackErr) {
-          toast.error('Unable to copy. Please select and copy manually.');
+      const success = await copyToClipboard(MIGRATION_SQL);
+      if (success) {
+        setCopied(true);
+        toast.success('SQL copied to clipboard!');
+        setTimeout(() => setCopied(false), 3000);
+      } else {
+        // Fallback to textarea selection method
+        if (textareaRef.current) {
+          textareaRef.current.select();
+          try {
+            document.execCommand('copy');
+            setCopied(true);
+            toast.success('SQL copied to clipboard!');
+            setTimeout(() => setCopied(false), 3000);
+          } catch (fallbackErr) {
+            toast.error('Unable to copy. Please select and copy manually.');
+          }
         }
       }
+    } catch (err) {
+      toast.error('Unable to copy. Please select and copy manually.');
     }
   };
 

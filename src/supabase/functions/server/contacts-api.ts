@@ -13,6 +13,14 @@ const AOCOL_TTL = 60_000; // re-check every 60 seconds if column was missing
 let _hasPriceLevelCol: boolean | null = null;
 let _plcolCheckTime = 0;
 
+// Server-side column detection for legacy_number
+let _hasLegacyNumberCol: boolean | null = null;
+let _lncolCheckTime = 0;
+
+// Server-side column detection for financial columns (ptd_sales, etc.)
+let _hasFinancialCols: boolean | null = null;
+let _fincolCheckTime = 0;
+
 async function hasPriceLevelColumn(supabase: any): Promise<boolean> {
   if (_hasPriceLevelCol === true) return true;
   if (_hasPriceLevelCol === false && Date.now() - _plcolCheckTime < AOCOL_TTL) return false;
@@ -30,6 +38,44 @@ async function hasPriceLevelColumn(supabase: any): Promise<boolean> {
     console.log('[contacts-api] price_level column detected');
   }
   return _hasPriceLevelCol;
+}
+
+async function hasLegacyNumberColumn(supabase: any): Promise<boolean> {
+  if (_hasLegacyNumberCol === true) return true;
+  if (_hasLegacyNumberCol === false && Date.now() - _lncolCheckTime < AOCOL_TTL) return false;
+
+  const { error } = await supabase
+    .from('contacts')
+    .select('legacy_number')
+    .limit(0);
+
+  _hasLegacyNumberCol = !error;
+  _lncolCheckTime = Date.now();
+  if (error) {
+    console.log('[contacts-api] legacy_number column not available:', error.code);
+  } else {
+    console.log('[contacts-api] legacy_number column detected');
+  }
+  return _hasLegacyNumberCol;
+}
+
+async function hasFinancialColumns(supabase: any): Promise<boolean> {
+  if (_hasFinancialCols === true) return true;
+  if (_hasFinancialCols === false && Date.now() - _fincolCheckTime < AOCOL_TTL) return false;
+
+  const { error } = await supabase
+    .from('contacts')
+    .select('ptd_sales')
+    .limit(0);
+
+  _hasFinancialCols = !error;
+  _fincolCheckTime = Date.now();
+  if (error) {
+    console.log('[contacts-api] Financial columns (ptd_sales, etc.) not available:', error.code);
+  } else {
+    console.log('[contacts-api] Financial columns detected');
+  }
+  return _hasFinancialCols;
 }
 
 async function hasAccountOwnerColumn(supabase: any): Promise<boolean> {
@@ -257,6 +303,8 @@ export function contactsAPI(app: Hono) {
       // Detect which columns exist
       const hasPLCol = await hasPriceLevelColumn(supabase);
       const hasAOCol = await hasAccountOwnerColumn(supabase);
+      const hasLNCol = await hasLegacyNumberColumn(supabase);
+      const hasFinCols = await hasFinancialColumns(supabase);
 
       // Build the update payload with only columns that exist
       const updatePayload: any = {};
@@ -288,13 +336,13 @@ export function contactsAPI(app: Hono) {
       if (hasAOCol && body.account_owner_number !== undefined) {
         updatePayload.account_owner_number = body.account_owner_number;
       }
-      if (body.legacy_number !== undefined) updatePayload.legacy_number = body.legacy_number;
-      if (body.ptd_sales !== undefined) updatePayload.ptd_sales = body.ptd_sales;
-      if (body.ptd_gp_percent !== undefined) updatePayload.ptd_gp_percent = body.ptd_gp_percent;
-      if (body.ytd_sales !== undefined) updatePayload.ytd_sales = body.ytd_sales;
-      if (body.ytd_gp_percent !== undefined) updatePayload.ytd_gp_percent = body.ytd_gp_percent;
-      if (body.lyr_sales !== undefined) updatePayload.lyr_sales = body.lyr_sales;
-      if (body.lyr_gp_percent !== undefined) updatePayload.lyr_gp_percent = body.lyr_gp_percent;
+      if (hasLNCol && body.legacy_number !== undefined) updatePayload.legacy_number = body.legacy_number;
+      if (hasFinCols && body.ptd_sales !== undefined) updatePayload.ptd_sales = body.ptd_sales;
+      if (hasFinCols && body.ptd_gp_percent !== undefined) updatePayload.ptd_gp_percent = body.ptd_gp_percent;
+      if (hasFinCols && body.ytd_sales !== undefined) updatePayload.ytd_sales = body.ytd_sales;
+      if (hasFinCols && body.ytd_gp_percent !== undefined) updatePayload.ytd_gp_percent = body.ytd_gp_percent;
+      if (hasFinCols && body.lyr_sales !== undefined) updatePayload.lyr_sales = body.lyr_sales;
+      if (hasFinCols && body.lyr_gp_percent !== undefined) updatePayload.lyr_gp_percent = body.lyr_gp_percent;
 
       updatePayload.updated_at = new Date().toISOString();
 
@@ -332,6 +380,195 @@ export function contactsAPI(app: Hono) {
     } catch (error: any) {
       console.error('[contacts-api] Unexpected error during update:', error);
       return c.json({ error: 'Internal server error in contacts update API: ' + error.message }, 500);
+    }
+  });
+
+  // POST /contacts — create a new contact (bypasses RLS via service role key)
+  app.post('/make-server-8405be07/contacts', async (c) => {
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      // Authenticate the requesting user
+      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      if (!accessToken) {
+        return c.json({ error: 'Missing Authorization header in contacts create API' }, 401);
+      }
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      if (authError || !user) {
+        return c.json({ error: 'Unauthorized in contacts create API: ' + (authError?.message || 'No user') }, 401);
+      }
+
+      // Get the user's profile for role and organization
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        return c.json({ error: 'Profile not found for user ' + user.id }, 404);
+      }
+
+      const userOrgId = profile.organization_id;
+
+      console.log(`[contacts-api] POST /contacts — user=${profile.email}, org=${userOrgId}`);
+
+      const body = await c.req.json();
+
+      // Detect which columns exist
+      const hasPLCol = await hasPriceLevelColumn(supabase);
+      const hasAOCol = await hasAccountOwnerColumn(supabase);
+      const hasLNCol = await hasLegacyNumberColumn(supabase);
+      const hasFinCols = await hasFinancialColumns(supabase);
+
+      // Build the insert payload with only columns that exist
+      const insertPayload: any = {
+        organization_id: userOrgId,
+        owner_id: user.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Standard fields
+      if (body.name !== undefined) insertPayload.name = body.name;
+      if (body.email !== undefined) insertPayload.email = body.email;
+      if (body.phone !== undefined) insertPayload.phone = body.phone;
+      if (body.company !== undefined) insertPayload.company = body.company;
+      if (body.status !== undefined) insertPayload.status = body.status;
+      if (body.address !== undefined) insertPayload.address = body.address;
+      if (body.notes !== undefined) insertPayload.notes = body.notes;
+      if (body.tags !== undefined) insertPayload.tags = body.tags;
+
+      // Conditional columns
+      if (hasPLCol && body.price_level !== undefined) {
+        insertPayload.price_level = body.price_level;
+      }
+      if (hasAOCol && body.account_owner_number !== undefined) {
+        insertPayload.account_owner_number = body.account_owner_number;
+      }
+      if (hasLNCol && body.legacy_number !== undefined) insertPayload.legacy_number = body.legacy_number;
+      if (hasFinCols && body.ptd_sales !== undefined) insertPayload.ptd_sales = body.ptd_sales;
+      if (hasFinCols && body.ptd_gp_percent !== undefined) insertPayload.ptd_gp_percent = body.ptd_gp_percent;
+      if (hasFinCols && body.ytd_sales !== undefined) insertPayload.ytd_sales = body.ytd_sales;
+      if (hasFinCols && body.ytd_gp_percent !== undefined) insertPayload.ytd_gp_percent = body.ytd_gp_percent;
+      if (hasFinCols && body.lyr_sales !== undefined) insertPayload.lyr_sales = body.lyr_sales;
+      if (hasFinCols && body.lyr_gp_percent !== undefined) insertPayload.lyr_gp_percent = body.lyr_gp_percent;
+
+      console.log(`[contacts-api] Insert payload keys:`, Object.keys(insertPayload));
+
+      const { data: newContact, error: insertError } = await supabase
+        .from('contacts')
+        .insert([insertPayload])
+        .select('*')
+        .single();
+
+      if (insertError) {
+        console.error('[contacts-api] Insert error:', insertError);
+        return c.json({ error: 'Failed to create contact: ' + insertError.message }, 500);
+      }
+
+      console.log(`[contacts-api] Contact created successfully: ${newContact?.id}, name=${newContact?.name}`);
+
+      // Handle price_level KV fallback for insert
+      if (!hasPLCol && body.price_level !== undefined && newContact?.id) {
+        try {
+          await kv.set(`contact_price_level:${newContact.id}`, body.price_level);
+          console.log(`[contacts-api] price_level saved to KV for new contact ${newContact.id}`);
+        } catch (kvErr: any) {
+          console.error(`[contacts-api] Failed to save price_level to KV:`, kvErr.message);
+        }
+      }
+
+      // Enrich response with KV price_level if column doesn't exist
+      const enrichedContact = { ...newContact };
+      if (!hasPLCol && body.price_level !== undefined) {
+        enrichedContact.price_level = body.price_level;
+      }
+
+      return c.json({ contact: enrichedContact }, 201);
+    } catch (error: any) {
+      console.error('[contacts-api] Unexpected error during create:', error);
+      return c.json({ error: 'Internal server error in contacts create API: ' + error.message }, 500);
+    }
+  });
+
+  // DELETE /contacts/:id — delete a contact (bypasses RLS via service role key)
+  app.delete('/make-server-8405be07/contacts/:id', async (c) => {
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      if (!accessToken) {
+        return c.json({ error: 'Missing Authorization header in contacts delete API' }, 401);
+      }
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      if (authError || !user) {
+        return c.json({ error: 'Unauthorized in contacts delete API: ' + (authError?.message || 'No user') }, 401);
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        return c.json({ error: 'Profile not found for user ' + user.id }, 404);
+      }
+
+      const userRole = profile.role || 'standard_user';
+      const userOrgId = profile.organization_id;
+      const contactId = c.req.param('id');
+
+      console.log(`[contacts-api] DELETE /contacts/${contactId} — user=${profile.email}, role=${userRole}`);
+
+      // Verify the contact exists and belongs to user's org
+      const { data: existingContact, error: fetchError } = await supabase
+        .from('contacts')
+        .select('id, organization_id, owner_id')
+        .eq('id', contactId)
+        .single();
+
+      if (fetchError || !existingContact) {
+        return c.json({ error: 'Contact not found: ' + contactId }, 404);
+      }
+
+      if (existingContact.organization_id !== userOrgId && userRole !== 'super_admin') {
+        return c.json({ error: 'Contact does not belong to your organization' }, 403);
+      }
+
+      if (['standard_user', 'restricted'].includes(userRole) && existingContact.owner_id !== user.id) {
+        return c.json({ error: 'You can only delete your own contacts' }, 403);
+      }
+
+      const { error: deleteError } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('id', contactId);
+
+      if (deleteError) {
+        console.error('[contacts-api] Delete error:', deleteError);
+        return c.json({ error: 'Failed to delete contact: ' + deleteError.message }, 500);
+      }
+
+      // Clean up KV price_level entry
+      try {
+        await kv.del(`contact_price_level:${contactId}`);
+      } catch (_) { /* ignore */ }
+
+      console.log(`[contacts-api] Contact deleted successfully: ${contactId}`);
+      return c.json({ success: true });
+    } catch (error: any) {
+      console.error('[contacts-api] Unexpected error during delete:', error);
+      return c.json({ error: 'Internal server error in contacts delete API: ' + error.message }, 500);
     }
   });
 }
