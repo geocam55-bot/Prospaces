@@ -5,7 +5,6 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import { 
-  Upload,
   Clock,
   CheckCircle,
   AlertCircle,
@@ -20,8 +19,6 @@ import { toast } from 'sonner@2.0.3';
 import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
-import { inventoryAPI } from '../utils/api';
-import { getPriceTierLabel } from '../lib/global-settings';
 
 interface BackgroundImportManagerProps {
   user: User;
@@ -100,17 +97,8 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
     };
   }, [user.organizationId, notificationsEnabled]);
 
-  // Auto-process pending jobs
-  useEffect(() => {
-    const processInterval = setInterval(async () => {
-      await checkAndProcessDueJobs();
-    }, 5000); // Check every 5 seconds
-
-    // Check immediately on mount
-    checkAndProcessDueJobs();
-
-    return () => clearInterval(processInterval);
-  }, [user]);
+  // Job processing is now handled by the always-mounted BackgroundJobProcessor in App.tsx.
+  // This component only displays job status and allows cancel/delete actions.
 
   const loadJobs = async () => {
     try {
@@ -136,232 +124,6 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
       toast.error('Failed to load jobs');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const checkAndProcessDueJobs = async () => {
-    try {
-      const supabase = createClient();
-      const now = new Date().toISOString();
-
-      // Find pending jobs that are due
-      const { data: dueJobs, error } = await supabase
-        .from('scheduled_jobs')
-        .select('*')
-        .eq('organization_id', user.organizationId)
-        .in('data_type', ['inventory', 'contacts', 'bids']) // Check all import types
-        .eq('status', 'pending')
-        .lte('scheduled_time', now);
-
-      if (error) throw error;
-
-      if (dueJobs && dueJobs.length > 0) {
-        console.log(`⏰ Found ${dueJobs.length} import job(s) to process`);
-        
-        for (const job of dueJobs) {
-          await processJob(job as BackgroundImportJob);
-        }
-
-        // Reload jobs to show updated statuses
-        loadJobs();
-      }
-    } catch (error: any) {
-      console.error('Failed to check for due jobs:', error);
-    }
-  };
-
-  const processJob = async (job: BackgroundImportJob) => {
-    const supabase = createClient();
-
-    try {
-      console.log(`🔄 Processing background import job ${job.id} (${job.data_type})`);
-
-      // Mark as processing
-      await supabase
-        .from('scheduled_jobs')
-        .update({ status: 'processing' })
-        .eq('id', job.id);
-
-      const records = job.file_data?.records || [];
-      const totalRecords = records.length;
-      let successCount = 0;
-      let failCount = 0;
-      const errors: string[] = [];
-
-      // Process based on data type
-      const dataType = job.data_type;
-
-      // Process in batches of 100
-      const batchSize = 100;
-      for (let i = 0; i < records.length; i += batchSize) {
-        const batch = records.slice(i, i + batchSize);
-        
-        for (const record of batch) {
-          try {
-            if (dataType === 'inventory') {
-              // Validate required fields for inventory
-              if (!record.name || !record.sku) {
-                throw new Error('Missing required fields: name and sku are required');
-              }
-
-              // Check for duplicates
-              const { data: existing } = await supabase
-                .from('inventory')
-                .select('id')
-                .eq('organization_id', user.organizationId)
-                .eq('sku', record.sku)
-                .maybeSingle();
-
-              // Build inventory data — only include fields that exist in the record
-              // to avoid overwriting existing DB values with 0 when a field wasn't in the CSV
-              const inventoryData: any = {
-                organization_id: user.organizationId,
-                name: record.name,
-                sku: record.sku,
-                description: record.description || '',
-                category: record.category || 'Uncategorized',
-              };
-              if (record.quantity != null && record.quantity !== '') inventoryData.quantity = parseFloat(record.quantity) || 0;
-              if (record.quantity_on_order != null && record.quantity_on_order !== '') inventoryData.quantity_on_order = parseFloat(record.quantity_on_order) || 0;
-              if (record.unit_price != null && record.unit_price !== '') inventoryData.unit_price = parseFloat(record.unit_price) || 0;
-              if (record.cost != null && record.cost !== '') inventoryData.cost = parseFloat(record.cost) || 0;
-              if (record.price_tier_1 != null && record.price_tier_1 !== '') inventoryData.price_tier_1 = parseFloat(record.price_tier_1) || 0;
-              if (record.price_tier_2 != null && record.price_tier_2 !== '') inventoryData.price_tier_2 = parseFloat(record.price_tier_2) || 0;
-              if (record.price_tier_3 != null && record.price_tier_3 !== '') inventoryData.price_tier_3 = parseFloat(record.price_tier_3) || 0;
-              if (record.price_tier_4 != null && record.price_tier_4 !== '') inventoryData.price_tier_4 = parseFloat(record.price_tier_4) || 0;
-              if (record.price_tier_5 != null && record.price_tier_5 !== '') inventoryData.price_tier_5 = parseFloat(record.price_tier_5) || 0;
-              if (record.department_code != null && record.department_code !== '') inventoryData.department_code = record.department_code;
-              if (record.unit_of_measure != null && record.unit_of_measure !== '') inventoryData.unit_of_measure = record.unit_of_measure;
-
-              if (existing) {
-                // Update existing — use correct API method name
-                await inventoryAPI.update(existing.id, inventoryData);
-              } else {
-                // Create new — use correct API method name
-                await inventoryAPI.create(inventoryData);
-              }
-            } else if (dataType === 'contacts') {
-              // Validate required fields for contacts
-              if (!record.name || !record.email) {
-                throw new Error('Missing required fields: name and email are required');
-              }
-
-              const contactData = {
-                name: record.name,
-                email: record.email,
-                phone: record.phone || '',
-                company: record.company || '',
-                status: record.status || 'Prospect',
-                priceLevel: record.priceLevel || getPriceTierLabel(1),
-                address: record.address || '',
-                notes: record.notes || '',
-                legacyNumber: record.legacyNumber || '',
-                accountOwnerNumber: record.accountOwnerNumber || '',
-                ptdSales: parseFloat(record.ptdSales) || 0,
-                ptdGpPercent: parseFloat(record.ptdGpPercent) || 0,
-                ytdSales: parseFloat(record.ytdSales) || 0,
-                ytdGpPercent: parseFloat(record.ytdGpPercent) || 0,
-                lyrSales: parseFloat(record.lyrSales) || 0,
-                lyrGpPercent: parseFloat(record.lyrGpPercent) || 0,
-              };
-
-              // Check for duplicates by email
-              const { data: existing } = await supabase
-                .from('contacts')
-                .select('id')
-                .eq('organization_id', user.organizationId)
-                .eq('email', record.email)
-                .maybeSingle();
-
-              if (existing) {
-                // Update existing
-                await contactsAPI.updateContact(existing.id, contactData);
-              } else {
-                // Create new
-                await contactsAPI.createContact(contactData);
-              }
-            } else if (dataType === 'bids') {
-              // Validate required fields for bids
-              if (!record.clientName || !record.projectName) {
-                throw new Error('Missing required fields: clientName and projectName are required');
-              }
-
-              const bidData = {
-                clientName: record.clientName,
-                projectName: record.projectName,
-                description: record.description || '',
-                subtotal: parseFloat(record.subtotal) || 0,
-                tax: parseFloat(record.tax) || 0,
-                total: parseFloat(record.total) || 0,
-                status: record.status || 'Draft',
-                validUntil: record.validUntil || null,
-              };
-
-              // Create new bid (no duplicate checking for bids)
-              await bidsAPI.createBid(bidData);
-            }
-
-            successCount++;
-          } catch (error: any) {
-            failCount++;
-            errors.push(`Row ${i + batch.indexOf(record) + 1}: ${error.message}`);
-          }
-        }
-
-        // Update progress
-        const progress = Math.round(((i + batch.length) / totalRecords) * 100);
-        await supabase
-          .from('scheduled_jobs')
-          .update({ 
-            progress: {
-              current: i + batch.length,
-              total: totalRecords,
-              percent: progress
-            }
-          })
-          .eq('id', job.id);
-      }
-
-      // Mark as completed
-      await supabase
-        .from('scheduled_jobs')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          record_count: successCount,
-          error_message: errors.length > 0 ? errors.slice(0, 10).join('\n') : null
-        })
-        .eq('id', job.id);
-
-      console.log(`✅ Background import completed: ${successCount} imported, ${failCount} failed`);
-
-      // Show completion notification
-      if (notificationsEnabled) {
-        showCompletionNotification({
-          ...job,
-          status: 'completed',
-          record_count: successCount
-        });
-      }
-
-      // Reload jobs
-      loadJobs();
-
-    } catch (error: any) {
-      console.error('Failed to process job:', error);
-
-      // Mark as failed
-      await supabase
-        .from('scheduled_jobs')
-        .update({
-          status: 'failed',
-          completed_at: new Date().toISOString(),
-          error_message: error.message
-        })
-        .eq('id', job.id);
-
-      // Reload jobs
-      loadJobs();
     }
   };
 

@@ -1,6 +1,6 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
-import { projectId } from './supabase/info';
+import { projectId, publicAnonKey } from './supabase/info';
 
 const supabase = createClient();
 
@@ -33,7 +33,41 @@ export async function getQuoteTrackingStatusClient() {
   }
 }
 
+/**
+ * Helper to get an auth token for server-side API calls.
+ * Returns the session access_token if available, otherwise the publicAnonKey.
+ */
+async function getAuthToken(): Promise<string> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) return session.access_token;
+  } catch {}
+  return publicAnonKey;
+}
+
 export async function getAllQuotesClient() {
+  // ── Attempt 1: Server-side endpoint (bypasses RLS) ──
+  try {
+    const token = await getAuthToken();
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/quotes`,
+      {
+        headers: { 'Authorization': `Bearer ${token}` },
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`[quotes-client] Server endpoint returned ${data.quotes?.length || 0} quotes (role=${data.meta?.role})`);
+      return { quotes: data.quotes || [] };
+    }
+
+    console.warn('[quotes-client] Server endpoint failed, falling back to direct query:', response.status, response.statusText);
+  } catch (err: any) {
+    console.warn('[quotes-client] Server endpoint error, falling back to direct query:', err.message);
+  }
+
+  // ── Attempt 2: Direct Supabase query (may be blocked by RLS) ──
   try {
     // Try to get user, with fallback to session
     let authUser;
@@ -59,32 +93,26 @@ export async function getAllQuotesClient() {
       profile = await ensureUserProfile(authUser.id);
     } catch (profileError) {
       console.error('❌ Failed to get user profile:', profileError);
-      // Return empty array instead of throwing - this prevents "Error" in dashboard
       return { quotes: [] };
     }
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('🔐 Quotes - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
+    console.log('🔐 Quotes (fallback) - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
     
     let query = supabase
       .from('quotes')
       .select('*');
     
     // Apply role-based filtering
-    // - Super Admin/Admin/Manager: Can see ALL quotes in their organization
-    // - Standard User: Can see only THEIR OWN quotes (Personal Dashboard)
-    
-    if (['super_admin', 'admin', 'manager'].includes(userRole)) {
+    // FIXED: Include 'director' in elevated roles (was missing before)
+    if (['super_admin', 'admin', 'manager', 'director', 'marketing'].includes(userRole)) {
       console.log('🔓 Organization View - Loading all quotes for organization:', userOrgId);
-      // Filter by organization (or null organization which might be legacy/global)
       if (userOrgId) {
         query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
       }
-      // Do NOT filter by created_by for these roles
     } else {
-      // Standard User: Show only THEIR OWN quotes
       console.log('👤 Personal View - Loading only own quotes for user:', authUser.id);
       if (userOrgId) {
         query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
@@ -95,9 +123,8 @@ export async function getAllQuotesClient() {
     const { data: quotes, error } = await query.order('created_at', { ascending: false });
     
     if (error) {
-      // If table doesn't exist, return empty array
       if (error.code === '42P01' || error.code === 'PGRST204' || error.code === '42501') {
-        console.log('[quotes-client] Quotes table not found, returning empty array');
+        console.log('[quotes-client] Quotes table not found or access denied, returning empty array');
         return { quotes: [] };
       }
       throw error;
@@ -203,6 +230,34 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
 }
 
 export async function createQuoteClient(data: any) {
+  // ── Attempt 1: Server-side endpoint (bypasses RLS, authoritative org ID) ──
+  try {
+    const token = await getAuthToken();
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/quotes`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('[quotes-client] Quote created via server endpoint:', result.quote?.id);
+      return { quote: result.quote };
+    }
+
+    const errBody = await response.text();
+    console.warn('[quotes-client] Server create failed, falling back to direct insert:', response.status, errBody);
+  } catch (err: any) {
+    console.warn('[quotes-client] Server create error, falling back to direct insert:', err.message);
+  }
+
+  // ── Attempt 2: Direct Supabase insert (fallback) ──
   try {
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -210,25 +265,17 @@ export async function createQuoteClient(data: any) {
       throw new Error('Not authenticated');
     }
 
-    // CRITICAL: Ensure we get organization_id from profile if not in metadata
-    // Metadata can be missing if user signed up via frontend without server-side sync
-    let organizationId = user.user_metadata?.organizationId;
-    
-    if (!organizationId) {
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id')
-          .eq('id', user.id)
-          .single();
-          
-        if (profile) {
-          organizationId = profile.organization_id;
-          console.log('[quotes-client] Retrieved organization_id from profile:', organizationId);
-        }
-      } catch (profileError) {
-        console.warn('[quotes-client] Failed to fetch profile for organizationId:', profileError);
-      }
+    // FIXED: Always get organization_id from profile (authoritative source),
+    // NOT from user.user_metadata which can be stale/mismatched
+    let organizationId: string | null = null;
+
+    try {
+      const profile = await ensureUserProfile(user.id);
+      organizationId = profile.organization_id;
+      console.log('[quotes-client] Retrieved organization_id from profile:', organizationId);
+    } catch (profileError) {
+      console.warn('[quotes-client] Failed to fetch profile, falling back to metadata:', profileError);
+      organizationId = user.user_metadata?.organizationId || null;
     }
     
     // Generate quote number if not provided
@@ -250,7 +297,7 @@ export async function createQuoteClient(data: any) {
       updated_at: new Date().toISOString(),
     };
     
-    console.log('[quotes-client] Creating quote with data:', quoteData);
+    console.log('[quotes-client] Creating quote (fallback) with org:', organizationId);
     
     const { data: quote, error } = await supabase
       .from('quotes')

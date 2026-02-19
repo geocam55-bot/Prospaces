@@ -2,8 +2,9 @@ import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
 import { isTierActive } from '../lib/global-settings';
 
-// Shared select string for all inventory queries — must match the actual DB columns
-const INVENTORY_SELECT = 'id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, price_tier_1, price_tier_2, price_tier_3, price_tier_4, price_tier_5, department_code, unit_of_measure, image_url, organization_id, created_at, updated_at';
+// ✅ Use select('*') to avoid errors when optional columns (price_tier_*, department_code, unit_of_measure) haven't been added yet.
+// The mapping function handles missing fields with defaults.
+const INVENTORY_SELECT = '*';
 
 export async function getAllInventoryClient() {
   try {

@@ -15,9 +15,6 @@ import {
   Edit,
   Trash2,
   AlertTriangle,
-  TrendingDown,
-  TrendingUp,
-  DollarSign,
   Barcode,
   MapPin,
   Tag,
@@ -123,9 +120,6 @@ export function Inventory({ user }: InventoryProps) {
   
   // ⚡ Track total count for pagination
   const [totalCount, setTotalCount] = useState(0);
-  
-  // 📊 Track total value from server (for all filtered results)
-  const [serverTotalValue, setServerTotalValue] = useState(0);
   
   // 📊 Track low stock count from server (qty <= 0, across all pages)
   const [serverLowStockCount, setServerLowStockCount] = useState(0);
@@ -275,7 +269,7 @@ export function Inventory({ user }: InventoryProps) {
       while (offset < totalCount) {
         const batchQuery = supabase
           .from('inventory')
-          .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, price_tier_1, price_tier_2, price_tier_3, price_tier_4, price_tier_5, department_code, unit_of_measure, image_url, organization_id, created_at, updated_at')
+          .select('*')
           .eq('organization_id', userOrgId)
           .order('name', { ascending: true })
           .range(offset, offset + batchSize - 1);
@@ -365,7 +359,7 @@ export function Inventory({ user }: InventoryProps) {
       setOrganizationId(userOrgId);
       
       // ⚡ Use the optimized loader with proper pagination
-      const { items: loadedItems, totalCount: count, loadTime, totalValue, lowStockCount: serverLowStock } = await loadInventoryPage({
+      const { items: loadedItems, totalCount: count, loadTime, lowStockCount: serverLowStock } = await loadInventoryPage({
         organizationId: userOrgId,
         currentPage,
         itemsPerPage,
@@ -380,7 +374,6 @@ export function Inventory({ user }: InventoryProps) {
       console.log(`📊 [Inventory] Loaded ${mappedItems.length} items (page ${currentPage}/${Math.ceil(count / itemsPerPage)}, total: ${count})`);
       setItems(mappedItems);
       setTotalCount(count);
-      setServerTotalValue(totalValue || 0); // 📊 Store server-calculated total value
       setServerLowStockCount(serverLowStock || 0); // 📊 Store server-calculated low stock count
       setTableExists(true);
       setIsLoading(false);
@@ -666,15 +659,6 @@ export function Inventory({ user }: InventoryProps) {
     item.quantityOnHand <= 0
   );
 
-  // ✅ Use server-calculated total value (paginated aggregate, handles 78K+ items)
-  const totalValue = serverTotalValue;
-  
-  // ✅ Use totalCount for display (server-side exact count, not page-limited)
-  const displayTotalItems = totalCount > 0 ? totalCount : items.length;
-  // ✅ FIX: "In Stock" shows items with quantity > 0 across ALL items, not just current page
-  // Since there's no status column in the DB, all items are "active".
-  // The meaningful KPI is: total items minus out-of-stock items.
-  const displayInStockItems = totalCount > 0 ? totalCount - serverLowStockCount : items.length;
   // ✅ FIX: Low stock count from server (qty <= 0 across ALL pages, not just current page's 50 items)
   const displayLowStockCount = serverLowStockCount;
 
@@ -709,57 +693,6 @@ export function Inventory({ user }: InventoryProps) {
           <AlertDescription>{alert.message}</AlertDescription>
         </Alert>
       )}
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Items</p>
-                <p className="text-2xl text-gray-900 mt-1">{displayTotalItems.toLocaleString()}</p>
-              </div>
-              <Package className="h-8 w-8 text-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">In Stock</p>
-                <p className="text-2xl text-gray-900 mt-1">{displayInStockItems.toLocaleString()}</p>
-              </div>
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Out of Stock</p>
-                <p className="text-2xl text-gray-900 mt-1">{displayLowStockCount.toLocaleString()}</p>
-              </div>
-              <AlertTriangle className={`h-8 w-8 ${displayLowStockCount > 0 ? 'text-red-600' : 'text-yellow-600'}`} />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Value</p>
-                <p className="text-2xl text-gray-900 mt-1">${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">

@@ -21,6 +21,7 @@ import { Security } from './components/Security';
 import { ImportExport } from './components/ImportExport';
 import { ScheduledJobs } from './components/ScheduledJobs';
 import { BackgroundImportManager } from './components/BackgroundImportManager';
+import { BackgroundJobProcessor } from './components/BackgroundJobProcessor';
 import { AITaskSuggestions } from './components/AITaskSuggestions';
 import { ChangePasswordDialog } from './components/ChangePasswordDialog';
 import { KitchenPlanner } from './components/planners/KitchenPlanner';
@@ -320,6 +321,8 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider userId={user?.id}>
         <Toaster />
+        {/* Always-mounted background job processor — auto-processes pending import jobs */}
+        <BackgroundJobProcessor user={user} onNavigate={setCurrentView} />
         <div className="flex h-screen overflow-hidden" style={{ background: 'var(--color-background)' }}>
           <Navigation
             user={user}

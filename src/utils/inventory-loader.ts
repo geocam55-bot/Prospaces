@@ -92,9 +92,10 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
     const to = from + itemsPerPage - 1;
     
     // Build query with server-side filtering
+    // ✅ Use select('*') to avoid errors when optional columns (price_tier_*, department_code, unit_of_measure) haven't been added yet
     let query = supabase
       .from('inventory')
-      .select('id, name, sku, description, category, quantity, quantity_on_order, unit_price, cost, price_tier_1, price_tier_2, price_tier_3, price_tier_4, price_tier_5, department_code, unit_of_measure, image_url, organization_id, created_at, updated_at', { count: 'exact' })
+      .select('*', { count: 'exact' })
       .eq('organization_id', organizationId);
     
     // ⚡ Enhanced server-side search with natural language support

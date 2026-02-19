@@ -1502,6 +1502,10 @@
     width: 1px;
   }
 
+  .w-\[95vw\] {
+    width: 95vw;
+  }
+
   .w-\[130px\] {
     width: 130px;
   }
@@ -1636,6 +1640,10 @@
 
   .min-w-\[200px\] {
     min-width: 200px;
+  }
+
+  .min-w-\[500px\] {
+    min-width: 500px;
   }
 
   .min-w-\[var\(--radix-select-trigger-width\)\] {
@@ -5782,6 +5790,18 @@
   @media (width >= 40rem) {
     .sm\:flex-none {
       flex: none;
+    }
+  }
+
+  @media (width >= 40rem) {
+    .sm\:grid-cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (width >= 40rem) {
+    .sm\:grid-cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
 

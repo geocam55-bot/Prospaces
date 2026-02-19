@@ -1407,7 +1407,7 @@ export function Bids({ user }: BidsProps) {
 
       {/* Create/Edit Deal Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>{editingQuote ? 'Edit Deal' : 'Create New Deal'}</DialogTitle>
             <DialogDescription>
@@ -1417,8 +1417,8 @@ export function Bids({ user }: BidsProps) {
 
           <div className="space-y-6">
             {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="min-w-0">
                 <Label>Deal Title *</Label>
                 <Input
                   value={formData.title}
@@ -1426,10 +1426,10 @@ export function Bids({ user }: BidsProps) {
                   placeholder="Enter deal title"
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label>Contact *</Label>
                 <Select value={formData.contactId} onValueChange={handleContactChange}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full truncate">
                     <SelectValue placeholder="Select contact" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1441,7 +1441,7 @@ export function Bids({ user }: BidsProps) {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label>Valid Until</Label>
                 <Input
                   type="date"
@@ -1449,7 +1449,7 @@ export function Bids({ user }: BidsProps) {
                   onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label>Selected Contact Price Level</Label>
                 <Input
                   value={formData.contactId ? (contacts.find(c => c.id === formData.contactId)?.priceLevel || getPriceTierLabel(1)) : 'Select a contact'}
@@ -1461,9 +1461,9 @@ export function Bids({ user }: BidsProps) {
 
             {/* Line Items */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm text-gray-900">Line Items</h3>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -1471,7 +1471,7 @@ export function Bids({ user }: BidsProps) {
                     title="Update prices to current inventory rates"
                     disabled={!formData.contactId || currentLineItems.length === 0}
                   >
-                    <RefreshCw className="h-4 w-4 mr-2" />
+                    <RefreshCw className="h-4 w-4 mr-1" />
                     Refresh Prices
                   </Button>
                   <Button
@@ -1480,7 +1480,7 @@ export function Bids({ user }: BidsProps) {
                     onClick={() => setShowLineItemDialog(true)}
                     disabled={!formData.contactId}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-4 w-4 mr-1" />
                     Add Item
                   </Button>
                 </div>
@@ -1495,16 +1495,16 @@ export function Bids({ user }: BidsProps) {
                   )}
                 </div>
               ) : (
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full">
+                <div className="border rounded-lg overflow-x-auto">
+                  <table className="w-full min-w-[500px]">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="text-left py-2 px-4 text-xs text-gray-600">Item</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Cost</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Qty</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Unit Price</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Total</th>
-                        <th className="w-12"></th>
+                        <th className="text-left py-2 px-3 text-xs text-gray-600">Item</th>
+                        <th className="text-right py-2 px-3 text-xs text-gray-600 whitespace-nowrap">Cost</th>
+                        <th className="text-right py-2 px-3 text-xs text-gray-600">Qty</th>
+                        <th className="text-right py-2 px-3 text-xs text-gray-600 whitespace-nowrap">Unit Price</th>
+                        <th className="text-right py-2 px-3 text-xs text-gray-600">Total</th>
+                        <th className="w-20"></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1520,25 +1520,25 @@ export function Bids({ user }: BidsProps) {
                         
                         return (
                           <tr key={item.id} className="border-t">
-                            <td className="py-2 px-4">
-                              <p className="text-sm font-medium text-gray-900">{displayName}</p>
+                            <td className="py-2 px-3">
+                              <p className="text-sm font-medium text-gray-900 break-words max-w-[200px]">{displayName}</p>
                               {displayDesc && (
-                                <p className="text-xs text-gray-500 truncate max-w-[300px] mt-0.5">{displayDesc}</p>
+                                <p className="text-xs text-gray-500 truncate max-w-[200px] mt-0.5">{displayDesc}</p>
                               )}
                               {displaySku && (
                                 <p className="text-xs text-gray-400 mt-0.5">SKU: {displaySku}</p>
                               )}
                             </td>
-                            <td className="py-2 px-4 text-right text-sm">
+                            <td className="py-2 px-3 text-right text-sm whitespace-nowrap">
                               ${currentCost.toFixed(2)}
                               {!inventoryItem && inventory.length > 0 && (
                                 <span className="block text-[10px] text-orange-500">Archived</span>
                               )}
                             </td>
-                            <td className="py-2 px-4 text-right text-sm">{item.quantity}</td>
-                            <td className="py-2 px-4 text-right text-sm">${(item.unitPrice ?? 0).toFixed(2)}</td>
-                            <td className="py-2 px-4 text-right text-sm">${(item.total ?? 0).toFixed(2)}</td>
-                            <td className="py-2 px-4">
+                            <td className="py-2 px-3 text-right text-sm">{item.quantity}</td>
+                            <td className="py-2 px-3 text-right text-sm whitespace-nowrap">${(item.unitPrice ?? 0).toFixed(2)}</td>
+                            <td className="py-2 px-3 text-right text-sm whitespace-nowrap">${(item.total ?? 0).toFixed(2)}</td>
+                            <td className="py-2 px-3">
                               <div className="flex justify-end items-center gap-1">
                                 <Button
                                   variant="ghost"
@@ -1569,8 +1569,8 @@ export function Bids({ user }: BidsProps) {
             {currentLineItems.length > 0 && (
               <div className="space-y-4">
                 <h3 className="text-sm text-gray-900">Pricing</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="min-w-0">
                     <Label>Quote Discount (%)</Label>
                     <Input
                       type="number"
@@ -1579,7 +1579,7 @@ export function Bids({ user }: BidsProps) {
                       onChange={(e) => setFormData({ ...formData, discountPercent: Number(e.target.value) })}
                     />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <Label>Tax Rate 1 (%)</Label>
                     <Input
                       type="number"
@@ -1591,8 +1591,8 @@ export function Bids({ user }: BidsProps) {
                       Primary tax rate
                     </p>
                   </div>
-                  <div>
-                    <Label>Tax Rate 2 (%) - Optional</Label>
+                  <div className="min-w-0">
+                    <Label className="whitespace-nowrap">Tax Rate 2 (%) - Optional</Label>
                     <Input
                       type="number"
                       step="0.01"

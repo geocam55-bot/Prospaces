@@ -1,63 +1,83 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
+import { projectId, publicAnonKey } from './supabase/info';
 
 const supabase = createClient();
 
-export async function getAllBidsClient() {
+/**
+ * Helper to get an auth token for server-side API calls.
+ * Returns the session access_token if available, otherwise the publicAnonKey.
+ */
+async function getAuthToken(): Promise<string> {
   try {
-    // Try to get user, with fallback to session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) return session.access_token;
+  } catch {}
+  return publicAnonKey;
+}
+
+export async function getAllBidsClient() {
+  // ── Attempt 1: Server-side endpoint (bypasses RLS) ──
+  try {
+    const token = await getAuthToken();
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/bids`,
+      {
+        headers: { 'Authorization': `Bearer ${token}` },
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`[bids-client] Server endpoint returned ${data.bids?.length || 0} bids (role=${data.meta?.role})`);
+      return { bids: data.bids || [] };
+    }
+
+    console.warn('[bids-client] Server endpoint failed, falling back to direct query:', response.status, response.statusText);
+  } catch (err: any) {
+    console.warn('[bids-client] Server endpoint error, falling back to direct query:', err.message);
+  }
+
+  // ── Attempt 2: Direct Supabase query (may be blocked by RLS) ──
+  try {
     let authUser;
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      // Fallback: check if there's a session
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         authUser = session.user;
         console.log('✅ Using session user for bids (getUser failed)');
       } else {
-        // Silently return empty during initial load
         return { bids: [] };
       }
     } else {
       authUser = user;
     }
 
-    // Get user's profile to check their role
     let profile;
     try {
       profile = await ensureUserProfile(authUser.id);
     } catch (profileError) {
       console.error('❌ Failed to get user profile:', profileError);
-      // Return empty array instead of throwing - this prevents "Error" in dashboard
       return { bids: [] };
     }
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('🔐 Bids - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
+    console.log('🔐 Bids (fallback) - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
     
-    // Try to query bids table with related data
-    // NOTE: Defensive query - don't join if relationships don't exist yet
     let query = supabase
       .from('bids')
       .select('*');
     
-    // Apply role-based filtering
-    // - Super Admin/Admin/Manager: Can see ALL bids in their organization
-    // - Standard User: Can see only THEIR OWN bids (Personal Dashboard)
-    
-    if (['super_admin', 'admin', 'director', 'manager'].includes(userRole)) {
-      console.log('🔓 Organization View - Loading all bids for organization:', userOrgId);
-      // Filter by organization (or null organization which might be legacy/global)
+    // FIXED: Include 'director' and 'marketing' in elevated roles
+    if (['super_admin', 'admin', 'director', 'manager', 'marketing'].includes(userRole)) {
       if (userOrgId) {
         query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
       }
-      // Do NOT filter by created_by for these roles
     } else {
-      // Standard User: Show only THEIR OWN bids
-      console.log('👤 Personal View - Loading only own bids for user:', authUser.id);
       if (userOrgId) {
         query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
       }
@@ -66,36 +86,7 @@ export async function getAllBidsClient() {
     
     const { data: bids, error } = await query;
     
-    console.log('📊 Bids query result:', {
-      userRole,
-      userId: authUser.id,
-      userOrgId,
-      totalBids: bids?.length || 0,
-      bidSample: bids?.slice(0, 2).map(b => ({
-        id: b.id,
-        status: b.status,
-        created_by: b.created_by,
-        organization_id: b.organization_id
-      }))
-    });
-    
-    // DEBUG: Let's see what bids actually exist in the database (without filters)
-    const { data: allBidsDebug } = await supabase.from('bids').select('id, status, created_by, organization_id').limit(10);
-    console.log('🔍 DEBUG: ALL bids in database (no filters, first 10):', allBidsDebug);
-    
-    // DEBUG: Also check the quotes table to see if that's where the "viewed" items are
-    const { data: allQuotesDebug } = await supabase.from('quotes').select('id, status, created_by, organization_id').limit(10);
-    console.log('🔍 DEBUG: ALL quotes in database (no filters, first 10):', allQuotesDebug);
-    console.log('🔍 DEBUG: Your user ID is:', authUser.id);
-    console.log('🔍 DEBUG: Quote owners vs your ID:', allQuotesDebug?.map(q => ({ 
-      id: q.id, 
-      status: q.status,
-      owner: q.created_by,
-      matchesYou: q.created_by === authUser.id 
-    })));
-    
     if (error) {
-      // If table doesn't exist, return empty array
       if (error.code === '42P01' || error.code === 'PGRST204' || error.code === '42501') {
         console.log('[bids-client] Bids table not found, returning empty array');
         return { bids: [] };
@@ -111,11 +102,6 @@ export async function getAllBidsClient() {
 }
 
 export async function getBidsByOpportunityClient(opportunityId: string) {
-  // ⚠️ NOTE: The contacts table does NOT have account_owner_number or created_by columns.
-  // This function only queries organization_id which DOES exist.
-  // If you need to add contact-based filtering, verify the column exists first!
-  // See /docs/DATABASE_SCHEMA_NOTES.md for details.
-  
   try {
     console.log('[getBidsByOpportunityClient] Starting query for opportunity:', opportunityId);
     const { data: { user } } = await supabase.auth.getUser();
@@ -124,7 +110,6 @@ export async function getBidsByOpportunityClient(opportunityId: string) {
       throw new Error('Not authenticated');
     }
 
-    // Get user's profile to check their role
     const profile = await ensureUserProfile(user.id);
 
     const userRole = profile.role;
@@ -132,10 +117,6 @@ export async function getBidsByOpportunityClient(opportunityId: string) {
 
     console.log('[getBidsByOpportunityClient] User:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
     
-    // IMPORTANT: When viewing bids for a specific opportunity, we need to check
-    // if the user has access to the opportunity/contact first, THEN show ALL bids for that opportunity
-    
-    // First, get the opportunity to check which contact it belongs to
     const { data: opportunity, error: oppError } = await supabase
       .from('opportunities')
       .select('id, customer_id, organization_id')
@@ -147,7 +128,6 @@ export async function getBidsByOpportunityClient(opportunityId: string) {
       return { bids: [] };
     }
     
-    // Check if user has access to this opportunity's contact
     if (opportunity.customer_id) {
       const { data: contact } = await supabase
         .from('contacts')
@@ -157,12 +137,8 @@ export async function getBidsByOpportunityClient(opportunityId: string) {
       
       if (contact) {
         const hasContactAccess = 
-          userRole === 'super_admin' || // Super admin sees everything
-          (userRole === 'admin' && contact.organization_id === userOrgId) || // Admin sees org contacts
-          (userRole === 'marketing' && contact.organization_id === userOrgId) || // Marketing sees org contacts
-          (userRole === 'director' && contact.organization_id === userOrgId) || // Director sees org contacts
-          (userRole === 'manager' && contact.organization_id === userOrgId) || // Manager sees org contacts
-          (userRole === 'standard_user' && contact.organization_id === userOrgId); // Standard user sees org contacts (since they own the opportunity)
+          userRole === 'super_admin' ||
+          (['admin', 'marketing', 'director', 'manager', 'standard_user'].includes(userRole) && contact.organization_id === userOrgId);
         
         if (!hasContactAccess) {
           console.log('[getBidsByOpportunityClient] ❌ User does not have access to this contact');
@@ -171,46 +147,18 @@ export async function getBidsByOpportunityClient(opportunityId: string) {
       }
     }
     
-    console.log('[getBidsByOpportunityClient] ✅ User has access - loading ALL bids for this opportunity');
-    
-    // Get ALL bids for this opportunity (no user ownership filtering)
-    // Since we've already verified contact/opportunity access, show all bids for this opportunity
-    // Filter by the opportunity's organization to ensure data isolation at the org level
     let query = supabase
       .from('bids')
       .select('*')
       .eq('opportunity_id', opportunityId);
     
-    // Filter by the opportunity's organization_id to ensure data isolation
-    // This ensures we only show bids that belong to the same organization as the opportunity
     if (userRole !== 'super_admin' && opportunity.organization_id) {
-      console.log('[getBidsByOpportunityClient] Applying org filter for opportunity org:', opportunity.organization_id);
       query = query.or(`organization_id.eq.${opportunity.organization_id},organization_id.is.null`);
     } else if (userRole !== 'super_admin') {
-      // Fallback to user's org if opportunity doesn't have an org
-      console.log('[getBidsByOpportunityClient] Applying org filter for user org:', userOrgId);
       query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
-    } else {
-      console.log('[getBidsByOpportunityClient] Super admin - no org filter applied');
     }
     
     const { data: bids, error } = await query;
-    
-    console.log('[getBidsByOpportunityClient] Query result:', { bidsCount: bids?.length, error });
-    if (bids && bids.length > 0) {
-      console.log('[getBidsByOpportunityClient] Bid titles:', bids.map(b => b.title));
-      console.log('[getBidsByOpportunityClient] Bid org IDs:', bids.map(b => ({ title: b.title, org_id: b.organization_id })));
-      console.log('[getBidsByOpportunityClient] First bid full data:', bids[0]);
-    } else {
-      console.log('[getBidsByOpportunityClient] ⚠️ No bids found. Debugging info:');
-      console.log('  - Opportunity ID searched:', opportunityId);
-      console.log('  - User org ID:', userOrgId);
-      console.log('  - Opportunity org ID:', opportunity.organization_id);
-      
-      // Try to fetch all bids without filters to see what exists
-      const { data: allBids } = await supabase.from('bids').select('id, title, opportunity_id, organization_id').limit(10);
-      console.log('  - Sample of ALL bids in database (first 10):', allBids);
-    }
     
     if (error) {
       console.error('[getBidsByOpportunityClient] Error loading bids for opportunity:', error);
@@ -226,6 +174,34 @@ export async function getBidsByOpportunityClient(opportunityId: string) {
 }
 
 export async function createBidClient(data: any) {
+  // ── Attempt 1: Server-side endpoint (bypasses RLS, authoritative org ID) ──
+  try {
+    const token = await getAuthToken();
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/bids`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('[bids-client] Bid created via server endpoint:', result.bid?.id);
+      return { bid: result.bid };
+    }
+
+    const errBody = await response.text();
+    console.warn('[bids-client] Server create failed, falling back to direct insert:', response.status, errBody);
+  } catch (err: any) {
+    console.warn('[bids-client] Server create error, falling back to direct insert:', err.message);
+  }
+
+  // ── Attempt 2: Direct Supabase insert (fallback) ──
   try {
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -233,9 +209,19 @@ export async function createBidClient(data: any) {
       throw new Error('Not authenticated');
     }
 
-    const organizationId = user.user_metadata?.organizationId;
+    // FIXED: Always get organization_id from profile (authoritative source),
+    // NOT from user.user_metadata which can be stale/mismatched
+    let organizationId: string | null = null;
+
+    try {
+      const profile = await ensureUserProfile(user.id);
+      organizationId = profile.organization_id;
+      console.log('[bids-client] Retrieved organization_id from profile:', organizationId);
+    } catch (profileError) {
+      console.warn('[bids-client] Failed to fetch profile, falling back to metadata:', profileError);
+      organizationId = user.user_metadata?.organizationId || null;
+    }
     
-    // Map fields and handle line items
     const { items, opportunityId, validUntil, projectManagerId, ...rest } = data;
     
     const bidData: any = {
@@ -249,14 +235,11 @@ export async function createBidClient(data: any) {
       updated_at: new Date().toISOString(),
     };
     
-    // Store items as line_items JSON if provided
     if (items && Array.isArray(items)) {
       bidData.line_items = items;
     }
     
-    console.log('[bids-client] Creating bid with data:', bidData);
-    console.log('[bids-client] Opportunity ID being set:', bidData.opportunity_id);
-    console.log('[bids-client] Organization ID being set:', bidData.organization_id);
+    console.log('[bids-client] Creating bid (fallback) with org:', organizationId);
     
     const { data: bid, error } = await supabase
       .from('bids')
@@ -270,9 +253,6 @@ export async function createBidClient(data: any) {
     }
     
     console.log('[bids-client] ✅ Bid created successfully:', bid);
-    console.log('[bids-client] Saved opportunity_id:', bid.opportunity_id);
-    console.log('[bids-client] Saved organization_id:', bid.organization_id);
-    
     return { bid };
   } catch (error: any) {
     console.error('[bids-client] Error creating bid:', error.message);
@@ -282,7 +262,6 @@ export async function createBidClient(data: any) {
 
 export async function updateBidClient(id: string, data: any) {
   try {
-    // Explicitly exclude fields that don't exist in the database schema
     const { 
       items, 
       line_items,
@@ -292,12 +271,10 @@ export async function updateBidClient(id: string, data: any) {
       ...rest 
     } = data;
     
-    // Build update data with only fields that should be in the database
     const updateData: any = {
       updated_at: new Date().toISOString(),
     };
     
-    // Map known fields from camelCase to snake_case
     if (data.title !== undefined) updateData.title = data.title;
     if (data.amount !== undefined) updateData.amount = data.amount;
     if (data.status !== undefined) updateData.status = data.status;
@@ -305,7 +282,6 @@ export async function updateBidClient(id: string, data: any) {
     if (validUntil !== undefined) updateData.valid_until = validUntil;
     if (projectManagerId !== undefined) updateData.project_manager_id = projectManagerId;
     
-    // Include optional fields that might exist in the database schema
     if (data.notes !== undefined) updateData.notes = data.notes;
     if (data.description !== undefined) updateData.description = data.description;
     if (data.subtotal !== undefined) updateData.subtotal = data.subtotal;
@@ -316,7 +292,6 @@ export async function updateBidClient(id: string, data: any) {
     if (data.discount_percent !== undefined) updateData.discount_percent = data.discount_percent;
     if (data.discount_amount !== undefined) updateData.discount_amount = data.discount_amount;
     
-    // Store items as line_items JSON if provided
     if (items && Array.isArray(items)) {
       updateData.line_items = items;
     }
@@ -365,50 +340,47 @@ export async function fixBidOrganizationIds() {
       throw new Error('Not authenticated');
     }
 
-    const organizationId = user.user_metadata?.organizationId;
+    // FIXED: Get organization_id from profile, not just metadata
+    let organizationId: string | null = null;
+    try {
+      const profile = await ensureUserProfile(user.id);
+      organizationId = profile.organization_id;
+    } catch {
+      organizationId = user.user_metadata?.organizationId || null;
+    }
+
     console.log('[fixBidOrganizationIds] Current user organization ID:', organizationId);
     
     if (!organizationId) {
       throw new Error('No organization ID found for user');
     }
     
-    // First, let's see how many bids have NULL organization_id
     const { data: nullBids, error: queryError } = await supabase
       .from('bids')
       .select('*')
       .is('organization_id', null);
     
-    console.log('[fixBidOrganizationIds] Bids with NULL organization_id:', nullBids);
-    console.log('[fixBidOrganizationIds] Query error:', queryError);
+    console.log('[fixBidOrganizationIds] Bids with NULL organization_id:', nullBids?.length || 0);
     
     if (queryError) {
       console.error('[fixBidOrganizationIds] Error querying NULL bids:', queryError);
     }
     
-    // Update all bids with NULL organization_id to the current user's organization
     const { data, error } = await supabase
       .from('bids')
       .update({ organization_id: organizationId })
       .is('organization_id', null)
       .select();
     
-    console.log('[fixBidOrganizationIds] Update result:', { data, error });
-    
     if (error) {
-      console.error('[fixBidOrganizationIds] Update error details:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-      });
+      console.error('[fixBidOrganizationIds] Update error:', error);
       throw error;
     }
     
     console.log('[fixBidOrganizationIds] Fixed organization IDs for', data?.length || 0, 'bids');
     return { count: data?.length || 0, bids: data };
   } catch (error: any) {
-    console.error('[fixBidOrganizationIds] Error fixing organization IDs:', error.message);
-    console.error('[fixBidOrganizationIds] Full error:', error);
+    console.error('[fixBidOrganizationIds] Error:', error.message);
     throw error;
   }
 }

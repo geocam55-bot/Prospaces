@@ -150,8 +150,9 @@ function transformToDbFormat(contactData: any) {
     transformed.updated_at = transformed.updatedAt;
     delete transformed.updatedAt;
   }
-  // Remove priceLevel transformation - column doesn't exist in database
+  // Transform priceLevel from camelCase to snake_case for database
   if ('priceLevel' in transformed) {
+    transformed.price_level = transformed.priceLevel;
     delete transformed.priceLevel;
   }
   if ('createdBy' in transformed) {
@@ -711,13 +712,51 @@ export async function updateContactClient(id: string, contactData: any) {
   try {
     const supabase = createClient();
     
-    // Transform and clean the contact data
+    // Transform data to DB format (camelCase → snake_case)
     const transformedData = transformToDbFormat(contactData);
-
-    // Get list of columns that exist in the database
-    // We'll check if advanced fields exist before trying to update them
-    const existingColumns = await getExistingContactColumns(supabase);
     
+    // Try server endpoint first (bypasses RLS)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.access_token) {
+        console.log(`[contacts-client] Updating contact ${id} via server endpoint...`);
+        console.log(`[contacts-client] Payload keys:`, Object.keys(transformedData));
+        console.log(`[contacts-client] price_level in payload:`, transformedData.price_level);
+        
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${id}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(transformedData),
+          }
+        );
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`[contacts-client] Server update successful. price_level in response:`, result.contact?.price_level);
+          if (result.warnings && result.warnings.length > 0) {
+            console.warn('[contacts-client] Server warnings:', result.warnings);
+          }
+          const transformedContact = transformFromDbFormat(result.contact);
+          return { contact: transformedContact };
+        } else {
+          const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+          console.error('[contacts-client] Server update error:', response.status, errorBody);
+          // Fall through to direct Supabase update
+        }
+      }
+    } catch (serverError: any) {
+      console.warn('[contacts-client] Server update failed, falling back to direct:', serverError.message);
+    }
+    
+    // Fallback: direct Supabase update (subject to RLS)
+    console.log(`[contacts-client] Falling back to direct Supabase update for contact ${id}`);
+    const existingColumns = await getExistingContactColumns(supabase);
     const cleanedData = filterToExistingColumns(transformedData, existingColumns);
 
     const { data, error } = await supabase
