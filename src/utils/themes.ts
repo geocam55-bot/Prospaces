@@ -375,7 +375,7 @@ export const loadTheme = (): string => {
 // Save theme to database for persistence across devices
 export const saveThemeToDatabase = async (themeId: string, userId: string): Promise<void> => {
   try {
-    const { createClient } = await import('../utils/supabase/client');
+    const { createClient } = await import('./supabase/client');
     const supabase = createClient();
     
     const { error } = await supabase
@@ -396,7 +396,7 @@ export const saveThemeToDatabase = async (themeId: string, userId: string): Prom
 // Load theme from database for current user
 export const loadThemeFromDatabase = async (userId: string): Promise<string | null> => {
   try {
-    const { createClient } = await import('../utils/supabase/client');
+    const { createClient } = await import('./supabase/client');
     const supabase = createClient();
     
     const { data, error } = await supabase

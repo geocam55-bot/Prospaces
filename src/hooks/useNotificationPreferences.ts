@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { settingsAPI } from '../utils/api';
 import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
 
@@ -11,75 +10,56 @@ export interface NotificationPreferences {
   bids: boolean;
 }
 
-export function useNotificationPreferences(user: User | null) {
-  const [preferences, setPreferences] = useState<NotificationPreferences>({
-    email: true,
-    push: true,
-    taskAssignments: true,
-    appointments: true,
-    bids: true,
-  });
+const DEFAULT_PREFERENCES: NotificationPreferences = {
+  email: true,
+  push: true,
+  taskAssignments: true,
+  appointments: true,
+  bids: true,
+};
+
+export function useNotificationPreferences(user: User) {
+  const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_PREFERENCES);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      loadPreferences();
-      
-      // Subscribe to changes in user_preferences
-      const supabase = createClient();
-      const channel = supabase
-        .channel('user-preferences-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'user_preferences',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            if (payload.new) {
-              const newPrefs = payload.new as any;
-              setPreferences({
-                email: newPrefs.notifications_email ?? true,
-                push: newPrefs.notifications_push ?? true,
-                taskAssignments: newPrefs.notifications_task_assignments ?? true,
-                appointments: newPrefs.notifications_appointments ?? true,
-                bids: newPrefs.notifications_bids ?? true,
-              });
-            }
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user]);
-
-  const loadPreferences = async () => {
-    if (!user?.organizationId) return;
-
-    try {
-      setIsLoading(true);
-      const data = await settingsAPI.getUserPreferences(user.id, user.organizationId);
-      
-      if (data) {
-        setPreferences({
-          email: data.notifications_email ?? true,
-          push: data.notifications_push ?? true,
-          taskAssignments: data.notifications_task_assignments ?? true,
-          appointments: data.notifications_appointments ?? true,
-          bids: data.notifications_bids ?? true,
-        });
-      }
-    } catch (error) {
-      console.error('Failed to load notification preferences:', error);
-    } finally {
+    if (!user?.id) {
       setIsLoading(false);
+      return;
     }
-  };
 
-  return { preferences, isLoading, refresh: loadPreferences };
+    const loadPreferences = async () => {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('user_preferences')
+          .select('notifications_email, notifications_push, notifications_task_assignments, notifications_appointments, notifications_bids')
+          .eq('user_id', user.id)
+          .single();
+
+        if (error) {
+          // No preferences saved yet — use defaults (all enabled)
+          console.debug('No notification preferences found, using defaults');
+          setPreferences(DEFAULT_PREFERENCES);
+        } else if (data) {
+          setPreferences({
+            email: data.notifications_email ?? true,
+            push: data.notifications_push ?? true,
+            taskAssignments: data.notifications_task_assignments ?? true,
+            appointments: data.notifications_appointments ?? true,
+            bids: data.notifications_bids ?? true,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load notification preferences:', err);
+        setPreferences(DEFAULT_PREFERENCES);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPreferences();
+  }, [user?.id]);
+
+  return { preferences, isLoading };
 }

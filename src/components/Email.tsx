@@ -55,7 +55,7 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
 import { EmailAccountSetup } from './EmailAccountSetup';
-import type { User } from '../types';
+import type { User } from '../App';
 import { useDebounce } from '../utils/useDebounce';
 
 // Cache backend availability check to avoid repeated failed requests

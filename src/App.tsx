@@ -1,9 +1,5 @@
-// CRITICAL: Import Three.js warning suppression FIRST, before any other imports
-import './utils/suppressThreeWarnings';
-
 import React, { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
-import { TopBar } from './components/TopBar';
 import { LandingPage } from './components/LandingPage';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
@@ -80,6 +76,33 @@ export interface Organization {
 
 const supabase = createClient();
 
+// Check if accessing special public routes (no auth required)
+function getPublicRoute(): React.ReactElement | null {
+  const urlParams = new URLSearchParams(window.location.search);
+  const path = window.location.pathname;
+
+  if (path === '/oauth-callback') return <OAuthCallback />;
+
+  const isLandingPage = path.startsWith('/landing/');
+  const landingPageSlug = isLandingPage ? path.split('/landing/')[1]?.split('?')[0] : null;
+  if (isLandingPage && landingPageSlug) return <PublicLandingPage slug={landingPageSlug} />;
+
+  const landingPageQuerySlug = urlParams.get('slug');
+  if (urlParams.get('view') === 'landing' && landingPageQuerySlug) return <PublicLandingPage slug={landingPageQuerySlug} />;
+
+  if (urlParams.get('view') === 'redirect') return <TrackingRedirect />;
+  if (urlParams.get('view') === 'public-quote') return <PublicQuoteView />;
+  if (urlParams.get('view') === 'favicon-generator') return <FaviconGenerator />;
+  if (urlParams.get('view') === 'landing-page-debug') return <LandingPageDebug />;
+  if (urlParams.get('view') === 'landing-page-diagnostic') return <LandingPageDiagnostic />;
+  if (urlParams.get('view') === 'landing-page-diagnostic-test') return <LandingPageDiagnosticTest />;
+  if (urlParams.get('view') === 'fix-login') return <AdminFixUsers />;
+  if (urlParams.get('view') === 'privacy-policy' || path === '/privacy-policy') return <PrivacyPolicy />;
+  if (urlParams.get('view') === 'terms-of-service' || path === '/terms-of-service') return <TermsOfService />;
+
+  return null;
+}
+
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -88,89 +111,6 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
-
-  // Check if accessing favicon generator (no auth required)
-  const urlParams = new URLSearchParams(window.location.search);
-  const isFaviconGenerator = urlParams.get('view') === 'favicon-generator';
-  const isTrackingRedirect = urlParams.get('view') === 'redirect';
-  const isPublicQuote = urlParams.get('view') === 'public-quote';
-  const isLandingPageDebug = urlParams.get('view') === 'landing-page-debug';
-  const isLandingPageDiagnostic = urlParams.get('view') === 'landing-page-diagnostic';
-  const isLandingPageDiagnosticTest = urlParams.get('view') === 'landing-page-diagnostic-test';
-  const isFixLogin = urlParams.get('view') === 'fix-login';
-  const isPrivacyPolicy = urlParams.get('view') === 'privacy-policy';
-  const isTermsOfService = urlParams.get('view') === 'terms-of-service';
-  
-  // Check path-based routing for public landing pages
-  const path = window.location.pathname;
-  const isLandingPage = path.startsWith('/landing/');
-  const landingPageSlug = isLandingPage ? path.split('/landing/')[1]?.split('?')[0] : null;
-  const isOAuthCallback = path === '/oauth-callback';
-  const isPrivacyPolicyPath = path === '/privacy-policy';
-  const isTermsOfServicePath = path === '/terms-of-service';
-  
-  console.log('[App.tsx] Routing Debug:', {
-    path,
-    isLandingPage,
-    landingPageSlug,
-    isOAuthCallback,
-    fullURL: window.location.href
-  });
-  
-  // Also support query parameter routing: ?view=landing&slug=WinterBlast
-  const isLandingPageQuery = urlParams.get('view') === 'landing';
-  const landingPageQuerySlug = urlParams.get('slug');
-
-  if (isOAuthCallback) {
-    return <OAuthCallback />;
-  }
-
-  if (isLandingPage && landingPageSlug) {
-    console.log('[App.tsx] Rendering PublicLandingPage with slug:', landingPageSlug);
-    return <PublicLandingPage slug={landingPageSlug} />;
-  }
-  
-  if (isLandingPageQuery && landingPageQuerySlug) {
-    console.log('[App.tsx] Rendering PublicLandingPage (query) with slug:', landingPageQuerySlug);
-    return <PublicLandingPage slug={landingPageQuerySlug} />;
-  }
-
-  if (isTrackingRedirect) {
-    return <TrackingRedirect />;
-  }
-
-  if (isPublicQuote) {
-    return <PublicQuoteView />;
-  }
-
-  if (isFaviconGenerator) {
-    return <FaviconGenerator />;
-  }
-
-  if (isLandingPageDebug) {
-    return <LandingPageDebug />;
-  }
-
-  if (isLandingPageDiagnostic) {
-    return <LandingPageDiagnostic />;
-  }
-
-  if (isLandingPageDiagnosticTest) {
-    return <LandingPageDiagnosticTest />;
-  }
-
-  if (isFixLogin) {
-    return <AdminFixUsers />;
-  }
-
-  if (isPrivacyPolicy || isPrivacyPolicyPath) {
-    return <PrivacyPolicy />;
-  }
-
-  if (isTermsOfService || isTermsOfServicePath) {
-    return <TermsOfService />;
-  }
 
   useEffect(() => {
     // Check active session
@@ -232,7 +172,6 @@ function App() {
 
         if (profile?.needs_password_change === true && !showChangePassword) {
           console.log('⚠️ Password change required detected!');
-          setNeedsPasswordChange(true);
           setShowChangePassword(true);
         }
       } catch (error) {
@@ -255,16 +194,14 @@ function App() {
       // Load user profile with needs_password_change field
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id, email, role, organization_id, manager_id, needs_password_change')
+        .select('id, email, role, organization_id, manager_id, needs_password_change, name, avatar_url')
         .eq('id', supabaseUser.id)
         .single();
 
       if (profile) {
         // Check if user needs to change password
-        console.log('🔐 Checking needs_password_change:', profile.needs_password_change);
         if (profile.needs_password_change === true) {
           console.log('⚠️ User needs to change password!');
-          setNeedsPasswordChange(true);
           setShowChangePassword(true);
         }
 
@@ -335,6 +272,10 @@ function App() {
       setSession(null);
     }
   };
+
+  // Handle public routes (no auth needed) - checked AFTER hooks
+  const publicRoute = getPublicRoute();
+  if (publicRoute) return publicRoute;
 
   if (loading) {
     return (
@@ -423,7 +364,6 @@ function App() {
               {currentView === 'garage-planner' && <GaragePlanner user={user} />}
               {currentView === 'shed-planner' && <ShedPlanner user={user} />}
               {currentView === 'roof-planner' && <RoofPlanner user={user} />}
-              {currentView === 'change-password' && <ChangePasswordDialog user={user} />}
             </div>
           </main>
 
@@ -433,7 +373,6 @@ function App() {
               open={showChangePassword}
               onClose={() => {
                 setShowChangePassword(false);
-                setNeedsPasswordChange(false);
                 // Reload user data to ensure flag is cleared
                 if (session?.user) {
                   loadUserData(session.user);
