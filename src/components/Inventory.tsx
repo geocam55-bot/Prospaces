@@ -704,9 +704,11 @@ export function Inventory({ user }: InventoryProps) {
                 <Badge className="ml-2 bg-red-100 text-red-700">{displayLowStockCount.toLocaleString()}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="diagnostic" className="whitespace-nowrap">
-              Diagnostic
-            </TabsTrigger>
+            {(user.role === 'admin' || user.role === 'super_admin') && (
+              <TabsTrigger value="diagnostic" className="whitespace-nowrap">
+                Diagnostic
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
 
@@ -1277,9 +1279,11 @@ export function Inventory({ user }: InventoryProps) {
           </div>
         </TabsContent>
 
-        <TabsContent value="diagnostic" className="space-y-4 mt-6">
-          <InventoryDiagnostic user={user} />
-        </TabsContent>
+        {(user.role === 'admin' || user.role === 'super_admin') && (
+          <TabsContent value="diagnostic" className="space-y-4 mt-6">
+            <InventoryDiagnostic user={user} />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Add/Edit Dialog */}

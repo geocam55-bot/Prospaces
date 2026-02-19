@@ -24,6 +24,10 @@ import { PermissionGate } from './PermissionGate';
 import { canView } from '../utils/permissions';
 import { useDebounce } from '../utils/useDebounce';
 import { ALL_MODULES, ALL_ROLES, getDefaultPermission, refreshPermissionsFromStorage } from '../utils/permissions';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { createClient } from '../utils/supabase/client';
+
+const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
 interface SecurityProps {
   user: User;
@@ -57,6 +61,7 @@ export function Security({ user }: SecurityProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Check if user has access to this page
   const canAccessSecurity = canView('security', user.role);
@@ -110,111 +115,132 @@ export function Security({ user }: SecurityProps) {
     }
   }, [canAccessSecurity]);
 
-  const loadPermissions = async () => {
+  /**
+   * Helper: get the access token for authenticated server calls.
+   * Tries Supabase session first, falls back to publicAnonKey.
+   */
+  const getAuthToken = async (): Promise<string> => {
     try {
-      // Load permissions from localStorage instead of API
-      const orgId = localStorage.getItem('currentOrgId') || 'org_001';
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) return session.access_token;
+    } catch (e) {
+      console.warn('[Security] Failed to get session, using anon key:', e);
+    }
+    return publicAnonKey;
+  };
+
+  const loadPermissions = async () => {
+    setIsLoading(true);
+    const orgId = localStorage.getItem('currentOrgId') || user.organizationId || user.organization_id || 'org_001';
+
+    try {
+      // Try server first (KV store)
+      const token = await getAuthToken();
+      const res = await Promise.race([
+        fetch(`${SERVER_BASE}/permissions?organization_id=${encodeURIComponent(orgId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
+      ]);
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.permissions && Array.isArray(json.permissions) && json.permissions.length > 0) {
+          console.log(`[Security] Loaded ${json.permissions.length} permissions from server (KV store)`);
+
+          // Sync server data back to localStorage for offline/fast use
+          localStorage.setItem(`permissions_${orgId}`, JSON.stringify(json.permissions));
+          setPermissions(json.permissions);
+          setIsLoading(false);
+          return;
+        } else {
+          console.log('[Security] Server returned no permissions, checking localStorage');
+        }
+      } else {
+        const errText = await res.text().catch(() => '');
+        console.warn(`[Security] Server returned ${res.status}: ${errText}`);
+      }
+    } catch (err) {
+      console.warn('[Security] Failed to load permissions from server, falling back to localStorage:', err);
+    }
+
+    // Fallback: load from localStorage
+    try {
       const storedPerms = localStorage.getItem(`permissions_${orgId}`);
-      
+
       if (storedPerms) {
         const permsArray = JSON.parse(storedPerms);
-        
-        // 🔄 Migration: Check if ai-suggestions module exists in stored permissions
+
+        // Migration: Check if ai-suggestions module exists in stored permissions
         const hasAISuggestions = permsArray.some((p: ModulePermission) => p.module === 'ai-suggestions');
-        
+
         if (!hasAISuggestions) {
-          // Add ai-suggestions permissions for all roles
-          console.log('📦 Migrating permissions: Adding AI Suggestions module');
+          console.log('[Security] Migrating permissions: Adding AI Suggestions module');
           roles.forEach(role => {
-            if (role === 'super_admin') {
-              permsArray.push({
-                module: 'ai-suggestions',
-                role,
-                visible: true,
-                add: true,
-                change: true,
-                delete: true,
-              });
-            } else if (role === 'admin') {
-              permsArray.push({
-                module: 'ai-suggestions',
-                role,
-                visible: true,
-                add: true,
-                change: true,
-                delete: true,
-              });
-            } else if (role === 'manager') {
-              permsArray.push({
-                module: 'ai-suggestions',
-                role,
-                visible: true,
-                add: true,
-                change: true,
-                delete: false,
-              });
-            } else if (role === 'director') {
-              permsArray.push({
-                module: 'ai-suggestions',
-                role,
-                visible: true,
-                add: true,
-                change: true,
-                delete: false,
-              });
+            if (role === 'super_admin' || role === 'admin') {
+              permsArray.push({ module: 'ai-suggestions', role, visible: true, add: true, change: true, delete: true });
+            } else if (role === 'manager' || role === 'director') {
+              permsArray.push({ module: 'ai-suggestions', role, visible: true, add: true, change: true, delete: false });
             } else if (role === 'marketing') {
-              permsArray.push({
-                module: 'ai-suggestions',
-                role,
-                visible: true,
-                add: false,
-                change: false,
-                delete: false,
-              });
+              permsArray.push({ module: 'ai-suggestions', role, visible: true, add: false, change: false, delete: false });
             } else {
-              // standard_user
-              permsArray.push({
-                module: 'ai-suggestions',
-                role,
-                visible: false,
-                add: false,
-                change: false,
-                delete: false,
-              });
+              permsArray.push({ module: 'ai-suggestions', role, visible: false, add: false, change: false, delete: false });
             }
           });
-          
-          // Save the migrated permissions back to localStorage
           localStorage.setItem(`permissions_${orgId}`, JSON.stringify(permsArray));
-          console.log('✅ AI Suggestions permissions added and saved');
+          console.log('[Security] AI Suggestions permissions added and saved');
         }
-        
+
         setPermissions(permsArray);
       } else {
-        // Initialize with default permissions if none exist
         initializeDefaultPermissions();
       }
     } catch (error) {
-      console.error('Failed to load permissions:', error);
-      // Initialize with default permissions if loading fails
+      console.error('[Security] Failed to load permissions from localStorage:', error);
       initializeDefaultPermissions();
     }
+
+    setIsLoading(false);
   };
 
   const loadAuditLogs = async () => {
+    const orgId = localStorage.getItem('currentOrgId') || user.organizationId || user.organization_id || 'org_001';
+
     try {
-      // Load audit logs from localStorage instead of API
-      const orgId = localStorage.getItem('currentOrgId') || 'org_001';
+      // Try server first
+      const token = await getAuthToken();
+      const res = await Promise.race([
+        fetch(`${SERVER_BASE}/permissions/audit-logs?organization_id=${encodeURIComponent(orgId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
+      ]);
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.logs && Array.isArray(json.logs)) {
+          console.log(`[Security] Loaded ${json.logs.length} audit logs from server`);
+          // Sync to localStorage
+          localStorage.setItem(`audit_logs_${orgId}`, JSON.stringify(json.logs));
+          setAuditLogs(json.logs);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[Security] Failed to load audit logs from server:', err);
+    }
+
+    // Fallback: load from localStorage
+    try {
       const storedLogs = localStorage.getItem(`audit_logs_${orgId}`);
-      
       if (storedLogs) {
-        const logsArray = JSON.parse(storedLogs);
-        setAuditLogs(logsArray);
+        setAuditLogs(JSON.parse(storedLogs));
       } else {
         setAuditLogs([]);
       }
     } catch (error) {
-      console.error('Failed to load audit logs:', error);
+      console.error('[Security] Failed to load audit logs from localStorage:', error);
       setAuditLogs([]);
     }
   };
@@ -277,44 +303,73 @@ export function Security({ user }: SecurityProps) {
   const handleSave = async () => {
     setIsSaving(true);
     setSaveMessage(null);
-    
+
+    const orgId = localStorage.getItem('currentOrgId') || user.organizationId || user.organization_id || 'org_001';
+
+    // Create audit log entry
+    const logEntry: AuditLog = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      user: user.full_name || user.email || 'User',
+      action: 'Updated permissions',
+      module: 'all',
+      role: user.role as UserRole,
+      changes: `${permissions.length} permissions updated`,
+    };
+
+    // Always save to localStorage first (instant, offline-safe)
+    localStorage.setItem(`permissions_${orgId}`, JSON.stringify(permissions));
+    refreshPermissionsFromStorage();
+
+    // Save audit log to localStorage
+    const storedLogs = localStorage.getItem(`audit_logs_${orgId}`);
+    const localLogs = storedLogs ? JSON.parse(storedLogs) : [];
+    localLogs.unshift(logEntry);
+    localStorage.setItem(`audit_logs_${orgId}`, JSON.stringify(localLogs.slice(0, 100)));
+
+    // Now persist to server (KV store) for cross-session / cross-device persistence
+    let serverSaved = false;
     try {
-      // Save permissions to localStorage
-      const orgId = localStorage.getItem('currentOrgId') || 'org_001';
-      localStorage.setItem(`permissions_${orgId}`, JSON.stringify(permissions));
-      
-      // CRITICAL: Push saved permissions into the runtime permission cache
-      // so they take effect immediately for all components
-      refreshPermissionsFromStorage();
-      
-      // Create audit log entry
-      const logEntry: AuditLog = {
-        id: Date.now().toString(),
-        timestamp: new Date().toLocaleString(),
-        user: user.full_name || user.email || 'User',
-        action: 'Updated permissions',
-        module: 'all',
-        role: 'admin',
-        changes: `${permissions.length} permissions updated`,
-      };
-      
-      // Save audit log
-      const storedLogs = localStorage.getItem(`audit_logs_${orgId}`);
-      const logs = storedLogs ? JSON.parse(storedLogs) : [];
-      logs.unshift(logEntry); // Add to beginning
-      localStorage.setItem(`audit_logs_${orgId}`, JSON.stringify(logs.slice(0, 50))); // Keep last 50 logs
-      
-      setSaveMessage({ type: 'success', text: 'Permissions saved successfully!' });
-      setHasChanges(false);
-      await loadAuditLogs();
-      
-      setTimeout(() => setSaveMessage(null), 3000);
-    } catch (error) {
-      console.error('Failed to save permissions:', error);
-      setSaveMessage({ type: 'error', text: 'Failed to save permissions. Please try again.' });
-    } finally {
-      setIsSaving(false);
+      const token = await getAuthToken();
+      const res = await Promise.race([
+        fetch(`${SERVER_BASE}/permissions`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            permissions,
+            organization_id: orgId,
+            audit_entry: logEntry,
+          }),
+        }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
+      ]);
+
+      if (res.ok) {
+        const json = await res.json();
+        console.log(`[Security] Permissions saved to server (KV store): ${json.count} entries`);
+        serverSaved = true;
+      } else {
+        const errBody = await res.text().catch(() => '');
+        console.error(`[Security] Server save failed (${res.status}): ${errBody}`);
+      }
+    } catch (err) {
+      console.error('[Security] Failed to save permissions to server:', err);
     }
+
+    if (serverSaved) {
+      setSaveMessage({ type: 'success', text: 'Permissions saved to database successfully!' });
+    } else {
+      setSaveMessage({ type: 'success', text: 'Permissions saved locally. Server sync will retry on next save.' });
+    }
+
+    setHasChanges(false);
+    await loadAuditLogs();
+
+    setTimeout(() => setSaveMessage(null), 5000);
+    setIsSaving(false);
   };
 
   const handleReset = () => {

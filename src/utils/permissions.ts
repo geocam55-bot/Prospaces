@@ -1,6 +1,11 @@
 import type { UserRole } from '../App';
 import { createClient } from './supabase/client';
 
+// Import server connection info for KV-based permission loading
+import { projectId, publicAnonKey } from './supabase/info';
+
+const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
+
 export interface Permission {
   visible: boolean;
   add: boolean;
@@ -152,48 +157,62 @@ export async function initializePermissions(role: UserRole) {
     // Step 2: Apply localStorage overrides (saved by Security Settings UI)
     loadFromLocalStorage();
 
-    // Step 3: Try to fetch from Supabase as an additional override layer (non-blocking)
-    const supabase = createClient();
+    // Step 3: Try to fetch from server KV store as the authoritative source (non-blocking)
+    const orgId = localStorage.getItem('currentOrgId') || 'org_001';
 
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Permissions fetch timeout')), 1000)
+    let authToken = publicAnonKey;
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) authToken = session.access_token;
+    } catch (e) {
+      // Use anon key if session retrieval fails
+    }
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Permissions fetch timeout')), 3000)
     );
 
-    const fetchPromise = supabase
-      .from('permissions')
-      .select('*')
-      .eq('role', role);
-
     try {
-      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+      const res = await Promise.race([
+        fetch(`${SERVER_BASE}/permissions?organization_id=${encodeURIComponent(orgId)}`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        }),
+        timeoutPromise,
+      ]);
 
-      if (error) {
-        if (error.code === 'PGRST205') {
-          console.log(`Permissions table not found, using defaults + localStorage for ${role}`);
-          return;
-        }
-        console.warn('Failed to fetch permissions from Supabase, using defaults + localStorage:', error);
-        return;
-      }
+      if (res.ok) {
+        const json = await res.json();
+        if (json.permissions && Array.isArray(json.permissions) && json.permissions.length > 0) {
+          console.log(`[permissions] Loaded ${json.permissions.length} permissions from server (KV store)`);
 
-      if (data && data.length > 0) {
-        console.log(`📥 Loading ${data.length} permissions from database for role: ${role}`);
-        data.forEach((perm: any) => {
-          const key = `${perm.module}:${perm.role}`;
-          permissionsCache.set(key, {
-            visible: perm.visible,
-            add: perm.add,
-            change: perm.change,
-            delete: perm.delete,
+          // Apply server permissions as overrides
+          let count = 0;
+          json.permissions.forEach((perm: any) => {
+            if (perm.module && perm.role) {
+              const key = `${perm.module}:${perm.role}`;
+              permissionsCache.set(key, {
+                visible: !!perm.visible,
+                add: !!perm.add,
+                change: !!perm.change,
+                delete: !!perm.delete,
+              });
+              count++;
+            }
           });
-        });
-        console.log(`✅ Successfully loaded ${data.length} permissions for role ${role} from Supabase`);
-        notifyPermissionsChanged();
+
+          // Sync server data back to localStorage for offline use
+          localStorage.setItem(`permissions_${orgId}`, JSON.stringify(json.permissions));
+          console.log(`[permissions] Applied ${count} permissions from server, synced to localStorage`);
+          notifyPermissionsChanged();
+        } else {
+          console.log('[permissions] No permissions found in server KV store, using defaults + localStorage');
+        }
       } else {
-        console.log(`⚠️ No permissions found in database for ${role}, using defaults + localStorage`);
+        console.warn(`[permissions] Server returned ${res.status}, using defaults + localStorage`);
       }
     } catch (timeoutError) {
-      console.log('⚠️ Permissions fetch timed out, using defaults + localStorage');
+      console.log('[permissions] Server fetch timed out, using defaults + localStorage');
     }
   } catch (err) {
     console.error('Error initializing permissions:', err);

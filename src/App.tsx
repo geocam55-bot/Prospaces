@@ -206,6 +206,12 @@ function App() {
           setShowChangePassword(true);
         }
 
+        // Persist orgId to localStorage BEFORE initializing permissions,
+        // so the permissions module can use the real org ID for server lookups.
+        if (profile.organization_id) {
+          localStorage.setItem('currentOrgId', profile.organization_id);
+        }
+
         // Initialize permissions for this user's role BEFORE setting user state
         await initializePermissions(profile.role);
 
