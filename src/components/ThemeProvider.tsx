@@ -1,6 +1,15 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Theme, getTheme, saveTheme, loadTheme, saveThemeToDatabase, loadThemeFromDatabase } from '../utils/themes';
 
+// Fallback theme used when useTheme is called outside of ThemeProvider
+// (e.g. during hot-reload boundary resets)
+const fallbackTheme = getTheme('vibrant');
+const fallbackContext: ThemeContextType = {
+  theme: fallbackTheme,
+  themeId: 'vibrant',
+  setTheme: () => {},
+};
+
 interface ThemeContextType {
   theme: Theme;
   themeId: string;
@@ -82,7 +91,14 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
     // Apply theme colors to CSS variables
     const root = document.documentElement;
     
-    // Set hex color variables (for direct use)
+    // ─── Toggle dark class for dark: prefixed Tailwind classes ───
+    if (newTheme.isDark) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    
+    // ─── Set hex color variables (for direct use) ───
     root.style.setProperty('--color-background', newTheme.colors.background);
     root.style.setProperty('--color-background-secondary', newTheme.colors.backgroundSecondary);
     root.style.setProperty('--color-background-tertiary', newTheme.colors.backgroundTertiary);
@@ -114,20 +130,44 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
       root.style.setProperty('--gradient', newTheme.colors.gradient);
     }
     
-    // Also set Tailwind HSL variables for components that use Tailwind classes
+    // ─── Set ALL Tailwind HSL variables consumed by UI components ───
+    // Background / Foreground
     root.style.setProperty('--background', hexToHSL(newTheme.colors.background));
     root.style.setProperty('--foreground', hexToHSL(newTheme.colors.text));
+    
+    // Card
     root.style.setProperty('--card', hexToHSL(newTheme.colors.card));
-    root.style.setProperty('--card-foreground', hexToHSL(newTheme.colors.text));
+    root.style.setProperty('--card-foreground', hexToHSL(newTheme.colors.cardText));
+    
+    // Popover (same as card)
     root.style.setProperty('--popover', hexToHSL(newTheme.colors.card));
-    root.style.setProperty('--popover-foreground', hexToHSL(newTheme.colors.text));
+    root.style.setProperty('--popover-foreground', hexToHSL(newTheme.colors.cardText));
+    
+    // Primary
     root.style.setProperty('--primary', hexToHSL(newTheme.colors.primary));
     root.style.setProperty('--primary-foreground', hexToHSL(newTheme.colors.primaryText));
+    
+    // Secondary (PREVIOUSLY MISSING - caused light buttons on dark themes)
+    root.style.setProperty('--secondary', hexToHSL(newTheme.colors.secondary));
+    root.style.setProperty('--secondary-foreground', hexToHSL(newTheme.colors.secondaryText));
+    
+    // Muted
     root.style.setProperty('--muted', hexToHSL(newTheme.colors.backgroundTertiary));
-    root.style.setProperty('--muted-foreground', hexToHSL(newTheme.colors.textSecondary));
+    root.style.setProperty('--muted-foreground', hexToHSL(newTheme.colors.textMuted));
+    
+    // Accent (ACCENT-FOREGROUND PREVIOUSLY MISSING - caused dark hover text on dark themes)
     root.style.setProperty('--accent', hexToHSL(newTheme.colors.accent));
+    root.style.setProperty('--accent-foreground', hexToHSL(newTheme.colors.accentText));
+    
+    // Destructive (PREVIOUSLY MISSING)
+    root.style.setProperty('--destructive', hexToHSL(newTheme.colors.destructive));
+    root.style.setProperty('--destructive-foreground', hexToHSL(newTheme.colors.destructiveText));
+    
+    // Border & Input
     root.style.setProperty('--border', hexToHSL(newTheme.colors.border));
-    root.style.setProperty('--input', hexToHSL(newTheme.colors.border));
+    root.style.setProperty('--input', hexToHSL(newTheme.colors.input));
+    
+    // Ring
     root.style.setProperty('--ring', hexToHSL(newTheme.colors.primary));
   }, [themeId]);
 
@@ -152,7 +192,10 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
 export function useTheme() {
   const context = useContext(ThemeContext);
   if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    // Return a safe fallback instead of throwing so hot-reload and
+    // component-tree race conditions don't crash the app.
+    console.warn('useTheme called outside ThemeProvider – using fallback theme');
+    return fallbackContext;
   }
   return context;
 }

@@ -39,6 +39,79 @@ async function getCurrentUser() {
 }
 
 /**
+ * Get the current user's access token for server calls
+ */
+async function getAccessToken(): Promise<string | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch profiles from the server-side API (bypasses RLS)
+ */
+async function fetchProfilesFromServer(accessToken: string): Promise<any[] | null> {
+  try {
+    const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles`;
+
+    const response = await fetch(serverUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.error(`[users-client] Server profiles API error ${response.status}:`, body);
+      return null;
+    }
+
+    const result = await response.json();
+    console.log(`[users-client] Server returned ${result.profiles?.length || 0} profiles (source: ${result.source})`);
+    return result.profiles || null;
+  } catch (error: any) {
+    if (error?.message !== 'Failed to fetch' && error?.message !== 'Load failed') {
+      console.error('[users-client] Error calling server profiles API:', error);
+    }
+    return null;
+  }
+}
+
+/**
+ * Ensure the current user has a profile row (creates one if missing)
+ */
+async function ensureCurrentUserProfile(accessToken: string): Promise<void> {
+  try {
+    const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles/ensure`;
+
+    const response = await fetch(serverUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (result.created) {
+        console.log('[users-client] Auto-created missing profile for current user');
+      }
+    }
+  } catch (error: any) {
+    // Non-critical — don't block the flow
+    if (error?.message !== 'Failed to fetch' && error?.message !== 'Load failed') {
+      console.warn('[users-client] Could not ensure profile:', error);
+    }
+  }
+}
+
+/**
  * Check if profiles table exists and is accessible
  */
 async function checkProfilesTableExists(): Promise<boolean> {
@@ -66,7 +139,7 @@ async function checkProfilesTableExists(): Promise<boolean> {
 }
 
 /**
- * Get all users - simplified approach
+ * Get all users - tries server-side API first (bypasses RLS), falls back to direct query
  */
 export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
   try {
@@ -86,26 +159,7 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
     
     console.log(`[users-client] Current user: ${user.email}, Role: ${currentUserRole}, Org: ${currentUserOrgId}`);
 
-    // Check permissions
-    if (currentUserRole !== 'super_admin' && currentUserRole !== 'admin' && currentUserRole !== 'director' && currentUserRole !== 'manager') {
-      console.error('[users-client] Insufficient permissions');
-      // Return just the current user if they don't have permission to see others
-      // This prevents the "Not authenticated" error from crashing the UI
-      return { 
-        users: [{
-          id: user.id,
-          email: user.email!,
-          name: user.user_metadata?.name || user.email!,
-          role: currentUserRole,
-          organization_id: currentUserOrgId,
-          status: 'active',
-          last_login: user.last_sign_in_at || undefined,
-          created_at: user.created_at!,
-        }] 
-      };
-    }
-
-    // Always include current user
+    // Always include current user as fallback data
     const currentUserData: ClientUser = {
       id: user.id,
       email: user.email!,
@@ -116,31 +170,58 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
       last_login: user.last_sign_in_at || undefined,
       created_at: user.created_at!,
     };
-    
-    console.log('[users-client] Current user data prepared');
 
-    // Check if profiles table is set up
-    console.log('[users-client] Checking if profiles table exists...');
-    const profilesTableExists = await checkProfilesTableExists();
-    console.log(`[users-client] Profiles table exists: ${profilesTableExists}`);
-    
-    if (!profilesTableExists) {
-      // Table doesn't exist - return just current user
-      console.log('[users-client] Returning current user only (profiles table not set up)');
+    // Check permissions
+    if (currentUserRole !== 'super_admin' && currentUserRole !== 'admin' && currentUserRole !== 'director' && currentUserRole !== 'manager') {
+      console.log('[users-client] Insufficient permissions — returning current user only');
       return { users: [currentUserData] };
     }
 
-    // Table exists - query it
-    console.log('[users-client] Querying profiles table...');
+    // ── Strategy 1: Server-side API (bypasses RLS) ──
+    const accessToken = await getAccessToken();
+    if (accessToken) {
+      // Ensure the current user has a profile row before querying
+      await ensureCurrentUserProfile(accessToken);
+
+      const serverProfiles = await fetchProfilesFromServer(accessToken);
+      if (serverProfiles && serverProfiles.length > 0) {
+        const usersMap = new Map<string, ClientUser>();
+        // Add current user first (source of truth for auth data)
+        usersMap.set(user.id, currentUserData);
+        // Overlay with profile data
+        serverProfiles.forEach((profile: any) => {
+          usersMap.set(profile.id, {
+            id: profile.id,
+            email: profile.email,
+            name: profile.name || profile.email,
+            role: profile.role || 'standard_user',
+            organization_id: profile.organization_id,
+            status: profile.status || 'active',
+            last_login: profile.last_login || undefined,
+            created_at: profile.created_at,
+          });
+        });
+        console.log(`[users-client] Returning ${usersMap.size} users (via server API)`);
+        return { users: Array.from(usersMap.values()) };
+      }
+      console.log('[users-client] Server API returned no profiles — falling back to direct query');
+    }
+
+    // ── Strategy 2: Direct Supabase query (may be blocked by RLS) ──
+    console.log('[users-client] Trying direct profiles query...');
+
+    const profilesTableExists = await checkProfilesTableExists();
+    if (!profilesTableExists) {
+      console.log('[users-client] Profiles table not set up — returning current user only');
+      return { users: [currentUserData] };
+    }
+
     try {
       let query = supabase.from('profiles').select('*');
       
       // Filter by organization for regular admins and managers
       if (currentUserRole !== 'super_admin' && currentUserOrgId) {
-        console.log(`[users-client] Filtering by organization: ${currentUserOrgId}`);
         query = query.eq('organization_id', currentUserOrgId);
-      } else {
-        console.log('[users-client] SUPER_ADMIN - querying all organizations');
       }
       
       const { data: profiles, error } = await query;
@@ -150,21 +231,15 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
         return { users: [currentUserData] };
       }
       
-      console.log(`[users-client] Found ${profiles?.length || 0} profiles in database`);
-      
       if (!profiles || profiles.length === 0) {
-        console.warn('[users-client] ⚠️ PROFILES TABLE IS EMPTY!');
-        console.warn('[users-client] The table exists but has no data. You need to sync auth.users to profiles.');
+        console.warn('[users-client] Direct query returned 0 profiles (likely RLS blocking). Returning current user.');
         return { users: [currentUserData] };
       }
 
       // Build users array from profiles
       const usersMap = new Map<string, ClientUser>();
-      
-      // Add current user first
       usersMap.set(user.id, currentUserData);
       
-      // Add all profiles
       profiles.forEach((profile: any) => {
         usersMap.set(profile.id, {
           id: profile.id,
@@ -178,7 +253,7 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
         });
       });
       
-      console.log(`[users-client] Returning ${usersMap.size} total users`);
+      console.log(`[users-client] Returning ${usersMap.size} users (via direct query)`);
       return { users: Array.from(usersMap.values()) };
     } catch (error: any) {
       console.error('[users-client] Failed to query profiles:', error);
@@ -444,8 +519,8 @@ export async function resetPasswordClient(userId: string, newPassword: string) {
       throw new Error('Failed to reset password: ' + error.message);
     }
 
-    console.log('[users-client] ✅ Temporary password stored for user:', userId);
-    console.log('[users-client] ℹ️ User must use this password to sign in, then will be prompted to change it');
+    console.log('[users-client] Temporary password stored for user:', userId);
+    console.log('[users-client] User must use this password to sign in, then will be prompted to change it');
     return { success: true, password: newPassword, email: targetProfile.email };
   } catch (error: any) {
     console.error('[users-client] Error in resetPasswordClient:', error);

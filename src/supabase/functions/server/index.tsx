@@ -13,6 +13,7 @@ import { marketing } from './marketing.ts';
 import { handleCreateUser } from './create-user.ts';
 import { fixContactOwnership } from './fix-contact-ownership.ts';
 import { contactsAPI } from './contacts-api.ts';
+import { profilesAPI } from './profiles-api.ts';
 
 const app = new Hono();
 
@@ -29,6 +30,7 @@ inventoryDiagnostic(app);
 marketing(app);
 fixContactOwnership(app);
 contactsAPI(app);
+profilesAPI(app);
 
 // Health check endpoint
 app.get('/make-server-8405be07/health', (c) => {
