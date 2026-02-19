@@ -15,6 +15,7 @@ import { fixContactOwnership } from './fix-contact-ownership.ts';
 import { contactsAPI } from './contacts-api.ts';
 import { profilesAPI } from './profiles-api.ts';
 import { quotesAPI } from './quotes-api.ts';
+import { settingsAPI } from './settings-api.ts';
 
 const app = new Hono();
 
@@ -33,6 +34,7 @@ fixContactOwnership(app);
 contactsAPI(app);
 profilesAPI(app);
 quotesAPI(app);
+settingsAPI(app);
 
 // Health check endpoint
 app.get('/make-server-8405be07/health', (c) => {

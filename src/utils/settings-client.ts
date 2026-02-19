@@ -1,6 +1,9 @@
 import { createClient } from './supabase/client';
+import { projectId, publicAnonKey } from './supabase/info';
 
 const supabase = createClient();
+
+const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
 export interface UserPreferences {
   user_id: string;
@@ -23,21 +26,58 @@ export interface OrganizationSettings {
   quote_terms: string;
   organization_name?: string;
   audience_segments?: string[]; // Marketing audience segments
+  price_tier_labels?: Record<string, string>; // May not exist as a DB column yet
   created_at?: string;
   updated_at?: string;
 }
 
+// Fields that may not exist as columns in the organization_settings table.
+// These are stripped before upsert to avoid PGRST204 errors,
+// and are handled via localStorage fallback instead.
+const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels'];
+
 /**
- * Get user preferences from Supabase
+ * Helper: get auth token for server requests
  */
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── GET user preferences ──────────────────────────────────────────────────
+
 export async function getUserPreferencesClient(userId: string, organizationId: string): Promise<UserPreferences | null> {
   console.log('[settings-client] 📊 Fetching user preferences for user:', userId);
-  
+
   if (!userId || !organizationId) {
     console.warn('[settings-client] ⚠️ Missing userId or organizationId', { userId, organizationId });
     return null;
   }
 
+  // Try server endpoint first (bypasses RLS)
+  try {
+    const token = await getAuthToken();
+    if (token) {
+      const res = await fetch(
+        `${SERVER_BASE}/settings/user-preferences?user_id=${encodeURIComponent(userId)}&organization_id=${encodeURIComponent(organizationId)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) {
+        const json = await res.json();
+        console.log('[settings-client] ✅ User preferences fetched via server');
+        return json.preferences || null;
+      }
+      console.warn('[settings-client] ⚠️ Server returned', res.status, '- falling back to direct Supabase');
+    }
+  } catch (err) {
+    console.warn('[settings-client] ⚠️ Server endpoint failed, falling back:', err);
+  }
+
+  // Fallback: direct Supabase query
   try {
     const { data, error } = await supabase
       .from('user_preferences')
@@ -48,20 +88,18 @@ export async function getUserPreferencesClient(userId: string, organizationId: s
 
     if (error) {
       if (error.code === 'PGRST116') {
-        // No preferences found, return null
         console.log('[settings-client] ℹ️ No preferences found for user:', userId);
         return null;
       }
       if (error.code === 'PGRST205' || error.code === '42P01') {
-        // Table doesn't exist
-        console.warn('[settings-client] ⚠️ user_preferences table does not exist yet. Please run the SQL setup script.');
+        console.warn('[settings-client] ⚠️ user_preferences table does not exist yet.');
         return null;
       }
       console.error('[settings-client] ❌ Error fetching user preferences:', error);
       return null;
     }
 
-    console.log('[settings-client] ✅ User preferences fetched successfully');
+    console.log('[settings-client] ✅ User preferences fetched via direct Supabase');
     return data;
   } catch (error) {
     console.error('[settings-client] ❌ Unexpected error fetching user preferences:', error);
@@ -69,12 +107,36 @@ export async function getUserPreferencesClient(userId: string, organizationId: s
   }
 }
 
-/**
- * Upsert user preferences to Supabase
- */
+// ─── UPSERT user preferences ──────────────────────────────────────────────
+
 export async function upsertUserPreferencesClient(preferences: Partial<UserPreferences>): Promise<UserPreferences | null> {
   console.log('[settings-client] 💾 Upserting user preferences');
-  
+
+  // Try server endpoint first (bypasses RLS)
+  try {
+    const token = await getAuthToken();
+    if (token) {
+      const res = await fetch(`${SERVER_BASE}/settings/user-preferences`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(preferences),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        console.log('[settings-client] ✅ User preferences saved via server');
+        return json.preferences || null;
+      }
+      const errBody = await res.text();
+      console.warn('[settings-client] ⚠️ Server upsert user prefs returned', res.status, errBody, '- falling back');
+    }
+  } catch (err) {
+    console.warn('[settings-client] ⚠️ Server endpoint failed for user prefs upsert, falling back:', err);
+  }
+
+  // Fallback: direct Supabase
   try {
     const { data, error } = await supabase
       .from('user_preferences')
@@ -89,18 +151,19 @@ export async function upsertUserPreferencesClient(preferences: Partial<UserPrefe
 
     if (error) {
       if (error.code === 'PGRST205' || error.code === '42P01') {
-        console.warn('[settings-client] ⚠️ user_preferences table does not exist. Please run the SQL setup script.');
+        console.warn('[settings-client] ⚠️ user_preferences table does not exist.');
         return null;
       }
       if (error.code === '42501') {
         // RLS policy violation - silently fall back to localStorage (expected behavior)
+        console.warn('[settings-client] ⚠️ RLS blocked user prefs upsert (both server & direct failed)');
         return null;
       }
       console.error('[settings-client] ❌ Error upserting user preferences:', error);
       return null;
     }
 
-    console.log('[settings-client] ✅ User preferences saved successfully');
+    console.log('[settings-client] ✅ User preferences saved via direct Supabase');
     return data;
   } catch (error) {
     console.error('[settings-client] ❌ Unexpected error upserting user preferences:', error);
@@ -108,12 +171,31 @@ export async function upsertUserPreferencesClient(preferences: Partial<UserPrefe
   }
 }
 
-/**
- * Get organization settings from Supabase
- */
+// ─── GET organization settings ─────────────────────────────────────────────
+
 export async function getOrganizationSettingsClient(organizationId: string): Promise<OrganizationSettings | null> {
   console.log('[settings-client] 📊 Fetching organization settings for org:', organizationId);
-  
+
+  // Try server endpoint first (bypasses RLS)
+  try {
+    const token = await getAuthToken();
+    if (token) {
+      const res = await fetch(
+        `${SERVER_BASE}/settings/organization?organization_id=${encodeURIComponent(organizationId)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.ok) {
+        const json = await res.json();
+        console.log('[settings-client] ✅ Organization settings fetched via server');
+        return json.settings || null;
+      }
+      console.warn('[settings-client] ⚠️ Server returned', res.status, '- falling back to direct Supabase');
+    }
+  } catch (err) {
+    console.warn('[settings-client] ⚠️ Server endpoint failed, falling back:', err);
+  }
+
+  // Fallback: direct Supabase query
   try {
     const { data, error } = await supabase
       .from('organization_settings')
@@ -123,20 +205,18 @@ export async function getOrganizationSettingsClient(organizationId: string): Pro
 
     if (error) {
       if (error.code === 'PGRST116') {
-        // No settings found, return null
         console.log('[settings-client] ℹ️ No settings found for organization:', organizationId);
         return null;
       }
       if (error.code === 'PGRST205' || error.code === '42P01') {
-        // Table doesn't exist
-        console.warn('[settings-client] ⚠️ organization_settings table does not exist yet. Please run the SQL setup script.');
+        console.warn('[settings-client] ⚠️ organization_settings table does not exist yet.');
         return null;
       }
       console.error('[settings-client] ❌ Error fetching organization settings:', error);
       return null;
     }
 
-    console.log('[settings-client] ✅ Organization settings fetched successfully');
+    console.log('[settings-client] ✅ Organization settings fetched via direct Supabase');
     return data;
   } catch (error) {
     console.error('[settings-client] ❌ Unexpected error fetching organization settings:', error);
@@ -144,49 +224,66 @@ export async function getOrganizationSettingsClient(organizationId: string): Pro
   }
 }
 
-/**
- * Upsert organization settings to Supabase
- */
+// ─── UPSERT organization settings ──────────────────────────────────────────
+
 export async function upsertOrganizationSettingsClient(settings: Partial<OrganizationSettings>): Promise<OrganizationSettings | null> {
   console.log('[settings-client] 💾 Upserting organization settings:', settings);
-  
+
+  // Try server endpoint first (bypasses RLS) — this is the primary path
   try {
-    // First, verify the user is authenticated and has the right role
+    const token = await getAuthToken();
+    if (token) {
+      const res = await fetch(`${SERVER_BASE}/settings/organization`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settings),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        console.log('[settings-client] ✅ Organization settings saved via server');
+        return json.settings || null;
+      }
+
+      const errBody = await res.json().catch(() => ({ error: 'Unknown server error' }));
+      console.warn('[settings-client] ⚠️ Server upsert org settings returned', res.status, errBody);
+
+      // If server returned 403 (permission), surface it clearly
+      if (res.status === 403) {
+        throw new Error(errBody.error || 'Permission denied by server');
+      }
+      // For other server errors, fall through to direct Supabase
+    }
+  } catch (err: any) {
+    // If it's a permission error from the server, rethrow
+    if (err?.message?.includes('Permission denied') || err?.message?.includes('admin')) {
+      throw err;
+    }
+    console.warn('[settings-client] ⚠️ Server endpoint failed for org settings upsert, falling back:', err);
+  }
+
+  // Fallback: direct Supabase (may hit RLS — that's expected in some environments)
+  try {
     const { data: { user } } = await supabase.auth.getUser();
-    
     if (!user) {
-      console.error('[settings-client] ❌ User not authenticated');
       throw new Error('You must be logged in to update organization settings');
     }
 
-    // Check user profile and role
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role, organization_id')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError) {
-      console.error('[settings-client] ❌ Error fetching user profile:', profileError);
-      throw new Error('Could not verify user permissions');
-    }
-
-    console.log('[settings-client] 👤 User profile:', { role: profile?.role, org: profile?.organization_id });
-
-    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
-      console.error('[settings-client] ❌ User does not have admin permissions. Role:', profile?.role);
-      throw new Error('You must be an admin or super admin to update organization settings');
-    }
-
-    if (settings.organization_id && settings.organization_id !== profile.organization_id) {
-      console.error('[settings-client] ❌ User cannot modify settings for different organization');
-      throw new Error('You can only update settings for your own organization');
-    }
+    // Strip out any fields that may not exist in the DB
+    const dbSettings = { ...settings };
+    OPTIONAL_NON_DB_FIELDS.forEach(field => {
+      if (field in dbSettings) {
+        delete dbSettings[field];
+      }
+    });
 
     const { data, error } = await supabase
       .from('organization_settings')
       .upsert({
-        ...settings,
+        ...dbSettings,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'organization_id'
@@ -195,29 +292,18 @@ export async function upsertOrganizationSettingsClient(settings: Partial<Organiz
       .single();
 
     if (error) {
-      console.error('[settings-client] ❌ Supabase error details:', {
+      console.error('[settings-client] ❌ Direct Supabase upsert error:', {
         code: error.code,
         message: error.message,
-        details: error.details,
-        hint: error.hint,
       });
 
-      if (error.code === 'PGRST205' || error.code === '42P01') {
-        console.warn('[settings-client] ⚠️ organization_settings table does not exist. Please run the SQL setup script.');
-        throw new Error('Database tables not set up. Please contact your administrator.');
-      }
       if (error.code === '42501') {
-        console.error('[settings-client] ❌ RLS policy violation - checking diagnostics...');
-        console.error('[settings-client] 📋 User ID:', user.id);
-        console.error('[settings-client] 📋 User Role:', profile?.role);
-        console.error('[settings-client] 📋 Organization ID:', settings.organization_id);
-        throw new Error(`Permission denied. Please ensure:\n1. Your role is 'admin' or 'super_admin'\n2. You are updating your own organization's settings\n3. The RLS policies are properly configured (run SUPABASE_FIX_ORG_SETTINGS_RLS_V3.sql)`);
+        throw new Error('Permission denied. The server endpoint also failed. Settings could not be saved to the database.');
       }
-      
       throw new Error(error.message || 'Failed to save organization settings');
     }
 
-    console.log('[settings-client] ✅ Organization settings saved successfully:', data);
+    console.log('[settings-client] ✅ Organization settings saved via direct Supabase');
     return data;
   } catch (error: any) {
     console.error('[settings-client] ❌ Error in upsertOrganizationSettingsClient:', error);
@@ -225,12 +311,35 @@ export async function upsertOrganizationSettingsClient(settings: Partial<Organiz
   }
 }
 
-/**
- * Update organization name
- */
+// ─── Update organization name ──────────────────────────────────────────────
+
 export async function updateOrganizationNameClient(organizationId: string, name: string): Promise<void> {
   console.log('[settings-client] 💾 Updating organization name');
-  
+
+  // Try server endpoint first
+  try {
+    const token = await getAuthToken();
+    if (token) {
+      const res = await fetch(`${SERVER_BASE}/settings/organization-name`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ organization_id: organizationId, name }),
+      });
+
+      if (res.ok) {
+        console.log('[settings-client] ✅ Organization name updated via server');
+        return;
+      }
+      console.warn('[settings-client] ⚠️ Server returned', res.status, 'for org name update - falling back');
+    }
+  } catch (err) {
+    console.warn('[settings-client] ⚠️ Server endpoint failed for org name update, falling back:', err);
+  }
+
+  // Fallback: direct Supabase
   const { error } = await supabase
     .from('organizations')
     .update({ name })
@@ -241,25 +350,47 @@ export async function updateOrganizationNameClient(organizationId: string, name:
     throw error;
   }
 
-  console.log('[settings-client] ✅ Organization name updated successfully');
+  console.log('[settings-client] ✅ Organization name updated via direct Supabase');
 }
 
-/**
- * Update user profile (name only)
- */
+// ─── Update user profile ──────────────────────────────────────────────────
+
 export async function updateUserProfileClient(userId: string, updates: { name?: string; avatar_url?: string }): Promise<void> {
   console.log('[settings-client] 💾 Updating user profile', { userId, updates });
-  
+
+  // Try server endpoint first
+  try {
+    const token = await getAuthToken();
+    if (token) {
+      const res = await fetch(`${SERVER_BASE}/settings/profile`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: userId, ...updates }),
+      });
+
+      if (res.ok) {
+        console.log('[settings-client] ✅ User profile updated via server');
+        return;
+      }
+      console.warn('[settings-client] ⚠️ Server returned', res.status, 'for profile update - falling back');
+    }
+  } catch (err) {
+    console.warn('[settings-client] ⚠️ Server endpoint failed for profile update, falling back:', err);
+  }
+
+  // Fallback: direct Supabase
   try {
     const updateData: any = {};
     if (updates.name) updateData.name = updates.name;
-    // Note: We don't update avatar_url here anymore - use user_preferences.profile_picture instead
-    
+
     if (Object.keys(updateData).length === 0) {
       console.log('[settings-client] ℹ️ No updates to apply');
       return;
     }
-    
+
     const { data, error } = await supabase
       .from('profiles')
       .update(updateData)
@@ -275,8 +406,7 @@ export async function updateUserProfileClient(userId: string, updates: { name?: 
         hint: error.hint,
         updateData
       });
-      
-      // Provide more specific error messages
+
       if (error.code === '42703') {
         throw new Error('Database column not found. The profiles table may need to be updated.');
       } else if (error.code === '42501') {
@@ -288,7 +418,7 @@ export async function updateUserProfileClient(userId: string, updates: { name?: 
       }
     }
 
-    console.log('[settings-client] ✅ User profile updated successfully:', data);
+    console.log('[settings-client] ✅ User profile updated via direct Supabase:', data);
   } catch (error: any) {
     console.error('[settings-client] ❌ Unexpected error updating user profile:', error);
     throw error;

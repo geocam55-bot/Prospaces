@@ -46,13 +46,32 @@ import {
   Eye,
   Users,
   Plus,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { canView } from '../utils/permissions';
 import { tenantsAPI, settingsAPI } from '../utils/api';
 import { DEFAULT_PRICE_TIER_LABELS, type PriceTierLabels, getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings';
+
+// Utility: wrap a promise with a timeout to prevent infinite hangs
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`[Settings] Timeout: ${label} took longer than ${ms}ms`));
+    }, ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+// Safety-net timeout (ms) for the entire settings load
+const SETTINGS_LOAD_TIMEOUT = 15000;
+// Per-call timeout for each API call
+const API_CALL_TIMEOUT = 8000;
 
 interface SettingsProps {
   user: User;
@@ -112,30 +131,53 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   // Load settings from Supabase on mount
   useEffect(() => {
     loadSettingsFromSupabase();
+
+    // Safety-net: if loading takes too long, force it to complete with localStorage fallback
+    const safetyTimer = setTimeout(() => {
+      setIsLoading((prev) => {
+        if (prev) {
+          console.warn('[Settings] Safety-net timeout reached — forcing load from localStorage');
+          loadSettingsFromLocalStorage();
+          setShowDatabaseWarning(true);
+        }
+        return false;
+      });
+    }, SETTINGS_LOAD_TIMEOUT);
+
+    return () => clearTimeout(safetyTimer);
   }, [user.id, user.organizationId]);
 
   const loadSettingsFromSupabase = async () => {
     try {
       setIsLoading(true);
-      let tablesExist = true;
+      setShowDatabaseWarning(false);
 
-      // Load user preferences
-      const userPrefs = await settingsAPI.getUserPreferences(user.id, user.organizationId);
-      if (userPrefs === null) {
-        // Check console for warnings about missing tables
-        const consoleWarnings = console.warn.toString();
-        if (consoleWarnings.includes('table does not exist')) {
-          tablesExist = false;
-        }
+      // Guard: if organizationId is missing, skip API calls and use localStorage
+      if (!user.organizationId) {
+        console.warn('[Settings] No organizationId on user — loading from localStorage only');
+        loadSettingsFromLocalStorage();
+        return;
+      }
+
+      // Load user preferences (with timeout protection)
+      let userPrefs = null;
+      try {
+        userPrefs = await withTimeout(
+          settingsAPI.getUserPreferences(user.id, user.organizationId),
+          API_CALL_TIMEOUT,
+          'getUserPreferences'
+        );
+      } catch (prefErr) {
+        console.warn('[Settings] getUserPreferences failed or timed out:', prefErr);
       }
       
       if (userPrefs) {
         setNotifications({
-          email: userPrefs.notifications_email,
-          push: userPrefs.notifications_push,
-          taskAssignments: userPrefs.notifications_task_assignments,
-          appointments: userPrefs.notifications_appointments,
-          bids: userPrefs.notifications_bids,
+          email: userPrefs.notifications_email ?? true,
+          push: userPrefs.notifications_push ?? true,
+          taskAssignments: userPrefs.notifications_task_assignments ?? true,
+          appointments: userPrefs.notifications_appointments ?? true,
+          bids: userPrefs.notifications_bids ?? true,
         });
         
         // Load profile picture from Supabase
@@ -147,16 +189,38 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         loadSettingsFromLocalStorage();
       }
 
-      // Load organization settings
-      const orgSettings = await settingsAPI.getOrganizationSettings(user.organizationId);
+      // Load organization settings (with timeout protection)
+      let orgSettings = null;
+      try {
+        orgSettings = await withTimeout(
+          settingsAPI.getOrganizationSettings(user.organizationId),
+          API_CALL_TIMEOUT,
+          'getOrganizationSettings'
+        );
+      } catch (orgErr) {
+        console.warn('[Settings] getOrganizationSettings failed or timed out:', orgErr);
+      }
+
       if (orgSettings) {
+        // price_tier_labels may not exist as a DB column yet.
+        // Merge from localStorage so custom labels aren't lost.
+        const orgId = localStorage.getItem('currentOrgId') || user.organizationId;
+        let storedPriceTierLabels: PriceTierLabels | null = null;
+        try {
+          const stored = localStorage.getItem(`global_settings_${orgId}`);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.priceTierLabels) storedPriceTierLabels = parsed.priceTierLabels;
+          }
+        } catch (_) { /* ignore parse errors */ }
+
         setGlobalSettings({
-          taxRate: orgSettings.tax_rate,
-          taxRate2: orgSettings.tax_rate_2 || 0,
-          defaultPriceLevel: orgSettings.default_price_level,
+          taxRate: orgSettings.tax_rate ?? 0,
+          taxRate2: orgSettings.tax_rate_2 ?? 0,
+          defaultPriceLevel: orgSettings.default_price_level || getPriceTierLabel(1),
           quoteTerms: orgSettings.quote_terms || 'Payment due within 30 days. All prices in USD.',
-          audienceSegments: orgSettings.audience_segments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'], // Marketing segments
-          priceTierLabels: orgSettings.price_tier_labels || { ...DEFAULT_PRICE_TIER_LABELS },
+          audienceSegments: orgSettings.audience_segments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'],
+          priceTierLabels: orgSettings.price_tier_labels || storedPriceTierLabels || { ...DEFAULT_PRICE_TIER_LABELS },
         });
         
         // Load organization name
@@ -168,20 +232,26 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         const orgId = localStorage.getItem('currentOrgId') || user.organizationId;
         const stored = localStorage.getItem(`global_settings_${orgId}`);
         if (stored) {
-          const parsedSettings = JSON.parse(stored);
-          setGlobalSettings({
-            taxRate: parsedSettings.taxRate || 0,
-            taxRate2: parsedSettings.taxRate2 || 0,
-            defaultPriceLevel: parsedSettings.defaultPriceLevel || getPriceTierLabel(1),
-            quoteTerms: parsedSettings.quoteTerms || 'Payment due within 30 days. All prices in USD.',
-            audienceSegments: parsedSettings.audienceSegments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'], // Marketing segments
-            priceTierLabels: parsedSettings.priceTierLabels || { ...DEFAULT_PRICE_TIER_LABELS },
-          });
+          try {
+            const parsedSettings = JSON.parse(stored);
+            setGlobalSettings({
+              taxRate: parsedSettings.taxRate || 0,
+              taxRate2: parsedSettings.taxRate2 || 0,
+              defaultPriceLevel: parsedSettings.defaultPriceLevel || getPriceTierLabel(1),
+              quoteTerms: parsedSettings.quoteTerms || 'Payment due within 30 days. All prices in USD.',
+              audienceSegments: parsedSettings.audienceSegments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'],
+              priceTierLabels: parsedSettings.priceTierLabels || { ...DEFAULT_PRICE_TIER_LABELS },
+            });
+          } catch (_) { /* ignore parse errors */ }
         }
         
-        // Try to get org name from organizations table
+        // Try to get org name from organizations table (also with timeout)
         try {
-          const { tenant } = await tenantsAPI.getById(user.organizationId);
+          const { tenant } = await withTimeout(
+            tenantsAPI.getById(user.organizationId),
+            API_CALL_TIMEOUT,
+            'getOrgName'
+          );
           if (tenant) {
             setOrgName(tenant.name);
           }
@@ -203,20 +273,32 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
 
   const loadSettingsFromLocalStorage = () => {
     // Fallback: Load from localStorage
-    const orgId = localStorage.getItem('currentOrgId') || user.organizationId;
-    const stored = localStorage.getItem(`global_settings_${orgId}`);
-    if (stored) {
-      const parsedSettings = JSON.parse(stored);
-      setGlobalSettings({
-        taxRate: parsedSettings.taxRate || 0,
-        defaultPriceLevel: parsedSettings.defaultPriceLevel || getPriceTierLabel(1),
-      });
+    try {
+      const orgId = localStorage.getItem('currentOrgId') || user.organizationId;
+      const stored = localStorage.getItem(`global_settings_${orgId}`);
+      if (stored) {
+        const parsedSettings = JSON.parse(stored);
+        setGlobalSettings({
+          taxRate: parsedSettings.taxRate || 0,
+          taxRate2: parsedSettings.taxRate2 || 0,
+          defaultPriceLevel: parsedSettings.defaultPriceLevel || getPriceTierLabel(1),
+          quoteTerms: parsedSettings.quoteTerms || 'Payment due within 30 days. All prices in USD.',
+          audienceSegments: parsedSettings.audienceSegments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'],
+          priceTierLabels: parsedSettings.priceTierLabels || { ...DEFAULT_PRICE_TIER_LABELS },
+        });
+      }
+    } catch (err) {
+      console.warn('[Settings] Failed to parse localStorage settings:', err);
     }
     
     // Load profile picture from localStorage as fallback
-    const storedPicture = localStorage.getItem(`profile_picture_${user.id}`);
-    if (storedPicture) {
-      setProfileData(prev => ({ ...prev, profilePicture: storedPicture }));
+    try {
+      const storedPicture = localStorage.getItem(`profile_picture_${user.id}`);
+      if (storedPicture) {
+        setProfileData(prev => ({ ...prev, profilePicture: storedPicture }));
+      }
+    } catch (err) {
+      console.warn('[Settings] Failed to load profile picture from localStorage:', err);
     }
   };
 
@@ -496,9 +578,62 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   const canManageSettings = user.role === 'super_admin' || user.role === 'admin';
   const canAccessSecurity = canView('security', user.role);
 
+  // Show loading spinner while settings are being fetched
+  if (isLoading) {
+    return (
+      <PermissionGate user={user} module="settings" action="view">
+        <div className="p-6">
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center space-y-3">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
+              <p className="text-sm text-gray-500">Loading settings...</p>
+              <p className="text-xs text-gray-400 mt-2">
+                If this takes too long, settings will load from local cache automatically.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-3 text-xs text-gray-400 hover:text-gray-600"
+                onClick={() => {
+                  console.log('[Settings] User manually skipped loading — using localStorage');
+                  loadSettingsFromLocalStorage();
+                  setShowDatabaseWarning(true);
+                  setIsLoading(false);
+                }}
+              >
+                Skip and use cached settings
+              </Button>
+            </div>
+          </div>
+        </div>
+      </PermissionGate>
+    );
+  }
+
   return (
     <PermissionGate user={user} module="settings" action="view">
     <div className="p-6 space-y-6">
+      {/* Database Warning Banner */}
+      {showDatabaseWarning && (
+        <Alert className="bg-yellow-50 border-yellow-200">
+          <AlertCircle className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-800 flex items-center justify-between gap-4">
+            <span>
+              Could not load settings from the database. Showing locally saved settings instead.
+              Check that the <strong>user_preferences</strong> and <strong>organization_settings</strong> tables exist in your Supabase database.
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 border-yellow-400 text-yellow-800 hover:bg-yellow-100"
+              onClick={() => loadSettingsFromSupabase()}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Tabs defaultValue="profile" className="w-full">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-7">
@@ -800,11 +935,11 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                           { key: 't5' as const, tier: 5 },
                         ]
                           .filter(({ key }) => {
-                            const label = globalSettings.priceTierLabels[key];
+                            const label = (globalSettings.priceTierLabels || DEFAULT_PRICE_TIER_LABELS)[key];
                             return label && label.trim() !== '' && label.trim() !== '0';
                           })
                           .map(({ key, tier }) => {
-                            const label = globalSettings.priceTierLabels[key];
+                            const label = (globalSettings.priceTierLabels || DEFAULT_PRICE_TIER_LABELS)[key];
                             return (
                               <SelectItem key={key} value={label}>
                                 T{tier} — {label}
@@ -840,11 +975,11 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                           </Label>
                           <Input
                             id={`tierLabel-${key}`}
-                            value={globalSettings.priceTierLabels[key]}
+                            value={(globalSettings.priceTierLabels || DEFAULT_PRICE_TIER_LABELS)[key] || ''}
                             onChange={(e) => setGlobalSettings(prev => ({
                               ...prev,
                               priceTierLabels: {
-                                ...prev.priceTierLabels,
+                                ...(prev.priceTierLabels || DEFAULT_PRICE_TIER_LABELS),
                                 [key]: e.target.value,
                               },
                             }))}
