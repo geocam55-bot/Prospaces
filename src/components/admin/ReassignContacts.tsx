@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { ensureUserProfile } from '../../utils/ensure-profile';
 
 export function ReassignContacts() {
   const [fromEmail, setFromEmail] = useState('george.campbell@ronaatlantic.ca');
@@ -29,7 +30,16 @@ export function ReassignContacts() {
         return;
       }
 
-      const organizationId = user.user_metadata?.organizationId;
+      // Read organization_id from the profiles table (more reliable than JWT metadata)
+      let organizationId = user.user_metadata?.organizationId;
+      try {
+        const profile = await ensureUserProfile(user.id);
+        if (profile?.organization_id) {
+          organizationId = profile.organization_id;
+        }
+      } catch (e) {
+        console.warn('Could not read profile, falling back to JWT metadata');
+      }
 
       if (!organizationId) {
         setResult({ success: false, message: 'Organization ID not found' });

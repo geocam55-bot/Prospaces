@@ -138,7 +138,7 @@ export function Navigation({
       ? [{ id: 'team-dashboard', label: 'Team Dashboard', icon: UsersRound }]
       : [];
 
-  // Build Admin submenu items based on role
+  // Build Admin submenu items based on role and permissions
   const buildAdminSubmenu = () => {
     const submenuItems = [];
     
@@ -148,48 +148,54 @@ export function Navigation({
         { id: 'users', label: 'Users', icon: UserCog },
         { id: 'security', label: 'Security', icon: Shield }
       );
-    } else if (user.role === 'admin') {
-      submenuItems.push(
-        { id: 'users', label: 'Users', icon: UserCog },
-        { id: 'security', label: 'Security', icon: Shield }
-      );
-      // Only show Import/Export if enabled for the organization
-      if (organization?.import_export_enabled !== false) {
+    } else {
+      // For non-super_admin, use canView to determine visibility
+      if (canView('users', user.role)) {
+        submenuItems.push({ id: 'users', label: 'Users', icon: UserCog });
+      }
+      if (canView('security', user.role)) {
+        submenuItems.push({ id: 'security', label: 'Security', icon: Shield });
+      }
+      if (canView('import-export', user.role) && organization?.import_export_enabled !== false) {
         submenuItems.push({ id: 'import-export', label: 'Import/Export', icon: Upload });
       }
-    } else if (user.role === 'director') {
-      // Director can view Users (read-only) but not Security
-      submenuItems.push(
-        { id: 'users', label: 'Users', icon: UserCog }
-      );
     }
     
-    // Add Settings for all users
-    submenuItems.push({ id: 'settings', label: 'Settings', icon: Settings });
+    // Add Settings for roles that can view it
+    if (canView('settings', user.role)) {
+      submenuItems.push({ id: 'settings', label: 'Settings', icon: Settings });
+    }
     
     return submenuItems;
   };
 
-  // Admin menu with submenu
-  const adminNavItems = (user.role === 'super_admin' || user.role === 'admin' || user.role === 'director')
+  // Admin menu with submenu — show if canView('admin') OR if the submenu has any items
+  const adminSubmenuItems = buildAdminSubmenu();
+  const adminNavItems = adminSubmenuItems.length > 0
     ? [{
         id: 'admin',
         label: 'Admin',
         icon: UserCog,
         hasSubmenu: true,
-        submenu: buildAdminSubmenu()
+        submenu: adminSubmenuItems
       }]
-    : [
-        // For non-admin users, just show Settings as a standalone item
-        { id: 'settings', label: 'Settings', icon: Settings }
-      ];
+    : (canView('settings', user.role)
+        ? [{ id: 'settings', label: 'Settings', icon: Settings }]
+        : []);
 
   // Combine and filter based on permissions
   const navItems = [
     ...baseNavItems,
     ...managerNavItems,
     ...adminNavItems,
-  ].filter(item => canView(item.id, user.role)); // Filter based on permissions
+  ].filter(item => {
+    // Admin parent menu: show if it has submenu items (already filtered above)
+    if (item.id === 'admin') return true;
+    // Settings standalone: always show if it got here (already filtered above)
+    if (item.id === 'settings') return true;
+    // Everything else: check canView
+    return canView(item.id, user.role);
+  });
 
   // Auto-expand parent menu when child is active
   useEffect(() => {
@@ -567,7 +573,7 @@ export function Navigation({
               </div>
               {!isSidebarCollapsed && (
                 <span className="text-xl font-semibold" style={{ color: theme.colors.navText }}>
-                  ProSpaces
+                  ProSpaces CRM
                 </span>
               )}
             </div>

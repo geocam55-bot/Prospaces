@@ -15,6 +15,7 @@ import { Ruler, Package, Printer, FileText, Box, Layers, Home, Settings } from '
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 import type { User } from '../../App';
+import { PermissionGate } from '../PermissionGate';
 
 interface ShedPlannerProps {
   user: User;
@@ -155,6 +156,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
   };
 
   return (
+    <PermissionGate user={user} module="project-wizards" action="view">
     <div>
       {/* Now in Development Banner */}
       <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-200 print:hidden">
@@ -361,5 +363,6 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
         customerCompany={loadedDesignInfo.customerCompany}
       />
     </div>
+    </PermissionGate>
   );
 }

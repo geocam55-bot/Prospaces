@@ -13,29 +13,25 @@ import { Textarea } from './ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Plus, Trash2, Clock, MapPin, Calendar as CalendarIcon, MoreVertical, Link2, RefreshCw, Loader2 } from 'lucide-react';
 import { Video } from 'lucide-react';
-
-interface User {
-  id: string;
-  email: string;
-  organizationId: string;
-  role: string;
-}
+import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
+import { canAdd, canDelete } from '../utils/permissions';
 
 interface Appointment {
   id: string;
   title: string;
   description: string;
-  start_time: string; // ISO timestamp
-  end_time: string; // ISO timestamp
+  start_time: string;
+  end_time: string;
   location: string;
   contact_id?: string;
   owner_id?: string;
   organization_id: string;
   created_at: string;
   created_by?: string;
-  calendar_event_id?: string; // Identifies synced calendar events
-  calendar_provider?: string; // e.g., 'google', 'microsoft'
-  status?: string; // e.g., 'scheduled', 'cancelled'
+  calendar_event_id?: string;
+  calendar_provider?: string;
+  status?: string;
   attendees?: string;
 }
 
@@ -283,6 +279,7 @@ export function Appointments({ user }: AppointmentsProps) {
   };
 
   return (
+    <PermissionGate user={user} module="appointments" action="view">
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
         <div className="flex items-center gap-2">
@@ -309,12 +306,14 @@ export function Appointments({ user }: AppointmentsProps) {
             {calendarAccounts.length > 0 ? 'Manage Calendars' : 'Connect Calendar'}
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            {canAdd('appointments', user.role) && (
             <DialogTrigger asChild>
               <Button className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
                 Add Appointment
               </Button>
             </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[500px] bg-white">
               <DialogHeader>
                 <DialogTitle>Schedule New Appointment</DialogTitle>
@@ -475,13 +474,15 @@ export function Appointments({ user }: AppointmentsProps) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => handleDeleteAppointment(appointment.id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
+                            {canDelete('appointments', user.role) && (
+                              <DropdownMenuItem
+                                onClick={() => handleDeleteAppointment(appointment.id)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -533,5 +534,6 @@ export function Appointments({ user }: AppointmentsProps) {
         />
       </Dialog>
     </div>
+    </PermissionGate>
   );
 }

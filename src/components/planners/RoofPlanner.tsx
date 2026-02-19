@@ -16,6 +16,7 @@ import { Ruler, Package, Printer, FileText, Box, Layers, Triangle, Settings } fr
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 import type { User } from '../../App';
+import { PermissionGate } from '../PermissionGate';
 
 interface RoofPlannerProps {
   user: User;
@@ -128,6 +129,7 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
   };
 
   return (
+    <PermissionGate user={user} module="project-wizards" action="view">
     <div>
       {/* Now in Development Banner */}
       <div className="bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-200 print:hidden">
@@ -340,5 +342,6 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
         customerCompany={loadedDesignInfo.customerCompany}
       />
     </div>
+    </PermissionGate>
   );
 }

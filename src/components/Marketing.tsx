@@ -21,6 +21,7 @@ import { LandingPageBuilder } from './marketing/LandingPageBuilder';
 import { MarketingAnalytics } from './marketing/MarketingAnalytics';
 import { ReferralsTab } from './marketing/referrals/ReferralsTab';
 import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
 
 interface MarketingProps {
   user: User;
@@ -31,6 +32,7 @@ export function Marketing({ user, accessToken }: MarketingProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
+    <PermissionGate user={user} module="marketing" action="view">
     <div className="p-6 space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -95,5 +97,6 @@ export function Marketing({ user, accessToken }: MarketingProps) {
         </TabsContent>
       </Tabs>
     </div>
+    </PermissionGate>
   );
 }

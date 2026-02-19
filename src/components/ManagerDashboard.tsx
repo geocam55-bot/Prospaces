@@ -6,6 +6,7 @@ import { bidsAPI, quotesAPI, usersAPI } from '../utils/api';
 import { canView } from '../utils/permissions';
 import { onPermissionsChanged } from '../utils/permissions';
 import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
 
 import { DashboardTabs } from './dashboard/DashboardTabs';
 import { DashboardFilters } from './dashboard/DashboardFilters';
@@ -265,6 +266,7 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
   };
 
   return (
+    <PermissionGate user={user} module="team-dashboard" action="view">
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -306,5 +308,6 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
         </div>
       </div>
     </div>
+    </PermissionGate>
   );
 }

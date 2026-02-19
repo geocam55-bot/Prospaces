@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { tenantsAPI } from '../utils/api';
 import type { User, Organization } from '../App';
+import { PermissionGate } from './PermissionGate';
+import { canView, canAdd, canChange, canDelete } from '../utils/permissions';
 import { CleanupUnusedOrganizations } from './CleanupUnusedOrganizations';
 import { 
   Building2, 
@@ -108,7 +110,7 @@ export function Tenants({ user, organization }: TenantsProps) {
   });
 
   // Only super_admin can access this module
-  const canAccessTenants = user.role === 'super_admin';
+  const canAccessTenants = canView('tenants', user.role);
 
   useEffect(() => {
     if (canAccessTenants) {
@@ -356,17 +358,20 @@ export function Tenants({ user, organization }: TenantsProps) {
   }
 
   return (
+    <PermissionGate user={user} module="tenants" action="view">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => loadTenants()} title="Refresh data">
-            🔄 Refresh
+            Refresh
           </Button>
-          <Button onClick={() => handleOpenDialog()}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Organization
-          </Button>
+          {canAdd('tenants', user.role) && (
+            <Button onClick={() => handleOpenDialog()}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Organization
+            </Button>
+          )}
         </div>
       </div>
 
@@ -473,10 +478,12 @@ export function Tenants({ user, organization }: TenantsProps) {
             <CardContent className="py-12 text-center">
               <Building2 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p className="text-gray-500">No organizations found</p>
-              <Button className="mt-4" onClick={() => handleOpenDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Your First Organization
-              </Button>
+              {canAdd('tenants', user.role) && (
+                <Button className="mt-4" onClick={() => handleOpenDialog()}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Your First Organization
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -533,18 +540,22 @@ export function Tenants({ user, organization }: TenantsProps) {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleOpenDialog(tenant)} disabled={isDeleting === tenant.id}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => handleDelete(tenant.id)}
-                            disabled={isDeleting === tenant.id}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            {isDeleting === tenant.id ? 'Deleting...' : 'Delete'}
-                          </DropdownMenuItem>
+                          {canChange('tenants', user.role) && (
+                            <DropdownMenuItem onClick={() => handleOpenDialog(tenant)} disabled={isDeleting === tenant.id}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                          )}
+                          {canDelete('tenants', user.role) && (
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => handleDelete(tenant.id)}
+                              disabled={isDeleting === tenant.id}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              {isDeleting === tenant.id ? 'Deleting...' : 'Delete'}
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -835,5 +846,6 @@ export function Tenants({ user, organization }: TenantsProps) {
       {/* Cleanup Unused Organizations */}
       <CleanupUnusedOrganizations />
     </div>
+    </PermissionGate>
   );
 }

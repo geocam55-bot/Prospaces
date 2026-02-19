@@ -14,6 +14,7 @@ import { Ruler, Package, Printer, FileText, Box, Layers, Warehouse, Settings } f
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 import type { User } from '../../App';
+import { PermissionGate } from '../PermissionGate';
 
 interface GaragePlannerProps {
   user: User;
@@ -162,6 +163,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
   };
 
   return (
+    <PermissionGate user={user} module="project-wizards" action="view">
     <div>
       {/* Now in Development Banner */}
       <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-200 print:hidden">
@@ -357,5 +359,6 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
         customerCompany={loadedDesignInfo.customerCompany}
       />
     </div>
+    </PermissionGate>
   );
 }

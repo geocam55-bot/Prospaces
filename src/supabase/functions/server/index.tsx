@@ -10,6 +10,9 @@ import { handleResetPassword } from './reset-password.ts';
 import { backgroundJobs } from './background-jobs.ts';
 import { inventoryDiagnostic } from './inventory-diagnostic.ts';
 import { marketing } from './marketing.ts';
+import { handleCreateUser } from './create-user.ts';
+import { fixContactOwnership } from './fix-contact-ownership.ts';
+import { contactsAPI } from './contacts-api.ts';
 
 const app = new Hono();
 
@@ -24,6 +27,8 @@ fixProfileMismatch(app);
 backgroundJobs(app);
 inventoryDiagnostic(app);
 marketing(app);
+fixContactOwnership(app);
+contactsAPI(app);
 
 // Health check endpoint
 app.get('/make-server-8405be07/health', (c) => {
@@ -33,6 +38,9 @@ app.get('/make-server-8405be07/health', (c) => {
 
 // Password reset endpoint
 app.post('/make-server-8405be07/reset-password', handleResetPassword);
+
+// Create user endpoint (admin-only, creates Supabase Auth account + profile)
+app.post('/make-server-8405be07/create-user', handleCreateUser);
 
 // Catch-all for debugging 404s
 app.all('*', (c) => {

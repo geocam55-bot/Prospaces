@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { KitchenPlannerV2 } from '../kitchen/KitchenPlannerV2';
+import { PermissionGate } from '../PermissionGate';
 import type { User } from '../../App';
 
 interface KitchenPlannerProps {
@@ -7,5 +8,9 @@ interface KitchenPlannerProps {
 }
 
 export function KitchenPlanner({ user }: KitchenPlannerProps) {
-  return <KitchenPlannerV2 user={user} />;
+  return (
+    <PermissionGate user={user} module="kitchen-planner" action="view">
+      <KitchenPlannerV2 user={user} />
+    </PermissionGate>
+  );
 }

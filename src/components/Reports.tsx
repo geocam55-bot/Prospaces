@@ -15,6 +15,7 @@ import { Switch } from './ui/switch';
 import { BidProposalReports } from './reports/BidProposalReports';
 import { ManagerSummaryReports } from './reports/ManagerSummaryReports';
 import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
 
 interface ReportsProps {
   user: User;
@@ -25,6 +26,7 @@ export function Reports({ user }: ReportsProps) {
   const [showCost, setShowCost] = useState(false);
 
   return (
+    <PermissionGate user={user} module="reports" action="view">
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
         {/* Price/Cost Toggle Switch */}
@@ -75,5 +77,6 @@ export function Reports({ user }: ReportsProps) {
         </TabsContent>
       </Tabs>
     </div>
+    </PermissionGate>
   );
 }

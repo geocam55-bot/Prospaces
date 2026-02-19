@@ -35,6 +35,8 @@ import {
 } from 'lucide-react';
 import { inventoryAPI } from '../utils/api';
 import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
+import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { DatabaseInit } from './DatabaseInit';
 import { toast } from 'sonner@2.0.3';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
@@ -682,14 +684,17 @@ export function Inventory({ user }: InventoryProps) {
   }
 
   return (
+    <PermissionGate user={user} module="inventory" action="view">
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center justify-end gap-3">
+          {canAdd('inventory', user.role) && (
           <Button onClick={() => handleOpenDialog()}>
             <Plus className="h-4 w-4 mr-2" />
             Add Item
           </Button>
+          )}
         </div>
       </div>
 
@@ -1039,12 +1044,16 @@ export function Inventory({ user }: InventoryProps) {
                             )}
                           </div>
                           <div className="flex gap-2">
+                            {canChange('inventory', user.role) && (
                             <Button variant="outline" size="sm" onClick={() => handleOpenDialog(item)}>
                               <Edit className="h-4 w-4" />
                             </Button>
+                            )}
+                            {canDelete('inventory', user.role) && (
                             <Button variant="outline" size="sm" onClick={() => handleDelete(item.id)}>
                               <Trash2 className="h-4 w-4 text-red-600" />
                             </Button>
+                            )}
                           </div>
                         </div>
 
@@ -1666,5 +1675,6 @@ export function Inventory({ user }: InventoryProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </PermissionGate>
   );
 }

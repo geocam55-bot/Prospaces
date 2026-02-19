@@ -16,6 +16,7 @@ import { Ruler, Package, Printer, FileText, Box, Layers, Hammer, Settings } from
 import { Button } from '../ui/button';
 import { toast } from 'sonner';
 import type { User } from '../../App';
+import { PermissionGate } from '../PermissionGate';
 
 interface DeckPlannerProps {
   user: User;
@@ -156,6 +157,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
   }, [viewMode, snapshotUrl]);
 
   return (
+    <PermissionGate user={user} module="project-wizards" action="view">
     <div>
       {/* Now in Development Banner */}
       <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-200 print:hidden">
@@ -374,5 +376,6 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
         snapshotUrl={snapshotUrl}
       />
     </div>
+    </PermissionGate>
   );
 }

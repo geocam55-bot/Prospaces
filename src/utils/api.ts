@@ -618,14 +618,14 @@ export const projectManagersAPI = {
   delete: (id: string) => deleteProjectManagerClient(id),
 };
 
-// Contacts APIs - use direct Supabase client
+// Contacts APIs - uses server endpoint (bypasses RLS) with client-side fallback
 export const contactsAPI = {
   getAll: () => getAllContactsClient(),
   create: (data: any) => createContactClient(data),
   update: (id: string, data: any) => updateContactClient(id, data),
   delete: (id: string) => deleteContactClient(id),
   claimUnassigned: () => claimUnassignedContactsClient(),
-  upsertByLegacyNumber: (data: any) => upsertContactByLegacyNumberClient(data),
+  upsertByLegacyNumber: (data: any, preloadedAuth?: { userId: string; profile: any }) => upsertContactByLegacyNumberClient(data, preloadedAuth),
   diagnoseRLS: () => diagnoseContactsRLS(),
   getSegments: () => getSegmentsClient(),
 };

@@ -13,6 +13,7 @@ import { Plus, Mail, MessageSquare, Facebook, Instagram, MoreVertical, Edit, Pau
 import { campaignsAPI } from '../../utils/api';
 import { toast } from 'sonner';
 import type { User } from '../../App';
+import { canAdd, canChange, canDelete } from '../../utils/permissions';
 import { getLandingPages } from '../../utils/marketing-client';
 import { contactsAPI } from '../../utils/api';
 import { CampaignAnalytics } from './CampaignAnalytics';
@@ -371,10 +372,12 @@ export function CampaignManager({ user }: CampaignManagerProps) {
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
+            {canAdd('marketing', user.role) && (
             <Button className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Create Campaign
             </Button>
+            )}
           </DialogTrigger>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
             <DialogHeader>
@@ -806,10 +809,12 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                       <Copy className="h-4 w-4 mr-2" />
                       Duplicate
                     </DropdownMenuItem>
+                    {canDelete('marketing', user.role) && (
                     <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteCampaign(campaign)}>
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete
                     </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => handleViewAnalytics(campaign)}>
                       <BarChart className="h-4 w-4 mr-2" />
                       View Analytics

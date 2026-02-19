@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
 import { contactsAPI, inventoryAPI, bidsAPI } from '../utils/api';
 import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
 import { getPriceTierLabel } from '../lib/global-settings';
 
 interface ScheduledJobsProps {
@@ -433,6 +434,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
   const completedJobs = jobs.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status));
 
   return (
+    <PermissionGate user={user} module="import-export" action="view">
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -593,5 +595,6 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
         </CardContent>
       </Card>
     </div>
+    </PermissionGate>
   );
 }

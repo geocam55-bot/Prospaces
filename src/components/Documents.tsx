@@ -40,7 +40,7 @@ import {
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
 import type { User as UserType } from '../App';
-import { PermissionButton } from './PermissionGate';
+import { PermissionGate, PermissionButton } from './PermissionGate';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { 
   getAllDocumentsClient, 
@@ -346,6 +346,7 @@ export function Documents({ user }: DocumentsProps) {
   }
 
   return (
+    <PermissionGate user={user} module="documents" action="view">
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-end items-center">
@@ -811,5 +812,6 @@ export function Documents({ user }: DocumentsProps) {
         </DialogContent>
       </Dialog>
     </div>
+    </PermissionGate>
   );
 }

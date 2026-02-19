@@ -2,7 +2,7 @@ import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 export function fixProfileMismatch(app: Hono) {
-  app.post('/fix-profile-mismatch', async (c) => {
+  app.post('/make-server-8405be07/fix-profile-mismatch', async (c) => {
     try {
       const { email, currentUserId, oldUserId } = await c.req.json();
 

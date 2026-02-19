@@ -1,6 +1,137 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
 import { getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings';
+import { projectId, publicAnonKey } from './supabase/info';
+
+// ── Cached column detection ────────────────────────────────────────────
+// Probes the contacts table once per session to discover which columns exist.
+// Prevents 42703 errors when referencing columns that haven't been migrated yet.
+let _existingColumns: Set<string> | null = null;
+let _columnCacheTime = 0;
+const COLUMN_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// ── Cached owner profile resolution ────────────────────────────────────
+// During bulk imports many contacts share the same account_owner_number (email).
+// Cache the email→profileId lookup to avoid repeated queries.
+const _ownerProfileCache: Map<string, string | null> = new Map();
+let _ownerCacheTime = 0;
+const OWNER_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Resolve account_owner_number (email) to a profile user ID within the org.
+ * Returns the owner's profile ID, or null if not found.
+ */
+async function resolveOwnerByAccountOwnerNumber(
+  supabase: any,
+  accountOwnerEmail: string,
+  organizationId: string,
+): Promise<string | null> {
+  const normalizedEmail = accountOwnerEmail.trim().toLowerCase();
+  if (!normalizedEmail) return null;
+
+  // Bust the cache if it's stale
+  if (Date.now() - _ownerCacheTime > OWNER_CACHE_TTL) {
+    _ownerProfileCache.clear();
+    _ownerCacheTime = Date.now();
+  }
+
+  const cacheKey = `${organizationId}::${normalizedEmail}`;
+  if (_ownerProfileCache.has(cacheKey)) {
+    return _ownerProfileCache.get(cacheKey) ?? null;
+  }
+
+  // Look up the profile by email in the same organization
+  const { data: matchedProfile, error } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .ilike('email', normalizedEmail)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[resolveOwner] Error looking up profile by email:', error.message);
+    _ownerProfileCache.set(cacheKey, null);
+    return null;
+  }
+
+  const resolvedId = matchedProfile?.id ?? null;
+  _ownerProfileCache.set(cacheKey, resolvedId);
+
+  if (resolvedId) {
+    console.log(`[resolveOwner] Resolved "${normalizedEmail}" → profile ${resolvedId}`);
+  } else {
+    console.log(`[resolveOwner] No profile found for "${normalizedEmail}" in org ${organizationId}`);
+  }
+
+  return resolvedId;
+}
+
+/** Clear the owner cache (called externally if needed, e.g. after bulk import) */
+export function clearOwnerProfileCache() {
+  _ownerProfileCache.clear();
+  _ownerCacheTime = 0;
+}
+
+async function getExistingContactColumns(supabase: any): Promise<Set<string>> {
+  if (_existingColumns && Date.now() - _columnCacheTime < COLUMN_CACHE_TTL) {
+    return _existingColumns;
+  }
+
+  const baseColumns = [
+    'id', 'name', 'email', 'phone', 'company', 'status',
+    'owner_id', 'organization_id', 'created_at', 'updated_at',
+  ];
+
+  // Fast path: if rows already exist, read one to discover all columns
+  const { data: sample } = await supabase
+    .from('contacts')
+    .select('*')
+    .limit(1);
+
+  if (sample && sample.length > 0) {
+    _existingColumns = new Set(Object.keys(sample[0]));
+    _columnCacheTime = Date.now();
+    console.log('📋 Contact columns (from sample row):', [..._existingColumns].sort().join(', '));
+    return _existingColumns;
+  }
+
+  // No rows yet — probe groups of advanced columns with .limit(0)
+  _existingColumns = new Set(baseColumns);
+
+  const advancedGroups: string[][] = [
+    ['legacy_number', 'account_owner_number'],
+    ['address', 'notes'],
+    ['tags'],
+    ['price_level'],
+    ['ptd_sales', 'ptd_gp_percent', 'ytd_sales', 'ytd_gp_percent', 'lyr_sales', 'lyr_gp_percent'],
+    ['created_by'],
+  ];
+
+  for (const group of advancedGroups) {
+    const { error } = await supabase
+      .from('contacts')
+      .select(group.join(', '))
+      .limit(0);
+    if (!error) {
+      group.forEach((col) => _existingColumns!.add(col));
+    }
+  }
+
+  _columnCacheTime = Date.now();
+  console.log('📋 Contact columns (probed):', [..._existingColumns].sort().join(', '));
+  return _existingColumns;
+}
+
+/** Remove any keys from `data` that are not actual DB columns */
+function filterToExistingColumns(data: any, existingCols: Set<string>): any {
+  const cleaned: any = {};
+  for (const key of Object.keys(data)) {
+    if (existingCols.has(key)) {
+      cleaned[key] = data[key];
+    }
+  }
+  return cleaned;
+}
 
 // Helper function to transform between camelCase and snake_case
 function transformToDbFormat(contactData: any) {
@@ -201,21 +332,70 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
   try {
     const supabase = createClient();
     
+    // Get the current user's access token for the server request
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.access_token) {
+      console.log('[contacts-client] No session/access_token, returning empty');
+      return { contacts: [] };
+    }
+
+    console.log('[contacts-client] Fetching contacts via server endpoint (bypasses RLS)...');
+    
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+      console.error('[contacts-client] Server error:', response.status, errorBody);
+      
+      // Fallback to direct Supabase query if server endpoint fails
+      console.warn('[contacts-client] Falling back to direct Supabase query...');
+      return await getAllContactsClientDirect();
+    }
+
+    const result = await response.json();
+    
+    console.log(`[contacts-client] Server returned ${result.meta?.count || 0} contacts for role=${result.meta?.role}`);
+    
+    // Transform from DB snake_case to app camelCase
+    const transformedData = (result.contacts || []).map(transformFromDbFormat);
+    
+    return { contacts: transformedData };
+  } catch (error: any) {
+    console.error('[contacts-client] Error fetching via server, falling back to direct query:', error);
+    return await getAllContactsClientDirect();
+  }
+}
+
+/**
+ * Direct Supabase query fallback (subject to RLS).
+ * Used only when the server endpoint is unavailable.
+ */
+async function getAllContactsClientDirect() {
+  try {
+    const supabase = createClient();
+    
     // First, get the current user and their profile (includes role)
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      // Silently return empty during initial load
       return { contacts: [] };
     }
 
-    // Get user's profile to check their role
     let profile;
     try {
       profile = await ensureUserProfile(user.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
-      // Return empty array instead of throwing - this prevents "Error" in dashboard
+      console.error('Failed to get user profile:', profileError);
       return { contacts: [] };
     }
 
@@ -223,103 +403,53 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
     const userOrgId = profile.organization_id;
     const userEmail = profile.email;
 
-    console.log('🔐 Current user:', userEmail, 'Role:', userRole, 'Organization:', userOrgId);
+    console.log('[contacts-client-direct] User:', userEmail, 'Role:', userRole, 'Org:', userOrgId);
+
+    const existingCols = await getExistingContactColumns(supabase);
+    const hasAccountOwnerCol = existingCols.has('account_owner_number');
 
     let query = supabase
       .from('contacts')
       .select('*');
 
-    // Apply role-based filtering
+    // Role-based filtering (matches server-side logic)
     if (userRole === 'super_admin') {
-      // Super Admin: Can see all data across all organizations
-      console.log('🔓 Super Admin - Loading all contacts');
-      // No filtering needed
-    } else if (userRole === 'admin') {
-      // Admin: Can ONLY see their own data (Team Dashboard shows team data)
-      console.log('🔒 Admin - Loading own contacts only (strict filtering)');
-      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
-    } else if (userRole === 'manager') {
-      // Manager: Can ONLY see their own data (Team Dashboard shows team data)
-      console.log('👔 Manager - Loading own contacts only (strict filtering)');
-      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
-    } else if (userRole === 'director') {
-      // Director: Same data access as Manager - sees only their own contacts
-      console.log('🎯 Director - Loading own contacts only (strict filtering)');
-      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
-    } else if (userRole === 'marketing') {
-      // Marketing: Can see all data within their organization (for campaigns)
-      console.log('📢 Marketing - Loading contacts for organization:', userOrgId);
+      // no filter
+    } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
       query = query.eq('organization_id', userOrgId);
     } else {
-      // Standard User: Only show their own contacts (strict filtering)
-      console.log('👤 Standard User - Loading only own contacts (strict filtering)');
-      query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
+      if (hasAccountOwnerCol && userEmail) {
+        query = query.eq('organization_id', userOrgId)
+          .or(`owner_id.eq.${user.id},account_owner_number.ilike.${userEmail}`);
+      } else {
+        query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
+      }
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
-      console.error('❌ Database error loading contacts:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint
-      });
-      
-      // Handle specific error cases
-      if (error.code === '42703') {
-        throw new Error('Database column missing. Please run the latest migration.');
-      } else if (error.code === 'PGRST205' || error.code === '42P01') {
-        throw new Error('Database table missing. Please run the database setup.');
+      console.error('[contacts-client-direct] Query error:', error);
+      if (error.code === '42703' && hasAccountOwnerCol) {
+        _existingColumns = null;
+        const retryQuery = supabase
+          .from('contacts')
+          .select('*')
+          .eq('organization_id', userOrgId)
+          .eq('owner_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        const { data: retryData, error: retryError } = await retryQuery;
+        if (retryError) throw retryError;
+        return { contacts: (retryData || []).map(transformFromDbFormat) };
       }
-      
       throw error;
     }
 
-    // Debug: Log the filtered results with owner information
-    console.log('📊 Query completed successfully');
-    console.log('📊 User details:', { 
-      userId: user.id, 
-      email: userEmail, 
-      role: userRole, 
-      orgId: userOrgId 
-    });
-    
-    if (data) {
-      console.log('📊 Filtered data - Total rows:', data.length);
-      if (data.length > 0) {
-        console.log('📊 Sample contacts (first 3):', data.slice(0, 3).map(d => ({
-          name: d.name,
-          company: d.company,
-          owner_id: d.owner_id,
-          organization_id: d.organization_id,
-          created_at: d.created_at
-        })));
-      }
-    } else {
-      console.log('📊 No data returned from database (data is null/undefined)');
-    }
-
-    // Transform data from database format to application format
     const transformedData = (data || []).map(transformFromDbFormat);
-
-    // 🚨 SAFETY NET: Client-side filter to ensure no other users' data leaks through
-    // Filter out any contacts that don't belong to the current user (except for super_admin and marketing)
-    let finalData = transformedData;
-    if (userRole !== 'super_admin' && userRole !== 'marketing') {
-      finalData = transformedData.filter(contact => contact.ownerId === user.id);
-      
-      // Only log if we actually filtered something out (which shouldn't happen)
-      if (finalData.length !== transformedData.length) {
-        console.warn(`🚨 CLIENT-SIDE FILTER: Removed ${transformedData.length - finalData.length} contacts that didn't belong to current user`);
-      }
-    }
-
-    return { contacts: finalData };
+    return { contacts: transformedData };
   } catch (error: any) {
-    console.error('Error loading contacts:', error);
-    // Return empty array instead of throwing to prevent "Error" in dashboard
+    console.error('[contacts-client-direct] Error:', error);
     return { contacts: [] };
   }
 }
@@ -339,9 +469,13 @@ export async function createContactClient(contactData: any) {
       dbData.owner_id = user.id;
     }
 
+    // Filter to only columns that exist in the database
+    const existingCols = await getExistingContactColumns(supabase);
+    const filteredData = filterToExistingColumns(dbData, existingCols);
+
     const { data, error } = await supabase
       .from('contacts')
-      .insert([dbData])
+      .insert([filteredData])
       .select()
       .single();
 
@@ -355,69 +489,220 @@ export async function createContactClient(contactData: any) {
   }
 }
 
-export async function upsertContactByLegacyNumberClient(contactData: any) {
+export async function upsertContactByLegacyNumberClient(contactData: any, preloadedAuth?: { userId: string; profile: any }) {
   try {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
     
-    if (!user) {
-      throw new Error('User not authenticated');
+    let userId: string;
+    let profile: any;
+    
+    if (preloadedAuth) {
+      // Use pre-fetched auth data (bulk import optimization)
+      userId = preloadedAuth.userId;
+      profile = preloadedAuth.profile;
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      userId = user.id;
+      profile = await ensureUserProfile(user.id);
     }
 
-    const profile = await ensureUserProfile(user.id);
+    // Detect which columns actually exist in the contacts table (cached)
+    const existingCols = await getExistingContactColumns(supabase);
 
     // Transform data from camelCase to snake_case
     const transformedData = transformToDbFormat(contactData);
+
+    // ── Resolve owner from account_owner_number ─────────────────────────
+    // If the CSV provides an account_owner_number (email), look up the
+    // matching profile in the same org and use that user as the owner.
+    let resolvedOwnerId: string = userId; // default to importing user
+    const accountOwnerEmail = contactData.accountOwnerNumber
+      ? String(contactData.accountOwnerNumber).trim()
+      : '';
+
+    if (accountOwnerEmail && existingCols.has('account_owner_number')) {
+      const ownerProfileId = await resolveOwnerByAccountOwnerNumber(
+        supabase,
+        accountOwnerEmail,
+        profile.organization_id,
+      );
+      if (ownerProfileId) {
+        resolvedOwnerId = ownerProfileId;
+      } else {
+        console.log(`[upsert] account_owner_number "${accountOwnerEmail}" not found in profiles — using importer as owner`);
+      }
+    }
     
-    // Query to find existing contact by legacy_number
-    const { data: existingContact, error: fetchError } = await supabase
+    // Helper: build an update payload that also reassigns owner_id when
+    // the CSV provides account_owner_number
+    const buildUpdatePayload = () => {
+      const base: any = {
+        ...transformedData,
+        updated_at: new Date().toISOString(),
+      };
+      // Always set owner_id to the resolved owner on update so re-imports
+      // correctly reassign contacts whose account_owner_number changed
+      if (accountOwnerEmail) {
+        base.owner_id = resolvedOwnerId;
+      }
+      return filterToExistingColumns(base, existingCols);
+    };
+
+    // Only attempt legacy number lookup if the column exists AND legacyNumber is provided
+    const hasLegacyNumber = existingCols.has('legacy_number')
+      && contactData.legacyNumber
+      && String(contactData.legacyNumber).trim() !== '';
+    
+    if (hasLegacyNumber) {
+      // Query to find existing contact by legacy_number
+      const { data: existingContacts, error: fetchError } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('organization_id', profile.organization_id)
+        .eq('legacy_number', contactData.legacyNumber)
+        .limit(1);
+
+      if (fetchError) {
+        console.error('Error looking up contact by legacy number:', fetchError);
+        throw fetchError;
+      }
+
+      const existingContact = existingContacts && existingContacts.length > 0 ? existingContacts[0] : null;
+
+      if (existingContact) {
+        const updatePayload = buildUpdatePayload();
+
+        const { data, error } = await supabase
+          .from('contacts')
+          .update(updatePayload)
+          .eq('id', existingContact.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        console.log('✅ Contact updated (by legacy number):', data?.name || data?.email);
+        return { contact: transformFromDbFormat(data), action: 'updated' as const };
+      }
+    }
+    
+    // Also check by email if no legacy number match was found and email is provided
+    const contactEmail = contactData.email && String(contactData.email).trim() !== '' ? String(contactData.email).trim() : null;
+    
+    if (contactEmail) {
+      const { data: existingByEmail, error: emailFetchError } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('organization_id', profile.organization_id)
+        .eq('email', contactEmail)
+        .limit(1);
+      
+      if (!emailFetchError && existingByEmail && existingByEmail.length > 0) {
+        const updatePayload = buildUpdatePayload();
+
+        const { data, error } = await supabase
+          .from('contacts')
+          .update(updatePayload)
+          .eq('id', existingByEmail[0].id)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        console.log('✅ Contact updated (by email):', data?.name || data?.email);
+        return { contact: transformFromDbFormat(data), action: 'updated' as const };
+      }
+    }
+
+    // Try matching by account_owner_number + name (same owner, same contact name)
+    const hasAccountOwnerCol = existingCols.has('account_owner_number');
+    const contactName = contactData.name ? String(contactData.name).trim() : '';
+
+    if (hasAccountOwnerCol && accountOwnerEmail && contactName) {
+      const { data: existingByOwnerName, error: ownerNameError } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('organization_id', profile.organization_id)
+        .ilike('account_owner_number', accountOwnerEmail)
+        .eq('name', contactName)
+        .limit(1);
+
+      if (!ownerNameError && existingByOwnerName && existingByOwnerName.length > 0) {
+        const updatePayload = buildUpdatePayload();
+
+        const { data, error } = await supabase
+          .from('contacts')
+          .update(updatePayload)
+          .eq('id', existingByOwnerName[0].id)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        console.log('✅ Contact updated (by account_owner_number + name):', data?.name || data?.email);
+        return { contact: transformFromDbFormat(data), action: 'updated' as const };
+      }
+    }
+    
+    // Also try matching by name + company as a last resort for dedup
+    const contactCompany = contactData.company ? String(contactData.company).trim() : '';
+    
+    if (contactName && contactCompany) {
+      const { data: existingByName, error: nameFetchError } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('organization_id', profile.organization_id)
+        .eq('name', contactName)
+        .eq('company', contactCompany)
+        .limit(1);
+      
+      if (!nameFetchError && existingByName && existingByName.length > 0) {
+        const updatePayload = buildUpdatePayload();
+
+        const { data, error } = await supabase
+          .from('contacts')
+          .update(updatePayload)
+          .eq('id', existingByName[0].id)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        console.log('✅ Contact updated (by name+company):', data?.name || data?.email);
+        return { contact: transformFromDbFormat(data), action: 'updated' as const };
+      }
+    }
+    
+    // Insert new contact — use resolvedOwnerId from account_owner_number lookup
+    const insertData = filterToExistingColumns({
+      ...transformedData,
+      owner_id: resolvedOwnerId,
+      organization_id: profile.organization_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }, existingCols);
+    
+    if (!insertData.email || String(insertData.email).trim() === '') {
+      const nameSlug = (contactData.name || 'contact').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').substring(0, 30);
+      insertData.email = `${nameSlug}-${Date.now()}@import.placeholder`;
+    }
+
+    const { data, error } = await supabase
       .from('contacts')
-      .select('*')
-      .eq('organization_id', profile.organization_id)
-      .eq('legacy_number', contactData.legacyNumber)
+      .insert([insertData])
+      .select()
       .single();
 
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      throw fetchError;
-    }
+    if (error) throw error;
 
-    if (existingContact) {
-      // Update existing contact
-      const { data, error } = await supabase
-        .from('contacts')
-        .update({
-          ...transformedData,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingContact.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      console.log('✅ Contact updated (by legacy number):', data);
-      return { contact: transformFromDbFormat(data) };
-    } else {
-      // Insert new contact
-      const { data, error } = await supabase
-        .from('contacts')
-        .insert([{
-          ...transformedData,
-          owner_id: user.id,
-          organization_id: profile.organization_id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      console.log('✅ Contact created (via legacy number upsert):', data);
-      return { contact: transformFromDbFormat(data) };
-    }
+    console.log('✅ Contact created (via import):', data?.name || data?.email, '| owner:', resolvedOwnerId);
+    return { contact: transformFromDbFormat(data), action: 'created' as const };
   } catch (error: any) {
-    console.error('Error upserting contact by legacy number:', error);
+    console.error('Error upserting contact:', error.message, error.code, error.details);
     throw error;
   }
 }
@@ -431,38 +716,9 @@ export async function updateContactClient(id: string, contactData: any) {
 
     // Get list of columns that exist in the database
     // We'll check if advanced fields exist before trying to update them
-    const { data: columnCheck } = await supabase
-      .from('contacts')
-      .select('legacy_number')
-      .limit(1);
+    const existingColumns = await getExistingContactColumns(supabase);
     
-    const hasAdvancedFields = columnCheck !== null; // If query succeeds, column exists
-
-    // Only include fields that exist in the database schema
-    const baseFields = [
-      'name', 'email', 'phone', 'company', 'status',
-      'price_level', 'owner_id', 'tags'
-    ];
-    
-    // Advanced fields that may not exist yet (require migration)
-    const advancedFields = [
-      'legacy_number', 'account_owner_number',
-      'address', 'notes',
-      'ptd_sales', 'ptd_gp_percent',
-      'ytd_sales', 'ytd_gp_percent',
-      'lyr_sales', 'lyr_gp_percent'
-    ];
-
-    const allowedFields = hasAdvancedFields 
-      ? [...baseFields, ...advancedFields]
-      : baseFields;
-
-    const cleanedData: any = {};
-    for (const field of allowedFields) {
-      if (field in transformedData) {
-        cleanedData[field] = transformedData[field];
-      }
-    }
+    const cleanedData = filterToExistingColumns(transformedData, existingColumns);
 
     const { data, error } = await supabase
       .from('contacts')
@@ -501,6 +757,15 @@ export async function claimUnassignedContactsClient(accountOwnerEmail: string) {
   try {
     const supabase = createClient();
     
+    // Detect available columns
+    const existingCols = await getExistingContactColumns(supabase);
+    
+    // If account_owner_number column doesn't exist, we can't claim contacts this way
+    if (!existingCols.has('account_owner_number')) {
+      console.warn('⚠️ account_owner_number column does not exist — skipping claim');
+      return getAllContactsClient();
+    }
+    
     // Get the current user and their profile
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -514,13 +779,18 @@ export async function claimUnassignedContactsClient(accountOwnerEmail: string) {
     console.log('🔍 Claiming unassigned contacts for:', accountOwnerEmail, 'Org:', userOrgId);
     
     // Find all contacts without an account_owner_number
-    // Note: We can't chain .or() twice - need to find unassigned first, then filter
     const { data: allUnassigned, error: fetchError } = await supabase
       .from('contacts')
       .select('id, organization_id, name, company, account_owner_number')
       .or('account_owner_number.is.null,account_owner_number.eq.');
 
     if (fetchError) {
+      // If the column doesn't exist at runtime (cache stale), gracefully return
+      if (fetchError.code === '42703') {
+        console.warn('⚠️ account_owner_number column missing at query time — skipping claim');
+        _existingColumns = null; // bust cache
+        return getAllContactsClient();
+      }
       console.error('❌ Fetch error:', fetchError);
       throw fetchError;
     }
@@ -593,6 +863,13 @@ export async function getSegmentsClient() {
 
     const profile = await ensureUserProfile(user.id);
 
+    // Check if tags column exists before querying it
+    const existingCols = await getExistingContactColumns(supabase);
+    if (!existingCols.has('tags')) {
+      console.warn('⚠️ tags column does not exist — returning empty segments');
+      return { segments: [] };
+    }
+
     // Get all unique tags from contacts
     const { data, error } = await supabase
       .from('contacts')
@@ -600,7 +877,14 @@ export async function getSegmentsClient() {
       .eq('organization_id', profile.organization_id)
       .not('tags', 'is', null);
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '42703') {
+        console.warn('⚠️ tags column missing at query time — returning empty segments');
+        _existingColumns = null; // bust cache
+        return { segments: [] };
+      }
+      throw error;
+    }
 
     // Extract unique tags
     const tagsSet = new Set<string>();

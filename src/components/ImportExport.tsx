@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
 import { contactsAPI, inventoryAPI, bidsAPI } from '../utils/api';
+import { clearOwnerProfileCache } from '../utils/contacts-client';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { createClient } from '../utils/supabase/client';
@@ -59,7 +61,7 @@ interface MappingState {
 const DATABASE_FIELDS = {
   contacts: [
     { value: 'name', label: 'Name (Full Name)', required: true },
-    { value: 'email', label: 'Email', required: true },
+    { value: 'email', label: 'Email', required: false },
     { value: 'phone', label: 'Phone', required: false },
     { value: 'company', label: 'Company', required: false },
     { value: 'status', label: 'Status', required: false },
@@ -208,7 +210,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
     try {
       // Map the data using the column mapping
-      const mappedData = data.map(row => {
+      const mappedDataRaw = data.map(row => {
         const mappedRow: any = {};
         Object.entries(mapping).forEach(([fileCol, dbField]) => {
           if (dbField && row[fileCol] !== undefined) {
@@ -217,6 +219,16 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         });
         return mappedRow;
       });
+
+      // Filter out rows where all mapped values are empty (trailing blank rows, etc.)
+      const mappedData = mappedDataRaw.filter(row => {
+        const hasData = Object.values(row).some(v => v !== undefined && v !== null && String(v).trim() !== '');
+        return hasData;
+      });
+
+      if (mappedDataRaw.length !== mappedData.length) {
+        console.log(`Filtered out ${mappedDataRaw.length - mappedData.length} empty rows after mapping`);
+      }
 
       const supabase = createClient();
 
@@ -422,14 +434,23 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       if (!line) continue;
       
       const values = parseCSVLine(line);
-      if (values.length !== headers.length) {
-        console.warn(`Row ${i + 1}: Expected ${headers.length} columns, got ${values.length}. Skipping.`);
+      // Be forgiving with column count — pad short rows with empty strings, ignore extra columns
+      if (values.length < headers.length) {
+        console.warn(`Row ${i + 1}: Expected ${headers.length} columns, got ${values.length}. Padding with empty values.`);
+        while (values.length < headers.length) {
+          values.push('');
+        }
+      }
+
+      // Skip rows where every value is blank (trailing empty lines, rows of commas, etc.)
+      if (values.every(v => !v || v.trim() === '')) {
+        console.log(`Row ${i + 1}: Skipping empty row`);
         continue;
       }
 
       const row: any = {};
       headers.forEach((header, index) => {
-        row[header] = values[index];
+        row[header] = values[index] !== undefined ? values[index] : '';
       });
       data.push(row);
     }
@@ -444,8 +465,25 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
     // Define common synonyms for fields
     const fieldSynonyms: { [key: string]: string[] } = {
+      // Contact field synonyms
+      'name': ['item name', 'product name', 'item description', 'product description', 'customer name', 'contact name', 'full name', 'client name', 'account name', 'customer', 'contact'],
+      'email': ['email address', 'e-mail', 'e-mail address', 'contact email', 'customer email'],
+      'phone': ['phone number', 'telephone', 'tel', 'mobile', 'cell', 'cell phone', 'contact phone', 'customer phone', 'phone #'],
+      'company': ['company name', 'business', 'business name', 'organization', 'firm', 'employer'],
+      'status': ['contact status', 'customer status', 'account status', 'customer type'],
+      'priceLevel': ['price level', 'pricing level', 'pricing tier', 'customer tier', 'discount level', 'price group', 'pricing group'],
+      'address': ['street address', 'mailing address', 'billing address', 'street', 'addr', 'location', 'full address'],
+      'legacyNumber': ['legacy #', 'legacy number', 'legacy no', 'customer #', 'customer number', 'cust #', 'cust no', 'account #', 'account number', 'acct #', 'acct no', 'old id', 'old #', 'customer id', 'cust id'],
+      'accountOwnerNumber': ['account owner #', 'account owner', 'owner #', 'owner number', 'sales rep', 'sales rep #', 'rep #', 'assigned to', 'salesperson', 'salesperson #'],
+      'ptdSales': ['ptd sales', 'period to date sales', 'ptd $', 'current period sales'],
+      'ptdGpPercent': ['ptd gp%', 'ptd gp', 'ptd gross profit', 'ptd margin', 'ptd gp percent'],
+      'ytdSales': ['ytd sales', 'year to date sales', 'ytd $', 'annual sales'],
+      'ytdGpPercent': ['ytd gp%', 'ytd gp', 'ytd gross profit', 'ytd margin', 'ytd gp percent'],
+      'lyrSales': ['lyr sales', 'last year sales', 'ly sales', 'prior year sales', 'previous year sales'],
+      'lyrGpPercent': ['lyr gp%', 'lyr gp', 'last year gp', 'ly gp%', 'prior year gp'],
+      // Inventory field synonyms
       'sku': ['item number', 'item#', 'item code', 'product code', 'product number', 'part number', 'part#'],
-      'name': ['item name', 'product name', 'item description', 'description', 'product description'],
+      'description': ['description', 'item description', 'product description'],
       'quantity': ['qty', 'stock', 'quantity on hand', 'on hand', 'available', 'qty on hand'],
       'quantity_on_order': ['qty on order', 'on order', 'quantity on order', 'ordered', 'qty ordered'],
       'unit_price': ['price', 'selling price', 'unit price', 'sale price', 'base price'],
@@ -604,7 +642,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       }
 
       // Map all rows to database fields
-      const mappedData = data.map(row => {
+      const mappedDataRaw = data.map(row => {
         const mappedRow: any = {};
         Object.entries(mapping).forEach(([fileCol, dbField]) => {
           if (dbField && row[fileCol] !== undefined) {
@@ -613,6 +651,16 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         });
         return mappedRow;
       });
+
+      // Filter out rows where all mapped values are empty (trailing blank rows, etc.)
+      const mappedData = mappedDataRaw.filter(row => {
+        const hasData = Object.values(row).some(v => v !== undefined && v !== null && String(v).trim() !== '');
+        return hasData;
+      });
+
+      if (mappedDataRaw.length !== mappedData.length) {
+        console.log(`Filtered out ${mappedDataRaw.length - mappedData.length} empty rows after mapping`);
+      }
 
       // Use bulk processing for inventory
       if (type === 'inventory') {
@@ -653,6 +701,32 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           }
         }
       } else if (type === 'contacts') {
+        // Pre-fetch auth data ONCE for the entire import (avoid 364 separate auth calls)
+        const supabaseForAuth = createClient();
+        const { data: { user: authUser } } = await supabaseForAuth.auth.getUser();
+        if (!authUser) {
+          throw new Error('User not authenticated. Please sign in again.');
+        }
+        
+        // Import ensureUserProfile to get the profile once
+        const { ensureUserProfile } = await import('../utils/ensure-profile');
+        const authProfile = await ensureUserProfile(authUser.id);
+        const preloadedAuth = { userId: authUser.id, profile: authProfile };
+        
+        console.log(`Pre-loaded auth for import: user=${authUser.id}, org=${authProfile.organization_id}`);
+
+        // Log unique account owners found in CSV for debugging ownership resolution
+        const uniqueOwners = new Set(
+          mappedData
+            .map((c: any) => c.accountOwnerNumber ? String(c.accountOwnerNumber).trim().toLowerCase() : '')
+            .filter((v: string) => v !== '')
+        );
+        if (uniqueOwners.size > 0) {
+          console.log(`📋 Import will resolve ${uniqueOwners.size} unique account owner(s):`, [...uniqueOwners]);
+        } else {
+          console.log('📋 No accountOwnerNumber mapped — all contacts will be owned by the importing user');
+        }
+
         // Use batch processing for contacts
         const BATCH_SIZE = 25; // Slightly smaller batches for contacts
         const totalBatches = Math.ceil(mappedData.length / BATCH_SIZE);
@@ -665,15 +739,18 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           
           console.log(`Processing batch ${batchNum}/${totalBatches} (${batch.length} contacts)`);
           
-          // Process contacts in parallel within the batch
+          // Process contacts in parallel within the batch, passing pre-loaded auth
           const batchPromises = batch.map(async (contact, idx) => {
             try {
               const rowNum = i + idx + 2;
-              const result = await importContact(contact, rowNum, errors);
+              const result = await importContact(contact, rowNum, errors, preloadedAuth);
               return { success: true, result };
             } catch (error: any) {
               const rowNum = i + idx + 2;
-              errors.push(`Row ${rowNum}: ${error.message}`);
+              const errMsg = error.message || 'Unknown error';
+              const errDetail = error.details || error.code || '';
+              errors.push(`Row ${rowNum} (${contact.name || 'unnamed'}): ${errMsg}${errDetail ? ` [${errDetail}]` : ''}`);
+              console.error(`Row ${rowNum} failed:`, error);
               return { success: false, error };
             }
           });
@@ -683,12 +760,15 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           // Tally results
           batchResults.forEach(result => {
             if (result.success) {
-              if (result.result?.action === 'updated') {
+              if (result.result?.action === 'skipped') {
+                // Empty row — don't count as success or failure
+              } else if (result.result?.action === 'updated') {
                 updated++;
+                success++;
               } else {
                 created++;
+                success++;
               }
-              success++;
             } else {
               failed++;
             }
@@ -722,8 +802,15 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         }
       }
 
-      setImportResult({ success, failed, errors: errors.slice(0, 10), updated, created });
-      toast.success(`Import complete: ${success} successful, ${failed} failed`);
+      setImportResult({ success, failed, errors: errors.slice(0, 25), updated, created });
+      
+      if (failed > 0 && success === 0) {
+        toast.error(`Import failed: all ${failed} records failed. Check error details below.`);
+      } else if (failed > 0) {
+        toast.warning(`Import complete: ${success} successful (${created} created, ${updated} updated), ${failed} failed`);
+      } else {
+        toast.success(`Import complete: ${success} successful (${created} created, ${updated} updated)`)
+      }
       
       if (failed === 0) {
         setMappingState(null);
@@ -731,6 +818,8 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     } catch (error: any) {
       toast.error('Failed to import data: ' + error.message);
       setImportResult({ success: 0, failed: 0, errors: [error.message] });
+      // Clear the owner profile cache after import completes
+      clearOwnerProfileCache();
     } finally {
       setIsImporting(false);
       setImportProgress(null);
@@ -738,26 +827,44 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   };
 
   // Import individual contact
-  const importContact = async (contact: any, rowNum: number, errors: string[]) => {
-    if (!contact.name || !contact.email) {
-      throw new Error('Missing required fields (name, email)');
+  const importContact = async (contact: any, rowNum: number, errors: string[], preloadedAuth?: { userId: string; profile: any }) => {
+    // Only name is strictly required — email is optional for customer imports
+    const contactName = contact.name ? String(contact.name).trim() : '';
+    if (!contactName) {
+      // Check if the row is effectively empty (no meaningful data at all)
+      const hasAnyData = Object.values(contact).some(
+        (v: any) => v !== undefined && v !== null && String(v).trim() !== ''
+      );
+      if (!hasAnyData) {
+        // Silently skip completely empty rows — not an error
+        console.log(`Row ${rowNum}: Skipping empty row`);
+        return { action: 'skipped' as const };
+      }
+      throw new Error('Missing required field: Name');
     }
 
     // Clean the contact data - remove fields that don't exist in database
     const cleanContact: any = {
-      name: contact.name,
-      email: contact.email,
-      phone: contact.phone || '',
-      company: contact.company || '',
-      status: contact.status || 'Prospect',
-      priceLevel: contact.priceLevel || getPriceTierLabel(1), // Default to tier 1 label
+      name: contactName,
+      phone: contact.phone ? String(contact.phone).trim() : '',
+      company: contact.company ? String(contact.company).trim() : '',
+      status: contact.status ? String(contact.status).trim() : 'Prospect',
+      priceLevel: contact.priceLevel ? String(contact.priceLevel).trim() : getPriceTierLabel(1),
     };
 
+    // Add email only if provided — the upsert function handles missing emails
+    const emailVal = contact.email ? String(contact.email).trim() : '';
+    if (emailVal) {
+      cleanContact.email = emailVal;
+    }
+    // If no email, we leave it unset; upsertContactByLegacyNumberClient
+    // will generate a placeholder at insert time if the DB requires it
+
     // Add optional fields only if they have values
-    if (contact.address) cleanContact.address = contact.address;
-    if (contact.notes) cleanContact.notes = contact.notes;
-    if (contact.legacyNumber) cleanContact.legacyNumber = contact.legacyNumber;
-    if (contact.accountOwnerNumber) cleanContact.accountOwnerNumber = contact.accountOwnerNumber;
+    if (contact.address) cleanContact.address = String(contact.address).trim();
+    if (contact.notes) cleanContact.notes = String(contact.notes).trim();
+    if (contact.legacyNumber) cleanContact.legacyNumber = String(contact.legacyNumber).trim();
+    if (contact.accountOwnerNumber) cleanContact.accountOwnerNumber = String(contact.accountOwnerNumber).trim();
     
     // Add numeric fields only if they have values
     if (contact.ptdSales) cleanContact.ptdSales = parseFloat(contact.ptdSales);
@@ -767,14 +874,14 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     if (contact.lyrSales) cleanContact.lyrSales = parseFloat(contact.lyrSales);
     if (contact.lyrGpPercent) cleanContact.lyrGpPercent = parseFloat(contact.lyrGpPercent);
 
-    // Use upsert logic: check by Legacy # and update if exists, otherwise create new
-    const result = await contactsAPI.upsertByLegacyNumber(cleanContact);
+    // Use upsert logic: check by Legacy # or email, update if exists, otherwise create new
+    const result = await contactsAPI.upsertByLegacyNumber(cleanContact, preloadedAuth);
     
     // Log whether we created or updated
     if (result.action === 'updated') {
-      console.log(`Row ${rowNum}: Updated existing contact (Legacy #: ${cleanContact.legacyNumber})`);
+      console.log(`Row ${rowNum}: Updated existing contact: ${cleanContact.name}`);
     } else {
-      console.log(`Row ${rowNum}: Created new contact`);
+      console.log(`Row ${rowNum}: Created new contact: ${cleanContact.name}`);
     }
 
     return result;
@@ -1119,6 +1226,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   };
 
   return (
+    <PermissionGate user={user} module="import-export" action="view">
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-end gap-3">
         <Button
@@ -1164,8 +1272,8 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   {importResult.errors.map((error, index) => (
                     <li key={index} className="text-red-700">{error}</li>
                   ))}
-                  {importResult.errors.length >= 10 && (
-                    <li className="text-gray-600">...and more errors</li>
+                  {importResult.errors.length >= 25 && (
+                    <li className="text-gray-600">...and more errors (showing first 25)</li>
                   )}
                 </ul>
               </div>
@@ -1563,5 +1671,6 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         </div>
       )}
     </div>
+    </PermissionGate>
   );
 }

@@ -56,6 +56,8 @@ import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
 import { EmailAccountSetup } from './EmailAccountSetup';
 import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
+import { canAdd, canDelete } from '../utils/permissions';
 import { useDebounce } from '../utils/useDebounce';
 
 // Cache backend availability check to avoid repeated failed requests
@@ -1526,6 +1528,7 @@ export function Email({ user }: EmailProps) {
   ];
 
   return (
+    <PermissionGate user={user} module="email" action="view">
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center justify-end gap-2">
@@ -1533,10 +1536,12 @@ export function Email({ user }: EmailProps) {
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Add Account</span>
           </Button>
+          {canAdd('email', user.role) && (
           <Button onClick={() => setIsComposeOpen(true)} className="text-xs sm:text-sm">
             <Send className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Compose</span>
           </Button>
+          )}
         </div>
       </div>
 
@@ -1588,6 +1593,7 @@ export function Email({ user }: EmailProps) {
                       <Settings className="h-4 w-4 mr-2" />
                       Edit Account Settings
                     </DropdownMenuItem>
+                    {canDelete('email', user.role) && (
                     <DropdownMenuItem
                       className="text-red-600"
                       onClick={handleDeleteAccount}
@@ -1595,6 +1601,7 @@ export function Email({ user }: EmailProps) {
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete Account
                     </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <Button variant="outline" size="sm" onClick={handleSync} disabled={isSyncing} className="text-xs">
@@ -1765,7 +1772,7 @@ export function Email({ user }: EmailProps) {
                       className="pl-10 text-sm"
                     />
                   </div>
-                  {currentFolder === 'trash' && filteredEmails.length > 0 && (
+                  {currentFolder === 'trash' && filteredEmails.length > 0 && canDelete('email', user.role) && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -1871,6 +1878,7 @@ export function Email({ user }: EmailProps) {
                           <Archive className="h-4 w-4 mr-2" />
                           Archive
                         </DropdownMenuItem>
+                        {canDelete('email', user.role) && (
                         <DropdownMenuItem
                           className="text-red-600"
                           onClick={() => handleDelete(selectedEmail.id)}
@@ -1878,6 +1886,8 @@ export function Email({ user }: EmailProps) {
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete
                         </DropdownMenuItem>
+                        )}
+                        {canDelete('email', user.role) && (
                         <DropdownMenuItem
                           className="text-red-600"
                           onClick={() => handlePermanentDelete(selectedEmail.id)}
@@ -1885,6 +1895,7 @@ export function Email({ user }: EmailProps) {
                           <Trash2 className="h-4 w-4 mr-2" />
                           Permanently Delete
                         </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -1913,6 +1924,7 @@ export function Email({ user }: EmailProps) {
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2 mt-6">
+                    {canAdd('email', user.role) && (
                     <Button
                       onClick={() => {
                         setComposeEmail({
@@ -1928,6 +1940,7 @@ export function Email({ user }: EmailProps) {
                       <Send className="h-4 w-4 sm:mr-2" />
                       <span className="hidden sm:inline">Reply</span>
                     </Button>
+                    )}
                     <Button variant="outline" className="text-xs sm:text-sm">
                       <Send className="h-4 w-4 sm:mr-2" />
                       <span className="hidden sm:inline">Forward</span>
@@ -2295,5 +2308,6 @@ export function Email({ user }: EmailProps) {
         </div>
       )}
     </div>
+    </PermissionGate>
   );
 }

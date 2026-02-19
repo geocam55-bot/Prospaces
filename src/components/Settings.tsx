@@ -49,6 +49,8 @@ import {
   Trash2
 } from 'lucide-react';
 import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
+import { canView } from '../utils/permissions';
 import { tenantsAPI, settingsAPI } from '../utils/api';
 import { DEFAULT_PRICE_TIER_LABELS, type PriceTierLabels, getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings';
 
@@ -492,9 +494,10 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   };
 
   const canManageSettings = user.role === 'super_admin' || user.role === 'admin';
-  const canAccessSecurity = user.role === 'super_admin' || user.role === 'admin';
+  const canAccessSecurity = canView('security', user.role);
 
   return (
+    <PermissionGate user={user} module="settings" action="view">
     <div className="p-6 space-y-6">
       <Tabs defaultValue="profile" className="w-full">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -1244,5 +1247,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         </DialogContent>
       </Dialog>
     </div>
+    </PermissionGate>
   );
 }

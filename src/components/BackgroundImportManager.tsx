@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner@2.0.3';
 import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
 import { inventoryAPI } from '../utils/api';
 import { getPriceTierLabel } from '../lib/global-settings';
 
@@ -473,13 +474,16 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
 
   if (isLoading) {
     return (
+      <PermissionGate user={user} module="import-export" action="view">
       <div className="flex items-center justify-center p-12">
         <Loader2 className="size-8 animate-spin text-muted-foreground" />
       </div>
+      </PermissionGate>
     );
   }
 
   return (
+    <PermissionGate user={user} module="import-export" action="view">
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
@@ -634,5 +638,6 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
         </div>
       )}
     </div>
+    </PermissionGate>
   );
 }

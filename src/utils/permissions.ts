@@ -32,47 +32,151 @@ function notifyPermissionsChanged() {
   permissionListeners.forEach(callback => callback());
 }
 
+// Canonical list of all modules — used by both Security.tsx defaults and runtime enforcement
+export const ALL_MODULES = [
+  'dashboard', 'ai-suggestions', 'contacts', 'tasks', 'appointments', 'opportunities',
+  'bids', 'quotes', 'notes', 'email', 'marketing', 'inventory',
+  'users', 'settings', 'tenants', 'security', 'import-export',
+  'documents', 'team-dashboard', 'reports', 'project-wizards', 'admin', 'kitchen-planner'
+];
+
+export const ALL_ROLES: UserRole[] = ['super_admin', 'admin', 'director', 'manager', 'marketing', 'standard_user'];
+
 /**
- * Initialize permissions from backend
+ * Get the canonical default permission for a given module + role.
+ * This is the single source of truth used by both the runtime cache
+ * AND the Security Settings UI when no admin overrides exist.
+ */
+export function getDefaultPermission(module: string, role: UserRole): Permission {
+  if (role === 'super_admin') {
+    return { visible: true, add: true, change: true, delete: true };
+  }
+
+  if (role === 'admin') {
+    if (module === 'tenants') {
+      return { visible: false, add: false, change: false, delete: false };
+    }
+    return {
+      visible: true,
+      add: true,
+      change: true,
+      delete: module === 'users' ? false : true,
+    };
+  }
+
+  if (role === 'director') {
+    // Director: Same as Manager for most things, but can VIEW users (read-only)
+    if (module === 'tenants' || module === 'security' || module === 'import-export') {
+      return { visible: false, add: false, change: false, delete: false };
+    }
+    if (module === 'users') {
+      return { visible: true, add: false, change: false, delete: false };
+    }
+    if (module === 'settings') {
+      return { visible: true, add: false, change: true, delete: false };
+    }
+    return {
+      visible: true,
+      add: true,
+      change: true,
+      delete: module === 'marketing',
+    };
+  }
+
+  if (role === 'manager') {
+    if (module === 'tenants' || module === 'security' || module === 'users' || module === 'import-export') {
+      return { visible: false, add: false, change: false, delete: false };
+    }
+    if (module === 'settings') {
+      return { visible: true, add: false, change: true, delete: false };
+    }
+    return {
+      visible: true,
+      add: true,
+      change: true,
+      delete: module === 'marketing',
+    };
+  }
+
+  if (role === 'marketing') {
+    if (module === 'tenants' || module === 'security' || module === 'users' || module === 'settings' || module === 'import-export') {
+      return { visible: false, add: false, change: false, delete: false };
+    }
+    return {
+      visible: module !== 'bids' && module !== 'quotes',
+      add: module === 'marketing' || module === 'contacts' || module === 'email' || module === 'opportunities',
+      change: module === 'marketing' || module === 'contacts' || module === 'email' || module === 'opportunities',
+      delete: module === 'marketing',
+    };
+  }
+
+  // standard_user — only personal data access
+  const isPersonalModule = module === 'contacts' || module === 'tasks' || module === 'notes';
+  const canViewModule = module === 'dashboard' || isPersonalModule || module === 'appointments' || module === 'settings';
+
+  if (module === 'tenants' || module === 'security' || module === 'import-export' ||
+      module === 'users' || module === 'bids' || module === 'quotes' || module === 'opportunities' ||
+      module === 'email' || module === 'marketing' || module === 'inventory' ||
+      module === 'admin' || module === 'team-dashboard') {
+    return { visible: false, add: false, change: false, delete: false };
+  }
+
+  if (module === 'settings') {
+    return { visible: true, add: false, change: true, delete: false };
+  }
+
+  return {
+    visible: canViewModule,
+    add: isPersonalModule,
+    change: isPersonalModule,
+    delete: false,
+  };
+}
+
+/**
+ * Initialize permissions from backend + localStorage overrides
  */
 export async function initializePermissions(role: UserRole) {
   // Clear existing permissions first
   permissionsCache.clear();
-  
+
   try {
-    // ⚡ Set default permissions immediately for faster startup
-    initializeDefaultPermissions();
-    
-    // Try to fetch permissions from Supabase in background (non-blocking)
+    // Step 1: Set canonical defaults for ALL roles (needed for admin lookups across roles)
+    ALL_MODULES.forEach(module => {
+      ALL_ROLES.forEach(r => {
+        const key = `${module}:${r}`;
+        permissionsCache.set(key, getDefaultPermission(module, r));
+      });
+    });
+
+    // Step 2: Apply localStorage overrides (saved by Security Settings UI)
+    loadFromLocalStorage();
+
+    // Step 3: Try to fetch from Supabase as an additional override layer (non-blocking)
     const supabase = createClient();
-    
-    // Add timeout to prevent slow queries from blocking startup
-    const timeoutPromise = new Promise((_, reject) => 
+
+    const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Permissions fetch timeout')), 1000)
     );
-    
+
     const fetchPromise = supabase
       .from('permissions')
       .select('*')
       .eq('role', role);
-    
+
     try {
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
-      
+
       if (error) {
-        // If table doesn't exist (PGRST205), silently use defaults
         if (error.code === 'PGRST205') {
-          console.log(`Permissions table not found, using default permissions for ${role}`);
+          console.log(`Permissions table not found, using defaults + localStorage for ${role}`);
           return;
         }
-        
-        // For other errors, warn but still use defaults
-        console.warn('Failed to fetch permissions from Supabase, using defaults:', error);
+        console.warn('Failed to fetch permissions from Supabase, using defaults + localStorage:', error);
         return;
       }
-      
+
       if (data && data.length > 0) {
-        // Load permissions from database - override defaults
         console.log(`📥 Loading ${data.length} permissions from database for role: ${role}`);
         data.forEach((perm: any) => {
           const key = `${perm.module}:${perm.role}`;
@@ -86,112 +190,70 @@ export async function initializePermissions(role: UserRole) {
         console.log(`✅ Successfully loaded ${data.length} permissions for role ${role} from Supabase`);
         notifyPermissionsChanged();
       } else {
-        // No permissions found for this role, use defaults (already set)
-        console.log(`⚠️ No permissions found in database for ${role}, using hardcoded defaults`);
+        console.log(`⚠️ No permissions found in database for ${role}, using defaults + localStorage`);
       }
     } catch (timeoutError) {
-      // Timeout - use defaults that are already set
-      console.log('⚠️ Permissions fetch timed out, using default permissions');
+      console.log('⚠️ Permissions fetch timed out, using defaults + localStorage');
     }
   } catch (err) {
     console.error('Error initializing permissions:', err);
-    // Defaults are already set, so we're fine
   }
 }
 
 /**
- * Initialize default permissions when backend is unavailable
+ * Load permissions saved by Security Settings (Security.tsx) from localStorage.
+ * These overrides take precedence over hardcoded defaults.
  */
-function initializeDefaultPermissions() {
-  const modules = [
-    'dashboard', 'ai-suggestions', 'contacts', 'tasks', 'appointments', 'opportunities', 'bids', 'quotes', 'notes',
-    'email', 'marketing', 'inventory', 'users', 'settings', 'tenants', 'security', 'import-export',
-    'documents', 'team-dashboard', 'reports', 'project-wizards', 'admin', 'kitchen-planner'
-  ];
-  const roles: UserRole[] = ['super_admin', 'admin', 'director', 'manager', 'marketing', 'standard_user'];
+function loadFromLocalStorage() {
+  try {
+    const orgId = localStorage.getItem('currentOrgId') || 'org_001';
+    const storedPerms = localStorage.getItem(`permissions_${orgId}`);
 
-  modules.forEach(module => {
-    roles.forEach(role => {
-      const key = `${module}:${role}`;
-      
-      if (role === 'super_admin') {
-        permissionsCache.set(key, { visible: true, add: true, change: true, delete: true });
-      } else if (role === 'admin') {
-        // Admin can see security but not tenants
-        if (module === 'tenants') {
-          permissionsCache.set(key, { visible: false, add: false, change: false, delete: false });
-        } else {
-          permissionsCache.set(key, {
-            visible: true,
-            add: true,
-            change: true,
-            delete: module === 'users' ? false : true,
-          });
-        }
-      } else if (role === 'manager') {
-        // Manager cannot see tenants, security, users, settings, or import-export
-        if (module === 'tenants' || module === 'security' || module === 'users' || module === 'settings' || module === 'import-export') {
-          permissionsCache.set(key, { visible: false, add: false, change: false, delete: false });
-        } else {
-          permissionsCache.set(key, {
-            visible: true,
-            add: true,
-            change: true,
-            delete: module === 'marketing',
-          });
-        }
-      } else if (role === 'director') {
-        // Director: Same as Manager, but can VIEW users (read-only) and team-dashboard shows ALL users
-        if (module === 'tenants' || module === 'security' || module === 'settings' || module === 'import-export') {
-          permissionsCache.set(key, { visible: false, add: false, change: false, delete: false });
-        } else if (module === 'users') {
-          // Director can VIEW users but not add/change/delete
-          permissionsCache.set(key, { visible: true, add: false, change: false, delete: false });
-        } else {
-          permissionsCache.set(key, {
-            visible: true,
-            add: true,
-            change: true,
-            delete: module === 'marketing',
-          });
-        }
-      } else if (role === 'marketing') {
-        // Marketing cannot see tenants, security, users, settings, bids, quotes, or import-export
-        if (module === 'tenants' || module === 'security' || module === 'users' || module === 'settings' || module === 'import-export') {
-          permissionsCache.set(key, { visible: false, add: false, change: false, delete: false });
-        } else {
-          permissionsCache.set(key, {
-            visible: module !== 'bids' && module !== 'quotes',
-            add: module === 'marketing' || module === 'contacts' || module === 'email' || module === 'opportunities',
-            change: module === 'marketing' || module === 'contacts' || module === 'email' || module === 'opportunities',
-            delete: module === 'marketing',
-          });
-        }
-      } else {
-        // standard_user - only personal data access
-        const isPersonalModule = module === 'contacts' || module === 'tasks' || module === 'notes';
-        const canViewModule = module === 'dashboard' || isPersonalModule || module === 'appointments';
-        
-        // Explicitly deny these modules
-        if (module === 'tenants' || module === 'security' || module === 'import-export' || 
-            module === 'users' || module === 'settings' || module === 'bids' || module === 'quotes' || module === 'opportunities' ||
-            module === 'email' || module === 'marketing' || module === 'inventory') {
-          permissionsCache.set(key, { visible: false, add: false, change: false, delete: false });
-        } else {
-          // Allow personal modules and dashboard
-          permissionsCache.set(key, {
-            visible: canViewModule,
-            add: isPersonalModule,
-            change: isPersonalModule,
-            delete: false,
-          });
-        }
+    if (!storedPerms) {
+      console.log('No localStorage permissions found, using hardcoded defaults');
+      return;
+    }
+
+    const permsArray = JSON.parse(storedPerms);
+    if (!Array.isArray(permsArray) || permsArray.length === 0) {
+      return;
+    }
+
+    let count = 0;
+    permsArray.forEach((perm: any) => {
+      if (perm.module && perm.role) {
+        const key = `${perm.module}:${perm.role}`;
+        permissionsCache.set(key, {
+          visible: !!perm.visible,
+          add: !!perm.add,
+          change: !!perm.change,
+          delete: !!perm.delete,
+        });
+        count++;
       }
     });
+
+    console.log(`✅ Applied ${count} permission overrides from Security Settings (localStorage)`);
+    notifyPermissionsChanged();
+  } catch (err) {
+    console.warn('Failed to load permissions from localStorage:', err);
+  }
+}
+
+/**
+ * Refresh permissions from localStorage. Call this after Security Settings saves.
+ */
+export function refreshPermissionsFromStorage() {
+  // Re-apply defaults first
+  ALL_MODULES.forEach(module => {
+    ALL_ROLES.forEach(r => {
+      const key = `${module}:${r}`;
+      permissionsCache.set(key, getDefaultPermission(module, r));
+    });
   });
-  
-  // Notify listeners that permissions have been initialized
-  notifyPermissionsChanged();
+
+  // Then apply localStorage overrides
+  loadFromLocalStorage();
 }
 
 /**
@@ -244,13 +306,7 @@ export function getPermissions(module: string, role: UserRole): Permission {
  */
 export function debugPermissions(role: UserRole) {
   console.log(`\n🔍 DEBUG: All permissions for ${role}:`);
-  const modules = [
-    'dashboard', 'ai-suggestions', 'contacts', 'tasks', 'appointments', 'opportunities', 'bids', 'quotes', 'notes',
-    'email', 'marketing', 'inventory', 'users', 'settings', 'tenants', 'security', 'import-export',
-    'documents', 'team-dashboard', 'reports', 'project-wizards', 'admin', 'kitchen-planner'
-  ];
-  
-  modules.forEach(module => {
+  ALL_MODULES.forEach(module => {
     const key = `${module}:${role}`;
     const perm = permissionsCache.get(key);
     if (perm) {

@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from './ui/select';
 import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
+import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { useDebounce } from '../utils/useDebounce';
 import { notesAPI, contactsAPI } from '../utils/api';
 import { toast } from 'sonner';
@@ -186,8 +188,10 @@ export function Notes({ user }: NotesProps) {
   };
 
   return (
+    <PermissionGate user={user} module="notes" action="view">
     <div className="p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
+        {canAdd('notes', user.role) && (
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2">
@@ -257,6 +261,7 @@ export function Notes({ user }: NotesProps) {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card>
@@ -298,6 +303,7 @@ export function Notes({ user }: NotesProps) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {canDelete('notes', user.role) && (
                         <DropdownMenuItem
                           className="text-red-600"
                           onClick={() => handleDeleteNote(note.id)}
@@ -305,6 +311,7 @@ export function Notes({ user }: NotesProps) {
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete
                         </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -325,5 +332,6 @@ export function Notes({ user }: NotesProps) {
         </CardContent>
       </Card>
     </div>
+    </PermissionGate>
   );
 }

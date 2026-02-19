@@ -28,6 +28,8 @@ import { canView } from '../utils/permissions';
 import { onPermissionsChanged } from '../utils/permissions';
 import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
+import { DailyBriefingPopup } from './DailyBriefingPopup';
 
 interface DashboardProps {
   user: User;
@@ -322,8 +324,12 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
   const LOSS_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#10b981'];
 
   return (
+    <PermissionGate user={user} module="dashboard" action="view">
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
       
+      {/* Daily AI Briefing Popup */}
+      <DailyBriefingPopup user={user} onNavigate={onNavigate} organization={organization} />
+
       {/* Top Metrics Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard 
@@ -556,6 +562,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
 
       </div>
     </div>
+    </PermissionGate>
   );
 }
 

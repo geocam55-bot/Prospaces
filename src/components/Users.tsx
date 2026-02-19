@@ -4,6 +4,8 @@ import { SimpleSyncButton } from './SimpleSyncButton';
 import { OneTimeSetup } from './OneTimeSetup';
 import { ManagerMigrationHelper } from './ManagerMigrationHelper';
 import type { User, UserRole } from '../App';
+import { PermissionGate } from './PermissionGate';
+import { canView, canAdd, canChange, canDelete } from '../utils/permissions';
 import { tenantsAPI, usersAPI } from '../utils/api';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader } from './ui/card';
@@ -70,12 +72,14 @@ export function Users({ user }: UsersProps) {
   const [showOrgChangeWarning, setShowOrgChangeWarning] = useState(false);
   const [originalOrganizationId, setOriginalOrganizationId] = useState('');
   const [pendingOrgChange, setPendingOrgChange] = useState<string | null>(null);
+  const [isInviteCredentialsDialogOpen, setIsInviteCredentialsDialogOpen] = useState(false);
+  const [inviteCredentials, setInviteCredentials] = useState<{ email: string; tempPassword: string; name: string } | null>(null);
 
-  // Check if user has permission to manage users
+  // Check permissions using the permissions system
   // Director can VIEW users but not add/edit/delete
-  const canViewUsers = user.role === 'super_admin' || user.role === 'admin' || user.role === 'director';
-  const canManageUsers = user.role === 'super_admin' || user.role === 'admin';
-  const canManageAllUsers = user.role === 'super_admin' || user.role === 'admin';
+  const canViewUsers = canView('users', user.role);
+  const canManageUsers = canAdd('users', user.role) || canChange('users', user.role);
+  const canManageAllUsers = canDelete('users', user.role) || (user.role === 'super_admin' || user.role === 'admin');
 
   const [users, setUsers] = useState<OrgUser[]>([]);
 
@@ -267,8 +271,8 @@ export function Users({ user }: UsersProps) {
         inviteData.organizationId = newUser.organizationId;
       }
       
-      // Call API to invite user
-      await usersAPI.invite(inviteData);
+      // Call API to invite user (now creates a real Supabase Auth account)
+      const result = await usersAPI.invite(inviteData);
       
       // Reload users to show the newly invited user
       await loadUsers();
@@ -276,7 +280,19 @@ export function Users({ user }: UsersProps) {
       // Reset form and close dialog
       setNewUser({ name: '', email: '', role: 'standard_user', organizationId: user.organizationId });
       setIsAddDialogOpen(false);
-      toast.success('User invited successfully!');
+      
+      // Show the credentials dialog so admin can share the temp password
+      if (result?.tempPassword) {
+        setInviteCredentials({
+          email: inviteData.email,
+          tempPassword: result.tempPassword,
+          name: inviteData.name,
+        });
+        setIsInviteCredentialsDialogOpen(true);
+        toast.success('User account created! Share the temporary password with the user.');
+      } else {
+        toast.success('User invited successfully!');
+      }
     } catch (error: any) {
       console.error('Failed to invite user:', error);
       
@@ -586,6 +602,7 @@ export function Users({ user }: UsersProps) {
   }
 
   return (
+    <PermissionGate user={user} module="users" action="view">
     <div className="p-6 space-y-6">
       <Tabs defaultValue="users" className="space-y-6">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -1247,6 +1264,95 @@ export function Users({ user }: UsersProps) {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Invite Credentials Dialog - shown after creating a new user account */}
+          <Dialog open={isInviteCredentialsDialogOpen} onOpenChange={setIsInviteCredentialsDialogOpen}>
+            <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col bg-white">
+              <DialogHeader>
+                <DialogTitle>Account Created Successfully</DialogTitle>
+                <DialogDescription>
+                  A new account has been created for {inviteCredentials?.name}. Share the login credentials below.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 overflow-y-auto pr-2">
+                {/* Credentials Card */}
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-5 space-y-3">
+                  <div>
+                    <Label className="text-xs text-green-700 uppercase tracking-wide">Email</Label>
+                    <p className="font-mono text-lg font-semibold text-green-900 select-all">{inviteCredentials?.email}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-green-700 uppercase tracking-wide">Temporary Password</Label>
+                    <div className="flex items-center justify-between gap-3 mt-1">
+                      <code className="text-2xl font-mono font-bold text-green-900 select-all break-all flex-1">
+                        {inviteCredentials?.tempPassword}
+                      </code>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={async () => {
+                          if (inviteCredentials?.tempPassword) {
+                            const success = await copyToClipboard(inviteCredentials.tempPassword);
+                            if (success) toast.success('Password copied!');
+                            else toast.error('Copy failed. Please select and copy manually.');
+                          }
+                        }}
+                        className="flex-shrink-0"
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-red-600 font-semibold">
+                  This password is shown only once. Copy it before closing this dialog!
+                </p>
+
+                <Alert className="bg-blue-50 border-blue-300 border-2">
+                  <AlertCircle className="h-5 w-5 text-blue-600" />
+                  <AlertDescription className="text-blue-900">
+                    <strong>Next Steps:</strong>
+                    <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
+                      <li>Share the email and temporary password with <strong>{inviteCredentials?.name}</strong></li>
+                      <li>They can sign in immediately at the login page</li>
+                      <li>They will be prompted to change their password on first login</li>
+                    </ol>
+                  </AlertDescription>
+                </Alert>
+              </div>
+
+              <div className="flex gap-2 pt-4 border-t mt-4">
+                <Button 
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    if (inviteCredentials) {
+                      const text = `Login Credentials for ${inviteCredentials.name}:\nEmail: ${inviteCredentials.email}\nTemporary Password: ${inviteCredentials.tempPassword}\n\nPlease sign in and change your password immediately.`;
+                      const success = await copyToClipboard(text);
+                      if (success) toast.success('Full credentials copied!');
+                      else toast.error('Copy failed. Please copy manually.');
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy All
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={() => {
+                    setIsInviteCredentialsDialogOpen(false);
+                    setInviteCredentials(null);
+                  }} 
+                  className="flex-1"
+                >
+                  Done
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="permissions" className="space-y-6">
@@ -1264,6 +1370,7 @@ export function Users({ user }: UsersProps) {
         </TabsContent>
       </Tabs>
     </div>
+    </PermissionGate>
   );
 }
 

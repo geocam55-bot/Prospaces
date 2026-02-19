@@ -20,7 +20,10 @@ import {
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import type { User, UserRole } from '../App';
+import { PermissionGate } from './PermissionGate';
+import { canView } from '../utils/permissions';
 import { useDebounce } from '../utils/useDebounce';
+import { ALL_MODULES, ALL_ROLES, getDefaultPermission, refreshPermissionsFromStorage } from '../utils/permissions';
 
 interface SecurityProps {
   user: User;
@@ -56,7 +59,7 @@ export function Security({ user }: SecurityProps) {
   const [hasChanges, setHasChanges] = useState(false);
 
   // Check if user has access to this page
-  const canAccessSecurity = user.role === 'super_admin' || user.role === 'admin';
+  const canAccessSecurity = canView('security', user.role);
 
   const modules = [
     { id: 'dashboard', name: 'Dashboard', icon: '📊' },
@@ -67,13 +70,16 @@ export function Security({ user }: SecurityProps) {
     { id: 'appointments', name: 'Appointments', icon: '📅' },
     { id: 'opportunities', name: 'Opportunities', icon: '🎯' },
     { id: 'bids', name: 'Deals', icon: '📄' },
+    { id: 'quotes', name: 'Quotes', icon: '💰' },
     { id: 'notes', name: 'Notes', icon: '📝' },
     { id: 'documents', name: 'Documents', icon: '📁' },
     { id: 'email', name: 'Email', icon: '✉️' },
     { id: 'marketing', name: 'Marketing', icon: '📈' },
     { id: 'inventory', name: 'Inventory', icon: '📦' },
     { id: 'project-wizards', name: 'Project Wizards', icon: '🪄' },
+    { id: 'kitchen-planner', name: 'Kitchen Planner', icon: '🍳' },
     { id: 'reports', name: 'Reports', icon: '📊' },
+    { id: 'admin', name: 'Admin Menu', icon: '🛠️' },
     { id: 'users', name: 'Users', icon: '👤' },
     { id: 'settings', name: 'Settings', icon: '⚙️' },
     { id: 'tenants', name: 'Tenants', icon: '🏢' },
@@ -81,7 +87,7 @@ export function Security({ user }: SecurityProps) {
     { id: 'import-export', name: 'Import/Export', icon: '🔄' },
   ];
 
-  const allRoles: UserRole[] = ['super_admin', 'admin', 'director', 'manager', 'marketing', 'standard_user'];
+  const allRoles: UserRole[] = ALL_ROLES;
   
   // Filter roles - Admin should not see or manage super_admin permissions
   const roles = allRoles.filter(role => 
@@ -217,74 +223,12 @@ export function Security({ user }: SecurityProps) {
     const defaultPerms: ModulePermission[] = [];
     modules.forEach(module => {
       roles.forEach(role => {
-        if (role === 'super_admin') {
-          // Super Admin has full access to everything
-          defaultPerms.push({
-            module: module.id,
-            role,
-            visible: true,
-            add: true,
-            change: true,
-            delete: true,
-          });
-        } else if (role === 'admin') {
-          // Admin has full access except deleting users
-          defaultPerms.push({
-            module: module.id,
-            role,
-            visible: true,
-            add: true,
-            change: true,
-            delete: module.id === 'users' ? false : true,
-          });
-        } else if (role === 'director') {
-          // Director has access to most modules but limited on users/settings
-          // Marketing: Full access (view, add, change campaigns/leads/analytics)
-          defaultPerms.push({
-            module: module.id,
-            role,
-            visible: true,
-            add: module.id === 'settings' || module.id === 'users' ? false : true,
-            change: module.id === 'settings' || module.id === 'users' ? false : true,
-            delete: module.id === 'marketing' ? true : false, // Directors can delete campaigns
-          });
-        } else if (role === 'manager') {
-          // Manager has access to most modules but limited on users/settings
-          // Marketing: Full access (view, add, change campaigns/leads/analytics)
-          defaultPerms.push({
-            module: module.id,
-            role,
-            visible: true,
-            add: module.id === 'settings' || module.id === 'users' ? false : true,
-            change: module.id === 'settings' || module.id === 'users' ? false : true,
-            delete: module.id === 'marketing' ? true : false, // Managers can delete campaigns
-          });
-        } else if (role === 'marketing') {
-          // Marketing Role: Full access to Marketing module + limited access to contacts/email
-          // Perfect for marketing team members who manage campaigns, leads, and email marketing
-          defaultPerms.push({
-            module: module.id,
-            role,
-            visible: module.id !== 'users' && module.id !== 'settings' && module.id !== 'bids',
-            add: module.id === 'marketing' || module.id === 'contacts' || module.id === 'email',
-            change: module.id === 'marketing' || module.id === 'contacts' || module.id === 'email',
-            delete: module.id === 'marketing', // Can delete campaigns/leads only
-          });
-        } else {
-          // Standard User has limited access
-          // Marketing: View only (can see campaigns/analytics but cannot modify)
-          const isPersonalModule = module.id === 'contacts' || module.id === 'tasks' || module.id === 'notes';
-          const canViewOnly = module.id === 'dashboard' || module.id === 'marketing' || module.id === 'email';
-          
-          defaultPerms.push({
-            module: module.id,
-            role,
-            visible: module.id !== 'users' && module.id !== 'settings',
-            add: isPersonalModule,
-            change: isPersonalModule,
-            delete: false,
-          });
-        }
+        const perm = getDefaultPermission(module.id, role);
+        defaultPerms.push({
+          module: module.id,
+          role,
+          ...perm,
+        });
       });
     });
     setPermissions(defaultPerms);
@@ -338,6 +282,10 @@ export function Security({ user }: SecurityProps) {
       // Save permissions to localStorage
       const orgId = localStorage.getItem('currentOrgId') || 'org_001';
       localStorage.setItem(`permissions_${orgId}`, JSON.stringify(permissions));
+      
+      // CRITICAL: Push saved permissions into the runtime permission cache
+      // so they take effect immediately for all components
+      refreshPermissionsFromStorage();
       
       // Create audit log entry
       const logEntry: AuditLog = {
@@ -419,6 +367,7 @@ export function Security({ user }: SecurityProps) {
   }
 
   return (
+    <PermissionGate user={user} module="security" action="view">
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -771,5 +720,6 @@ export function Security({ user }: SecurityProps) {
         </TabsContent>
       </Tabs>
     </div>
+    </PermissionGate>
   );
 }

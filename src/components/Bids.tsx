@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { quotesAPI, bidsAPI, contactsAPI, inventoryAPI, projectManagersAPI, settingsAPI } from '../utils/api';
 import type { User } from '../App';
+import { PermissionGate } from './PermissionGate';
+import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms, priceLevelToTier, getPriceTierLabel } from '../lib/global-settings';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -1047,14 +1049,17 @@ export function Bids({ user }: BidsProps) {
   };
 
   return (
+    <PermissionGate user={user} module="bids" action="view">
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center justify-end gap-3">
+          {canAdd('bids', user.role) && (
           <Button onClick={() => handleOpenDialog()}>
             <Plus className="h-4 w-4 mr-2" />
             Create Deal
           </Button>
+          )}
         </div>
       </div>
 
@@ -1194,10 +1199,12 @@ export function Bids({ user }: BidsProps) {
             <CardContent className="py-12 text-center">
               <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p className="text-gray-500">No deals found</p>
+              {canAdd('bids', user.role) && (
               <Button className="mt-4" onClick={() => handleOpenDialog()}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Your First Deal
               </Button>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -1244,10 +1251,13 @@ export function Bids({ user }: BidsProps) {
                             <Eye className="h-4 w-4 mr-2" />
                             Preview
                           </DropdownMenuItem>
+                          {canChange('bids', user.role) && (
                           <DropdownMenuItem onClick={() => handleOpenDialog(quote)}>
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
+                          )}
+                          {canChange('bids', user.role) && (
                           <DropdownMenuItem onClick={() => {
                             setStatusQuote(quote);
                             setNewStatus(quote.status);
@@ -1256,13 +1266,14 @@ export function Bids({ user }: BidsProps) {
                             <RefreshCw className="h-4 w-4 mr-2" />
                             Change Status
                           </DropdownMenuItem>
-                          {quote.status === 'draft' && (
+                          )}
+                          {canChange('bids', user.role) && quote.status === 'draft' && (
                             <DropdownMenuItem onClick={() => handleStatusChange(quote, 'sent')}>
                               <Send className="h-4 w-4 mr-2" />
                               Mark as Sent
                             </DropdownMenuItem>
                           )}
-                          {quote.status === 'sent' && (
+                          {canChange('bids', user.role) && quote.status === 'sent' && (
                             <>
                               <DropdownMenuItem onClick={() => handleStatusChange(quote, 'accepted')}>
                                 <CheckCircle2 className="h-4 w-4 mr-2" />
@@ -1274,12 +1285,13 @@ export function Bids({ user }: BidsProps) {
                               </DropdownMenuItem>
                             </>
                           )}
-                          {quote.status === 'accepted' && (
+                          {canChange('bids', user.role) && quote.status === 'accepted' && (
                             <DropdownMenuItem onClick={() => handleStatusChange(quote, 'completed')}>
                               <CheckCircle2 className="h-4 w-4 mr-2" />
                               Mark as Completed
                             </DropdownMenuItem>
                           )}
+                          {canDelete('bids', user.role) && (
                           <DropdownMenuItem
                             className="text-red-600"
                             onClick={() => handleDelete(quote.id)}
@@ -1287,6 +1299,7 @@ export function Bids({ user }: BidsProps) {
                             <Trash2 className="h-4 w-4 mr-2" />
                             Delete
                           </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -2001,5 +2014,6 @@ export function Bids({ user }: BidsProps) {
         onSuccess={handleEmailSuccess}
       />
     </div>
+    </PermissionGate>
   );
 }

@@ -1,4 +1,5 @@
 import { createClient } from './supabase/client';
+import { projectId, publicAnonKey } from './supabase/info';
 
 const supabase = createClient();
 
@@ -194,7 +195,8 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
 }
 
 /**
- * Invite a new user
+ * Invite a new user — creates a real Supabase Auth account via the server-side
+ * admin API so the user can immediately sign in with a temporary password.
  */
 export async function inviteUserClient(data: { email: string; name: string; role: string; organizationId?: string }) {
   try {
@@ -218,7 +220,7 @@ export async function inviteUserClient(data: { email: string; name: string; role
       
       if (profile?.organization_id) {
         currentUserOrgId = profile.organization_id;
-        console.log('[users-client] ✅ Using org ID from profiles table:', currentUserOrgId);
+        console.log('[users-client] Using org ID from profiles table:', currentUserOrgId);
       }
     }
 
@@ -228,122 +230,79 @@ export async function inviteUserClient(data: { email: string; name: string; role
 
     const orgId = data.organizationId || currentUserOrgId;
 
-    // Check if profiles table exists
-    const profilesTableExists = await checkProfilesTableExists();
-    
-    if (!profilesTableExists) {
-      throw new Error('Profiles table not set up. Please run the database migration first.');
-    }
-
-    // Verify organization exists before proceeding
-    if (orgId) {
-      // Check in organizations table
-      const { data: orgExists, error: orgError } = await supabase
-        .from('organizations')
-        .select('id')
-        .eq('id', orgId)
-        .single();
-      
-      if (orgError || !orgExists) {
-        console.log('[users-client] Organization not found in database, creating it...');
-        // Auto-create the organization if it doesn't exist
-        const { data: newOrg, error: createOrgError } = await supabase
-          .from('organizations')
-          .insert({
-            id: orgId,
-            name: `Organization ${orgId.substring(0, 8)}`,
-            created_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-        
-        if (createOrgError) {
-          console.error('[users-client] Failed to create organization:', createOrgError);
-          throw new Error(`Organization with ID "${orgId}" does not exist and could not be created. Please create the organization first.`);
-        }
-        
-        console.log('[users-client] ✅ Created organization:', newOrg);
-      }
-    } else {
+    if (!orgId) {
       throw new Error('Organization ID is required to invite users.');
     }
 
-    // Check if user already exists
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('id, email, role, status, organization_id')
-      .eq('email', data.email.toLowerCase())
-      .single();
+    // Generate a temporary password
+    const tempPassword = generateTempPassword();
 
-    if (existingProfile) {
-      console.log('[users-client] User already exists, checking status...');
-      
-      // If user is already active in the same organization, return error
-      if (existingProfile.status === 'active' && existingProfile.organization_id === orgId) {
-        throw new Error('A user with this email already exists in this organization');
-      }
-      
-      // If user exists but in different org or different status, update them
-      console.log('[users-client] Updating existing user profile...');
-      const { data: updatedProfile, error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          name: data.name,
-          role: data.role,
-          organization_id: orgId,
-          status: 'invited',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingProfile.id)
-        .select()
-        .single();
-      
-      if (updateError) {
-        console.error('[users-client] Error updating user:', updateError);
-        throw new Error('Failed to update existing user: ' + updateError.message);
-      }
-      
-      console.log('[users-client] ✅ Existing user updated and re-invited:', updatedProfile);
-      return { user: updatedProfile };
+    console.log('[users-client] Calling server to create auth account for:', data.email);
+
+    // Call the server endpoint to create a real Supabase Auth account
+    const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/create-user`;
+
+    const response = await fetch(serverUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${publicAnonKey}`,
+      },
+      body: JSON.stringify({
+        email: data.email.toLowerCase(),
+        name: data.name,
+        role: data.role,
+        organizationId: orgId,
+        tempPassword,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      console.error('[users-client] Server error creating user:', result);
+      throw new Error(result.error || 'Failed to create user account');
     }
 
-    // Generate a temporary UUID for the invited user
-    // This will be replaced when they actually sign up
-    const tempUserId = crypto.randomUUID();
+    console.log('[users-client] User account created successfully:', result);
 
-    // Try to insert into profiles table with the generated ID
-    const newProfile = {
-      id: tempUserId,  // Add the ID field
-      email: data.email.toLowerCase(),
-      name: data.name,
-      role: data.role,
-      organization_id: orgId,
-      status: 'invited' as const,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    return {
+      user: {
+        id: result.userId,
+        email: data.email.toLowerCase(),
+        name: data.name,
+        role: data.role,
+        organization_id: orgId,
+        status: 'active',
+      },
+      tempPassword,
     };
-
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .insert([newProfile])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[users-client] Error inviting user:', error);
-      throw new Error('Failed to invite user: ' + error.message);
-    }
-
-    // TODO: In production, you would send an invitation email here
-    // For now, the invited user will need to sign up with this email
-    console.log(`[users-client] User invited: ${data.email} (temp ID: ${tempUserId})`);
-    console.log('[users-client] Note: User needs to sign up to activate their account');
-
-    return { user: profile };
   } catch (error: any) {
     console.error('[users-client] Error in inviteUserClient:', error);
     throw error;
   }
+}
+
+/**
+ * Generate a secure temporary password
+ */
+function generateTempPassword(length: number = 14): string {
+  const lower = 'abcdefghijklmnopqrstuvwxyz';
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const digits = '0123456789';
+  const special = '!@#$%&*';
+  const all = lower + upper + digits + special;
+  // Ensure at least one of each type
+  let password = '';
+  password += lower[Math.floor(Math.random() * lower.length)];
+  password += upper[Math.floor(Math.random() * upper.length)];
+  password += digits[Math.floor(Math.random() * digits.length)];
+  password += special[Math.floor(Math.random() * special.length)];
+  for (let i = 4; i < length; i++) {
+    password += all[Math.floor(Math.random() * all.length)];
+  }
+  // Shuffle
+  return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
 /**

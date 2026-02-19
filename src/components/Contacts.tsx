@@ -7,7 +7,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, MapPin, Eye, X, Tag } from 'lucide-react';
+import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, MapPin, Eye, X, Tag, AlertTriangle, Wrench } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +15,8 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { contactsAPI, projectManagersAPI } from '../utils/api';
+import { projectId } from '../utils/supabase/info';
+import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
 import { PermissionGate, PermissionButton } from './PermissionGate';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
@@ -80,6 +82,11 @@ export function Contacts({ user }: ContactsProps) {
   // Load predefined audience segments
   const { segments: audienceSegments } = useAudienceSegments(user.organizationId);
   
+  // Ownership fix state
+  const [isFixingOwnership, setIsFixingOwnership] = useState(false);
+  const [ownershipDiagnosis, setOwnershipDiagnosis] = useState<any>(null);
+  const [ownershipFixResult, setOwnershipFixResult] = useState<string | null>(null);
+  
   // Tags state
   const [selectedTagFilter, setSelectedTagFilter] = useState<string>('all');
   const [tagInput, setTagInput] = useState('');
@@ -132,6 +139,126 @@ export function Contacts({ user }: ContactsProps) {
       console.error('Failed to load contacts:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Diagnose and fix contact ownership via server endpoint (bypasses RLS)
+  const diagnoseAndFixOwnership = async () => {
+    setIsFixingOwnership(true);
+    setOwnershipDiagnosis(null);
+    setOwnershipFixResult(null);
+    
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        setOwnershipFixResult('Not authenticated. Please sign in again.');
+        return;
+      }
+      
+      // Step 1: Diagnose
+      console.log('🔍 Diagnosing contact ownership...');
+      const diagRes = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/diagnose-ownership`,
+        {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }
+      );
+      
+      if (!diagRes.ok) {
+        const err = await diagRes.json().catch(() => ({}));
+        setOwnershipFixResult(`Diagnosis failed: ${err.error || diagRes.statusText}`);
+        return;
+      }
+      
+      const diagnosis = await diagRes.json();
+      console.log('📊 Diagnosis result:', diagnosis);
+      setOwnershipDiagnosis(diagnosis);
+      
+      // Step 2: Always attempt fix — it's idempotent and also repairs JWT metadata
+      if (diagnosis.stats?.mismatchedOwnership > 0 || diagnosis.stats?.globalEmailMatches > 0 || diagnosis.stats?.wrongOrganization > 0 || !diagnosis.user?.jwt_matches_profile) {
+        console.log('🔧 Fixing contact ownership...');
+        const fixRes = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/fix-ownership`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              targetEmail: diagnosis.user?.email,
+              organizationId: diagnosis.user?.organization_id,
+            }),
+          }
+        );
+        
+        if (!fixRes.ok) {
+          const err = await fixRes.json().catch(() => ({}));
+          setOwnershipFixResult(`Fix failed: ${err.error || fixRes.statusText}`);
+          return;
+        }
+        
+        const fixResult = await fixRes.json();
+        console.log('✅ Fix result:', fixResult);
+        
+        let resultMsg = fixResult.message || 'Fix completed.';
+        if (fixResult.jwtFixed) {
+          resultMsg += ' NOTE: Your session metadata was updated. Please sign out and sign back in, then reload this page to see your contacts.';
+        }
+        setOwnershipFixResult(resultMsg);
+        
+        // Reload contacts after fix (may still need sign out/in if JWT was fixed)
+        if (fixResult.fixed > 0 || fixResult.orgFixed > 0) {
+          // Small delay to let the DB settle
+          await new Promise(r => setTimeout(r, 500));
+          await loadContacts();
+        }
+      } else {
+        // Even if no email matches found, still try the fix for JWT metadata
+        console.log('🔧 No email matches found, but attempting JWT/org fix...');
+        const fixRes = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/fix-ownership`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              targetEmail: diagnosis.user?.email,
+              organizationId: diagnosis.user?.organization_id,
+            }),
+          }
+        );
+        
+        const fixResult = fixRes.ok ? await fixRes.json() : null;
+        
+        let msg = `Found ${diagnosis.stats?.totalContactsInOrg || 0} contacts in your org, ` +
+          `${diagnosis.stats?.ownedByUserUUID || 0} owned by your UUID, ` +
+          `${diagnosis.stats?.globalEmailMatches || 0} matched by your email globally. `;
+        
+        if (fixResult?.jwtFixed) {
+          msg += 'Your session metadata was repaired — please sign out and sign back in to refresh.';
+        } else if ((diagnosis.stats?.globalEmailMatches || 0) === 0) {
+          msg += 'No contacts have your email as account_owner_number. Ask your admin to re-import contacts with the correct Account Owner email, or reassign contacts to you from Admin Settings.';
+        }
+        
+        setOwnershipFixResult(msg);
+        
+        if (fixResult?.fixed > 0 || fixResult?.orgFixed > 0) {
+          await new Promise(r => setTimeout(r, 500));
+          await loadContacts();
+        }
+      }
+    } catch (error: any) {
+      console.error('Ownership fix error:', error);
+      setOwnershipFixResult(`Error: ${error.message}`);
+    } finally {
+      setIsFixingOwnership(false);
     }
   };
 
@@ -375,6 +502,122 @@ export function Contacts({ user }: ContactsProps) {
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
+    );
+  }
+
+  // Show empty-state with ownership fix when user has 0 contacts
+  if (contacts.length === 0 && !selectedContact) {
+    return (
+      <PermissionGate user={user} module="contacts" action="view">
+        <div className="p-6 space-y-6">
+          <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <AlertTriangle className="h-12 w-12 text-amber-500" />
+            <h2 className="text-xl font-semibold text-gray-900">No Contacts Found</h2>
+            <p className="text-gray-600 text-center max-w-md">
+              You don't have any contacts visible yet. If contacts were imported by an admin,
+              they may need an ownership fix to become visible to your account.
+            </p>
+
+            <div className="flex gap-3 flex-wrap justify-center">
+              <Button
+                onClick={diagnoseAndFixOwnership}
+                disabled={isFixingOwnership}
+                variant="default"
+                className="flex items-center gap-2"
+              >
+                {isFixingOwnership ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wrench className="h-4 w-4" />
+                )}
+                {isFixingOwnership ? 'Diagnosing & Fixing...' : 'Diagnose & Fix My Contacts'}
+              </Button>
+
+              <Button onClick={loadContacts} variant="outline" className="flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Reload Contacts
+              </Button>
+
+              {canAdd('contacts', user.role) && (
+                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="flex items-center gap-2">
+                      <Plus className="h-4 w-4" />
+                      Add Contact
+                    </Button>
+                  </DialogTrigger>
+                </Dialog>
+              )}
+            </div>
+
+            {/* Diagnosis results */}
+            {ownershipDiagnosis && (
+              <div className="w-full max-w-2xl mt-4 bg-gray-50 rounded-lg p-4 border text-sm space-y-2">
+                <h3 className="font-semibold text-gray-800">Diagnosis Results</h3>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-700">
+                  <span>Your email:</span>
+                  <span className="font-mono text-xs">{ownershipDiagnosis.user?.email}</span>
+                  <span>Your user ID:</span>
+                  <span className="font-mono text-xs truncate">{ownershipDiagnosis.user?.id}</span>
+                  <span>Your org ID:</span>
+                  <span className="font-mono text-xs truncate">{ownershipDiagnosis.user?.organization_id || 'NONE'}</span>
+                  <span>Your role:</span>
+                  <span>{ownershipDiagnosis.user?.role}</span>
+                  <span>JWT org matches profile:</span>
+                  <span className={ownershipDiagnosis.user?.jwt_matches_profile ? 'text-green-600' : 'text-red-600 font-semibold'}>
+                    {ownershipDiagnosis.user?.jwt_matches_profile ? 'Yes' : `NO (JWT: ${ownershipDiagnosis.user?.jwt_organization_id || 'MISSING'})`}
+                  </span>
+                  <span className="font-semibold mt-2">Total contacts in org:</span>
+                  <span className="font-semibold mt-2">{ownershipDiagnosis.stats?.totalContactsInOrg}</span>
+                  <span>Owned by your UUID:</span>
+                  <span>{ownershipDiagnosis.stats?.ownedByUserUUID}</span>
+                  <span>Matched by your email (global):</span>
+                  <span>{ownershipDiagnosis.stats?.globalEmailMatches}</span>
+                  <span className="text-amber-700 font-semibold">Mismatched owner_id:</span>
+                  <span className="text-amber-700 font-semibold">{ownershipDiagnosis.stats?.mismatchedOwnership}</span>
+                  <span className="text-amber-700 font-semibold">Wrong organization_id:</span>
+                  <span className="text-amber-700 font-semibold">{ownershipDiagnosis.stats?.wrongOrganization}</span>
+                </div>
+                {ownershipDiagnosis.uniqueAccountOwners?.length > 0 && (
+                  <div className="mt-2">
+                    <span className="font-semibold text-gray-800">Account owners in org:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {ownershipDiagnosis.uniqueAccountOwners.map((owner: string) => (
+                        <span key={owner} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-mono">
+                          {owner}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {ownershipDiagnosis.orgProfiles?.length > 0 && (
+                  <div className="mt-2">
+                    <span className="font-semibold text-gray-800">Users in org:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {ownershipDiagnosis.orgProfiles.map((p: any) => (
+                        <span key={p.id} className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-mono">
+                          {p.email} ({p.role})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Fix result message */}
+            {ownershipFixResult && (
+              <div className={`w-full max-w-2xl mt-2 rounded-lg p-3 border text-sm ${
+                ownershipFixResult.includes('Fixed') || ownershipFixResult.includes('Fix completed')
+                  ? 'bg-green-50 border-green-300 text-green-800'
+                  : 'bg-amber-50 border-amber-300 text-amber-800'
+              }`}>
+                {ownershipFixResult}
+              </div>
+            )}
+          </div>
+        </div>
+      </PermissionGate>
     );
   }
 
