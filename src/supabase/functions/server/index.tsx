@@ -17,6 +17,7 @@ import { profilesAPI } from './profiles-api.ts';
 import { quotesAPI } from './quotes-api.ts';
 import { settingsAPI } from './settings-api.ts';
 import { permissionsAPI } from './permissions-api.ts';
+import { customerPortalAPI } from './customer-portal-api.ts';
 
 const app = new Hono();
 
@@ -37,6 +38,7 @@ profilesAPI(app);
 quotesAPI(app);
 settingsAPI(app);
 permissionsAPI(app);
+customerPortalAPI(app);
 
 // Health check endpoint
 app.get('/make-server-8405be07/health', (c) => {

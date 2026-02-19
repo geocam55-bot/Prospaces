@@ -32,6 +32,7 @@ import {
   Warehouse,
   Home,
   Triangle,
+  Globe,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -155,6 +156,9 @@ export function Navigation({
       }
       if (canView('security', user.role)) {
         submenuItems.push({ id: 'security', label: 'Security', icon: Shield });
+      }
+      if (['admin', 'manager', 'director'].includes(user.role)) {
+        submenuItems.push({ id: 'portal-admin', label: 'Customer Portal', icon: Globe });
       }
       if (canView('import-export', user.role) && organization?.import_export_enabled !== false) {
         submenuItems.push({ id: 'import-export', label: 'Import/Export', icon: Upload });

@@ -42,6 +42,7 @@ import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDia
 import { OAuthCallback } from './components/OAuthCallback';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
+import { CustomerPortal } from './components/portal/CustomerPortal';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
@@ -100,6 +101,7 @@ function getPublicRoute(): React.ReactElement | null {
   if (urlParams.get('view') === 'fix-login') return <AdminFixUsers />;
   if (urlParams.get('view') === 'privacy-policy' || path === '/privacy-policy') return <PrivacyPolicy />;
   if (urlParams.get('view') === 'terms-of-service' || path === '/terms-of-service') return <TermsOfService />;
+  if (urlParams.get('view') === 'customer-portal' || path === '/portal') return <CustomerPortal />;
 
   return null;
 }

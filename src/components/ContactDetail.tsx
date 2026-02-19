@@ -50,6 +50,7 @@ import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { BidLineItems, LineItemsTable } from './BidLineItems';
 import { ProjectManagersTableSetup } from './ProjectManagersTableSetup';
 import { FixContactsTable } from './FixContactsTable';
+import { PortalAccessManager } from './portal/PortalAccessManager';
 import { 
   getAllDocumentsClient, 
   uploadDocumentClient, 
@@ -851,6 +852,15 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Customer Portal Access */}
+      {canChange('contacts', user.role) && (
+        <PortalAccessManager
+          contactId={contact.id}
+          contactName={contact.name}
+          contactEmail={contact.email}
+        />
       )}
 
       {/* Project Managers */}

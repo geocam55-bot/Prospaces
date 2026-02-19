@@ -1,6 +1,5 @@
 import React, { useRef, useEffect } from 'react';
 import { KitchenConfig } from '../../types/kitchen';
-import * as THREE from 'three';
 import { 
   Scene, 
   Color, 
@@ -20,7 +19,8 @@ import {
   LineBasicMaterial,
   LineSegments,
   MeshBasicMaterial,
-  CylinderGeometry
+  CylinderGeometry,
+  CanvasTexture
 } from 'three';
 
 interface Kitchen3DRendererProps {
@@ -153,10 +153,10 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
       context.textBaseline = 'middle';
       context.fillText(text, 256, 64);
       
-      const texture = new THREE.CanvasTexture(canvas);
-      const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
-      const geometry = new THREE.PlaneGeometry(1, 0.25);
-      const mesh = new THREE.Mesh(geometry, material);
+      const texture = new CanvasTexture(canvas);
+      const material = new MeshBasicMaterial({ map: texture, transparent: true });
+      const geometry = new PlaneGeometry(1, 0.25);
+      const mesh = new Mesh(geometry, material);
       mesh.position.set(x, y, z);
       mesh.rotation.y = rotY;
       return mesh;

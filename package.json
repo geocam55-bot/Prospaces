@@ -46,6 +46,7 @@
           "jszip": "*",
           "lucide-react": "*",
           "motion": "*",
+          "node:crypto": "*",
           "path": "*",
           "react": "^18.3.1",
           "react-day-picker": "*",
