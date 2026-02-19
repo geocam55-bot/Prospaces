@@ -1,10 +1,21 @@
 import * as React from "react";
 
-import { useTheme } from "next-themes";
 import { Toaster as Sonner, ToasterProps } from "sonner";
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme();
+  // Detect theme from the <html> element's class list (set by ThemeProvider)
+  const [theme, setTheme] = React.useState<"light" | "dark" | "system">("system");
+
+  React.useEffect(() => {
+    const html = document.documentElement;
+    const update = () => {
+      setTheme(html.classList.contains("dark") ? "dark" : "light");
+    };
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(html, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <Sonner
