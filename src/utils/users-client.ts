@@ -1,5 +1,6 @@
 import { createClient } from './supabase/client';
 import { projectId, publicAnonKey } from './supabase/info';
+import { getServerHeaders } from './server-headers';
 
 const supabase = createClient();
 
@@ -57,12 +58,10 @@ async function fetchProfilesFromServer(accessToken: string): Promise<any[] | nul
   try {
     const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles`;
 
+    const headers = await getServerHeaders();
     const response = await fetch(serverUrl, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -89,12 +88,10 @@ async function ensureCurrentUserProfile(accessToken: string): Promise<void> {
   try {
     const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles/ensure`;
 
+    const headers = await getServerHeaders();
     const response = await fetch(serverUrl, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     if (response.ok) {
@@ -317,12 +314,10 @@ export async function inviteUserClient(data: { email: string; name: string; role
     // Call the server endpoint to create a real Supabase Auth account
     const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/create-user`;
 
+    const headers = await getServerHeaders();
     const response = await fetch(serverUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`,
-      },
+      headers,
       body: JSON.stringify({
         email: data.email.toLowerCase(),
         name: data.name,

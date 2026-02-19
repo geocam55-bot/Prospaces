@@ -1,5 +1,6 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { extractUserToken } from './auth-helper.ts';
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -8,12 +9,11 @@ const supabase = createClient(
 
 export const dataMigration = (app: Hono) => {
   app.post('/data/fix', async (c) => {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader) {
-      return c.json({ error: 'Unauthorized' }, 401);
+    const token = extractUserToken(c);
+    if (!token) {
+      return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
     }
     
-    const token = authHeader.split(' ')[1];
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {

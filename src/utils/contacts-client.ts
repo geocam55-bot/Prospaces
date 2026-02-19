@@ -2,6 +2,7 @@ import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
 import { getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings';
 import { projectId, publicAnonKey } from './supabase/info';
+import { getServerHeaders } from './server-headers';
 
 // ── Cached column detection ────────────────────────────────────────────
 // Probes the contacts table once per session to discover which columns exist.
@@ -332,25 +333,15 @@ function transformFromDbFormat(contactData: any) {
 export async function getAllContactsClient(filterByAccountOwner?: string) {
   try {
     const supabase = createClient();
-    
-    // Get the current user's access token for the server request
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.access_token) {
-      console.log('[contacts-client] No session/access_token, returning empty');
-      return { contacts: [] };
-    }
 
     console.log('[contacts-client] Fetching contacts via server endpoint (bypasses RLS)...');
     
+    const headers = await getServerHeaders();
     const response = await fetch(
       `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts`,
       {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
       }
     );
 
@@ -464,33 +455,27 @@ export async function createContactClient(contactData: any) {
 
     // Try server endpoint first (bypasses RLS, uses profile org_id)
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const headers = await getServerHeaders();
+      console.log('[contacts-client] Creating contact via server endpoint (bypasses RLS)...');
       
-      if (session?.access_token) {
-        console.log('[contacts-client] Creating contact via server endpoint (bypasses RLS)...');
-        
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(dbData),
-          }
-        );
-        
-        if (response.ok) {
-          const result = await response.json();
-          console.log(`[contacts-client] Server create successful: ${result.contact?.id}`);
-          const transformedContact = transformFromDbFormat(result.contact);
-          return { contact: transformedContact };
-        } else {
-          const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-          console.error('[contacts-client] Server create error:', response.status, errorBody);
-          // Fall through to direct Supabase insert
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(dbData),
         }
+      );
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`[contacts-client] Server create successful: ${result.contact?.id}`);
+        const transformedContact = transformFromDbFormat(result.contact);
+        return { contact: transformedContact };
+      } else {
+        const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+        console.error('[contacts-client] Server create error:', response.status, errorBody);
+        // Fall through to direct Supabase insert
       }
     } catch (serverError: any) {
       console.warn('[contacts-client] Server create failed, falling back to direct:', serverError.message);
@@ -761,38 +746,32 @@ export async function updateContactClient(id: string, contactData: any) {
     
     // Try server endpoint first (bypasses RLS)
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const headers = await getServerHeaders();
+      console.log(`[contacts-client] Updating contact ${id} via server endpoint...`);
+      console.log(`[contacts-client] Payload keys:`, Object.keys(transformedData));
+      console.log(`[contacts-client] price_level in payload:`, transformedData.price_level);
       
-      if (session?.access_token) {
-        console.log(`[contacts-client] Updating contact ${id} via server endpoint...`);
-        console.log(`[contacts-client] Payload keys:`, Object.keys(transformedData));
-        console.log(`[contacts-client] price_level in payload:`, transformedData.price_level);
-        
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${id}`,
-          {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(transformedData),
-          }
-        );
-        
-        if (response.ok) {
-          const result = await response.json();
-          console.log(`[contacts-client] Server update successful. price_level in response:`, result.contact?.price_level);
-          if (result.warnings && result.warnings.length > 0) {
-            console.warn('[contacts-client] Server warnings:', result.warnings);
-          }
-          const transformedContact = transformFromDbFormat(result.contact);
-          return { contact: transformedContact };
-        } else {
-          const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-          console.error('[contacts-client] Server update error:', response.status, errorBody);
-          // Fall through to direct Supabase update
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${id}`,
+        {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(transformedData),
         }
+      );
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`[contacts-client] Server update successful. price_level in response:`, result.contact?.price_level);
+        if (result.warnings && result.warnings.length > 0) {
+          console.warn('[contacts-client] Server warnings:', result.warnings);
+        }
+        const transformedContact = transformFromDbFormat(result.contact);
+        return { contact: transformedContact };
+      } else {
+        const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+        console.error('[contacts-client] Server update error:', response.status, errorBody);
+        // Fall through to direct Supabase update
       }
     } catch (serverError: any) {
       console.warn('[contacts-client] Server update failed, falling back to direct:', serverError.message);
@@ -825,30 +804,24 @@ export async function deleteContactClient(id: string) {
     
     // Try server endpoint first (bypasses RLS)
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const headers = await getServerHeaders();
+      console.log(`[contacts-client] Deleting contact ${id} via server endpoint (bypasses RLS)...`);
       
-      if (session?.access_token) {
-        console.log(`[contacts-client] Deleting contact ${id} via server endpoint (bypasses RLS)...`);
-        
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${id}`,
-          {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-        
-        if (response.ok) {
-          console.log(`[contacts-client] Server delete successful for contact ${id}`);
-          return { success: true };
-        } else {
-          const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-          console.error('[contacts-client] Server delete error:', response.status, errorBody);
-          // Fall through to direct Supabase delete
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${id}`,
+        {
+          method: 'DELETE',
+          headers,
         }
+      );
+      
+      if (response.ok) {
+        console.log(`[contacts-client] Server delete successful for contact ${id}`);
+        return { success: true };
+      } else {
+        const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+        console.error('[contacts-client] Server delete error:', response.status, errorBody);
+        // Fall through to direct Supabase delete
       }
     } catch (serverError: any) {
       console.warn('[contacts-client] Server delete failed, falling back to direct:', serverError.message);

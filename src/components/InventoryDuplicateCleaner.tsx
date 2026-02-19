@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { createClient } from '../utils/supabase/client';
 import { projectId } from '../utils/supabase/info';
+import { getServerHeaders } from '../utils/server-headers';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
@@ -36,13 +36,9 @@ export function InventoryDuplicateCleaner({ organizationId, onCleanupComplete }:
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/inventory-diagnostic`;
 
   const getAuthHeaders = async () => {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) throw new Error('Not authenticated');
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.access_token}`,
-    };
+    const headers = await getServerHeaders();
+    if (!headers['X-User-Token']) throw new Error('Not authenticated');
+    return headers;
   };
 
   // Auto-scan on mount

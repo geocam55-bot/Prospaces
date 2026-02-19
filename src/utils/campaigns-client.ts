@@ -1,6 +1,7 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
 import { projectId } from './supabase/info';
+import { getServerHeaders } from './server-headers';
 
 export async function getAllCampaignsClient() {
   try {
@@ -162,13 +163,10 @@ export async function sendCampaignClient(id: string) {
 
     const profile = await ensureUserProfile(session.user.id);
     
-    // Use imported projectId
+    const headers = await getServerHeaders();
     const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/campaigns/${id}/send`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
     });
 
     const result = await response.json();

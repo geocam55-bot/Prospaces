@@ -166,14 +166,13 @@ export async function ensureUserProfile(userId: string) {
           console.log('⚠️ Calling server to fix profile mismatch with elevated permissions...');
           
           try {
+            const { getServerHeaders } = await import('./server-headers');
+            const headers = await getServerHeaders();
             const response = await fetch(
               `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/fix-profile-mismatch`,
               {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${publicAnonKey}`,
-                },
+                headers,
                 body: JSON.stringify({
                   email: userEmail,
                   currentUserId: userId,

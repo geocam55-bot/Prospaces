@@ -1,5 +1,6 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { extractUserToken } from './auth-helper.ts';
 
 /**
  * Server-side Quotes API — bypasses RLS using the service role key.
@@ -16,9 +17,9 @@ export function quotesAPI(app: Hono) {
       );
 
       // Authenticate the requesting user
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
-        return c.json({ error: 'Missing Authorization header in quotes API' }, 401);
+        return c.json({ error: 'Missing auth token in quotes API (send X-User-Token header)' }, 401);
       }
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
@@ -89,9 +90,9 @@ export function quotesAPI(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
-        return c.json({ error: 'Missing Authorization header in bids API' }, 401);
+        return c.json({ error: 'Missing auth token in bids API (send X-User-Token header)' }, 401);
       }
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
@@ -158,9 +159,9 @@ export function quotesAPI(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
-        return c.json({ error: 'Missing Authorization header' }, 401);
+        return c.json({ error: 'Missing auth token for quote creation (send X-User-Token header)' }, 401);
       }
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
@@ -215,9 +216,9 @@ export function quotesAPI(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
-        return c.json({ error: 'Missing Authorization header' }, 401);
+        return c.json({ error: 'Missing auth token for bid creation (send X-User-Token header)' }, 401);
       }
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);

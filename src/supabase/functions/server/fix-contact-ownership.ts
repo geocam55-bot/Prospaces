@@ -1,5 +1,6 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { extractUserToken } from './auth-helper.ts';
 
 // ── Server-side column detection ──────────────────────────────────────
 // Probe whether account_owner_number exists, with a TTL so we re-check
@@ -38,10 +39,10 @@ export function fixContactOwnership(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      // Get the requesting user from the Authorization header
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      // Get the requesting user from the auth headers
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
-        return c.json({ error: 'Missing Authorization header' }, 401);
+        return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
       }
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
@@ -166,9 +167,9 @@ export function fixContactOwnership(app: Hono) {
       );
 
       // Authenticate the requesting user
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
-        return c.json({ error: 'Missing Authorization header' }, 401);
+        return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
       }
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
@@ -334,9 +335,9 @@ export function fixContactOwnership(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
-        return c.json({ error: 'Missing Authorization header' }, 401);
+        return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
       }
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);

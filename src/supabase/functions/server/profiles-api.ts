@@ -1,5 +1,6 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { extractUserToken } from './auth-helper.ts';
 
 export function profilesAPI(app: Hono) {
   // GET /profiles — returns all profiles visible to the authenticated user
@@ -12,9 +13,9 @@ export function profilesAPI(app: Hono) {
       );
 
       // Authenticate the requesting user
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
-        return c.json({ error: 'Missing Authorization header in profiles API' }, 401);
+        return c.json({ error: 'Missing auth token in profiles API' }, 401);
       }
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
@@ -91,9 +92,9 @@ export function profilesAPI(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
-        return c.json({ error: 'Missing Authorization header' }, 401);
+        return c.json({ error: 'Missing auth token' }, 401);
       }
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);

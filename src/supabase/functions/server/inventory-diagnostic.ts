@@ -1,5 +1,6 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { extractUserToken } from './auth-helper.ts';
 
 // ---------------------------------------------------------------------------
 // Helper: Smart batch upsert that pre-checks existing SKUs and splits into
@@ -145,12 +146,10 @@ export function inventoryDiagnostic(app: Hono) {
     console.log('🔍 Check table endpoint hit');
 
     try {
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) {
-        return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) {
+        return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
       }
-
-      const accessToken = authHeader.split(' ')[1];
 
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
@@ -253,12 +252,10 @@ export function inventoryDiagnostic(app: Hono) {
 
     try {
       // Verify user is authenticated
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) {
-        return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) {
+        return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
       }
-
-      const accessToken = authHeader.split(' ')[1];
 
       // Parse request body for fallback user info
       let bodyData: any = {};
@@ -533,12 +530,11 @@ export function inventoryDiagnostic(app: Hono) {
     console.log('🔧 Fix org IDs endpoint hit');
 
     try {
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) {
-        return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) {
+        return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
       }
 
-      const accessToken = authHeader.split(' ')[1];
       const body = await c.req.json();
       const { fixType, targetOrgId, sourceOrgId } = body;
       // fixType: 'null_to_user' | 'other_to_user' | 'all_to_user'
@@ -770,12 +766,10 @@ export function inventoryDiagnostic(app: Hono) {
     console.log('🔢 Raw count endpoint hit');
 
     try {
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) {
-        return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) {
+        return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
       }
-
-      const accessToken = authHeader.split(' ')[1];
 
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
@@ -837,12 +831,10 @@ export function inventoryDiagnostic(app: Hono) {
     console.log('🔍 Find pending jobs endpoint hit');
 
     try {
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) {
-        return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) {
+        return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
       }
-
-      const accessToken = authHeader.split(' ')[1];
 
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
@@ -925,12 +917,11 @@ export function inventoryDiagnostic(app: Hono) {
     console.log('🔧 Process job endpoint hit (chunked)');
 
     try {
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) {
-        return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) {
+        return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
       }
 
-      const accessToken = authHeader.split(' ')[1];
       const body = await c.req.json();
       const { jobId, targetOrgId, batchOffset = 0, batchLimit = 500 } = body;
 
@@ -1043,12 +1034,11 @@ export function inventoryDiagnostic(app: Hono) {
     console.log('🔧 Process all pending (chunked) endpoint hit');
 
     try {
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) {
-        return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) {
+        return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
       }
 
-      const accessToken = authHeader.split(' ')[1];
       const body = await c.req.json();
       const { targetOrgId, batchLimit = 500, resumeOffset = 0, currentJobId } = body;
 
@@ -1207,12 +1197,11 @@ export function inventoryDiagnostic(app: Hono) {
     console.log('🗑️ Delete job endpoint hit');
 
     try {
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) {
-        return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) {
+        return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
       }
 
-      const accessToken = authHeader.split(' ')[1];
       const body = await c.req.json();
       const { jobId } = body;
 
@@ -1256,12 +1245,10 @@ export function inventoryDiagnostic(app: Hono) {
     console.log('🗑️ Delete all pending jobs endpoint hit');
 
     try {
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) {
-        return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) {
+        return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
       }
-
-      const accessToken = authHeader.split(' ')[1];
 
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
@@ -1423,10 +1410,9 @@ export function inventoryDiagnostic(app: Hono) {
   app.post('/make-server-8405be07/inventory-diagnostic/dedup-scan', async (c) => {
     console.log('🔍 Dedup scan endpoint hit (v2 parallel)');
     try {
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
 
-      const accessToken = authHeader.split(' ')[1];
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -1470,10 +1456,9 @@ export function inventoryDiagnostic(app: Hono) {
   app.post('/make-server-8405be07/inventory-diagnostic/dedup-delete-chunk', async (c) => {
     console.log('🗑️ Dedup delete-chunk endpoint hit');
     try {
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
 
-      const accessToken = authHeader.split(' ')[1];
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -1542,10 +1527,9 @@ export function inventoryDiagnostic(app: Hono) {
   app.post('/make-server-8405be07/inventory-diagnostic/dedup-delete-batch', async (c) => {
     console.log('🗑️ Dedup delete-batch (legacy) endpoint hit');
     try {
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) return c.json({ error: 'Missing authentication token (send X-User-Token header)' }, 401);
 
-      const accessToken = authHeader.split(' ')[1];
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,

@@ -1,6 +1,7 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import { extractUserToken } from './auth-helper.ts';
 
 /**
  * Marketing routes for Journeys and Landing Pages.
@@ -12,10 +13,9 @@ export function marketing(app: Hono) {
 
   // Helper: authenticate user and resolve their organization ID
   async function authenticateAndGetOrg(c: any): Promise<{ userId: string; orgId: string } | null> {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader) return null;
+    const accessToken = extractUserToken(c);
+    if (!accessToken) return null;
 
-    const accessToken = authHeader.split(' ')[1];
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -296,10 +296,9 @@ export function marketing(app: Hono) {
   app.post('/make-server-8405be07/marketing/inventory-deduplicate', async (c) => {
     console.log('POST /marketing/inventory-deduplicate');
     try {
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) return c.json({ error: 'No authorization header' }, 401);
+      const accessToken = extractUserToken(c);
+      if (!accessToken) return c.json({ error: 'No auth token' }, 401);
 
-      const accessToken = authHeader.split(' ')[1];
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!

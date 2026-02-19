@@ -28,8 +28,8 @@ import {
   Rocket,
   Trash2
 } from 'lucide-react';
-import { createClient } from '../utils/supabase/client';
 import { projectId } from '../utils/supabase/info';
+import { getServerHeaders } from '../utils/server-headers';
 import type { User } from '../App';
 import { toast } from 'sonner@2.0.3';
 
@@ -102,15 +102,11 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
   const [isDeletingAll, setIsDeletingAll] = useState(false);
 
   const getAuthHeaders = async () => {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
+    const headers = await getServerHeaders();
+    if (!headers['X-User-Token']) {
       throw new Error('Not authenticated. Please log in again.');
     }
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.access_token}`,
-    };
+    return headers;
   };
 
   const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/inventory-diagnostic`;

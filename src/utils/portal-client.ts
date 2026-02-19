@@ -1,4 +1,5 @@
 import { projectId, publicAnonKey } from './supabase/info';
+import { getServerHeaders } from './server-headers';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/portal`;
 
@@ -148,12 +149,10 @@ export async function rejectQuote(quoteId: string) {
 // ── CRM-side functions (use CRM auth) ──
 
 export async function createPortalInvite(contactId: string, accessToken: string) {
+  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/invite`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
+    headers,
     body: JSON.stringify({ contactId }),
   });
 
@@ -163,10 +162,9 @@ export async function createPortalInvite(contactId: string, accessToken: string)
 }
 
 export async function getPortalUsers(accessToken: string) {
+  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/portal-users`, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
+    headers,
   });
 
   const data = await response.json();
@@ -175,11 +173,10 @@ export async function getPortalUsers(accessToken: string) {
 }
 
 export async function revokePortalAccess(contactId: string, accessToken: string) {
+  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/revoke/${contactId}`, {
     method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-    },
+    headers,
   });
 
   const data = await response.json();
@@ -188,12 +185,10 @@ export async function revokePortalAccess(contactId: string, accessToken: string)
 }
 
 export async function replyToPortalMessage(messageId: string, contactId: string, reply: string, accessToken: string) {
+  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/reply`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
+    headers,
     body: JSON.stringify({ messageId, contactId, reply }),
   });
 

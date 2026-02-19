@@ -1,6 +1,7 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import { extractUserToken } from './auth-helper.ts';
 
 /**
  * Server-side Permissions API — persists permissions matrix to KV store.
@@ -16,9 +17,9 @@ export function permissionsAPI(app: Hono) {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    const accessToken = extractUserToken(c);
     if (!accessToken) {
-      return { error: 'Missing Authorization header', status: 401, supabase: null, user: null, profile: null };
+      return { error: 'Missing auth token (send X-User-Token header)', status: 401, supabase: null, user: null, profile: null };
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);

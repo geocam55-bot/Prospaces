@@ -1,6 +1,7 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import { extractUserToken } from './auth-helper.ts';
 
 // ── Server-side column detection ──────────────────────────────────────
 // Probe whether account_owner_number exists, with a TTL so we re-check
@@ -110,7 +111,7 @@ export function contactsAPI(app: Hono) {
       );
 
       // Authenticate the requesting user
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
         return c.json({ error: 'Missing Authorization header in contacts API' }, 401);
       }
@@ -250,7 +251,7 @@ export function contactsAPI(app: Hono) {
       );
 
       // Authenticate the requesting user
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
         return c.json({ error: 'Missing Authorization header in contacts update API' }, 401);
       }
@@ -392,7 +393,7 @@ export function contactsAPI(app: Hono) {
       );
 
       // Authenticate the requesting user
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
         return c.json({ error: 'Missing Authorization header in contacts create API' }, 401);
       }
@@ -504,7 +505,7 @@ export function contactsAPI(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) {
         return c.json({ error: 'Missing Authorization header in contacts delete API' }, 401);
       }

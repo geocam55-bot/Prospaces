@@ -1,30 +1,17 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
 import { projectId, publicAnonKey } from './supabase/info';
+import { getServerHeaders } from './server-headers';
 
 const supabase = createClient();
-
-/**
- * Helper to get an auth token for server-side API calls.
- * Returns the session access_token if available, otherwise the publicAnonKey.
- */
-async function getAuthToken(): Promise<string> {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) return session.access_token;
-  } catch {}
-  return publicAnonKey;
-}
 
 export async function getAllBidsClient() {
   // ── Attempt 1: Server-side endpoint (bypasses RLS) ──
   try {
-    const token = await getAuthToken();
+    const headers = await getServerHeaders();
     const response = await fetch(
       `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/bids`,
-      {
-        headers: { 'Authorization': `Bearer ${token}` },
-      }
+      { headers }
     );
 
     if (response.ok) {
@@ -176,15 +163,12 @@ export async function getBidsByOpportunityClient(opportunityId: string) {
 export async function createBidClient(data: any) {
   // ── Attempt 1: Server-side endpoint (bypasses RLS, authoritative org ID) ──
   try {
-    const token = await getAuthToken();
+    const headers = await getServerHeaders();
     const response = await fetch(
       `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/bids`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify(data),
       }
     );

@@ -1,7 +1,7 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
-import * as crypto from 'node:crypto';
+import { extractUserToken } from './auth-helper.ts';
 
 /**
  * Customer Portal API
@@ -14,20 +14,32 @@ import * as crypto from 'node:crypto';
  *   portal_access_log:{orgId}:{contactId} → { enabled, enabledAt, enabledBy }
  */
 
-function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
+function hexEncode(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function hashEmail(email: string): string {
-  return crypto.createHash('sha256').update(email.toLowerCase().trim()).digest('hex');
+async function hashPassword(password: string): Promise<string> {
+  const data = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return hexEncode(hashBuffer);
+}
+
+async function hashEmail(email: string): Promise<string> {
+  const data = new TextEncoder().encode(email.toLowerCase().trim());
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return hexEncode(hashBuffer);
 }
 
 function generateToken(): string {
-  return crypto.randomBytes(32).toString('hex');
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return hexEncode(bytes.buffer);
 }
 
 function generateInviteCode(): string {
-  return crypto.randomBytes(6).toString('hex').toUpperCase();
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  return hexEncode(bytes.buffer).toUpperCase();
 }
 
 export function customerPortalAPI(app: Hono) {
@@ -41,7 +53,7 @@ export function customerPortalAPI(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) return c.json({ error: 'Missing Authorization' }, 401);
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
@@ -137,7 +149,7 @@ export function customerPortalAPI(app: Hono) {
         return c.json({ error: 'Invite code has expired' }, 400);
       }
 
-      const emailHash = hashEmail(invite.email);
+      const emailHash = await hashEmail(invite.email);
 
       // Check if already registered
       const existing = await kv.get(`portal_user:${emailHash}`);
@@ -150,7 +162,7 @@ export function customerPortalAPI(app: Hono) {
         email: invite.email.toLowerCase().trim(),
         contactId: invite.contactId,
         orgId: invite.orgId,
-        passwordHash: hashPassword(password),
+        passwordHash: await hashPassword(password),
         name: invite.contactName || invite.email,
         createdAt: new Date().toISOString(),
         lastLogin: null,
@@ -195,14 +207,14 @@ export function customerPortalAPI(app: Hono) {
         return c.json({ error: 'Email and password are required' }, 400);
       }
 
-      const emailHash = hashEmail(email);
+      const emailHash = await hashEmail(email);
       const portalUser = await kv.get(`portal_user:${emailHash}`);
 
       if (!portalUser) {
         return c.json({ error: 'Invalid email or password' }, 401);
       }
 
-      if (portalUser.passwordHash !== hashPassword(password)) {
+      if (portalUser.passwordHash !== await hashPassword(password)) {
         return c.json({ error: 'Invalid email or password' }, 401);
       }
 
@@ -457,7 +469,9 @@ export function customerPortalAPI(app: Hono) {
         return c.json({ error: 'Subject and message are required' }, 400);
       }
 
-      const msgId = crypto.randomBytes(8).toString('hex');
+      const msgBytes = new Uint8Array(8);
+      crypto.getRandomValues(msgBytes);
+      const msgId = hexEncode(msgBytes.buffer);
       const msgData = {
         id: msgId,
         contactId: session.contactId,
@@ -625,7 +639,7 @@ export function customerPortalAPI(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) return c.json({ error: 'Missing Authorization' }, 401);
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
@@ -656,7 +670,7 @@ export function customerPortalAPI(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) return c.json({ error: 'Missing Authorization' }, 401);
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
@@ -712,7 +726,7 @@ export function customerPortalAPI(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const accessToken = c.req.header('Authorization')?.split(' ')[1];
+      const accessToken = extractUserToken(c);
       if (!accessToken) return c.json({ error: 'Missing Authorization' }, 401);
 
       const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
@@ -732,7 +746,7 @@ export function customerPortalAPI(app: Hono) {
       // Get the access log to find the user's email
       const accessLog = await kv.get(`portal_access_log:${orgId}:${contactId}`);
       if (accessLog?.email) {
-        const emailHash = hashEmail(accessLog.email);
+        const emailHash = await hashEmail(accessLog.email);
         await kv.del(`portal_user:${emailHash}`);
       }
 

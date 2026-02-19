@@ -3,6 +3,7 @@ import { createClient } from './supabase/client';
 
 // Import server connection info for KV-based permission loading
 import { projectId, publicAnonKey } from './supabase/info';
+import { getServerHeaders } from './server-headers';
 
 const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
@@ -160,14 +161,7 @@ export async function initializePermissions(role: UserRole) {
     // Step 3: Try to fetch from server KV store as the authoritative source (non-blocking)
     const orgId = localStorage.getItem('currentOrgId') || 'org_001';
 
-    let authToken = publicAnonKey;
-    try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) authToken = session.access_token;
-    } catch (e) {
-      // Use anon key if session retrieval fails
-    }
+    const headers = await getServerHeaders();
 
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('Permissions fetch timeout')), 3000)
@@ -176,7 +170,7 @@ export async function initializePermissions(role: UserRole) {
     try {
       const res = await Promise.race([
         fetch(`${SERVER_BASE}/permissions?organization_id=${encodeURIComponent(orgId)}`, {
-          headers: { Authorization: `Bearer ${authToken}` },
+          headers,
         }),
         timeoutPromise,
       ]);

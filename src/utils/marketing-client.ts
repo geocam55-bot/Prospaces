@@ -1,12 +1,11 @@
 import { createClient } from './supabase/client';
 import { projectId } from './supabase/info';
+import { getServerHeaders } from './server-headers';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
-async function getAuthHeader() {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token ? `Bearer ${session.access_token}` : null;
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  return await getServerHeaders();
 }
 
 const supabase = createClient();
@@ -243,15 +242,10 @@ export async function deleteScoringRule(id: string): Promise<void> {
 
 export async function getLeadScores(organizationId: string): Promise<LeadScore[]> {
   // Use server endpoint to handle fallback
-  const authHeader = await getAuthHeader();
-  if (!authHeader) return [];
-
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(`${BASE_URL}/marketing/lead-scores`, {
-      headers: { 
-        'Authorization': authHeader,
-        'Content-Type': 'application/json'
-      }
+      headers,
     });
     
     if (!response.ok) throw new Error('Failed to fetch lead scores');
@@ -327,15 +321,10 @@ export async function updateLeadScore(contactId: string, organizationId: string,
 
 // Journey Functions - Using KV Store via Server
 export async function getJourneys(organizationId: string): Promise<Journey[]> {
-  const authHeader = await getAuthHeader();
-  if (!authHeader) return [];
-
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(`${BASE_URL}/marketing/journeys`, {
-      headers: { 
-        'Authorization': authHeader,
-        'Content-Type': 'application/json'
-      }
+      headers,
     });
     
     if (!response.ok) throw new Error('Failed to fetch journeys');
@@ -349,15 +338,11 @@ export async function getJourneys(organizationId: string): Promise<Journey[]> {
 }
 
 export async function createJourney(journey: Journey, organizationId: string): Promise<Journey> {
-  const authHeader = await getAuthHeader();
-  if (!authHeader) throw new Error('Not authenticated');
+  const headers = await getAuthHeaders();
 
   const response = await fetch(`${BASE_URL}/marketing/journeys`, {
     method: 'POST',
-    headers: {
-      'Authorization': authHeader,
-      'Content-Type': 'application/json'
-    },
+    headers,
     body: JSON.stringify(journey)
   });
 
@@ -367,15 +352,11 @@ export async function createJourney(journey: Journey, organizationId: string): P
 }
 
 export async function updateJourney(id: string, updates: Partial<Journey>): Promise<Journey> {
-  const authHeader = await getAuthHeader();
-  if (!authHeader) throw new Error('Not authenticated');
+  const headers = await getAuthHeaders();
 
   const response = await fetch(`${BASE_URL}/marketing/journeys/${id}`, {
     method: 'PUT',
-    headers: {
-      'Authorization': authHeader,
-      'Content-Type': 'application/json'
-    },
+    headers,
     body: JSON.stringify(updates)
   });
 
@@ -385,15 +366,11 @@ export async function updateJourney(id: string, updates: Partial<Journey>): Prom
 }
 
 export async function deleteJourney(id: string): Promise<void> {
-  const authHeader = await getAuthHeader();
-  if (!authHeader) throw new Error('Not authenticated');
+  const headers = await getAuthHeaders();
 
   const response = await fetch(`${BASE_URL}/marketing/journeys/${id}`, {
     method: 'DELETE',
-    headers: {
-      'Authorization': authHeader,
-      'Content-Type': 'application/json'
-    }
+    headers,
   });
 
   if (!response.ok) throw new Error('Failed to delete journey');
@@ -401,15 +378,10 @@ export async function deleteJourney(id: string): Promise<void> {
 
 // Landing Page Functions - Using KV Store via Server
 export async function getLandingPages(organizationId: string): Promise<LandingPage[]> {
-  const authHeader = await getAuthHeader();
-  if (!authHeader) return [];
-
   try {
+    const headers = await getAuthHeaders();
     const response = await fetch(`${BASE_URL}/marketing/landing-pages`, {
-      headers: { 
-        'Authorization': authHeader,
-        'Content-Type': 'application/json'
-      }
+      headers,
     });
     
     if (!response.ok) throw new Error('Failed to fetch landing pages');
@@ -423,15 +395,11 @@ export async function getLandingPages(organizationId: string): Promise<LandingPa
 }
 
 export async function createLandingPage(page: LandingPage, organizationId: string): Promise<LandingPage> {
-  const authHeader = await getAuthHeader();
-  if (!authHeader) throw new Error('Not authenticated');
+  const headers = await getAuthHeaders();
 
   const response = await fetch(`${BASE_URL}/marketing/landing-pages`, {
     method: 'POST',
-    headers: {
-      'Authorization': authHeader,
-      'Content-Type': 'application/json'
-    },
+    headers,
     body: JSON.stringify(page)
   });
 
@@ -441,15 +409,11 @@ export async function createLandingPage(page: LandingPage, organizationId: strin
 }
 
 export async function updateLandingPage(id: string, updates: Partial<LandingPage>): Promise<LandingPage> {
-  const authHeader = await getAuthHeader();
-  if (!authHeader) throw new Error('Not authenticated');
+  const headers = await getAuthHeaders();
 
   const response = await fetch(`${BASE_URL}/marketing/landing-pages/${id}`, {
     method: 'PUT',
-    headers: {
-      'Authorization': authHeader,
-      'Content-Type': 'application/json'
-    },
+    headers,
     body: JSON.stringify(updates)
   });
 
@@ -459,15 +423,11 @@ export async function updateLandingPage(id: string, updates: Partial<LandingPage
 }
 
 export async function deleteLandingPage(id: string): Promise<void> {
-  const authHeader = await getAuthHeader();
-  if (!authHeader) throw new Error('Not authenticated');
+  const headers = await getAuthHeaders();
 
   const response = await fetch(`${BASE_URL}/marketing/landing-pages/${id}`, {
     method: 'DELETE',
-    headers: {
-      'Authorization': authHeader,
-      'Content-Type': 'application/json'
-    }
+    headers,
   });
 
   if (!response.ok) throw new Error('Failed to delete landing page');

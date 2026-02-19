@@ -1,5 +1,6 @@
 import { createClient } from './supabase/client';
 import { projectId, publicAnonKey } from './supabase/info';
+import { getServerHeaders } from './server-headers';
 
 const supabase = createClient();
 
@@ -36,18 +37,6 @@ export interface OrganizationSettings {
 // and are handled via localStorage fallback instead.
 const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels'];
 
-/**
- * Helper: get auth token for server requests
- */
-async function getAuthToken(): Promise<string | null> {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token || null;
-  } catch {
-    return null;
-  }
-}
-
 // ─── GET user preferences ──────────────────────────────────────────────────
 
 export async function getUserPreferencesClient(userId: string, organizationId: string): Promise<UserPreferences | null> {
@@ -60,19 +49,17 @@ export async function getUserPreferencesClient(userId: string, organizationId: s
 
   // Try server endpoint first (bypasses RLS)
   try {
-    const token = await getAuthToken();
-    if (token) {
-      const res = await fetch(
-        `${SERVER_BASE}/settings/user-preferences?user_id=${encodeURIComponent(userId)}&organization_id=${encodeURIComponent(organizationId)}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (res.ok) {
-        const json = await res.json();
-        console.log('[settings-client] ✅ User preferences fetched via server');
-        return json.preferences || null;
-      }
-      console.warn('[settings-client] ⚠️ Server returned', res.status, '- falling back to direct Supabase');
+    const headers = await getServerHeaders();
+    const res = await fetch(
+      `${SERVER_BASE}/settings/user-preferences?user_id=${encodeURIComponent(userId)}&organization_id=${encodeURIComponent(organizationId)}`,
+      { headers }
+    );
+    if (res.ok) {
+      const json = await res.json();
+      console.log('[settings-client] ✅ User preferences fetched via server');
+      return json.preferences || null;
     }
+    console.warn('[settings-client] ⚠️ Server returned', res.status, '- falling back to direct Supabase');
   } catch (err) {
     console.warn('[settings-client] ⚠️ Server endpoint failed, falling back:', err);
   }
@@ -114,24 +101,19 @@ export async function upsertUserPreferencesClient(preferences: Partial<UserPrefe
 
   // Try server endpoint first (bypasses RLS)
   try {
-    const token = await getAuthToken();
-    if (token) {
-      const res = await fetch(`${SERVER_BASE}/settings/user-preferences`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(preferences),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        console.log('[settings-client] ✅ User preferences saved via server');
-        return json.preferences || null;
-      }
-      const errBody = await res.text();
-      console.warn('[settings-client] ⚠️ Server upsert user prefs returned', res.status, errBody, '- falling back');
+    const headers = await getServerHeaders();
+    const res = await fetch(`${SERVER_BASE}/settings/user-preferences`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(preferences),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      console.log('[settings-client] ✅ User preferences saved via server');
+      return json.preferences || null;
     }
+    const errBody = await res.text();
+    console.warn('[settings-client] ⚠️ Server upsert user prefs returned', res.status, errBody, '- falling back');
   } catch (err) {
     console.warn('[settings-client] ⚠️ Server endpoint failed for user prefs upsert, falling back:', err);
   }
@@ -178,19 +160,17 @@ export async function getOrganizationSettingsClient(organizationId: string): Pro
 
   // Try server endpoint first (bypasses RLS)
   try {
-    const token = await getAuthToken();
-    if (token) {
-      const res = await fetch(
-        `${SERVER_BASE}/settings/organization?organization_id=${encodeURIComponent(organizationId)}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (res.ok) {
-        const json = await res.json();
-        console.log('[settings-client] ✅ Organization settings fetched via server');
-        return json.settings || null;
-      }
-      console.warn('[settings-client] ⚠️ Server returned', res.status, '- falling back to direct Supabase');
+    const headers = await getServerHeaders();
+    const res = await fetch(
+      `${SERVER_BASE}/settings/organization?organization_id=${encodeURIComponent(organizationId)}`,
+      { headers }
+    );
+    if (res.ok) {
+      const json = await res.json();
+      console.log('[settings-client] ✅ Organization settings fetched via server');
+      return json.settings || null;
     }
+    console.warn('[settings-client] ⚠️ Server returned', res.status, '- falling back to direct Supabase');
   } catch (err) {
     console.warn('[settings-client] ⚠️ Server endpoint failed, falling back:', err);
   }
@@ -231,32 +211,27 @@ export async function upsertOrganizationSettingsClient(settings: Partial<Organiz
 
   // Try server endpoint first (bypasses RLS) — this is the primary path
   try {
-    const token = await getAuthToken();
-    if (token) {
-      const res = await fetch(`${SERVER_BASE}/settings/organization`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(settings),
-      });
+    const headers = await getServerHeaders();
+    const res = await fetch(`${SERVER_BASE}/settings/organization`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(settings),
+    });
 
-      if (res.ok) {
-        const json = await res.json();
-        console.log('[settings-client] ✅ Organization settings saved via server');
-        return json.settings || null;
-      }
-
-      const errBody = await res.json().catch(() => ({ error: 'Unknown server error' }));
-      console.warn('[settings-client] ⚠️ Server upsert org settings returned', res.status, errBody);
-
-      // If server returned 403 (permission), surface it clearly
-      if (res.status === 403) {
-        throw new Error(errBody.error || 'Permission denied by server');
-      }
-      // For other server errors, fall through to direct Supabase
+    if (res.ok) {
+      const json = await res.json();
+      console.log('[settings-client] ✅ Organization settings saved via server');
+      return json.settings || null;
     }
+
+    const errBody = await res.json().catch(() => ({ error: 'Unknown server error' }));
+    console.warn('[settings-client] ⚠️ Server upsert org settings returned', res.status, errBody);
+
+    // If server returned 403 (permission), surface it clearly
+    if (res.status === 403) {
+      throw new Error(errBody.error || 'Permission denied by server');
+    }
+    // For other server errors, fall through to direct Supabase
   } catch (err: any) {
     // If it's a permission error from the server, rethrow
     if (err?.message?.includes('Permission denied') || err?.message?.includes('admin')) {
@@ -318,23 +293,18 @@ export async function updateOrganizationNameClient(organizationId: string, name:
 
   // Try server endpoint first
   try {
-    const token = await getAuthToken();
-    if (token) {
-      const res = await fetch(`${SERVER_BASE}/settings/organization-name`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ organization_id: organizationId, name }),
-      });
+    const headers = await getServerHeaders();
+    const res = await fetch(`${SERVER_BASE}/settings/organization-name`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({ organization_id: organizationId, name }),
+    });
 
-      if (res.ok) {
-        console.log('[settings-client] ✅ Organization name updated via server');
-        return;
-      }
-      console.warn('[settings-client] ⚠️ Server returned', res.status, 'for org name update - falling back');
+    if (res.ok) {
+      console.log('[settings-client] ✅ Organization name updated via server');
+      return;
     }
+    console.warn('[settings-client] ⚠️ Server returned', res.status, 'for org name update - falling back');
   } catch (err) {
     console.warn('[settings-client] ⚠️ Server endpoint failed for org name update, falling back:', err);
   }
@@ -360,23 +330,18 @@ export async function updateUserProfileClient(userId: string, updates: { name?: 
 
   // Try server endpoint first
   try {
-    const token = await getAuthToken();
-    if (token) {
-      const res = await fetch(`${SERVER_BASE}/settings/profile`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user_id: userId, ...updates }),
-      });
+    const headers = await getServerHeaders();
+    const res = await fetch(`${SERVER_BASE}/settings/profile`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ user_id: userId, ...updates }),
+    });
 
-      if (res.ok) {
-        console.log('[settings-client] ✅ User profile updated via server');
-        return;
-      }
-      console.warn('[settings-client] ⚠️ Server returned', res.status, 'for profile update - falling back');
+    if (res.ok) {
+      console.log('[settings-client] ✅ User profile updated via server');
+      return;
     }
+    console.warn('[settings-client] ⚠️ Server returned', res.status, 'for profile update - falling back');
   } catch (err) {
     console.warn('[settings-client] ⚠️ Server endpoint failed for profile update, falling back:', err);
   }

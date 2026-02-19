@@ -1,6 +1,7 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
 import { projectId, publicAnonKey } from './supabase/info';
+import { getServerHeaders } from './server-headers';
 
 export interface ProjectWizardDefault {
   id?: string;
@@ -80,10 +81,7 @@ export async function getUserDefaults(userId: string, organizationId: string): P
       `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
       {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: await getServerHeaders(),
       }
     );
 
@@ -125,10 +123,7 @@ export async function saveUserDefaults(userId: string, organizationId: string, d
       `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
       {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: await getServerHeaders(),
         body: JSON.stringify({ defaults }),
       }
     );
@@ -166,10 +161,7 @@ export async function deleteUserDefaults(userId: string, organizationId: string)
       `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
       {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: await getServerHeaders(),
       }
     );
 
