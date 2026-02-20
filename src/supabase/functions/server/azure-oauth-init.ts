@@ -92,10 +92,29 @@ export const azureOAuthInit = (app: Hono) => {
 
   // Health check for Azure OAuth
   app.get('/make-server-8405be07/azure-health', (c) => {
-    const configured = !!(Deno.env.get('AZURE_CLIENT_ID') && Deno.env.get('AZURE_CLIENT_SECRET'));
+    const clientId = Deno.env.get('AZURE_CLIENT_ID') || '';
+    const clientSecret = Deno.env.get('AZURE_CLIENT_SECRET') || '';
+    const redirectUri = Deno.env.get('AZURE_REDIRECT_URI') || '';
+    
+    const configured = !!(clientId && clientSecret);
+    
+    // Show enough to diagnose without exposing the full secret
+    const maskSecret = (s: string) => {
+      if (!s) return '(empty)';
+      if (s.length < 8) return `(${s.length} chars)`;
+      return `${s.substring(0, 4)}...${s.substring(s.length - 4)} (${s.length} chars)`;
+    };
+    
     return c.json({
       status: 'ok',
       configured,
+      diagnostics: {
+        clientId: clientId ? `${clientId.substring(0, 8)}... (${clientId.length} chars)` : '(empty)',
+        clientSecret: maskSecret(clientSecret),
+        secretLooksLikeGuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientSecret),
+        secretContainsTilde: clientSecret.includes('~'),
+        redirectUri: redirectUri || '(empty)',
+      },
       timestamp: new Date().toISOString()
     });
   });
