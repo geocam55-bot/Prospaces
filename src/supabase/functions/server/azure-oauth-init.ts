@@ -79,6 +79,7 @@ export const azureOAuthInit = (app: Hono) => {
       return c.json({
         success: true,
         authUrl: authUrl.toString(),
+        pollId: state,
       });
 
     } catch (error: any) {

@@ -26,7 +26,7 @@ export const azureOAuthCallback = (app: Hono) => {
         return c.html(getCallbackHtml({ error: 'Invalid or expired state. Please try again.' }));
       }
 
-      // Delete state to prevent reuse
+      // Delete state to prevent reuse (keep state string for poll key)
       await kv.del(`oauth_state:${state}`);
 
       const AZURE_CLIENT_ID = Deno.env.get('AZURE_CLIENT_ID');
@@ -46,15 +46,6 @@ export const azureOAuthCallback = (app: Hono) => {
 
       // Exchange code for tokens
       console.log('[Azure OAuth] Exchanging code for tokens...');
-      console.log('[Azure OAuth] SECRET DIAGNOSTIC:', {
-        secretLength: AZURE_CLIENT_SECRET.length,
-        secretFirst4: AZURE_CLIENT_SECRET.substring(0, 4),
-        secretLast4: AZURE_CLIENT_SECRET.substring(AZURE_CLIENT_SECRET.length - 4),
-        containsTilde: AZURE_CLIENT_SECRET.includes('~'),
-        looksLikeGuid: /^[0-9a-f]{8}-[0-9a-f]{4}/.test(AZURE_CLIENT_SECRET),
-        clientIdFirst8: AZURE_CLIENT_ID.substring(0, 8),
-        redirectUri: AZURE_REDIRECT_URI,
-      });
       const tokenParams = new URLSearchParams();
       tokenParams.append('client_id', AZURE_CLIENT_ID);
       tokenParams.append('client_secret', AZURE_CLIENT_SECRET);
@@ -118,17 +109,21 @@ export const azureOAuthCallback = (app: Hono) => {
       await kv.set(`email_account:${stateData.userId}:${accountId}`, accountData);
       await kv.set(`email_account:by_email:${userEmail}`, accountId);
 
-      console.log('[Azure OAuth] Account saved to KV successfully:', accountId);
-
-      // Return success HTML that posts message to opener window
-      return c.html(getCallbackHtml({
+      // Store result for polling fallback (window.opener breaks on cross-origin redirects)
+      const oauthResult = {
         success: true,
         account: {
           id: accountId,
           email: userEmail,
           last_sync: accountData.last_sync
         }
-      }));
+      };
+      await kv.set(`oauth_result:${state}`, oauthResult, { expiresIn: 300 }); // 5 min TTL
+
+      console.log('[Azure OAuth] Account saved to KV successfully:', accountId);
+
+      // Return success HTML that posts message to opener window
+      return c.html(getCallbackHtml(oauthResult));
 
     } catch (error: any) {
       console.error('[Azure OAuth] Callback error:', error);
@@ -419,6 +414,30 @@ export const azureOAuthCallback = (app: Hono) => {
 
     } catch (error: any) {
       console.error('[Azure OAuth] Sync error:', error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // Poll for OAuth result (fallback when window.opener is broken by cross-origin redirects)
+  app.get('/make-server-8405be07/oauth-poll/:pollId', async (c) => {
+    try {
+      const pollId = c.req.param('pollId');
+      if (!pollId) {
+        return c.json({ error: 'pollId is required' }, 400);
+      }
+
+      const result = await kv.get(`oauth_result:${pollId}`) as any;
+      if (result) {
+        // Clean up after successful poll
+        await kv.del(`oauth_result:${pollId}`);
+        console.log('[Azure OAuth] Poll result found and delivered for:', pollId);
+        return c.json(result);
+      }
+
+      // Not ready yet
+      return c.json({ pending: true });
+    } catch (error: any) {
+      console.error('[Azure OAuth] Poll error:', error);
       return c.json({ error: error.message }, 500);
     }
   });

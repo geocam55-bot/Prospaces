@@ -237,48 +237,122 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('Popup was blocked. Please allow popups for this site.');
       }
 
-      // Listen for OAuth callback
-      const handleMessage = (event: MessageEvent) => {
-        if (!event.origin.includes('supabase.co') && event.origin !== window.location.origin) {
-            return;
-        }
-        
-        if (event.data.type === 'gmail-oauth-success' || event.data.type === 'outlook-oauth-success') {
-          console.log('[EmailAccountSetup] OAuth success message received:', event.data.type);
-          window.removeEventListener('message', handleMessage);
+      // Track whether we've already handled the result
+      let oauthHandled = false;
+
+      const handleOAuthResult = (resultData: { type: string; account?: any; error?: string }) => {
+        if (oauthHandled) return;
+        oauthHandled = true;
+
+        // Clean up listeners
+        window.removeEventListener('message', handleMessage);
+        if (pollInterval) clearInterval(pollInterval);
+        if (popupCheckInterval) clearInterval(popupCheckInterval);
+
+        if (resultData.type === 'gmail-oauth-success' || resultData.type === 'outlook-oauth-success') {
+          console.log('[EmailAccountSetup] OAuth success:', resultData.type);
           setIsConnecting(false);
           setStep('success');
           
           const account: EmailAccount = {
-            id: event.data.account.id,
+            id: resultData.account.id,
             provider: selectedProvider,
-            email: event.data.account.email,
+            email: resultData.account.email,
             connected: true,
-            lastSync: event.data.account.last_sync,
+            lastSync: resultData.account.last_sync,
           };
+          
+          // Close popup if still open
+          try { if (popup && !popup.closed) popup.close(); } catch (e) {}
           
           setTimeout(() => {
             onAccountAdded(account);
             handleClose();
             toast.success(`${providerName} account connected successfully!`);
           }, 1500);
-        } else if (event.data.type === 'gmail-oauth-error' || event.data.type === 'outlook-oauth-error') {
-          console.log('[EmailAccountSetup] OAuth error message received:', event.data.error);
-          window.removeEventListener('message', handleMessage);
+        } else if (resultData.type === 'gmail-oauth-error' || resultData.type === 'outlook-oauth-error') {
+          console.log('[EmailAccountSetup] OAuth error:', resultData.error);
           setIsConnecting(false);
-          setError(event.data.error || `Failed to connect ${providerName} account`);
+          setError(resultData.error || `Failed to connect ${providerName} account`);
+        }
+      };
+
+      // Method 1: Listen for postMessage from popup (works when window.opener is intact)
+      const handleMessage = (event: MessageEvent) => {
+        if (!event.origin.includes('supabase.co') && event.origin !== window.location.origin) {
+            return;
+        }
+        
+        if (event.data.type === 'gmail-oauth-success' || event.data.type === 'outlook-oauth-success') {
+          handleOAuthResult(event.data);
+        } else if (event.data.type === 'gmail-oauth-error' || event.data.type === 'outlook-oauth-error') {
+          handleOAuthResult(event.data);
         }
       };
 
       window.addEventListener('message', handleMessage);
 
-      const checkPopupClosed = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkPopupClosed);
-          window.removeEventListener('message', handleMessage);
-          if (isConnecting) {
-            setIsConnecting(false);
+      // Method 2: Poll server for result (fallback when cross-origin redirects break window.opener)
+      let pollInterval: ReturnType<typeof setInterval> | null = null;
+      const pollId = data.pollId;
+      
+      if (pollId) {
+        let pollAttempts = 0;
+        const maxPollAttempts = 120; // 2 minutes at 1s interval
+        
+        pollInterval = setInterval(async () => {
+          if (oauthHandled) {
+            if (pollInterval) clearInterval(pollInterval);
+            return;
           }
+          
+          pollAttempts++;
+          if (pollAttempts > maxPollAttempts) {
+            if (pollInterval) clearInterval(pollInterval);
+            return;
+          }
+
+          try {
+            const pollResponse = await fetch(
+              `${supabaseUrl}/functions/v1/make-server-8405be07/oauth-poll/${pollId}`,
+              {
+                headers: { 'Authorization': `Bearer ${session.access_token}` }
+              }
+            );
+            
+            if (pollResponse.ok) {
+              const pollResult = await pollResponse.json();
+              if (pollResult && !pollResult.pending) {
+                console.log('[EmailAccountSetup] OAuth poll result received:', pollResult);
+                const messageType = pollResult.success 
+                  ? (selectedProvider === 'gmail' ? 'gmail-oauth-success' : 'outlook-oauth-success')
+                  : (selectedProvider === 'gmail' ? 'gmail-oauth-error' : 'outlook-oauth-error');
+                handleOAuthResult({ 
+                  type: messageType, 
+                  account: pollResult.account, 
+                  error: pollResult.error 
+                });
+              }
+            }
+          } catch (pollErr) {
+            console.warn('[EmailAccountSetup] Poll error (will retry):', pollErr);
+          }
+        }, 1000);
+      }
+
+      // Method 3: Detect popup closed without success
+      let popupCheckInterval: ReturnType<typeof setInterval> | null = null;
+      popupCheckInterval = setInterval(() => {
+        if (popup?.closed) {
+          if (popupCheckInterval) clearInterval(popupCheckInterval);
+          // Give polling a few more seconds after popup closes
+          setTimeout(() => {
+            if (!oauthHandled) {
+              if (pollInterval) clearInterval(pollInterval);
+              window.removeEventListener('message', handleMessage);
+              setIsConnecting(false);
+            }
+          }, 5000);
         }
       }, 500);
 
