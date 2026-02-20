@@ -15,7 +15,7 @@ import {
   GridHelper,
   BoxGeometry,
   CylinderGeometry
-} from 'three';
+} from '../../utils/three';
 
 interface Roof3DRendererProps {
   config: RoofConfig;

@@ -57,7 +57,6 @@
           "recharts": "*",
           "sonner": "^2.0.3",
           "tailwind-merge": "*",
-          "three": "*",
           "url": "*",
           "vaul": "*",
           "vite": "*",
