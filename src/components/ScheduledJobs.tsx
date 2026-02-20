@@ -306,7 +306,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
             projectName: record.projectName,
             description: record.description || '',
             subtotal: parseFloat(record.subtotal) || 0,
-            tax: parseFloat(record.tax) || 0,
+            tax_amount: parseFloat(record.tax) || 0, // Map 'tax' → 'tax_amount' (actual bids table column)
             total: parseFloat(record.total) || 0,
             status: record.status || 'Draft',
             validUntil: record.validUntil || '',

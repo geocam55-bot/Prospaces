@@ -153,7 +153,10 @@ function transformToDbFormat(contactData: any) {
   }
   // Transform priceLevel from camelCase to snake_case for database
   if ('priceLevel' in transformed) {
-    transformed.price_level = transformed.priceLevel;
+    // Guard: ensure price_level is always a non-undefined string so that
+    // JSON.stringify won't silently strip it from the request body.
+    const pl = transformed.priceLevel;
+    transformed.price_level = (pl !== undefined && pl !== null && pl !== '') ? pl : getPriceTierLabel(1);
     delete transformed.priceLevel;
   }
   if ('createdBy' in transformed) {

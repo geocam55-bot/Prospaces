@@ -209,7 +209,7 @@ export function TestDataGenerator() {
           
           const bidData = {
             title: `${baseTitle} - Proposal ${j + 1}`,
-            contact_id: contact.id, // Direct link to contact
+            contactId: contact.id, // Will be mapped to opportunity_id by bids-client
             project_manager_id: pm.id,
             amount: bidAmount,
             subtotal: Math.round(subtotal * 100) / 100,

@@ -218,22 +218,85 @@ export async function createBidClient(data: any) {
       organizationId = user.user_metadata?.organizationId || null;
     }
     
-    const { items, opportunityId, validUntil, projectManagerId, ...rest } = data;
-    
-    const bidData: any = {
-      ...rest,
-      opportunity_id: opportunityId,
-      valid_until: validUntil,
-      project_manager_id: projectManagerId || null,
-      organization_id: organizationId,
-      created_by: user.id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    
-    if (items && Array.isArray(items)) {
-      bidData.line_items = items;
+    // Destructure camelCase AND snake_case contact fields to strip them from ...rest.
+    // The bids table does NOT have contact_id, contact_name, or contact_email columns.
+    // Contact reference is stored via opportunity_id.
+    const {
+      items,
+      opportunityId,
+      validUntil,
+      projectManagerId,
+      contactId,
+      contact_id: _contactIdSnake,
+      contactName,
+      contact_name: _contactNameSnake,
+      contactEmail,
+      contact_email: _contactEmailSnake,
+      clientName,
+      projectName,
+      tax,          // Map 'tax' → 'tax_amount' (sent by ScheduledJobs / ImportExport)
+      taxPercent,
+      taxPercent2,
+      taxAmount,
+      taxAmount2,
+      discountPercent,  // Strip — column does NOT exist on bids table
+      discountAmount,   // Strip — column does NOT exist on bids table
+      line_items: _lineItemsSnake,  // Strip — column does NOT exist on bids table
+      lineItems: _lineItemsCamel,   // Strip — column does NOT exist on bids table
+      submittedDate,
+      ...rest
+    } = data;
+
+    // Allowlist of columns that actually exist on the bids table.
+    // Any field NOT in this list will be silently dropped to prevent PGRST204 errors.
+    // NOTE: line_items, discount_percent, and discount_amount do NOT exist on the bids table.
+    const ALLOWED_BID_COLUMNS = new Set([
+      'title', 'amount', 'status', 'valid_until', 'notes', 'terms', 'description',
+      'opportunity_id', 'project_manager_id', 'client_name', 'project_name',
+      'subtotal', 'tax_rate', 'tax_percent', 'tax_percent_2',
+      'tax_amount', 'tax_amount_2', 'total',
+      'submitted_date', 'organization_id', 'created_by', 'created_at', 'updated_at',
+    ]);
+
+    // Start with only allowed fields from ...rest
+    const bidData: any = {};
+    for (const [key, value] of Object.entries(rest)) {
+      if (ALLOWED_BID_COLUMNS.has(key)) {
+        bidData[key] = value;
+      } else {
+        console.log(`[bids-client] createBidClient — Dropping unknown field: ${key}`);
+      }
     }
+
+    // Always set these
+    bidData.organization_id = organizationId;
+    bidData.created_by = user.id;
+    bidData.created_at = new Date().toISOString();
+    bidData.updated_at = new Date().toISOString();
+
+    // Map camelCase → snake_case (only include if provided)
+    if (validUntil !== undefined) bidData.valid_until = validUntil;
+    if (projectManagerId !== undefined) bidData.project_manager_id = projectManagerId || null;
+    if (clientName !== undefined) bidData.client_name = clientName;
+    if (projectName !== undefined) bidData.project_name = projectName;
+    if (taxPercent !== undefined) bidData.tax_percent = taxPercent;
+    if (taxPercent2 !== undefined) bidData.tax_percent_2 = taxPercent2;
+    if (taxAmount !== undefined) bidData.tax_amount = taxAmount;
+    if (taxAmount2 !== undefined) bidData.tax_amount_2 = taxAmount2;
+    if (submittedDate !== undefined) bidData.submitted_date = submittedDate;
+    // NOTE: discountPercent, discountAmount, line_items, and items are intentionally NOT mapped —
+    // these columns do not exist on the bids table.
+
+    // Map 'tax' → 'tax_amount' (ScheduledJobs / ImportExport send 'tax' instead of 'tax_amount')
+    if (tax !== undefined && bidData.tax_amount === undefined) bidData.tax_amount = tax;
+
+    // The bids table uses opportunity_id for the customer/contact reference.
+    // If caller sent opportunityId, use it. Otherwise fall back to contactId.
+    const effectiveOpportunityId = opportunityId || contactId || _contactIdSnake;
+    if (effectiveOpportunityId) bidData.opportunity_id = effectiveOpportunityId;
+    
+    // NOTE: line_items / items are NOT inserted into bids table — that column does not exist.
+    // Line items are only stored on the quotes table.
     
     console.log('[bids-client] Creating bid (fallback) with org:', organizationId);
     
@@ -258,38 +321,57 @@ export async function createBidClient(data: any) {
 
 export async function updateBidClient(id: string, data: any) {
   try {
-    const { 
-      items, 
-      line_items,
-      opportunityId, 
-      validUntil, 
-      projectManagerId,
-      ...rest 
-    } = data;
-    
+    // Allowlist of columns that actually exist on the bids table.
+    // NOTE: line_items, discount_percent, and discount_amount do NOT exist on the bids table.
+    const ALLOWED_BID_COLUMNS = new Set([
+      'title', 'amount', 'status', 'valid_until', 'notes', 'terms', 'description',
+      'opportunity_id', 'project_manager_id', 'client_name', 'project_name',
+      'subtotal', 'tax_rate', 'tax_percent', 'tax_percent_2',
+      'tax_amount', 'tax_amount_2', 'total',
+      'submitted_date', 'updated_at',
+    ]);
+
+    // Explicit camelCase → snake_case mappings
+    const CAMEL_TO_SNAKE: Record<string, string> = {
+      opportunityId: 'opportunity_id',
+      validUntil: 'valid_until',
+      projectManagerId: 'project_manager_id',
+      clientName: 'client_name',
+      projectName: 'project_name',
+      taxRate: 'tax_rate',
+      taxPercent: 'tax_percent',
+      taxPercent2: 'tax_percent_2',
+      taxAmount: 'tax_amount',
+      taxAmount2: 'tax_amount_2',
+      submittedDate: 'submitted_date',
+    };
+
     const updateData: any = {
       updated_at: new Date().toISOString(),
     };
-    
-    if (data.title !== undefined) updateData.title = data.title;
-    if (data.amount !== undefined) updateData.amount = data.amount;
-    if (data.status !== undefined) updateData.status = data.status;
-    if (opportunityId !== undefined) updateData.opportunity_id = opportunityId;
-    if (validUntil !== undefined) updateData.valid_until = validUntil;
-    if (projectManagerId !== undefined) updateData.project_manager_id = projectManagerId;
-    
-    if (data.notes !== undefined) updateData.notes = data.notes;
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.subtotal !== undefined) updateData.subtotal = data.subtotal;
-    if (data.tax_rate !== undefined) updateData.tax_rate = data.tax_rate;
-    if (data.tax_percent !== undefined) updateData.tax_percent = data.tax_percent;
-    if (data.tax_amount !== undefined) updateData.tax_amount = data.tax_amount;
-    if (data.total !== undefined) updateData.total = data.total;
-    if (data.discount_percent !== undefined) updateData.discount_percent = data.discount_percent;
-    if (data.discount_amount !== undefined) updateData.discount_amount = data.discount_amount;
-    
-    if (items && Array.isArray(items)) {
-      updateData.line_items = items;
+
+    // NOTE: line_items / items are NOT sent to bids table — that column does not exist.
+    // Line items are only stored on the quotes table.
+
+    // Process all fields from data
+    for (const [key, value] of Object.entries(data)) {
+      if (key === 'items' || key === 'line_items' || key === 'lineItems') continue; // Skip — column does not exist on bids table
+      if (value === undefined) continue;
+
+      // If key is already an allowed snake_case column, use it directly
+      if (ALLOWED_BID_COLUMNS.has(key)) {
+        updateData[key] = value;
+        continue;
+      }
+
+      // Try camelCase → snake_case mapping
+      const snakeKey = CAMEL_TO_SNAKE[key];
+      if (snakeKey && ALLOWED_BID_COLUMNS.has(snakeKey)) {
+        updateData[snakeKey] = value;
+        continue;
+      }
+
+      // Drop unknown fields (e.g., _source, contactId, etc.)
     }
     
     console.log('[bids-client] Updating bid with data:', updateData);

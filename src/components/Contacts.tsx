@@ -415,8 +415,11 @@ export function Contacts({ user }: ContactsProps) {
     if (!editingContact) return;
     setIsSaving(true);
 
+    // Diagnostic: log the priceLevel being sent so we can verify it reaches the server
+    console.log(`[Contacts] handleEditContact — id=${editingContact.id}, priceLevel="${editingContact.priceLevel}"`);
+
     try {
-      const { contact } = await contactsAPI.update(editingContact.id, {
+      const updateData = {
         name: editingContact.name,
         email: editingContact.email,
         phone: editingContact.phone,
@@ -434,7 +437,11 @@ export function Contacts({ user }: ContactsProps) {
         ytdGpPercent: editingContact.ytdGpPercent,
         lyrSales: editingContact.lyrSales,
         lyrGpPercent: editingContact.lyrGpPercent
-      });
+      };
+
+      const { contact } = await contactsAPI.update(editingContact.id, updateData);
+      console.log(`[Contacts] Update response — priceLevel="${contact?.priceLevel}"`);
+
       if (contact) {
         setContacts(contacts.map(c => (c?.id === contact.id ? contact : c)));
         // Update the selected contact if we're viewing its detail page

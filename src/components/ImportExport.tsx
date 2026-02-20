@@ -949,10 +949,13 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       throw new Error('Missing required fields (clientName, projectName)');
     }
 
-    // Convert numeric fields
+    // Convert numeric fields — map 'tax' → 'tax_amount' (actual bids table column)
     bid.subtotal = bid.subtotal ? parseFloat(bid.subtotal) : 0;
-    bid.tax = bid.tax ? parseFloat(bid.tax) : 0;
+    bid.tax_amount = bid.tax ? parseFloat(bid.tax) : 0;
     bid.total = bid.total ? parseFloat(bid.total) : 0;
+
+    // Remove the raw 'tax' field so it doesn't leak through to the database
+    delete bid.tax;
 
     // Set defaults
     bid.status = bid.status || 'draft';

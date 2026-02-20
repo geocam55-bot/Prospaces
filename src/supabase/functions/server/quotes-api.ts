@@ -267,13 +267,85 @@ export function quotesAPI(app: Hono) {
       const organizationId = profile?.organization_id || user.user_metadata?.organizationId || null;
       const body = await c.req.json();
 
-      const bidData = {
-        ...body,
-        organization_id: organizationId,
-        created_by: user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+      // Map camelCase fields from frontend to snake_case for the database.
+      // Destructure known camelCase fields so they don't leak into ...rest.
+      // NOTE: The bids table does NOT have contact_id, contact_name, or contact_email columns.
+      // Contact reference is stored via opportunity_id. Strip these fields entirely.
+      const {
+        contactId,
+        contact_id: _contactIdSnake,
+        contactName,
+        contact_name: _contactNameSnake,
+        contactEmail,
+        contact_email: _contactEmailSnake,
+        opportunityId,
+        validUntil,
+        projectManagerId,
+        clientName,
+        projectName,
+        items,
+        line_items: _lineItemsSnake, // Strip — column does NOT exist on bids table
+        tax,          // Map 'tax' → 'tax_amount' (sent by ScheduledJobs / ImportExport)
+        taxPercent,   // camelCase variants
+        taxPercent2,
+        taxAmount,
+        taxAmount2,
+        discountPercent,  // Strip — column does NOT exist on bids table
+        discountAmount,   // Strip — column does NOT exist on bids table
+        submittedDate,
+        ...rest
+      } = body;
+
+      // Allowlist of columns that actually exist on the bids table.
+      // Any field NOT in this list will be silently dropped to prevent PGRST204 errors.
+      // NOTE: line_items, discount_percent, and discount_amount do NOT exist on the bids table.
+      const ALLOWED_BID_COLUMNS = new Set([
+        'title', 'amount', 'status', 'valid_until', 'notes', 'terms', 'description',
+        'opportunity_id', 'project_manager_id', 'client_name', 'project_name',
+        'subtotal', 'tax_rate', 'tax_percent', 'tax_percent_2',
+        'tax_amount', 'tax_amount_2', 'total',
+        'submitted_date', 'organization_id', 'created_by', 'created_at', 'updated_at',
+      ]);
+
+      // Start with only allowed fields from ...rest (already snake_case fields from caller)
+      const bidData: Record<string, any> = {};
+      for (const [key, value] of Object.entries(rest)) {
+        if (ALLOWED_BID_COLUMNS.has(key)) {
+          bidData[key] = value;
+        } else {
+          console.log(`[quotes-api] POST /bids — Dropping unknown field: ${key}`);
+        }
+      }
+
+      // Always set these
+      bidData.organization_id = organizationId;
+      bidData.created_by = user.id;
+      bidData.created_at = new Date().toISOString();
+      bidData.updated_at = new Date().toISOString();
+
+      // Map camelCase → snake_case (only include if provided)
+      if (validUntil !== undefined) bidData.valid_until = validUntil;
+      if (projectManagerId !== undefined) bidData.project_manager_id = projectManagerId;
+      if (clientName !== undefined) bidData.client_name = clientName;
+      if (projectName !== undefined) bidData.project_name = projectName;
+      if (taxPercent !== undefined) bidData.tax_percent = taxPercent;
+      if (taxPercent2 !== undefined) bidData.tax_percent_2 = taxPercent2;
+      if (taxAmount !== undefined) bidData.tax_amount = taxAmount;
+      if (taxAmount2 !== undefined) bidData.tax_amount_2 = taxAmount2;
+      if (submittedDate !== undefined) bidData.submitted_date = submittedDate;
+      // NOTE: discountPercent, discountAmount, line_items, and items are intentionally NOT mapped —
+      // these columns do not exist on the bids table.
+
+      // Map 'tax' → 'tax_amount' (ScheduledJobs / ImportExport send 'tax' instead of 'tax_amount')
+      if (tax !== undefined && bidData.tax_amount === undefined) bidData.tax_amount = tax;
+
+      // The bids table uses opportunity_id for the customer/contact reference.
+      // If caller sent opportunityId, use it. Otherwise fall back to contactId.
+      const effectiveOpportunityId = opportunityId || contactId || _contactIdSnake;
+      if (effectiveOpportunityId !== undefined) bidData.opportunity_id = effectiveOpportunityId;
+
+      // NOTE: line_items / items are NOT inserted into bids table — that column does not exist.
+      // Line items are only stored on the quotes table.
 
       console.log(`[quotes-api] POST /bids — user=${profile?.email}, org=${organizationId}`);
 
