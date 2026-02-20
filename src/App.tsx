@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Navigation } from './components/Navigation';
 import { LandingPage } from './components/LandingPage';
 import { Login } from './components/Login';
@@ -25,11 +25,12 @@ import { BackgroundImportManager } from './components/BackgroundImportManager';
 import { BackgroundJobProcessor } from './components/BackgroundJobProcessor';
 import { AITaskSuggestions } from './components/AITaskSuggestions';
 import { ChangePasswordDialog } from './components/ChangePasswordDialog';
-import { KitchenPlanner } from './components/planners/KitchenPlanner';
-import { DeckPlanner } from './components/planners/DeckPlanner';
-import { GaragePlanner } from './components/planners/GaragePlanner';
-import { ShedPlanner } from './components/planners/ShedPlanner';
-import { RoofPlanner } from './components/planners/RoofPlanner';
+// Lazy-load planners that depend on Three.js (heavy + may not resolve in all environments)
+const KitchenPlanner = React.lazy(() => import('./components/planners/KitchenPlanner').then(m => ({ default: m.KitchenPlanner })));
+const DeckPlanner = React.lazy(() => import('./components/planners/DeckPlanner').then(m => ({ default: m.DeckPlanner })));
+const GaragePlanner = React.lazy(() => import('./components/planners/GaragePlanner').then(m => ({ default: m.GaragePlanner })));
+const ShedPlanner = React.lazy(() => import('./components/planners/ShedPlanner').then(m => ({ default: m.ShedPlanner })));
+const RoofPlanner = React.lazy(() => import('./components/planners/RoofPlanner').then(m => ({ default: m.RoofPlanner })));
 import { ThemeProvider } from './components/ThemeProvider';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
@@ -79,6 +80,18 @@ export interface Organization {
 }
 
 const supabase = createClient();
+
+// Loading fallback for lazy-loaded planner modules
+function PlannerLoading() {
+  return (
+    <div className="flex items-center justify-center h-96">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
+        <p className="text-slate-500 text-sm">Loading 3D Planner...</p>
+      </div>
+    </div>
+  );
+}
 
 // Check if accessing special public routes (no auth required)
 function getPublicRoute(): React.ReactElement | null {
@@ -405,11 +418,11 @@ function App() {
               {currentView === 'import-export' && <ImportExport user={user} onNavigate={setCurrentView} />}
               {currentView === 'scheduled-jobs' && <ScheduledJobs user={user} onNavigate={setCurrentView} />}
               {currentView === 'background-imports' && <BackgroundImportManager user={user} onNavigate={setCurrentView} />}
-              {currentView === 'kitchen-planner' && <KitchenPlanner user={user} />}
-              {currentView === 'deck-planner' && <DeckPlanner user={user} />}
-              {currentView === 'garage-planner' && <GaragePlanner user={user} />}
-              {currentView === 'shed-planner' && <ShedPlanner user={user} />}
-              {currentView === 'roof-planner' && <RoofPlanner user={user} />}
+              {currentView === 'kitchen-planner' && <Suspense fallback={<PlannerLoading />}><KitchenPlanner user={user} /></Suspense>}
+              {currentView === 'deck-planner' && <Suspense fallback={<PlannerLoading />}><DeckPlanner user={user} /></Suspense>}
+              {currentView === 'garage-planner' && <Suspense fallback={<PlannerLoading />}><GaragePlanner user={user} /></Suspense>}
+              {currentView === 'shed-planner' && <Suspense fallback={<PlannerLoading />}><ShedPlanner user={user} /></Suspense>}
+              {currentView === 'roof-planner' && <Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense>}
               {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
             </div>
           </main>

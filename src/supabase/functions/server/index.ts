@@ -19,43 +19,52 @@ import { settingsAPI } from './settings-api.ts';
 import { permissionsAPI } from './permissions-api.ts';
 import { customerPortalAPI } from './customer-portal-api.ts';
 
+// All routes are registered on this sub-router with /make-server-8405be07/ prefix
+const api = new Hono();
+
+azureOAuthInit(api);
+azureOAuthCallback(api);
+googleOAuth(api);
+dataMigration(api);
+fixProfileMismatch(api);
+backgroundJobs(api);
+inventoryDiagnostic(api);
+marketing(api);
+fixContactOwnership(api);
+contactsAPI(api);
+profilesAPI(api);
+quotesAPI(api);
+settingsAPI(api);
+permissionsAPI(api);
+customerPortalAPI(api);
+
+// Health check endpoint
+api.get('/make-server-8405be07/health', (c) => {
+  console.log('Health check endpoint hit');
+  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Password reset endpoint
+api.post('/make-server-8405be07/reset-password', handleResetPassword);
+
+// Create user endpoint (admin-only, creates Supabase Auth account + profile)
+api.post('/make-server-8405be07/create-user', handleCreateUser);
+
+// Catch-all for debugging 404s
+api.all('*', (c) => {
+  console.log('404 - Route not found:', c.req.method, c.req.path);
+  return c.json({ error: 'Route not found', method: c.req.method, path: c.req.path }, 404);
+});
+
+// Main app with middleware
 const app = new Hono();
 
 app.use('*', logger(console.log));
 app.use('*', cors());
 
-azureOAuthInit(app);
-azureOAuthCallback(app);
-googleOAuth(app);
-dataMigration(app);
-fixProfileMismatch(app);
-backgroundJobs(app);
-inventoryDiagnostic(app);
-marketing(app);
-fixContactOwnership(app);
-contactsAPI(app);
-profilesAPI(app);
-quotesAPI(app);
-settingsAPI(app);
-permissionsAPI(app);
-customerPortalAPI(app);
-
-// Health check endpoint
-app.get('/make-server-8405be07/health', (c) => {
-  console.log('🏥 Health check endpoint hit');
-  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// Password reset endpoint
-app.post('/make-server-8405be07/reset-password', handleResetPassword);
-
-// Create user endpoint (admin-only, creates Supabase Auth account + profile)
-app.post('/make-server-8405be07/create-user', handleCreateUser);
-
-// Catch-all for debugging 404s
-app.all('*', (c) => {
-  console.log('⚠️ 404 - Route not found:', c.req.method, c.req.path);
-  return c.json({ error: 'Route not found', method: c.req.method, path: c.req.path }, 404);
-});
+// Mount api at /server (Codespace: function deployed as "server", paths arrive as /server/...)
+app.route('/server', api);
+// Mount api at / (Figma Make: paths arrive without /server prefix)
+app.route('/', api);
 
 Deno.serve(app.fetch);

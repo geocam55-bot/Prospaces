@@ -1,6 +1,7 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import { extractUserToken } from './auth-helper.ts';
 
 export const azureOAuthInit = (app: Hono) => {
   // Initiate Microsoft/Outlook OAuth flow
@@ -8,9 +9,10 @@ export const azureOAuthInit = (app: Hono) => {
     try {
       console.log('[Azure OAuth] Initiating OAuth flow');
 
-      const authHeader = c.req.header('Authorization');
-      if (!authHeader) {
-        return c.json({ error: 'Authorization header required' }, 401);
+      // Use dual-header auth pattern: X-User-Token preferred, Authorization fallback
+      const token = extractUserToken(c);
+      if (!token) {
+        return c.json({ error: 'Authorization required. Send X-User-Token or Authorization header.' }, 401);
       }
 
       // Verify user is authenticated
@@ -19,7 +21,6 @@ export const azureOAuthInit = (app: Hono) => {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const token = authHeader.replace('Bearer ', '');
       const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
       if (userError || !user) {
@@ -97,24 +98,15 @@ export const azureOAuthInit = (app: Hono) => {
     const clientSecret = Deno.env.get('AZURE_CLIENT_SECRET') || '';
     const redirectUri = Deno.env.get('AZURE_REDIRECT_URI') || '';
     
-    const configured = !!(clientId && clientSecret);
-    
-    // Show enough to diagnose without exposing the full secret
-    const maskSecret = (s: string) => {
-      if (!s) return '(empty)';
-      if (s.length < 8) return `(${s.length} chars)`;
-      return `${s.substring(0, 4)}...${s.substring(s.length - 4)} (${s.length} chars)`;
-    };
+    const configured = !!(clientId && clientSecret && redirectUri);
     
     return c.json({
       status: 'ok',
       configured,
       diagnostics: {
-        clientId: clientId ? `${clientId.substring(0, 8)}... (${clientId.length} chars)` : '(empty)',
-        clientSecret: maskSecret(clientSecret),
-        secretLooksLikeGuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientSecret),
-        secretContainsTilde: clientSecret.includes('~'),
-        redirectUri: redirectUri || '(empty)',
+        hasClientId: !!clientId,
+        hasClientSecret: !!clientSecret,
+        hasRedirectUri: !!redirectUri,
       },
       timestamp: new Date().toISOString()
     });

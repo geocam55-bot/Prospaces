@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Mail, CheckCircle, AlertCircle, Info, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
-import { projectId } from '../utils/supabase/info';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface EmailAccountSetupProps {
   isOpen: boolean;
@@ -202,7 +202,8 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       const response = await fetch(`${supabaseUrl}/functions/v1${endpoint}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'X-User-Token': session.access_token,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({})
@@ -316,7 +317,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
             const pollResponse = await fetch(
               `${supabaseUrl}/functions/v1/make-server-8405be07/oauth-poll/${pollId}`,
               {
-                headers: { 'Authorization': `Bearer ${session.access_token}` }
+                headers: { 'Authorization': `Bearer ${publicAnonKey}` }
               }
             );
             
