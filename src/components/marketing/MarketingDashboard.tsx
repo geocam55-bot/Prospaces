@@ -113,7 +113,7 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
     },
     {
       title: 'Revenue Attribution',
-      value: `$${stats.revenue.toLocaleString()}`,
+      value: `$${stats.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       change: 'total revenue',
       trend: 'up',
       icon: DollarSign,

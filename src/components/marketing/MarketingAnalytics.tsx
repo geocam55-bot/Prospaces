@@ -133,7 +133,7 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
             {[
               { 
                 title: 'Total Revenue', 
-                value: `$${totalRevenue.toLocaleString()}`, 
+                value: `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 
                 change: 'from campaigns', 
                 trend: 'neutral', 
                 icon: DollarSign,
@@ -202,7 +202,7 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                       <div key={c.id || index} className="flex-1 flex flex-col items-center gap-2 group relative">
                         <div className="w-full bg-blue-500 rounded-t opacity-80 hover:opacity-100 transition-opacity" style={{ height: `${height}%` }}>
                           <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block bg-black text-white text-xs p-2 rounded whitespace-nowrap z-10">
-                            {c.name}<br/>${(c.revenue || 0).toLocaleString()}
+                            {c.name}<br/>${(c.revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
                         </div>
                         <span className="text-xs text-gray-500 truncate w-full text-center">{c.name?.substring(0, 6)}..</span>
@@ -272,7 +272,7 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-900">
-                          ${channel.revenue.toLocaleString()}
+                          ${channel.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                       </tr>
                     ))}
@@ -314,7 +314,7 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                           <td className="py-3 px-4 text-sm text-gray-600">{(campaign.sent_count || campaign.sent || 0).toLocaleString()}</td>
                           <td className="py-3 px-4 text-sm text-gray-600">{(campaign.converted_count || campaign.converted || 0).toLocaleString()}</td>
                           <td className="py-3 px-4 text-sm text-green-600">
-                            ${(campaign.revenue || 0).toLocaleString()}
+                            ${(campaign.revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600">
                             {campaign.created_at ? new Date(campaign.created_at).toLocaleDateString() : '-'}

@@ -269,7 +269,7 @@ export function OpportunitySelector({
                   <div className="flex flex-col">
                     <span>{opp.title}</span>
                     <span className="text-xs text-slate-500">
-                      {opp.customer_name} • ${opp.value.toLocaleString()} • {opp.status}
+                      {opp.customer_name} • ${opp.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} • {opp.status}
                     </span>
                   </div>
                 </SelectItem>

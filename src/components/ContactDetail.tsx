@@ -1035,7 +1035,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 {contact.ptdSales !== undefined && (
                   <div className="mb-2">
                     <p className="text-sm text-gray-600">Sales</p>
-                    <p className="text-gray-900">${contact.ptdSales.toLocaleString()}</p>
+                    <p className="text-gray-900">${contact.ptdSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                 )}
                 {contact.ptdGpPercent !== undefined && (
@@ -1055,7 +1055,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 {contact.ytdSales !== undefined && (
                   <div className="mb-2">
                     <p className="text-sm text-gray-600">Sales</p>
-                    <p className="text-gray-900">${contact.ytdSales.toLocaleString()}</p>
+                    <p className="text-gray-900">${contact.ytdSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                 )}
                 {contact.ytdGpPercent !== undefined && (
@@ -1075,7 +1075,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 {contact.lyrSales !== undefined && (
                   <div className="mb-2">
                     <p className="text-sm text-gray-600">Sales</p>
-                    <p className="text-gray-900">${contact.lyrSales.toLocaleString()}</p>
+                    <p className="text-gray-900">${contact.lyrSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                 )}
                 {contact.lyrGpPercent !== undefined && (
@@ -1331,7 +1331,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                         <div className="ml-7 flex items-center gap-4 text-sm">
                           <div className="flex items-center gap-1 text-gray-600">
                             <DollarSign className="h-4 w-4" />
-                            <span>${(bid.amount || bid.total || 0).toLocaleString()}</span>
+                            <span>${(bid.amount || bid.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                           {bid.valid_until && (
                             <div className="flex items-center gap-1 text-gray-600">

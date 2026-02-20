@@ -309,7 +309,7 @@ export function SavedGarageDesigns({
           <div className="text-xs text-slate-500 space-y-1">
             <p>• Designs are saved to your organization's database</p>
             <p>• Current: {currentConfig.width}' × {currentConfig.length}' {currentConfig.bays}-bay garage</p>
-            <p>• Estimated Cost: ${totalCost.toLocaleString()}</p>
+            <p>• Estimated Cost: ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         </CardContent>
       </Card>
@@ -364,7 +364,7 @@ export function SavedGarageDesigns({
                       <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                         <span>Saved {new Date(design.created_at).toLocaleDateString()}</span>
                         <span>•</span>
-                        <span className="text-green-600">${design.total_cost.toLocaleString()}</span>
+                        <span className="text-green-600">${design.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     </div>
                   </div>

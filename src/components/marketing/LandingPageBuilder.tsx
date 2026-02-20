@@ -1593,7 +1593,7 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
                       </div>
                     </div>
                     <div className="text-right ml-4 flex-shrink-0">
-                      <div className="font-bold text-gray-900 text-lg">${(item.priceTier1 || 0).toLocaleString()}</div>
+                      <div className="font-bold text-gray-900 text-lg">${(item.priceTier1 || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                       <div className={`text-xs ${item.quantityOnHand > 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {item.quantityOnHand > 0 ? `${item.quantityOnHand} in stock` : 'Out of stock'}
                       </div>

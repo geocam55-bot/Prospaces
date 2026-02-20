@@ -69,7 +69,7 @@ export function DealsTab({ opportunities, users }: DealsTabProps) {
                         </Badge>
                     </td>
                     <td className="px-4 py-3 text-right font-medium">
-                        ${parseFloat(opp.value).toLocaleString()}
+                        ${parseFloat(opp.value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-600">
                         {getProbability(opp.stage)}

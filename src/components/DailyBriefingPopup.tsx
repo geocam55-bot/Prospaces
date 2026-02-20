@@ -405,7 +405,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
                                 </Badge>
                                 {suggestion.potentialValue ? (
                                   <span className="text-[10px] text-green-600 font-medium">
-                                    ${suggestion.potentialValue.toLocaleString()}
+                                    ${suggestion.potentialValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </span>
                                 ) : null}
                                 {suggestion.daysInactive ? (

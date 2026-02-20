@@ -131,7 +131,7 @@ export function PrintableDeckDesign({
                 <p className="font-semibold text-gray-800">Total Estimated Cost:</p>
                 <p className="text-xs text-gray-600 mt-1">Based on Tier 1 Pricing</p>
               </div>
-              <p className="text-2xl font-bold text-black">${totalCost.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-black">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </div>
         )}

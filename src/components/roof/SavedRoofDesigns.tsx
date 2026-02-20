@@ -278,7 +278,7 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
                   </div>
                   {design.total_cost > 0 && (
                     <div className="font-semibold text-orange-600">
-                      Est. Cost: ${design.total_cost.toLocaleString()}
+                      Est. Cost: ${design.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   )}
                   <div>

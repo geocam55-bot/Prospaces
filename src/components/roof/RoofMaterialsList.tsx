@@ -50,7 +50,7 @@ export function RoofMaterialsList({ materials, compact = false }: RoofMaterialsL
                   )}
                   {item.totalCost && (
                     <div className="text-sm font-semibold text-orange-600 mt-1">
-                      ${item.totalCost.toLocaleString()}
+                      ${item.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   )}
                 </div>
@@ -80,7 +80,7 @@ export function RoofMaterialsList({ materials, compact = false }: RoofMaterialsL
               )}
             </div>
             <div className="text-2xl font-bold text-orange-900">
-              ${totalCost.toLocaleString()}
+              ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
         </div>

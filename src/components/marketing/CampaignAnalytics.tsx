@@ -268,7 +268,7 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Total Revenue</span>
               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                ${analytics.revenue.toLocaleString()}
+                ${analytics.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Badge>
             </div>
             <div className="flex items-center justify-between">

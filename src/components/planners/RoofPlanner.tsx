@@ -284,7 +284,7 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
                         <p className="text-sm text-orange-700">Total Estimated Cost (Tier 1 Pricing)</p>
                         <p className="text-xs text-orange-600 mt-1">Based on your organization's default pricing</p>
                       </div>
-                      <p className="text-2xl font-semibold text-orange-900">${totalT1Price.toLocaleString()}</p>
+                      <p className="text-2xl font-semibold text-orange-900">${totalT1Price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                   </div>
                 ) : <div className="flex-1"></div>}

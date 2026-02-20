@@ -274,7 +274,7 @@ export function PrintableRoofDesign({
         <div className="border-t-2 border-black pt-4 mt-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold">ESTIMATED TOTAL COST</h2>
-            <p className="text-2xl font-bold">${totalCost.toLocaleString()}</p>
+            <p className="text-2xl font-bold">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         </div>
       )}

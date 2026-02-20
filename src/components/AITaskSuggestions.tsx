@@ -362,7 +362,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       case 'follow_up':
         return {
           subject: `Following up on ${relatedEntity.name}`,
-          body: `Hi there,\n\nI wanted to follow up on the ${relatedEntity.type} "${relatedEntity.name}" that we submitted ${daysInactive} days ago.\n\nI'd love to discuss this further and answer any questions you may have. The proposal outlines a ${potentialValue ? `$${potentialValue.toLocaleString()}` : ''} solution that I believe would be a great fit for your needs.\n\nWould you be available for a quick call this week to discuss?\n\nBest regards,\n${user.full_name || user.email || 'User'}`
+          body: `Hi there,\n\nI wanted to follow up on the ${relatedEntity.type} "${relatedEntity.name}" that we submitted ${daysInactive} days ago.\n\nI'd love to discuss this further and answer any questions you may have. The proposal outlines a ${potentialValue ? `$${potentialValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''} solution that I believe would be a great fit for your needs.\n\nWould you be available for a quick call this week to discuss?\n\nBest regards,\n${user.full_name || user.email || 'User'}`
         };
       case 'engagement':
         return {
@@ -776,7 +776,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                         </span>
                         {focusOfDay.totalValue > 0 && (
                           <span className="flex items-center gap-1">
-                            <DollarSign className="h-3 w-3" /> ${focusOfDay.totalValue.toLocaleString()}
+                            <DollarSign className="h-3 w-3" /> ${focusOfDay.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         )}
                       </div>
@@ -847,7 +847,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                       </span>
                       {metrics.topPriority.potentialValue && (
                         <span className="text-xs sm:text-sm text-purple-700">
-                          Value: ${metrics.topPriority.potentialValue.toLocaleString()}
+                          Value: ${metrics.topPriority.potentialValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       )}
                     </div>
@@ -1038,7 +1038,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                               {suggestion.potentialValue && (
                                 <span className="text-xs text-gray-600 flex items-center gap-1">
                                   <DollarSign className="h-3 w-3" />
-                                  ${suggestion.potentialValue.toLocaleString()}
+                                  ${suggestion.potentialValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               )}
                             </div>

@@ -855,7 +855,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Revenue</p>
-                  <p className="text-lg text-gray-900 mt-1">${(campaign.revenue || 0).toLocaleString()}</p>
+                  <p className="text-lg text-gray-900 mt-1">${(campaign.revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Schedule</p>
