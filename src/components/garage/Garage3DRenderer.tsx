@@ -21,7 +21,7 @@ import {
   BufferGeometry,
   BufferAttribute,
   Vector3
-} from '../../utils/three-exports';
+} from 'three';
 
 interface Garage3DRendererProps {
   config: GarageConfig;
