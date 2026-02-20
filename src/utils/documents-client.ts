@@ -146,7 +146,7 @@ function transformToDbFormat(documentData: any) {
   return transformed;
 }
 
-export async function getAllDocumentsClient(contactId?: string) {
+export async function getAllDocumentsClient(contactId?: string, scope: 'personal' | 'team' = 'personal') {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -157,6 +157,11 @@ export async function getAllDocumentsClient(contactId?: string) {
     // Filter by contact if specified
     if (contactId) {
       query = query.eq('contact_id', contactId);
+    }
+
+    // Apply scope-based filtering for user's own documents
+    if (scope === 'personal' && user) {
+      query = query.eq('uploaded_by', user.id);
     }
 
     const { data, error } = await query.order('created_at', { ascending: false });

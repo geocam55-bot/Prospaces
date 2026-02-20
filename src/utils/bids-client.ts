@@ -5,12 +5,12 @@ import { getServerHeaders } from './server-headers';
 
 const supabase = createClient();
 
-export async function getAllBidsClient() {
+export async function getAllBidsClient(scope: 'personal' | 'team' = 'personal') {
   // ── Attempt 1: Server-side endpoint (bypasses RLS) ──
   try {
     const headers = await getServerHeaders();
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/bids`,
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/bids?scope=${scope}`,
       { headers }
     );
 
@@ -53,22 +53,34 @@ export async function getAllBidsClient() {
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('🔐 Bids (fallback) - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
+    console.log('🔐 Bids (fallback) - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId, 'Scope:', scope);
     
     let query = supabase
       .from('bids')
       .select('*');
     
-    // FIXED: Include 'director' and 'marketing' in elevated roles
-    if (['super_admin', 'admin', 'director', 'manager', 'marketing'].includes(userRole)) {
-      if (userOrgId) {
-        query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+    if (scope === 'personal') {
+      // Personal scope: ALL roles see only their own bids
+      if (userRole === 'super_admin') {
+        // no filter
+      } else {
+        if (userOrgId) {
+          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        }
+        query = query.eq('created_by', authUser.id);
       }
     } else {
-      if (userOrgId) {
-        query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      // Team scope: role-based filtering
+      if (['super_admin', 'admin', 'director', 'manager', 'marketing'].includes(userRole)) {
+        if (userOrgId) {
+          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        }
+      } else {
+        if (userOrgId) {
+          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        }
+        query = query.eq('created_by', authUser.id);
       }
-      query = query.eq('created_by', authUser.id);
     }
     
     const { data: bids, error } = await query;

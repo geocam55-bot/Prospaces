@@ -158,7 +158,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
     let csvContent = '';
 
     if (dataType === 'contacts') {
-      const response = await contactsAPI.getAll();
+      const response = await contactsAPI.getAll('team');
       data = response.contacts || [];
       csvContent = [
         'name,email,phone,company,address,status,priceLevel,notes,legacyNumber,accountOwnerNumber,ptdSales,ptdGpPercent,ytdSales,ytdGpPercent,lyrSales,lyrGpPercent',
@@ -176,7 +176,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
         )
       ].join('\n');
     } else if (dataType === 'bids') {
-      const response = await bidsAPI.getAll();
+      const response = await bidsAPI.getAll('team');
       data = response.bids || [];
       csvContent = [
         'clientName,projectName,description,subtotal,tax,total,status,validUntil,notes,terms',

@@ -3,7 +3,7 @@ import { ensureUserProfile } from './ensure-profile';
 
 const supabase = createClient();
 
-export async function getAllNotesClient() {
+export async function getAllNotesClient(scope: 'personal' | 'team' = 'personal') {
   try {
     // Try to get user, with fallback to session
     let authUser;
@@ -34,33 +34,44 @@ export async function getAllNotesClient() {
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('📝 Notes - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
+    console.log('📝 Notes - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId, 'Scope:', scope);
 
     let query = supabase
       .from('notes')
       .select('*');
 
-    // Apply role-based filtering
-    if (userRole === 'super_admin') {
-      // Super Admin: Can see all notes (filtered by org if context exists, but usually all)
-      // If we want to restrict to org:
-      if (userOrgId) {
-         query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
-      }
-    } else if (userRole === 'marketing') {
-      // Marketing: Can see all notes within their organization
-      console.log('📢 Marketing - Loading all notes for organization:', userOrgId);
-      if (userOrgId) {
-        query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+    // Apply scope-based filtering
+    if (scope === 'personal') {
+      // Personal scope: ALL roles see only their own notes
+      if (userRole === 'super_admin') {
+        if (userOrgId) {
+          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        }
+      } else {
+        console.log('👤 Personal View - Loading only own notes for user:', authUser.id);
+        if (userOrgId) {
+          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        }
+        query = query.eq('owner_id', authUser.id);
       }
     } else {
-      // Admin, Manager, Standard User: Can ONLY see their own notes
-      // (Mirroring the previous KV logic where Admin/Manager were restricted to own notes)
-      console.log('👤 Personal View - Loading only own notes for user:', authUser.id);
-      if (userOrgId) {
-        query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      // Team scope: role-based filtering
+      if (userRole === 'super_admin') {
+        if (userOrgId) {
+          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        }
+      } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
+        console.log('📢 Team View - Loading all notes for organization:', userOrgId);
+        if (userOrgId) {
+          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        }
+      } else {
+        console.log('👤 Standard User - Loading only own notes for user:', authUser.id);
+        if (userOrgId) {
+          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        }
+        query = query.eq('owner_id', authUser.id);
       }
-      query = query.eq('owner_id', authUser.id);
     }
 
     const { data: notes, error } = await query.order('created_at', { ascending: false });

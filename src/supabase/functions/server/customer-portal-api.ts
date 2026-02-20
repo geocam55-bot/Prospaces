@@ -117,6 +117,7 @@ export function customerPortalAPI(app: Hono) {
         inviteCode,
         email: contactEmail,
         contactName: contact.name,
+        appUrl: Deno.env.get('APP_URL') || '',
       });
     } catch (err: any) {
       console.error('[portal] Error creating invite:', err);

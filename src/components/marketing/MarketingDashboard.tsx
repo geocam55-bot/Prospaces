@@ -27,7 +27,7 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
         // Fetch data in parallel
         const [campaignsData, contactsData, journeysData] = await Promise.all([
           campaignsAPI.getAll(),
-          contactsAPI.getAll(),
+          contactsAPI.getAll('team'),
           journeysAPI.getAll(user.organizationId || '')
         ]);
 

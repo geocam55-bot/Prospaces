@@ -141,26 +141,47 @@ export function contactsAPI(app: Hono) {
       // Check if account_owner_number column exists
       const hasAOCol = await hasAccountOwnerColumn(supabase);
 
+      // Check for scope parameter: 'personal' = only user's own data, 'team' = role-based org data
+      const scope = c.req.query('scope') || 'personal';
+
       // Build the query with role-based filtering
       let query = supabase
         .from('contacts')
         .select('*');
 
-      if (userRole === 'super_admin') {
-        // super_admin sees everything — no filter
-      } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
-        // Elevated roles see all contacts in their organization
-        query = query.eq('organization_id', userOrgId);
-      } else {
-        // standard_user / restricted — see only their own contacts
-        if (hasAOCol && userEmail) {
-          query = query
-            .eq('organization_id', userOrgId)
-            .or(`owner_id.eq.${user.id},account_owner_number.ilike.${userEmail}`);
+      if (scope === 'personal') {
+        // Personal scope: ALL roles see only their own contacts
+        if (userRole === 'super_admin') {
+          // super_admin still sees everything in personal scope (they have no org)
         } else {
-          query = query
-            .eq('organization_id', userOrgId)
-            .eq('owner_id', user.id);
+          if (hasAOCol && userEmail) {
+            query = query
+              .eq('organization_id', userOrgId)
+              .or(`owner_id.eq.${user.id},account_owner_number.ilike.${userEmail}`);
+          } else {
+            query = query
+              .eq('organization_id', userOrgId)
+              .eq('owner_id', user.id);
+          }
+        }
+      } else {
+        // Team scope: role-based filtering (admin/manager see all org data)
+        if (userRole === 'super_admin') {
+          // super_admin sees everything — no filter
+        } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
+          // Elevated roles see all contacts in their organization
+          query = query.eq('organization_id', userOrgId);
+        } else {
+          // standard_user / restricted — see only their own contacts
+          if (hasAOCol && userEmail) {
+            query = query
+              .eq('organization_id', userOrgId)
+              .or(`owner_id.eq.${user.id},account_owner_number.ilike.${userEmail}`);
+          } else {
+            query = query
+              .eq('organization_id', userOrgId)
+              .eq('owner_id', user.id);
+          }
         }
       }
 

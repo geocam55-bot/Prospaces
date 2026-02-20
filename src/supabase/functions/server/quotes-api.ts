@@ -43,24 +43,40 @@ export function quotesAPI(app: Hono) {
 
       console.log(`[quotes-api] GET /quotes — user=${profile.email}, role=${userRole}, org=${userOrgId}`);
 
+      // Check for scope parameter: 'personal' = only user's own data, 'team' = role-based org data
+      const scope = c.req.query('scope') || 'personal';
+
       // Build the query with role-based filtering
       let query = supabase
         .from('quotes')
         .select('*');
 
-      if (userRole === 'super_admin') {
-        // super_admin sees everything — no filter
-      } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
-        // Elevated roles see all quotes in their organization
-        if (userOrgId) {
-          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      if (scope === 'personal') {
+        // Personal scope: ALL roles see only their own quotes
+        if (userRole === 'super_admin') {
+          // super_admin still sees everything
+        } else {
+          if (userOrgId) {
+            query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+          }
+          query = query.eq('created_by', user.id);
         }
       } else {
-        // standard_user / restricted — see only their own quotes
-        if (userOrgId) {
-          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        // Team scope: role-based filtering
+        if (userRole === 'super_admin') {
+          // super_admin sees everything — no filter
+        } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
+          // Elevated roles see all quotes in their organization
+          if (userOrgId) {
+            query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+          }
+        } else {
+          // standard_user / restricted — see only their own quotes
+          if (userOrgId) {
+            query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+          }
+          query = query.eq('created_by', user.id);
         }
-        query = query.eq('created_by', user.id);
       }
 
       const { data: quotes, error: queryError } = await query.order('created_at', { ascending: false });
@@ -115,21 +131,37 @@ export function quotesAPI(app: Hono) {
 
       console.log(`[quotes-api] GET /bids — user=${profile.email}, role=${userRole}, org=${userOrgId}`);
 
+      // Check for scope parameter
+      const bidScope = c.req.query('scope') || 'personal';
+
       let query = supabase
         .from('bids')
         .select('*');
 
-      if (userRole === 'super_admin') {
-        // no filter
-      } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
-        if (userOrgId) {
-          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      if (bidScope === 'personal') {
+        // Personal scope: ALL roles see only their own bids
+        if (userRole === 'super_admin') {
+          // no filter
+        } else {
+          if (userOrgId) {
+            query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+          }
+          query = query.eq('created_by', user.id);
         }
       } else {
-        if (userOrgId) {
-          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        // Team scope: role-based filtering
+        if (userRole === 'super_admin') {
+          // no filter
+        } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
+          if (userOrgId) {
+            query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+          }
+        } else {
+          if (userOrgId) {
+            query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+          }
+          query = query.eq('created_by', user.id);
         }
-        query = query.eq('created_by', user.id);
       }
 
       const { data: bids, error: queryError } = await query.order('created_at', { ascending: false });

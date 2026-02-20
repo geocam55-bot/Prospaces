@@ -30,12 +30,12 @@ export async function getQuoteTrackingStatusClient() {
   }
 }
 
-export async function getAllQuotesClient() {
+export async function getAllQuotesClient(scope: 'personal' | 'team' = 'personal') {
   // ── Attempt 1: Server-side endpoint (bypasses RLS) ──
   try {
     const headers = await getServerHeaders();
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/quotes`,
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/quotes?scope=${scope}`,
       { headers }
     );
 
@@ -82,25 +82,37 @@ export async function getAllQuotesClient() {
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('🔐 Quotes (fallback) - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
+    console.log('🔐 Quotes (fallback) - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId, 'Scope:', scope);
     
     let query = supabase
       .from('quotes')
       .select('*');
     
-    // Apply role-based filtering
-    // FIXED: Include 'director' in elevated roles (was missing before)
-    if (['super_admin', 'admin', 'manager', 'director', 'marketing'].includes(userRole)) {
-      console.log('🔓 Organization View - Loading all quotes for organization:', userOrgId);
-      if (userOrgId) {
-        query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+    if (scope === 'personal') {
+      // Personal scope: ALL roles see only their own quotes
+      if (userRole === 'super_admin') {
+        // no filter
+      } else {
+        console.log('👤 Personal View - Loading only own quotes for user:', authUser.id);
+        if (userOrgId) {
+          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        }
+        query = query.eq('created_by', authUser.id);
       }
     } else {
-      console.log('👤 Personal View - Loading only own quotes for user:', authUser.id);
-      if (userOrgId) {
-        query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+      // Team scope: role-based filtering
+      if (['super_admin', 'admin', 'manager', 'director', 'marketing'].includes(userRole)) {
+        console.log('🔓 Team View - Loading all quotes for organization:', userOrgId);
+        if (userOrgId) {
+          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        }
+      } else {
+        console.log('👤 Standard User (team scope) - Loading only own quotes for user:', authUser.id);
+        if (userOrgId) {
+          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
+        }
+        query = query.eq('created_by', authUser.id);
       }
-      query = query.eq('created_by', authUser.id);
     }
     
     const { data: quotes, error } = await query.order('created_at', { ascending: false });

@@ -60,8 +60,8 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
       
       // Fetch data in parallel
       const [bidsData, quotesData, usersData] = await Promise.all([
-        hasModuleAccess('bids') ? bidsAPI.getAll() : { bids: [] },
-        hasModuleAccess('quotes') ? quotesAPI.getAll() : { quotes: [] },
+        hasModuleAccess('bids') ? bidsAPI.getAll('team') : { bids: [] },
+        hasModuleAccess('quotes') ? quotesAPI.getAll('team') : { quotes: [] },
         usersAPI.getAll() // Fetch all users for Agents tab
       ]);
 

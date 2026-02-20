@@ -18,7 +18,7 @@ import {
   BoxGeometry,
   LineBasicMaterial,
   LineSegments
-} from 'three';
+} from '../../utils/three-exports';
 
 interface Deck3DRendererProps {
   config: DeckConfig;

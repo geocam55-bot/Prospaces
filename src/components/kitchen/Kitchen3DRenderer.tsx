@@ -21,7 +21,7 @@ import {
   MeshBasicMaterial,
   CylinderGeometry,
   CanvasTexture
-} from 'three';
+} from '../../utils/three-exports';
 
 interface Kitchen3DRendererProps {
   config: KitchenConfig;

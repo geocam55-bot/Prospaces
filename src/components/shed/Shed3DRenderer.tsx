@@ -14,7 +14,7 @@ import {
   Mesh,
   GridHelper,
   BoxGeometry
-} from 'three';
+} from '../../utils/three-exports';
 
 interface Shed3DRendererProps {
   config: ShedConfig;

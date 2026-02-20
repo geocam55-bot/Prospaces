@@ -330,15 +330,15 @@ function transformFromDbFormat(contactData: any) {
   return transformed;
 }
 
-export async function getAllContactsClient(filterByAccountOwner?: string) {
+export async function getAllContactsClient(filterByAccountOwner?: string, scope: 'personal' | 'team' = 'personal') {
   try {
     const supabase = createClient();
 
-    console.log('[contacts-client] Fetching contacts via server endpoint (bypasses RLS)...');
+    console.log(`[contacts-client] Fetching contacts via server endpoint (scope=${scope})...`);
     
     const headers = await getServerHeaders();
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts`,
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts?scope=${scope}`,
       {
         method: 'GET',
         headers,
@@ -351,7 +351,7 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
       
       // Fallback to direct Supabase query if server endpoint fails
       console.warn('[contacts-client] Falling back to direct Supabase query...');
-      return await getAllContactsClientDirect();
+      return await getAllContactsClientDirect(scope);
     }
 
     const result = await response.json();
@@ -364,7 +364,7 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
     return { contacts: transformedData };
   } catch (error: any) {
     console.error('[contacts-client] Error fetching via server, falling back to direct query:', error);
-    return await getAllContactsClientDirect();
+    return await getAllContactsClientDirect(scope);
   }
 }
 
@@ -372,7 +372,7 @@ export async function getAllContactsClient(filterByAccountOwner?: string) {
  * Direct Supabase query fallback (subject to RLS).
  * Used only when the server endpoint is unavailable.
  */
-async function getAllContactsClientDirect() {
+async function getAllContactsClientDirect(scope: 'personal' | 'team' = 'personal') {
   try {
     const supabase = createClient();
     
@@ -395,7 +395,7 @@ async function getAllContactsClientDirect() {
     const userOrgId = profile.organization_id;
     const userEmail = profile.email;
 
-    console.log('[contacts-client-direct] User:', userEmail, 'Role:', userRole, 'Org:', userOrgId);
+    console.log('[contacts-client-direct] User:', userEmail, 'Role:', userRole, 'Org:', userOrgId, 'Scope:', scope);
 
     const existingCols = await getExistingContactColumns(supabase);
     const hasAccountOwnerCol = existingCols.has('account_owner_number');
@@ -404,17 +404,32 @@ async function getAllContactsClientDirect() {
       .from('contacts')
       .select('*');
 
-    // Role-based filtering (matches server-side logic)
-    if (userRole === 'super_admin') {
-      // no filter
-    } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
-      query = query.eq('organization_id', userOrgId);
-    } else {
-      if (hasAccountOwnerCol && userEmail) {
-        query = query.eq('organization_id', userOrgId)
-          .or(`owner_id.eq.${user.id},account_owner_number.ilike.${userEmail}`);
+    // Scope-based filtering (matches server-side logic)
+    if (scope === 'personal') {
+      // Personal scope: ALL roles see only their own contacts
+      if (userRole === 'super_admin') {
+        // no filter
       } else {
-        query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
+        if (hasAccountOwnerCol && userEmail) {
+          query = query.eq('organization_id', userOrgId)
+            .or(`owner_id.eq.${user.id},account_owner_number.ilike.${userEmail}`);
+        } else {
+          query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
+        }
+      }
+    } else {
+      // Team scope: role-based filtering
+      if (userRole === 'super_admin') {
+        // no filter
+      } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
+        query = query.eq('organization_id', userOrgId);
+      } else {
+        if (hasAccountOwnerCol && userEmail) {
+          query = query.eq('organization_id', userOrgId)
+            .or(`owner_id.eq.${user.id},account_owner_number.ilike.${userEmail}`);
+        } else {
+          query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
+        }
       }
     }
 

@@ -105,8 +105,8 @@ export function TestDataGenerator() {
 
       // Get all data counts
       const [contactsData, bidsData, pmsData] = await Promise.all([
-        contactsAPI.getAll(),
-        bidsAPI.getAll(),
+        contactsAPI.getAll('team'),
+        bidsAPI.getAll('team'),
         projectManagersAPI.getAll().catch(() => ({ projectManagers: [] })),
       ]);
 

@@ -501,9 +501,11 @@ export const inventoryAPI = {
 export const emailAPI = {
   // Email accounts
   getAccounts: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from('email_accounts')
-      .select('*');
+      .select('*')
+      .eq('user_id', user?.id || '');
     
     if (error) {
       if (error.code === '42P01') return { accounts: [] };
@@ -546,11 +548,19 @@ export const emailAPI = {
   },
   
   // Emails
-  getEmails: async () => {
-    const { data, error } = await supabase
+  getEmails: async (scope: 'personal' | 'team' = 'personal') => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    let query = supabase
       .from('emails')
-      .select('*')
-      .order('received_at', { ascending: false });
+      .select('*');
+
+    // Personal scope: only show user's own emails
+    if (scope === 'personal' && user) {
+      query = query.eq('user_id', user.id);
+    }
+
+    const { data, error } = await query.order('received_at', { ascending: false });
     
     if (error) {
       if (error.code === '42P01') return { emails: [] };
@@ -620,7 +630,7 @@ export const projectManagersAPI = {
 
 // Contacts APIs - uses server endpoint (bypasses RLS) with client-side fallback
 export const contactsAPI = {
-  getAll: () => getAllContactsClient(),
+  getAll: (scope: 'personal' | 'team' = 'personal') => getAllContactsClient(undefined, scope),
   create: (data: any) => createContactClient(data),
   update: (id: string, data: any) => updateContactClient(id, data),
   delete: (id: string) => deleteContactClient(id),
@@ -641,14 +651,14 @@ export const usersAPI = {
 
 // Appointments APIs - use direct Supabase client
 export const appointmentsAPI = {
-  getAll: () => getAllAppointmentsClient(),
+  getAll: (scope: 'personal' | 'team' = 'personal') => getAllAppointmentsClient(scope),
   create: (data: any) => createAppointmentClient(data),
   delete: (id: string) => deleteAppointmentClient(id),
 };
 
 // Bids APIs - use direct Supabase client
 export const bidsAPI = {
-  getAll: () => getAllBidsClient(),
+  getAll: (scope: 'personal' | 'team' = 'personal') => getAllBidsClient(scope),
   getByOpportunity: (opportunityId: string) => getBidsByOpportunityClient(opportunityId),
   create: (data: any) => createBidClient(data),
   update: (id: string, data: any) => updateBidClient(id, data),
@@ -658,7 +668,7 @@ export const bidsAPI = {
 
 // Tasks APIs - use direct Supabase client
 export const tasksAPI = {
-  getAll: () => getAllTasksClient(),
+  getAll: (scope: 'personal' | 'team' = 'personal') => getAllTasksClient(scope),
   create: (data: any) => createTaskClient(data),
   update: (id: string, data: any) => updateTaskClient(id, data),
   delete: (id: string) => deleteTaskClient(id),
@@ -666,7 +676,7 @@ export const tasksAPI = {
 
 // Notes APIs - use direct Supabase client
 export const notesAPI = {
-  getAll: () => getAllNotesClient(),
+  getAll: (scope: 'personal' | 'team' = 'personal') => getAllNotesClient(scope),
   create: (data: any) => createNoteClient(data),
   delete: (id: string) => deleteNoteClient(id),
 };
@@ -692,7 +702,7 @@ export const campaignsAPI = {
 
 // Quotes APIs - use direct Supabase client
 export const quotesAPI = {
-  getAll: () => getAllQuotesClient(),
+  getAll: (scope: 'personal' | 'team' = 'personal') => getAllQuotesClient(scope),
   getByOpportunity: (opportunityId: string) => getQuotesByOpportunityClient(opportunityId),
   create: (data: any) => createQuoteClient(data),
   update: (id: string, data: any) => updateQuoteClient(id, data),

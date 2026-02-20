@@ -105,17 +105,8 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
 
       const allBidsRaw = [...(bidsData.bids || []), ...(quotesData.quotes || [])];
 
-      // Filter data - "Personal Dashboard" for standard users, "Org Dashboard" for admins/managers
-      // Normalize role to lowercase to be safe
-      const userRole = (user.role || '').toLowerCase();
-      const allBids = ['super_admin', 'admin', 'manager', 'marketing'].includes(userRole)
-        ? allBidsRaw
-        : allBidsRaw.filter((item: any) => {
-            // Check multiple fields for ownership
-            return item.created_by === user.id || 
-                   item.ownerId === user.id || 
-                   item.owner_id === user.id;
-          });
+      // All data is already filtered to the user's own data by the API (scope=personal default)
+      const allBids = allBidsRaw;
 
       // --- Calculate Metrics ---
 

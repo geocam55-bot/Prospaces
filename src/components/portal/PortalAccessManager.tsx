@@ -34,6 +34,7 @@ export function PortalAccessManager({ contactId, contactName, contactEmail }: Po
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState(false);
+  const [appBaseUrl, setAppBaseUrl] = useState<string>('');
 
   const supabase = createClient();
 
@@ -53,6 +54,12 @@ export function PortalAccessManager({ contactId, contactName, contactEmail }: Po
 
       const result = await createPortalInvite(contactId, session.access_token);
       setInviteCode(result.inviteCode);
+      // Use the APP_URL returned by the server; fall back to window.location.origin
+      if (result.appUrl) {
+        setAppBaseUrl(result.appUrl.replace(/\/$/, '')); // strip trailing slash
+      } else {
+        setAppBaseUrl(window.location.origin);
+      }
       setShowInviteDialog(true);
       toast.success('Portal invite created!');
     } catch (err: any) {
@@ -80,7 +87,7 @@ export function PortalAccessManager({ contactId, contactName, contactEmail }: Po
     }
   };
 
-  const portalUrl = `${window.location.origin}?view=customer-portal${inviteCode ? `&invite=${inviteCode}` : ''}`;
+  const portalUrl = `${appBaseUrl}?view=customer-portal${inviteCode ? `&invite=${inviteCode}` : ''}`;
 
   const copyInviteLink = () => {
     copyToClipboard(portalUrl);
