@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { LandingPage } from './components/LandingPage';
 import { Login } from './components/Login';
+import { MemberLogin } from './components/MemberLogin';
 import { Dashboard } from './components/Dashboard';
 import { Contacts } from './components/Contacts';
 import { Tasks } from './components/Tasks';
@@ -100,6 +101,7 @@ function getPublicRoute(): React.ReactElement | null {
   if (urlParams.get('view') === 'landing-page-diagnostic') return <LandingPageDiagnostic />;
   if (urlParams.get('view') === 'landing-page-diagnostic-test') return <LandingPageDiagnosticTest />;
   if (urlParams.get('view') === 'fix-login') return <AdminFixUsers />;
+  if (urlParams.get('view') === 'member-login' || path === '/member-login') return null; // handled in main App flow
   if (urlParams.get('view') === 'privacy-policy' || path === '/privacy-policy') return <PrivacyPolicy />;
   if (urlParams.get('view') === 'terms-of-service' || path === '/terms-of-service') return <TermsOfService />;
   if (urlParams.get('view') === 'customer-portal' || path === '/portal') return <CustomerPortal />;
@@ -115,6 +117,15 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+
+  // Check if URL indicates member-login on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const path = window.location.pathname;
+    if (urlParams.get('view') === 'member-login' || path === '/member-login') {
+      setCurrentView('member-login');
+    }
+  }, []);
 
   useEffect(() => {
     // Check active session
@@ -299,6 +310,30 @@ function App() {
   }
 
   if (!session || !user) {
+    const handleMemberLogin = async (user: User, token: string) => {
+      await initializePermissions(user.role);
+      if (user.organizationId || user.organization_id) {
+        const orgId = user.organizationId || user.organization_id;
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('*')
+          .eq('id', orgId!)
+          .single();
+        if (org) setOrganization(org);
+      }
+      setUser(user);
+      setCurrentView('dashboard');
+    };
+
+    if (currentView === 'member-login') {
+      return (
+        <MemberLogin
+          onLogin={handleMemberLogin}
+          onBack={() => setCurrentView('landing')}
+        />
+      );
+    }
+
     return currentView === 'login' ? (
       <Login onLogin={async (user, token) => {
         // Initialize permissions for this user's role BEFORE setting user state
@@ -322,7 +357,7 @@ function App() {
         setCurrentView('dashboard');
       }} />
     ) : (
-      <LandingPage onGetStarted={() => setCurrentView('login')} />
+      <LandingPage onGetStarted={() => setCurrentView('login')} onMemberLogin={() => setCurrentView('member-login')} />
     );
   }
 

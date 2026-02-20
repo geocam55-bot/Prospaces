@@ -17,15 +17,17 @@ import {
   Clock,
   DollarSign,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react';
 import { ModuleDetail } from './ModuleDetail';
 
 interface LandingPageProps {
   onGetStarted: () => void;
+  onMemberLogin?: () => void;
 }
 
-export function LandingPage({ onGetStarted }: LandingPageProps) {
+export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
 
   // If a module is selected, show the detail page
@@ -152,6 +154,19 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
 
   return (
     <div className="min-h-screen bg-white light">
+      {/* Top bar - Member Login */}
+      {onMemberLogin && (
+        <div className="absolute top-0 right-0 z-20 p-4 sm:p-6">
+          <button
+            onClick={onMemberLogin}
+            className="text-sm font-medium text-white/70 hover:text-white transition-colors flex items-center gap-1.5"
+          >
+            <Lock className="h-3.5 w-3.5" />
+            Member Login
+          </button>
+        </div>
+      )}
+
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600">
         <div className="absolute inset-0 bg-black/10"></div>
@@ -175,7 +190,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 onClick={onGetStarted}
                 className="bg-white text-purple-600 hover:bg-gray-100 px-8 py-6 text-lg group"
               >
-                Sign In
+                Get Started Free
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </div>
