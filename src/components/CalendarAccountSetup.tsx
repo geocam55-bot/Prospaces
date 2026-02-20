@@ -31,14 +31,13 @@ interface CalendarAccountSetupProps {
 // We fallback to checking for 'make-server' (old style) or 'server' (new style)
 async function findActiveFunctionName(supabaseUrl: string, accessToken?: string): Promise<string> {
   const candidates = [
+    'make-server-8405be07',
     'server',
-    'make-server-8405be07', 
-    'nylas-connect' 
   ];
 
   for (const candidate of candidates) {
     try {
-      const url = `${supabaseUrl}/functions/v1/${candidate}/nylas-health`;
+      const url = `${supabaseUrl}/functions/v1/${candidate}/health`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000); 
@@ -61,7 +60,7 @@ async function findActiveFunctionName(supabaseUrl: string, accessToken?: string)
     }
   }
 
-  return 'server';
+  return 'make-server-8405be07';
 }
 
 export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingAccount, existingAccounts = [] }: CalendarAccountSetupProps) {

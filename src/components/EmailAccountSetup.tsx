@@ -42,14 +42,13 @@ interface EmailAccount {
 // We fallback to checking for 'make-server' (old style) or 'server' (new style)
 async function findActiveFunctionName(supabaseUrl: string, accessToken?: string): Promise<string> {
   const candidates = [
-    'server', // Prioritize 'server' as per user instruction
-    'make-server-8405be07', 
-    'nylas-connect'
+    'make-server-8405be07',
+    'server',
   ];
 
   for (const candidate of candidates) {
     try {
-      const url = `${supabaseUrl}/functions/v1/${candidate}/nylas-health`;
+      const url = `${supabaseUrl}/functions/v1/${candidate}/health`;
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000); 
@@ -72,7 +71,7 @@ async function findActiveFunctionName(supabaseUrl: string, accessToken?: string)
     }
   }
 
-  return 'server'; // Default to server if all else fails
+  return 'make-server-8405be07'; // Default
 }
 
 export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAccount }: EmailAccountSetupProps) {
@@ -187,7 +186,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      // Call direct Google OAuth endpoint (no Nylas)
+      // Call OAuth init endpoint
       const endpoint = selectedProvider === 'gmail' 
         ? '/make-server-8405be07/google-oauth-init'
         : selectedProvider === 'outlook'
@@ -244,8 +243,8 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
             return;
         }
         
-        if (event.data.type === 'nylas-oauth-success' || event.data.type === 'gmail-oauth-success') {
-          console.log('[EmailAccountSetup] OAuth success message received!');
+        if (event.data.type === 'gmail-oauth-success' || event.data.type === 'outlook-oauth-success') {
+          console.log('[EmailAccountSetup] OAuth success message received:', event.data.type);
           window.removeEventListener('message', handleMessage);
           setIsConnecting(false);
           setStep('success');
@@ -263,7 +262,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
             handleClose();
             toast.success(`${providerName} account connected successfully!`);
           }, 1500);
-        } else if (event.data.type === 'nylas-oauth-error') {
+        } else if (event.data.type === 'gmail-oauth-error' || event.data.type === 'outlook-oauth-error') {
           console.log('[EmailAccountSetup] OAuth error message received:', event.data.error);
           window.removeEventListener('message', handleMessage);
           setIsConnecting(false);
@@ -395,8 +394,8 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       setIsConnecting(false);
       
       let errorMessage = err.message || 'Failed to connect IMAP account';
-      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Nylas') || errorMessage.includes('not configured')) {
-        errorMessage = '⚠️ Email backend not deployed yet or unreachable.';
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('not configured')) {
+        errorMessage = 'Email backend not deployed yet or unreachable.';
       }
       
       setError(errorMessage);
