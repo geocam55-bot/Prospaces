@@ -46,6 +46,15 @@ export const azureOAuthCallback = (app: Hono) => {
 
       // Exchange code for tokens
       console.log('[Azure OAuth] Exchanging code for tokens...');
+      console.log('[Azure OAuth] SECRET DIAGNOSTIC:', {
+        secretLength: AZURE_CLIENT_SECRET.length,
+        secretFirst4: AZURE_CLIENT_SECRET.substring(0, 4),
+        secretLast4: AZURE_CLIENT_SECRET.substring(AZURE_CLIENT_SECRET.length - 4),
+        containsTilde: AZURE_CLIENT_SECRET.includes('~'),
+        looksLikeGuid: /^[0-9a-f]{8}-[0-9a-f]{4}/.test(AZURE_CLIENT_SECRET),
+        clientIdFirst8: AZURE_CLIENT_ID.substring(0, 8),
+        redirectUri: AZURE_REDIRECT_URI,
+      });
       const tokenParams = new URLSearchParams();
       tokenParams.append('client_id', AZURE_CLIENT_ID);
       tokenParams.append('client_secret', AZURE_CLIENT_SECRET);
