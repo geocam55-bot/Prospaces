@@ -28,6 +28,22 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState<{ type: 'accept' | 'reject'; quoteId: string } | null>(null);
 
+  // Parse line_items safely — the CRM saves them with JSON.stringify(),
+  // so the DB may return a JSON string instead of a native array.
+  const parseLineItems = (raw: any): any[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
@@ -73,6 +89,8 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
   const canAct = (status: string) => ['sent', 'viewed'].includes(status);
 
   if (selectedQuote) {
+    const lineItems = parseLineItems(selectedQuote.line_items);
+
     return (
       <div className="space-y-6">
         <Button variant="ghost" onClick={() => setSelectedQuote(null)} className="gap-2">
@@ -123,7 +141,7 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
             </div>
 
             {/* Line Items */}
-            {selectedQuote.line_items && selectedQuote.line_items.length > 0 && (
+            {lineItems.length > 0 && (
               <div>
                 <h3 className="text-sm font-semibold text-slate-900 mb-3">Line Items</h3>
                 <div className="border rounded-lg overflow-hidden">
@@ -137,7 +155,7 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {selectedQuote.line_items.map((item: any, idx: number) => (
+                      {lineItems.map((item: any, idx: number) => (
                         <tr key={idx}>
                           <td className="p-3">
                             <p className="font-medium text-slate-900">{item.itemName || item.item_name || 'Item'}</p>

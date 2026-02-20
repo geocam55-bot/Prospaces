@@ -33,6 +33,7 @@ import { PortalDocuments } from './PortalDocuments';
 import { PortalProfile } from './PortalProfile';
 import { Toaster } from '../ui/sonner';
 import { isPortalLoggedIn, clearPortalSession } from '../../utils/portal-client';
+import ErrorBoundary from '../ErrorBoundary';
 
 type PortalView = 'dashboard' | 'quotes' | 'projects' | 'messages' | 'documents' | 'profile';
 
@@ -282,6 +283,7 @@ export function CustomerPortal() {
 
         {/* Main Content */}
         <main className="pt-14 max-w-7xl mx-auto px-4 py-6">
+          <ErrorBoundary>
           {currentView === 'dashboard' && dashboardData && (
             <PortalDashboard data={dashboardData} onNavigate={(v) => navigate(v as PortalView)} />
           )}
@@ -300,6 +302,7 @@ export function CustomerPortal() {
               onLogout={handleLogout}
             />
           )}
+          </ErrorBoundary>
         </main>
 
         {/* Footer */}

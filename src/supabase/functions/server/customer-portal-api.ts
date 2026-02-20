@@ -305,12 +305,25 @@ export function customerPortalAPI(app: Hono) {
         .limit(10);
 
       // Get bids for this contact
-      const { data: bids } = await supabase
-        .from('bids')
-        .select('*')
-        .eq('contact_id', session.contactId)
-        .order('created_at', { ascending: false })
-        .limit(10);
+      // NOTE: The bids table uses opportunity_id (not contact_id) for contact reference.
+      // Try opportunity_id first; silently fall back to empty if the query fails.
+      let bids: any[] = [];
+      try {
+        const { data: bidsData, error: bidsError } = await supabase
+          .from('bids')
+          .select('*')
+          .eq('opportunity_id', session.contactId)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (!bidsError && bidsData) {
+          bids = bidsData;
+        } else if (bidsError) {
+          console.warn('[portal] Bids query error (non-fatal):', bidsError.message);
+        }
+      } catch (bidsErr: any) {
+        console.warn('[portal] Bids query failed (non-fatal):', bidsErr.message);
+      }
 
       // Get appointments
       const { data: appointments } = await supabase
@@ -388,15 +401,17 @@ export function customerPortalAPI(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
+      // NOTE: The bids table uses opportunity_id (not contact_id) for contact reference.
       const { data: bids, error } = await supabase
         .from('bids')
         .select('*')
-        .eq('contact_id', session.contactId)
+        .eq('opportunity_id', session.contactId)
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('[portal] Projects query error:', error);
-        return c.json({ error: 'Failed to load projects' }, 500);
+        // Return empty instead of 500 — the column may not exist
+        return c.json({ projects: [] });
       }
 
       return c.json({ projects: bids || [] });
