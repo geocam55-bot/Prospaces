@@ -353,7 +353,7 @@ export function customerPortalAPI(app: Hono) {
         appointments: appointments || [],
         messages: messages || [],
         organization: org || null,
-        unreadMessages: (messages || []).filter((m: any) => !m.read && m.from !== 'customer').length,
+        unreadMessages: (messages || []).filter((m: any) => m.customerUnread === true).length,
       });
     } catch (err: any) {
       console.error('[portal] Dashboard error:', err);
@@ -524,6 +524,7 @@ export function customerPortalAPI(app: Hono) {
       
       if (msg) {
         msg.read = true;
+        msg.customerUnread = false; // Customer has now seen the reply
         await kv.set(key, msg);
       }
 
@@ -787,7 +788,8 @@ export function customerPortalAPI(app: Hono) {
         body: reply,
         createdAt: new Date().toISOString(),
       });
-      msg.read = true;
+      msg.read = true;           // CRM side: mark as read (team has seen it)
+      msg.customerUnread = true; // Customer side: flag new reply as unread for the customer
 
       await kv.set(key, msg);
 

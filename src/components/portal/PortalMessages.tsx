@@ -73,7 +73,8 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
 
   const handleSelectMessage = async (msg: any) => {
     setSelectedMessage(msg);
-    if (!msg.read && msg.from !== 'customer') {
+    // Mark as read if there's an unread team reply for the customer
+    if (msg.customerUnread) {
       try {
         await markMessageRead(msg.id);
         onRefresh();
@@ -162,7 +163,7 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
       ) : (
         <div className="space-y-2">
           {messages.map((msg: any) => {
-            const isUnread = !msg.read && msg.from !== 'customer';
+            const isUnread = msg.customerUnread === true;
             const latestReply = msg.replies?.length > 0 ? msg.replies[msg.replies.length - 1] : null;
             const previewText = latestReply
               ? `${latestReply.senderName || 'Team'}: ${latestReply.body}`
