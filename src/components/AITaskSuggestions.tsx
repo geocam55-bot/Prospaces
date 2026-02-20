@@ -385,6 +385,13 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
   const handleTakeAction = (suggestion: Suggestion) => {
     setSelectedSuggestion(suggestion);
     
+    // Portal messages: navigate directly to the portal admin
+    if (suggestion.id.startsWith('portal-msg-') && onNavigate) {
+      onNavigate('portal-admin');
+      toast.info('Opening Customer Portal to reply...');
+      return;
+    }
+
     if (suggestion.actionType === 'email') {
       const template = generateEmailTemplate(suggestion);
       setEmailSubject(template.subject);

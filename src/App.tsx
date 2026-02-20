@@ -43,6 +43,7 @@ import { OAuthCallback } from './components/OAuthCallback';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
 import { CustomerPortal } from './components/portal/CustomerPortal';
+import { PortalMessagesAdmin } from './components/portal/PortalMessagesAdmin';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
@@ -351,7 +352,7 @@ function App() {
 
             <div className="pt-14 sm:pt-16 lg:pt-16">
               {currentView === 'dashboard' && <Dashboard user={user} organization={organization} onNavigate={setCurrentView} />}
-              {currentView === 'ai-suggestions' && <AITaskSuggestions user={user} />}
+              {currentView === 'ai-suggestions' && <AITaskSuggestions user={user} onNavigate={setCurrentView} />}
               {currentView === 'contacts' && <Contacts user={user} />}
               {currentView === 'tasks' && <Tasks user={user} />}
               {currentView === 'bids' && <Bids user={user} />}
@@ -375,6 +376,7 @@ function App() {
               {currentView === 'garage-planner' && <GaragePlanner user={user} />}
               {currentView === 'shed-planner' && <ShedPlanner user={user} />}
               {currentView === 'roof-planner' && <RoofPlanner user={user} />}
+              {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
             </div>
           </main>
 

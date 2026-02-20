@@ -678,6 +678,71 @@ export function customerPortalAPI(app: Hono) {
     }
   });
 
+  // ── GET /portal/crm-messages — CRM user: list ALL portal messages for the org ──
+  app.get(`${PREFIX}/crm-messages`, async (c) => {
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const accessToken = extractUserToken(c);
+      if (!accessToken) return c.json({ error: 'Missing Authorization' }, 401);
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      if (authError || !user) return c.json({ error: 'Unauthorized' }, 401);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile) return c.json({ error: 'Profile not found' }, 404);
+
+      const orgId = profile.organization_id;
+      if (!orgId) return c.json({ error: 'No organization found' }, 400);
+
+      // Fetch all portal messages for this org using the KV prefix pattern:
+      // portal_message:{orgId}:{contactId}:{msgId}
+      const allMessages = await kv.getByPrefix(`portal_message:${orgId}:`);
+
+      // Enrich with contact names if available
+      const contactIds = [...new Set((allMessages || []).map((m: any) => m.contactId).filter(Boolean))];
+      let contactMap: Record<string, any> = {};
+      if (contactIds.length > 0) {
+        const { data: contacts } = await supabase
+          .from('contacts')
+          .select('id, name, email, company')
+          .in('id', contactIds);
+        if (contacts) {
+          contacts.forEach((c: any) => { contactMap[c.id] = c; });
+        }
+      }
+
+      const enrichedMessages = (allMessages || []).map((msg: any) => ({
+        ...msg,
+        contactName: contactMap[msg.contactId]?.name || msg.senderEmail || 'Unknown',
+        contactCompany: contactMap[msg.contactId]?.company || '',
+        contactEmail: contactMap[msg.contactId]?.email || msg.senderEmail || '',
+      }));
+
+      // Sort newest first
+      enrichedMessages.sort((a: any, b: any) => {
+        const aLatest = a.replies?.length > 0 ? a.replies[a.replies.length - 1].createdAt : a.createdAt;
+        const bLatest = b.replies?.length > 0 ? b.replies[b.replies.length - 1].createdAt : b.createdAt;
+        return new Date(bLatest).getTime() - new Date(aLatest).getTime();
+      });
+
+      console.log(`[portal] CRM messages loaded for org ${orgId}: ${enrichedMessages.length} messages`);
+
+      return c.json({ messages: enrichedMessages });
+    } catch (err: any) {
+      console.error('[portal] CRM messages error:', err);
+      return c.json({ error: 'Failed to load portal messages: ' + err.message }, 500);
+    }
+  });
+
   // ── POST /portal/reply — CRM user replies to a portal message ──
   app.post(`${PREFIX}/reply`, async (c) => {
     try {

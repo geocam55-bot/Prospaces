@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
+import { getCrmPortalMessages } from '../utils/portal-client';
 import type { User } from '../App';
 
 export interface Suggestion {
@@ -69,6 +70,19 @@ export function useAISuggestions(user: User) {
       const contacts = contactsResult.data || [];
       const tasks = tasksResult.data || [];
       const appointments = appointmentsResult.data || [];
+
+      // Fetch portal messages for the org (non-blocking — OK if it fails)
+      let portalMessages: any[] = [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          const pmData = await getCrmPortalMessages(session.access_token);
+          portalMessages = pmData.messages || [];
+        }
+      } catch (pmErr) {
+        // Portal messages are optional — don't break AI suggestions if this fails
+        console.debug('[ai-suggestions] Portal messages fetch skipped:', pmErr);
+      }
 
       const generatedSuggestions: Suggestion[] = [];
 
@@ -318,7 +332,42 @@ export function useAISuggestions(user: User) {
         }
       });
 
-      // 5. CALCULATE SCORES AND SORT
+      // 5. ANALYZE PORTAL MESSAGES — Unread customer messages need prompt attention
+      portalMessages.forEach((msg: any) => {
+        const isUnread = !msg.read && msg.from === 'customer';
+        const hasNoReply = !msg.replies || msg.replies.length === 0 ||
+          msg.replies[msg.replies.length - 1]?.from === 'customer';
+
+        if (isUnread || hasNoReply) {
+          const hoursSinceSent = (Date.now() - new Date(msg.createdAt).getTime()) / (1000 * 60 * 60);
+          const daysSinceSent = Math.floor(hoursSinceSent / 24);
+          const customerName = msg.contactName || msg.senderEmail || 'A customer';
+
+          generatedSuggestions.push({
+            id: `portal-msg-${msg.id}`,
+            type: 'follow_up',
+            title: `Reply to portal message from ${customerName}`,
+            description: isUnread
+              ? `Unread message: "${msg.subject}" — sent ${daysSinceSent > 0 ? daysSinceSent + ' days' : Math.round(hoursSinceSent) + ' hours'} ago`
+              : `Awaiting your reply: "${msg.subject}"`,
+            priority: hoursSinceSent > 48 ? 'critical' : hoursSinceSent > 12 ? 'high' : 'medium',
+            impact: 85, // Customer messages are high-impact — they already took the initiative
+            urgency: Math.min(100, Math.round(hoursSinceSent * 2)),
+            score: 0,
+            actionType: 'email',
+            relatedEntity: {
+              type: 'contact',
+              id: msg.contactId || msg.id,
+              name: customerName,
+            },
+            suggestedAction: `Open Customer Portal admin and reply to "${msg.subject}" from ${customerName}.`,
+            context: `${msg.contactCompany ? `Company: ${msg.contactCompany}. ` : ''}Subject: ${msg.subject}. ${isUnread ? 'Message has not been read yet.' : 'Customer is waiting for your response.'}`,
+            createdAt: new Date(msg.createdAt),
+          });
+        }
+      });
+
+      // 6. CALCULATE SCORES AND SORT
       generatedSuggestions.forEach(suggestion => {
         suggestion.score = (suggestion.impact * 0.6) + (suggestion.urgency * 0.4);
       });

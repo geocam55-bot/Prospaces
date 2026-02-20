@@ -148,6 +148,17 @@ export async function rejectQuote(quoteId: string) {
 
 // ── CRM-side functions (use CRM auth) ──
 
+export async function getCrmPortalMessages(accessToken: string) {
+  const headers = await getServerHeaders();
+  const response = await fetch(`${BASE_URL}/crm-messages`, {
+    headers,
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Failed to load portal messages');
+  return data;
+}
+
 export async function createPortalInvite(contactId: string, accessToken: string) {
   const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/invite`, {
