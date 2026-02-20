@@ -5,7 +5,7 @@ import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Building2, AlertCircle, Info } from 'lucide-react';
+import { Building2, AlertCircle, Info, ArrowLeft } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { authAPI } from '../utils/api';
 import { createClient } from '../utils/supabase/client';
@@ -16,9 +16,10 @@ import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface LoginProps {
   onLogin: (user: User, token: string) => void;
+  onBack?: () => void;
 }
 
-export function Login({ onLogin }: LoginProps) {
+export function Login({ onLogin, onBack }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -27,8 +28,6 @@ export function Login({ onLogin }: LoginProps) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('signin'); // Changed default to signin
-  const [showSuperUserSetup, setShowSuperUserSetup] = useState(false);
-  const [showQuickStart, setShowQuickStart] = useState(true); // Show quick start by default
   const [showDatabaseSetup, setShowDatabaseSetup] = useState(false); // Show database setup
   const [lastSignUpAttempt, setLastSignUpAttempt] = useState<number>(0);
   const [successMessage, setSuccessMessage] = useState('');
@@ -104,127 +103,6 @@ export function Login({ onLogin }: LoginProps) {
       setError(`Failed to send password reset email: ${err.message}`);
     } finally {
       setIsResetLoading(false);
-    }
-  };
-
-  const handleCreateSuperUser = async () => {
-    setError('');
-    setIsLoading(true);
-
-    const superUserEmail = 'admin@prospaces.com';
-    const superUserPassword = 'ProSpaces2024!';
-    const superUserName = 'ProSpaces Super Admin';
-
-    try {
-      const supabase = createClient();
-      
-      // Try to sign in first (in case account already exists)
-      let { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: superUserEmail,
-        password: superUserPassword,
-      });
-
-      if (signInError && signInError.message.includes('Invalid login credentials')) {
-        // Account doesn't exist, create it
-        
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: superUserEmail,
-          password: superUserPassword,
-          options: {
-            data: {
-              name: superUserName,
-              role: 'super_admin',
-            }
-          }
-        });
-
-        if (signUpError) {
-          throw new Error(signUpError.message);
-        }
-
-        // After signup, sign in
-        const { data: newSignInData, error: newSignInError } = await supabase.auth.signInWithPassword({
-          email: superUserEmail,
-          password: superUserPassword,
-        });
-
-        if (newSignInError) {
-          throw new Error(newSignInError.message);
-        }
-
-        signInData = newSignInData;
-      } else if (signInError) {
-        throw new Error(signInError.message);
-      }
-
-      // Get or create profile
-      if (signInData?.session && signInData?.user) {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', signInData.user.id)
-          .single();
-
-        let userProfile = profile;
-
-        if (profileError || !profile) {
-          // Create profile if it doesn't exist
-          
-          // First, create or get organization
-          const orgId = crypto.randomUUID();
-          const { data: org, error: orgError } = await supabase
-            .from('organizations')
-            .insert({
-              id: orgId,
-              name: 'ProSpaces CRM',
-              created_at: new Date().toISOString(),
-            })
-            .select()
-            .single();
-
-          if (orgError && !orgError.message.includes('duplicate')) {
-            console.error('Organization creation error:', orgError);
-          }
-
-          const { data: newProfile, error: newProfileError } = await supabase
-            .from('profiles')
-            .insert({
-              id: signInData.user.id,
-              email: superUserEmail,
-              name: superUserName,
-              role: 'super_admin',
-              organization_id: org?.id || orgId,
-              status: 'active',
-              created_at: new Date().toISOString(),
-            })
-            .select()
-            .single();
-
-          if (newProfileError) {
-            console.error('Profile creation error:', newProfileError);
-          }
-
-          userProfile = newProfile;
-        }
-
-        // Map to User object
-        const user: User = {
-          id: signInData.user.id,
-          email: signInData.user.email || superUserEmail,
-          name: userProfile?.name || superUserName,
-          role: (userProfile?.role as UserRole) || 'super_admin',
-          organizationId: userProfile?.organization_id || 'default',
-        };
-
-        onLogin(user, signInData.session.access_token);
-      } else {
-        setError('Failed to create session. Please try manual sign up.');
-      }
-    } catch (err: any) {
-      console.error('Super user creation error:', err);
-      setError(err.message || 'Failed to create super user. Please try manual sign up.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -731,6 +609,17 @@ export function Login({ onLogin }: LoginProps) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 px-4 py-8 light">
       <div className="absolute inset-0 bg-black/10"></div>
+      
+      {/* Back Button */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="absolute top-6 left-6 z-20 flex items-center gap-2 text-white/80 hover:text-white transition-colors group"
+        >
+          <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-sm font-medium">Back</span>
+        </button>
+      )}
       
       <div className="w-full max-w-4xl space-y-6 relative z-10">
         {showDatabaseSetup && <CompleteDatabaseSetup />}

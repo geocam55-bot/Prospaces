@@ -100,7 +100,6 @@ function getPublicRoute(): React.ReactElement | null {
   if (urlParams.get('view') === 'landing-page-debug') return <LandingPageDebug />;
   if (urlParams.get('view') === 'landing-page-diagnostic') return <LandingPageDiagnostic />;
   if (urlParams.get('view') === 'landing-page-diagnostic-test') return <LandingPageDiagnosticTest />;
-  if (urlParams.get('view') === 'fix-login') return <AdminFixUsers />;
   if (urlParams.get('view') === 'member-login' || path === '/member-login') return null; // handled in main App flow
   if (urlParams.get('view') === 'privacy-policy' || path === '/privacy-policy') return <PrivacyPolicy />;
   if (urlParams.get('view') === 'terms-of-service' || path === '/terms-of-service') return <TermsOfService />;
@@ -335,7 +334,7 @@ function App() {
     }
 
     return currentView === 'login' ? (
-      <Login onLogin={async (user, token) => {
+      <Login onBack={() => setCurrentView('landing')} onLogin={async (user, token) => {
         // Initialize permissions for this user's role BEFORE setting user state
         await initializePermissions(user.role);
         

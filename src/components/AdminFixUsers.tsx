@@ -7,8 +7,8 @@ import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
 
 export function AdminFixUsers() {
-  const [email, setEmail] = useState('larry.lee@ronaatlantic.ca');
-  const [password, setPassword] = useState('TempPassword123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isFixing, setIsFixing] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 

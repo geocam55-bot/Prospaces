@@ -31,7 +31,7 @@ interface UserRecoveryProps {
 }
 
 export function UserRecovery({ currentUserId, currentOrganizationId, currentUserRole }: UserRecoveryProps) {
-  const [searchEmail, setSearchEmail] = useState('Larry.Lee@ronaatlantic.ca');
+  const [searchEmail, setSearchEmail] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any>(null);
   const [recovering, setRecovering] = useState(false);

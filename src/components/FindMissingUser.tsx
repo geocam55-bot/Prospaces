@@ -21,7 +21,7 @@ interface DiagnosticResult {
 }
 
 export function FindMissingUser() {
-  const [email, setEmail] = useState('matt.brennan@ronaatlantic.ca');
+  const [email, setEmail] = useState('');
   const [searching, setSearching] = useState(false);
   const [recovering, setRecovering] = useState(false);
   const [result, setResult] = useState<DiagnosticResult | null>(null);
@@ -321,38 +321,9 @@ export function FindMissingUser() {
           <CardDescription>Common recovery operations</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Button 
-            onClick={() => {
-              setEmail('matt.brennan@ronaatlantic.ca');
-              setTimeout(handleSearch, 100);
-            }}
-            variant="outline"
-            className="w-full justify-start"
-          >
-            <Search className="w-4 h-4 mr-2" />
-            Find Matt Brennan
-          </Button>
-          
-          <Button 
-            onClick={() => {
-              setEmail('larry.lee@ronaatlantic.ca');
-              setTimeout(handleSearch, 100);
-            }}
-            variant="outline"
-            className="w-full justify-start"
-          >
-            <Search className="w-4 h-4 mr-2" />
-            Find Larry Lee
-          </Button>
-
-          <div className="pt-3 border-t space-y-2">
-            <div className="text-sm text-muted-foreground">
-              <strong>Note:</strong> If a user is completely missing from the database, 
-              they will need to sign up again or you can run the SQL script:
-            </div>
-            <code className="block text-xs p-2 bg-muted rounded">
-              /FIND_MATT_BRENNAN.sql
-            </code>
+          <div className="text-sm text-muted-foreground">
+            <strong>Note:</strong> If a user is completely missing from the database, 
+            they will need to sign up again or be re-invited by an administrator.
           </div>
         </CardContent>
       </Card>

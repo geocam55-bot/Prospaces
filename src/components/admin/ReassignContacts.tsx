@@ -4,8 +4,8 @@ import { projectId, publicAnonKey } from '../../utils/supabase/info';
 import { ensureUserProfile } from '../../utils/ensure-profile';
 
 export function ReassignContacts() {
-  const [fromEmail, setFromEmail] = useState('george.campbell@ronaatlantic.ca');
-  const [toEmail, setToEmail] = useState('larry.lee@ronaatlantic.ca');
+  const [fromEmail, setFromEmail] = useState('');
+  const [toEmail, setToEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
