@@ -10,6 +10,7 @@ import { Mail, CheckCircle, AlertCircle, Info, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { getServerHeaders } from '../utils/server-headers';
 
 interface EmailAccountSetupProps {
   isOpen: boolean;
@@ -51,11 +52,10 @@ async function findActiveFunctionName(supabaseUrl: string, accessToken?: string)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000);
 
+    const headers = await getServerHeaders();
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Authorization': accessToken ? `Bearer ${accessToken}` : '',
-      },
+      headers,
       signal: controller.signal
     });
     
@@ -196,16 +196,15 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
       console.log(`[OAuth] Calling ${endpoint}`);
       console.log(`[OAuth] Full URL: ${supabaseUrl}/functions/v1${endpoint}`);
-      console.log(`[OAuth] Headers: Authorization=Bearer <anonKey>, X-User-Token=<${session.access_token?.length || 0} chars>`);
+
+      // Use shared getServerHeaders() for consistent dual-header auth
+      const headers = await getServerHeaders();
+      console.log(`[OAuth] Headers: Authorization present=${!!headers['Authorization']}, X-User-Token present=${!!headers['X-User-Token']}`);
 
       const response = await fetch(`${supabaseUrl}/functions/v1${endpoint}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'X-User-Token': session.access_token,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({})
+        headers,
+        body: JSON.stringify({}),
       });
 
       if (!response.ok) {
@@ -323,15 +322,16 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
             
             if (pollResponse.ok) {
               const pollResult = await pollResponse.json();
-              if (pollResult && !pollResult.pending) {
+              if (pollResult && pollResult.status === 'complete' && pollResult.result) {
                 console.log('[EmailAccountSetup] OAuth poll result received:', pollResult);
-                const messageType = pollResult.success 
+                const r = pollResult.result;
+                const messageType = r.success 
                   ? (selectedProvider === 'gmail' ? 'gmail-oauth-success' : 'outlook-oauth-success')
                   : (selectedProvider === 'gmail' ? 'gmail-oauth-error' : 'outlook-oauth-error');
                 handleOAuthResult({ 
                   type: messageType, 
-                  account: pollResult.account, 
-                  error: pollResult.error 
+                  account: { id: r.accountId, email: r.email }, 
+                  error: r.error 
                 });
               }
             }

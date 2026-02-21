@@ -630,7 +630,13 @@ app.all('*', (c) => {
 // ── Mount with prefix stripping for both deployment targets ─────────────
 const server = new Hono();
 server.use('*', logger());
-server.use('*', cors());
+server.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowHeaders: ['Authorization', 'X-User-Token', 'Content-Type', 'Accept'],
+  exposeHeaders: ['Content-Length', 'Content-Type'],
+  maxAge: 86400,
+}));
 // Codespace deployment: function named "server" → paths arrive as /server/make-server-8405be07/...
 server.route('/server', app);
 // Figma Make preview: paths arrive as /make-server-8405be07/...
