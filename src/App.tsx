@@ -242,21 +242,8 @@ function App() {
         await initializePermissions(profile.role);
 
         // Load user preferences to get profile picture
+        // Note: user_preferences table may not exist; profile.avatar_url is the primary source
         let avatarUrl = profile.avatar_url;
-        try {
-          const { data: userPrefs } = await supabase
-            .from('user_preferences')
-            .select('profile_picture')
-            .eq('user_id', profile.id)
-            .eq('organization_id', profile.organization_id)
-            .single();
-          
-          if (userPrefs?.profile_picture) {
-            avatarUrl = userPrefs.profile_picture;
-          }
-        } catch (prefError) {
-          console.log('No user preferences found, using profile avatar_url');
-        }
 
         setUser({
           id: profile.id,

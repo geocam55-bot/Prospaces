@@ -620,7 +620,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           <AlertDescription className="text-yellow-800 flex items-center justify-between gap-4">
             <span>
               Could not load settings from the database. Showing locally saved settings instead.
-              Check that the <strong>user_preferences</strong> and <strong>organization_settings</strong> tables exist in your Supabase database.
+              Check that the <strong>organization_settings</strong> table exists in your Supabase database.
             </span>
             <Button
               variant="outline"

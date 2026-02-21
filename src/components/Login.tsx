@@ -331,20 +331,8 @@ export function Login({ onLogin, onBack }: LoginProps) {
 
       // Load user preferences to get profile picture
       let avatarUrl = profile.avatar_url;
-      try {
-        const { data: userPrefs } = await supabase
-          .from('user_preferences')
-          .select('profile_picture')
-          .eq('user_id', profile.id)
-          .eq('organization_id', profile.organization_id)
-          .single();
-        
-        if (userPrefs?.profile_picture) {
-          avatarUrl = userPrefs.profile_picture;
-        }
-      } catch (prefError) {
-        console.log('No user preferences found, using profile avatar_url');
-      }
+      // Note: user_preferences table may not exist; profile.avatar_url is the primary source
+      // of truth for avatar URLs. Skip the extra PostgREST query to avoid 406 console noise.
 
       // Map to User object
       const user: User = {
@@ -566,20 +554,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
 
       // Load user preferences to get profile picture
       let avatarUrl = userProfile?.avatar_url;
-      try {
-        const { data: userPrefs } = await supabase
-          .from('user_preferences')
-          .select('profile_picture')
-          .eq('user_id', signInData.user.id)
-          .eq('organization_id', orgIdToUse)
-          .single();
-        
-        if (userPrefs?.profile_picture) {
-          avatarUrl = userPrefs.profile_picture;
-        }
-      } catch (prefError) {
-        console.log('No user preferences found for new sign up');
-      }
+      // Note: user_preferences table may not exist; use profile avatar_url as source of truth
 
       // Map to User object
       const user: User = {

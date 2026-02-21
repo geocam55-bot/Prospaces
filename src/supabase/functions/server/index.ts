@@ -22,26 +22,43 @@ import { customerPortalAPI } from './customer-portal-api.ts';
 // All routes are registered on this sub-router with /make-server-8405be07/ prefix
 const api = new Hono();
 
-azureOAuthInit(api);
-azureOAuthCallback(api);
-googleOAuth(api);
-dataMigration(api);
-fixProfileMismatch(api);
-backgroundJobs(api);
-inventoryDiagnostic(api);
-marketing(api);
-fixContactOwnership(api);
-contactsAPI(api);
-profilesAPI(api);
-quotesAPI(api);
-settingsAPI(api);
-permissionsAPI(api);
-customerPortalAPI(api);
+// Register route modules with error isolation — if one module fails to register,
+// the others still work and we get a clear error log.
+const modules: Array<[string, (app: Hono) => void]> = [
+  ['azureOAuthInit', azureOAuthInit],
+  ['azureOAuthCallback', azureOAuthCallback],
+  ['googleOAuth', googleOAuth],
+  ['dataMigration', dataMigration],
+  ['fixProfileMismatch', fixProfileMismatch],
+  ['backgroundJobs', backgroundJobs],
+  ['inventoryDiagnostic', inventoryDiagnostic],
+  ['marketing', marketing],
+  ['fixContactOwnership', fixContactOwnership],
+  ['contactsAPI', contactsAPI],
+  ['profilesAPI', profilesAPI],
+  ['quotesAPI', quotesAPI],
+  ['settingsAPI', settingsAPI],
+  ['permissionsAPI', permissionsAPI],
+  ['customerPortalAPI', customerPortalAPI],
+];
+
+for (const [name, register] of modules) {
+  try {
+    register(api);
+    console.log(`✅ Registered module: ${name}`);
+  } catch (err) {
+    console.error(`❌ Failed to register module ${name}:`, err);
+  }
+}
 
 // Health check endpoint
 api.get('/make-server-8405be07/health', (c) => {
   console.log('Health check endpoint hit');
-  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+  return c.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    registeredModules: modules.map(([name]) => name),
+  });
 });
 
 // Password reset endpoint

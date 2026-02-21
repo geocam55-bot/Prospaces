@@ -172,19 +172,8 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
         return;
       }
 
-      // Load avatar
+      // Load avatar — use profile.avatar_url directly (user_preferences table may not exist)
       let avatarUrl = profile.avatar_url;
-      try {
-        const { data: userPrefs } = await supabase
-          .from('user_preferences')
-          .select('profile_picture')
-          .eq('user_id', profile.id)
-          .eq('organization_id', profile.organization_id)
-          .single();
-        if (userPrefs?.profile_picture) avatarUrl = userPrefs.profile_picture;
-      } catch {
-        // silently fail
-      }
 
       const user: User = {
         id: signInData.user.id,

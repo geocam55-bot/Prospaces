@@ -1,6 +1,7 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { extractUserToken } from './auth-helper.ts';
+import * as kv from './kv_store.tsx';
 
 /**
  * Server-side Settings API — uses service role key to bypass RLS.
@@ -279,6 +280,38 @@ export function settingsAPI(app: Hono) {
       return c.json({ profile: data, source: 'server' });
     } catch (err: any) {
       console.error('[settings-api] PATCH profile unexpected error:', err);
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
+  // ─── GET /settings/theme — load user theme preference from KV store ────
+  app.get('/make-server-8405be07/settings/theme', async (c) => {
+    try {
+      const { error, status, user } = await authenticateCaller(c);
+      if (error) return c.json({ error }, status);
+
+      const theme = await kv.get(`user_theme:${user!.id}`);
+      return c.json({ theme: theme || null });
+    } catch (err: any) {
+      console.error('[settings-api] GET theme error:', err);
+      return c.json({ error: err.message }, 500);
+    }
+  });
+
+  // ─── PUT /settings/theme — save user theme preference to KV store ──────
+  app.put('/make-server-8405be07/settings/theme', async (c) => {
+    try {
+      const { error, status, user } = await authenticateCaller(c);
+      if (error) return c.json({ error }, status);
+
+      const { theme } = await c.req.json();
+      if (!theme) return c.json({ error: 'Missing theme' }, 400);
+
+      await kv.set(`user_theme:${user!.id}`, theme);
+      console.log(`[settings-api] Theme saved for user=${user!.id}: ${theme}`);
+      return c.json({ success: true });
+    } catch (err: any) {
+      console.error('[settings-api] PUT theme error:', err);
       return c.json({ error: err.message }, 500);
     }
   });

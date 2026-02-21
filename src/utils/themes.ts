@@ -464,45 +464,78 @@ export const loadTheme = (): string => {
 };
 
 // Save theme to database for persistence across devices
+// NOTE: Uses KV store via the server settings API since the profiles table
+// may not have a 'theme' column. Falls back gracefully.
 export const saveThemeToDatabase = async (themeId: string, userId: string): Promise<void> => {
   try {
+    // Always save to localStorage as primary
+    localStorage.setItem('prospace-theme', themeId);
+    
+    // Try saving to KV via server API (non-blocking)
+    const { projectId, publicAnonKey } = await import('./supabase/info');
     const { createClient } = await import('./supabase/client');
     const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
     
-    const { error } = await supabase
-      .from('profiles')
-      .update({ theme: themeId })
-      .eq('id', userId);
-    
-    if (error) {
-      console.error('Error saving theme to database:', error);
-    } else {
-      console.log('Theme saved to database:', themeId);
+    if (session?.access_token) {
+      fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/settings/theme`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'X-User-Token': session.access_token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ theme: themeId }),
+      }).catch(() => {
+        // Non-blocking — if server endpoint doesn't exist yet, localStorage is primary
+      });
     }
+    
+    console.log('Theme saved:', themeId);
   } catch (error) {
-    console.error('Error saving theme to database:', error);
+    console.error('Error saving theme:', error);
   }
 };
 
 // Load theme from database for current user
+// NOTE: Uses localStorage as primary source; KV store as optional fallback
 export const loadThemeFromDatabase = async (userId: string): Promise<string | null> => {
   try {
-    const { createClient } = await import('./supabase/client');
-    const supabase = createClient();
-    
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('theme')
-      .eq('id', userId)
-      .single();
-    
-    if (error || !data?.theme) {
-      return null;
+    // Primary source is localStorage
+    const localTheme = localStorage.getItem('prospace-theme');
+    if (localTheme) {
+      return localTheme;
     }
     
-    return data.theme;
+    // Optional: try loading from server KV store
+    const { projectId, publicAnonKey } = await import('./supabase/info');
+    const { createClient } = await import('./supabase/client');
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session?.access_token) {
+      try {
+        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/settings/theme`, {
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'X-User-Token': session.access_token,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.theme) {
+            localStorage.setItem('prospace-theme', data.theme);
+            return data.theme;
+          }
+        }
+      } catch {
+        // Server endpoint may not exist yet — fall through
+      }
+    }
+    
+    return null;
   } catch (error) {
-    console.error('Error loading theme from database:', error);
+    console.error('Error loading theme:', error);
     return null;
   }
 };
