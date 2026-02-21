@@ -341,7 +341,7 @@ export async function getAllContactsClient(filterByAccountOwner?: string, scope:
     
     const headers = await getServerHeaders();
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/contacts?scope=${scope}`,
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts?scope=${scope}`,
       {
         method: 'GET',
         headers,
@@ -477,7 +477,7 @@ export async function createContactClient(contactData: any) {
       console.log('[contacts-client] Creating contact via server endpoint (bypasses RLS)...');
       
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/contacts`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts`,
         {
           method: 'POST',
           headers,
@@ -770,7 +770,7 @@ export async function updateContactClient(id: string, contactData: any) {
       console.log(`[contacts-client] price_level in payload:`, transformedData.price_level);
       
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/contacts/${id}`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${id}`,
         {
           method: 'PATCH',
           headers,
@@ -826,7 +826,7 @@ export async function deleteContactClient(id: string) {
       console.log(`[contacts-client] Deleting contact ${id} via server endpoint (bypasses RLS)...`);
       
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/contacts/${id}`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${id}`,
         {
           method: 'DELETE',
           headers,

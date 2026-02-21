@@ -478,7 +478,7 @@ export const saveThemeToDatabase = async (themeId: string, userId: string): Prom
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session?.access_token) {
-      fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/settings/theme`, {
+      fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/settings/theme`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${publicAnonKey}`,
@@ -515,7 +515,7 @@ export const loadThemeFromDatabase = async (userId: string): Promise<string | nu
     
     if (session?.access_token) {
       try {
-        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/settings/theme`, {
+        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/settings/theme`, {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`,
             'X-User-Token': session.access_token,

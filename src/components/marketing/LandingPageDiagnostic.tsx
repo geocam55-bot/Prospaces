@@ -17,7 +17,7 @@ export function LandingPageDiagnostic() {
     setLoading(true);
     
     try {
-      const url = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/debug/landing-pages`;
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/debug/landing-pages`;
       console.log('Fetching from:', url);
       console.log('Using auth token:', publicAnonKey.substring(0, 20) + '...');
       

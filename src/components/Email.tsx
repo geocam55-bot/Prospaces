@@ -905,7 +905,7 @@ export function Email({ user }: EmailProps) {
             }
 
             // Direct fetch to Edge Function with proper CORS headers
-            const functionUrl = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/send-email`;
+            const functionUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/send-email`;
             
             const fetchResponse = await fetch(functionUrl, {
               method: 'POST',

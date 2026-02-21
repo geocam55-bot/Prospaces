@@ -109,7 +109,7 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
     return headers;
   };
 
-  const baseUrl = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/inventory-diagnostic`;
+  const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/inventory-diagnostic`;
 
   const runDiagnostic = async () => {
     setIsChecking(true);

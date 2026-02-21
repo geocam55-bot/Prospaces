@@ -49,7 +49,7 @@ export function ReassignContacts() {
       console.log('🔄 Reassigning contacts...', { fromEmail, toEmail, organizationId });
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/contacts/reassign-by-email`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/reassign-by-email`,
         {
           method: 'POST',
           headers: {

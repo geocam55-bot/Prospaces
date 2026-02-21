@@ -110,7 +110,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
       const trackingLinkUrl = `${appUrl}/?view=redirect&url=${encodedTargetUrl}&id=${quoteId}&orgId=${orgId}&type=${type}`;
       
       // 2. Tracking Pixel (Disabled for now as it requires auth headers which email clients can't send)
-      // const baseUrl = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07`;
+      // const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
       // const trackingPixelUrl = `${baseUrl}/track/open?id=${quoteId}&orgId=${orgId}&type=quote`;
       // const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" style="display:none; visibility:hidden;" alt="" />`;
       

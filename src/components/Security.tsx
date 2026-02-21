@@ -28,7 +28,7 @@ import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { createClient } from '../utils/supabase/client';
 import { getServerHeaders } from '../utils/server-headers';
 
-const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07`;
+const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
 interface SecurityProps {
   user: User;

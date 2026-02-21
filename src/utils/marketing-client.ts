@@ -2,7 +2,7 @@ import { createClient } from './supabase/client';
 import { projectId } from './supabase/info';
 import { getServerHeaders } from './server-headers';
 
-const BASE_URL = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07`;
+const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   return await getServerHeaders();

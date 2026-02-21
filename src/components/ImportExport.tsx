@@ -259,7 +259,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         throw new Error('No access token found');
       }
 
-      const url = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/background-jobs/create`;
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/background-jobs/create`;
       let totalCreated = 0;
 
       for (let idx = 0; idx < chunks.length; idx++) {

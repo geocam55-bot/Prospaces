@@ -495,7 +495,7 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
       const base64 = await fileToBase64(file);
       
       // Upload to server with user's access token
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/upload-image`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/upload-image`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -559,7 +559,7 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
       const base64 = await fileToBase64(file);
       
       // Upload to server with user's access token
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/upload-image`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/upload-image`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,

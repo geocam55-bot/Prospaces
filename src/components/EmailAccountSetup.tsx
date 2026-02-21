@@ -39,9 +39,9 @@ interface EmailAccount {
 }
 
 // Function to find the active function name
-// The Edge Function is deployed as "server", so the base path is always /functions/v1/server
+// The Edge Function is accessed via /functions/v1/make-server-8405be07
 const SERVER_FUNCTION_BASE = (supabaseUrl: string) => 
-  `${supabaseUrl}/functions/v1/server`;
+  `${supabaseUrl}/functions/v1`;
 
 async function findActiveFunctionName(supabaseUrl: string, accessToken?: string): Promise<string> {
   // Verify the server function is reachable via the correct health endpoint
@@ -195,10 +195,10 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       }
 
       console.log(`[OAuth] Calling ${endpoint}`);
-      console.log(`[OAuth] Full URL: ${supabaseUrl}/functions/v1/server${endpoint}`);
+      console.log(`[OAuth] Full URL: ${supabaseUrl}/functions/v1${endpoint}`);
       console.log(`[OAuth] Headers: Authorization=Bearer <anonKey>, X-User-Token=<${session.access_token?.length || 0} chars>`);
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/server${endpoint}`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${publicAnonKey}`,
@@ -315,7 +315,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
           try {
             const pollResponse = await fetch(
-              `${supabaseUrl}/functions/v1/server/make-server-8405be07/oauth-poll/${pollId}`,
+              `${supabaseUrl}/functions/v1/make-server-8405be07/oauth-poll/${pollId}`,
               {
                 headers: { 'Authorization': `Bearer ${publicAnonKey}` }
               }

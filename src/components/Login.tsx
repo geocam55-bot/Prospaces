@@ -248,7 +248,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
               // Call server endpoint to fix profile mismatch with elevated permissions
               try {
                 const response = await fetch(
-                  `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/fix-profile-mismatch`,
+                  `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/fix-profile-mismatch`,
                   {
                     method: 'POST',
                     headers: {

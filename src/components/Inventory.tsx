@@ -525,7 +525,7 @@ export function Inventory({ user }: InventoryProps) {
       const base64 = await fileToBase64(file);
       
       // Upload to server
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/upload-image`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/upload-image`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,

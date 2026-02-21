@@ -483,7 +483,7 @@ export function Users({ user }: UsersProps) {
     try {
       // Call the server endpoint to reset the password
       console.log('🔐 Calling server to reset password...');
-      const serverUrl = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/reset-password`;
+      const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/reset-password`;
       
       const response = await fetch(serverUrl, {
         method: 'POST',
