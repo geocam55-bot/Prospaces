@@ -4,28 +4,39 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 export const azureOAuthInit = (app: Hono) => {
   app.post('/azure-oauth-init', async (c) => {
     try {
+      // Use dual-header auth pattern: X-User-Token preferred, Authorization fallback
+      const userToken = c.req.header('X-User-Token');
       const authHeader = c.req.header('Authorization');
-      if (!authHeader) {
-        return c.json({ error: 'No authorization header' }, 401);
+      
+      // Extract the actual user JWT
+      const token = userToken || (authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : null);
+      
+      if (!token) {
+        console.error('[make-server/azure-oauth-init] No auth token found. Headers present:', {
+          hasAuthorization: !!authHeader,
+          hasXUserToken: !!userToken,
+        });
+        return c.json({ error: 'No authorization header or X-User-Token provided' }, 401);
       }
 
+      // Verify user with service role key (not anon key)
       const supabaseClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        {
-          global: {
-            headers: { Authorization: authHeader },
-          },
-        }
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
       const {
         data: { user },
         error: userError,
-      } = await supabaseClient.auth.getUser();
+      } = await supabaseClient.auth.getUser(token);
 
       if (userError || !user) {
-        return c.json({ error: 'Invalid user token' }, 401);
+        console.error('[make-server/azure-oauth-init] User auth failed:', {
+          error: userError?.message,
+          tokenSource: userToken ? 'X-User-Token' : 'Authorization',
+          tokenPrefix: token?.substring(0, 20) + '...',
+        });
+        return c.json({ error: 'Invalid user token: ' + (userError?.message || 'No user found. Ensure X-User-Token contains a valid session JWT.') }, 401);
       }
 
       const AZURE_CLIENT_ID = Deno.env.get('AZURE_CLIENT_ID');

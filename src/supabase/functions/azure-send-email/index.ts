@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-token',
 };
 
 // Helper to refresh Azure token if expired
@@ -42,20 +42,25 @@ serve(async (req) => {
   }
 
   try {
+    // Dual-header auth: prefer X-User-Token, fall back to Authorization
+    const userToken = req.headers.get('X-User-Token');
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
+    const token = userToken || (authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : null);
+
+    if (!token) {
+      throw new Error('No authorization header or X-User-Token provided');
     }
 
+    // Use service role key to verify user token
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
     if (userError || !user) {
-      throw new Error('Invalid user token');
+      console.error('[azure-send-email] User auth failed:', userError?.message, 'token source:', userToken ? 'X-User-Token' : 'Authorization');
+      throw new Error('Invalid user token: ' + (userError?.message || 'No user found'));
     }
 
     const body = await req.json();

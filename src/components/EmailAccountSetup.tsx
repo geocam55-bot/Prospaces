@@ -195,6 +195,8 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       }
 
       console.log(`[OAuth] Calling ${endpoint}`);
+      console.log(`[OAuth] Full URL: ${supabaseUrl}/functions/v1/server${endpoint}`);
+      console.log(`[OAuth] Headers: Authorization=Bearer <anonKey>, X-User-Token=<${session.access_token?.length || 0} chars>`);
 
       const response = await fetch(`${supabaseUrl}/functions/v1/server${endpoint}`, {
         method: 'POST',
@@ -208,8 +210,9 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[OAuth] Error response:', errorText);
-        throw new Error(errorText || 'Failed to initiate OAuth');
+        console.error(`[OAuth] Error response from ${endpoint}:`, response.status, errorText);
+        console.error(`[OAuth] Response headers:`, Object.fromEntries(response.headers.entries()));
+        throw new Error(`OAuth init failed (${response.status}): ${errorText}`);
       }
 
       const data = await response.json();

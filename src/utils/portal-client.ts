@@ -1,7 +1,7 @@
 import { projectId, publicAnonKey } from './supabase/info';
 import { getServerHeaders } from './server-headers';
 
-const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/portal`;
+const BASE_URL = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/portal`;
 
 // ── Session management ──
 const PORTAL_TOKEN_KEY = 'portal_session_token';

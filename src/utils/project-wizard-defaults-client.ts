@@ -78,7 +78,7 @@ export async function getUserDefaults(userId: string, organizationId: string): P
     }
 
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
+      `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
       {
         method: 'GET',
         headers: await getServerHeaders(),
@@ -120,7 +120,7 @@ export async function saveUserDefaults(userId: string, organizationId: string, d
     }
 
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
+      `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
       {
         method: 'POST',
         headers: await getServerHeaders(),
@@ -158,7 +158,7 @@ export async function deleteUserDefaults(userId: string, organizationId: string)
     }
 
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
+      `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
       {
         method: 'DELETE',
         headers: await getServerHeaders(),
