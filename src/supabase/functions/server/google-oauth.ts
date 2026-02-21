@@ -42,7 +42,7 @@ export const googleOAuth = (app: Hono) => {
         userId: user.id,
         provider: 'google',
         timestamp: new Date().toISOString()
-      }, { expiresIn: 600 }); // 10 minutes
+      }); // Note: KV store does not support TTL
 
       // Build Google OAuth URL
       const scopes = [

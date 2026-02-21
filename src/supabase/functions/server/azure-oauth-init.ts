@@ -73,7 +73,7 @@ export const azureOAuthInit = (app: Hono) => {
         userId: user.id,
         provider: 'microsoft',
         timestamp: new Date().toISOString()
-      }, { expiresIn: 600 }); // 10 minutes
+      }); // Note: KV store does not support TTL/expiresIn; clean up stale entries manually
 
       const scopes = [
         'offline_access',

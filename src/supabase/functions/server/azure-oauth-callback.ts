@@ -118,7 +118,7 @@ export const azureOAuthCallback = (app: Hono) => {
           last_sync: accountData.last_sync
         }
       };
-      await kv.set(`oauth_result:${state}`, oauthResult, { expiresIn: 300 }); // 5 min TTL
+      await kv.set(`oauth_result:${state}`, oauthResult); // Note: KV store does not support TTL
 
       console.log('[Azure OAuth] Account saved to KV successfully:', accountId);
 
