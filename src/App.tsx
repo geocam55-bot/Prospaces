@@ -98,7 +98,12 @@ function getPublicRoute(): React.ReactElement | null {
   const urlParams = new URLSearchParams(window.location.search);
   const path = window.location.pathname;
 
+  // OAuth callback: detect by path OR by ?code=&state= params on any path
+  // (handles hosting platforms without SPA routing, e.g. Vercel without rewrites)
   if (path === '/oauth-callback') return <OAuthCallback />;
+  if (urlParams.has('code') && urlParams.has('state') && !urlParams.has('view')) {
+    return <OAuthCallback />;
+  }
 
   const isLandingPage = path.startsWith('/landing/');
   const landingPageSlug = isLandingPage ? path.split('/landing/')[1]?.split('?')[0] : null;

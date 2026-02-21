@@ -613,7 +613,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
                     <span className="text-xs mt-1 block">
                       <strong>Azure Portal redirect URI:</strong>{' '}
                       <code className="bg-blue-100 px-1 py-0.5 rounded text-xs select-all break-all">
-                        {window.location.origin}/oauth-callback
+                        {window.location.origin}
                       </code>
                     </span>
                   </AlertDescription>
