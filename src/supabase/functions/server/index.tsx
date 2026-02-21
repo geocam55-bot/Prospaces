@@ -11,10 +11,18 @@ import * as kv from './kv_store.tsx';
 const PREFIX = '/make-server-8405be07';
 
 function extractUserToken(c: any): string | null {
+  // Primary: X-User-Token header (dual-header auth pattern)
   const userToken = c.req.header('X-User-Token');
   if (userToken) return userToken;
+
+  // Fallback: Authorization header — but ONLY if it does NOT look like the
+  // Supabase anon key (which the gateway requires but is not a user JWT).
+  // Anon keys are short JWTs (~200 chars); user access tokens are longer (~800+).
   const authHeader = c.req.header('Authorization');
-  if (authHeader?.startsWith('Bearer ')) return authHeader.split(' ')[1] || null;
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1] || null;
+    if (token && token.length > 300) return token; // likely a real user JWT
+  }
   return null;
 }
 
@@ -28,7 +36,13 @@ function getSupabase() {
 async function authenticateUser(c: any) {
   const supabase = getSupabase();
   const token = extractUserToken(c);
-  if (!token) return { error: 'Missing auth token (send X-User-Token header)', status: 401, supabase, user: null as any, profile: null as any };
+  if (!token) {
+    // Log headers for debugging (redacted)
+    const hasXUT = !!c.req.header('X-User-Token');
+    const authLen = c.req.header('Authorization')?.length || 0;
+    console.log(`[auth] 401: X-User-Token present=${hasXUT}, Authorization length=${authLen}, path=${c.req.path}`);
+    return { error: 'Missing auth token (send X-User-Token header)', status: 401, supabase, user: null as any, profile: null as any };
+  }
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
   if (authError || !user) return { error: 'Unauthorized: ' + (authError?.message || 'No user'), status: 401, supabase, user: null as any, profile: null as any };
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
