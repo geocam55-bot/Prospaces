@@ -12,6 +12,8 @@ import { getAllTasksClient, createTaskClient, updateTaskClient, deleteTaskClient
 import { getAllNotesClient, createNoteClient, deleteNoteClient } from './notes-client';
 import { getUserPreferencesClient, upsertUserPreferencesClient, getOrganizationSettingsClient, upsertOrganizationSettingsClient, updateOrganizationNameClient, updateUserProfileClient } from './settings-client';
 import { getJourneys, createJourney, updateJourney, deleteJourney, getLandingPages, createLandingPage, updateLandingPage, deleteLandingPage, getLeadScores, updateLeadScore, getScoringRules, createScoringRule, updateScoringRule, deleteScoringRule, getLeadScoreStats } from './marketing-client';
+import { getServerHeaders } from './server-headers';
+import { projectId } from './supabase/info';
 
 const supabase = createClient();
 
@@ -497,54 +499,59 @@ export const inventoryAPI = {
   search: (filters?: { search?: string; category?: string; status?: string; organizationId?: string }) => searchInventoryClient(filters),
 };
 
-// Email APIs - use direct Supabase client
+// Email APIs - route through consolidated server (email_accounts has RLS)
 export const emailAPI = {
-  // Email accounts
+  // Email accounts - via server endpoint to bypass RLS
   getAccounts: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data, error } = await supabase
-      .from('email_accounts')
-      .select('*')
-      .eq('user_id', user?.id || '');
-    
-    if (error) {
-      if (error.code === '42P01') return { accounts: [] };
-      throw error;
+    try {
+      const headers = await getServerHeaders();
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
+        { headers }
+      );
+      if (!res.ok) {
+        console.error('[emailAPI.getAccounts] Server error:', res.status);
+        return { accounts: [] };
+      }
+      const json = await res.json();
+      return { accounts: json.accounts || [] };
+    } catch (error) {
+      console.error('[emailAPI.getAccounts] Failed:', error);
+      return { accounts: [] };
     }
-    return { accounts: data || [] };
   },
   addAccount: async (accountData: any) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
-
-    const newAccount = {
-      ...accountData,
-      user_id: user.id,
-      organization_id: user.user_metadata?.organizationId,
-      created_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await supabase
-      .from('email_accounts')
-      .insert([newAccount])
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return { account: data };
+    const headers = await getServerHeaders();
+    const res = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
+      { method: 'POST', headers, body: JSON.stringify(accountData) }
+    );
+    if (!res.ok) throw new Error('Failed to add email account');
+    const json = await res.json();
+    return { account: json.account || json };
   },
   deleteAccount: async (id: string) => {
-    const { error } = await supabase
-      .from('email_accounts')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
+    const headers = await getServerHeaders();
+    const res = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts/${id}`,
+      { method: 'DELETE', headers }
+    );
+    if (!res.ok) throw new Error('Failed to delete email account');
     return { success: true };
   },
   syncAccount: async (id: string) => {
-    // This would typically trigger a sync - for now just return success
-    return { success: true, message: 'Sync initiated' };
+    try {
+      const headers = await getServerHeaders();
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-sync`,
+        { method: 'POST', headers, body: JSON.stringify({ accountId: id, limit: 50 }) }
+      );
+      if (!res.ok) throw new Error('Sync failed');
+      return await res.json();
+    } catch (error: any) {
+      console.error('[emailAPI.syncAccount] Failed:', error);
+      return { success: false, error: error.message };
+    }
   },
   
   // Emails

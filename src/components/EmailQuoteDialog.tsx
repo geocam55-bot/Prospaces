@@ -66,8 +66,10 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
       const { accounts } = await emailAPI.getAccounts();
       setAccounts(accounts);
       if (accounts.length > 0) {
-        // Try to find default or just pick first
-        setSelectedAccount(accounts[0].id);
+        // Use persisted selection from localStorage, fall back to first account
+        const persisted = localStorage.getItem('prospaces_selected_email_account') || '';
+        const match = accounts.find((a: any) => a.id === persisted);
+        setSelectedAccount(match ? match.id : accounts[0].id);
       }
     } catch (error) {
       console.error('Failed to load email accounts:', error);
