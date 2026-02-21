@@ -539,8 +539,10 @@ app.post(`${PREFIX}/oauth-exchange`, async (c) => {
       const ur = await fetch('https://graph.microsoft.com/v1.0/me', { headers: { Authorization: `Bearer ${td.access_token}` } });
       const ui = await ur.json();
       const email = ui.mail || ui.userPrincipalName || 'unknown';
-      const aid = `outlook_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
-      await kv.set(`email_account:${sd.userId}:${aid}`, { id: aid, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+      const kvKey = `outlook_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+      const existingAccount = await kv.get(`email_account:${sd.userId}:${kvKey}`);
+      const aid = (existingAccount && existingAccount.id && existingAccount.id.includes('-')) ? existingAccount.id : crypto.randomUUID();
+      await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
       const result = { success: true, accountId: aid, email, provider: 'outlook' };
       await kv.set(`oauth_result:${state}`, result);
       return c.json(result);
@@ -559,10 +561,11 @@ app.post(`${PREFIX}/oauth-exchange`, async (c) => {
       }
       const ur = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: `Bearer ${td.access_token}` } });
       const ui = await ur.json();
-      const email = ui.email || 'unknown';
-      const aid = `gmail_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
-      await kv.set(`email_account:${sd.userId}:${aid}`, { id: aid, provider: 'gmail', email, displayName: ui.name || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
-      const result = { success: true, accountId: aid, email, provider: 'gmail' };
+      const kvKey = `gmail_${(ui.email || 'x').replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+      const existingAccount = await kv.get(`email_account:${sd.userId}:${kvKey}`);
+      const aid = (existingAccount && existingAccount.id && existingAccount.id.includes('-')) ? existingAccount.id : crypto.randomUUID();
+      await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'gmail', email: ui.email, displayName: ui.name || ui.email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+      const result = { success: true, accountId: aid, email: ui.email, provider: 'gmail' };
       await kv.set(`oauth_result:${state}`, result);
       return c.json(result);
 
@@ -593,8 +596,10 @@ app.post(`${PREFIX}/microsoft-oauth-exchange`, async (c) => {
     const ur = await fetch('https://graph.microsoft.com/v1.0/me', { headers: { Authorization: `Bearer ${td.access_token}` } });
     const ui = await ur.json();
     const email = ui.mail || ui.userPrincipalName || 'unknown';
-    const aid = `outlook_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
-    await kv.set(`email_account:${sd.userId}:${aid}`, { id: aid, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+    const kvKey = `outlook_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+    const existingAccount = await kv.get(`email_account:${sd.userId}:${kvKey}`);
+    const aid = (existingAccount && existingAccount.id && existingAccount.id.includes('-')) ? existingAccount.id : crypto.randomUUID();
+    await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
     const result = { success: true, accountId: aid, email, provider: 'outlook' };
     await kv.set(`oauth_result:${state}`, result);
     return c.json(result);
@@ -623,8 +628,10 @@ app.get(`${PREFIX}/azure-oauth-callback`, async (c) => {
     const ur = await fetch('https://graph.microsoft.com/v1.0/me', { headers: { Authorization: `Bearer ${td.access_token}` } });
     const ui = await ur.json();
     const email = ui.mail || ui.userPrincipalName || 'unknown';
-    const aid = `outlook_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
-    await kv.set(`email_account:${sd.userId}:${aid}`, { id: aid, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+    const kvKey = `outlook_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+    const existingAccount = await kv.get(`email_account:${sd.userId}:${kvKey}`);
+    const aid = (existingAccount && existingAccount.id && existingAccount.id.includes('-')) ? existingAccount.id : crypto.randomUUID();
+    await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
     const result = { success: true, accountId: aid, email, provider: 'outlook' };
     await kv.set(`oauth_result:${state}`, result);
     return c.html(`<html><body><h2>Connected!</h2><p>${email}</p><script>try{window.opener&&window.opener.postMessage(${JSON.stringify(JSON.stringify(result))},'*')}catch(e){}setTimeout(()=>window.close(),2000)</script></body></html>`);
@@ -691,8 +698,10 @@ app.get(`${PREFIX}/google-oauth-callback`, async (c) => {
     if (td.error) { await kv.set(`oauth_result:${state}`, { success: false, error: td.error }); return c.html(`<html><body><h2>Error</h2><script>window.close()</script></body></html>`); }
     const ur = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: `Bearer ${td.access_token}` } });
     const ui = await ur.json();
-    const aid = `gmail_${(ui.email || 'x').replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
-    await kv.set(`email_account:${sd.userId}:${aid}`, { id: aid, provider: 'gmail', email: ui.email, displayName: ui.name || ui.email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+    const kvKey = `gmail_${(ui.email || 'x').replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+    const existingAccount = await kv.get(`email_account:${sd.userId}:${kvKey}`);
+    const aid = (existingAccount && existingAccount.id && existingAccount.id.includes('-')) ? existingAccount.id : crypto.randomUUID();
+    await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'gmail', email: ui.email, displayName: ui.name || ui.email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
     const result = { success: true, accountId: aid, email: ui.email, provider: 'gmail' };
     await kv.set(`oauth_result:${state}`, result);
     return c.html(`<html><body><h2>Connected!</h2><p>${ui.email}</p><script>try{window.opener&&window.opener.postMessage(${JSON.stringify(JSON.stringify(result))},'*')}catch(e){}setTimeout(()=>window.close(),2000)</script></body></html>`);
