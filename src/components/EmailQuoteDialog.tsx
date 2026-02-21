@@ -128,86 +128,30 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
         </div>
       `;
 
-      let response;
-
-      // Determine sending method based on account type
-      if (account.provider === 'outlook') {
-        response = await supabase.functions.invoke('azure-send-email', {
-          body: {
+      // Use consolidated server send endpoint
+      const { getServerHeaders } = await import('../utils/server-headers');
+      const { projectId: pid } = await import('../utils/supabase/info');
+      const sendHeaders = await getServerHeaders();
+      const sendRes = await fetch(
+        `https://${pid}.supabase.co/functions/v1/make-server-8405be07/email-send`,
+        {
+          method: 'POST',
+          headers: sendHeaders,
+          body: JSON.stringify({
             accountId: selectedAccount,
-            to,
-            subject,
-            body: fullHtmlBody,
-          },
-        });
-      } else if (account.nylas_grant_id) {
-        response = await supabase.functions.invoke('nylas-send-email', {
-          body: {
-            accountId: selectedAccount,
-            to,
-            subject,
-            body: fullHtmlBody,
-          },
-        });
-      } else {
-        // Fallback to SMTP/IMAP generic sender if available
-        // Matches logic in Email.tsx for SMTP sending
-        if (account.smtp_host && account.smtp_port && account.smtp_username && account.smtp_password) {
-           const payload = {
             to: to.trim(),
             subject: subject.trim(),
             body: fullHtmlBody,
-            from: account.email,
-            smtpConfig: {
-              host: account.smtp_host,
-              port: account.smtp_port,
-              username: account.smtp_username,
-              password: account.smtp_password,
-            },
-          };
-
-          response = await supabase.functions.invoke('simple-send-email', {
-            body: payload,
-          });
-        } else {
-          // If no SMTP config, try the generic send-email (though it likely needs same config)
-          response = await supabase.functions.invoke('send-email', {
-            body: {
-              accountId: selectedAccount,
-              to,
-              subject,
-              body: fullHtmlBody,
-            },
-          });
+          }),
         }
+      );
+      const sendData = await sendRes.json();
+      
+      if (!sendRes.ok || !sendData.success) {
+        throw new Error(sendData.error || `Send failed with status ${sendRes.status}`);
       }
 
-      if (response.error) {
-        throw new Error(response.error.message || 'Failed to send email');
-      }
-
-      if (!response.data?.success) {
-        // If the specific error is about deployment/config, fallback to "simple-send-email" (draft/log only)
-        // This is useful for development/testing when backend isn't fully set up
-        console.warn('Primary send failed, falling back to simple logger:', response.data?.error);
-        
-        const fallbackResponse = await supabase.functions.invoke('simple-send-email', {
-            body: {
-                to,
-                subject,
-                body,
-                from: account.email
-            }
-        });
-        
-        if (fallbackResponse.error || !fallbackResponse.data?.success) {
-            throw new Error(response.data?.error || 'Failed to send email');
-        }
-        
-        toast.info('Email logged (backend simulation)');
-      } else {
-          toast.success('Email sent successfully');
-      }
+      toast.success('Email sent successfully');
 
       // Record the email in the local database as sent
       await emailAPI.sendEmail({

@@ -708,6 +708,228 @@ app.get(`${PREFIX}/google-oauth-callback`, async (c) => {
   } catch (err: any) { return c.html(`<html><body><h2>Error</h2><script>window.close()</script></body></html>`); }
 });
 
+// ── HELPERS: token refresh + KV lookup ──────────────────────────────────
+async function getAccountTokensFromKV(userId: string, accountId: string) {
+  const all = await kv.getByPrefix(`email_account:${userId}:`);
+  if (!all || all.length === 0) return null;
+  return all.find((a: any) => a.id === accountId) || null;
+}
+
+async function refreshAzureTokenFn(refreshToken: string) {
+  const CID = Deno.env.get('AZURE_CLIENT_ID') ?? '';
+  const CS = Deno.env.get('AZURE_CLIENT_SECRET') ?? '';
+  if (!CID || !CS) throw new Error('Azure credentials not configured');
+  const r = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: CID, client_secret: CS, refresh_token: refreshToken, grant_type: 'refresh_token' }),
+  });
+  if (!r.ok) throw new Error('Failed to refresh Azure token: ' + await r.text());
+  return await r.json();
+}
+
+async function refreshGoogleTokenFn(refreshToken: string) {
+  const CID = Deno.env.get('GOOGLE_CLIENT_ID') ?? '';
+  const CS = Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '';
+  if (!CID || !CS) throw new Error('Google credentials not configured');
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: CID, client_secret: CS, refresh_token: refreshToken, grant_type: 'refresh_token' }),
+  });
+  if (!r.ok) throw new Error('Failed to refresh Google token: ' + await r.text());
+  return await r.json();
+}
+
+// ── EMAIL SYNC (consolidated — replaces azure-sync-emails & nylas-sync-emails) ──
+app.post(`${PREFIX}/email-sync`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const { accountId, limit: emailLimit = 50 } = await c.req.json();
+    if (!accountId) return c.json({ error: 'Missing accountId' }, 400);
+
+    const kvAccount = await getAccountTokensFromKV(auth.user.id, accountId);
+    if (!kvAccount) return c.json({ error: 'Email account not found in KV store' }, 404);
+    console.log(`[email-sync] provider=${kvAccount.provider}, email=${kvAccount.email}`);
+
+    const orgId = auth.profile?.organization_id;
+    if (!orgId) return c.json({ error: 'No organization found for user' }, 400);
+    let syncedCount = 0;
+
+    if (kvAccount.provider === 'outlook') {
+      let accessToken = kvAccount.access_token;
+      const expiresAt = new Date(kvAccount.token_expires_at || 0);
+      if (expiresAt <= new Date() && kvAccount.refresh_token) {
+        console.log('[email-sync] Outlook token expired, refreshing...');
+        const newTokens = await refreshAzureTokenFn(kvAccount.refresh_token);
+        accessToken = newTokens.access_token;
+        const kvKey = kvAccount.kvKey || `outlook_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+        await kv.set(`email_account:${auth.user.id}:${kvKey}`, {
+          ...kvAccount, access_token: newTokens.access_token,
+          refresh_token: newTokens.refresh_token || kvAccount.refresh_token,
+          token_expires_at: new Date(Date.now() + newTokens.expires_in * 1000).toISOString(),
+        });
+      }
+      const graphRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages?$top=${emailLimit}&$orderby=receivedDateTime desc`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!graphRes.ok) return c.json({ error: `Microsoft Graph error: ${await graphRes.text()}` }, 502);
+      const messages = (await graphRes.json()).value || [];
+      console.log(`[email-sync] Fetched ${messages.length} Outlook emails`);
+      for (const msg of messages) {
+        const { data: existing } = await auth.supabase.from('emails').select('id').eq('message_id', msg.id).eq('account_id', accountId).maybeSingle();
+        if (!existing) {
+          const { error: insErr } = await auth.supabase.from('emails').insert({
+            id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId,
+            message_id: msg.id, from_email: msg.from?.emailAddress?.address || '',
+            to_email: msg.toRecipients?.[0]?.emailAddress?.address || '',
+            cc_email: msg.ccRecipients?.map((r: any) => r.emailAddress?.address).join(', ') || null,
+            subject: msg.subject || '(No Subject)', body: msg.body?.content || '',
+            folder: msg.parentFolderId?.includes('SentItems') ? 'sent' : 'inbox',
+            is_read: msg.isRead || false, is_starred: msg.flag?.flagStatus === 'flagged',
+            received_at: msg.receivedDateTime,
+          });
+          if (!insErr) syncedCount++;
+          else console.log(`[email-sync] insert err: ${insErr.message}`);
+        }
+      }
+    } else if (kvAccount.provider === 'gmail') {
+      const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
+      const nylasGrantId = kvAccount.nylasGrantId || kvAccount.nylas_grant_id;
+      if (NYLAS_API_KEY && nylasGrantId) {
+        const nylasRes = await fetch(`https://api.us.nylas.com/v3/grants/${nylasGrantId}/messages?limit=${emailLimit}`, {
+          headers: { Authorization: `Bearer ${NYLAS_API_KEY}` },
+        });
+        if (!nylasRes.ok) return c.json({ error: `Nylas API error: ${await nylasRes.text()}` }, 502);
+        const messages = (await nylasRes.json()).data || [];
+        for (const msg of messages) {
+          const { data: existing } = await auth.supabase.from('emails').select('id').eq('message_id', msg.id).eq('account_id', accountId).maybeSingle();
+          if (!existing) {
+            const { error: insErr } = await auth.supabase.from('emails').insert({
+              id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId,
+              message_id: msg.id, from_email: msg.from?.[0]?.email || '',
+              to_email: msg.to?.[0]?.email || kvAccount.email,
+              cc_email: msg.cc?.map((x: any) => x.email).join(', ') || null,
+              subject: msg.subject || '(No Subject)', body: msg.body || msg.snippet || '',
+              folder: msg.folders?.includes('SENT') ? 'sent' : 'inbox',
+              is_read: msg.unread === false, is_starred: msg.starred || false,
+              received_at: new Date(msg.date * 1000).toISOString(),
+            });
+            if (!insErr) syncedCount++;
+          }
+        }
+      } else {
+        let accessToken = kvAccount.access_token;
+        const expiresAt = new Date(kvAccount.token_expires_at || 0);
+        if (expiresAt <= new Date() && kvAccount.refresh_token) {
+          const newTokens = await refreshGoogleTokenFn(kvAccount.refresh_token);
+          accessToken = newTokens.access_token;
+          const kvKey = kvAccount.kvKey || `gmail_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+          await kv.set(`email_account:${auth.user.id}:${kvKey}`, {
+            ...kvAccount, access_token: newTokens.access_token,
+            token_expires_at: new Date(Date.now() + newTokens.expires_in * 1000).toISOString(),
+          });
+        }
+        const gmailRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${emailLimit}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!gmailRes.ok) return c.json({ error: 'Gmail API error: ' + await gmailRes.text() }, 502);
+        const messageIds = (await gmailRes.json()).messages || [];
+        for (const m of messageIds.slice(0, emailLimit)) {
+          const { data: existing } = await auth.supabase.from('emails').select('id').eq('message_id', m.id).eq('account_id', accountId).maybeSingle();
+          if (!existing) {
+            const detRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=full`, {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            });
+            if (detRes.ok) {
+              const d = await detRes.json();
+              const hdrs = d.payload?.headers || [];
+              const getH = (n: string) => hdrs.find((h: any) => h.name.toLowerCase() === n.toLowerCase())?.value || '';
+              const { error: insErr } = await auth.supabase.from('emails').insert({
+                id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId,
+                message_id: m.id, from_email: getH('From'), to_email: getH('To'),
+                cc_email: getH('Cc') || null, subject: getH('Subject') || '(No Subject)',
+                body: d.snippet || '', folder: d.labelIds?.includes('SENT') ? 'sent' : 'inbox',
+                is_read: !d.labelIds?.includes('UNREAD'), is_starred: d.labelIds?.includes('STARRED'),
+                received_at: new Date(parseInt(d.internalDate)).toISOString(),
+              });
+              if (!insErr) syncedCount++;
+            }
+          }
+        }
+      }
+    } else {
+      return c.json({ error: `Unsupported provider: ${kvAccount.provider}` }, 400);
+    }
+    await auth.supabase.from('email_accounts').update({ last_sync: new Date().toISOString() }).eq('id', accountId);
+    return c.json({ success: true, syncedCount, lastSync: new Date().toISOString() });
+  } catch (err: any) {
+    console.log(`[email-sync] exception: ${err.message}`);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// ── EMAIL SEND (consolidated — replaces azure-send-email & nylas-send-email) ──
+app.post(`${PREFIX}/email-send`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const { accountId, to, subject, body: emailBody, cc, bcc } = await c.req.json();
+    if (!accountId || !to || !subject || !emailBody) return c.json({ error: 'Missing required fields' }, 400);
+
+    const kvAccount = await getAccountTokensFromKV(auth.user.id, accountId);
+    if (!kvAccount) return c.json({ error: 'Email account not found' }, 404);
+    const orgId = auth.profile?.organization_id;
+    if (!orgId) return c.json({ error: 'No organization found for user' }, 400);
+
+    if (kvAccount.provider === 'outlook') {
+      let accessToken = kvAccount.access_token;
+      if (new Date(kvAccount.token_expires_at || 0) <= new Date() && kvAccount.refresh_token) {
+        const nt = await refreshAzureTokenFn(kvAccount.refresh_token);
+        accessToken = nt.access_token;
+        const kvKey = kvAccount.kvKey || `outlook_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+        await kv.set(`email_account:${auth.user.id}:${kvKey}`, { ...kvAccount, access_token: nt.access_token, refresh_token: nt.refresh_token || kvAccount.refresh_token, token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString() });
+      }
+      const message: any = { subject, body: { contentType: 'HTML', content: emailBody }, toRecipients: (Array.isArray(to) ? to : [to]).map((e: string) => ({ emailAddress: { address: e } })) };
+      if (cc) message.ccRecipients = (Array.isArray(cc) ? cc : [cc]).map((e: string) => ({ emailAddress: { address: e } }));
+      if (bcc) message.bccRecipients = (Array.isArray(bcc) ? bcc : [bcc]).map((e: string) => ({ emailAddress: { address: e } }));
+      const gRes = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message }) });
+      if (!gRes.ok) return c.json({ error: 'Graph send error: ' + await gRes.text() }, 502);
+      await auth.supabase.from('emails').insert({ id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId, message_id: crypto.randomUUID(), from_email: kvAccount.email, to_email: Array.isArray(to) ? to[0] : to, cc_email: cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : null, subject, body: emailBody, folder: 'sent', is_read: true, is_starred: false, received_at: new Date().toISOString() });
+      return c.json({ success: true, message: 'Email sent via Outlook' });
+    } else if (kvAccount.provider === 'gmail') {
+      const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
+      const nylasGrantId = kvAccount.nylasGrantId || kvAccount.nylas_grant_id;
+      if (NYLAS_API_KEY && nylasGrantId) {
+        const nb: any = { subject, body: emailBody, to: (Array.isArray(to) ? to : [to]).map((e: string) => ({ email: e })) };
+        if (cc) nb.cc = (Array.isArray(cc) ? cc : [cc]).map((e: string) => ({ email: e }));
+        if (bcc) nb.bcc = (Array.isArray(bcc) ? bcc : [bcc]).map((e: string) => ({ email: e }));
+        const nRes = await fetch(`https://api.us.nylas.com/v3/grants/${nylasGrantId}/messages/send`, { method: 'POST', headers: { Authorization: `Bearer ${NYLAS_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(nb) });
+        if (!nRes.ok) return c.json({ error: 'Nylas send error: ' + await nRes.text() }, 502);
+        await auth.supabase.from('emails').insert({ id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId, message_id: crypto.randomUUID(), from_email: kvAccount.email, to_email: Array.isArray(to) ? to[0] : to, subject, body: emailBody, folder: 'sent', is_read: true, is_starred: false, received_at: new Date().toISOString() });
+        return c.json({ success: true, message: 'Email sent via Nylas/Gmail' });
+      } else {
+        let accessToken = kvAccount.access_token;
+        if (new Date(kvAccount.token_expires_at || 0) <= new Date() && kvAccount.refresh_token) {
+          const nt = await refreshGoogleTokenFn(kvAccount.refresh_token);
+          accessToken = nt.access_token;
+          const kvKey = kvAccount.kvKey || `gmail_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+          await kv.set(`email_account:${auth.user.id}:${kvKey}`, { ...kvAccount, access_token: nt.access_token, token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString() });
+        }
+        const raw = btoa(`From: ${kvAccount.email}\r\nTo: ${Array.isArray(to) ? to.join(', ') : to}\r\n${cc ? `Cc: ${Array.isArray(cc) ? cc.join(', ') : cc}\r\n` : ''}Subject: ${subject}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${emailBody}`).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        const gRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw }) });
+        if (!gRes.ok) return c.json({ error: 'Gmail send error: ' + await gRes.text() }, 502);
+        await auth.supabase.from('emails').insert({ id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId, message_id: crypto.randomUUID(), from_email: kvAccount.email, to_email: Array.isArray(to) ? to[0] : to, subject, body: emailBody, folder: 'sent', is_read: true, is_starred: false, received_at: new Date().toISOString() });
+        return c.json({ success: true, message: 'Email sent via Gmail API' });
+      }
+    } else {
+      return c.json({ error: `Sending not supported for provider: ${kvAccount.provider}` }, 400);
+    }
+  } catch (err: any) {
+    console.log(`[email-send] exception: ${err.message}`);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ── EMAIL ACCOUNTS (server-side upsert — bypasses RLS via service role key) ──
 app.post(`${PREFIX}/email-accounts`, async (c) => {
   try {
