@@ -26,6 +26,7 @@ import { useDebounce } from '../utils/useDebounce';
 import { ALL_MODULES, ALL_ROLES, getDefaultPermission, refreshPermissionsFromStorage } from '../utils/permissions';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { createClient } from '../utils/supabase/client';
+import { getServerHeaders } from '../utils/server-headers';
 
 const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07`;
 
@@ -136,10 +137,10 @@ export function Security({ user }: SecurityProps) {
 
     try {
       // Try server first (KV store)
-      const token = await getAuthToken();
+      const headers = await getServerHeaders();
       const res = await Promise.race([
         fetch(`${SERVER_BASE}/permissions?organization_id=${encodeURIComponent(orgId)}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
         }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
       ]);
@@ -209,10 +210,10 @@ export function Security({ user }: SecurityProps) {
 
     try {
       // Try server first
-      const token = await getAuthToken();
+      const headers = await getServerHeaders();
       const res = await Promise.race([
         fetch(`${SERVER_BASE}/permissions/audit-logs?organization_id=${encodeURIComponent(orgId)}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
         }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
       ]);
@@ -330,18 +331,16 @@ export function Security({ user }: SecurityProps) {
     // Now persist to server (KV store) for cross-session / cross-device persistence
     let serverSaved = false;
     try {
-      const token = await getAuthToken();
+      const headers = await getServerHeaders();
       const res = await Promise.race([
         fetch(`${SERVER_BASE}/permissions`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers,
           body: JSON.stringify({
             permissions,
             organization_id: orgId,
-            audit_entry: logEntry,
+            changedBy: user.full_name || user.email || 'User',
+            changeDescription: `${permissions.length} permissions updated`,
           }),
         }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
