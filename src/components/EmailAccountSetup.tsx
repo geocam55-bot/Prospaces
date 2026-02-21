@@ -183,40 +183,40 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error('You must be logged in to connect an email account. Please log out and log back in.');
       }
 
-      // Call OAuth init endpoint
-      const endpoint = selectedProvider === 'gmail' 
-        ? '/make-server-8405be07/google-oauth-init'
+      // Determine endpoint sub-path
+      const subPath = selectedProvider === 'gmail' 
+        ? 'google-oauth-init'
         : selectedProvider === 'outlook'
-        ? '/make-server-8405be07/microsoft-oauth-init'
+        ? 'microsoft-oauth-init'
         : null;
 
-      if (!endpoint) {
+      if (!subPath) {
         throw new Error(`${selectedProvider} is not yet supported`);
       }
 
-      console.log(`[OAuth] Calling ${endpoint}`);
-      console.log(`[OAuth] Full URL: ${supabaseUrl}/functions/v1${endpoint}`);
+      // Use the function name with sub-path so supabase.functions.invoke()
+      // hits  /functions/v1/make-server-8405be07/<subPath>
+      const functionPath = `make-server-8405be07/${subPath}`;
+      console.log(`[OAuth] Invoking function: ${functionPath}`);
+      console.log(`[OAuth] Session token length: ${session.access_token?.length || 0}`);
 
-      // Use shared getServerHeaders() for consistent dual-header auth
-      const headers = await getServerHeaders();
-      console.log(`[OAuth] Headers: Authorization present=${!!headers['Authorization']}, X-User-Token present=${!!headers['X-User-Token']}`);
-
-      const response = await fetch(`${supabaseUrl}/functions/v1${endpoint}`, {
+      // supabase.functions.invoke() automatically sets the Authorization
+      // header using the session JWT (or anon key), which the gateway requires.
+      const { data, error: invokeError } = await supabase.functions.invoke(functionPath, {
         method: 'POST',
-        headers,
-        body: JSON.stringify({}),
+        body: {},
+        headers: {
+          'X-User-Token': session.access_token,
+        },
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[OAuth] Error response from ${endpoint}:`, response.status, errorText);
-        console.error(`[OAuth] Response headers:`, Object.fromEntries(response.headers.entries()));
-        throw new Error(`OAuth init failed (${response.status}): ${errorText}`);
+      if (invokeError) {
+        console.error(`[OAuth] Invoke error:`, invokeError);
+        throw new Error(`OAuth init failed: ${invokeError.message}`);
       }
 
-      const data = await response.json();
-
       if (!data?.success || !data?.authUrl) {
+        console.error(`[OAuth] Unexpected response:`, data);
         throw new Error(data?.error || 'Failed to generate authorization URL.');
       }
 
