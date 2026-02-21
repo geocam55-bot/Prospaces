@@ -136,7 +136,14 @@ export function Email({ user }: EmailProps) {
   const [emails, setEmails] = useState<Email[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
-  const [selectedAccount, setSelectedAccount] = useState<string>('');
+  const [selectedAccount, setSelectedAccountRaw] = useState<string>(() => {
+    try { return localStorage.getItem('prospaces_selected_email_account') || ''; } catch { return ''; }
+  });
+  // Wrap setter to persist selection across module navigation
+  const setSelectedAccount = (id: string) => {
+    setSelectedAccountRaw(id);
+    try { localStorage.setItem('prospaces_selected_email_account', id); } catch {}
+  };
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -216,13 +223,21 @@ export function Email({ user }: EmailProps) {
     }
   }, []);
 
-  // Auto-select first account when accounts are loaded
+  // Auto-select first account when accounts are loaded, or fix stale persisted selection
   useEffect(() => {
-    if (accounts.length > 0 && !selectedAccount) {
+    if (accounts.length === 0) return;
+    // If nothing selected, pick the first account
+    if (!selectedAccount) {
       setSelectedAccount(accounts[0].id);
       console.log(`[Email] Auto-selected first account: ${accounts[0].email}`);
+      return;
     }
-  }, [accounts, selectedAccount]);
+    // If the persisted account no longer exists in the loaded list, reset to first
+    if (!accounts.find(a => a.id === selectedAccount)) {
+      setSelectedAccount(accounts[0].id);
+      console.log(`[Email] Persisted account not found, switched to: ${accounts[0].email}`);
+    }
+  }, [accounts]);
 
   const loadAccountsFromSupabase = async () => {
     try {
