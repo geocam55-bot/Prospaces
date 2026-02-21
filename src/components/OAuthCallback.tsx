@@ -1,128 +1,91 @@
 import { useState, useEffect } from 'react';
-import { createClient } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
+/**
+ * OAuthCallback — receives the redirect from Microsoft / Google after the
+ * user consents, extracts `code` + `state` from the URL, and POSTs them
+ * to the universal `/oauth-exchange` server endpoint which auto-detects
+ * the provider from the stored state.
+ */
 export function OAuthCallback() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Completing authentication...');
 
   useEffect(() => {
-    const handleOAuthCallback = async () => {
+    const run = async () => {
       try {
-        // Parse URL parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const state = urlParams.get('state');
-        const error = urlParams.get('error');
-        const errorDescription = urlParams.get('error_description');
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        const state = params.get('state');
+        const error = params.get('error');
+        const errorDesc = params.get('error_description');
 
         if (error) {
           setStatus('error');
-          setMessage(errorDescription || error);
-          postMessageToOpener({ type: 'oauth-error', error: errorDescription || error });
+          setMessage(errorDesc || error);
+          notify({ type: 'oauth-error', error: errorDesc || error });
           return;
         }
 
-        if (!code) {
+        if (!code || !state) {
           setStatus('error');
           setMessage('No authorization code received');
-          postMessageToOpener({ type: 'oauth-error', error: 'No authorization code' });
+          notify({ type: 'oauth-error', error: 'No authorization code' });
           return;
         }
 
-        console.log('[OAuth Callback] Received code, state:', state);
-
-        // Parse state to determine provider
-        let stateData: any = {};
-        try {
-          stateData = JSON.parse(decodeURIComponent(state || '{}'));
-        } catch (e) {
-          console.error('[OAuth Callback] Failed to parse state:', e);
-        }
-
-        const provider = stateData.provider || 'google';
-        console.log('[OAuth Callback] Provider:', provider);
-
-        // Determine which exchange endpoint to use
-        let exchangeEndpoint: string;
-        if (provider === 'google' || provider === 'gmail') {
-          exchangeEndpoint = 'google-oauth-exchange';
-        } else if (provider === 'microsoft' || provider === 'outlook') {
-          exchangeEndpoint = 'microsoft-oauth-exchange';
-        } else {
-          throw new Error(`Unknown provider: ${provider}`);
-        }
-
-        // Find active server endpoint
-        setMessage('Connecting to server...');
-        const activeEndpoint = await findActiveEndpoint();
-        
-        if (!activeEndpoint) {
-          throw new Error('Email server not available. Please ensure the Edge Function is deployed.');
-        }
-
-        console.log('[OAuth Callback] Using endpoint:', activeEndpoint);
-
-        // Exchange code for tokens
+        console.log('[OAuthCallback] code received, state =', state);
         setMessage('Exchanging authorization code...');
 
-        const supabaseUrl = `https://${projectId}.supabase.co`;
-        const exchangeUrl = `${supabaseUrl}/functions/v1/${activeEndpoint}/${exchangeEndpoint}`;
-
-        const response = await fetch(exchangeUrl, {
+        // Call the universal exchange endpoint — it looks up the provider from KV
+        const url = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/oauth-exchange`;
+        const res = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${publicAnonKey}`,
           },
-          body: JSON.stringify({
-            code,
-            state,
-          }),
+          body: JSON.stringify({ code, state }),
         });
 
-        const data = await response.json();
+        const data = await res.json();
+        console.log('[OAuthCallback] Exchange response:', data);
 
-        if (!response.ok || !data.success) {
+        if (!res.ok || !data.success) {
           throw new Error(data.error || 'Token exchange failed');
         }
 
-        console.log('[OAuth Callback] Successfully exchanged code for tokens');
         setStatus('success');
-        setMessage(`Successfully connected ${data.account?.email || 'account'}!`);
+        setMessage(`Connected ${data.email || 'account'}!`);
 
-        // Notify parent window
-        postMessageToOpener({ 
-          type: 'oauth-success', 
-          account: data.account,
-          provider: provider 
+        const provider = data.provider || 'outlook';
+        const msgType = provider === 'gmail' ? 'gmail-oauth-success' : 'outlook-oauth-success';
+        notify({
+          type: msgType,
+          account: { id: data.accountId, email: data.email },
+          provider,
         });
 
-        // Close window after 2 seconds
-        setTimeout(() => {
-          window.close();
-        }, 2000);
-
+        setTimeout(() => window.close(), 2000);
       } catch (err: any) {
-        console.error('[OAuth Callback] Error:', err);
+        console.error('[OAuthCallback] Error:', err);
         setStatus('error');
         setMessage(err.message || 'Authentication failed');
-        postMessageToOpener({ type: 'oauth-error', error: err.message });
+        notify({ type: 'oauth-error', error: err.message });
       }
     };
 
-    handleOAuthCallback();
+    run();
   }, []);
 
-  function postMessageToOpener(message: any) {
-    if (window.opener && !window.opener.closed) {
-      try {
-        window.opener.postMessage(message, window.location.origin);
-        console.log('[OAuth Callback] Posted message to opener:', message);
-      } catch (error) {
-        console.error('[OAuth Callback] Failed to post message:', error);
+  function notify(msg: any) {
+    try {
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage(msg, '*');
       }
+    } catch (e) {
+      console.warn('[OAuthCallback] postMessage failed:', e);
     }
   }
 
@@ -137,7 +100,7 @@ export function OAuthCallback() {
               <p className="text-gray-600 text-center">{message}</p>
             </>
           )}
-          
+
           {status === 'success' && (
             <>
               <CheckCircle className="h-12 w-12 text-green-600" />
@@ -146,7 +109,7 @@ export function OAuthCallback() {
               <p className="text-sm text-gray-500">This window will close automatically...</p>
             </>
           )}
-          
+
           {status === 'error' && (
             <>
               <XCircle className="h-12 w-12 text-red-600" />
@@ -164,42 +127,4 @@ export function OAuthCallback() {
       </div>
     </div>
   );
-}
-
-// Helper function to find active Edge Function endpoint
-async function findActiveEndpoint(): Promise<string> {
-  const supabaseUrl = `https://${projectId}.supabase.co`;
-  
-  const candidates = [
-    'make-server-8405be07',
-    'server',
-    'make-server',
-  ];
-
-  for (const candidate of candidates) {
-    try {
-      const healthUrl = `${supabaseUrl}/functions/v1/${candidate}/health`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-      const response = await fetch(healthUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${publicAnonKey}`,
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        console.log(`[OAuth Callback] Found active endpoint: ${candidate}`);
-        return candidate;
-      }
-    } catch (error) {
-      console.log(`[OAuth Callback] Endpoint ${candidate} not available:`, error);
-    }
-  }
-
-  return '';
 }

@@ -470,19 +470,119 @@ app.post(`${PREFIX}/microsoft-oauth-init`, async (c) => {
     const { data: { user }, error: ue } = await supabase.auth.getUser(token);
     if (ue || !user) return c.json({ error: '[v5] Auth failed: ' + (ue?.message || 'No user'), version: 'v5' }, 401);
     const CID = Deno.env.get('AZURE_CLIENT_ID');
-    const RU = Deno.env.get('AZURE_REDIRECT_URI');
-    if (!CID || !RU) return c.json({ error: 'Azure not configured' }, 500);
+    if (!CID) return c.json({ error: 'Azure not configured (missing AZURE_CLIENT_ID)' }, 500);
+
+    // Accept frontendOrigin from request body so redirect goes to frontend
+    const body = await c.req.json().catch(() => ({}));
+    const frontendOrigin = body.frontendOrigin;
+    const redirectUri = frontendOrigin
+      ? `${frontendOrigin.replace(/\/+$/, '')}/oauth-callback`
+      : (Deno.env.get('AZURE_REDIRECT_URI') ?? '');
+
+    if (!redirectUri) return c.json({ error: 'No redirect URI available (send frontendOrigin or set AZURE_REDIRECT_URI)' }, 500);
+    console.log(`[Azure OAuth] redirect_uri = ${redirectUri}`);
+
     const state = crypto.randomUUID();
-    await kv.set(`oauth_state:${state}`, { userId: user.id, provider: 'microsoft', ts: new Date().toISOString() });
+    await kv.set(`oauth_state:${state}`, { userId: user.id, provider: 'microsoft', redirectUri, ts: new Date().toISOString() });
     const url = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
     url.searchParams.set('client_id', CID);
     url.searchParams.set('response_type', 'code');
-    url.searchParams.set('redirect_uri', RU);
+    url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('response_mode', 'query');
     url.searchParams.set('scope', 'offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read Calendars.Read Calendars.ReadWrite');
     url.searchParams.set('state', state);
     url.searchParams.set('prompt', 'consent');
-    return c.json({ success: true, authUrl: url.toString(), pollId: state });
+    return c.json({ success: true, authUrl: url.toString(), pollId: state, registeredRedirectUri: redirectUri });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+// ── UNIVERSAL OAUTH EXCHANGE (frontend-redirect flow) ───────────────────
+// Auto-detects provider from stored state — works for both Microsoft and Google
+app.post(`${PREFIX}/oauth-exchange`, async (c) => {
+  try {
+    const { code, state } = await c.req.json();
+    if (!code || !state) return c.json({ error: 'Missing code or state' }, 400);
+    const sd = await kv.get(`oauth_state:${state}`);
+    if (!sd) return c.json({ error: 'Invalid or expired OAuth state' }, 400);
+    await kv.del(`oauth_state:${state}`);
+
+    const provider = sd.provider; // 'microsoft' or 'google'
+    console.log(`[OAuth Exchange] provider=${provider}, userId=${sd.userId}`);
+
+    if (provider === 'microsoft' || provider === 'outlook') {
+      const redirectUri = sd.redirectUri || Deno.env.get('AZURE_REDIRECT_URI') || '';
+      const tr = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ client_id: Deno.env.get('AZURE_CLIENT_ID') ?? '', client_secret: Deno.env.get('AZURE_CLIENT_SECRET') ?? '', code, redirect_uri: redirectUri, grant_type: 'authorization_code' }),
+      });
+      const td = await tr.json();
+      if (td.error) {
+        const errMsg = td.error_description || td.error;
+        await kv.set(`oauth_result:${state}`, { success: false, error: errMsg });
+        return c.json({ success: false, error: errMsg }, 400);
+      }
+      const ur = await fetch('https://graph.microsoft.com/v1.0/me', { headers: { Authorization: `Bearer ${td.access_token}` } });
+      const ui = await ur.json();
+      const email = ui.mail || ui.userPrincipalName || 'unknown';
+      const aid = `outlook_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+      await kv.set(`email_account:${sd.userId}:${aid}`, { id: aid, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+      const result = { success: true, accountId: aid, email, provider: 'outlook' };
+      await kv.set(`oauth_result:${state}`, result);
+      return c.json(result);
+
+    } else if (provider === 'google' || provider === 'gmail') {
+      const redirectUri = sd.redirectUri || Deno.env.get('GOOGLE_REDIRECT_URI') || '';
+      const tr = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ client_id: Deno.env.get('GOOGLE_CLIENT_ID') ?? '', client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '', code, redirect_uri: redirectUri, grant_type: 'authorization_code' }),
+      });
+      const td = await tr.json();
+      if (td.error) {
+        const errMsg = td.error_description || td.error;
+        await kv.set(`oauth_result:${state}`, { success: false, error: errMsg });
+        return c.json({ success: false, error: errMsg }, 400);
+      }
+      const ur = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: `Bearer ${td.access_token}` } });
+      const ui = await ur.json();
+      const email = ui.email || 'unknown';
+      const aid = `gmail_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+      await kv.set(`email_account:${sd.userId}:${aid}`, { id: aid, provider: 'gmail', email, displayName: ui.name || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+      const result = { success: true, accountId: aid, email, provider: 'gmail' };
+      await kv.set(`oauth_result:${state}`, result);
+      return c.json(result);
+
+    } else {
+      return c.json({ error: `Unknown provider: ${provider}` }, 400);
+    }
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+// Keep legacy endpoints for backward compatibility
+app.post(`${PREFIX}/microsoft-oauth-exchange`, async (c) => {
+  try {
+    const { code, state } = await c.req.json();
+    if (!code || !state) return c.json({ error: 'Missing code or state' }, 400);
+    const sd = await kv.get(`oauth_state:${state}`);
+    if (!sd) return c.json({ error: 'Invalid or expired OAuth state' }, 400);
+    await kv.del(`oauth_state:${state}`);
+    const redirectUri = sd.redirectUri || Deno.env.get('AZURE_REDIRECT_URI') || '';
+    const tr = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ client_id: Deno.env.get('AZURE_CLIENT_ID') ?? '', client_secret: Deno.env.get('AZURE_CLIENT_SECRET') ?? '', code, redirect_uri: redirectUri, grant_type: 'authorization_code' }),
+    });
+    const td = await tr.json();
+    if (td.error) {
+      await kv.set(`oauth_result:${state}`, { success: false, error: td.error_description || td.error });
+      return c.json({ success: false, error: td.error_description || td.error }, 400);
+    }
+    const ur = await fetch('https://graph.microsoft.com/v1.0/me', { headers: { Authorization: `Bearer ${td.access_token}` } });
+    const ui = await ur.json();
+    const email = ui.mail || ui.userPrincipalName || 'unknown';
+    const aid = `outlook_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+    await kv.set(`email_account:${sd.userId}:${aid}`, { id: aid, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+    const result = { success: true, accountId: aid, email, provider: 'outlook' };
+    await kv.set(`oauth_result:${state}`, result);
+    return c.json(result);
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
@@ -498,7 +598,7 @@ app.get(`${PREFIX}/azure-oauth-callback`, async (c) => {
     await kv.del(`oauth_state:${state}`);
     const tr = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
       method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ client_id: Deno.env.get('AZURE_CLIENT_ID') ?? '', client_secret: Deno.env.get('AZURE_CLIENT_SECRET') ?? '', code, redirect_uri: Deno.env.get('AZURE_REDIRECT_URI') ?? '', grant_type: 'authorization_code' }),
+      body: new URLSearchParams({ client_id: Deno.env.get('AZURE_CLIENT_ID') ?? '', client_secret: Deno.env.get('AZURE_CLIENT_SECRET') ?? '', code, redirect_uri: sd.redirectUri, grant_type: 'authorization_code' }),
     });
     const td = await tr.json();
     if (td.error) {
@@ -534,19 +634,28 @@ app.post(`${PREFIX}/google-oauth-init`, async (c) => {
     const { data: { user }, error: ue } = await supabase.auth.getUser(token);
     if (ue || !user) return c.json({ error: 'Auth failed' }, 401);
     const cid = Deno.env.get('GOOGLE_CLIENT_ID');
-    const ru = Deno.env.get('GOOGLE_REDIRECT_URI');
-    if (!cid || !ru) return c.json({ error: 'Google not configured' }, 500);
+    if (!cid) return c.json({ error: 'Google not configured (missing GOOGLE_CLIENT_ID)' }, 500);
+
+    const body = await c.req.json().catch(() => ({}));
+    const frontendOrigin = body.frontendOrigin;
+    const redirectUri = frontendOrigin
+      ? `${frontendOrigin.replace(/\/+$/, '')}/oauth-callback`
+      : (Deno.env.get('GOOGLE_REDIRECT_URI') ?? '');
+
+    if (!redirectUri) return c.json({ error: 'No redirect URI available (send frontendOrigin or set GOOGLE_REDIRECT_URI)' }, 500);
+    console.log(`[Google OAuth] redirect_uri = ${redirectUri}`);
+
     const state = crypto.randomUUID();
-    await kv.set(`oauth_state:${state}`, { userId: user.id, provider: 'google', ts: new Date().toISOString() });
+    await kv.set(`oauth_state:${state}`, { userId: user.id, provider: 'google', redirectUri, ts: new Date().toISOString() });
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     url.searchParams.set('client_id', cid);
-    url.searchParams.set('redirect_uri', ru);
+    url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('response_type', 'code');
     url.searchParams.set('scope', 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile');
     url.searchParams.set('state', state);
     url.searchParams.set('access_type', 'offline');
     url.searchParams.set('prompt', 'consent');
-    return c.json({ success: true, authUrl: url.toString(), pollId: state });
+    return c.json({ success: true, authUrl: url.toString(), pollId: state, registeredRedirectUri: redirectUri });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
