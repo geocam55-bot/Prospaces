@@ -1042,6 +1042,83 @@ app.post(`${PREFIX}/fix-profile-mismatch`, async (c) => {
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
+// ── PUBLIC ENDPOINTS (no auth required) ─────────────────────────────────
+
+// Public quote/bid view — used when customer clicks "View Quote Online" in email
+app.get(`${PREFIX}/public/view`, async (c) => {
+  try {
+    const id = c.req.query('id');
+    const orgId = c.req.query('orgId');
+    const type = c.req.query('type') || 'quote';
+
+    if (!id || !orgId) {
+      return c.json({ error: 'Missing required parameters: id, orgId' }, 400);
+    }
+
+    const supabase = getSupabase();
+    const table = type === 'bid' ? 'bids' : 'quotes';
+
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .single();
+
+    if (error || !data) {
+      console.log(`[public/view] Not found: table=${table}, id=${id}, orgId=${orgId}, error=${error?.message}`);
+      return c.json({ error: 'Document not found' }, 404);
+    }
+
+    // Record view event (fire-and-forget)
+    try {
+      await kv.set(`tracking:view:${type}:${id}:${Date.now()}`, JSON.stringify({
+        type: 'view',
+        entityType: type,
+        entityId: id,
+        orgId,
+        timestamp: new Date().toISOString(),
+      }));
+    } catch (_) { /* ignore tracking errors */ }
+
+    // Strip sensitive fields before returning to public viewer
+    const { access_token, refresh_token, nylas_grant_id, imap_password, ...safeData } = data as any;
+
+    return c.json({ data: safeData });
+  } catch (err: any) {
+    console.log(`[public/view] Error: ${err.message}`);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Public tracking events — logs click/open events from email links
+app.post(`${PREFIX}/public/events`, async (c) => {
+  try {
+    const body = await c.req.json();
+    const { type: eventType, entityType, entityId, orgId, url, userAgent } = body;
+
+    if (!entityId || !orgId) {
+      return c.json({ error: 'Missing entityId or orgId' }, 400);
+    }
+
+    // Store tracking event in KV
+    await kv.set(`tracking:${eventType || 'click'}:${entityType || 'quote'}:${entityId}:${Date.now()}`, JSON.stringify({
+      type: eventType || 'click',
+      entityType: entityType || 'quote',
+      entityId,
+      orgId,
+      url,
+      userAgent,
+      timestamp: new Date().toISOString(),
+    }));
+
+    return c.json({ success: true });
+  } catch (err: any) {
+    console.log(`[public/events] Error: ${err.message}`);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ── CATCH-ALL ───────────────────────────────────────────────────────────
 app.all('*', (c) => {
   return c.json({ error: 'Route not found', method: c.req.method, path: c.req.path, version: 'v5', hint: `GET ${PREFIX}/health` }, 404);

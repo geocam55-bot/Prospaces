@@ -93,7 +93,7 @@ export function PublicQuoteView() {
   const title = quoteNumber ? `Quote #${quoteNumber}` : (data.title || 'Document');
   
   // Parse line items if they are a string
-  let lineItems = data.lineItems || data.line_items;
+  let lineItems = data.lineItems || data.line_items || data.items;
   if (typeof lineItems === 'string') {
     try {
         lineItems = JSON.parse(lineItems);
@@ -102,12 +102,16 @@ export function PublicQuoteView() {
     }
   }
 
-  const contactName = data.contactName || data.contact_name || 'Valued Customer';
+  // Handle both quote and bid column names
+  const contactName = data.contactName || data.contact_name || data.clientName || data.client_name || 'Valued Customer';
   const contactEmail = data.contactEmail || data.contact_email;
   const validUntil = data.validUntil || data.valid_until;
+  const totalAmount = data.total ?? data.amount ?? 0;
+  const subtotalAmount = data.subtotal ?? totalAmount;
   const taxAmount = data.taxAmount ?? data.tax_amount ?? 0;
   const discountAmount = data.discountAmount ?? data.discount_amount ?? 0;
   const organizationName = data.organizationName || data.organization_name || 'ProSpaces';
+  const projectName = data.projectName || data.project_name;
 
   return (
     <div className="min-h-screen bg-slate-100 py-8 px-4 sm:px-6 lg:px-8">
@@ -123,7 +127,7 @@ export function PublicQuoteView() {
                 </div>
                 <div className="text-right">
                     <div className="text-sm text-slate-500">Total Amount</div>
-                    <div className="text-3xl font-bold text-blue-600">{formatCurrency(data.total)}</div>
+                    <div className="text-3xl font-bold text-blue-600">{formatCurrency(totalAmount)}</div>
                 </div>
             </div>
           </CardHeader>
@@ -185,7 +189,7 @@ export function PublicQuoteView() {
                 <div className="flex flex-col gap-2 ml-auto max-w-xs">
                     <div className="flex justify-between text-slate-600">
                         <span>Subtotal:</span>
-                        <span>{formatCurrency(data.subtotal)}</span>
+                        <span>{formatCurrency(subtotalAmount)}</span>
                     </div>
                     {taxAmount > 0 && (
                         <div className="flex justify-between text-slate-600">
@@ -201,7 +205,7 @@ export function PublicQuoteView() {
                     )}
                     <div className="flex justify-between font-bold text-lg text-slate-900 border-t border-slate-300 pt-2 mt-2">
                         <span>Total:</span>
-                        <span>{formatCurrency(data.total)}</span>
+                        <span>{formatCurrency(totalAmount)}</span>
                     </div>
                 </div>
             </div>
