@@ -169,7 +169,7 @@ export async function ensureUserProfile(userId: string) {
             const { getServerHeaders } = await import('./server-headers');
             const headers = await getServerHeaders();
             const response = await fetch(
-              `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/fix-profile-mismatch`,
+              `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/fix-profile-mismatch`,
               {
                 method: 'POST',
                 headers,

@@ -33,7 +33,7 @@ export function InventoryDuplicateCleaner({ organizationId, onCleanupComplete }:
     percent: number;
   } | null>(null);
 
-  const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/inventory-diagnostic`;
+  const baseUrl = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/inventory-diagnostic`;
 
   const getAuthHeaders = async () => {
     const headers = await getServerHeaders();

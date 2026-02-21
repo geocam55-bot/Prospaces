@@ -56,7 +56,7 @@ async function getAccessToken(): Promise<string | null> {
  */
 async function fetchProfilesFromServer(accessToken: string): Promise<any[] | null> {
   try {
-    const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles`;
+    const serverUrl = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/profiles`;
 
     const headers = await getServerHeaders();
     const response = await fetch(serverUrl, {
@@ -86,7 +86,7 @@ async function fetchProfilesFromServer(accessToken: string): Promise<any[] | nul
  */
 async function ensureCurrentUserProfile(accessToken: string): Promise<void> {
   try {
-    const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles/ensure`;
+    const serverUrl = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/profiles/ensure`;
 
     const headers = await getServerHeaders();
     const response = await fetch(serverUrl, {
@@ -312,7 +312,7 @@ export async function inviteUserClient(data: { email: string; name: string; role
     console.log('[users-client] Calling server to create auth account for:', data.email);
 
     // Call the server endpoint to create a real Supabase Auth account
-    const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/create-user`;
+    const serverUrl = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/create-user`;
 
     const headers = await getServerHeaders();
     const response = await fetch(serverUrl, {

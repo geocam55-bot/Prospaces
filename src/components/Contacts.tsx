@@ -161,7 +161,7 @@ export function Contacts({ user }: ContactsProps) {
       // Step 1: Diagnose
       console.log('🔍 Diagnosing contact ownership...');
       const diagRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/diagnose-ownership`,
+        `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/contacts/diagnose-ownership`,
         {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${token}` },
@@ -182,7 +182,7 @@ export function Contacts({ user }: ContactsProps) {
       if (diagnosis.stats?.mismatchedOwnership > 0 || diagnosis.stats?.globalEmailMatches > 0 || diagnosis.stats?.wrongOrganization > 0 || !diagnosis.user?.jwt_matches_profile) {
         console.log('🔧 Fixing contact ownership...');
         const fixRes = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/fix-ownership`,
+          `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/contacts/fix-ownership`,
           {
             method: 'POST',
             headers: {
@@ -221,7 +221,7 @@ export function Contacts({ user }: ContactsProps) {
         // Even if no email matches found, still try the fix for JWT metadata
         console.log('🔧 No email matches found, but attempting JWT/org fix...');
         const fixRes = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/fix-ownership`,
+          `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/contacts/fix-ownership`,
           {
             method: 'POST',
             headers: {

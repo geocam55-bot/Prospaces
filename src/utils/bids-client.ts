@@ -10,7 +10,7 @@ export async function getAllBidsClient(scope: 'personal' | 'team' = 'personal') 
   try {
     const headers = await getServerHeaders();
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/bids?scope=${scope}`,
+      `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/bids?scope=${scope}`,
       { headers }
     );
 
@@ -177,7 +177,7 @@ export async function createBidClient(data: any) {
   try {
     const headers = await getServerHeaders();
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/bids`,
+      `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/bids`,
       {
         method: 'POST',
         headers,

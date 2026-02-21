@@ -112,7 +112,7 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
         console.log(`[CampaignAnalytics] Fetching analytics for campaign: ${campaign.id}`);
 
         const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/analytics/campaign/${campaign.id}/landing-page`,
+          `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/analytics/campaign/${campaign.id}/landing-page`,
           {
             headers: {
               'Authorization': `Bearer ${session.access_token}`,

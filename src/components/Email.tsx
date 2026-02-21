@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { emailAPI } from '../utils/api';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
-import { publicAnonKey } from '../utils/supabase/info.tsx';
+import { projectId, publicAnonKey } from '../utils/supabase/info.tsx';
 import {
   Mail,
   Send,
@@ -905,7 +905,7 @@ export function Email({ user }: EmailProps) {
             }
 
             // Direct fetch to Edge Function with proper CORS headers
-            const functionUrl = `https://usorqldwroecyxucmtuw.supabase.co/functions/v1/simple-send-email`;
+            const functionUrl = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/send-email`;
             
             const fetchResponse = await fetch(functionUrl, {
               method: 'POST',

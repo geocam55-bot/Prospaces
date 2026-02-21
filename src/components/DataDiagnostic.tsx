@@ -24,7 +24,7 @@ export function DataDiagnostic() {
         throw new Error('Not authenticated');
       }
 
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server/data/fix`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/data/fix`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

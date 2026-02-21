@@ -27,7 +27,7 @@ import { ALL_MODULES, ALL_ROLES, getDefaultPermission, refreshPermissionsFromSto
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { createClient } from '../utils/supabase/client';
 
-const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
+const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07`;
 
 interface SecurityProps {
   user: User;

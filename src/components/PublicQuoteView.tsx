@@ -27,7 +27,7 @@ export function PublicQuoteView() {
       }
 
       try {
-        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/view?id=${id}&orgId=${orgId}&type=${type}`, {
+        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/public/view?id=${id}&orgId=${orgId}&type=${type}`, {
             headers: {
                 'Authorization': `Bearer ${publicAnonKey}`
             }

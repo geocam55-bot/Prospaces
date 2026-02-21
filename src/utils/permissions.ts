@@ -5,7 +5,7 @@ import { createClient } from './supabase/client';
 import { projectId, publicAnonKey } from './supabase/info';
 import { getServerHeaders } from './server-headers';
 
-const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
+const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07`;
 
 export interface Permission {
   visible: boolean;

@@ -8,7 +8,7 @@ const supabase = createClient();
 export async function getQuoteTrackingStatusClient() {
   try {
     const headers = await getServerHeaders();
-    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/quotes/tracking-status`, {
+    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/quotes/tracking-status`, {
       headers,
     });
 
@@ -35,7 +35,7 @@ export async function getAllQuotesClient(scope: 'personal' | 'team' = 'personal'
   try {
     const headers = await getServerHeaders();
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/quotes?scope=${scope}`,
+      `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/quotes?scope=${scope}`,
       { headers }
     );
 
@@ -229,7 +229,7 @@ export async function createQuoteClient(data: any) {
   try {
     const headers = await getServerHeaders();
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/quotes`,
+      `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/quotes`,
       {
         method: 'POST',
         headers,

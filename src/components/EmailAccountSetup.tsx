@@ -39,39 +39,36 @@ interface EmailAccount {
 }
 
 // Function to find the active function name
-// We fallback to checking for 'make-server' (old style) or 'server' (new style)
+// The Edge Function is deployed as "server", so the base path is always /functions/v1/server
+const SERVER_FUNCTION_BASE = (supabaseUrl: string) => 
+  `${supabaseUrl}/functions/v1/server`;
+
 async function findActiveFunctionName(supabaseUrl: string, accessToken?: string): Promise<string> {
-  const candidates = [
-    'make-server-8405be07',
-    'server',
-  ];
+  // Verify the server function is reachable via the correct health endpoint
+  try {
+    const url = `${SERVER_FUNCTION_BASE(supabaseUrl)}/make-server-8405be07/health`;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
 
-  for (const candidate of candidates) {
-    try {
-      const url = `${supabaseUrl}/functions/v1/${candidate}/health`;
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000); 
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+      },
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-           'Authorization': accessToken ? `Bearer ${accessToken}` : '',
-        },
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-
-      if (response.ok || response.status === 401) {
-        return candidate;
-      }
-    } catch (e) {
-      // Continue
+    if (response.ok || response.status === 401) {
+      return 'server';
     }
+  } catch (e) {
+    console.warn('[EmailSetup] Health check failed:', e);
   }
 
-  return 'make-server-8405be07'; // Default
+  return 'server'; // Default - function is always named "server"
 }
 
 export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAccount }: EmailAccountSetupProps) {
@@ -199,7 +196,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
       console.log(`[OAuth] Calling ${endpoint}`);
 
-      const response = await fetch(`${supabaseUrl}/functions/v1${endpoint}`, {
+      const response = await fetch(`${supabaseUrl}/functions/v1/server${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${publicAnonKey}`,
@@ -315,7 +312,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
           try {
             const pollResponse = await fetch(
-              `${supabaseUrl}/functions/v1/make-server-8405be07/oauth-poll/${pollId}`,
+              `${supabaseUrl}/functions/v1/server/make-server-8405be07/oauth-poll/${pollId}`,
               {
                 headers: { 'Authorization': `Bearer ${publicAnonKey}` }
               }

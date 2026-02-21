@@ -20,10 +20,8 @@ export function EmailDebug() {
       const { data: { session } } = await supabase.auth.getSession();
       
       const candidates = [
-        'server/nylas-health',
-        'make-server/nylas-health',
-        'make-server-8405be07/nylas-health',
-        'nylas-health'
+        'server/make-server-8405be07/health',
+        'server/make-server-8405be07/azure-health',
       ];
 
       const probeResults = [];

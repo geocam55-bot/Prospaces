@@ -17,7 +17,7 @@ export function LandingPageDebug() {
     setError(null);
     try {
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/debug/landing-pages`
+        `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/debug/landing-pages`
       );
       
       if (!response.ok) {
@@ -42,7 +42,7 @@ export function LandingPageDebug() {
     
     try {
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/landing-page/${slug}`
+        `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/public/landing-page/${slug}`
       );
       
       const result = await response.json();

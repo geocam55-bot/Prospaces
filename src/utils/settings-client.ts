@@ -4,7 +4,7 @@ import { getServerHeaders } from './server-headers';
 
 const supabase = createClient();
 
-const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
+const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07`;
 
 export interface UserPreferences {
   user_id: string;

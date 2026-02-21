@@ -18,7 +18,7 @@ export function TrackingRedirect() {
       // If we have tracking data, log it
       if (id && orgId) {
         try {
-          await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/events`, {
+          await fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/public/events`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -63,7 +63,7 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
       });
 
       try {
-        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/analytics/landing-page/visit`, {
+        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/analytics/landing-page/visit`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -109,7 +109,7 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
     const campaignId = urlParams.get('campaign');
 
     try {
-      await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/analytics/landing-page/conversion`, {
+      await fetch(`https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/analytics/landing-page/conversion`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -155,7 +155,7 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
         const urlParams = new URLSearchParams(window.location.search);
         const campaignId = urlParams.get('campaign');
         
-        const url = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/landing-page/${slug}`;
+        const url = `https://${projectId}.supabase.co/functions/v1/server/make-server-8405be07/public/landing-page/${slug}`;
         console.log('[PublicLandingPage] Fetching from:', url);
         console.log('[PublicLandingPage] Slug:', slug);
         if (campaignId) {
