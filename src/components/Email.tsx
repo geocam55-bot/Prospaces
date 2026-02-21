@@ -3,6 +3,7 @@ import { emailAPI } from '../utils/api';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info.tsx';
+import { getServerHeaders } from '../utils/server-headers';
 import {
   Mail,
   Send,
@@ -288,21 +289,25 @@ export function Email({ user }: EmailProps) {
 
   const loadAccountsFromSupabase = async () => {
     try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
+      const headers = await getServerHeaders();
+      if (!headers['X-User-Token']) {
         console.log('[Email] No session, skipping account load');
         setIsLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from('email_accounts')
-        .select('*')
-        .eq('user_id', session.user.id);
-        // Temporarily removed organization filter to debug
-        // .eq('organization_id', user.organizationId);
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
+        { headers }
+      );
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error('[Email] Error loading accounts from server:', res.status, errBody);
+        return;
+      }
+      const json = await res.json();
+      const data = json.accounts;
+      const error = json.error;
 
       if (error) {
         console.error('[Email] Error loading accounts:', error);
@@ -401,41 +406,40 @@ export function Email({ user }: EmailProps) {
 
   const saveAccountToSupabase = async (account: EmailAccount) => {
     try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error('No session found');
-      }
-
-      const accountData = {
+      const accountData: Record<string, any> = {
         id: account.id,
-        user_id: session.user.id,
         organization_id: user.organizationId,
         provider: account.provider,
         email: account.email,
         connected: account.connected,
         last_sync: account.lastSync,
-        imap_host: account.imapConfig?.host,
-        imap_port: account.imapConfig?.port,
-        imap_username: account.imapConfig?.username,
-        imap_password: account.imapConfig?.password,
-        smtp_host: account.smtpConfig?.host,
-        smtp_port: account.smtpConfig?.port,
-        smtp_username: account.smtpConfig?.username,
-        smtp_password: account.smtpConfig?.password,
-        nylas_grant_id: account.nylasGrantId,
       };
-
-      const { error } = await supabase
-        .from('email_accounts')
-        .upsert(accountData);
-
-      if (error) {
-        throw error;
+      if (account.imapConfig) {
+        accountData.imap_host = account.imapConfig.host;
+        accountData.imap_port = account.imapConfig.port;
+        accountData.imap_username = account.imapConfig.username;
+        accountData.imap_password = account.imapConfig.password;
+      }
+      if (account.smtpConfig) {
+        accountData.smtp_host = account.smtpConfig.host;
+        accountData.smtp_port = account.smtpConfig.port;
+        accountData.smtp_username = account.smtpConfig.username;
+        accountData.smtp_password = account.smtpConfig.password;
+      }
+      if (account.nylasGrantId) {
+        accountData.nylas_grant_id = account.nylasGrantId;
       }
 
-      console.log('[Email] Account saved to Supabase');
+      const headers = await getServerHeaders();
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
+        { method: 'POST', headers, body: JSON.stringify(accountData) }
+      );
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: 'Unknown server error' }));
+        throw new Error(errBody.error || `Server returned ${res.status}`);
+      }
+      console.log('[Email] Account saved via server (bypasses RLS)');
     } catch (error) {
       console.error('[Email] Failed to save account:', error);
       throw error;
@@ -484,18 +488,16 @@ export function Email({ user }: EmailProps) {
 
   const deleteAccountFromSupabase = async (accountId: string) => {
     try {
-      const supabase = createClient();
-      
-      const { error } = await supabase
-        .from('email_accounts')
-        .delete()
-        .eq('id', accountId);
-
-      if (error) {
-        throw error;
+      const headers = await getServerHeaders();
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts/${accountId}`,
+        { method: 'DELETE', headers }
+      );
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errBody.error || `Server returned ${res.status}`);
       }
-
-      console.log('[Email] Account deleted from Supabase');
+      console.log('[Email] Account deleted via server');
     } catch (error) {
       console.error('[Email] Failed to delete account:', error);
     }
@@ -768,19 +770,11 @@ export function Email({ user }: EmailProps) {
       }
 
       // Check if this is a Nylas OAuth account (has grant_id) for Gmail
-      // We need to fetch the full account data from Supabase to check for nylas_grant_id
-      const { data: dbAccount, error: accountError } = await supabase
-        .from('email_accounts')
-        .select('nylas_grant_id')
-        .eq('id', selectedAccount)
-        .single();
-
-      if (accountError) {
-        console.error('[Email] Failed to fetch account details:', accountError);
-      }
+      // Use local accounts state instead of querying DB directly (avoids RLS issues)
+      const localAccount = accounts.find(a => a.id === selectedAccount);
 
       // If this is a Nylas OAuth account, use the Nylas Send API
-      if (dbAccount?.nylas_grant_id) {
+      if (localAccount?.nylasGrantId) {
         console.log('[Email] Using Nylas OAuth send for account:', selectedAccount);
         
         try {

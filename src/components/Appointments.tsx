@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { appointmentsAPI } from '../utils/api';
 import { CalendarAccountSetup } from './CalendarAccountSetup';
 import { createClient } from '../utils/supabase/client';
+import { projectId } from '../utils/supabase/info';
+import { getServerHeaders } from '../utils/server-headers';
 import { toast } from 'sonner';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -170,24 +172,28 @@ export function Appointments({ user }: AppointmentsProps) {
   };
 
   const loadCalendarAccounts = async () => {
-    const client = createClient();
     try {
-      // Nylas uses email_accounts table for both email and calendar
-      const { data, error } = await client
-        .from('email_accounts')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('connected', true);
-      if (error) {
-        console.error('Error fetching calendar accounts:', error);
+      const headers = await getServerHeaders();
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
+        { headers }
+      );
+      if (!res.ok) {
+        console.error('Error fetching calendar accounts:', await res.text());
+        return;
+      }
+      const json = await res.json();
+      if (json.error) {
+        console.error('Error fetching calendar accounts:', json.error);
       } else {
-        console.log('[Appointments] Loaded calendar accounts:', data?.map(a => ({
+        const connected = (json.accounts || []).filter((a: any) => a.connected);
+        console.log('[Appointments] Loaded calendar accounts:', connected.map((a: any) => ({
           id: a.id,
           email: a.email,
           provider: a.provider,
           hasNylasGrant: !!a.nylas_grant_id
         })));
-        setCalendarAccounts(data || []);
+        setCalendarAccounts(connected);
       }
     } catch (error) {
       console.error('Failed to load calendar accounts:', error);

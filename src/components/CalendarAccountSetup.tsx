@@ -8,6 +8,7 @@ import { Calendar, CheckCircle, XCircle, Loader2, AlertCircle, Trash2, RefreshCw
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { getServerHeaders } from '../utils/server-headers';
 
 interface CalendarAccount {
   id: string;
@@ -224,16 +225,15 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
             if (popup.closed) {
               clearInterval(pollInterval);
               
-              const { data: accounts } = await supabase
-                .from('email_accounts')
-                .select('*')
-                .eq('user_id', session?.user?.id)
-                .eq('email', email.trim())
-                .eq('connected', true)
-                .order('created_at', { ascending: false })
-                .limit(1);
+              const srvHeaders = await getServerHeaders();
+              const srvRes = await fetch(
+                `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
+                { headers: srvHeaders }
+              );
+              const srvJson = srvRes.ok ? await srvRes.json() : { accounts: [] };
+              const accounts = (srvJson.accounts || []).filter((a: any) => a.email === email.trim() && a.connected);
               
-              if (accounts && accounts.length > 0 && new Date(accounts[0].created_at).getTime() > startTime) {
+              if (accounts.length > 0 && new Date(accounts[0].created_at).getTime() > startTime) {
                 toast.success('Calendar connected!');
                 setIsConnecting(false);
                 setStep('success');
@@ -248,18 +248,14 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
           } catch (e) {
           }
 
-          const { data: accounts, error: fetchError } = await supabase
-            .from('email_accounts')
-            .select('*')
-            .eq('user_id', session?.user?.id)
-            .eq('email', email.trim())
-            .eq('connected', true)
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          if (fetchError) {
-            return; 
-          }
+          const srvHeaders2 = await getServerHeaders();
+          const srvRes2 = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
+            { headers: srvHeaders2 }
+          );
+          if (!srvRes2.ok) return;
+          const srvJson2 = await srvRes2.json();
+          const accounts = (srvJson2.accounts || []).filter((a: any) => a.email === email.trim() && a.connected);
 
           if (accounts && accounts.length > 0) {
             const accountCreatedAt = new Date(accounts[0].created_at).getTime();
@@ -305,15 +301,14 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
 
     setIsDeleting(accountId);
     try {
-      const supabase = createClient();
-      
-      const { error } = await supabase
-        .from('email_accounts')
-        .delete()
-        .eq('id', accountId);
-
-      if (error) {
-        throw error;
+      const delHeaders = await getServerHeaders();
+      const delRes = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts/${accountId}`,
+        { method: 'DELETE', headers: delHeaders }
+      );
+      if (!delRes.ok) {
+        const errBody = await delRes.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errBody.error || `Server returned ${delRes.status}`);
       }
 
       toast.success('Calendar disconnected', {

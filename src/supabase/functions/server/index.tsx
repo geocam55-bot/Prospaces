@@ -708,6 +708,70 @@ app.get(`${PREFIX}/google-oauth-callback`, async (c) => {
   } catch (err: any) { return c.html(`<html><body><h2>Error</h2><script>window.close()</script></body></html>`); }
 });
 
+// ── EMAIL ACCOUNTS (server-side upsert — bypasses RLS via service role key) ──
+app.post(`${PREFIX}/email-accounts`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const body = await c.req.json();
+    const accountData: Record<string, any> = {
+      ...body,
+      user_id: auth.user.id,
+      updated_at: new Date().toISOString(),
+    };
+    // Remove undefined fields that might conflict with NOT NULL columns
+    Object.keys(accountData).forEach(k => {
+      if (accountData[k] === undefined) delete accountData[k];
+    });
+    const { data, error } = await auth.supabase
+      .from('email_accounts')
+      .upsert(accountData, { onConflict: 'id' })
+      .select('*')
+      .single();
+    if (error) {
+      console.log(`[email-accounts] upsert error: ${error.message}, code: ${error.code}, details: ${JSON.stringify(error)}`);
+      return c.json({ error: error.message }, 500);
+    }
+    return c.json({ success: true, account: data });
+  } catch (err: any) {
+    console.log(`[email-accounts] POST exception: ${err.message}`);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.get(`${PREFIX}/email-accounts`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const { data, error } = await auth.supabase
+      .from('email_accounts')
+      .select('*')
+      .eq('user_id', auth.user.id);
+    if (error) {
+      console.log(`[email-accounts] GET error: ${error.message}`);
+      return c.json({ error: error.message }, 500);
+    }
+    return c.json({ accounts: data || [] });
+  } catch (err: any) {
+    console.log(`[email-accounts] GET exception: ${err.message}`);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const { error } = await auth.supabase
+      .from('email_accounts')
+      .delete()
+      .eq('id', c.req.param('id'))
+      .eq('user_id', auth.user.id);
+    if (error) return c.json({ error: error.message }, 500);
+    return c.json({ success: true });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
 // ── UTILITY ─────────────────────────────────────────────────────────────
 app.post(`${PREFIX}/create-user`, async (c) => {
   try {
