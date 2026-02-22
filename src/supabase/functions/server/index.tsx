@@ -3,6 +3,7 @@ import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import { marketing } from './marketing.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -1118,6 +1119,9 @@ app.post(`${PREFIX}/public/events`, async (c) => {
     return c.json({ error: err.message }, 500);
   }
 });
+
+// ── MARKETING (journeys, landing pages, scoring rules) ──────────────────
+marketing(app);
 
 // ── CATCH-ALL ───────────────────────────────────────────────────────────
 app.all('*', (c) => {
