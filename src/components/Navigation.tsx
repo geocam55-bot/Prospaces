@@ -33,6 +33,7 @@ import {
   Home,
   Triangle,
   Globe,
+  CreditCard,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -52,6 +53,7 @@ import { useUnreadEmails } from '../hooks/useUnreadEmails';
 import { useBidNotifications } from '../hooks/useBidNotifications';
 import { useTaskNotifications } from '../hooks/useTaskNotifications';
 import { useAppointmentNotifications } from '../hooks/useAppointmentNotifications';
+import { SubscriptionBadge } from './subscription/SubscriptionBadge';
 
 interface NavigationProps {
   user: UserType;
@@ -168,6 +170,11 @@ export function Navigation({
     // Add Settings for roles that can view it
     if (canView('settings', user.role)) {
       submenuItems.push({ id: 'settings', label: 'Settings', icon: Settings });
+    }
+
+    // Add Billing for admin roles
+    if (['admin', 'super_admin'].includes(user.role)) {
+      submenuItems.push({ id: 'subscription-billing', label: 'Billing', icon: CreditCard });
     }
     
     return submenuItems;
@@ -797,11 +804,15 @@ export function Navigation({
                 <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">{organization.name}</span>
               </div>
             )}
+
+            {/* Subscription Badge */}
+            <SubscriptionBadge onClick={() => handleNavClick('subscription-billing')} />
+
             <DropdownMenu>
               <DropdownMenuTrigger className="focus:outline-none">
                 <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-offset-2 ring-transparent hover:ring-blue-500 transition-all">
                   <AvatarImage src={user.avatar_url} alt={user.full_name || user.email || 'User'} />
-                  <AvatarFallback className="bg-blue-600 text-white text-sm">
+                  <AvatarFallback className="bg-blue-600 text-white text-xs">
                     {getInitials(user.full_name || user.email || '')}
                   </AvatarFallback>
                 </Avatar>
@@ -813,6 +824,22 @@ export function Navigation({
                     <p className="text-xs text-gray-500 font-normal mt-1">{user.email || 'No email'}</p>
                   </div>
                 </DropdownMenuLabel>
+                {organization && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>
+                      <div className="flex items-center gap-2">
+                        <div className="h-6 w-6 rounded bg-gray-200 flex items-center justify-center">
+                          <Building2 className="h-4 w-4 text-gray-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 font-normal">Organization</p>
+                          <p className="text-sm font-medium">{organization.name}</p>
+                        </div>
+                      </div>
+                    </DropdownMenuLabel>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => handleNavClick('settings')}>
                   <User className="mr-2 h-4 w-4" />

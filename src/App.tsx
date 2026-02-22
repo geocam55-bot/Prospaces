@@ -46,6 +46,7 @@ import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
 import { CustomerPortal } from './components/portal/CustomerPortal';
 import { PortalMessagesAdmin } from './components/portal/PortalMessagesAdmin';
+import { SubscriptionBilling } from './components/subscription/SubscriptionBilling';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
@@ -416,6 +417,7 @@ function App() {
               {currentView === 'shed-planner' && <Suspense fallback={<PlannerLoading />}><ShedPlanner user={user} /></Suspense>}
               {currentView === 'roof-planner' && <Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense>}
               {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
+              {currentView === 'subscription-billing' && <SubscriptionBilling user={user} />}
             </div>
           </main>
 

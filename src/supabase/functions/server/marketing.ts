@@ -366,31 +366,67 @@ export function marketing(app: Hono) {
       const auth = await authenticateAndGetOrg(c);
       if (!auth) return c.json({ error: 'Unauthorized' }, 401);
 
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      );
+      // Lead scores are stored in KV with key pattern lead_score:{orgId}:{contactId}
+      const scores = await kv.getByPrefix(`lead_score:${auth.orgId}:`);
+      // Sort by score descending
+      scores.sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
 
-      // Try to fetch from lead_scores table
-      const { data, error } = await supabase
-        .from('lead_scores')
-        .select('*')
-        .eq('organization_id', auth.orgId)
-        .order('score', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching lead scores from DB:', error);
-        // If table doesn't exist, return empty array
-        if (error.code === '42P01') {
-          return c.json({ scores: [] });
-        }
-        throw error;
-      }
-
-      return c.json({ scores: data || [] });
+      return c.json({ scores });
     } catch (error: any) {
       console.error('Error fetching lead scores:', error);
       return c.json({ error: 'Failed to fetch lead scores', message: error.message }, 500);
+    }
+  });
+
+  // POST update/create a lead score
+  app.post('/make-server-8405be07/marketing/lead-scores', async (c) => {
+    console.log('POST /marketing/lead-scores');
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const body = await c.req.json();
+      const { contact_id, score_change, action } = body;
+      if (!contact_id) return c.json({ error: 'contact_id is required' }, 400);
+
+      const kvKey = `lead_score:${auth.orgId}:${contact_id}`;
+      const existing: any = await kv.get(kvKey);
+
+      const currentScore = existing?.score || 0;
+      const newScore = currentScore + (score_change || 0);
+
+      let status: string = 'unscored';
+      if (newScore >= 80) status = 'hot';
+      else if (newScore >= 50) status = 'warm';
+      else if (newScore > 0) status = 'cold';
+
+      const scoreHistory = existing?.score_history || [];
+      scoreHistory.push({
+        action: action || 'manual',
+        change: score_change || 0,
+        timestamp: new Date().toISOString(),
+      });
+
+      const now = new Date().toISOString();
+      const leadScore = {
+        id: existing?.id || crypto.randomUUID(),
+        organization_id: auth.orgId,
+        contact_id,
+        score: newScore,
+        status,
+        last_activity: now,
+        score_history: scoreHistory,
+        created_at: existing?.created_at || now,
+        updated_at: now,
+      };
+
+      await kv.set(kvKey, leadScore);
+      console.log(`Updated lead score for contact ${contact_id}: ${currentScore} → ${newScore}`);
+
+      return c.json({ score: leadScore });
+    } catch (error: any) {
+      console.error('Error updating lead score:', error);
+      return c.json({ error: 'Failed to update lead score', message: error.message }, 500);
     }
   });
 

@@ -258,64 +258,22 @@ export async function getLeadScores(organizationId: string): Promise<LeadScore[]
 }
 
 export async function updateLeadScore(contactId: string, organizationId: string, scoreChange: number, action: string): Promise<LeadScore> {
-  // Keeping this using Supabase client as it's complex logic better handled by direct DB if available
-  // or by a specific server endpoint if not.
-  // Currently index.tsx uses this logic internally for tracking.
-  // If we need manual update, we might need a server endpoint or keep using Supabase if table exists.
-  
-  const { data: existing } = await supabase
-    .from('lead_scores')
-    .select('*')
-    .eq('contact_id', contactId)
-    .eq('organization_id', organizationId)
-    .single();
-
-  const newScore = (existing?.score || 0) + scoreChange;
-  let status: 'hot' | 'warm' | 'cold' | 'unscored' = 'unscored';
-  
-  if (newScore >= 80) status = 'hot';
-  else if (newScore >= 50) status = 'warm';
-  else if (newScore > 0) status = 'cold';
-
-  const scoreHistory = existing?.score_history || [];
-  scoreHistory.push({
-    action,
-    change: scoreChange,
-    timestamp: new Date().toISOString()
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/marketing/lead-scores`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      contact_id: contactId,
+      score_change: scoreChange,
+      action,
+    }),
   });
-
-  if (existing) {
-    const { data, error } = await supabase
-      .from('lead_scores')
-      .update({
-        score: newScore,
-        status,
-        last_activity: new Date().toISOString(),
-        score_history: scoreHistory
-      })
-      .eq('id', existing.id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  } else {
-    const { data, error } = await supabase
-      .from('lead_scores')
-      .insert([{
-        contact_id: contactId,
-        organization_id: organizationId,
-        score: newScore,
-        status,
-        last_activity: new Date().toISOString(),
-        score_history: scoreHistory
-      }])
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || err.message || `Failed to update lead score (${response.status})`);
   }
+  const data = await response.json();
+  return data.score;
 }
 
 // Journey Functions - Using KV Store via Server

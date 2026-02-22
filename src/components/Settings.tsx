@@ -81,6 +81,7 @@ interface SettingsProps {
 }
 
 import { EmailDebug } from './EmailDebug';
+import { SubscriptionBilling } from './subscription/SubscriptionBilling';
 
 export function Settings({ user, organization, onUserUpdate, onOrganizationUpdate }: SettingsProps) {
   const [orgName, setOrgName] = useState('ProSpaces Organization');
@@ -645,6 +646,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             {canManageSettings && <TabsTrigger value="diagnostics" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Diagnostics</TabsTrigger>}
             <TabsTrigger value="email-debug" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Email Status</TabsTrigger>
             <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
+            <TabsTrigger value="billing" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Billing</TabsTrigger>
             {canManageSettings && <TabsTrigger value="testdata" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Test Data</TabsTrigger>}
           </TabsList>
         </div>
@@ -1197,6 +1199,10 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             userId={user.id}
             organizationId={user.organizationId}
           />
+        </TabsContent>
+
+        <TabsContent value="billing" className="space-y-4">
+          <SubscriptionBilling user={user} />
         </TabsContent>
 
         {canManageSettings && (

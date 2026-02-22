@@ -4,6 +4,7 @@ import { logger } from 'npm:hono/logger';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import { marketing } from './marketing.ts';
+import { subscriptions } from './subscriptions.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -324,6 +325,68 @@ app.put(`${PREFIX}/settings/theme`, async (c) => {
     await kv.set(`user_theme:${auth.user.id}`, theme);
     return c.json({ success: true });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+// ── USER PREFERENCES (KV-backed, bypasses RLS) ─────────────────────────
+app.get(`${PREFIX}/settings/user-preferences`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const userId = c.req.query('user_id') || auth.user.id;
+    const orgId = c.req.query('organization_id') || auth.profile.organization_id;
+    if (!orgId) return c.json({ error: 'Missing organization_id' }, 400);
+
+    // Try DB first, fall back to KV
+    const { data, error } = await auth.supabase
+      .from('user_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('organization_id', orgId)
+      .single();
+
+    if (data && !error) {
+      return c.json({ preferences: data, source: 'server-db' });
+    }
+
+    // Table missing or row not found → try KV
+    const kvData = await kv.get(`user_prefs:${orgId}:${userId}`);
+    return c.json({ preferences: kvData || null, source: kvData ? 'server-kv' : 'server-not-found' });
+  } catch (err: any) {
+    console.error('[settings] Error fetching user preferences:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.put(`${PREFIX}/settings/user-preferences`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const body = await c.req.json();
+    const userId = body.user_id || auth.user.id;
+    const orgId = body.organization_id || auth.profile.organization_id;
+    if (!orgId) return c.json({ error: 'Missing organization_id' }, 400);
+
+    const prefs = { ...body, user_id: userId, organization_id: orgId, updated_at: new Date().toISOString() };
+
+    // Try DB upsert first
+    const { data, error } = await auth.supabase
+      .from('user_preferences')
+      .upsert(prefs, { onConflict: 'user_id,organization_id' })
+      .select()
+      .single();
+
+    if (data && !error) {
+      return c.json({ preferences: data, source: 'server-db' });
+    }
+
+    // Table missing or RLS issue → fall back to KV
+    console.warn('[settings] user_preferences upsert failed, using KV:', error?.message);
+    await kv.set(`user_prefs:${orgId}:${userId}`, prefs);
+    return c.json({ preferences: prefs, source: 'server-kv' });
+  } catch (err: any) {
+    console.error('[settings] Error upserting user preferences:', err);
+    return c.json({ error: err.message }, 500);
+  }
 });
 
 app.patch(`${PREFIX}/settings/profile`, async (c) => {
@@ -1122,6 +1185,9 @@ app.post(`${PREFIX}/public/events`, async (c) => {
 
 // ── MARKETING (journeys, landing pages, scoring rules) ──────────────────
 marketing(app);
+
+// ── SUBSCRIPTIONS & BILLING ─────────────────────────────────────────────
+subscriptions(app);
 
 // ── CATCH-ALL ───────────────────────────────────────────────────────────
 app.all('*', (c) => {
