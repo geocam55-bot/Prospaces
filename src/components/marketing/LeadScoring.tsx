@@ -14,7 +14,7 @@ import { Badge } from '../ui/badge';
 import { Plus, TrendingUp, Star, Mail, MousePointer, FileText, Calendar, Edit, Trash2 } from 'lucide-react';
 import { Slider } from '../ui/slider';
 import type { User } from '../../App';
-import { getLeadScores, getLeadScoreStats, getScoringRules } from '../../utils/marketing-client';
+import { getLeadScores, getLeadScoreStats, getScoringRules, createScoringRule, deleteScoringRule } from '../../utils/marketing-client';
 import { toast } from 'sonner';
 
 interface LeadScoringProps {
@@ -25,8 +25,11 @@ export function LeadScoring({ user }: LeadScoringProps) {
   const [isCreateRuleOpen, setIsCreateRuleOpen] = useState(false);
   const [leads, setLeads] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
-
   const [scoringRules, setScoringRules] = useState<any[]>([]);
+  const [newRuleAction, setNewRuleAction] = useState('');
+  const [newRuleCategory, setNewRuleCategory] = useState('');
+  const [newRulePoints, setNewRulePoints] = useState(10);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (user.organization_id) {
@@ -46,6 +49,65 @@ export function LeadScoring({ user }: LeadScoringProps) {
       setScoringRules(rulesData);
     } catch (error) {
       console.error('Error loading lead scoring data:', error);
+    }
+  };
+
+  const handleCreateRule = async () => {
+    if (!newRuleAction) {
+      toast.error('Please select an action/behavior');
+      return;
+    }
+    if (!newRuleCategory) {
+      toast.error('Please select a category');
+      return;
+    }
+    if (!user.organization_id) {
+      toast.error('No organization found');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const actionLabels: Record<string, string> = {
+        email_open: 'Email Opened',
+        link_click: 'Link Clicked',
+        form_submit: 'Form Submitted',
+        page_visit: 'Page Visit',
+        demo_request: 'Demo Requested',
+        download: 'Downloaded Resource',
+      };
+
+      await createScoringRule(
+        {
+          action: actionLabels[newRuleAction] || newRuleAction,
+          category: newRuleCategory as any,
+          points: newRulePoints,
+        },
+        user.organization_id
+      );
+
+      toast.success('Scoring rule created successfully');
+      setIsCreateRuleOpen(false);
+      setNewRuleAction('');
+      setNewRuleCategory('');
+      setNewRulePoints(10);
+      await loadData();
+    } catch (error: any) {
+      console.error('Error creating scoring rule:', error);
+      toast.error(`Failed to create scoring rule: ${error.message || error}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteRule = async (ruleId: string) => {
+    try {
+      await deleteScoringRule(ruleId);
+      toast.success('Scoring rule deleted');
+      await loadData();
+    } catch (error: any) {
+      console.error('Error deleting scoring rule:', error);
+      toast.error(`Failed to delete rule: ${error.message || error}`);
     }
   };
 
@@ -109,7 +171,7 @@ export function LeadScoring({ user }: LeadScoringProps) {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Action/Behavior</Label>
-                <Select>
+                <Select value={newRuleAction} onValueChange={setNewRuleAction}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select action" />
                   </SelectTrigger>
@@ -125,7 +187,7 @@ export function LeadScoring({ user }: LeadScoringProps) {
               </div>
               <div className="space-y-2">
                 <Label>Category</Label>
-                <Select>
+                <Select value={newRuleCategory} onValueChange={setNewRuleCategory}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
@@ -139,15 +201,17 @@ export function LeadScoring({ user }: LeadScoringProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Points ({0})</Label>
-                <Slider defaultValue={[10]} max={100} min={-50} step={5} />
+                <Label>Points ({newRulePoints})</Label>
+                <Slider value={[newRulePoints]} onValueChange={(val) => setNewRulePoints(val[0])} max={100} min={-50} step={5} />
                 <p className="text-xs text-gray-500">Use negative values for score decay</p>
               </div>
               <div className="flex gap-2 mt-6">
                 <Button variant="outline" onClick={() => setIsCreateRuleOpen(false)} className="flex-1">
                   Cancel
                 </Button>
-                <Button className="flex-1">Create Rule</Button>
+                <Button className="flex-1" onClick={handleCreateRule} disabled={isSaving}>
+                  {isSaving ? 'Creating...' : 'Create Rule'}
+                </Button>
               </div>
             </div>
           </DialogContent>
@@ -184,7 +248,7 @@ export function LeadScoring({ user }: LeadScoringProps) {
                       <Button variant="ghost" size="sm">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteRule(rule.id)}>
                         <Trash2 className="h-4 w-4 text-red-600" />
                       </Button>
                     </div>

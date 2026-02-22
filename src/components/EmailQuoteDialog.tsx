@@ -118,7 +118,11 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
       
       const viewOnlineLink = `
         <div style="margin-top: 30px; text-align: center;">
-            <a href="${trackingLinkUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-family: sans-serif; display: inline-block;">View Quote Online</a>
+            <a href="${trackingLinkUrl}" style="background-color: #2563eb; color: #ffffff !important; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-family: Arial, sans-serif; display: inline-block; font-size: 16px; line-height: 1; mso-padding-alt: 0; text-align: center;">
+              <!--[if mso]><i style="mso-font-width:150%;mso-text-raise:22pt">&nbsp;</i><![endif]-->
+              <span style="color: #ffffff !important; text-decoration: none;">View Quote Online</span>
+              <!--[if mso]><i style="mso-font-width:150%">&nbsp;</i><![endif]-->
+            </a>
         </div>
       `;
 
