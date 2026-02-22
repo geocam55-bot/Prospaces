@@ -178,66 +178,65 @@ export async function duplicateCampaign(id: string, organizationId: string): Pro
 // Lead Scoring Functions (Keep rules in tables if possible, but access scores via API)
 export async function getScoringRules(organizationId: string): Promise<ScoringRule[]> {
   try {
-    const { data, error } = await supabase
-      .from('lead_scoring_rules')
-      .select('*')
-      .eq('organization_id', organizationId)
-      .order('category', { ascending: true });
-
-    if (error) {
-      // If table doesn't exist, return empty array
-      if (error.code === '42P01' || error.code === 'PGRST205' || error.message?.includes('does not exist')) {
-        return [];
-      }
-      throw error;
-    }
-    return data || [];
-  } catch (error: any) {
-    // If table doesn't exist, return empty array
-    if (error.code === '42P01' || error.code === 'PGRST205' || error.message?.includes('does not exist')) {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${BASE_URL}/marketing/scoring-rules`, { headers });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      console.error('Error fetching scoring rules:', err);
       return [];
     }
+    const data = await response.json();
+    return data.rules || [];
+  } catch (error: any) {
     console.error('Error fetching scoring rules:', error);
     return [];
   }
 }
 
 export async function createScoringRule(rule: ScoringRule, organizationId: string): Promise<ScoringRule> {
-  const { data: userData } = await supabase.auth.getUser();
-  
-  const { data, error } = await supabase
-    .from('lead_scoring_rules')
-    .insert([{
-      ...rule,
-      organization_id: organizationId,
-      created_by: userData?.user?.id
-    }])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/marketing/scoring-rules`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      action: rule.action,
+      category: rule.category,
+      points: rule.points,
+    }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || err.message || `Failed to create scoring rule (${response.status})`);
+  }
+  const data = await response.json();
+  return data.rule;
 }
 
 export async function updateScoringRule(id: string, updates: Partial<ScoringRule>): Promise<ScoringRule> {
-  const { data, error } = await supabase
-    .from('lead_scoring_rules')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/marketing/scoring-rules/${id}`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || err.message || `Failed to update scoring rule (${response.status})`);
+  }
+  const data = await response.json();
+  return data.rule;
 }
 
 export async function deleteScoringRule(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('lead_scoring_rules')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/marketing/scoring-rules/${id}`, {
+    method: 'DELETE',
+    headers,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || err.message || `Failed to delete scoring rule (${response.status})`);
+  }
 }
 
 export async function getLeadScores(organizationId: string): Promise<LeadScore[]> {

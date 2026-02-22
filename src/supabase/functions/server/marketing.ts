@@ -255,6 +255,110 @@ export function marketing(app: Hono) {
 
   // ============== LEAD SCORES ==============
 
+  // ============== SCORING RULES (KV-backed) ==============
+
+  // GET all scoring rules for the user's org
+  app.get('/make-server-8405be07/marketing/scoring-rules', async (c) => {
+    console.log('GET /marketing/scoring-rules');
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const rules = await kv.getByPrefix(`scoring_rule:${auth.orgId}:`);
+      rules.sort((a: any, b: any) => {
+        const catA = a.category || '';
+        const catB = b.category || '';
+        return catA.localeCompare(catB);
+      });
+
+      return c.json({ rules });
+    } catch (error: any) {
+      console.error('Error fetching scoring rules:', error);
+      return c.json({ error: 'Failed to fetch scoring rules', message: error.message }, 500);
+    }
+  });
+
+  // POST create a new scoring rule
+  app.post('/make-server-8405be07/marketing/scoring-rules', async (c) => {
+    console.log('POST /marketing/scoring-rules');
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const body = await c.req.json();
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const rule = {
+        id,
+        organization_id: auth.orgId,
+        action: body.action,
+        category: body.category,
+        points: body.points ?? 0,
+        is_active: body.is_active !== false,
+        created_by: auth.userId,
+        created_at: now,
+        updated_at: now,
+      };
+
+      await kv.set(`scoring_rule:${auth.orgId}:${id}`, rule);
+      console.log(`Created scoring rule ${id} for org ${auth.orgId}`);
+
+      return c.json({ rule });
+    } catch (error: any) {
+      console.error('Error creating scoring rule:', error);
+      return c.json({ error: 'Failed to create scoring rule', message: error.message }, 500);
+    }
+  });
+
+  // PUT update a scoring rule
+  app.put('/make-server-8405be07/marketing/scoring-rules/:id', async (c) => {
+    const id = c.req.param('id');
+    console.log(`PUT /marketing/scoring-rules/${id}`);
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const existing = await kv.get(`scoring_rule:${auth.orgId}:${id}`);
+      if (!existing) return c.json({ error: 'Scoring rule not found' }, 404);
+
+      const updates = await c.req.json();
+      const rule = {
+        ...existing,
+        ...updates,
+        id,
+        organization_id: auth.orgId,
+        updated_at: new Date().toISOString(),
+      };
+
+      await kv.set(`scoring_rule:${auth.orgId}:${id}`, rule);
+      console.log(`Updated scoring rule ${id}`);
+
+      return c.json({ rule });
+    } catch (error: any) {
+      console.error('Error updating scoring rule:', error);
+      return c.json({ error: 'Failed to update scoring rule', message: error.message }, 500);
+    }
+  });
+
+  // DELETE a scoring rule
+  app.delete('/make-server-8405be07/marketing/scoring-rules/:id', async (c) => {
+    const id = c.req.param('id');
+    console.log(`DELETE /marketing/scoring-rules/${id}`);
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      await kv.del(`scoring_rule:${auth.orgId}:${id}`);
+      console.log(`Deleted scoring rule ${id}`);
+
+      return c.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting scoring rule:', error);
+      return c.json({ error: 'Failed to delete scoring rule', message: error.message }, 500);
+    }
+  });
+
   // GET all lead scores for the user's organization
   app.get('/make-server-8405be07/marketing/lead-scores', async (c) => {
     console.log('GET /marketing/lead-scores');
