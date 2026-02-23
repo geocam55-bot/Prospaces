@@ -22,6 +22,47 @@ let _lncolCheckTime = 0;
 let _hasFinancialCols: boolean | null = null;
 let _fincolCheckTime = 0;
 
+// Server-side column detection for address, notes, tags
+let _hasAddressCol: boolean | null = null;
+let _addressColCheckTime = 0;
+let _hasNotesCol: boolean | null = null;
+let _notesColCheckTime = 0;
+let _hasTagsCol: boolean | null = null;
+let _tagsColCheckTime = 0;
+
+async function hasAddressColumn(supabase: any): Promise<boolean> {
+  if (_hasAddressCol === true) return true;
+  if (_hasAddressCol === false && Date.now() - _addressColCheckTime < AOCOL_TTL) return false;
+  const { error } = await supabase.from('contacts').select('address').limit(0);
+  _hasAddressCol = !error;
+  _addressColCheckTime = Date.now();
+  if (error) console.log('[contacts-api] address column not available:', error.code);
+  else console.log('[contacts-api] address column detected');
+  return _hasAddressCol;
+}
+
+async function hasNotesColumn(supabase: any): Promise<boolean> {
+  if (_hasNotesCol === true) return true;
+  if (_hasNotesCol === false && Date.now() - _notesColCheckTime < AOCOL_TTL) return false;
+  const { error } = await supabase.from('contacts').select('notes').limit(0);
+  _hasNotesCol = !error;
+  _notesColCheckTime = Date.now();
+  if (error) console.log('[contacts-api] notes column not available:', error.code);
+  else console.log('[contacts-api] notes column detected');
+  return _hasNotesCol;
+}
+
+async function hasTagsColumn(supabase: any): Promise<boolean> {
+  if (_hasTagsCol === true) return true;
+  if (_hasTagsCol === false && Date.now() - _tagsColCheckTime < AOCOL_TTL) return false;
+  const { error } = await supabase.from('contacts').select('tags').limit(0);
+  _hasTagsCol = !error;
+  _tagsColCheckTime = Date.now();
+  if (error) console.log('[contacts-api] tags column not available:', error.code);
+  else console.log('[contacts-api] tags column detected');
+  return _hasTagsCol;
+}
+
 async function hasPriceLevelColumn(supabase: any): Promise<boolean> {
   if (_hasPriceLevelCol === true) return true;
   if (_hasPriceLevelCol === false && Date.now() - _plcolCheckTime < AOCOL_TTL) return false;
@@ -329,6 +370,9 @@ export function contactsAPI(app: Hono) {
       const hasLNCol = await hasLegacyNumberColumn(supabase);
       const hasFinCols = await hasFinancialColumns(supabase);
       const hasPLCol = await hasPriceLevelColumn(supabase);
+      const hasAddrCol = await hasAddressColumn(supabase);
+      const hasNotCol = await hasNotesColumn(supabase);
+      const hasTagCol = await hasTagsColumn(supabase);
 
       // Build the update payload with only columns that exist
       const updatePayload: any = {};
@@ -339,9 +383,11 @@ export function contactsAPI(app: Hono) {
       if (body.phone !== undefined) updatePayload.phone = body.phone;
       if (body.company !== undefined) updatePayload.company = body.company;
       if (body.status !== undefined) updatePayload.status = body.status;
-      if (body.address !== undefined) updatePayload.address = body.address;
-      if (body.notes !== undefined) updatePayload.notes = body.notes;
-      if (body.tags !== undefined) updatePayload.tags = body.tags;
+
+      // Conditional columns that might not exist yet
+      if (hasAddrCol && body.address !== undefined) updatePayload.address = body.address;
+      if (hasNotCol && body.notes !== undefined) updatePayload.notes = body.notes;
+      if (hasTagCol && body.tags !== undefined) updatePayload.tags = body.tags;
 
       // ── price_level: check column existence FIRST, then either DB or KV ──
       const priceLevelValue = body.price_level;
@@ -489,6 +535,9 @@ export function contactsAPI(app: Hono) {
       const hasLNCol = await hasLegacyNumberColumn(supabase);
       const hasFinCols = await hasFinancialColumns(supabase);
       const hasPLCol = await hasPriceLevelColumn(supabase);
+      const hasAddrCol = await hasAddressColumn(supabase);
+      const hasNotCol = await hasNotesColumn(supabase);
+      const hasTagCol = await hasTagsColumn(supabase);
 
       // Build the insert payload with only columns that exist
       const insertPayload: any = {
@@ -504,9 +553,11 @@ export function contactsAPI(app: Hono) {
       if (body.phone !== undefined) insertPayload.phone = body.phone;
       if (body.company !== undefined) insertPayload.company = body.company;
       if (body.status !== undefined) insertPayload.status = body.status;
-      if (body.address !== undefined) insertPayload.address = body.address;
-      if (body.notes !== undefined) insertPayload.notes = body.notes;
-      if (body.tags !== undefined) insertPayload.tags = body.tags;
+
+      // Conditional columns that might not exist yet
+      if (hasAddrCol && body.address !== undefined) insertPayload.address = body.address;
+      if (hasNotCol && body.notes !== undefined) insertPayload.notes = body.notes;
+      if (hasTagCol && body.tags !== undefined) insertPayload.tags = body.tags;
 
       // ── price_level: check column existence FIRST ──
       const priceLevelValue = body.price_level;

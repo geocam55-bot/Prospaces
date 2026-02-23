@@ -813,7 +813,8 @@ export async function updateContactClient(id: string, contactData: any) {
       
       if (response.ok) {
         const result = await response.json();
-        console.log(`[contacts-client] Server update successful. price_level in response:`, result.contact?.price_level);
+        console.log(`[contacts-client] Server update successful. Response keys:`, Object.keys(result.contact || {}));
+        console.log(`[contacts-client] Server update — name="${result.contact?.name}", price_level="${result.contact?.price_level}", updated_at="${result.contact?.updated_at}"`);
         if (result.warnings && result.warnings.length > 0) {
           console.warn('[contacts-client] Server warnings:', result.warnings);
         }
@@ -821,7 +822,7 @@ export async function updateContactClient(id: string, contactData: any) {
         return { contact: transformedContact };
       } else {
         const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-        console.error('[contacts-client] Server update error:', response.status, errorBody);
+        console.error('[contacts-client] Server update error:', response.status, JSON.stringify(errorBody));
         // If the update included a price_level change, do NOT silently fall back
         // because the fallback path will lose the price_level value.
         if (transformedData.price_level !== undefined) {

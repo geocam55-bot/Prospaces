@@ -440,7 +440,7 @@ export function Contacts({ user }: ContactsProps) {
       };
 
       const { contact } = await contactsAPI.update(editingContact.id, updateData);
-      console.log(`[Contacts] Update response — priceLevel="${contact?.priceLevel}"`);
+      console.log(`[Contacts] Update response — priceLevel="${contact?.priceLevel}", name="${contact?.name}", updatedAt="${contact?.updatedAt}"`);
 
       if (contact) {
         setContacts(contacts.map(c => (c?.id === contact.id ? contact : c)));
@@ -448,12 +448,15 @@ export function Contacts({ user }: ContactsProps) {
         if (selectedContact && selectedContact.id === contact.id) {
           setSelectedContact(contact);
         }
+        console.log(`[Contacts] Contact ${contact.id} successfully saved to database`);
+      } else {
+        console.warn('[Contacts] Update returned no contact data — changes may not have been saved');
       }
       setEditingContact(null);
       setIsEditDialogOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update contact:', error);
-      alert('Failed to update contact. Please try again.');
+      alert(`Failed to update contact: ${error?.message || 'Unknown error'}. Please check the console for details.`);
     } finally {
       setIsSaving(false);
     }
