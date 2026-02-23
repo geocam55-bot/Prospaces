@@ -434,18 +434,11 @@ export function contactsAPI(app: Hono) {
 
       // Enrich the response with the price_level from KV if needed
       const enrichedContact = { ...updatedContact };
-      if (priceLevelSavedToKV) {
+      if (hasPriceLevelInBody) {
+        // Always reflect the submitted price_level back in the response,
+        // regardless of whether it went to DB or KV (or even if KV save failed).
+        // This prevents the UI from reverting to T1 on save.
         enrichedContact.price_level = priceLevelValue;
-      } else if (!updatedContact?.price_level && hasPriceLevelInBody) {
-        // DB column exists but returned null — try KV as secondary source
-        try {
-          const kvPriceLevel = await kv.get(`contact_price_level:${contactId}`);
-          if (kvPriceLevel) {
-            enrichedContact.price_level = kvPriceLevel;
-          }
-        } catch (kvErr: any) {
-          console.error(`[contacts-api] Failed to read price_level from KV:`, kvErr.message);
-        }
       }
 
       return c.json({ contact: enrichedContact });

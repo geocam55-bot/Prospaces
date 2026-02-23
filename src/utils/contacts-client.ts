@@ -352,6 +352,32 @@ export async function getAllContactsClient(filterByAccountOwner?: string, scope:
       const errorBody = await response.json().catch(() => ({ error: response.statusText }));
       console.error('[contacts-client] Server error:', response.status, errorBody);
       
+      // On 401, try refreshing the session and retry once before falling back
+      if (response.status === 401) {
+        console.warn('[contacts-client] Got 401 — refreshing session and retrying...');
+        try {
+          const { createClient: createSupabaseClient } = await import('./supabase/client');
+          const sb = createSupabaseClient();
+          const { data: { session: refreshed } } = await sb.auth.refreshSession();
+          if (refreshed?.access_token) {
+            const retryHeaders = await getServerHeaders();
+            const retryResponse = await fetch(
+              `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts?scope=${scope}`,
+              { method: 'GET', headers: retryHeaders }
+            );
+            if (retryResponse.ok) {
+              const retryResult = await retryResponse.json();
+              console.log(`[contacts-client] Retry succeeded — ${retryResult.meta?.count || 0} contacts`);
+              const transformedData = (retryResult.contacts || []).map(transformFromDbFormat);
+              return { contacts: transformedData };
+            }
+            console.error('[contacts-client] Retry also failed:', retryResponse.status);
+          }
+        } catch (retryErr: any) {
+          console.warn('[contacts-client] Session refresh/retry failed:', retryErr.message);
+        }
+      }
+      
       // Fallback to direct Supabase query if server endpoint fails
       console.warn('[contacts-client] Falling back to direct Supabase query...');
       return await getAllContactsClientDirect(scope);
@@ -789,13 +815,25 @@ export async function updateContactClient(id: string, contactData: any) {
       } else {
         const errorBody = await response.json().catch(() => ({ error: response.statusText }));
         console.error('[contacts-client] Server update error:', response.status, errorBody);
-        // Fall through to direct Supabase update
+        // If the update included a price_level change, do NOT silently fall back
+        // because the fallback path will lose the price_level value.
+        if (transformedData.price_level !== undefined) {
+          console.error('[contacts-client] Server failed and update includes price_level — throwing instead of fallback');
+          throw new Error(`Server update failed (${response.status}): ${errorBody?.error || 'Unknown error'}. Price level change was not saved.`);
+        }
+        // Fall through to direct Supabase update for non-price-level updates
       }
     } catch (serverError: any) {
+      // If it's our deliberate throw from above, re-throw it
+      if (serverError.message?.includes('Price level change was not saved')) {
+        throw serverError;
+      }
       console.warn('[contacts-client] Server update failed, falling back to direct:', serverError.message);
     }
     
     // Fallback: direct Supabase update (subject to RLS)
+    // NOTE: price_level is stripped here since the column doesn't exist.
+    // The server path (contacts-api.ts) handles it via KV fallback instead.
     console.log(`[contacts-client] Falling back to direct Supabase update for contact ${id}`);
     const existingColumns = await getExistingContactColumns(supabase);
     const cleanedData = filterToExistingColumns(transformedData, existingColumns);
@@ -809,7 +847,14 @@ export async function updateContactClient(id: string, contactData: any) {
 
     if (error) throw error;
 
-    return { contact: transformFromDbFormat(data) };
+    const fallbackContact = transformFromDbFormat(data);
+    // If the original request had a priceLevel, preserve it in the local response
+    // so the UI doesn't revert — but log that it wasn't persisted to KV
+    if (contactData.priceLevel && contactData.priceLevel !== fallbackContact.priceLevel) {
+      console.warn(`[contacts-client] ⚠ price_level "${contactData.priceLevel}" was NOT saved (fallback path). UI will show submitted value but it may revert on reload.`);
+      fallbackContact.priceLevel = contactData.priceLevel;
+    }
+    return { contact: fallbackContact };
   } catch (error: any) {
     console.error('Error updating contact:', error);
     throw error;

@@ -654,14 +654,14 @@ export function Contacts({ user }: ContactsProps) {
         
         {/* Edit Contact Dialog - Available from Detail View */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
+          <DialogContent className="max-h-[90vh] overflow-y-auto bg-white" style={{ maxWidth: 700 }}>
             <DialogHeader>
               <DialogTitle>Edit Contact</DialogTitle>
               <DialogDescription>
                 Update the contact's information and settings.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleEditContact} className="space-y-4">
+            <form onSubmit={handleEditContact} className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Name</Label>
                 <Input
@@ -754,7 +754,7 @@ export function Contacts({ user }: ContactsProps) {
                   placeholder="Optional"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="edit-notes">Notes</Label>
                 <Textarea
                   id="edit-notes"
@@ -763,13 +763,15 @@ export function Contacts({ user }: ContactsProps) {
                   placeholder="Optional"
                 />
               </div>
-              <TagSelector
-                label="Tags (for segmentation)"
-                tags={editingContact?.tags || []}
-                availableTags={audienceSegments}
-                onTagsChange={(tags) => setEditingContact(editingContact ? { ...editingContact, tags } : null)}
-                htmlFor="edit-tags"
-              />
+              <div className="md:col-span-2">
+                <TagSelector
+                  label="Tags (for segmentation)"
+                  tags={editingContact?.tags || []}
+                  availableTags={audienceSegments}
+                  onTagsChange={(tags) => setEditingContact(editingContact ? { ...editingContact, tags } : null)}
+                  htmlFor="edit-tags"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-ptdSales">PTD Sales</Label>
                 <Input
@@ -836,7 +838,7 @@ export function Contacts({ user }: ContactsProps) {
                   placeholder="Optional"
                 />
               </div>
-              <div className="flex gap-2 pt-4">
+              <div className="flex gap-2 pt-4 md:col-span-2">
                 <Button 
                   type="button" 
                   variant="outline" 
@@ -872,14 +874,14 @@ export function Contacts({ user }: ContactsProps) {
                   Add Contact
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
+              <DialogContent className="max-h-[90vh] overflow-y-auto bg-white" style={{ maxWidth: 700 }}>
                 <DialogHeader>
                   <DialogTitle>Add New Contact</DialogTitle>
                   <DialogDescription>
                     Create a new contact with their information and assigned price level.
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleAddContact} className="space-y-4">
+                <form onSubmit={handleAddContact} className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Name</Label>
                     <Input
@@ -959,7 +961,7 @@ export function Contacts({ user }: ContactsProps) {
                       placeholder="Optional"
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="notes">Notes</Label>
                     <Textarea
                       id="notes"
@@ -968,13 +970,15 @@ export function Contacts({ user }: ContactsProps) {
                       placeholder="Optional"
                     />
                   </div>
-                  <TagSelector
-                    label="Tags (for segmentation)"
-                    tags={newContact.tags}
-                    availableTags={audienceSegments}
-                    onTagsChange={(tags) => setNewContact({ ...newContact, tags })}
-                    htmlFor="tags"
-                  />
+                  <div className="md:col-span-2">
+                    <TagSelector
+                      label="Tags (for segmentation)"
+                      tags={newContact.tags}
+                      availableTags={audienceSegments}
+                      onTagsChange={(tags) => setNewContact({ ...newContact, tags })}
+                      htmlFor="tags"
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="ptdSales">PTD Sales</Label>
                     <Input
@@ -1041,7 +1045,7 @@ export function Contacts({ user }: ContactsProps) {
                       placeholder="Optional"
                     />
                   </div>
-                  <div className="flex gap-2 pt-4">
+                  <div className="flex gap-2 pt-4 md:col-span-2">
                     <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1" disabled={isSaving}>
                       Cancel
                     </Button>

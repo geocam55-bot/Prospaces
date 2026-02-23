@@ -250,7 +250,14 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
         .order('scheduled_time', { ascending: true });
 
       if (error) {
-        console.error('[JobProcessor] Error querying due jobs:', error);
+        // Suppress noisy "Failed to fetch" errors during cold start / network hiccups.
+        // Also suppress table-not-found errors (scheduled_jobs may not exist yet).
+        const msg = error.message || '';
+        if (msg.includes('Failed to fetch') || error.code === '42P01' || error.code === 'PGRST205') {
+          // Transient — silently retry on next poll
+        } else {
+          console.error('[JobProcessor] Error querying due jobs:', error);
+        }
         return;
       }
 
