@@ -1,23 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Progress } from '../ui/progress';
 import { Alert, AlertDescription } from '../ui/alert';
 import {
   CreditCard,
   Calendar,
-  Users,
-  Database,
   Clock,
   ArrowUpCircle,
   XCircle,
   RotateCcw,
   Loader2,
   AlertTriangle,
-  CheckCircle,
   Zap,
   Crown,
   Building2,
+  Users,
 } from 'lucide-react';
 import {
   formatCurrency,
@@ -38,33 +35,24 @@ interface CurrentPlanProps {
   onReactivate: () => void;
 }
 
-const PLAN_DETAILS: Record<PlanId, { name: string; icon: typeof Zap; color: string; bgColor: string; maxUsers: number; maxContacts: number; storage: string }> = {
+const PLAN_DETAILS: Record<PlanId, { name: string; icon: typeof Zap; color: string; bgColor: string }> = {
   starter: {
     name: 'Starter',
     icon: Zap,
     color: 'text-orange-600',
     bgColor: 'bg-orange-100',
-    maxUsers: 3,
-    maxContacts: 500,
-    storage: '2 GB',
   },
   professional: {
     name: 'Professional',
     icon: Crown,
     color: 'text-blue-600',
     bgColor: 'bg-blue-100',
-    maxUsers: 10,
-    maxContacts: 5000,
-    storage: '25 GB',
   },
   enterprise: {
     name: 'Enterprise',
     icon: Building2,
     color: 'text-purple-600',
     bgColor: 'bg-purple-100',
-    maxUsers: -1,
-    maxContacts: -1,
-    storage: '100 GB',
   },
 };
 
@@ -107,11 +95,6 @@ export function CurrentPlan({ subscription, paymentMethod, isAdmin, actionLoadin
   const isCanceling = subscription.cancel_at_period_end;
   const isCanceled = subscription.status === 'canceled';
   const isExpired = subscription.status === 'expired';
-
-  // Demo usage numbers (would come from real data in production)
-  const usageUsers = 2;
-  const usageContacts = 127;
-  const usageStorage = 0.4; // GB
 
   return (
     <div className="space-y-6">
@@ -166,6 +149,11 @@ export function CurrentPlan({ subscription, paymentMethod, isAdmin, actionLoadin
                 </CardTitle>
                 <p className="text-sm text-slate-500 mt-0.5">
                   {formatCurrency(subscription.amount)}/{subscription.billing_interval === 'year' ? 'year' : 'month'}
+                  {subscription.seat_count && subscription.price_per_seat ? (
+                    <span className="ml-1 text-slate-400">
+                      ({subscription.seat_count} seat{subscription.seat_count !== 1 ? 's' : ''} &times; {formatCurrency(subscription.price_per_seat)}/seat)
+                    </span>
+                  ) : null}
                 </p>
               </div>
             </div>
@@ -202,7 +190,7 @@ export function CurrentPlan({ subscription, paymentMethod, isAdmin, actionLoadin
 
         <CardContent className="space-y-6">
           {/* Billing period info */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
               <Calendar className="h-5 w-5 text-slate-400" />
               <div>
@@ -215,6 +203,21 @@ export function CurrentPlan({ subscription, paymentMethod, isAdmin, actionLoadin
                 <p className="text-xs text-slate-400">{daysLeft} day{daysLeft !== 1 ? 's' : ''} left</p>
               </div>
             </div>
+
+            {subscription.seat_count != null && (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
+              <Users className="h-5 w-5 text-slate-400" />
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-wider">Active Seats</p>
+                <p className="text-sm font-medium text-slate-900">
+                  {subscription.seat_count} user{subscription.seat_count !== 1 ? 's' : ''}
+                </p>
+                {subscription.price_per_seat != null && (
+                  <p className="text-xs text-slate-400">{formatCurrency(subscription.price_per_seat)}/seat/{subscription.billing_interval === 'year' ? 'yr' : 'mo'}</p>
+                )}
+              </div>
+            </div>
+            )}
 
             <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
               <CreditCard className="h-5 w-5 text-slate-400" />
@@ -235,58 +238,6 @@ export function CurrentPlan({ subscription, paymentMethod, isAdmin, actionLoadin
                 <p className="text-sm font-medium text-slate-900 capitalize">
                   {subscription.billing_interval}ly
                 </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Usage metrics */}
-          <div>
-            <h4 className="text-sm font-medium text-slate-700 mb-3">Usage</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Users */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1.5 text-slate-600">
-                    <Users className="h-3.5 w-3.5" />
-                    Users
-                  </span>
-                  <span className="font-medium text-slate-900">
-                    {usageUsers} / {plan.maxUsers === -1 ? 'Unlimited' : plan.maxUsers}
-                  </span>
-                </div>
-                {plan.maxUsers > 0 && (
-                  <Progress value={(usageUsers / plan.maxUsers) * 100} className="h-1.5" />
-                )}
-              </div>
-
-              {/* Contacts */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1.5 text-slate-600">
-                    <Database className="h-3.5 w-3.5" />
-                    Contacts
-                  </span>
-                  <span className="font-medium text-slate-900">
-                    {usageContacts.toLocaleString()} / {plan.maxContacts === -1 ? 'Unlimited' : plan.maxContacts.toLocaleString()}
-                  </span>
-                </div>
-                {plan.maxContacts > 0 && (
-                  <Progress value={(usageContacts / plan.maxContacts) * 100} className="h-1.5" />
-                )}
-              </div>
-
-              {/* Storage */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1.5 text-slate-600">
-                    <Database className="h-3.5 w-3.5" />
-                    Storage
-                  </span>
-                  <span className="font-medium text-slate-900">
-                    {usageStorage} GB / {plan.storage}
-                  </span>
-                </div>
-                <Progress value={(usageStorage / parseFloat(plan.storage)) * 100} className="h-1.5" />
               </div>
             </div>
           </div>

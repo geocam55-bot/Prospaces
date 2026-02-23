@@ -1,20 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Switch } from '../ui/switch';
 import { Label } from '../ui/label';
 import { Check, Zap, Crown, Building2, ArrowRight } from 'lucide-react';
-import { formatCurrency, type PlanId } from '../../utils/subscription-client';
+import { formatCurrency, getPlans, type PlanId } from '../../utils/subscription-client';
 
 interface PricingPlansProps {
   currentPlanId: PlanId | null;
   subscriptionStatus: string | null;
   isAdmin: boolean;
   onSelectPlan: (planId: PlanId, interval: 'month' | 'year') => void;
+  refreshKey?: number;
 }
 
-const PLANS: {
+// Fallback plan data (used until server responds)
+const FALLBACK_PLANS: {
   id: PlanId;
   name: string;
   description: string;
@@ -23,7 +25,6 @@ const PLANS: {
   icon: typeof Zap;
   popular?: boolean;
   features: string[];
-  limits: string;
 }[] = [
   {
     id: 'starter',
@@ -32,14 +33,10 @@ const PLANS: {
     price: 29,
     priceAnnual: 290,
     icon: Zap,
-    limits: '3 users, 500 contacts, 2 GB',
     features: [
       'Core CRM (Contacts, Deals, Tasks)',
-      'Up to 3 users',
-      'Up to 500 contacts',
       'Email integration',
       'Basic reports',
-      '2 GB storage',
       'Community support',
     ],
   },
@@ -51,18 +48,14 @@ const PLANS: {
     priceAnnual: 790,
     icon: Crown,
     popular: true,
-    limits: '10 users, 5K contacts, 25 GB',
     features: [
       'Everything in Starter',
-      'Up to 10 users',
-      'Up to 5,000 contacts',
       'Marketing automation',
       'Inventory management',
       'Document management',
       'Project Wizards (3D planners)',
       'Advanced reports & analytics',
       'Customer portal',
-      '25 GB storage',
       'Email support',
     ],
   },
@@ -73,25 +66,70 @@ const PLANS: {
     price: 199,
     priceAnnual: 1990,
     icon: Building2,
-    limits: 'Unlimited users & contacts, 100 GB',
     features: [
       'Everything in Professional',
-      'Unlimited users',
-      'Unlimited contacts',
       'Dedicated account manager',
       'Custom integrations',
       'SSO / SAML support',
       'Audit log',
       'Priority support (24/7)',
       'API access',
-      '100 GB storage',
       'Custom onboarding',
     ],
   },
 ];
 
-export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSelectPlan }: PricingPlansProps) {
+const PLAN_ICONS: Record<string, typeof Zap> = {
+  starter: Zap,
+  professional: Crown,
+  enterprise: Building2,
+};
+
+export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSelectPlan, refreshKey }: PricingPlansProps) {
   const [annual, setAnnual] = useState(false);
+  const [plans, setPlans] = useState(FALLBACK_PLANS);
+  const [annualSavingsPercent, setAnnualSavingsPercent] = useState(17);
+
+  // Fetch dynamic plan config from server on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const serverPlans = await getPlans();
+        if (cancelled || !serverPlans) return;
+
+        const planOrder: PlanId[] = ['starter', 'professional', 'enterprise'];
+        const merged = planOrder.map((planId) => {
+          const server = serverPlans[planId] as any;
+          const fallback = FALLBACK_PLANS.find((p) => p.id === planId)!;
+          if (!server) return fallback;
+          return {
+            id: planId,
+            name: server.name || fallback.name,
+            description: server.description || fallback.description,
+            price: server.price ?? fallback.price,
+            priceAnnual: server.priceAnnual ?? fallback.priceAnnual,
+            icon: PLAN_ICONS[planId] || Zap,
+            popular: server.popular ?? fallback.popular,
+            features: server.features || fallback.features,
+          };
+        });
+        setPlans(merged);
+
+        // Calculate average savings for the badge
+        const avgSave = merged.reduce((acc, p) => {
+          if (p.price > 0) {
+            return acc + (1 - p.priceAnnual / (p.price * 12));
+          }
+          return acc;
+        }, 0) / merged.filter((p) => p.price > 0).length;
+        setAnnualSavingsPercent(Math.round(avgSave * 100));
+      } catch (err) {
+        console.warn('[PricingPlans] Could not fetch dynamic plans, using fallbacks:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [refreshKey]);
 
   const isActive = subscriptionStatus === 'active' || subscriptionStatus === 'trialing';
 
@@ -112,14 +150,14 @@ export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSel
         </Label>
         {annual && (
           <Badge variant="secondary" className="bg-green-100 text-green-700 ml-1">
-            Save ~17%
+            Save ~{annualSavingsPercent}%
           </Badge>
         )}
       </div>
 
       {/* Plan cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {PLANS.map((plan) => {
+        {plans.map((plan) => {
           const isCurrent = currentPlanId === plan.id && isActive;
           const price = annual ? plan.priceAnnual : plan.price;
           const interval = annual ? 'year' : 'month';
@@ -135,8 +173,8 @@ export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSel
             buttonVariant = 'secondary';
             isDisabled = true;
           } else if (isActive && currentPlanId) {
-            const currentIdx = PLANS.findIndex(p => p.id === currentPlanId);
-            const thisIdx = PLANS.findIndex(p => p.id === plan.id);
+            const currentIdx = plans.findIndex(p => p.id === currentPlanId);
+            const thisIdx = plans.findIndex(p => p.id === plan.id);
             if (thisIdx > currentIdx) {
               buttonLabel = 'Upgrade';
             } else {
@@ -185,7 +223,7 @@ export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSel
                       {formatCurrency(price)}
                     </span>
                     <span className="text-slate-500 text-sm">
-                      /{annual ? 'year' : 'mo'}
+                      /user/{annual ? 'year' : 'mo'}
                     </span>
                   </div>
                   {annual && (
@@ -193,7 +231,6 @@ export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSel
                       {formatCurrency(plan.price * 12 - plan.priceAnnual)} saved per year
                     </p>
                   )}
-                  <p className="text-xs text-slate-400 mt-1">{plan.limits}</p>
                 </div>
 
                 {/* Features */}

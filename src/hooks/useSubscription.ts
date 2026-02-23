@@ -37,12 +37,6 @@ const PLAN_TIERS: Record<PlanId, number> = {
   enterprise: 3,
 };
 
-const PLAN_LIMITS = {
-  starter: { users: 3, contacts: 500, storageGB: 2 },
-  professional: { users: 10, contacts: 5000, storageGB: 25 },
-  enterprise: { users: Infinity, contacts: Infinity, storageGB: 100 },
-} as const;
-
 export interface SubscriptionState {
   subscription: Subscription | null;
   loading: boolean;
@@ -56,8 +50,6 @@ export interface SubscriptionState {
   hasFeature: (feature: string) => boolean;
   /** Check if plan meets minimum tier */
   meetsMinPlan: (minPlan: PlanId) => boolean;
-  /** Get plan limits */
-  limits: { users: number; contacts: number; storageGB: number };
   /** Reload subscription data */
   refresh: () => Promise<void>;
 }
@@ -106,10 +98,6 @@ export function useSubscription(): SubscriptionState {
     [meetsMinPlan],
   );
 
-  const limits = planId
-    ? PLAN_LIMITS[planId]
-    : { users: 1, contacts: 50, storageGB: 0.1 }; // free tier limits
-
   return {
     subscription,
     loading,
@@ -118,7 +106,6 @@ export function useSubscription(): SubscriptionState {
     isTrialing,
     hasFeature,
     meetsMinPlan,
-    limits,
     refresh: load,
   };
 }

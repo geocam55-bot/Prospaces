@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -17,7 +17,7 @@ import {
   Crown,
   Building2,
 } from 'lucide-react';
-import { formatCurrency, type PlanId, type PaymentMethod } from '../../utils/subscription-client';
+import { formatCurrency, getPlans, type PlanId, type PaymentMethod } from '../../utils/subscription-client';
 
 interface CheckoutDialogProps {
   open: boolean;
@@ -31,10 +31,22 @@ interface CheckoutDialogProps {
   onConfirm: (planId: PlanId, interval: 'month' | 'year', pm: Partial<PaymentMethod>, trial: boolean) => void;
 }
 
-const PLAN_INFO: Record<PlanId, { name: string; price: number; priceAnnual: number; icon: typeof Zap; color: string }> = {
+const PLAN_INFO_DEFAULTS: Record<PlanId, { name: string; price: number; priceAnnual: number; icon: typeof Zap; color: string }> = {
   starter: { name: 'Starter', price: 29, priceAnnual: 290, icon: Zap, color: 'text-orange-600' },
   professional: { name: 'Professional', price: 79, priceAnnual: 790, icon: Crown, color: 'text-blue-600' },
   enterprise: { name: 'Enterprise', price: 199, priceAnnual: 1990, icon: Building2, color: 'text-purple-600' },
+};
+
+const PLAN_ICON_MAP: Record<string, typeof Zap> = {
+  starter: Zap,
+  professional: Crown,
+  enterprise: Building2,
+};
+
+const PLAN_COLOR_MAP: Record<string, string> = {
+  starter: 'text-orange-600',
+  professional: 'text-blue-600',
+  enterprise: 'text-purple-600',
 };
 
 export function CheckoutDialog({
@@ -54,14 +66,44 @@ export function CheckoutDialog({
   const [cvc, setCvc] = useState('123');
   const [nameOnCard, setNameOnCard] = useState('');
   const [wantsTrial, setWantsTrial] = useState(false);
+  const [planInfo, setPlanInfo] = useState(PLAN_INFO_DEFAULTS);
 
-  const plan = PLAN_INFO[planId];
+  // Fetch dynamic plan data when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const serverPlans = await getPlans();
+        if (cancelled || !serverPlans) return;
+        const merged = { ...PLAN_INFO_DEFAULTS };
+        for (const key of Object.keys(merged) as PlanId[]) {
+          const sp = serverPlans[key] as any;
+          if (sp) {
+            merged[key] = {
+              name: sp.name || merged[key].name,
+              price: sp.price ?? merged[key].price,
+              priceAnnual: sp.priceAnnual ?? merged[key].priceAnnual,
+              icon: PLAN_ICON_MAP[key] || merged[key].icon,
+              color: PLAN_COLOR_MAP[key] || merged[key].color,
+            };
+          }
+        }
+        setPlanInfo(merged);
+      } catch {
+        // keep defaults
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
+  const plan = planInfo[planId];
   const Icon = plan.icon;
   const amount = interval === 'year' ? plan.priceAnnual : plan.price;
   const isAnnual = interval === 'year';
 
-  const isUpgrade = hasExistingSub && currentPlanId && PLAN_INFO[planId].price > PLAN_INFO[currentPlanId].price;
-  const isDowngrade = hasExistingSub && currentPlanId && PLAN_INFO[planId].price < PLAN_INFO[currentPlanId].price;
+  const isUpgrade = hasExistingSub && currentPlanId && planInfo[planId].price > planInfo[currentPlanId].price;
+  const isDowngrade = hasExistingSub && currentPlanId && planInfo[planId].price < planInfo[currentPlanId].price;
 
   const handleConfirm = () => {
     const last4 = cardNumber.replace(/\s/g, '').slice(-4) || '4242';
@@ -122,7 +164,7 @@ export function CheckoutDialog({
               </div>
               <div className="text-right">
                 <p className="text-xl font-bold text-slate-900">{formatCurrency(amount)}</p>
-                <p className="text-xs text-slate-500">/{interval}</p>
+                <p className="text-xs text-slate-500">/user/{interval}</p>
               </div>
             </div>
 

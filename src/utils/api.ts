@@ -10,12 +10,14 @@ import { getAllAppointmentsClient, createAppointmentClient, deleteAppointmentCli
 import { getAllBidsClient, getBidsByOpportunityClient, createBidClient, updateBidClient, deleteBidClient, fixBidOrganizationIds } from './bids-client';
 import { getAllTasksClient, createTaskClient, updateTaskClient, deleteTaskClient } from './tasks-client';
 import { getAllNotesClient, createNoteClient, deleteNoteClient } from './notes-client';
-import { getUserPreferencesClient, upsertUserPreferencesClient, getOrganizationSettingsClient, upsertOrganizationSettingsClient, updateOrganizationNameClient, updateUserProfileClient } from './settings-client';
+import { getUserPreferencesClient, upsertUserPreferencesClient, getOrganizationSettingsClient, upsertOrganizationSettingsClient, updateOrganizationNameClient, updateUserProfileClient, getOrgMode, setOrgMode } from './settings-client';
 import { getJourneys, createJourney, updateJourney, deleteJourney, getLandingPages, createLandingPage, updateLandingPage, deleteLandingPage, getLeadScores, updateLeadScore, getScoringRules, createScoringRule, updateScoringRule, deleteScoringRule, getLeadScoreStats } from './marketing-client';
 import { getServerHeaders } from './server-headers';
 import { projectId } from './supabase/info';
 
 const supabase = createClient();
+
+const BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
 let accessToken: string | null = null;
 
@@ -141,9 +143,9 @@ export const tenantsAPI = {
     
     if (error) throw error;
     
-    console.log('[tenantsAPI] 📊 Fetched organizations:', data?.length);
+    console.log('[tenantsAPI] Fetched organizations:', data?.length);
     
-    // Get user counts and contact counts for each organization
+    // Get user counts, contact counts, and KV details for each organization
     const tenantsWithCounts = await Promise.all((data || []).map(async (org) => {
       // Count users in this organization
       const { count: userCount, error: userError } = await supabase
@@ -151,7 +153,7 @@ export const tenantsAPI = {
         .select('id', { count: 'exact', head: true })
         .eq('organization_id', org.id);
       
-      if (userError) console.error('[tenantsAPI] ❌ Error counting users for org', org.id, userError);
+      if (userError) console.error('[tenantsAPI] Error counting users for org', org.id, userError);
       
       // Count contacts in this organization
       const { count: contactsCount, error: contactError } = await supabase
@@ -159,24 +161,34 @@ export const tenantsAPI = {
         .select('id', { count: 'exact', head: true })
         .eq('organization_id', org.id);
       
-      if (contactError) console.error('[tenantsAPI] ❌ Error counting contacts for org', org.id, contactError);
+      if (contactError) console.error('[tenantsAPI] Error counting contacts for org', org.id, contactError);
       
-      console.log(`[tenantsAPI] 📈 Org: ${org.name} - Users: ${userCount}, Contacts: ${contactsCount}`);
+      // Fetch extra org details from KV (domain, plan, billing_email, phone, address, notes, features)
+      let kvDetails: any = {};
+      try {
+        const hdrs = await getServerHeaders();
+        const resp = await fetch(`${BASE}/settings/org-details/${org.id}`, { headers: hdrs });
+        if (resp.ok) {
+          const json = await resp.json();
+          kvDetails = json.details || {};
+        }
+      } catch (_kvErr) {
+        // Non-critical: KV details not available, use DB defaults
+      }
       
       return {
         id: org.id,
         name: org.name,
-        domain: org.domain || '',
+        domain: kvDetails.domain || org.domain || '',
         status: org.status || 'active',
-        plan: org.plan || 'starter',
+        plan: kvDetails.plan || org.plan || 'starter',
+        customPlanPrice: kvDetails.custom_plan_price || '',
         logo: org.logo || '',
-        billingEmail: org.billing_email || '',
-        phone: org.phone || '',
-        address: org.address || '',
-        notes: org.notes || '',
-        maxUsers: org.max_users || 10,
-        maxContacts: org.max_contacts || 1000,
-        features: org.features ? (typeof org.features === 'string' ? JSON.parse(org.features) : org.features) : [],
+        billingEmail: kvDetails.billing_email || org.billing_email || '',
+        phone: kvDetails.phone || org.phone || '',
+        address: kvDetails.address || org.address || '',
+        notes: kvDetails.notes || org.notes || '',
+        features: kvDetails.features || (org.features ? (typeof org.features === 'string' ? JSON.parse(org.features) : org.features) : []),
         ai_suggestions_enabled: org.ai_suggestions_enabled || false,
         marketing_enabled: org.marketing_enabled ?? true,
         inventory_enabled: org.inventory_enabled ?? true,
@@ -189,7 +201,7 @@ export const tenantsAPI = {
       };
     }));
     
-    console.log('[tenantsAPI] ✅ Returning tenants with counts:', tenantsWithCounts);
+    console.log('[tenantsAPI] Returning tenants with counts:', tenantsWithCounts.length);
     return { tenants: tenantsWithCounts };
   },
   getById: async (id: string) => {
@@ -248,12 +260,12 @@ export const tenantsAPI = {
       orgId = `${orgId}-${Date.now()}`;
     }
     
-    // Only include fields that exist in the current database schema
+    // Only write columns that actually exist in the organizations table
     const dbData: any = {
       id: orgId,
       name: data.name,
       status: data.status,
-      logo: data.logo,
+      logo: data.logo || null,
       ai_suggestions_enabled: data.ai_suggestions_enabled ?? false,
       marketing_enabled: data.marketing_enabled ?? true,
       inventory_enabled: data.inventory_enabled ?? true,
@@ -261,26 +273,59 @@ export const tenantsAPI = {
       documents_enabled: data.documents_enabled ?? true,
     };
     
-    // Note: 'domain' field removed - it doesn't exist in the database schema
+    console.log('[tenantsAPI] Creating organization with DB fields:', Object.keys(dbData));
     
     const { data: org, error } = await supabase
       .from('organizations')
       .insert([dbData])
       .select()
       .single();
-    
+
     if (error) {
       console.error('Failed to save tenant:', error);
       throw error;
     }
+
+    // Persist extra fields (domain, plan, billing_email, phone, address, notes, features) in KV
+    try {
+      const extraFields = {
+        domain: data.domain || '',
+        billing_email: data.billingEmail || '',
+        phone: data.phone || '',
+        address: data.address || '',
+        plan: data.plan || 'starter',
+        custom_plan_price: data.customPlanPrice || '',
+        notes: data.notes || '',
+        features: data.features || [],
+      };
+      const hdrs = await getServerHeaders();
+      const resp = await fetch(`${BASE}/settings/org-details/${orgId}`, {
+        method: 'PUT',
+        headers: hdrs,
+        body: JSON.stringify(extraFields),
+      });
+      if (!resp.ok) console.warn('[tenantsAPI] Failed to save org details to KV:', await resp.text());
+      else console.log('[tenantsAPI] Extra org details saved to KV for', orgId);
+    } catch (kvErr) {
+      console.warn('[tenantsAPI] KV save for org details failed (non-critical):', kvErr);
+    }
+
+    // SuperAdmin-created orgs default to Multi User mode
+    try {
+      await setOrgMode(org.id, 'multi');
+      console.log('[tenantsAPI] Org mode set to multi for SuperAdmin-created org:', org.id);
+    } catch (modeErr) {
+      console.warn('[tenantsAPI] Failed to set org mode to multi (non-critical):', modeErr);
+    }
+
     return { tenant: org };
   },
   update: async (id: string, data: any) => {
-    // Only include fields that exist in the current database schema
+    // Only write columns that actually exist in the organizations table
     const dbData: any = {
       name: data.name,
       status: data.status,
-      logo: data.logo,
+      logo: data.logo || null,
       ai_suggestions_enabled: data.ai_suggestions_enabled,
       marketing_enabled: data.marketing_enabled,
       inventory_enabled: data.inventory_enabled,
@@ -288,7 +333,7 @@ export const tenantsAPI = {
       documents_enabled: data.documents_enabled,
     };
     
-    // Note: 'domain' field removed - it doesn't exist in the database schema
+    console.log('[tenantsAPI] Updating organization', id, 'DB fields:', Object.keys(dbData));
     
     const { data: org, error } = await supabase
       .from('organizations')
@@ -296,11 +341,37 @@ export const tenantsAPI = {
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) {
-      console.error('Failed to update tenant:', error);
+      console.error('[tenantsAPI] Failed to update tenant DB row:', error);
       throw error;
     }
+
+    // Persist extra fields (domain, plan, billing_email, phone, address, notes, features) in KV
+    try {
+      const extraFields = {
+        domain: data.domain || '',
+        billing_email: data.billingEmail || '',
+        phone: data.phone || '',
+        address: data.address || '',
+        plan: data.plan || 'starter',
+        custom_plan_price: data.customPlanPrice || '',
+        notes: data.notes || '',
+        features: data.features || [],
+      };
+      const hdrs = await getServerHeaders();
+      const resp = await fetch(`${BASE}/settings/org-details/${id}`, {
+        method: 'PUT',
+        headers: hdrs,
+        body: JSON.stringify(extraFields),
+      });
+      if (!resp.ok) console.warn('[tenantsAPI] Failed to save org details to KV:', await resp.text());
+      else console.log('[tenantsAPI] Extra org details saved to KV for', id);
+    } catch (kvErr) {
+      console.warn('[tenantsAPI] KV save for org details failed (non-critical):', kvErr);
+    }
+
+    console.log('[tenantsAPI] Organization updated successfully:', id);
     return { tenant: org };
   },
   updateFeatures: async (id: string, features: { ai_suggestions_enabled?: boolean }) => {
@@ -696,6 +767,8 @@ export const settingsAPI = {
   upsertOrganizationSettings: (data: any) => upsertOrganizationSettingsClient(data),
   updateOrganizationName: (organizationId: string, name: string) => updateOrganizationNameClient(organizationId, name),
   updateUserProfile: (userId: string, data: any) => updateUserProfileClient(userId, data),
+  getOrgMode: (organizationId: string) => getOrgMode(organizationId),
+  setOrgMode: (organizationId: string, mode: 'single' | 'multi') => setOrgMode(organizationId, mode),
 };
 
 // Campaigns APIs - use direct Supabase client

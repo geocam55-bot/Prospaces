@@ -1186,6 +1186,98 @@ app.post(`${PREFIX}/public/events`, async (c) => {
 // ── MARKETING (journeys, landing pages, scoring rules) ──────────────────
 marketing(app);
 
+// ── ORG USER MODE (KV-backed single/multi user toggle) ──────────────────
+app.get(`${PREFIX}/settings/org-mode`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const orgId = c.req.query('organization_id') || auth.profile.organization_id;
+    if (!orgId) return c.json({ error: 'Missing organization_id' }, 400);
+    console.log(`[org-mode] GET org_mode for org=${orgId}`);
+    const data = await kv.get(`org_mode:${orgId}`);
+    return c.json({ orgMode: data || { user_mode: 'single' }, source: data ? 'kv' : 'default' });
+  } catch (err: any) {
+    console.error('[org-mode] GET error:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.put(`${PREFIX}/settings/org-mode`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (!['admin', 'super_admin'].includes(auth.profile.role)) {
+      return c.json({ error: 'Only admin or super_admin can change organization user mode' }, 403);
+    }
+    const body = await c.req.json();
+    const orgId = body.organization_id || auth.profile.organization_id;
+    if (!orgId) return c.json({ error: 'Missing organization_id' }, 400);
+
+    const userMode = body.user_mode;
+    if (!userMode || !['single', 'multi'].includes(userMode)) {
+      return c.json({ error: 'Invalid user_mode. Must be "single" or "multi".' }, 400);
+    }
+
+    if (auth.profile.role !== 'super_admin' && orgId !== auth.profile.organization_id) {
+      return c.json({ error: 'Cannot update settings for a different organization' }, 403);
+    }
+
+    const data = {
+      user_mode: userMode,
+      organization_id: orgId,
+      updated_at: new Date().toISOString(),
+      updated_by: auth.user.email || auth.user.id,
+    };
+
+    await kv.set(`org_mode:${orgId}`, data);
+    console.log(`[org-mode] PUT org_mode for org=${orgId}: ${userMode} by ${auth.user.email}`);
+    return c.json({ orgMode: data, source: 'kv' });
+  } catch (err: any) {
+    console.error('[org-mode] PUT error:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// ── ORG DETAILS KV FALLBACK (domain, billing_email, phone, address, plan, notes, features) ──
+app.get(`${PREFIX}/settings/org-details/:orgId`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const orgId = c.req.param('orgId');
+    if (!orgId) return c.json({ error: 'Missing orgId' }, 400);
+    console.log(`[org-details] GET for org=${orgId}`);
+    const data = await kv.get(`org_details:${orgId}`);
+    return c.json({ details: data || {}, source: data ? 'kv' : 'default' });
+  } catch (err: any) {
+    console.error('[org-details] GET error:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.put(`${PREFIX}/settings/org-details/:orgId`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (!['admin', 'super_admin'].includes(auth.profile.role)) {
+      return c.json({ error: 'Only admin or super_admin can update org details' }, 403);
+    }
+    const orgId = c.req.param('orgId');
+    if (!orgId) return c.json({ error: 'Missing orgId' }, 400);
+    const body = await c.req.json();
+    const data = {
+      ...body,
+      updated_at: new Date().toISOString(),
+      updated_by: auth.user.email || auth.user.id,
+    };
+    await kv.set(`org_details:${orgId}`, data);
+    console.log(`[org-details] PUT for org=${orgId} by ${auth.user.email}`);
+    return c.json({ details: data, source: 'kv' });
+  } catch (err: any) {
+    console.error('[org-details] PUT error:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ── SUBSCRIPTIONS & BILLING ─────────────────────────────────────────────
 subscriptions(app);
 

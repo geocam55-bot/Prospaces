@@ -23,16 +23,10 @@ export const PLANS = {
     priceAnnual: 290, // ~17% savings
     currency: 'USD',
     interval: 'month',
-    maxUsers: 3,
-    maxContacts: 500,
-    maxStorage: '2 GB',
     features: [
       'Core CRM (Contacts, Deals, Tasks)',
-      'Up to 3 users',
-      'Up to 500 contacts',
       'Email integration',
       'Basic reports',
-      '2 GB storage',
       'Community support',
     ],
   },
@@ -43,20 +37,14 @@ export const PLANS = {
     priceAnnual: 790,
     currency: 'USD',
     interval: 'month',
-    maxUsers: 10,
-    maxContacts: 5000,
-    maxStorage: '25 GB',
     features: [
       'Everything in Starter',
-      'Up to 10 users',
-      'Up to 5,000 contacts',
       'Marketing automation',
       'Inventory management',
       'Document management',
       'Project Wizards (3D planners)',
       'Advanced reports & analytics',
       'Customer portal',
-      '25 GB storage',
       'Email support',
     ],
   },
@@ -67,20 +55,14 @@ export const PLANS = {
     priceAnnual: 1990,
     currency: 'USD',
     interval: 'month',
-    maxUsers: -1, // unlimited
-    maxContacts: -1, // unlimited
-    maxStorage: '100 GB',
     features: [
       'Everything in Professional',
-      'Unlimited users',
-      'Unlimited contacts',
       'Dedicated account manager',
       'Custom integrations',
       'SSO / SAML support',
       'Audit log',
       'Priority support (24/7)',
       'API access',
-      '100 GB storage',
       'Custom onboarding',
     ],
   },
@@ -102,6 +84,8 @@ export interface Subscription {
   amount: number;
   currency: string;
   payment_method_id?: string;
+  seat_count?: number;
+  price_per_seat?: number;
   created_at: string;
   updated_at: string;
 }
@@ -170,12 +154,65 @@ function generateInvoiceNumber(): string {
   return `${prefix}-${y}${m}-${seq}`;
 }
 
+// ── Helper: count active users in an organization ───────────────────────
+async function countActiveSeats(orgId: string): Promise<number> {
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
+  const { count, error } = await supabase
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .eq('status', 'active');
+  if (error) {
+    console.error('[subscriptions] Error counting active seats:', error);
+    return 1; // Fallback to at least 1 seat
+  }
+  return Math.max(1, count ?? 1); // Ensure at least 1
+}
+
+// ── Helper: resolve per-seat price from plan (checks admin config) ──────
+async function resolvePerSeatPrice(planId: PlanId, interval: 'month' | 'year'): Promise<number> {
+  const defaultPlan = PLANS[planId];
+  try {
+    const customConfig: any = await kv.get('billing_plan_config:global');
+    if (customConfig?.plans?.[planId]) {
+      const custom = customConfig.plans[planId];
+      return interval === 'year'
+        ? (custom.priceAnnual ?? defaultPlan.priceAnnual)
+        : (custom.price ?? defaultPlan.price);
+    }
+  } catch { /* ignore */ }
+  return interval === 'year' ? defaultPlan.priceAnnual : defaultPlan.price;
+}
+
 // ── Register routes ─────────────────────────────────────────────────────
 export function subscriptions(app: Hono) {
 
   // GET /subscriptions/plans — public, no auth required
-  app.get(`${PREFIX}/subscriptions/plans`, (c) => {
-    return c.json({ plans: PLANS });
+  app.get(`${PREFIX}/subscriptions/plans`, async (c) => {
+    try {
+      // Check for custom plan config in KV
+      const customConfig: any = await kv.get('billing_plan_config:global');
+      if (customConfig?.plans) {
+        // Merge custom config over defaults
+        const mergedPlans: Record<string, any> = {};
+        for (const [key, defaultPlan] of Object.entries(PLANS)) {
+          const custom = customConfig.plans[key];
+          if (custom) {
+            mergedPlans[key] = { ...defaultPlan, ...custom, id: key };
+          } else {
+            mergedPlans[key] = { ...defaultPlan };
+          }
+        }
+        return c.json({ plans: mergedPlans });
+      }
+      return c.json({ plans: PLANS });
+    } catch (error: any) {
+      console.error('[subscriptions] Error fetching plans:', error);
+      return c.json({ plans: PLANS });
+    }
   });
 
   // GET /subscriptions/current — get org's active subscription
@@ -243,6 +280,11 @@ export function subscriptions(app: Hono) {
 
       const amount = billing_interval === 'year' ? plan.priceAnnual : plan.price;
 
+      // Count active seats for per-seat billing
+      const seatCount = await countActiveSeats(auth.orgId);
+      const perSeatPrice = await resolvePerSeatPrice(plan_id as PlanId, billing_interval);
+      const totalAmount = Math.round(perSeatPrice * seatCount * 100) / 100;
+
       const subId = crypto.randomUUID();
       const subscription: Subscription = {
         id: subId,
@@ -254,8 +296,10 @@ export function subscriptions(app: Hono) {
         current_period_end: periodEnd!,
         trial_end: trialEnd,
         cancel_at_period_end: false,
-        amount,
+        amount: totalAmount,
         currency: plan.currency,
+        seat_count: seatCount,
+        price_per_seat: perSeatPrice,
         created_at: periodStart,
         updated_at: periodStart,
       };
@@ -286,12 +330,12 @@ export function subscriptions(app: Hono) {
         id: eventId,
         organization_id: auth.orgId,
         type: trial ? 'trial_started' : 'subscription_created',
-        amount: trial ? 0 : amount,
+        amount: trial ? 0 : totalAmount,
         currency: plan.currency,
         status: 'succeeded',
         description: trial
-          ? `Started 14-day free trial of ${plan.name} plan`
-          : `Subscribed to ${plan.name} plan (${billing_interval}ly)`,
+          ? `Started 14-day free trial of ${plan.name} plan (${seatCount} seat${seatCount !== 1 ? 's' : ''})`
+          : `Subscribed to ${plan.name} plan (${billing_interval}ly) — ${seatCount} seat${seatCount !== 1 ? 's' : ''}`,
         plan_id: plan_id as PlanId,
         invoice_number: trial ? undefined : generateInvoiceNumber(),
         created_at: periodStart,
@@ -305,10 +349,10 @@ export function subscriptions(app: Hono) {
           id: paymentId,
           organization_id: auth.orgId,
           type: 'payment',
-          amount,
+          amount: totalAmount,
           currency: plan.currency,
           status: 'succeeded',
-          description: `Payment for ${plan.name} plan — ${billing_interval === 'year' ? 'annual' : 'monthly'} billing`,
+          description: `Payment for ${plan.name} plan — ${billing_interval === 'year' ? 'annual' : 'monthly'} billing (${seatCount} seat${seatCount !== 1 ? 's' : ''})`,
           plan_id: plan_id as PlanId,
           invoice_number: generateInvoiceNumber(),
           created_at: periodStart,
@@ -365,11 +409,18 @@ export function subscriptions(app: Hono) {
         periodEnd = end.toISOString();
       }
 
+      // Recalculate per-seat billing
+      const seatCount = existing.seat_count || await countActiveSeats(auth.orgId);
+      const perSeatPrice = await resolvePerSeatPrice(newPlanId, newInterval);
+      const totalAmount = Math.round(perSeatPrice * seatCount * 100) / 100;
+
       const updated: Subscription = {
         ...existing,
         plan_id: newPlanId,
         billing_interval: newInterval,
-        amount: newAmount,
+        amount: totalAmount,
+        price_per_seat: perSeatPrice,
+        seat_count: seatCount,
         current_period_end: periodEnd,
         status: 'active',
         cancel_at_period_end: false,
@@ -386,7 +437,7 @@ export function subscriptions(app: Hono) {
         id: eventId,
         organization_id: auth.orgId,
         type: 'plan_change',
-        amount: newAmount,
+        amount: totalAmount,
         currency: plan.currency,
         status: 'succeeded',
         description: `${isUpgrade ? 'Upgraded' : 'Changed'} from ${oldPlan.name} to ${plan.name} plan`,
@@ -663,6 +714,148 @@ export function subscriptions(app: Hono) {
       return c.json({ event, subscription: sub });
     } catch (error: any) {
       console.error('[subscriptions] Error simulating payment:', error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // GET /subscriptions/plan-config — get custom plan configuration (super_admin only)
+  app.get(`${PREFIX}/subscriptions/plan-config`, async (c) => {
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      if (auth.role !== 'super_admin') {
+        return c.json({ error: 'Only super admins can manage plan configuration' }, 403);
+      }
+
+      const config: any = await kv.get('billing_plan_config:global');
+      // Return stored config, or defaults derived from PLANS
+      if (config) {
+        return c.json({ config });
+      }
+
+      // Build default config from hardcoded PLANS
+      const defaultConfig = {
+        plans: Object.fromEntries(
+          Object.entries(PLANS).map(([key, plan]) => [
+            key,
+            {
+              name: plan.name,
+              description: '',
+              price: plan.price,
+              priceAnnual: plan.priceAnnual,
+              currency: plan.currency,
+              features: [...plan.features],
+              popular: key === 'professional',
+              trialEnabled: true,
+              visible: true,
+            },
+          ]),
+        ),
+        trialDays: 14,
+        currency: 'USD',
+        billingTerms: 'Payment due upon subscription activation. All prices in USD.',
+        annualDiscountPercent: 17,
+        updated_at: null,
+      };
+
+      return c.json({ config: defaultConfig });
+    } catch (error: any) {
+      console.error('[subscriptions] Error fetching plan config:', error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // PUT /subscriptions/plan-config — update custom plan configuration (super_admin only)
+  app.put(`${PREFIX}/subscriptions/plan-config`, async (c) => {
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      if (auth.role !== 'super_admin') {
+        return c.json({ error: 'Only super admins can manage plan configuration' }, 403);
+      }
+
+      const body = await c.req.json();
+      const now = new Date().toISOString();
+
+      const config = {
+        ...body,
+        updated_at: now,
+        updated_by: auth.userId,
+      };
+
+      await kv.set('billing_plan_config:global', config);
+
+      console.log(`[subscriptions] Plan config updated by super_admin ${auth.userId}`);
+      return c.json({ config, success: true });
+    } catch (error: any) {
+      console.error('[subscriptions] Error updating plan config:', error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // POST /subscriptions/adjust-seats — recalculate billing after user changes
+  app.post(`${PREFIX}/subscriptions/adjust-seats`, async (c) => {
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      if (!['admin', 'super_admin'].includes(auth.role)) {
+        return c.json({ error: 'Only admins can adjust seats' }, 403);
+      }
+
+      const existing: Subscription | null = await kv.get(`subscription:${auth.orgId}`);
+      if (!existing || !['active', 'trialing'].includes(existing.status)) {
+        // No active subscription to adjust — silently succeed
+        return c.json({ subscription: existing || null, adjusted: false });
+      }
+
+      const oldSeatCount = existing.seat_count ?? 1;
+      const newSeatCount = await countActiveSeats(auth.orgId);
+
+      // No change needed
+      if (newSeatCount === oldSeatCount) {
+        return c.json({ subscription: existing, adjusted: false });
+      }
+
+      const perSeatPrice = existing.price_per_seat ?? await resolvePerSeatPrice(existing.plan_id, existing.billing_interval);
+      const newAmount = Math.round(perSeatPrice * newSeatCount * 100) / 100;
+      const oldAmount = existing.amount;
+      const now = new Date().toISOString();
+
+      const updated: Subscription = {
+        ...existing,
+        seat_count: newSeatCount,
+        price_per_seat: perSeatPrice,
+        amount: newAmount,
+        updated_at: now,
+      };
+
+      await kv.set(`subscription:${auth.orgId}`, updated);
+
+      // Log a billing adjustment event
+      const plan = PLANS[existing.plan_id] || { name: existing.plan_id, currency: 'USD' };
+      const eventId = crypto.randomUUID();
+      const diff = newAmount - oldAmount;
+      const direction = newSeatCount < oldSeatCount ? 'decreased' : 'increased';
+      const event: BillingEvent = {
+        id: eventId,
+        organization_id: auth.orgId,
+        type: diff < 0 ? 'credit' : 'payment',
+        amount: Math.abs(diff),
+        currency: existing.currency || 'USD',
+        status: 'succeeded',
+        description: `Seat count ${direction} from ${oldSeatCount} to ${newSeatCount} — billing adjusted from $${oldAmount.toFixed(2)} to $${newAmount.toFixed(2)}/${existing.billing_interval}`,
+        plan_id: existing.plan_id,
+        created_at: now,
+      };
+      await kv.set(`billing_event:${auth.orgId}:${eventId}`, event);
+
+      console.log(`[subscriptions] Seats adjusted for org ${auth.orgId}: ${oldSeatCount} → ${newSeatCount}, amount: $${oldAmount} → $${newAmount}`);
+      return c.json({ subscription: updated, adjusted: true, old_seats: oldSeatCount, new_seats: newSeatCount });
+    } catch (error: any) {
+      console.error('[subscriptions] Error adjusting seats:', error);
       return c.json({ error: error.message }, 500);
     }
   });

@@ -82,6 +82,9 @@ interface SettingsProps {
 
 import { EmailDebug } from './EmailDebug';
 import { SubscriptionBilling } from './subscription/SubscriptionBilling';
+import { BillingPlanConfig } from './subscription/BillingPlanConfig';
+import { getOrgMode, setOrgMode } from '../utils/settings-client';
+import type { OrgUserMode } from '../utils/settings-client';
 
 export function Settings({ user, organization, onUserUpdate, onOrganizationUpdate }: SettingsProps) {
   const [orgName, setOrgName] = useState('ProSpaces Organization');
@@ -98,6 +101,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showDatabaseWarning, setShowDatabaseWarning] = useState(false);
   const [showLayoutDialog, setShowLayoutDialog] = useState(false);
+  const [planRefreshKey, setPlanRefreshKey] = useState(0);
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -125,6 +129,10 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
     audienceSegments: ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'], // Marketing segments
     priceTierLabels: { ...DEFAULT_PRICE_TIER_LABELS } as PriceTierLabels,
   });
+
+  // Organization user mode (single/multi)
+  const [userMode, setUserMode] = useState<OrgUserMode>('single');
+  const [isSavingUserMode, setIsSavingUserMode] = useState(false);
 
   // New segment input
   const [newSegment, setNewSegment] = useState('');
@@ -259,6 +267,20 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         } catch (err) {
           console.log('[Settings] Could not load organization name');
         }
+      }
+
+      // Load organization user mode from KV store
+      try {
+        const orgModeData = await withTimeout(
+          getOrgMode(user.organizationId),
+          API_CALL_TIMEOUT,
+          'getOrgMode'
+        );
+        if (orgModeData?.user_mode) {
+          setUserMode(orgModeData.user_mode);
+        }
+      } catch (modeErr) {
+        console.warn('[Settings] getOrgMode failed or timed out:', modeErr);
       }
 
       console.log('[Settings] ✅ Settings loaded successfully');
@@ -523,6 +545,31 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
     }
   };
 
+  const handleToggleUserMode = async (newMode: OrgUserMode) => {
+    setIsSavingUserMode(true);
+    try {
+      setUserMode(newMode);
+      await setOrgMode(user.organizationId, newMode);
+
+      // Update organization object in parent if callback available
+      if (onOrganizationUpdate && organization) {
+        onOrganizationUpdate({ ...organization, user_mode: newMode });
+      }
+
+      toast.success(`Organization switched to ${newMode === 'single' ? 'Single User' : 'Multi User'} mode`);
+      showAlert('success', `Organization mode updated to ${newMode === 'single' ? 'Single User' : 'Multi User'}`);
+    } catch (error: any) {
+      console.error('[Settings] Error updating org user mode:', error);
+      // Revert on error
+      setUserMode(newMode === 'single' ? 'multi' : 'single');
+      const errorMessage = error?.message || 'Failed to update organization mode';
+      toast.error(errorMessage);
+      showAlert('error', errorMessage);
+    } finally {
+      setIsSavingUserMode(false);
+    }
+  };
+
   const handleSaveGlobalSettings = async () => {
     setIsSavingGlobal(true);
     try {
@@ -577,6 +624,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   };
 
   const canManageSettings = user.role === 'super_admin' || user.role === 'admin';
+  const isSuperAdmin = user.role === 'super_admin';
   const canAccessSecurity = canView('security', user.role);
 
   // Show loading spinner while settings are being fetched
@@ -637,7 +685,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
 
       <Tabs defaultValue="profile" className="w-full">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-7">
+          <TabsList className="inline-flex w-auto min-w-full">
             <TabsTrigger value="profile" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Profile</TabsTrigger>
             <TabsTrigger value="notifications" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Notifications</TabsTrigger>
             {canManageSettings && <TabsTrigger value="organization" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Organization</TabsTrigger>}
@@ -646,7 +694,8 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             {canManageSettings && <TabsTrigger value="diagnostics" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Diagnostics</TabsTrigger>}
             <TabsTrigger value="email-debug" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Email Status</TabsTrigger>
             <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
-            <TabsTrigger value="billing" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Billing</TabsTrigger>
+            {(userMode === 'single' || canManageSettings) && <TabsTrigger value="billing" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Billing</TabsTrigger>}
+            {isSuperAdmin && <TabsTrigger value="billing-plans" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Billing Plans</TabsTrigger>}
             {canManageSettings && <TabsTrigger value="testdata" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Test Data</TabsTrigger>}
           </TabsList>
         </div>
@@ -866,6 +915,94 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                     {isSavingOrg ? 'Saving...' : 'Save Organization Settings'}
                   </Button>
                 </form>
+              </CardContent>
+            </Card>
+
+            {/* Organization User Mode Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  User Mode
+                </CardTitle>
+                <p className="text-sm text-gray-500 mt-1">
+                  Control whether this organization operates as a single-user or multi-user workspace
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 rounded-lg border bg-gray-50/50 dark:bg-gray-800/50">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-base font-medium">
+                        {userMode === 'single' ? 'Single User' : 'Multi User'}
+                      </Label>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        userMode === 'multi'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {userMode === 'multi' ? 'Team' : 'Solo'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {userMode === 'single'
+                        ? 'Only you have access. Team management features are hidden.'
+                        : 'Multiple users can collaborate. Team management and roles are enabled.'}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={userMode === 'multi'}
+                    onCheckedChange={(checked) => handleToggleUserMode(checked ? 'multi' : 'single')}
+                    disabled={isSavingUserMode}
+                  />
+                </div>
+
+                {/* Mode details */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className={`p-3 rounded-lg border-2 transition-colors ${
+                    userMode === 'single'
+                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/10'
+                      : 'border-transparent bg-gray-50 dark:bg-gray-800/30'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`p-1.5 rounded-md ${userMode === 'single' ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'}`}>
+                        <SettingsIcon className="h-4 w-4" />
+                      </div>
+                      <span className="font-medium text-sm">Single User</span>
+                    </div>
+                    <ul className="text-xs text-gray-500 space-y-1">
+                      <li>Personal workspace</li>
+                      <li>Simplified navigation</li>
+                      <li>No team management</li>
+                      <li>All data is private</li>
+                    </ul>
+                  </div>
+                  <div className={`p-3 rounded-lg border-2 transition-colors ${
+                    userMode === 'multi'
+                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/10'
+                      : 'border-transparent bg-gray-50 dark:bg-gray-800/30'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`p-1.5 rounded-md ${userMode === 'multi' ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'}`}>
+                        <Users className="h-4 w-4" />
+                      </div>
+                      <span className="font-medium text-sm">Multi User</span>
+                    </div>
+                    <ul className="text-xs text-gray-500 space-y-1">
+                      <li>Team collaboration</li>
+                      <li>Role-based access</li>
+                      <li>User management panel</li>
+                      <li>Shared &amp; scoped data</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {isSavingUserMode && (
+                  <div className="flex items-center gap-2 text-sm text-blue-600">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Updating organization mode...
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1201,9 +1338,17 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           />
         </TabsContent>
 
+        {(userMode === 'single' || canManageSettings) && (
         <TabsContent value="billing" className="space-y-4">
-          <SubscriptionBilling user={user} />
+          <SubscriptionBilling user={user} planRefreshKey={planRefreshKey} />
         </TabsContent>
+        )}
+
+        {isSuperAdmin && (
+          <TabsContent value="billing-plans" className="space-y-4">
+            <BillingPlanConfig user={user} onConfigSaved={() => setPlanRefreshKey((k) => k + 1)} />
+          </TabsContent>
+        )}
 
         {canManageSettings && (
           <TabsContent value="testdata" className="space-y-4">

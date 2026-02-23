@@ -29,9 +29,10 @@ import {
 
 interface SubscriptionBillingProps {
   user: User;
+  planRefreshKey?: number;
 }
 
-export function SubscriptionBilling({ user }: SubscriptionBillingProps) {
+export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillingProps) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [billingEvents, setBillingEvents] = useState<BillingEvent[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
@@ -224,6 +225,7 @@ export function SubscriptionBilling({ user }: SubscriptionBillingProps) {
             subscriptionStatus={subscription?.status || null}
             isAdmin={isAdmin}
             onSelectPlan={handleSelectPlan}
+            refreshKey={planRefreshKey}
           />
         </TabsContent>
 

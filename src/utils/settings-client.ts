@@ -389,3 +389,85 @@ export async function updateUserProfileClient(userId: string, updates: { name?: 
     throw error;
   }
 }
+
+// ─── Organization User Mode (KV-backed) ────────────────────────────────────
+
+export type OrgUserMode = 'single' | 'multi';
+
+export interface OrgModeSettings {
+  user_mode: OrgUserMode;
+  organization_id?: string;
+  updated_at?: string;
+  updated_by?: string;
+}
+
+export async function getOrgMode(organizationId: string): Promise<OrgModeSettings> {
+  console.log('[settings-client] Fetching org user mode for org:', organizationId);
+
+  try {
+    const headers = await getServerHeaders();
+    const res = await fetch(
+      `${SERVER_BASE}/settings/org-mode?organization_id=${encodeURIComponent(organizationId)}`,
+      { headers }
+    );
+    if (res.ok) {
+      const json = await res.json();
+      console.log('[settings-client] Org mode fetched:', json.orgMode?.user_mode, 'source:', json.source);
+      return json.orgMode || { user_mode: 'single' };
+    }
+    console.warn('[settings-client] Server returned', res.status, 'for org-mode GET');
+  } catch (err) {
+    console.warn('[settings-client] Server endpoint failed for org-mode GET:', err);
+  }
+
+  // Fallback to localStorage
+  try {
+    const stored = localStorage.getItem(`org_mode_${organizationId}`);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      console.log('[settings-client] Org mode loaded from localStorage:', parsed.user_mode);
+      return parsed;
+    }
+  } catch (_) { /* ignore */ }
+
+  return { user_mode: 'single' };
+}
+
+export async function setOrgMode(organizationId: string, userMode: OrgUserMode): Promise<OrgModeSettings> {
+  console.log('[settings-client] Setting org user mode:', userMode, 'for org:', organizationId);
+
+  // Always save to localStorage as backup
+  const localData: OrgModeSettings = { user_mode: userMode, organization_id: organizationId, updated_at: new Date().toISOString() };
+  try {
+    localStorage.setItem(`org_mode_${organizationId}`, JSON.stringify(localData));
+  } catch (_) { /* ignore */ }
+
+  try {
+    const headers = await getServerHeaders();
+    const res = await fetch(`${SERVER_BASE}/settings/org-mode`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({ organization_id: organizationId, user_mode: userMode }),
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      console.log('[settings-client] Org mode saved to server:', json.orgMode?.user_mode);
+      return json.orgMode;
+    }
+
+    const errBody = await res.json().catch(() => ({ error: 'Unknown server error' }));
+    console.warn('[settings-client] Server returned', res.status, 'for org-mode PUT:', errBody);
+
+    if (res.status === 403) {
+      throw new Error(errBody.error || 'Permission denied');
+    }
+  } catch (err: any) {
+    if (err?.message?.includes('Permission denied') || err?.message?.includes('admin')) {
+      throw err;
+    }
+    console.warn('[settings-client] Server endpoint failed for org-mode PUT:', err);
+  }
+
+  return localData;
+}

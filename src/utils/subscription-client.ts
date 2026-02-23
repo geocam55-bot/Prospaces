@@ -19,9 +19,6 @@ export interface Plan {
   priceAnnual: number;
   currency: string;
   interval: string;
-  maxUsers: number;
-  maxContacts: number;
-  maxStorage: string;
   features: string[];
 }
 
@@ -39,6 +36,8 @@ export interface Subscription {
   amount: number;
   currency: string;
   payment_method_id?: string;
+  seat_count?: number;
+  price_per_seat?: number;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +65,56 @@ export interface PaymentMethod {
   exp_year: number;
   is_default: boolean;
   created_at: string;
+}
+
+// ── Plan Configuration (SuperAdmin) ─────────────────────────────────────
+
+export interface PlanConfig {
+  name: string;
+  description: string;
+  price: number;
+  priceAnnual: number;
+  currency: string;
+  features: string[];
+  popular: boolean;
+  trialEnabled: boolean;
+  visible: boolean;
+}
+
+export interface BillingPlanConfig {
+  plans: Record<string, PlanConfig>;
+  trialDays: number;
+  currency: string;
+  billingTerms: string;
+  annualDiscountPercent: number;
+  updated_at: string | null;
+  updated_by?: string;
+}
+
+export async function getPlanConfig(): Promise<BillingPlanConfig> {
+  const headers = await getServerHeaders();
+  const res = await fetch(`${BASE_URL}/subscriptions/plan-config`, { headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to fetch plan configuration');
+  }
+  const data = await res.json();
+  return data.config;
+}
+
+export async function savePlanConfig(config: BillingPlanConfig): Promise<BillingPlanConfig> {
+  const headers = await getServerHeaders();
+  const res = await fetch(`${BASE_URL}/subscriptions/plan-config`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to save plan configuration');
+  }
+  const data = await res.json();
+  return data.config;
 }
 
 // ── API calls ───────────────────────────────────────────────────────────
@@ -202,6 +251,26 @@ export async function simulatePayment(): Promise<{ event: BillingEvent; subscrip
     throw new Error(err.error || 'Failed to simulate payment');
   }
   return res.json();
+}
+
+/**
+ * Adjust seat count on the org's subscription.
+ * The server counts active users in the org and recalculates billing.
+ */
+export async function adjustSeats(): Promise<Subscription | null> {
+  const headers = await getServerHeaders();
+  const res = await fetch(`${BASE_URL}/subscriptions/adjust-seats`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    console.warn('[subscription] adjust-seats failed:', err.error || res.statusText);
+    return null;
+  }
+  const data = await res.json();
+  return data.subscription;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────

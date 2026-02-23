@@ -4,6 +4,8 @@ import type { User, Organization } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { canView, canAdd, canChange, canDelete } from '../utils/permissions';
 import { CleanupUnusedOrganizations } from './CleanupUnusedOrganizations';
+import { getOrgMode, setOrgMode } from '../utils/settings-client';
+import type { OrgUserMode } from '../utils/settings-client';
 import { 
   Building2, 
   Plus, 
@@ -48,6 +50,7 @@ import {
   SelectValue,
 } from './ui/select';
 import { AIToggleSwitch } from './AIToggleSwitch';
+import { Switch } from './ui/switch';
 
 interface Tenant {
   id: string;
@@ -55,23 +58,22 @@ interface Tenant {
   domain?: string;
   status: 'active' | 'inactive' | 'suspended';
   plan: 'free' | 'starter' | 'professional' | 'enterprise';
+  customPlanPrice?: string;
   userCount: number;
   contactsCount: number;
   createdAt: string;
   updatedAt: string;
-  maxUsers?: number;
-  maxContacts?: number;
   features: string[];
   billingEmail?: string;
   phone?: string;
   address?: string;
   notes?: string;
-  logo?: string; // Base64 encoded logo
-  ai_suggestions_enabled?: boolean; // AI Suggestions feature flag
-  marketing_enabled?: boolean; // Marketing module toggle
-  inventory_enabled?: boolean; // Inventory module toggle
-  import_export_enabled?: boolean; // Import/Export module toggle
-  documents_enabled?: boolean; // Documents module toggle
+  logo?: string;
+  ai_suggestions_enabled?: boolean;
+  marketing_enabled?: boolean;
+  inventory_enabled?: boolean;
+  import_export_enabled?: boolean;
+  documents_enabled?: boolean;
 }
 
 interface TenantsProps {
@@ -95,8 +97,7 @@ export function Tenants({ user, organization }: TenantsProps) {
     domain: '',
     status: 'active' as const,
     plan: 'starter' as const,
-    maxUsers: 10,
-    maxContacts: 1000,
+    customPlanPrice: '',
     billingEmail: '',
     phone: '',
     address: '',
@@ -107,6 +108,7 @@ export function Tenants({ user, organization }: TenantsProps) {
     inventory_enabled: false,
     import_export_enabled: false,
     documents_enabled: false,
+    user_mode: 'multi' as OrgUserMode,
   });
 
   // Only super_admin can access this module
@@ -140,16 +142,25 @@ export function Tenants({ user, organization }: TenantsProps) {
     setTimeout(() => setAlert(null), 3000);
   };
 
-  const handleOpenDialog = (tenant?: Tenant) => {
+  const handleOpenDialog = async (tenant?: Tenant) => {
     if (tenant) {
       setEditingTenant(tenant);
+
+      // Load org mode from KV (async)
+      let currentMode: OrgUserMode = 'multi';
+      try {
+        const modeData = await getOrgMode(tenant.id);
+        currentMode = modeData?.user_mode || 'multi';
+      } catch (err) {
+        console.warn('[Tenants] Failed to load org mode for', tenant.id, err);
+      }
+
       setFormData({
         name: tenant.name,
         domain: tenant.domain || '',
         status: tenant.status,
         plan: tenant.plan,
-        maxUsers: tenant.maxUsers || 10,
-        maxContacts: tenant.maxContacts || 1000,
+        customPlanPrice: tenant.customPlanPrice || '',
         billingEmail: tenant.billingEmail || '',
         phone: tenant.phone || '',
         address: tenant.address || '',
@@ -160,6 +171,7 @@ export function Tenants({ user, organization }: TenantsProps) {
         inventory_enabled: tenant.inventory_enabled || false,
         import_export_enabled: tenant.import_export_enabled || false,
         documents_enabled: tenant.documents_enabled || false,
+        user_mode: currentMode,
       });
     } else {
       setEditingTenant(null);
@@ -168,8 +180,7 @@ export function Tenants({ user, organization }: TenantsProps) {
         domain: '',
         status: 'active',
         plan: 'starter',
-        maxUsers: 10,
-        maxContacts: 1000,
+        customPlanPrice: '',
         billingEmail: '',
         phone: '',
         address: '',
@@ -180,6 +191,7 @@ export function Tenants({ user, organization }: TenantsProps) {
         inventory_enabled: false,
         import_export_enabled: false,
         documents_enabled: false,
+        user_mode: 'multi',
       });
     }
     setShowDialog(true);
@@ -199,8 +211,7 @@ export function Tenants({ user, organization }: TenantsProps) {
         domain: formData.domain,
         status: formData.status,
         plan: formData.plan,
-        maxUsers: formData.maxUsers,
-        maxContacts: formData.maxContacts,
+        customPlanPrice: formData.customPlanPrice,
         billingEmail: formData.billingEmail,
         phone: formData.phone,
         address: formData.address,
@@ -216,9 +227,25 @@ export function Tenants({ user, organization }: TenantsProps) {
 
       if (editingTenant) {
         await tenantsAPI.update(editingTenant.id, tenantData);
+        // Save user mode to KV
+        try {
+          await setOrgMode(editingTenant.id, formData.user_mode);
+          console.log('[Tenants] Org mode saved:', formData.user_mode, 'for', editingTenant.id);
+        } catch (modeErr) {
+          console.warn('[Tenants] Failed to save org mode (non-critical):', modeErr);
+        }
         showAlert('success', 'Organization updated successfully');
       } else {
-        await tenantsAPI.create(tenantData);
+        const result = await tenantsAPI.create(tenantData);
+        // tenantsAPI.create already sets mode to 'multi', but if user toggled it in the form, update
+        if (result?.tenant?.id && formData.user_mode !== 'multi') {
+          try {
+            await setOrgMode(result.tenant.id, formData.user_mode);
+            console.log('[Tenants] Org mode overridden to:', formData.user_mode, 'for new org', result.tenant.id);
+          } catch (modeErr) {
+            console.warn('[Tenants] Failed to save org mode for new org (non-critical):', modeErr);
+          }
+        }
         showAlert('success', 'Organization created successfully');
       }
 
@@ -296,10 +323,10 @@ export function Tenants({ user, organization }: TenantsProps) {
 
   const getPlanFeatures = (plan: string): string[] => {
     const features: Record<string, string[]> = {
-      free: ['Up to 5 users', 'Up to 100 contacts', 'Basic features', 'Email support'],
-      starter: ['Up to 10 users', 'Up to 1,000 contacts', 'Standard features', 'Email support', 'Marketing automation'],
-      professional: ['Up to 50 users', 'Up to 10,000 contacts', 'Advanced features', 'Priority support', 'Marketing automation', 'Custom reports'],
-      enterprise: ['Unlimited users', 'Unlimited contacts', 'All features', '24/7 support', 'Marketing automation', 'Custom reports', 'API access', 'Dedicated account manager'],
+      free: ['Basic features', 'Email support'],
+      starter: ['Core CRM (Contacts, Deals, Tasks)', 'Email integration', 'Basic reports', 'Community support'],
+      professional: ['Everything in Starter', 'Marketing automation', 'Inventory management', 'Document management', 'Project Wizards (3D planners)', 'Advanced reports & analytics', 'Customer portal', 'Email support'],
+      enterprise: ['Everything in Professional', 'Dedicated account manager', 'Custom integrations', 'SSO / SAML support', 'Audit log', 'Priority support (24/7)', 'API access', 'Custom onboarding'],
     };
     return features[plan] || [];
   };
@@ -517,6 +544,11 @@ export function Tenants({ user, organization }: TenantsProps) {
                             <Badge variant="outline" className={getPlanColor(tenant.plan)}>
                               {tenant.plan}
                             </Badge>
+                            {tenant.customPlanPrice && (
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                ${parseFloat(tenant.customPlanPrice).toFixed(2)}/mo
+                              </Badge>
+                            )}
                           </div>
                           {tenant.domain && (
                             <p className="text-sm text-gray-600 mt-1">{tenant.domain}</p>
@@ -564,13 +596,13 @@ export function Tenants({ user, organization }: TenantsProps) {
                       <div>
                         <p className="text-xs text-gray-500">Users</p>
                         <p className="text-sm text-gray-900 mt-1">
-                          {tenant.userCount} / {tenant.maxUsers || '∞'}
+                          {tenant.userCount}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Contacts</p>
                         <p className="text-sm text-gray-900 mt-1">
-                          {(tenant.contactsCount || 0).toLocaleString()} / {tenant.maxContacts?.toLocaleString() || '∞'}
+                          {(tenant.contactsCount || 0).toLocaleString()}
                         </p>
                       </div>
                       <div>
@@ -589,7 +621,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
                     {tenant.features && tenant.features.length > 0 && (
                       <div className="mt-4">
-                        <p className="text-xs text-gray-500 mb-2">Features:</p>
+                        <p className="text-xs text-gray-500 mb-2">Plan Features:</p>
                         <div className="flex flex-wrap gap-2">
                           {tenant.features.map((feature, index) => (
                             <Badge key={index} variant="secondary" className="text-xs">
@@ -723,7 +755,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
             {/* Subscription */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Subscription & Limits</h3>
+              <h3 className="text-sm text-gray-900">Subscription & Features</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Status</Label>
@@ -745,30 +777,50 @@ export function Tenants({ user, organization }: TenantsProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="free">Free (5 users, 100 contacts)</SelectItem>
-                      <SelectItem value="starter">Starter (10 users, 1K contacts)</SelectItem>
-                      <SelectItem value="professional">Professional (50 users, 10K contacts)</SelectItem>
-                      <SelectItem value="enterprise">Enterprise (Unlimited)</SelectItem>
+                      <SelectItem value="free">
+                        <div className="flex flex-col">
+                          <span>Free</span>
+                          <span className="text-xs text-gray-500">Basic features, email support</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="starter">
+                        <div className="flex flex-col">
+                          <span>Starter — $29/mo</span>
+                          <span className="text-xs text-gray-500">Core CRM, email integration, basic reports</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="professional">
+                        <div className="flex flex-col">
+                          <span>Professional — $79/mo</span>
+                          <span className="text-xs text-gray-500">Marketing, inventory, 3D planners, advanced reports</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="enterprise">
+                        <div className="flex flex-col">
+                          <span>Enterprise — $199/mo</span>
+                          <span className="text-xs text-gray-500">SSO, API access, custom integrations, 24/7 support</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label>Max Users</Label>
-                  <Input
-                    type="number"
-                    value={formData.maxUsers ?? 10}
-                    onChange={(e) => setFormData({ ...formData, maxUsers: parseInt(e.target.value) || 10 })}
-                    placeholder="10"
-                  />
-                </div>
-                <div>
-                  <Label>Max Contacts</Label>
-                  <Input
-                    type="number"
-                    value={formData.maxContacts ?? 1000}
-                    onChange={(e) => setFormData({ ...formData, maxContacts: parseInt(e.target.value) || 1000 })}
-                    placeholder="1000"
-                  />
+                  <Label>Custom Plan Price</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.customPlanPrice}
+                      onChange={(e) => setFormData({ ...formData, customPlanPrice: e.target.value })}
+                      placeholder="0.00"
+                      className="pl-7"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Override the default plan price for this customer (per month)
+                  </p>
                 </div>
                 <div>
                   <Label>AI Suggestions Enabled</Label>
@@ -805,6 +857,36 @@ export function Tenants({ user, organization }: TenantsProps) {
                     onCheckedChange={(checked) => setFormData({ ...formData, documents_enabled: checked })}
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* User Mode */}
+            <div className="space-y-4">
+              <h3 className="text-sm text-gray-900">User Mode</h3>
+              <div className="flex items-center justify-between p-4 rounded-lg border bg-gray-50/50">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium">
+                      {formData.user_mode === 'single' ? 'Single User' : 'Multi User'}
+                    </Label>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      formData.user_mode === 'multi'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {formData.user_mode === 'multi' ? 'Team' : 'Solo'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {formData.user_mode === 'single'
+                      ? 'Solo workspace — team management features are hidden'
+                      : 'Team workspace — roles, permissions, and user management enabled'}
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.user_mode === 'multi'}
+                  onCheckedChange={(checked) => setFormData({ ...formData, user_mode: checked ? 'multi' : 'single' })}
+                />
               </div>
             </div>
 

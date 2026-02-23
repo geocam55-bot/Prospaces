@@ -13,6 +13,7 @@ import type { User, UserRole } from '../App';
 import { CompleteDatabaseSetup } from './CompleteDatabaseSetup';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { setOrgMode } from '../utils/settings-client';
 
 interface LoginProps {
   onLogin: (user: User, token: string) => void;
@@ -203,6 +204,14 @@ export function Login({ onLogin, onBack }: LoginProps) {
           } else if (org) {
             orgIdToUse = org.id;
             console.log('✅ Organization created:', org);
+
+            // New self-registered org defaults to Single User mode
+            try {
+              await setOrgMode(orgIdToUse, 'single');
+              console.log('✅ Org mode set to single for new self-registered org:', orgIdToUse);
+            } catch (modeErr) {
+              console.warn('⚠️ Failed to set org mode to single (non-critical):', modeErr);
+            }
           }
         } catch (orgCreationError) {
           console.log('Organization creation skipped. Using fallback org ID.');

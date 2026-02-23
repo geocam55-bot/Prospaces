@@ -30,6 +30,7 @@ import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { useDebounce } from '../utils/useDebounce';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { adjustSeats } from '../utils/subscription-client';
 
 const supabase = createClient();
 
@@ -327,6 +328,12 @@ export function Users({ user }: UsersProps) {
     try {
       await usersAPI.delete(id);
       await loadUsers(); // Reload users after deletion
+      // Adjust billing seat count after removing a user
+      adjustSeats().then(sub => {
+        if (sub) {
+          toast.info(`Billing updated: ${sub.seat_count} active seat${sub.seat_count !== 1 ? 's' : ''}`);
+        }
+      }).catch(err => console.warn('[Users] adjust-seats after delete:', err));
     } catch (error) {
       console.error('Failed to delete user:', error);
       alert('Failed to remove user. Please try again.');
@@ -449,6 +456,15 @@ export function Users({ user }: UsersProps) {
 
       // Reload users to show the updated user
       await loadUsers();
+
+      // If the user's status changed (activated/deactivated), adjust billing seats
+      if (selectedUser && editUser.status !== selectedUser.status) {
+        adjustSeats().then(sub => {
+          if (sub) {
+            toast.info(`Billing updated: ${sub.seat_count} active seat${sub.seat_count !== 1 ? 's' : ''}`);
+          }
+        }).catch(err => console.warn('[Users] adjust-seats after status change:', err));
+      }
 
       // Close dialog
       setIsEditDialogOpen(false);

@@ -78,6 +78,7 @@ export interface Organization {
   inventory_enabled?: boolean;
   import_export_enabled?: boolean;
   project_wizards_enabled?: boolean;
+  user_mode?: 'single' | 'multi';
 }
 
 const supabase = createClient();
