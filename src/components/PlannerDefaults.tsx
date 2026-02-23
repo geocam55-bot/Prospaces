@@ -16,6 +16,7 @@ import {
 } from '../utils/project-wizard-defaults-client';
 import { InventoryCombobox } from './InventoryCombobox';
 import { PlannerDefaultsQuickHelp } from './PlannerDefaultsQuickHelp';
+import { STANDARD_LUMBER_LENGTHS } from '../utils/lumberLengths';
 import { toast } from 'sonner';
 
 interface PlannerDefaultsProps {
@@ -25,30 +26,58 @@ interface PlannerDefaultsProps {
   materialTypes?: string[]; // Optional for planners like deck that have multiple material types
 }
 
+// Helper: generate length-specific entries for a lumber category
+const lumberLengthEntries = (baseName: string): string[] =>
+  STANDARD_LUMBER_LENGTHS.map((len) => `${baseName} (${len}')`);
+
 // Define material categories for each planner type
-const PLANNER_CATEGORIES = {
+const PLANNER_CATEGORIES: Record<string, Record<string, Record<string, string[]>>> = {
   deck: {
     spruce: {
       'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
+      'Framing - Joists by Length': lumberLengthEntries('Joists'),
+      'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+      'Framing - Beams by Length': lumberLengthEntries('Beams'),
+      'Framing - Posts by Length': lumberLengthEntries('Posts'),
       'Decking': ['Decking Boards', 'Stair Treads'],
+      'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
     treated: {
       'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
+      'Framing - Joists by Length': lumberLengthEntries('Joists'),
+      'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+      'Framing - Beams by Length': lumberLengthEntries('Beams'),
+      'Framing - Posts by Length': lumberLengthEntries('Posts'),
       'Decking': ['Decking Boards', 'Stair Treads'],
+      'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
     composite: {
       'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
+      'Framing - Joists by Length': lumberLengthEntries('Joists'),
+      'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+      'Framing - Beams by Length': lumberLengthEntries('Beams'),
+      'Framing - Posts by Length': lumberLengthEntries('Posts'),
       'Decking': ['Decking Boards', 'Stair Treads'],
+      'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Deck Clips', 'Composite Screws', 'Composite Plugs', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws'],
     },
     cedar: {
       'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
+      'Framing - Joists by Length': lumberLengthEntries('Joists'),
+      'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+      'Framing - Beams by Length': lumberLengthEntries('Beams'),
+      'Framing - Posts by Length': lumberLengthEntries('Posts'),
       'Decking': ['Decking Boards', 'Stair Treads'],
+      'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
@@ -56,9 +85,13 @@ const PLANNER_CATEGORIES = {
   garage: {
     default: {
       'Foundation': ['Concrete Slab', 'Vapor Barrier', 'Gravel Base', 'Rebar', 'Wire Mesh'],
-      'Framing': ['Wall Framing (2x4)', 'Wall Framing (2x6)', 'Plates', 'Headers', 'Blocking/Bracing', 'Roof Trusses', 'Wall Sheathing', 'Roof Sheathing'],
+      'Framing': ['Wall Studs', 'Plates', 'Headers', 'Blocking/Bracing', 'Roof Trusses', 'Wall Sheathing', 'Roof Sheathing'],
+      'Framing - Wall Studs by Length': lumberLengthEntries('Wall Studs'),
+      'Framing - Plates by Length': lumberLengthEntries('Plates'),
+      'Framing - Headers by Length': lumberLengthEntries('Headers'),
       'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
       'Siding': ['House Wrap', 'Siding', 'Trim Boards', 'Fascia Boards'],
+      'Siding - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
       'Doors': ['Garage Door', 'Garage Door Opener', 'Entry Door'],
       'Windows': ['Windows'],
       'Hardware': ['16d Common Nails', '8d Common Nails', 'Joist Hangers', 'Hurricane Ties', 'Construction Adhesive', 'Anchor Bolts'],
@@ -69,13 +102,21 @@ const PLANNER_CATEGORIES = {
   shed: {
     default: {
       'Foundation': ['Foundation Skids', 'Concrete Blocks', 'Runners', 'Gravel', 'Landscape Fabric', 'Border', 'Concrete Slab', 'Wire Mesh', 'Vapor Barrier'],
-      'Framing': ['Floor Joists', 'Rim Joists', 'Wall Framing', 'Plates', 'Headers', 'Roof Rafters', 'Roof Trusses', 'Collar Ties', 'Ridge Board', 'Loft Joists', 'Wall Sheathing', 'Roof Sheathing'],
+      'Framing': ['Floor Joists', 'Rim Joists', 'Wall Studs', 'Plates', 'Headers', 'Rafters', 'Roof Trusses', 'Collar Ties', 'Ridge Board', 'Loft Joists', 'Wall Sheathing', 'Roof Sheathing'],
+      'Framing - Floor Joists by Length': lumberLengthEntries('Floor Joists'),
+      'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+      'Framing - Wall Studs by Length': lumberLengthEntries('Wall Studs'),
+      'Framing - Plates by Length': lumberLengthEntries('Plates'),
+      'Framing - Rafters by Length': lumberLengthEntries('Rafters'),
+      'Framing - Ridge Board by Length': lumberLengthEntries('Ridge Board'),
+      'Framing - Loft Joists by Length': lumberLengthEntries('Loft Joists'),
       'Flooring': ['Floor Decking'],
       'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
       'Siding': ['House Wrap', 'Siding'],
       'Doors': ['Door', 'Door Hardware', 'Hinges', 'Handle/Latch'],
       'Windows': ['Windows', 'Shutters'],
       'Trim': ['Corner Trim', 'Fascia Boards', 'Door/Window Trim', 'Flower Box Kit'],
+      'Trim - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
       'Hardware': ['16d Common Nails', '8d Box Nails', 'Deck Screws', 'Hurricane Ties', 'Construction Adhesive'],
       'Electrical': ['Electrical Wire', 'Light Fixture', 'Outlet (GFCI)', 'Light Switch', 'Junction Box'],
       'Accessories': ['Shelf Supports', 'Plywood Shelving', 'Shelf Brackets'],

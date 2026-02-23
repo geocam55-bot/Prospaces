@@ -1334,6 +1334,162 @@ app.put(`${PREFIX}/settings/org-details/:orgId`, async (c) => {
 // ── SUBSCRIPTIONS & BILLING ─────────────────────────────────────────────
 subscriptions(app);
 
+// ── PROJECT WIZARD DEFAULTS (server-side — bypasses RLS via service role key) ──
+app.get(`${PREFIX}/project-wizard-defaults`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const orgId = c.req.query('organization_id') || auth.profile.organization_id;
+    if (!orgId) return c.json({ error: 'Missing organization_id' }, 400);
+    console.log(`[project-wizard-defaults] GET defaults for org=${orgId}`);
+
+    const supabase = getSupabase(); // service role — bypasses RLS
+    const { data, error } = await supabase
+      .from('project_wizard_defaults')
+      .select('*')
+      .eq('organization_id', orgId);
+
+    if (error) {
+      if (error.code === 'PGRST205' || error.code === '42P01') {
+        console.warn('[project-wizard-defaults] Table does not exist');
+        return c.json({ defaults: [], source: 'server-table-missing' });
+      }
+      console.error('[project-wizard-defaults] GET error:', error);
+      return c.json({ error: error.message, code: error.code }, 500);
+    }
+
+    return c.json({ defaults: data || [], source: 'server' });
+  } catch (err: any) {
+    console.error('[project-wizard-defaults] GET exception:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.post(`${PREFIX}/project-wizard-defaults`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (!['admin', 'super_admin'].includes(auth.profile.role)) {
+      return c.json({ error: 'Only admin or super_admin can update project wizard defaults' }, 403);
+    }
+
+    const body = await c.req.json();
+    const orgId = body.organization_id || auth.profile.organization_id;
+    if (!orgId) return c.json({ error: 'Missing organization_id' }, 400);
+
+    if (auth.profile.role !== 'super_admin' && orgId !== auth.profile.organization_id) {
+      return c.json({ error: 'Cannot update defaults for a different organization' }, 403);
+    }
+
+    console.log(`[project-wizard-defaults] POST upsert for org=${orgId}, planner=${body.planner_type}, category=${body.material_category}`);
+
+    const supabase = getSupabase(); // service role — bypasses RLS
+    const record = {
+      ...body,
+      organization_id: orgId,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('project_wizard_defaults')
+      .upsert(record, {
+        onConflict: 'organization_id,planner_type,material_type,material_category',
+        ignoreDuplicates: false,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[project-wizard-defaults] POST upsert error:', error);
+      return c.json({ error: error.message, code: error.code }, 500);
+    }
+
+    return c.json({ default: data, source: 'server' });
+  } catch (err: any) {
+    console.error('[project-wizard-defaults] POST exception:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.post(`${PREFIX}/project-wizard-defaults/batch`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (!['admin', 'super_admin'].includes(auth.profile.role)) {
+      return c.json({ error: 'Only admin or super_admin can update project wizard defaults' }, 403);
+    }
+
+    const { defaults: items } = await c.req.json();
+    if (!Array.isArray(items) || items.length === 0) {
+      return c.json({ error: 'Missing or empty defaults array' }, 400);
+    }
+
+    const orgId = items[0].organization_id || auth.profile.organization_id;
+    if (!orgId) return c.json({ error: 'Missing organization_id' }, 400);
+
+    if (auth.profile.role !== 'super_admin' && orgId !== auth.profile.organization_id) {
+      return c.json({ error: 'Cannot update defaults for a different organization' }, 403);
+    }
+
+    console.log(`[project-wizard-defaults] BATCH upsert ${items.length} defaults for org=${orgId}`);
+
+    const supabase = getSupabase(); // service role — bypasses RLS
+    const records = items.map((item: any) => ({
+      ...item,
+      organization_id: orgId,
+      updated_at: new Date().toISOString(),
+    }));
+
+    const { data, error } = await supabase
+      .from('project_wizard_defaults')
+      .upsert(records, {
+        onConflict: 'organization_id,planner_type,material_type,material_category',
+        ignoreDuplicates: false,
+      })
+      .select();
+
+    if (error) {
+      console.error('[project-wizard-defaults] BATCH error:', error);
+      return c.json({ error: error.message, code: error.code }, 500);
+    }
+
+    console.log(`[project-wizard-defaults] BATCH saved ${data?.length || 0} defaults`);
+    return c.json({ defaults: data || [], savedCount: data?.length || 0, source: 'server' });
+  } catch (err: any) {
+    console.error('[project-wizard-defaults] BATCH exception:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.delete(`${PREFIX}/project-wizard-defaults/:id`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (!['admin', 'super_admin'].includes(auth.profile.role)) {
+      return c.json({ error: 'Only admin or super_admin can delete project wizard defaults' }, 403);
+    }
+
+    const id = c.req.param('id');
+    console.log(`[project-wizard-defaults] DELETE id=${id}`);
+
+    const supabase = getSupabase(); // service role — bypasses RLS
+    const { error } = await supabase
+      .from('project_wizard_defaults')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('[project-wizard-defaults] DELETE error:', error);
+      return c.json({ error: error.message, code: error.code }, 500);
+    }
+
+    return c.json({ success: true });
+  } catch (err: any) {
+    console.error('[project-wizard-defaults] DELETE exception:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ── API KEY MANAGEMENT (Enterprise) ─────────────────────────────────────
 app.route('/', apiKeys);
 

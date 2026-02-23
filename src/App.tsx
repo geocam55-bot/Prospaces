@@ -95,6 +95,50 @@ function PlannerLoading() {
   );
 }
 
+// Error boundary that wraps each lazy-loaded planner so a failed dynamic
+// import only affects that planner, not the entire app.
+class PlannerErrorBoundary extends React.Component<
+  { children: React.ReactNode; onNavigate: (view: string) => void },
+  { hasError: boolean }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any, info: any) {
+    console.warn('3D Planner failed to load:', error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center max-w-md mx-auto p-6">
+            <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-slate-800 mb-2">3D Planner Unavailable</h3>
+            <p className="text-slate-500 text-sm mb-4">
+              The 3D planner module could not be loaded. This feature requires additional dependencies that may not be available in this environment.
+            </p>
+            <button
+              onClick={() => this.props.onNavigate('dashboard')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Check if accessing special public routes (no auth required)
 function getPublicRoute(): React.ReactElement | null {
   const urlParams = new URLSearchParams(window.location.search);
@@ -421,11 +465,11 @@ function App() {
               {currentView === 'import-export' && <ImportExport user={user} onNavigate={setCurrentView} />}
               {currentView === 'scheduled-jobs' && <ScheduledJobs user={user} onNavigate={setCurrentView} />}
               {currentView === 'background-imports' && <BackgroundImportManager user={user} onNavigate={setCurrentView} />}
-              {currentView === 'kitchen-planner' && <Suspense fallback={<PlannerLoading />}><KitchenPlanner user={user} /></Suspense>}
-              {currentView === 'deck-planner' && <Suspense fallback={<PlannerLoading />}><DeckPlanner user={user} /></Suspense>}
-              {currentView === 'garage-planner' && <Suspense fallback={<PlannerLoading />}><GaragePlanner user={user} /></Suspense>}
-              {currentView === 'shed-planner' && <Suspense fallback={<PlannerLoading />}><ShedPlanner user={user} /></Suspense>}
-              {currentView === 'roof-planner' && <Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense>}
+              {currentView === 'kitchen-planner' && <PlannerErrorBoundary onNavigate={setCurrentView}><Suspense fallback={<PlannerLoading />}><KitchenPlanner user={user} /></Suspense></PlannerErrorBoundary>}
+              {currentView === 'deck-planner' && <PlannerErrorBoundary onNavigate={setCurrentView}><Suspense fallback={<PlannerLoading />}><DeckPlanner user={user} /></Suspense></PlannerErrorBoundary>}
+              {currentView === 'garage-planner' && <PlannerErrorBoundary onNavigate={setCurrentView}><Suspense fallback={<PlannerLoading />}><GaragePlanner user={user} /></Suspense></PlannerErrorBoundary>}
+              {currentView === 'shed-planner' && <PlannerErrorBoundary onNavigate={setCurrentView}><Suspense fallback={<PlannerLoading />}><ShedPlanner user={user} /></Suspense></PlannerErrorBoundary>}
+              {currentView === 'roof-planner' && <PlannerErrorBoundary onNavigate={setCurrentView}><Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense></PlannerErrorBoundary>}
               {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
               {currentView === 'subscription-billing' && <SubscriptionBilling user={user} />}
             </div>

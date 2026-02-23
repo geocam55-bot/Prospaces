@@ -67,6 +67,11 @@ export interface MaterialItem {
   unit: string;
   notes?: string;
   sku?: string;
+  cost?: number;
+  unitPrice?: number;
+  totalCost?: number;
+  /** Standard lumber length in feet (8, 10, 12, 14, 16) for length-aware SKU matching */
+  lumberLength?: number;
 }
 
 export interface GarageMaterials {

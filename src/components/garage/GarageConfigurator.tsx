@@ -5,7 +5,11 @@ import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
-import { Ruler, Home, Hammer, Paintbrush, Zap } from 'lucide-react';
+import { Ruler, Home, Hammer, Paintbrush, Zap, Info } from 'lucide-react';
+import {
+  selectLumberLength,
+  getLumberLengthDescription,
+} from '../../utils/lumberLengths';
 
 interface GarageConfiguratorProps {
   config: GarageConfig;
@@ -270,6 +274,53 @@ export function GarageConfigurator({ config, onChange }: GarageConfiguratorProps
               Electrical (lights & outlets)
             </Label>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Auto-Selected Lumber Lengths Summary */}
+      <Card className="border-blue-200 bg-blue-50/50">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm text-blue-800">
+            <Info className="w-4 h-4" />
+            Auto-Selected Lumber Lengths
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-xs space-y-1.5 text-slate-600">
+            <div className="flex justify-between">
+              <span>Wall Studs ({config.height}' walls):</span>
+              <span className="font-medium text-slate-800">{selectLumberLength(config.height)}'</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Plates - Width ({config.width}'):</span>
+              <span className="font-medium text-slate-800">{getLumberLengthDescription(config.width)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Plates - Length ({config.length}'):</span>
+              <span className="font-medium text-slate-800">{getLumberLengthDescription(config.length)}</span>
+            </div>
+            {(() => {
+              const maxDoorWidth = config.doors.reduce((max, d) => Math.max(max, d.width), 0);
+              const headerSpan = Math.max(maxDoorWidth + 1, 4);
+              return (
+                <div className="flex justify-between">
+                  <span>Headers ({headerSpan}' span):</span>
+                  <span className="font-medium text-slate-800">{selectLumberLength(headerSpan)}'</span>
+                </div>
+              );
+            })()}
+            <div className="flex justify-between">
+              <span>Fascia - Width ({config.width}'):</span>
+              <span className="font-medium text-slate-800">{getLumberLengthDescription(config.width)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Fascia - Length ({config.length}'):</span>
+              <span className="font-medium text-slate-800">{getLumberLengthDescription(config.length)}</span>
+            </div>
+          </div>
+          <p className="text-[10px] text-blue-600 mt-2">
+            Lumber auto-selected in 2' increments: 8', 10', 12', 14', 16'
+          </p>
         </CardContent>
       </Card>
     </div>

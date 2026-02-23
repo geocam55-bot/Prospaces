@@ -1,4 +1,9 @@
 import { ShedConfig, ShedMaterials, MaterialItem } from '../types/shed';
+import {
+  selectLumberLength,
+  getLumberCombination,
+  getLumberLengthDescription,
+} from './lumberLengths';
 
 export function calculateMaterials(config: ShedConfig): ShedMaterials {
   const foundation = calculateFoundation(config);
@@ -28,19 +33,34 @@ export function calculateMaterials(config: ShedConfig): ShedMaterials {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Helper: consolidate lumber pieces by length into a Map<length, totalCount>
+// ---------------------------------------------------------------------------
+function addConsolidatedPieces(
+  target: Map<number, number>,
+  combo: { length: number; count: number }[],
+  multiplier: number
+): void {
+  combo.forEach(({ length, count }) => {
+    target.set(length, (target.get(length) || 0) + count * multiplier);
+  });
+}
+
 function calculateFoundation(config: ShedConfig): MaterialItem[] {
   const { width, length, foundationType } = config;
   const materials: MaterialItem[] = [];
 
   switch (foundationType) {
-    case 'skids':
+    case 'skids': {
+      const skidLumberLength = selectLumberLength(length);
       materials.push(
         {
           category: 'Foundation',
-          description: '4x6 Pressure Treated Skids',
+          description: `4x6 Pressure Treated Skids (${skidLumberLength}')`,
           quantity: 3,
           unit: 'piece',
-          notes: `${length}' lengths`,
+          notes: `${length}' span`,
+          lumberLength: skidLumberLength,
         },
         {
           category: 'Foundation',
@@ -51,9 +71,11 @@ function calculateFoundation(config: ShedConfig): MaterialItem[] {
         }
       );
       break;
+    }
 
-    case 'concrete-blocks':
+    case 'concrete-blocks': {
       const numBlocks = Math.ceil((width + length) / 2) * 2;
+      const runnerLumberLength = selectLumberLength(length);
       materials.push(
         {
           category: 'Foundation',
@@ -64,10 +86,11 @@ function calculateFoundation(config: ShedConfig): MaterialItem[] {
         },
         {
           category: 'Foundation',
-          description: '4x4 Pressure Treated Runners',
+          description: `4x4 Pressure Treated Runners (${runnerLumberLength}')`,
           quantity: 2,
           unit: 'piece',
-          notes: `${length}' lengths`,
+          notes: `${length}' span`,
+          lumberLength: runnerLumberLength,
         },
         {
           category: 'Foundation',
@@ -77,8 +100,10 @@ function calculateFoundation(config: ShedConfig): MaterialItem[] {
         }
       );
       break;
+    }
 
-    case 'gravel-pad':
+    case 'gravel-pad': {
+      const borderLumberLength = selectLumberLength(Math.max(width, length));
       materials.push(
         {
           category: 'Foundation',
@@ -95,13 +120,15 @@ function calculateFoundation(config: ShedConfig): MaterialItem[] {
         },
         {
           category: 'Foundation',
-          description: '4x4 Pressure Treated Border',
-          quantity: Math.ceil((width + length) * 2 / 8),
+          description: `4x4 Pressure Treated Border (${borderLumberLength}')`,
+          quantity: Math.ceil((width + length) * 2 / borderLumberLength),
           unit: 'piece',
-          notes: '8 ft lengths',
+          notes: 'Perimeter border',
+          lumberLength: borderLumberLength,
         }
       );
       break;
+    }
 
     case 'concrete-slab':
       materials.push(
@@ -140,57 +167,84 @@ function calculateFraming(config: ShedConfig): MaterialItem[] {
   const { width, length, wallHeight, style, hasLoft } = config;
   const materials: MaterialItem[] = [];
 
-  // Floor framing (if applicable)
+  // ---- Floor Framing ----
   if (config.hasFloor) {
     const numJoists = Math.ceil(width / 1.33) + 1; // 16" o.c.
-    materials.push(
-      {
+    // Floor joists span the width
+    const floorJoistLength = selectLumberLength(width);
+    materials.push({
+      category: 'Framing',
+      description: `2x6 x ${floorJoistLength}' Floor Joists`,
+      quantity: numJoists,
+      unit: 'piece',
+      notes: `16" on center (${width}' span)`,
+      lumberLength: floorJoistLength,
+    });
+
+    // Rim joists span the length
+    const rimJoistCombo = getLumberCombination(length);
+    rimJoistCombo.forEach(({ length: len, count }) => {
+      materials.push({
         category: 'Framing',
-        description: '2x6 x 8\' Floor Joists',
-        quantity: numJoists,
+        description: `2x6 x ${len}' Rim Joists`,
+        quantity: 2 * count,
         unit: 'piece',
-        notes: '16" on center',
-      },
-      {
-        category: 'Framing',
-        description: `2x6 x ${Math.ceil(length)}' Rim Joists`,
-        quantity: 2,
-        unit: 'piece',
-      }
-    );
+        notes: rimJoistCombo.length > 1
+          ? `Floor perimeter (${getLumberLengthDescription(length)} per side)`
+          : 'Floor perimeter',
+        lumberLength: len,
+      });
+    });
   }
 
-  // Wall framing
+  // ---- Wall Framing ----
   const perimeterFeet = (width + length) * 2;
   const wallStuds = Math.ceil(perimeterFeet * 0.75); // 16" o.c.
+  const studLumberLength = selectLumberLength(wallHeight);
 
-  materials.push(
-    {
-      category: 'Framing',
-      description: '2x4 x 8\' Wall Studs',
-      quantity: wallStuds,
-      unit: 'piece',
-      notes: 'Pre-cut studs @ 16" o.c.',
-    },
-    {
-      category: 'Framing',
-      description: '2x4 x 8\' Plates',
-      quantity: Math.ceil(perimeterFeet / 8) * 2,
-      unit: 'piece',
-      notes: 'Top and bottom plates',
-    },
-    {
-      category: 'Framing',
-      description: '2x6 x 8\' Headers',
-      quantity: 3,
-      unit: 'piece',
-      notes: 'For door and window openings',
-    }
-  );
+  materials.push({
+    category: 'Framing',
+    description: `2x4 x ${studLumberLength}' Wall Studs`,
+    quantity: wallStuds,
+    unit: 'piece',
+    notes: `Pre-cut studs @ 16" o.c. (${wallHeight}' walls)`,
+    lumberLength: studLumberLength,
+  });
 
-  // Roof framing
+  // ---- Wall Plates ----
+  // Top and bottom plates run perimeter
+  const platePieces = new Map<number, number>();
+  addConsolidatedPieces(platePieces, getLumberCombination(width), 2 * 2); // 2 width walls × 2 plates
+  addConsolidatedPieces(platePieces, getLumberCombination(length), 2 * 2); // 2 length walls × 2 plates
+
+  Array.from(platePieces.entries())
+    .sort((a, b) => b[0] - a[0])
+    .forEach(([len, qty]) => {
+      materials.push({
+        category: 'Framing',
+        description: `2x4 x ${len}' Plates`,
+        quantity: qty,
+        unit: 'piece',
+        notes: 'Top and bottom plates',
+        lumberLength: len,
+      });
+    });
+
+  // ---- Headers ----
+  const headerSpan = Math.max(config.doorWidth + 1, 4);
+  const headerLumberLength = selectLumberLength(headerSpan);
+  materials.push({
+    category: 'Framing',
+    description: `2x6 x ${headerLumberLength}' Headers`,
+    quantity: 3,
+    unit: 'piece',
+    notes: `For door and window openings (${headerSpan}' span)`,
+    lumberLength: headerLumberLength,
+  });
+
+  // ---- Roof Framing ----
   const numRafters = Math.ceil(length / 2) + 1;
-  
+
   if (style === 'barn') {
     materials.push({
       category: 'Framing',
@@ -200,41 +254,63 @@ function calculateFraming(config: ShedConfig): MaterialItem[] {
       notes: 'Pre-built barn-style trusses',
     });
   } else {
+    // Calculate rafter length based on roof geometry
+    const run = style === 'lean-to' ? width : width / 2;
+    const rise = (config.roofPitch / 12) * run;
+    const rafterRawLength = Math.ceil(Math.sqrt(run * run + rise * rise) + 1); // +1' for overhang
+    const rafterLumberLength = selectLumberLength(rafterRawLength);
+
     materials.push({
       category: 'Framing',
-      description: '2x4 x 10\' Rafters',
-      quantity: numRafters * 2,
+      description: `2x4 x ${rafterLumberLength}' Rafters`,
+      quantity: numRafters * (style === 'lean-to' ? 1 : 2),
       unit: 'piece',
-      notes: `${config.roofPitch}/12 pitch`,
+      notes: `${config.roofPitch}/12 pitch (${rafterRawLength}' length)`,
+      lumberLength: rafterLumberLength,
     });
+
+    // Collar ties
+    const collarTieLength = selectLumberLength(Math.ceil(width * 0.6));
     materials.push({
       category: 'Framing',
-      description: '2x4 x 8\' Collar Ties',
+      description: `2x4 x ${collarTieLength}' Collar Ties`,
       quantity: Math.ceil(numRafters / 2),
       unit: 'piece',
+      notes: 'Rafter bracing',
+      lumberLength: collarTieLength,
     });
   }
 
-  materials.push({
-    category: 'Framing',
-    description: `2x4 x ${Math.ceil(width)}' Ridge Board`,
-    quantity: Math.ceil(length / 8),
-    unit: 'piece',
-  });
-
-  // Loft framing
-  if (hasLoft) {
-    const loftJoists = Math.ceil(width / 1.33);
+  // ---- Ridge Board ----
+  const ridgeCombo = getLumberCombination(length);
+  ridgeCombo.forEach(({ length: len, count }) => {
     materials.push({
       category: 'Framing',
-      description: '2x6 x 8\' Loft Joists',
+      description: `2x4 x ${len}' Ridge Board`,
+      quantity: count,
+      unit: 'piece',
+      notes: ridgeCombo.length > 1
+        ? `Ridge (${getLumberLengthDescription(length)} total span)`
+        : 'Ridge board',
+      lumberLength: len,
+    });
+  });
+
+  // ---- Loft Framing ----
+  if (hasLoft) {
+    const loftJoists = Math.ceil(width / 1.33);
+    const loftJoistLength = selectLumberLength(width);
+    materials.push({
+      category: 'Framing',
+      description: `2x6 x ${loftJoistLength}' Loft Joists`,
       quantity: loftJoists,
       unit: 'piece',
-      notes: 'Storage loft framing',
+      notes: `Storage loft framing (${width}' span)`,
+      lumberLength: loftJoistLength,
     });
   }
 
-  // Sheathing
+  // ---- Sheathing ----
   const wallArea = perimeterFeet * wallHeight;
   const roofArea = calculateRoofArea(config);
 
@@ -525,29 +601,47 @@ function calculateTrim(config: ShedConfig): MaterialItem[] {
   const { width, length, wallHeight } = config;
   const perimeterFeet = (width + length) * 2;
 
+  // Corner trim - extends wall height + small overhang
+  const cornerTrimLength = selectLumberLength(Math.ceil(wallHeight + 1));
   const materials: MaterialItem[] = [
     {
       category: 'Trim',
-      description: '1x4 Corner Trim',
+      description: `1x4 Corner Trim (${cornerTrimLength}')`,
       quantity: 4,
       unit: 'piece',
-      notes: `${wallHeight + 1}' lengths`,
-    },
-    {
-      category: 'Trim',
-      description: '1x6 Fascia Boards',
-      quantity: Math.ceil(perimeterFeet / 12),
-      unit: 'piece',
-      notes: '12 ft lengths',
-    },
-    {
-      category: 'Trim',
-      description: '1x4 Door/Window Trim',
-      quantity: Math.ceil((config.windows.length + 1) * 4),
-      unit: 'piece',
-      notes: '8 ft lengths',
+      notes: `${wallHeight + 1}' needed`,
+      lumberLength: cornerTrimLength,
     },
   ];
+
+  // Fascia boards
+  const fasciaPieces = new Map<number, number>();
+  addConsolidatedPieces(fasciaPieces, getLumberCombination(width), 2);
+  addConsolidatedPieces(fasciaPieces, getLumberCombination(length), 2);
+
+  Array.from(fasciaPieces.entries())
+    .sort((a, b) => b[0] - a[0])
+    .forEach(([len, qty]) => {
+      materials.push({
+        category: 'Trim',
+        description: `1x6 Fascia Boards (${len}')`,
+        quantity: qty,
+        unit: 'piece',
+        notes: 'Roof edge fascia',
+        lumberLength: len,
+      });
+    });
+
+  // Door/Window trim
+  const doorWindowTrimLength = selectLumberLength(Math.ceil(Math.max(config.doorHeight + 1, 8)));
+  materials.push({
+    category: 'Trim',
+    description: `1x4 Door/Window Trim (${doorWindowTrimLength}')`,
+    quantity: Math.ceil((config.windows.length + 1) * 4),
+    unit: 'piece',
+    notes: 'Around openings',
+    lumberLength: doorWindowTrimLength,
+  });
 
   if (config.hasFlowerBox) {
     materials.push({
@@ -641,13 +735,15 @@ function calculateAccessories(config: ShedConfig): MaterialItem[] {
   const materials: MaterialItem[] = [];
 
   if (config.hasShelvingPackage) {
+    const shelfSupportLength = selectLumberLength(8);
     materials.push(
       {
         category: 'Accessories',
-        description: '2x4 Shelf Supports',
+        description: `2x4 Shelf Supports (${shelfSupportLength}')`,
         quantity: 8,
         unit: 'piece',
-        notes: '8 ft lengths',
+        notes: 'Vertical supports',
+        lumberLength: shelfSupportLength,
       },
       {
         category: 'Accessories',

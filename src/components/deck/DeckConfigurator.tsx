@@ -1,5 +1,10 @@
 import React from 'react';
 import { DeckConfig } from '../../types/deck';
+import {
+  selectLumberLength,
+  getLumberLengthDescription,
+  getDeckBoardSpan,
+} from '../../utils/lumberLengths';
 
 interface DeckConfiguratorProps {
   config: DeckConfig;
@@ -338,6 +343,39 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
             <div className="flex justify-between">
               <span className="text-slate-600">Perimeter:</span>
               <span className="text-slate-900">{((config.width + config.length) * 2).toFixed(0)} ft</span>
+            </div>
+          </div>
+
+          {/* Auto-selected Lumber Lengths */}
+          <div className="mt-3 pt-3 border-t border-slate-300">
+            <p className="text-xs font-medium text-purple-700 mb-1.5">Auto-Selected Lumber Lengths</p>
+            <div className="text-xs space-y-1 text-slate-600">
+              <div className="flex justify-between">
+                <span>Ledger Board ({config.width}' span):</span>
+                <span className="font-medium text-slate-800">{getLumberLengthDescription(config.width)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Joists ({config.length}' span):</span>
+                <span className="font-medium text-slate-800">{getLumberLengthDescription(config.length)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Beams ({config.width}' span):</span>
+                <span className="font-medium text-slate-800">{getLumberLengthDescription(config.width)}</span>
+              </div>
+              {(() => {
+                const boardSpan = getDeckBoardSpan(config.width, config.length, config.deckingPattern);
+                const patternLabel = config.deckingPattern === 'perpendicular' ? 'perp.' : config.deckingPattern === 'parallel' ? 'par.' : 'diag.';
+                return (
+                  <div className="flex justify-between">
+                    <span>Deck Boards ({patternLabel} {boardSpan}'):</span>
+                    <span className="font-medium text-slate-800">{getLumberLengthDescription(boardSpan)}</span>
+                  </div>
+                );
+              })()}
+              <div className="flex justify-between">
+                <span>Posts ({Math.ceil(config.height + 1)}' height):</span>
+                <span className="font-medium text-slate-800">{selectLumberLength(Math.ceil(config.height + 1))}'</span>
+              </div>
             </div>
           </div>
         </div>

@@ -1,5 +1,4 @@
 import { createClient } from './supabase/client';
-import { ensureUserProfile } from './ensure-profile';
 import { projectId, publicAnonKey } from './supabase/info';
 import { getServerHeaders } from './server-headers';
 
@@ -24,38 +23,30 @@ export interface InventoryItem {
 
 /**
  * Get all project wizard defaults for an organization (organization-level only)
- * User-specific defaults are stored in localStorage
+ * Routes through the Edge Function server to bypass RLS.
  * @param organizationId - The organization ID
  */
 export async function getProjectWizardDefaults(organizationId: string): Promise<ProjectWizardDefault[]> {
-  console.log('[project-wizard-defaults] 📊 Fetching org defaults for:', organizationId);
+  console.log('[project-wizard-defaults] 📊 Fetching org defaults via server for:', organizationId);
   
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.warn('[project-wizard-defaults] ⚠️ User not authenticated, returning empty defaults');
-      return [];
-    }
-
-    // Get organization-level defaults only
-    const { data, error } = await supabase
-      .from('project_wizard_defaults')
-      .select('*')
-      .eq('organization_id', organizationId);
-
-    if (error) {
-      if (error.code === 'PGRST205' || error.code === '42P01') {
-        console.warn('[project-wizard-defaults] ⚠️ project_wizard_defaults table does not exist. Please run the SQL setup script.');
-        return [];
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/project-wizard-defaults?organization_id=${encodeURIComponent(organizationId)}`,
+      {
+        method: 'GET',
+        headers: await getServerHeaders(),
       }
-      console.error('[project-wizard-defaults] ❌ Error fetching defaults:', error);
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      console.error('[project-wizard-defaults] ❌ Server error fetching defaults:', errorData);
       return [];
     }
 
-    console.log('[project-wizard-defaults] ✅ Defaults fetched successfully:', data?.length || 0, 'records');
-    return data || [];
+    const result = await response.json();
+    console.log('[project-wizard-defaults] ✅ Defaults fetched successfully:', result.defaults?.length || 0, 'records');
+    return result.defaults || [];
   } catch (error) {
     console.error('[project-wizard-defaults] ❌ Unexpected error fetching defaults:', error);
     return [];
@@ -237,56 +228,30 @@ export async function migrateUserDefaultsFromLocalStorage(userId: string, organi
 }
 
 /**
- * Upsert a project wizard default
+ * Upsert a project wizard default via the server (bypasses RLS)
  */
 export async function upsertProjectWizardDefault(defaultConfig: ProjectWizardDefault): Promise<ProjectWizardDefault | null> {
-  console.log('[project-wizard-defaults] 💾 Upserting default:', defaultConfig);
+  console.log('[project-wizard-defaults] 💾 Upserting default via server:', defaultConfig);
   
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.warn('[project-wizard-defaults] ⚠️ User not authenticated, cannot upsert');
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/project-wizard-defaults`,
+      {
+        method: 'POST',
+        headers: await getServerHeaders(),
+        body: JSON.stringify(defaultConfig),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      console.error('[project-wizard-defaults] ❌ Server error upserting default:', errorData);
       return null;
     }
 
-    console.log('[project-wizard-defaults] 👤 User authenticated:', user.id);
-
-    const { data, error } = await supabase
-      .from('project_wizard_defaults')
-      .upsert({
-        ...defaultConfig,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'organization_id,planner_type,material_type,material_category',
-        ignoreDuplicates: false
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[project-wizard-defaults] ❌ Supabase error details:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-      });
-
-      if (error.code === 'PGRST205' || error.code === '42P01') {
-        console.warn('[project-wizard-defaults] ⚠️ project_wizard_defaults table does not exist. Please run the SQL setup script.');
-        return null;
-      }
-      if (error.code === '42501') {
-        console.error('[project-wizard-defaults] ❌ RLS policy violation - user does not have permission to upsert');
-        return null;
-      }
-      console.error('[project-wizard-defaults] ❌ Error upserting default:', error);
-      return null;
-    }
-
-    console.log('[project-wizard-defaults] ✅ Default saved successfully:', data);
-    return data;
+    const result = await response.json();
+    console.log('[project-wizard-defaults] ✅ Default saved successfully via server');
+    return result.default || null;
   } catch (error) {
     console.error('[project-wizard-defaults] ❌ Unexpected error upserting default:', error);
     return null;
@@ -294,31 +259,59 @@ export async function upsertProjectWizardDefault(defaultConfig: ProjectWizardDef
 }
 
 /**
- * Delete a project wizard default
+ * Batch upsert project wizard defaults via the server (bypasses RLS)
+ * More efficient than calling upsertProjectWizardDefault individually.
  */
-export async function deleteProjectWizardDefault(id: string): Promise<boolean> {
-  console.log('[project-wizard-defaults] 🗑️ Deleting default:', id);
+export async function batchUpsertProjectWizardDefaults(defaults: ProjectWizardDefault[]): Promise<{ savedCount: number; success: boolean }> {
+  console.log('[project-wizard-defaults] 💾 Batch upserting', defaults.length, 'defaults via server');
   
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.warn('[project-wizard-defaults] ⚠️ User not authenticated, cannot delete');
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/project-wizard-defaults/batch`,
+      {
+        method: 'POST',
+        headers: await getServerHeaders(),
+        body: JSON.stringify({ defaults }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      console.error('[project-wizard-defaults] ❌ Server error in batch upsert:', errorData);
+      return { savedCount: 0, success: false };
+    }
+
+    const result = await response.json();
+    console.log('[project-wizard-defaults] ✅ Batch saved', result.savedCount, 'defaults via server');
+    return { savedCount: result.savedCount || 0, success: true };
+  } catch (error) {
+    console.error('[project-wizard-defaults] ❌ Unexpected error in batch upsert:', error);
+    return { savedCount: 0, success: false };
+  }
+}
+
+/**
+ * Delete a project wizard default via the server (bypasses RLS)
+ */
+export async function deleteProjectWizardDefault(id: string): Promise<boolean> {
+  console.log('[project-wizard-defaults] 🗑️ Deleting default via server:', id);
+  
+  try {
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/project-wizard-defaults/${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+        headers: await getServerHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      console.error('[project-wizard-defaults] ❌ Server error deleting default:', errorData);
       return false;
     }
 
-    const { error } = await supabase
-      .from('project_wizard_defaults')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('[project-wizard-defaults] ❌ Error deleting default:', error);
-      return false;
-    }
-
-    console.log('[project-wizard-defaults] ✅ Default deleted successfully');
+    console.log('[project-wizard-defaults] ✅ Default deleted successfully via server');
     return true;
   } catch (error) {
     console.error('[project-wizard-defaults] ❌ Unexpected error deleting default:', error);

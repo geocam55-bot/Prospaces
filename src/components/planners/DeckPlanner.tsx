@@ -92,6 +92,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     config.railingHeight,
     config.joistSpacing,
     config.deckingType,
+    config.deckingPattern,
     user.organizationId,
     flatMaterials.length
   ]);

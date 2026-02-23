@@ -1,4 +1,9 @@
 import { GarageConfig, GarageMaterials, MaterialItem } from '../types/garage';
+import {
+  selectLumberLength,
+  getLumberCombination,
+  getLumberLengthDescription,
+} from './lumberLengths';
 
 export function calculateMaterials(config: GarageConfig): GarageMaterials {
   const foundation = calculateFoundation(config);
@@ -24,9 +29,21 @@ export function calculateMaterials(config: GarageConfig): GarageMaterials {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Helper: consolidate lumber pieces by length into a Map<length, totalCount>
+// ---------------------------------------------------------------------------
+function addConsolidatedPieces(
+  target: Map<number, number>,
+  combo: { length: number; count: number }[],
+  multiplier: number
+): void {
+  combo.forEach(({ length, count }) => {
+    target.set(length, (target.get(length) || 0) + count * multiplier);
+  });
+}
+
 function calculateFoundation(config: GarageConfig): MaterialItem[] {
   const { width, length } = config;
-  const perimeterFeet = (width + length) * 2;
   const areaSquareFeet = width * length;
 
   return [
@@ -72,37 +89,68 @@ function calculateFraming(config: GarageConfig): MaterialItem[] {
   const perimeterFeet = (width + length) * 2;
   const wallStuds = Math.ceil(perimeterFeet * 0.75); // 16" o.c. spacing
 
-  const materials: MaterialItem[] = [
-    {
-      category: 'Framing',
-      description: `${wallFraming} x 8' Studs (Pre-cut)`,
-      quantity: wallStuds,
-      unit: 'piece',
-      notes: `Wall studs @ 16" o.c.`,
-    },
-    {
-      category: 'Framing',
-      description: `${wallFraming} x 8' Plates (Top/Bottom)`,
-      quantity: Math.ceil(perimeterFeet / 8) * 3, // Double top plate + bottom plate
-      unit: 'piece',
-      notes: 'Bottom plate and double top plate',
-    },
-    {
-      category: 'Framing',
-      description: `${wallFraming} x 12' Headers`,
-      quantity: config.doors.length + 2,
-      unit: 'piece',
-      notes: 'For door and window openings',
-    },
-    {
-      category: 'Framing',
-      description: '2x4 x 8\' Blocking/Bracing',
-      quantity: Math.ceil(perimeterFeet / 4),
-      unit: 'piece',
-    },
-  ];
+  const materials: MaterialItem[] = [];
 
-  // Roof trusses
+  // ---- Wall Studs ----
+  // Stud length depends on wall height
+  const studLumberLength = selectLumberLength(height);
+  materials.push({
+    category: 'Framing',
+    description: `${wallFraming} x ${studLumberLength}' Studs`,
+    quantity: wallStuds,
+    unit: 'piece',
+    notes: `Wall studs @ 16" o.c. (${height}' walls)`,
+    lumberLength: studLumberLength,
+  });
+
+  // ---- Plates (Top/Bottom) ----
+  // Plates run the perimeter. Width walls and length walls need separate combinations.
+  // Double top plate + single bottom plate = 3 runs around perimeter
+  const platePieces = new Map<number, number>();
+  // Two width walls × 3 plate runs each
+  addConsolidatedPieces(platePieces, getLumberCombination(width), 2 * 3);
+  // Two length walls × 3 plate runs each
+  addConsolidatedPieces(platePieces, getLumberCombination(length), 2 * 3);
+
+  Array.from(platePieces.entries())
+    .sort((a, b) => b[0] - a[0])
+    .forEach(([len, qty]) => {
+      materials.push({
+        category: 'Framing',
+        description: `${wallFraming} x ${len}' Plates (Top/Bottom)`,
+        quantity: qty,
+        unit: 'piece',
+        notes: 'Bottom plate and double top plate',
+        lumberLength: len,
+      });
+    });
+
+  // ---- Headers ----
+  // Headers span door and window openings. Use the widest door width as reference.
+  const maxDoorWidth = config.doors.reduce((max, d) => Math.max(max, d.width), 0);
+  const headerSpan = Math.max(maxDoorWidth + 1, 4); // +1' for jack studs on each side
+  const headerLumberLength = selectLumberLength(headerSpan);
+  materials.push({
+    category: 'Framing',
+    description: `${wallFraming} x ${headerLumberLength}' Headers`,
+    quantity: config.doors.length + 2,
+    unit: 'piece',
+    notes: `For door and window openings (${headerSpan}' span)`,
+    lumberLength: headerLumberLength,
+  });
+
+  // ---- Blocking / Bracing ----
+  const blockingLength = selectLumberLength(Math.min(height, 8));
+  materials.push({
+    category: 'Framing',
+    description: `2x4 x ${blockingLength}' Blocking/Bracing`,
+    quantity: Math.ceil(perimeterFeet / 4),
+    unit: 'piece',
+    notes: 'Fire blocking and lateral bracing',
+    lumberLength: blockingLength,
+  });
+
+  // ---- Roof Trusses ----
   const trusSpacing = 2; // 24" o.c.
   const numTrusses = Math.ceil(length / trusSpacing) + 1;
   
@@ -124,7 +172,7 @@ function calculateFraming(config: GarageConfig): MaterialItem[] {
     });
   }
 
-  // Sheathing
+  // ---- Sheathing ----
   const wallArea = perimeterFeet * height;
   const roofArea = calculateRoofArea(config);
 
@@ -311,22 +359,34 @@ function calculateSiding(config: GarageConfig): MaterialItem[] {
       break;
   }
 
-  // Trim
+  // ---- Trim Boards ----
+  const trimLumberLength = selectLumberLength(Math.min(height + 1, 12));
   materials.push({
     category: 'Siding',
-    description: '1x4 Trim Boards',
-    quantity: Math.ceil(perimeterFeet * 2 / 12),
+    description: `1x4 Trim Boards (${trimLumberLength}')`,
+    quantity: Math.ceil(perimeterFeet * 2 / trimLumberLength),
     unit: 'piece',
-    notes: '12 ft lengths for corners and openings',
+    notes: `For corners and openings`,
+    lumberLength: trimLumberLength,
   });
 
-  materials.push({
-    category: 'Siding',
-    description: '1x6 Fascia Boards',
-    quantity: Math.ceil((width + length) * 2 / 12),
-    unit: 'piece',
-    notes: '12 ft lengths',
-  });
+  // ---- Fascia Boards ----
+  const fasciaPieces = new Map<number, number>();
+  addConsolidatedPieces(fasciaPieces, getLumberCombination(width), 2);
+  addConsolidatedPieces(fasciaPieces, getLumberCombination(length), 2);
+
+  Array.from(fasciaPieces.entries())
+    .sort((a, b) => b[0] - a[0])
+    .forEach(([len, qty]) => {
+      materials.push({
+        category: 'Siding',
+        description: `1x6 Fascia Boards (${len}')`,
+        quantity: qty,
+        unit: 'piece',
+        notes: 'Roof edge fascia',
+        lumberLength: len,
+      });
+    });
 
   return materials;
 }

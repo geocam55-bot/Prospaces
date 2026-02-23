@@ -3,45 +3,75 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Loader2, Save, Hammer, RefreshCw, Home, Warehouse, Building2 } from 'lucide-react';
+import { Loader2, Save, RefreshCw, Hammer, Home, Warehouse, Building2 } from 'lucide-react';
 import {
   getProjectWizardDefaults,
   upsertProjectWizardDefault,
+  batchUpsertProjectWizardDefaults,
   getInventoryItemsForDropdown,
   ProjectWizardDefault,
   InventoryItem,
 } from '../utils/project-wizard-defaults-client';
 import { InventoryCombobox } from './InventoryCombobox';
+import { STANDARD_LUMBER_LENGTHS } from '../utils/lumberLengths';
 
 interface ProjectWizardSettingsProps {
   organizationId: string;
   onSave: (type: 'success' | 'error', message: string) => void;
 }
 
+// Helper: generate length-specific entries for a lumber category
+const lumberLengthEntries = (baseName: string): string[] =>
+  STANDARD_LUMBER_LENGTHS.map((len) => `${baseName} (${len}')`);
+
 // Define material categories for each planner type - organized by category sections
 const PLANNER_CATEGORIES = {
   deck: {
     spruce: {
       'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
+      'Framing - Joists by Length': lumberLengthEntries('Joists'),
+      'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+      'Framing - Beams by Length': lumberLengthEntries('Beams'),
+      'Framing - Posts by Length': lumberLengthEntries('Posts'),
       'Decking': ['Decking Boards', 'Stair Treads'],
+      'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
     treated: {
       'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
+      'Framing - Joists by Length': lumberLengthEntries('Joists'),
+      'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+      'Framing - Beams by Length': lumberLengthEntries('Beams'),
+      'Framing - Posts by Length': lumberLengthEntries('Posts'),
       'Decking': ['Decking Boards', 'Stair Treads'],
+      'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
     composite: {
       'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
+      'Framing - Joists by Length': lumberLengthEntries('Joists'),
+      'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+      'Framing - Beams by Length': lumberLengthEntries('Beams'),
+      'Framing - Posts by Length': lumberLengthEntries('Posts'),
       'Decking': ['Decking Boards', 'Stair Treads'],
+      'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Deck Clips', 'Composite Screws', 'Composite Plugs', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws'],
     },
     cedar: {
       'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+      'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
+      'Framing - Joists by Length': lumberLengthEntries('Joists'),
+      'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+      'Framing - Beams by Length': lumberLengthEntries('Beams'),
+      'Framing - Posts by Length': lumberLengthEntries('Posts'),
       'Decking': ['Decking Boards', 'Stair Treads'],
+      'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
@@ -49,9 +79,13 @@ const PLANNER_CATEGORIES = {
   garage: {
     default: {
       'Foundation': ['Concrete Slab', 'Vapor Barrier', 'Gravel Base', 'Rebar', 'Wire Mesh'],
-      'Framing': ['Wall Framing (2x4)', 'Wall Framing (2x6)', 'Plates', 'Headers', 'Blocking/Bracing', 'Roof Trusses', 'Wall Sheathing', 'Roof Sheathing'],
+      'Framing': ['Wall Studs', 'Plates', 'Headers', 'Blocking/Bracing', 'Roof Trusses', 'Wall Sheathing', 'Roof Sheathing'],
+      'Framing - Wall Studs by Length': lumberLengthEntries('Wall Studs'),
+      'Framing - Plates by Length': lumberLengthEntries('Plates'),
+      'Framing - Headers by Length': lumberLengthEntries('Headers'),
       'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
       'Siding': ['House Wrap', 'Siding', 'Trim Boards', 'Fascia Boards'],
+      'Siding - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
       'Doors': ['Garage Door', 'Garage Door Opener', 'Entry Door'],
       'Windows': ['Windows'],
       'Hardware': ['16d Common Nails', '8d Common Nails', 'Joist Hangers', 'Hurricane Ties', 'Construction Adhesive', 'Anchor Bolts'],
@@ -62,13 +96,21 @@ const PLANNER_CATEGORIES = {
   shed: {
     default: {
       'Foundation': ['Foundation Skids', 'Concrete Blocks', 'Runners', 'Gravel', 'Landscape Fabric', 'Border', 'Concrete Slab', 'Wire Mesh', 'Vapor Barrier'],
-      'Framing': ['Floor Joists', 'Rim Joists', 'Wall Framing', 'Plates', 'Headers', 'Roof Rafters', 'Roof Trusses', 'Collar Ties', 'Ridge Board', 'Loft Joists', 'Wall Sheathing', 'Roof Sheathing'],
+      'Framing': ['Floor Joists', 'Rim Joists', 'Wall Studs', 'Plates', 'Headers', 'Rafters', 'Roof Trusses', 'Collar Ties', 'Ridge Board', 'Loft Joists', 'Wall Sheathing', 'Roof Sheathing'],
+      'Framing - Floor Joists by Length': lumberLengthEntries('Floor Joists'),
+      'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+      'Framing - Wall Studs by Length': lumberLengthEntries('Wall Studs'),
+      'Framing - Plates by Length': lumberLengthEntries('Plates'),
+      'Framing - Rafters by Length': lumberLengthEntries('Rafters'),
+      'Framing - Ridge Board by Length': lumberLengthEntries('Ridge Board'),
+      'Framing - Loft Joists by Length': lumberLengthEntries('Loft Joists'),
       'Flooring': ['Floor Decking'],
       'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
       'Siding': ['House Wrap', 'Siding'],
       'Doors': ['Door', 'Door Hardware', 'Hinges', 'Handle/Latch'],
       'Windows': ['Windows', 'Shutters'],
       'Trim': ['Corner Trim', 'Fascia Boards', 'Door/Window Trim', 'Flower Box Kit'],
+      'Trim - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
       'Hardware': ['16d Common Nails', '8d Box Nails', 'Deck Screws', 'Hurricane Ties', 'Construction Adhesive'],
       'Electrical': ['Electrical Wire', 'Light Fixture', 'Outlet (GFCI)', 'Light Switch', 'Junction Box'],
       'Accessories': ['Shelf Supports', 'Plywood Shelving', 'Shelf Brackets'],
@@ -218,35 +260,28 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   const handleSave = async () => {
     setSaving(true);
     try {
-      const savePromises: Promise<any>[] = [];
-
-      // Convert defaults back to array format and save
-      Object.entries(defaults).forEach(([key, inventoryItemId]) => {
+      // Convert defaults to array format for batch upsert
+      const defaultConfigs: ProjectWizardDefault[] = Object.entries(defaults).map(([key, inventoryItemId]) => {
         const [plannerType, materialType, ...categoryParts] = key.split('-');
         const category = categoryParts.join('-');
 
-        const defaultConfig: ProjectWizardDefault = {
+        return {
           organization_id: organizationId,
           planner_type: plannerType as 'deck' | 'garage' | 'shed' | 'roof',
           material_type: materialType === 'default' ? undefined : materialType,
           material_category: category,
           inventory_item_id: inventoryItemId || undefined,
         };
-
-        console.log('📝 Saving default config:', defaultConfig);
-        savePromises.push(upsertProjectWizardDefault(defaultConfig));
       });
 
-      console.log(`💾 Saving ${savePromises.length} defaults to database...`);
-      const results = await Promise.all(savePromises);
+      console.log(`💾 Batch saving ${defaultConfigs.length} defaults to database via server...`);
+      const result = await batchUpsertProjectWizardDefaults(defaultConfigs);
       
-      // Check if any saves failed (returned null)
-      const failedSaves = results.filter(r => r === null);
-      if (failedSaves.length > 0) {
-        console.error(`❌ ${failedSaves.length} saves failed out of ${results.length}`);
-        onSave('error', `Failed to save ${failedSaves.length} default(s). Check console for details.`);
+      if (!result.success) {
+        console.error('❌ Batch save failed');
+        onSave('error', 'Failed to save project wizard defaults. Check console for details.');
       } else {
-        console.log('✅ All defaults saved successfully!');
+        console.log(`✅ All ${result.savedCount} defaults saved successfully!`);
         onSave('success', 'Project Wizard defaults saved successfully!');
       }
     } catch (error) {

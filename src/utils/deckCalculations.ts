@@ -1,4 +1,12 @@
 import { DeckConfig, DeckMaterials, MaterialItem, DeckingMaterialType } from '../types/deck';
+import {
+  selectLumberLength,
+  getLumberCombination,
+  getLumberLengthDescription,
+  getBoardsPerSpan,
+  getDeckBoardSpan,
+  getDeckBoardCoverageDimension,
+} from './lumberLengths';
 
 // Mapping of decking material types to search keywords for inventory lookup
 const DECKING_TYPE_KEYWORDS: Record<DeckingMaterialType, string[]> = {
@@ -53,35 +61,19 @@ export function calculateRailingLength(config: DeckConfig): number {
     
     switch (lPos) {
       case 'top-right':
-        // L extends RIGHT from the back-right corner
-        // Outer perimeter: main right (partial), L right outer, L front connecting, main front, main left
-        totalLength = (mainLength - lLength) + lLength + lWidth + mainWidth + mainLength;
-        // Simplifies to: mainLength + lWidth + mainWidth + mainLength
         totalLength = 2 * mainLength + mainWidth + lWidth;
         break;
         
       case 'bottom-right':
-        // L extends RIGHT from the front-right corner
-        // Outer perimeter: main right (partial), L right outer, L bottom, main front, main left
-        totalLength = (mainLength - lLength) + lLength + lWidth + mainWidth + mainLength;
-        // Simplifies to: mainLength + lWidth + mainWidth + mainLength
         totalLength = 2 * mainLength + mainWidth + lWidth;
         break;
         
       case 'bottom-left':
-        // L extends LEFT from the front-left corner
-        // Outer perimeter: main right, main front, L bottom, L left outer, main left (partial)
-        totalLength = mainLength + mainWidth + lWidth + lLength + (mainLength - lLength);
-        // Simplifies to: mainLength + mainWidth + lWidth + mainLength
         totalLength = 2 * mainLength + mainWidth + lWidth;
         break;
         
       case 'top-left':
       default:
-        // L extends LEFT from the back-left corner
-        // Outer perimeter: main right, main front, main left (partial), L left outer, L front edge
-        totalLength = mainLength + mainWidth + (mainLength - lLength) + lLength + lWidth;
-        // Simplifies to: mainLength + mainWidth + mainLength + lWidth
         totalLength = 2 * mainLength + mainWidth + lWidth;
         break;
     }
@@ -95,8 +87,36 @@ export function calculateRailingLength(config: DeckConfig): number {
   return totalLength;
 }
 
+// ---------------------------------------------------------------------------
+// Helper: consolidate lumber pieces by length into a Map<length, totalCount>
+// ---------------------------------------------------------------------------
+function consolidatePieces(
+  combo: { length: number; count: number }[],
+  multiplier: number
+): Map<number, number> {
+  const pieces = new Map<number, number>();
+  combo.forEach(({ length, count }) => {
+    pieces.set(length, (pieces.get(length) || 0) + count * multiplier);
+  });
+  return pieces;
+}
+
+function addConsolidatedPieces(
+  target: Map<number, number>,
+  combo: { length: number; count: number }[],
+  multiplier: number
+): void {
+  combo.forEach(({ length, count }) => {
+    target.set(length, (target.get(length) || 0) + count * multiplier);
+  });
+}
+
 /**
  * Main materials calculation function
+ * 
+ * Lumber lengths are automatically selected based on the deck dimensions.
+ * Standard lengths: 8', 10', 12', 14', 16'.
+ * Spans exceeding 16' are covered by combining boards (e.g., 24' = 16' + 8').
  */
 export function calculateMaterials(config: DeckConfig): DeckMaterials {
   const deckArea = calculateDeckArea(config);
@@ -105,78 +125,134 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
   // FRAMING
   const framing: MaterialItem[] = [];
   
-  // Ledger Board - attaches deck to house
-  // Uses same depth as joists (2x8), length equals deck width
-  framing.push({
-    category: 'Framing',
-    description: `2x8 Pressure Treated Ledger Board (${config.width}')`,
-    quantity: 1,
-    unit: 'pcs',
-    notes: 'Attaches deck to house structure',
+  // ---- Ledger Board ----
+  // Spans the deck width, attaches to house
+  const ledgerCombo = getLumberCombination(config.width);
+  ledgerCombo.forEach(({ length, count }) => {
+    framing.push({
+      category: 'Framing',
+      description: `2x8 Pressure Treated Ledger Board (${length}')`,
+      quantity: count,
+      unit: 'pcs',
+      notes: ledgerCombo.length > 1
+        ? `Attaches deck to house (${getLumberLengthDescription(config.width)} total span)`
+        : 'Attaches deck to house structure',
+      lumberLength: length,
+    });
   });
   
-  // Joists - calculate based on spacing and length
+  // ---- Joists ----
+  // Joists span from ledger to beam (the deck's depth / length dimension)
   const joistSpacingFeet = config.joistSpacing / 12;
   const numberOfJoists = Math.ceil(config.width / joistSpacingFeet) + 1;
-  const joistLength = config.length;
-  
-  framing.push({
-    category: 'Framing',
-    description: `2x8 Pressure Treated Joists (${joistLength}')`,
-    quantity: numberOfJoists,
-    unit: 'pcs',
-    notes: `Spaced ${config.joistSpacing}" on center`,
+  const joistSpan = config.length;
+  const joistCombo = getLumberCombination(joistSpan);
+
+  joistCombo.forEach(({ length, count }) => {
+    framing.push({
+      category: 'Framing',
+      description: `2x8 Pressure Treated Joists (${length}')`,
+      quantity: numberOfJoists * count,
+      unit: 'pcs',
+      notes: joistCombo.length > 1
+        ? `Spaced ${config.joistSpacing}" O.C. (${getLumberLengthDescription(joistSpan)} per joist)`
+        : `Spaced ${config.joistSpacing}" on center`,
+      lumberLength: length,
+    });
   });
   
-  // Rim joists / band boards (perimeter)
-  const perimeterLength = (config.width * 2) + (config.length * 2);
-  const rimJoistCount = Math.ceil(perimeterLength / 12); // Assuming 12' boards
+  // ---- Rim Joists / Band Boards ----
+  // Front & back span the width; left & right span the length
+  const rimPieces = new Map<number, number>();
+  addConsolidatedPieces(rimPieces, getLumberCombination(config.width), 2);   // front + back
+  addConsolidatedPieces(rimPieces, getLumberCombination(config.length), 2);  // left + right
+
+  Array.from(rimPieces.entries())
+    .sort((a, b) => b[0] - a[0])
+    .forEach(([length, quantity]) => {
+      framing.push({
+        category: 'Framing',
+        description: `2x8 Pressure Treated Rim Joists (${length}')`,
+        quantity,
+        unit: 'pcs',
+        notes: 'Perimeter band boards',
+        lumberLength: length,
+      });
+    });
   
-  framing.push({
-    category: 'Framing',
-    description: '2x8 Pressure Treated Rim Joists (12\')',
-    quantity: rimJoistCount,
-    unit: 'pcs',
-    notes: 'Perimeter band boards',
+  // ---- Beams ----
+  // Beams run parallel to house (span the width), placed every 8' along the length
+  const beamCount = Math.ceil(config.length / 8);
+  const beamCombo = getLumberCombination(config.width);
+
+  beamCombo.forEach(({ length, count }) => {
+    framing.push({
+      category: 'Framing',
+      description: `2x10 Pressure Treated Beams (${length}')`,
+      quantity: beamCount * count,
+      unit: 'pcs',
+      notes: beamCombo.length > 1
+        ? `Main support beams (${getLumberLengthDescription(config.width)} per beam)`
+        : 'Main support beams',
+      lumberLength: length,
+    });
   });
   
-  // Beams - estimate based on deck width
-  const beamCount = Math.ceil(config.length / 8); // Beam every 8 feet
-  
-  framing.push({
-    category: 'Framing',
-    description: `2x10 Pressure Treated Beams (${config.width}')`,
-    quantity: beamCount,
-    unit: 'pcs',
-    notes: 'Main support beams',
-  });
-  
-  // Posts - estimate based on beam locations
+  // ---- Posts ----
+  // Post height = deck height + 1' (buried portion / connection)
   const postCount = beamCount * Math.ceil(config.width / 8);
-  
+  const postHeight = Math.ceil(config.height + 1);
+  const postLumberLength = selectLumberLength(postHeight);
+
   framing.push({
     category: 'Framing',
-    description: `6x6 Pressure Treated Posts (${Math.ceil(config.height + 1)}')`,
+    description: `6x6 Pressure Treated Posts (${postLumberLength}')`,
     quantity: postCount,
     unit: 'pcs',
     notes: 'Support posts with concrete footings',
+    lumberLength: postLumberLength,
   });
   
   // DECKING
   const decking: MaterialItem[] = [];
   
-  // Add 10% waste factor
-  const deckingAreaWithWaste = deckArea * 1.1;
-  const deckingBoardsNeeded = Math.ceil((deckingAreaWithWaste * 12) / (5.5 * config.length)); // 5.5" wide boards
-  
   const deckingMaterialType = config.deckingType || 'Treated';
-  
-  decking.push({
-    category: 'Decking',
-    description: `5/4 x 6 ${deckingMaterialType} Deck Boards (${config.length}')`,
-    quantity: deckingBoardsNeeded,
-    unit: 'pcs',
-    notes: `Covers ${deckArea.toFixed(0)} sq ft (${deckingAreaWithWaste.toFixed(0)} sq ft with waste)`,
+
+  // Determine deck board span based on pattern/orientation
+  const deckBoardSpan = getDeckBoardSpan(config.width, config.length, config.deckingPattern);
+  const deckBoardCombo = getLumberCombination(deckBoardSpan);
+
+  // Number of rows = coverage dimension / board width (5.5")
+  const coverageDimension = getDeckBoardCoverageDimension(
+    config.width,
+    config.length,
+    config.deckingPattern
+  );
+  const numberOfRows = Math.ceil((coverageDimension * 12) / 5.5);
+  // Add 10% waste factor
+  const rowsWithWaste = Math.ceil(numberOfRows * 1.1);
+
+  // For L-shape, add extra rows for the extension area
+  let extraRows = 0;
+  if (config.shape === 'l-shape') {
+    const extW = config.lShapeWidth || 4;
+    const extL = config.lShapeLength || 4;
+    const extCoverage = getDeckBoardCoverageDimension(extW, extL, config.deckingPattern);
+    extraRows = Math.ceil((extCoverage * 12) / 5.5 * 1.1);
+  }
+  const totalRows = rowsWithWaste + extraRows;
+
+  deckBoardCombo.forEach(({ length, count }) => {
+    decking.push({
+      category: 'Decking',
+      description: `5/4 x 6 ${deckingMaterialType} Deck Boards (${length}')`,
+      quantity: totalRows * count,
+      unit: 'pcs',
+      notes: deckBoardCombo.length > 1
+        ? `${getLumberLengthDescription(deckBoardSpan)} per run, covers ${deckArea.toFixed(0)} sq ft`
+        : `Covers ${deckArea.toFixed(0)} sq ft (with 10% waste)`,
+      lumberLength: length,
+    });
   });
   
   // RAILING
@@ -267,22 +343,25 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
     const totalRailLength = railingLength + stairRailingLength;
     
     if (totalRailLength > 0) {
-      // Top and bottom rails
-      const railSections = Math.ceil(totalRailLength / 8); // 8' sections
+      // Top and bottom rails - use standard lumber lengths
+      const railLumberLength = selectLumberLength(Math.min(totalRailLength, 8)); // Rails typically max 8' sections
+      const railSections = Math.ceil(totalRailLength / railLumberLength);
       
       railing.push({
         category: 'Railing',
-        description: '2x4 Top Rail (8\')',
+        description: `2x4 Top Rail (${railLumberLength}')`,
         quantity: railSections,
         unit: 'pcs',
         notes: `${totalRailLength.toFixed(0)} linear feet total`,
+        lumberLength: railLumberLength,
       });
       
       railing.push({
         category: 'Railing',
-        description: '2x4 Bottom Rail (8\')',
+        description: `2x4 Bottom Rail (${railLumberLength}')`,
         quantity: railSections,
         unit: 'pcs',
+        lumberLength: railLumberLength,
       });
       
       // Balusters - 4" spacing typically
@@ -314,13 +393,16 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
   if (config.hasStairs) {
     const stairHeight = config.height;
     const numberOfSteps = Math.ceil(stairHeight / 0.58); // 7" risers
+    const stringerRawLength = Math.ceil(stairHeight + 4);
+    const stringerLumberLength = selectLumberLength(stringerRawLength);
     
     framing.push({
       category: 'Stairs',
-      description: `2x12 Stair Stringers (${Math.ceil(stairHeight + 4)}')`,
+      description: `2x12 Stair Stringers (${stringerLumberLength}')`,
       quantity: 3,
       unit: 'pcs',
       notes: `${numberOfSteps} steps with 7" rise, 11" run`,
+      lumberLength: stringerLumberLength,
     });
     
     decking.push({
