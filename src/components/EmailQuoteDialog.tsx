@@ -106,7 +106,8 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
       // 1. View Online Link (for Click tracking)
       // We route through the frontend to handle auth headers securely
       // Use query parameters instead of path parameters to avoid 404s on static host
-      const type = quote.quoteNumber ? 'quote' : 'bid'; // Simple heuristic
+      // Use _source tag from Bids.tsx loadData to determine table, fallback to quote
+      const type = quote._source === 'bids' ? 'bid' : 'quote';
       const targetUrl = `${appUrl}/?view=public-quote&id=${quoteId}&orgId=${orgId}&type=${type}`;
       const encodedTargetUrl = encodeURIComponent(targetUrl);
       const trackingLinkUrl = `${appUrl}/?view=redirect&url=${encodedTargetUrl}&id=${quoteId}&orgId=${orgId}&type=${type}`;

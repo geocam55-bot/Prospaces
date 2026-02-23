@@ -546,6 +546,7 @@ export function Bids({ user }: BidsProps) {
           quoteNumber: q.quoteNumber ?? q.quote_number ?? '',
           validUntil: q.validUntil ?? q.valid_until ?? '',
           priceTier: q.priceTier ?? q.price_tier ?? 1,
+          status: (q.status ?? 'draft').toLowerCase(),
           createdAt: q.createdAt ?? q.created_at,
           updatedAt: q.updatedAt ?? q.updated_at,
           readAt: tracking?.readAt || q.readAt || q.read_at,
@@ -602,7 +603,7 @@ export function Bids({ user }: BidsProps) {
           quoteNumber: b.quoteNumber ?? b.quote_number ?? b.id?.substring(0, 8) ?? '',
           validUntil: b.validUntil ?? b.valid_until ?? new Date(Date.now() + 30*24*60*60*1000).toISOString(),
           priceTier: b.priceTier ?? b.price_tier ?? 1,
-          status: b.status ?? 'draft',
+          status: (b.status ?? 'draft').toLowerCase(),
           createdAt: b.createdAt ?? b.created_at,
           updatedAt: b.updatedAt ?? b.updated_at,
           readAt: b.readAt ?? b.read_at,
@@ -965,8 +966,8 @@ export function Bids({ user }: BidsProps) {
     if (emailQuote) {
       setSentQuotes(prev => new Set(prev).add(emailQuote.id));
       
-      // Update quote status to 'sent' if it's currently 'draft'
-      if (emailQuote.status === 'draft') {
+      // Update quote status to 'sent' if it's currently 'draft' (case-insensitive for DB compat)
+      if ((emailQuote.status || '').toLowerCase() === 'draft') {
         try {
           if ((emailQuote as any)._source === 'bids') {
             await bidsAPI.update(emailQuote.id, { ...emailQuote, status: 'sent' });

@@ -237,7 +237,7 @@ app.post(`${PREFIX}/bids`, async (c) => {
     body.created_by = body.created_by || auth.user.id;
     body.created_at = new Date().toISOString();
     body.updated_at = new Date().toISOString();
-    if (!body.status) body.status = 'Draft';
+    if (!body.status) body.status = 'draft';
     const { data, error } = await auth.supabase.from('bids').insert([body]).select('*').single();
     if (error) return c.json({ error: error.message }, 500);
     return c.json({ bid: data }, 201);
@@ -1145,37 +1145,42 @@ app.get(`${PREFIX}/public/view`, async (c) => {
       }));
     } catch (_) { /* ignore tracking errors */ }
 
-    // Auto-update deal status from 'sent' → 'viewed' + set read_at timestamp
-    const currentStatus = (data as any).status;
+    // Auto-update deal status from 'sent' → 'viewed'
+    const currentStatus = ((data as any).status || '').toLowerCase();
     if (currentStatus === 'sent') {
       try {
         await supabase
           .from(table)
-          .update({ status: 'viewed', read_at: now })
+          .update({ status: 'viewed' })
           .eq('id', id);
         console.log(`[public/view] Updated ${type} ${id} status: sent → viewed`);
         (data as any).status = 'viewed';
-        (data as any).read_at = now;
       } catch (updateErr: any) {
         console.log(`[public/view] Failed to update status to viewed: ${updateErr.message}`);
       }
+      // Store read_at timestamp in KV (column may not exist on DB table)
+      try {
+        await kv.set(`deal_read_at:${orgId}:${id}`, now);
+      } catch (_) { /* ignore */ }
     }
 
     // Record deal activity event for marketing feed
     try {
       const activityId = crypto.randomUUID();
+      const dealNumber = (data as any).quote_number || (data as any).bid_number || '';
+      const contactName = (data as any).contact_name || (data as any).client_name || '';
       await kv.set(`deal_activity:${orgId}:${activityId}`, {
         id: activityId,
         organization_id: orgId,
         deal_id: id,
         deal_type: type,
-        deal_title: (data as any).title || (data as any).quote_number || id,
-        deal_number: (data as any).quote_number || (data as any).bid_number || '',
-        contact_name: (data as any).contact_name || '',
+        deal_title: (data as any).title || dealNumber || id,
+        deal_number: dealNumber,
+        contact_name: contactName,
         contact_email: (data as any).contact_email || '',
-        deal_total: (data as any).total || 0,
+        deal_total: (data as any).total || (data as any).amount || 0,
         event_type: 'deal_viewed',
-        description: `Customer viewed ${type} #${(data as any).quote_number || (data as any).bid_number || id}`,
+        description: `Customer viewed ${type}${dealNumber ? ` #${dealNumber}` : ''} "${(data as any).title || 'Untitled'}"`,
         created_at: now,
       });
     } catch (_) { /* ignore activity tracking errors */ }
@@ -1222,18 +1227,19 @@ app.post(`${PREFIX}/public/events`, async (c) => {
     try {
       const supabase = getSupabase();
       const table = entityType === 'bid' ? 'bids' : 'quotes';
+      // Select all fields — different tables have different column names
       const { data: dealData } = await supabase
         .from(table)
-        .select('title, quote_number, bid_number, contact_name, contact_email, total')
+        .select('*')
         .eq('id', entityId)
         .eq('organization_id', orgId)
         .single();
       if (dealData) {
         dealTitle = (dealData as any).title || '';
         dealNumber = (dealData as any).quote_number || (dealData as any).bid_number || '';
-        contactName = (dealData as any).contact_name || '';
+        contactName = (dealData as any).contact_name || (dealData as any).client_name || '';
         contactEmail = (dealData as any).contact_email || '';
-        dealTotal = (dealData as any).total || 0;
+        dealTotal = (dealData as any).total || (dealData as any).amount || 0;
       }
     } catch (_) { /* best-effort enrichment */ }
 
