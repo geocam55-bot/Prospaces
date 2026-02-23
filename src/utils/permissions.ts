@@ -208,8 +208,52 @@ export async function initializePermissions(role: UserRole) {
         } else {
           console.log('[permissions] No permissions found in server KV store, using defaults + localStorage');
         }
+      } else if (res.status === 401) {
+        // Token may be stale — refresh session and retry once
+        console.log('[permissions] Got 401 — refreshing session and retrying...');
+        try {
+          const { createClient: createSB } = await import('./supabase/client');
+          const sb = createSB();
+          const { data: { session: refreshed } } = await sb.auth.refreshSession();
+          if (refreshed?.access_token) {
+            const retryHeaders = await getServerHeaders();
+            const retryRes = await fetch(
+              `${SERVER_BASE}/permissions?organization_id=${encodeURIComponent(orgId)}`,
+              { headers: retryHeaders }
+            );
+            if (retryRes.ok) {
+              const retryJson = await retryRes.json();
+              if (retryJson.permissions && Array.isArray(retryJson.permissions) && retryJson.permissions.length > 0) {
+                let count = 0;
+                retryJson.permissions.forEach((perm: any) => {
+                  if (perm.module && perm.role) {
+                    const key = `${perm.module}:${perm.role}`;
+                    permissionsCache.set(key, {
+                      visible: !!perm.visible,
+                      add: !!perm.add,
+                      change: !!perm.change,
+                      delete: !!perm.delete,
+                    });
+                    count++;
+                  }
+                });
+                localStorage.setItem(`permissions_${orgId}`, JSON.stringify(retryJson.permissions));
+                console.log(`[permissions] Retry succeeded — applied ${count} permissions from server`);
+                notifyPermissionsChanged();
+              } else {
+                console.log('[permissions] Retry succeeded but no permissions in KV, using defaults + localStorage');
+              }
+            } else {
+              console.log(`[permissions] Retry also returned ${retryRes.status}, using defaults + localStorage`);
+            }
+          } else {
+            console.log('[permissions] Session refresh returned no token, using defaults + localStorage');
+          }
+        } catch (retryErr: any) {
+          console.log('[permissions] Session refresh/retry failed, using defaults + localStorage');
+        }
       } else {
-        console.warn(`[permissions] Server returned ${res.status}, using defaults + localStorage`);
+        console.log(`[permissions] Server returned ${res.status}, using defaults + localStorage`);
       }
     } catch (timeoutError) {
       console.log('[permissions] Server fetch timed out, using defaults + localStorage');

@@ -412,6 +412,117 @@ export async function trackMarketingEvent(
   }
 }
 
+// ============== DEAL ACTIVITY ==============
+
+export interface DealActivity {
+  id: string;
+  organization_id: string;
+  deal_id: string;
+  deal_type: string;
+  deal_title?: string;
+  deal_number?: string;
+  contact_name?: string;
+  contact_email?: string;
+  deal_total?: number;
+  event_type: string;
+  description: string;
+  created_by?: string;
+  created_at: string;
+}
+
+/**
+ * Helper: refresh session and rebuild headers for 401 retry.
+ */
+async function refreshAndRetryHeaders(): Promise<Record<string, string> | null> {
+  try {
+    const supabase = createClient();
+    const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+    if (refreshed?.access_token) {
+      return await getServerHeaders();
+    }
+  } catch (err) {
+    console.warn('[marketing-client] Session refresh failed:', err);
+  }
+  return null;
+}
+
+export async function getDealActivities(): Promise<DealActivity[]> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${BASE_URL}/marketing/deal-activities`, { headers });
+
+    // 401 retry: refresh session and try once more
+    if (response.status === 401) {
+      console.warn('[marketing-client] getDealActivities got 401 — refreshing session...');
+      const retryHeaders = await refreshAndRetryHeaders();
+      if (retryHeaders) {
+        const retryResponse = await fetch(`${BASE_URL}/marketing/deal-activities`, { headers: retryHeaders });
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          return retryData.activities || [];
+        }
+      }
+      return [];
+    }
+
+    if (!response.ok) {
+      console.warn('Failed to fetch deal activities:', response.statusText);
+      return [];
+    }
+    const data = await response.json();
+    return data.activities || [];
+  } catch (error) {
+    console.error('Error fetching deal activities:', error);
+    return [];
+  }
+}
+
+export async function recordDealActivity(activity: {
+  deal_id: string;
+  deal_type?: string;
+  deal_title?: string;
+  deal_number?: string;
+  contact_name?: string;
+  contact_email?: string;
+  deal_total?: number;
+  event_type: string;
+  description: string;
+}): Promise<void> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${BASE_URL}/marketing/deal-activities`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(activity),
+    });
+
+    // 401 retry: refresh session and try once more
+    if (response.status === 401) {
+      console.warn('[marketing-client] recordDealActivity got 401 — refreshing session...');
+      const retryHeaders = await refreshAndRetryHeaders();
+      if (retryHeaders) {
+        const retryResponse = await fetch(`${BASE_URL}/marketing/deal-activities`, {
+          method: 'POST',
+          headers: retryHeaders,
+          body: JSON.stringify(activity),
+        });
+        if (!retryResponse.ok) {
+          const err = await retryResponse.json().catch(() => ({}));
+          console.error('Error recording deal activity (retry):', err);
+        }
+      }
+      return;
+    }
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      console.error('Error recording deal activity:', err);
+    }
+  } catch (error) {
+    console.error('Error recording deal activity:', error);
+  }
+}
+
 export async function getCampaignStats(organizationId: string) {
   try {
     const headers = await getAuthHeaders();

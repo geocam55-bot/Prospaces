@@ -254,6 +254,68 @@ export function marketing(app: Hono) {
     }
   });
 
+  // ============== DEAL ACTIVITY (KV-backed) ==============
+
+  // GET all deal activities for the user's org
+  app.get('/make-server-8405be07/marketing/deal-activities', async (c) => {
+    console.log('GET /marketing/deal-activities');
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const activities = await kv.getByPrefix(`deal_activity:${auth.orgId}:`);
+      // Sort by created_at descending (most recent first)
+      activities.sort((a: any, b: any) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateB - dateA;
+      });
+
+      // Return most recent 100
+      return c.json({ activities: activities.slice(0, 100) });
+    } catch (error: any) {
+      console.error('Error fetching deal activities:', error);
+      return c.json({ error: 'Failed to fetch deal activities', message: error.message }, 500);
+    }
+  });
+
+  // POST record a new deal activity (e.g., email_sent from frontend)
+  app.post('/make-server-8405be07/marketing/deal-activities', async (c) => {
+    console.log('POST /marketing/deal-activities');
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const body = await c.req.json();
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const activity = {
+        id,
+        organization_id: auth.orgId,
+        deal_id: body.deal_id,
+        deal_type: body.deal_type || 'quote',
+        deal_title: body.deal_title || '',
+        deal_number: body.deal_number || '',
+        contact_name: body.contact_name || '',
+        contact_email: body.contact_email || '',
+        deal_total: body.deal_total || 0,
+        event_type: body.event_type || 'deal_interaction',
+        description: body.description || '',
+        created_by: auth.userId,
+        created_at: now,
+      };
+
+      await kv.set(`deal_activity:${auth.orgId}:${id}`, activity);
+      console.log(`Recorded deal activity: ${activity.event_type} for deal ${body.deal_id}`);
+
+      return c.json({ activity });
+    } catch (error: any) {
+      console.error('Error recording deal activity:', error);
+      return c.json({ error: 'Failed to record deal activity', message: error.message }, 500);
+    }
+  });
+
   // ============== JOURNEYS ==============
 
   // GET all journeys for the user's org

@@ -1132,6 +1132,8 @@ app.get(`${PREFIX}/public/view`, async (c) => {
       return c.json({ error: 'Document not found' }, 404);
     }
 
+    const now = new Date().toISOString();
+
     // Record view event (fire-and-forget)
     try {
       await kv.set(`tracking:view:${type}:${id}:${Date.now()}`, JSON.stringify({
@@ -1139,9 +1141,44 @@ app.get(`${PREFIX}/public/view`, async (c) => {
         entityType: type,
         entityId: id,
         orgId,
-        timestamp: new Date().toISOString(),
+        timestamp: now,
       }));
     } catch (_) { /* ignore tracking errors */ }
+
+    // Auto-update deal status from 'sent' → 'viewed' + set read_at timestamp
+    const currentStatus = (data as any).status;
+    if (currentStatus === 'sent') {
+      try {
+        await supabase
+          .from(table)
+          .update({ status: 'viewed', read_at: now })
+          .eq('id', id);
+        console.log(`[public/view] Updated ${type} ${id} status: sent → viewed`);
+        (data as any).status = 'viewed';
+        (data as any).read_at = now;
+      } catch (updateErr: any) {
+        console.log(`[public/view] Failed to update status to viewed: ${updateErr.message}`);
+      }
+    }
+
+    // Record deal activity event for marketing feed
+    try {
+      const activityId = crypto.randomUUID();
+      await kv.set(`deal_activity:${orgId}:${activityId}`, {
+        id: activityId,
+        organization_id: orgId,
+        deal_id: id,
+        deal_type: type,
+        deal_title: (data as any).title || (data as any).quote_number || id,
+        deal_number: (data as any).quote_number || (data as any).bid_number || '',
+        contact_name: (data as any).contact_name || '',
+        contact_email: (data as any).contact_email || '',
+        deal_total: (data as any).total || 0,
+        event_type: 'deal_viewed',
+        description: `Customer viewed ${type} #${(data as any).quote_number || (data as any).bid_number || id}`,
+        created_at: now,
+      });
+    } catch (_) { /* ignore activity tracking errors */ }
 
     // Strip sensitive fields before returning to public viewer
     const { access_token, refresh_token, nylas_grant_id, imap_password, ...safeData } = data as any;
@@ -1163,6 +1200,8 @@ app.post(`${PREFIX}/public/events`, async (c) => {
       return c.json({ error: 'Missing entityId or orgId' }, 400);
     }
 
+    const now = new Date().toISOString();
+
     // Store tracking event in KV
     await kv.set(`tracking:${eventType || 'click'}:${entityType || 'quote'}:${entityId}:${Date.now()}`, JSON.stringify({
       type: eventType || 'click',
@@ -1171,8 +1210,52 @@ app.post(`${PREFIX}/public/events`, async (c) => {
       orgId,
       url,
       userAgent,
-      timestamp: new Date().toISOString(),
+      timestamp: now,
     }));
+
+    // Look up deal details from DB to enrich the activity record
+    let dealTitle = '';
+    let dealNumber = '';
+    let contactName = '';
+    let contactEmail = '';
+    let dealTotal = 0;
+    try {
+      const supabase = getSupabase();
+      const table = entityType === 'bid' ? 'bids' : 'quotes';
+      const { data: dealData } = await supabase
+        .from(table)
+        .select('title, quote_number, bid_number, contact_name, contact_email, total')
+        .eq('id', entityId)
+        .eq('organization_id', orgId)
+        .single();
+      if (dealData) {
+        dealTitle = (dealData as any).title || '';
+        dealNumber = (dealData as any).quote_number || (dealData as any).bid_number || '';
+        contactName = (dealData as any).contact_name || '';
+        contactEmail = (dealData as any).contact_email || '';
+        dealTotal = (dealData as any).total || 0;
+      }
+    } catch (_) { /* best-effort enrichment */ }
+
+    // Also record as deal activity for the marketing feed
+    try {
+      const activityId = crypto.randomUUID();
+      const evtLabel = eventType === 'click' ? 'deal_link_clicked' : (eventType || 'deal_interaction');
+      await kv.set(`deal_activity:${orgId}:${activityId}`, {
+        id: activityId,
+        organization_id: orgId,
+        deal_id: entityId,
+        deal_type: entityType || 'quote',
+        deal_title: dealTitle || entityId,
+        deal_number: dealNumber,
+        contact_name: contactName,
+        contact_email: contactEmail,
+        deal_total: dealTotal,
+        event_type: evtLabel,
+        description: `Customer ${eventType === 'click' ? 'clicked link in' : 'interacted with'} ${entityType || 'quote'}${dealNumber ? ` #${dealNumber}` : ''}`,
+        created_at: now,
+      });
+    } catch (_) { /* ignore activity errors */ }
 
     return c.json({ success: true });
   } catch (err: any) {

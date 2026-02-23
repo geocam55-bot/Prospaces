@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { TrendingUp, TrendingDown, Mail, Users, MousePointer, DollarSign, Target, Zap } from 'lucide-react';
+import { Badge } from '../ui/badge';
+import { TrendingUp, TrendingDown, Mail, Users, MousePointer, DollarSign, Target, Zap, Send, Eye, MousePointerClick, FileText } from 'lucide-react';
 import type { User } from '../../App';
 import { campaignsAPI, contactsAPI, journeysAPI } from '../../utils/api';
+import { getDealActivities, type DealActivity } from '../../utils/marketing-client';
+import { Skeleton } from '../ui/skeleton';
 
 interface MarketingDashboardProps {
   user: User;
@@ -19,16 +22,18 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
     activeJourneys: 0
   });
   const [recentCampaigns, setRecentCampaigns] = useState<any[]>([]);
+  const [dealActivities, setDealActivities] = useState<DealActivity[]>([]);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
         // Fetch data in parallel
-        const [campaignsData, contactsData, journeysData] = await Promise.all([
+        const [campaignsData, contactsData, journeysData, activitiesData] = await Promise.all([
           campaignsAPI.getAll(),
           contactsAPI.getAll('team'),
-          journeysAPI.getAll(user.organizationId || '')
+          journeysAPI.getAll(user.organizationId || ''),
+          getDealActivities()
         ]);
 
         const campaigns = campaignsData.campaigns || [];
@@ -65,6 +70,7 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
         });
 
         setRecentCampaigns(campaigns.slice(0, 5));
+        setDealActivities(activitiesData.slice(0, 20));
 
       } catch (error) {
         console.error('Error loading marketing dashboard data:', error);
@@ -85,7 +91,8 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
       change: 'currently running',
       trend: 'neutral',
       icon: Mail,
-      color: 'blue'
+      bgColor: 'bg-blue-100',
+      textColor: 'text-blue-600',
     },
     {
       title: 'Total Leads',
@@ -93,7 +100,8 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
       change: 'total contacts',
       trend: 'up',
       icon: Users,
-      color: 'green'
+      bgColor: 'bg-green-100',
+      textColor: 'text-green-600',
     },
     {
       title: 'Avg. Open Rate',
@@ -101,7 +109,8 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
       change: 'across campaigns',
       trend: 'neutral',
       icon: MousePointer,
-      color: 'purple'
+      bgColor: 'bg-purple-100',
+      textColor: 'text-purple-600',
     },
     {
       title: 'Conversion Rate',
@@ -109,7 +118,8 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
       change: 'overall',
       trend: 'neutral',
       icon: Target,
-      color: 'orange'
+      bgColor: 'bg-orange-100',
+      textColor: 'text-orange-600',
     },
     {
       title: 'Revenue Attribution',
@@ -117,7 +127,8 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
       change: 'total revenue',
       trend: 'up',
       icon: DollarSign,
-      color: 'emerald'
+      bgColor: 'bg-emerald-100',
+      textColor: 'text-emerald-600',
     },
     {
       title: 'Active Journeys',
@@ -125,17 +136,66 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
       change: 'automated flows',
       trend: 'neutral',
       icon: Zap,
-      color: 'indigo'
+      bgColor: 'bg-indigo-100',
+      textColor: 'text-indigo-600',
     },
   ];
 
   const topPerformingContent: any[] = []; // Placeholder
 
+  const getActivityIcon = (eventType: string) => {
+    switch (eventType) {
+      case 'deal_email_sent': return <Send className="h-4 w-4 text-blue-600" />;
+      case 'deal_viewed': return <Eye className="h-4 w-4 text-indigo-600" />;
+      case 'deal_link_clicked': return <MousePointerClick className="h-4 w-4 text-green-600" />;
+      default: return <FileText className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getActivityBadge = (eventType: string) => {
+    switch (eventType) {
+      case 'deal_email_sent': return <Badge className="bg-blue-100 text-blue-700 border-0 text-[10px]">Email Sent</Badge>;
+      case 'deal_viewed': return <Badge className="bg-indigo-100 text-indigo-700 border-0 text-[10px]">Viewed</Badge>;
+      case 'deal_link_clicked': return <Badge className="bg-green-100 text-green-700 border-0 text-[10px]">Link Clicked</Badge>;
+      default: return <Badge className="bg-gray-100 text-gray-700 border-0 text-[10px]">{eventType}</Badge>;
+    }
+  };
+
+  const formatTimeAgo = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
   return (
     <div className="space-y-6">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {dashboardStats.map((stat) => {
+        {loading ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-8 w-16" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                  <Skeleton className="h-12 w-12 rounded-lg" />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+        dashboardStats.map((stat) => {
           const Icon = stat.icon;
           return (
             <Card key={stat.title}>
@@ -156,14 +216,15 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
                       </span>
                     </div>
                   </div>
-                  <div className={`h-12 w-12 rounded-lg bg-${stat.color}-100 flex items-center justify-center`}>
-                    <Icon className={`h-6 w-6 text-${stat.color}-600`} />
+                  <div className={`h-12 w-12 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
+                    <Icon className={`h-6 w-6 ${stat.textColor}`} />
                   </div>
                 </div>
               </CardContent>
             </Card>
           );
-        })}
+        })
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -212,11 +273,11 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
           <CardContent>
             <div className="space-y-4">
               {[
-                { stage: 'Total Leads', count: stats.totalLeads, percentage: 100, color: 'blue' },
-                { stage: 'Sent Campaigns', count: recentCampaigns.reduce((sum, c) => sum + (c.sent_count || c.sent || 0), 0), percentage: stats.totalLeads > 0 ? Math.min(100, (recentCampaigns.reduce((sum, c) => sum + (c.sent_count || c.sent || 0), 0) / stats.totalLeads) * 100) : 0, color: 'indigo' },
+                { stage: 'Total Leads', count: stats.totalLeads, percentage: 100, barClass: 'bg-blue-500' },
+                { stage: 'Sent Campaigns', count: recentCampaigns.reduce((sum, c) => sum + (c.sent_count || c.sent || 0), 0), percentage: stats.totalLeads > 0 ? Math.min(100, (recentCampaigns.reduce((sum, c) => sum + (c.sent_count || c.sent || 0), 0) / stats.totalLeads) * 100) : 0, barClass: 'bg-indigo-500' },
                 // Approximating 'Qualified' as Opened for now
-                { stage: 'Engaged (Opened)', count: recentCampaigns.reduce((sum, c) => sum + (c.opened_count || c.opened || 0), 0), percentage: stats.totalLeads > 0 ? Math.min(100, (recentCampaigns.reduce((sum, c) => sum + (c.opened_count || c.opened || 0), 0) / stats.totalLeads) * 100) : 0, color: 'purple' },
-                { stage: 'Conversions', count: recentCampaigns.reduce((sum, c) => sum + (c.converted_count || c.converted || 0), 0), percentage: stats.totalLeads > 0 ? Math.min(100, (recentCampaigns.reduce((sum, c) => sum + (c.converted_count || c.converted || 0), 0) / stats.totalLeads) * 100) : 0, color: 'green' },
+                { stage: 'Engaged (Opened)', count: recentCampaigns.reduce((sum, c) => sum + (c.opened_count || c.opened || 0), 0), percentage: stats.totalLeads > 0 ? Math.min(100, (recentCampaigns.reduce((sum, c) => sum + (c.opened_count || c.opened || 0), 0) / stats.totalLeads) * 100) : 0, barClass: 'bg-purple-500' },
+                { stage: 'Conversions', count: recentCampaigns.reduce((sum, c) => sum + (c.converted_count || c.converted || 0), 0), percentage: stats.totalLeads > 0 ? Math.min(100, (recentCampaigns.reduce((sum, c) => sum + (c.converted_count || c.converted || 0), 0) / stats.totalLeads) * 100) : 0, barClass: 'bg-green-500' },
               ].map((stage, index) => (
                 <div key={index}>
                   <div className="flex items-center justify-between mb-2">
@@ -225,7 +286,7 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
                   </div>
                   <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
                     <div
-                      className={`h-full bg-${stage.color}-500`}
+                      className={`h-full ${stage.barClass}`}
                       style={{ width: `${stage.percentage}%` }}
                     />
                   </div>
@@ -235,6 +296,61 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Deal Activity Feed */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-blue-600" />
+            Deal Activity Feed
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {dealActivities.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Mail className="h-10 w-10 mx-auto mb-3 text-gray-300" />
+              <p className="text-sm font-medium">No deal activity yet</p>
+              <p className="text-xs mt-1">When you email deals to customers, activity will appear here — including when they open and view the deal.</p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {dealActivities.map((activity) => (
+                <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <div className="mt-0.5 flex-shrink-0">
+                    {getActivityIcon(activity.event_type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-gray-900 truncate">
+                        {activity.deal_title || activity.deal_number || 'Deal'}
+                      </span>
+                      {getActivityBadge(activity.event_type)}
+                    </div>
+                    <p className="text-xs text-gray-600 mt-0.5 truncate">
+                      {activity.description}
+                    </p>
+                    <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-400">
+                      {activity.contact_name && (
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {activity.contact_name}
+                        </span>
+                      )}
+                      {activity.deal_total != null && activity.deal_total > 0 && (
+                        <span className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(activity.deal_total)}
+                        </span>
+                      )}
+                      <span>{formatTimeAgo(activity.created_at)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

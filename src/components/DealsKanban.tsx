@@ -88,7 +88,7 @@ const DealCard = ({
     }),
   }), [quote.id, quote.status]);
 
-  const isViewed = quote.status === 'sent' && quote.readAt;
+  const isViewed = quote.status === 'viewed' || (quote.status === 'sent' && !!quote.readAt);
   
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -216,6 +216,7 @@ const KanbanColumn = ({
       case 'accepted': return 'bg-green-50 border-green-200 text-green-700';
       case 'completed': return 'bg-teal-50 border-teal-200 text-teal-700';
       case 'rejected': return 'bg-red-50 border-red-200 text-red-700';
+      case 'viewed': return 'bg-indigo-50 border-indigo-200 text-indigo-700';
       case 'sent': return 'bg-blue-50 border-blue-200 text-blue-700';
       case 'expired': return 'bg-orange-50 border-orange-200 text-orange-700';
       default: return 'bg-gray-50 border-gray-200 text-gray-700';

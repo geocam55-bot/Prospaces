@@ -2583,6 +2583,10 @@
     border-left-color: #0000;
   }
 
+  .bg-accent {
+    background-color: oklch(.97 0 0);
+  }
+
   .bg-amber-50 {
     background-color: var(--color-amber-50);
   }
@@ -2885,6 +2889,10 @@
 
   .bg-purple-400 {
     background-color: var(--color-purple-400);
+  }
+
+  .bg-purple-500 {
+    background-color: var(--color-purple-500);
   }
 
   .bg-purple-600 {
@@ -4106,6 +4114,10 @@
 
   .text-emerald-400 {
     color: var(--color-emerald-400);
+  }
+
+  .text-emerald-600 {
+    color: var(--color-emerald-600);
   }
 
   .text-emerald-700 {

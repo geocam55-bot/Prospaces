@@ -978,6 +978,25 @@ export function Bids({ user }: BidsProps) {
           console.error('Failed to update deal status after sending email:', error);
         }
       }
+
+      // Record deal activity for marketing feed (fire-and-forget)
+      try {
+        const { recordDealActivity } = await import('../utils/marketing-client');
+        const dealType = (emailQuote as any)._source === 'bids' ? 'bid' : 'quote';
+        await recordDealActivity({
+          deal_id: emailQuote.id,
+          deal_type: dealType,
+          deal_title: emailQuote.title,
+          deal_number: emailQuote.quoteNumber,
+          contact_name: emailQuote.contactName,
+          contact_email: emailQuote.contactEmail || '',
+          deal_total: emailQuote.total,
+          event_type: 'deal_email_sent',
+          description: `Deal #${emailQuote.quoteNumber} "${emailQuote.title}" emailed to ${emailQuote.contactName}`,
+        });
+      } catch (err) {
+        console.error('Failed to record deal activity:', err);
+      }
     }
   };
 
