@@ -2949,6 +2949,10 @@
     background-color: var(--color-slate-600);
   }
 
+  .bg-slate-800 {
+    background-color: var(--color-slate-800);
+  }
+
   .bg-slate-950 {
     background-color: var(--color-slate-950);
   }
@@ -5112,6 +5116,12 @@
   }
 
   @media (hover: hover) {
+    .hover\:bg-amber-50:hover {
+      background-color: var(--color-amber-50);
+    }
+  }
+
+  @media (hover: hover) {
     .hover\:bg-amber-100:hover {
       background-color: var(--color-amber-100);
     }
@@ -5519,6 +5529,12 @@
   @media (hover: hover) {
     .hover\:text-accent-foreground:hover {
       color: oklch(.205 0 0);
+    }
+  }
+
+  @media (hover: hover) {
+    .hover\:text-amber-700:hover {
+      color: var(--color-amber-700);
     }
   }
 

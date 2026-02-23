@@ -83,6 +83,8 @@ interface SettingsProps {
 import { EmailDebug } from './EmailDebug';
 import { SubscriptionBilling } from './subscription/SubscriptionBilling';
 import { BillingPlanConfig } from './subscription/BillingPlanConfig';
+import { ApiAccess } from './subscription/ApiAccess';
+import { useSubscription } from '../hooks/useSubscription';
 import { getOrgMode, setOrgMode } from '../utils/settings-client';
 import type { OrgUserMode } from '../utils/settings-client';
 
@@ -133,6 +135,9 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   // Organization user mode (single/multi)
   const [userMode, setUserMode] = useState<OrgUserMode>('single');
   const [isSavingUserMode, setIsSavingUserMode] = useState(false);
+
+  // Subscription feature gating (for API Access tab)
+  const { hasFeature: subHasFeature } = useSubscription();
 
   // New segment input
   const [newSegment, setNewSegment] = useState('');
@@ -696,6 +701,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
             {(userMode === 'single' || canManageSettings) && <TabsTrigger value="billing" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Billing</TabsTrigger>}
             {isSuperAdmin && <TabsTrigger value="billing-plans" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Billing Plans</TabsTrigger>}
+            {canManageSettings && <TabsTrigger value="api-access" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">API Access</TabsTrigger>}
             {canManageSettings && <TabsTrigger value="testdata" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Test Data</TabsTrigger>}
           </TabsList>
         </div>
@@ -1347,6 +1353,12 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         {isSuperAdmin && (
           <TabsContent value="billing-plans" className="space-y-4">
             <BillingPlanConfig user={user} onConfigSaved={() => setPlanRefreshKey((k) => k + 1)} />
+          </TabsContent>
+        )}
+
+        {canManageSettings && (
+          <TabsContent value="api-access" className="space-y-4">
+            <ApiAccess user={user} hasAccess={subHasFeature('api-access')} />
           </TabsContent>
         )}
 

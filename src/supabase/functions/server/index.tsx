@@ -5,6 +5,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import { marketing } from './marketing.ts';
 import { subscriptions } from './subscriptions.ts';
+import { apiKeys } from './api-keys.ts';
+import { publicApi } from './public-api.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -1332,6 +1334,12 @@ app.put(`${PREFIX}/settings/org-details/:orgId`, async (c) => {
 // ── SUBSCRIPTIONS & BILLING ─────────────────────────────────────────────
 subscriptions(app);
 
+// ── API KEY MANAGEMENT (Enterprise) ─────────────────────────────────────
+app.route('/', apiKeys);
+
+// ── PUBLIC REST API (Enterprise, API-key auth) ──────────────────────────
+app.route('/', publicApi);
+
 // ── CATCH-ALL ───────────────────────────────────────────────────────────
 app.all('*', (c) => {
   return c.json({ error: 'Route not found', method: c.req.method, path: c.req.path, version: 'v5', hint: `GET ${PREFIX}/health` }, 404);
@@ -1343,7 +1351,7 @@ server.use('*', logger());
 server.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowHeaders: ['Authorization', 'X-User-Token', 'Content-Type', 'Accept', 'apikey', 'x-client-info'],
+  allowHeaders: ['Authorization', 'X-User-Token', 'X-API-Key', 'Content-Type', 'Accept', 'apikey', 'x-client-info'],
   exposeHeaders: ['Content-Length', 'Content-Type'],
   maxAge: 86400,
 }));
