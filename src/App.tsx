@@ -176,10 +176,29 @@ function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
-  const [currentView, setCurrentView] = useState('landing');
+  const [currentView, setCurrentView] = useState(() => {
+    // Restore persisted view on refresh (only if there's a session hint)
+    const saved = sessionStorage.getItem('prospaces_current_view');
+    return saved || 'landing';
+  });
   const [loading, setLoading] = useState(true);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('prospaces_sidebar_collapsed');
+    return saved === 'true';
+  });
   const [showChangePassword, setShowChangePassword] = useState(false);
+
+  // Persist currentView to sessionStorage whenever it changes
+  useEffect(() => {
+    if (currentView && currentView !== 'landing' && currentView !== 'login' && currentView !== 'member-login') {
+      sessionStorage.setItem('prospaces_current_view', currentView);
+    }
+  }, [currentView]);
+
+  // Persist sidebar collapsed state
+  useEffect(() => {
+    localStorage.setItem('prospaces_sidebar_collapsed', String(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
 
   // Check if URL indicates member-login on mount
   useEffect(() => {
@@ -219,6 +238,7 @@ function App() {
         setOrganization(null);
         setCurrentView('landing');
         setLoading(false);
+        sessionStorage.removeItem('prospaces_current_view');
         return;
       }
 
@@ -330,7 +350,14 @@ function App() {
         // Only set the default view on initial login — never on data refreshes,
         // otherwise switching tabs / token refreshes would kick the user back to home.
         if (isInitialLoad) {
-          setCurrentView(profile.role === 'super_admin' ? 'tenants' : 'dashboard');
+          // If there's a persisted view from sessionStorage (page refresh), keep it.
+          // Only set the default view on a fresh login (no saved view).
+          const savedView = sessionStorage.getItem('prospaces_current_view');
+          if (savedView) {
+            setCurrentView(savedView);
+          } else {
+            setCurrentView(profile.role === 'super_admin' ? 'tenants' : 'dashboard');
+          }
         }
       }
     } catch (error) {
@@ -350,6 +377,8 @@ function App() {
       setOrganization(null);
       setCurrentView('landing');
       setSession(null);
+      // Clear persisted view so user doesn't land on a protected page after logout
+      sessionStorage.removeItem('prospaces_current_view');
     }
   };
 
