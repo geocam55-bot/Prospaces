@@ -249,7 +249,19 @@ function transformFromDbFormat(contactData: any) {
   
   // Handle price_level with migration logic BEFORE deleting it
   if ('price_level' in transformed) {
-    const oldValue = transformed.price_level;
+    let oldValue = transformed.price_level;
+    
+    // Guard: unwrap double-serialized JSON strings (e.g., '"VIP A"' → 'VIP A')
+    if (typeof oldValue === 'string' && oldValue.startsWith('"') && oldValue.endsWith('"')) {
+      try { oldValue = JSON.parse(oldValue); } catch { /* use as-is */ }
+    }
+    // Guard: if it's an object (e.g., {value: "VIP A"}), extract the value
+    if (oldValue && typeof oldValue === 'object' && 'value' in oldValue) {
+      oldValue = oldValue.value;
+    }
+    
+    console.log(`[contacts-client] transformFromDbFormat price_level: raw="${transformed.price_level}" → unwrapped="${oldValue}" (type=${typeof oldValue})`);
+    
     // Check if it matches any currently configured tier label
     const activeLabels = getActivePriceLevels();
     if (activeLabels.includes(oldValue)) {
@@ -275,7 +287,13 @@ function transformFromDbFormat(contactData: any) {
     else if (typeof oldValue === 'number') {
       transformed.priceLevel = getPriceTierLabel(oldValue) || getPriceTierLabel(1);
     }
-    // Default fallback
+    // If it's a non-empty string that didn't match anything, preserve it as-is
+    // (user may have custom labels that aren't in activeLabels yet)
+    else if (typeof oldValue === 'string' && oldValue.trim() !== '') {
+      console.warn(`[contacts-client] price_level "${oldValue}" not in activeLabels [${activeLabels.join(', ')}] — preserving as-is`);
+      transformed.priceLevel = oldValue;
+    }
+    // Default fallback (null, undefined, empty string)
     else {
       transformed.priceLevel = getPriceTierLabel(1);
     }

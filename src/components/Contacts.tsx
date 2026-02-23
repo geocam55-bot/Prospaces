@@ -25,6 +25,7 @@ import { useDebounce } from '../utils/useDebounce';
 import { getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings';
 import { useAudienceSegments } from '../hooks/useAudienceSegments';
 import { TagSelector } from './TagSelector';
+import { toast } from 'sonner@2.0.3';
 
 interface Contact {
   id: string;
@@ -134,7 +135,18 @@ export function Contacts({ user }: ContactsProps) {
     try {
       setIsLoading(true);
       const { contacts: loadedContacts } = await contactsAPI.getAll();
-      setContacts((loadedContacts || []).filter(Boolean));
+      const validContacts = (loadedContacts || []).filter(Boolean);
+      setContacts(validContacts);
+      
+      // Also update selectedContact if it's in the loaded data
+      // (prevents stale data when re-opening the edit dialog after save)
+      if (selectedContact) {
+        const refreshed = validContacts.find((c: any) => c?.id === selectedContact.id);
+        if (refreshed) {
+          console.log(`[Contacts] loadContacts — refreshed selectedContact ${refreshed.id}, priceLevel="${refreshed.priceLevel}"`);
+          setSelectedContact(refreshed);
+        }
+      }
     } catch (error) {
       console.error('Failed to load contacts:', error);
     } finally {
@@ -415,8 +427,9 @@ export function Contacts({ user }: ContactsProps) {
     if (!editingContact) return;
     setIsSaving(true);
 
-    // Diagnostic: log the priceLevel being sent so we can verify it reaches the server
-    console.log(`[Contacts] handleEditContact — id=${editingContact.id}, priceLevel="${editingContact.priceLevel}"`);
+    const contactId = editingContact.id;
+    const contactName = editingContact.name;
+    console.log(`[Contacts] handleEditContact — id=${contactId}, name="${contactName}", priceLevel="${editingContact.priceLevel}"`);
 
     try {
       const updateData = {
@@ -439,24 +452,59 @@ export function Contacts({ user }: ContactsProps) {
         lyrGpPercent: editingContact.lyrGpPercent
       };
 
+      console.log(`[Contacts] Sending update payload:`, JSON.stringify(updateData));
+
       const { contact } = await contactsAPI.update(editingContact.id, updateData);
-      console.log(`[Contacts] Update response — priceLevel="${contact?.priceLevel}", name="${contact?.name}", updatedAt="${contact?.updatedAt}"`);
+      console.log(`[Contacts] Update API returned:`, JSON.stringify(contact ? { id: contact.id, name: contact.name, priceLevel: contact.priceLevel, updatedAt: contact.updatedAt } : null));
 
       if (contact) {
-        setContacts(contacts.map(c => (c?.id === contact.id ? contact : c)));
-        // Update the selected contact if we're viewing its detail page
+        setContacts(prev => prev.map(c => (c?.id === contact.id ? contact : c)));
         if (selectedContact && selectedContact.id === contact.id) {
           setSelectedContact(contact);
         }
-        console.log(`[Contacts] Contact ${contact.id} successfully saved to database`);
+        console.log(`[Contacts] Local state updated for contact ${contact.id}`);
+        toast.success(`Contact "${contactName}" saved successfully`);
       } else {
         console.warn('[Contacts] Update returned no contact data — changes may not have been saved');
+        toast.warning('Update returned empty response — please verify changes');
       }
       setEditingContact(null);
       setIsEditDialogOpen(false);
+
+      // ── POST-SAVE VERIFICATION: re-read from DB directly to confirm ──
+      try {
+        const supabase = createClient();
+        const { data: verifyRow, error: verifyErr } = await supabase
+          .from('contacts')
+          .select('id, name, email, phone, company, status')
+          .eq('id', contactId)
+          .single();
+
+        if (verifyErr) {
+          console.error(`[Contacts] VERIFY FAILED — could not re-read contact ${contactId}:`, verifyErr.message);
+          toast.error(`DB verification failed: ${verifyErr.message}`);
+        } else if (verifyRow) {
+          const nameMatch = verifyRow.name === updateData.name;
+          const emailMatch = verifyRow.email === updateData.email;
+          const statusMatch = verifyRow.status === updateData.status;
+          console.log(`[Contacts] VERIFY — DB state: name="${verifyRow.name}" (match=${nameMatch}), email="${verifyRow.email}" (match=${emailMatch}), status="${verifyRow.status}" (match=${statusMatch})`);
+          if (!nameMatch || !emailMatch || !statusMatch) {
+            toast.error(`DB verification MISMATCH — changes may not have persisted! name=${nameMatch}, email=${emailMatch}, status=${statusMatch}. Check console.`);
+            console.error(`[Contacts] VERIFICATION MISMATCH — sent: name="${updateData.name}" email="${updateData.email}" status="${updateData.status}" | DB has: name="${verifyRow.name}" email="${verifyRow.email}" status="${verifyRow.status}"`);
+          } else {
+            console.log(`[Contacts] VERIFY — All fields match! Contact ${contactId} is persisted correctly.`);
+          }
+        }
+      } catch (verifyException: any) {
+        console.warn('[Contacts] Verification exception:', verifyException.message);
+      }
+
+      // Force reload from DB to ensure list shows actual DB state
+      await loadContacts();
     } catch (error: any) {
-      console.error('Failed to update contact:', error);
-      alert(`Failed to update contact: ${error?.message || 'Unknown error'}. Please check the console for details.`);
+      console.error('[Contacts] Failed to update contact:', error);
+      toast.error(`Failed to save contact: ${error?.message || 'Unknown error'}`);
+      alert(`Failed to update contact: ${error?.message || 'Unknown error'}. Please check the browser console (F12) for details.`);
     } finally {
       setIsSaving(false);
     }

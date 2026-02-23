@@ -260,38 +260,53 @@ export function contactsAPI(app: Hono) {
 
       console.log(`[contacts-api] Returning ${contacts?.length || 0} contacts for role=${userRole}`);
 
-      // If price_level column doesn't exist, enrich contacts from KV store
-      const hasPLCol = await hasPriceLevelColumn(supabase);
+      // ── ALWAYS enrich optional fields from KV (authoritative source) ──
+      // This guarantees price_level, address, notes, tags are always returned
+      // regardless of whether those DB columns exist.
       let enrichedContacts = contacts || [];
-      if (!hasPLCol && enrichedContacts.length > 0) {
+      if (enrichedContacts.length > 0) {
         try {
-          // Query KV store directly for all contact price levels in one batch
-          const kvKeys = enrichedContacts.map((ct: any) => `contact_price_level:${ct.id}`);
-          const kvClient = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-          );
-          const { data: kvRows } = await kvClient
-            .from('kv_store_8405be07')
-            .select('key, value')
-            .in('key', kvKeys);
-
-          if (kvRows && kvRows.length > 0) {
-            // Build a map: contactId → price_level
-            const plMap = new Map<string, string>();
-            for (const row of kvRows) {
-              const contactId = row.key.replace('contact_price_level:', '');
-              plMap.set(contactId, row.value);
+          const overlayKeys = enrichedContacts.map((ct: any) => `contact_extras:${ct.id}`);
+          const overlayValues = await kv.mget(overlayKeys);
+          let enrichCount = 0;
+          for (let i = 0; i < enrichedContacts.length; i++) {
+            const overlay = overlayValues?.[i];
+            if (overlay && typeof overlay === 'object') {
+              // Merge KV extras onto the contact — KV is authoritative for these fields
+              if (overlay.price_level !== undefined) enrichedContacts[i].price_level = overlay.price_level;
+              if (overlay.address !== undefined && !enrichedContacts[i].address) enrichedContacts[i].address = overlay.address;
+              if (overlay.notes !== undefined && !enrichedContacts[i].notes) enrichedContacts[i].notes = overlay.notes;
+              if (overlay.tags !== undefined && !enrichedContacts[i].tags) enrichedContacts[i].tags = overlay.tags;
+              enrichCount++;
             }
-            for (const ct of enrichedContacts) {
-              const pl = plMap.get(ct.id);
-              if (pl) ct.price_level = pl;
+          }
+          console.log(`[contacts-api] Enriched ${enrichCount}/${enrichedContacts.length} contacts from KV overlays`);
+          
+          // Also try legacy single-key price_level for contacts that don't have one yet
+          const needsPL = enrichedContacts.filter((ct: any) => !ct.price_level);
+          if (needsPL.length > 0) {
+            const legacyKeys = needsPL.map((ct: any) => `contact_price_level:${ct.id}`);
+            const legacyValues = await kv.mget(legacyKeys);
+            for (let i = 0; i < needsPL.length; i++) {
+              let val = legacyValues?.[i];
+              if (val !== null && val !== undefined) {
+                // Unwrap double-serialized strings
+                if (typeof val === 'string' && val.startsWith('"') && val.endsWith('"')) {
+                  try { val = JSON.parse(val); } catch { /* use as-is */ }
+                }
+                needsPL[i].price_level = val;
+              }
             }
-            console.log(`[contacts-api] Enriched ${plMap.size} contacts with KV price_levels`);
           }
         } catch (kvErr: any) {
-          console.warn(`[contacts-api] Failed to enrich contacts from KV:`, kvErr.message);
+          console.warn(`[contacts-api] KV enrichment error (non-fatal):`, kvErr.message);
         }
+      }
+      
+      // Debug: log a sample
+      if (enrichedContacts.length > 0) {
+        const s = enrichedContacts[0];
+        console.log(`[contacts-api] Sample contact: id=${s.id}, name="${s.name}", price_level="${s.price_level}" (type=${typeof s.price_level})`);
       }
 
       return c.json({
@@ -452,6 +467,17 @@ export function contactsAPI(app: Hono) {
             return c.json({ error: 'Failed to update contact on retry: ' + retryError.message }, 500);
           }
           updatedContact = retryData;
+          
+          // Column was gone — save price_level to KV instead
+          if (hasPriceLevelInBody) {
+            try {
+              await kv.set(`contact_price_level:${contactId}`, priceLevelValue);
+              priceLevelSavedToKV = true;
+              console.log(`[contacts-api] price_level saved to KV after retry: "${priceLevelValue}" for contact ${contactId}`);
+            } catch (kvErr: any) {
+              console.error(`[contacts-api] Failed to save price_level to KV after retry:`, kvErr.message);
+            }
+          }
         } else {
           console.error('[contacts-api] Update error:', updateError);
           return c.json({ error: 'Failed to update contact: ' + updateError.message }, 500);
@@ -477,6 +503,47 @@ export function contactsAPI(app: Hono) {
       }
 
       console.log(`[contacts-api] Contact updated. DB price_level="${updatedContact?.price_level}", KV=${priceLevelSavedToKV}`);
+
+      // ── ALWAYS save optional fields to KV overlay (authoritative source) ──
+      // This guarantees price_level, address, notes, tags survive even if
+      // the DB columns don't exist or the DB write silently drops them.
+      try {
+        const kvExtras: Record<string, any> = {};
+        if (body.price_level !== undefined) kvExtras.price_level = body.price_level;
+        if (body.address !== undefined) kvExtras.address = body.address;
+        if (body.notes !== undefined) kvExtras.notes = body.notes;
+        if (body.tags !== undefined) kvExtras.tags = body.tags;
+        
+        if (Object.keys(kvExtras).length > 0) {
+          // Merge with any existing overlay to preserve fields not in this update
+          try {
+            const existing = await kv.get(`contact_extras:${contactId}`);
+            if (existing && typeof existing === 'object') {
+              Object.assign(existing, kvExtras);
+              await kv.set(`contact_extras:${contactId}`, existing);
+            } else {
+              await kv.set(`contact_extras:${contactId}`, kvExtras);
+            }
+          } catch {
+            await kv.set(`contact_extras:${contactId}`, kvExtras);
+          }
+          console.log(`[contacts-api] KV overlay saved for contact ${contactId}:`, Object.keys(kvExtras));
+        }
+      } catch (kvOverlayErr: any) {
+        console.error(`[contacts-api] Failed to save KV overlay:`, kvOverlayErr.message);
+      }
+
+      // ── VERIFICATION: re-read the row from DB to confirm write ────────
+      try {
+        const { data: verifyRow } = await supabase
+          .from('contacts')
+          .select('id, name, email, phone, company, status, updated_at')
+          .eq('id', contactId)
+          .single();
+        console.log(`[contacts-api] VERIFY — DB row after update: name="${verifyRow?.name}", email="${verifyRow?.email}", status="${verifyRow?.status}", updated_at="${verifyRow?.updated_at}"`);
+      } catch (verifyErr: any) {
+        console.warn(`[contacts-api] Verification read failed:`, verifyErr.message);
+      }
 
       // Enrich the response with the price_level from KV if needed
       const enrichedContact = { ...updatedContact };
@@ -648,6 +715,25 @@ export function contactsAPI(app: Hono) {
         enrichedContact.price_level = priceLevelValue;
       }
 
+      // ── ALWAYS save optional fields to KV overlay for new contacts too ──
+      if (newContact?.id) {
+        try {
+          const kvExtras: Record<string, any> = {};
+          if (body.price_level !== undefined) kvExtras.price_level = body.price_level;
+          if (body.address !== undefined) kvExtras.address = body.address;
+          if (body.notes !== undefined) kvExtras.notes = body.notes;
+          if (body.tags !== undefined) kvExtras.tags = body.tags;
+          if (Object.keys(kvExtras).length > 0) {
+            await kv.set(`contact_extras:${newContact.id}`, kvExtras);
+            console.log(`[contacts-api] KV overlay saved for new contact ${newContact.id}:`, Object.keys(kvExtras));
+            // Also reflect in the response
+            Object.assign(enrichedContact, kvExtras);
+          }
+        } catch (kvOverlayErr: any) {
+          console.error(`[contacts-api] Failed to save KV overlay for new contact:`, kvOverlayErr.message);
+        }
+      }
+
       return c.json({ contact: enrichedContact }, 201);
     } catch (error: any) {
       console.error('[contacts-api] Unexpected error during create:', error);
@@ -721,6 +807,7 @@ export function contactsAPI(app: Hono) {
       // Clean up KV price_level entry
       try {
         await kv.del(`contact_price_level:${contactId}`);
+        await kv.del(`contact_extras:${contactId}`);
       } catch (_) { /* ignore */ }
 
       console.log(`[contacts-api] Contact deleted successfully: ${contactId}`);
