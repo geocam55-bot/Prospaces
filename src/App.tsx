@@ -178,6 +178,13 @@ function App() {
         return;
       }
 
+      // For token refreshes (e.g. tab regains focus), just update the session
+      // reference — do NOT reload user data or reset the current view.
+      if (event === 'TOKEN_REFRESHED') {
+        setSession(session);
+        return;
+      }
+
       setSession(session);
       if (session?.user) {
         loadUserData(session.user);
@@ -223,7 +230,7 @@ function App() {
     return () => clearInterval(interval);
   }, [user, session, showChangePassword]);
 
-  const loadUserData = async (supabaseUser: SupabaseUser) => {
+  const loadUserData = async (supabaseUser: SupabaseUser, isInitialLoad = true) => {
     try {
       // Load user profile with needs_password_change field
       const { data: profile } = await supabase
@@ -276,9 +283,11 @@ function App() {
           }
         }
 
-        // Set default view based on user role
-        // SUPER_ADMIN starts on Organizations page, others on Dashboard
-        setCurrentView(profile.role === 'super_admin' ? 'tenants' : 'dashboard');
+        // Only set the default view on initial login — never on data refreshes,
+        // otherwise switching tabs / token refreshes would kick the user back to home.
+        if (isInitialLoad) {
+          setCurrentView(profile.role === 'super_admin' ? 'tenants' : 'dashboard');
+        }
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -428,9 +437,10 @@ function App() {
               open={showChangePassword}
               onClose={() => {
                 setShowChangePassword(false);
-                // Reload user data to ensure flag is cleared
+                // Reload user data to ensure password-change flag is cleared,
+                // but do NOT reset the current view (isInitialLoad = false).
                 if (session?.user) {
-                  loadUserData(session.user);
+                  loadUserData(session.user, false);
                 }
               }}
               userId={user.id}
