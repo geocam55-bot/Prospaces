@@ -2319,6 +2319,10 @@
     border-style: none;
   }
 
+  .border-\[\#2E2E2E\] {
+    border-color: #2e2e2e;
+  }
+
   .border-amber-100 {
     border-color: var(--color-amber-100);
   }
@@ -2581,6 +2585,14 @@
 
   .border-l-transparent {
     border-left-color: #0000;
+  }
+
+  .bg-\[\#1E1E1E\] {
+    background-color: #1e1e1e;
+  }
+
+  .bg-\[\#2E2E2E\] {
+    background-color: #2e2e2e;
   }
 
   .bg-accent {
@@ -4136,6 +4148,10 @@
     color: var(--color-gray-100);
   }
 
+  .text-gray-200 {
+    color: var(--color-gray-200);
+  }
+
   .text-gray-300 {
     color: var(--color-gray-300);
   }
@@ -4220,6 +4236,10 @@
     color: var(--color-orange-300);
   }
 
+  .text-orange-400 {
+    color: var(--color-orange-400);
+  }
+
   .text-orange-500 {
     color: var(--color-orange-500);
   }
@@ -4258,6 +4278,10 @@
 
   .text-purple-100 {
     color: var(--color-purple-100);
+  }
+
+  .text-purple-400 {
+    color: var(--color-purple-400);
   }
 
   .text-purple-500 {
@@ -5728,12 +5752,24 @@
     border-color: #0000;
   }
 
+  .focus\:bg-\[\#1E1E1E\]:focus {
+    background-color: #1e1e1e;
+  }
+
   .focus\:bg-accent:focus {
     background-color: oklch(.97 0 0);
   }
 
   .focus\:text-accent-foreground:focus {
     color: oklch(.205 0 0);
+  }
+
+  .focus\:text-red-400:focus {
+    color: var(--color-red-400);
+  }
+
+  .focus\:text-white:focus {
+    color: var(--color-white);
   }
 
   .focus\:ring-2:focus {
@@ -6956,12 +6992,6 @@
   }
 
   @media (prefers-color-scheme: dark) {
-    .dark\:border-blue-800 {
-      border-color: var(--color-blue-800);
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
     .dark\:border-gray-600 {
       border-color: var(--color-gray-600);
     }
@@ -6982,12 +7012,6 @@
   @media (prefers-color-scheme: dark) {
     .dark\:border-input {
       border-color: oklch(.922 0 0);
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .dark\:border-slate-700 {
-      border-color: var(--color-slate-700);
     }
   }
 
@@ -7142,18 +7166,6 @@
   }
 
   @media (prefers-color-scheme: dark) {
-    .dark\:bg-slate-700 {
-      background-color: var(--color-slate-700);
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .dark\:bg-slate-900 {
-      background-color: var(--color-slate-900);
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
     .dark\:bg-yellow-900\/10 {
       background-color: color-mix(in srgb, oklch(.421 .095 57.708) 10%, transparent);
     }
@@ -7168,12 +7180,6 @@
   @media (prefers-color-scheme: dark) {
     .dark\:text-blue-300 {
       color: var(--color-blue-300);
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .dark\:text-blue-400 {
-      color: var(--color-blue-400);
     }
   }
 
@@ -7210,18 +7216,6 @@
   @media (prefers-color-scheme: dark) {
     .dark\:text-red-400 {
       color: var(--color-red-400);
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .dark\:text-slate-400 {
-      color: var(--color-slate-400);
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .dark\:text-white {
-      color: var(--color-white);
     }
   }
 
@@ -7267,22 +7261,6 @@
     @media (hover: hover) {
       .dark\:hover\:bg-input\/50:hover {
         background-color: color-mix(in oklab, oklch(.922 0 0) 50%, transparent);
-      }
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
-    @media (hover: hover) {
-      .dark\:hover\:bg-slate-800:hover {
-        background-color: var(--color-slate-800);
-      }
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
-    @media (hover: hover) {
-      .dark\:hover\:text-white:hover {
-        color: var(--color-white);
       }
     }
   }

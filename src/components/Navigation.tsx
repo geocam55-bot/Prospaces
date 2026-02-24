@@ -673,8 +673,15 @@ export function Navigation({
       )}
 
       {/* Desktop header */}
-      <div className="hidden lg:block fixed top-0 left-0 right-0 border-b bg-white dark:bg-slate-900 z-50 h-16 shadow-sm">
-        <div className="flex items-center justify-between h-full px-4 border-b border-slate-200 dark:border-slate-700">
+      <div 
+        className="hidden lg:block fixed top-0 left-0 right-0 z-50 h-16 shadow-sm"
+        style={{
+          background: theme.colors.topBarBackground,
+          color: theme.colors.topBarText,
+          borderBottom: `1px solid ${theme.colors.border}`,
+        }}
+      >
+        <div className="flex items-center justify-between h-full px-4">
           <div className="flex items-center gap-3">
             {/* Logo & Brand */}
             <div className="flex items-center gap-2 mr-2">
@@ -682,7 +689,7 @@ export function Navigation({
                 <Building2 className="h-5 w-5 text-white" />
               </div>
               {!isSidebarCollapsed && (
-                <span className="text-lg font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                <span className="text-lg font-semibold whitespace-nowrap" style={{ color: theme.colors.topBarText }}>
                   ProSpaces CRM
                 </span>
               )}
@@ -691,109 +698,129 @@ export function Navigation({
             {/* Sidebar Toggle */}
             <button
               onClick={onToggleSidebar}
-              className="p-1.5 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-md transition-colors"
+              style={{ color: theme.colors.topBarText, opacity: 0.7 }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '1';
+                e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '0.7';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
               title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
             >
               <Menu className="h-5 w-5" />
             </button>
 
             {/* Divider */}
-            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
+            <div className="h-6 w-px mx-1" style={{ backgroundColor: theme.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)' }} />
 
             {/* Page Title */}
             {(() => {
               const Icon = getPageIcon(currentView);
-              return <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
+              return <Icon className="h-5 w-5" style={{ color: theme.colors.primary }} />;
             })()}
-            <h1 className="text-lg font-semibold text-slate-900 dark:text-white">
+            <h1 className="text-lg font-semibold" style={{ color: theme.colors.topBarText }}>
               {getPageTitle(currentView)}
             </h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {/* AI Suggestions Icon */}
             {suggestions.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              <button
+                className="relative p-2 rounded-full transition-colors"
+                style={{ color: theme.colors.topBarText }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 onClick={() => handleNavClick('ai-suggestions')}
                 title={`${suggestions.length} AI Suggestions`}
               >
-                <Sparkles className="h-5 w-5 text-purple-600 animate-pulse" />
+                <Sparkles className="h-5 w-5 text-purple-400 animate-pulse" />
                 <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
                   {suggestions.length > 9 ? '9+' : suggestions.length}
                 </span>
-              </Button>
+              </button>
             )}
 
             {/* Bid Notifications Icon */}
             {unreadBidsCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              <button
+                className="relative p-2 rounded-full transition-colors"
+                style={{ color: theme.colors.topBarText }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 onClick={() => handleNavClick('bids')}
                 title={`${unreadBidsCount} Deal Updates`}
               >
-                <FileText className="h-5 w-5 text-orange-600 animate-pulse" />
+                <FileText className="h-5 w-5 text-orange-400 animate-pulse" />
                 <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
                   {unreadBidsCount > 9 ? '9+' : unreadBidsCount}
                 </span>
-              </Button>
+              </button>
             )}
 
             {/* Task Notifications Icon */}
             {taskCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              <button
+                className="relative p-2 rounded-full transition-colors"
+                style={{ color: theme.colors.topBarText }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 onClick={() => handleNavClick('tasks')}
                 title={`${taskCount} Pending Tasks`}
               >
-                <CheckSquare className="h-5 w-5 text-green-600 animate-pulse" />
+                <CheckSquare className="h-5 w-5 text-green-400 animate-pulse" />
                 <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
                   {taskCount > 9 ? '9+' : taskCount}
                 </span>
-              </Button>
+              </button>
             )}
 
             {/* Appointment Notifications Icon */}
             {appointmentCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              <button
+                className="relative p-2 rounded-full transition-colors"
+                style={{ color: theme.colors.topBarText }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 onClick={() => handleNavClick('appointments')}
                 title={`${appointmentCount} Upcoming Appointments`}
               >
-                <Calendar className="h-5 w-5 text-purple-600 animate-pulse" />
+                <Calendar className="h-5 w-5 text-purple-400 animate-pulse" />
                 <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
                   {appointmentCount > 9 ? '9+' : appointmentCount}
                 </span>
-              </Button>
+              </button>
             )}
 
             {/* Email Icon */}
             {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              <button
+                className="relative p-2 rounded-full transition-colors"
+                style={{ color: theme.colors.topBarText }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                 onClick={() => handleNavClick('email')}
                 title={`${unreadCount} Unread Emails`}
               >
-                <Mail className="h-5 w-5 text-blue-600 animate-pulse" />
+                <Mail className="h-5 w-5 text-blue-400 animate-pulse" />
                 <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
-              </Button>
+              </button>
             )}
 
             {organization && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
-                <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">{organization.name}</span>
+              <div 
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border"
+                style={{
+                  backgroundColor: theme.isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff',
+                  borderColor: theme.isDark ? 'rgba(59,130,246,0.3)' : '#bfdbfe',
+                }}
+              >
+                <Building2 className="h-4 w-4" style={{ color: theme.isDark ? '#93c5fd' : '#2563eb' }} />
+                <span className="text-sm font-medium" style={{ color: theme.isDark ? '#93c5fd' : '#1d4ed8' }}>{organization.name}</span>
               </div>
             )}
 
@@ -802,43 +829,43 @@ export function Navigation({
 
             <DropdownMenu>
               <DropdownMenuTrigger className="focus:outline-none">
-                <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-offset-2 ring-transparent hover:ring-blue-500 transition-all">
+                <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-offset-2 ring-transparent hover:ring-blue-500 transition-all" style={{ '--tw-ring-offset-color': theme.colors.topBarBackground } as any}>
                   <AvatarImage src={user.avatar_url} alt={user.full_name || user.email || 'User'} />
                   <AvatarFallback className="bg-blue-600 text-white text-xs">
                     {getInitials(user.full_name || user.email || '')}
                   </AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-56 bg-black border-[#2E2E2E] text-white">
                 <DropdownMenuLabel>
                   <div>
-                    <p className="font-medium">{user.full_name || user.email || 'User'}</p>
-                    <p className="text-xs text-gray-500 font-normal mt-1">{user.email || 'No email'}</p>
+                    <p className="font-medium text-white">{user.full_name || user.email || 'User'}</p>
+                    <p className="text-xs text-gray-400 font-normal mt-1">{user.email || 'No email'}</p>
                   </div>
                 </DropdownMenuLabel>
                 {organization && (
                   <>
-                    <DropdownMenuSeparator />
+                    <DropdownMenuSeparator className="bg-[#2E2E2E]" />
                     <DropdownMenuLabel>
                       <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded bg-gray-200 flex items-center justify-center">
-                          <Building2 className="h-4 w-4 text-gray-600" />
+                        <div className="h-6 w-6 rounded bg-[#1E1E1E] flex items-center justify-center">
+                          <Building2 className="h-4 w-4 text-gray-400" />
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 font-normal">Organization</p>
-                          <p className="text-sm font-medium">{organization.name}</p>
+                          <p className="text-xs text-gray-400 font-normal">Organization</p>
+                          <p className="text-sm font-medium text-white">{organization.name}</p>
                         </div>
                       </div>
                     </DropdownMenuLabel>
                   </>
                 )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleNavClick('settings')}>
+                <DropdownMenuSeparator className="bg-[#2E2E2E]" />
+                <DropdownMenuItem onClick={() => handleNavClick('settings')} className="text-gray-200 focus:bg-[#1E1E1E] focus:text-white">
                   <User className="mr-2 h-4 w-4" />
-                  Profile Settings
+                  Profile
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onLogout} className="text-red-600">
+                <DropdownMenuSeparator className="bg-[#2E2E2E]" />
+                <DropdownMenuItem onClick={onLogout} className="text-red-500 focus:bg-[#1E1E1E] focus:text-red-400">
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign Out
                 </DropdownMenuItem>

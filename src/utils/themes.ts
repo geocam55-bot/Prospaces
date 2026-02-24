@@ -182,51 +182,51 @@ export const themes: Record<string, Theme> = {
     description: 'Easy on the eyes dark theme',
     isDark: true,
     colors: {
-      background: '#0f172a',
-      backgroundSecondary: '#1e293b',
-      backgroundTertiary: '#334155',
+      background: '#121212',
+      backgroundSecondary: '#1E1E1E',
+      backgroundTertiary: '#2A2A2A',
       
-      text: '#f1f5f9',
-      textSecondary: '#cbd5e1',
-      textMuted: '#94a3b8',
+      text: '#FFFFFF',
+      textSecondary: '#B3B3B3',
+      textMuted: '#6E6E6E',
       
-      primary: '#3b82f6',
-      primaryHover: '#2563eb',
-      primaryText: '#ffffff',
+      primary: '#3B82F6',
+      primaryHover: '#2563EB',
+      primaryText: '#FFFFFF',
       
-      secondary: '#334155',
-      secondaryText: '#f1f5f9',
+      secondary: '#2A2A2A',
+      secondaryText: '#FFFFFF',
       
-      accent: '#475569',
-      accentHover: '#334155',
-      accentText: '#f1f5f9',
+      accent: '#3B82F6',
+      accentHover: '#2563EB',
+      accentText: '#FFFFFF',
       
-      border: '#334155',
-      borderLight: '#475569',
+      border: '#2E2E2E',
+      borderLight: '#3A3A3A',
       
-      card: '#1e293b',
-      cardHover: '#334155',
-      cardText: '#f1f5f9',
+      card: '#2A2A2A',
+      cardHover: '#333333',
+      cardText: '#FFFFFF',
       
-      input: '#334155',
+      input: '#1E1E1E',
       
-      success: '#34d399',
-      warning: '#fbbf24',
-      error: '#f87171',
-      info: '#60a5fa',
+      success: '#34D399',
+      warning: '#FBBF24',
+      error: '#EF4444',
+      info: '#60A5FA',
       
-      destructive: '#dc2626',
-      destructiveText: '#ffffff',
+      destructive: '#EF4444',
+      destructiveText: '#FFFFFF',
       
-      navBackground: '#1e293b',
-      navText: '#cbd5e1',
-      navHover: '#334155',
-      navActive: '#475569',
+      navBackground: '#0D0D0D',
+      navText: '#B3B3B3',
+      navHover: '#1E1E1E',
+      navActive: '#2A2A2A',
       
-      topBarBackground: '#1e293b',
-      topBarText: '#f1f5f9',
+      topBarBackground: '#0D0D0D',
+      topBarText: '#FFFFFF',
       
-      shadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2)',
+      shadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
     },
   },
   
@@ -402,8 +402,8 @@ export const themes: Record<string, Theme> = {
     isDark: true,
     colors: {
       background: '#020617',
-      backgroundSecondary: '#0f172a',
-      backgroundTertiary: '#1e293b',
+      backgroundSecondary: '#0a1120',
+      backgroundTertiary: '#131d33',
       
       text: '#e2e8f0',
       textSecondary: '#cbd5e1',
@@ -413,21 +413,21 @@ export const themes: Record<string, Theme> = {
       primaryHover: '#4f46e5',
       primaryText: '#ffffff',
       
-      secondary: '#1e293b',
+      secondary: '#1a2540',
       secondaryText: '#e2e8f0',
       
-      accent: '#334155',
-      accentHover: '#1e293b',
+      accent: '#253552',
+      accentHover: '#1a2842',
       accentText: '#e2e8f0',
       
-      border: '#1e293b',
-      borderLight: '#334155',
+      border: '#162038',
+      borderLight: '#253552',
       
-      card: '#0f172a',
-      cardHover: '#1e293b',
+      card: '#131d33',
+      cardHover: '#1a2842',
       cardText: '#e2e8f0',
       
-      input: '#1e293b',
+      input: '#131d33',
       
       success: '#34d399',
       warning: '#fbbf24',
@@ -437,12 +437,12 @@ export const themes: Record<string, Theme> = {
       destructive: '#dc2626',
       destructiveText: '#ffffff',
       
-      navBackground: '#0f172a',
+      navBackground: '#030712',
       navText: '#cbd5e1',
-      navHover: '#1e293b',
-      navActive: '#334155',
+      navHover: '#0c1525',
+      navActive: '#162038',
       
-      topBarBackground: '#0f172a',
+      topBarBackground: '#030712',
       topBarText: '#e2e8f0',
       
       gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
