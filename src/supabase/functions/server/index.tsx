@@ -1851,7 +1851,7 @@ server.use('*', logger());
 server.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowHeaders: ['Authorization', 'X-User-Token', 'X-API-Key', 'Content-Type', 'Accept', 'apikey', 'x-client-info'],
+  allowHeaders: ['Authorization', 'X-User-Token', 'X-Portal-Token', 'X-API-Key', 'Content-Type', 'Accept', 'apikey', 'x-client-info'],
   exposeHeaders: ['Content-Length', 'Content-Type'],
   maxAge: 86400,
 }));
