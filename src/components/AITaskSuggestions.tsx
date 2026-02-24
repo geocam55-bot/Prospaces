@@ -974,27 +974,42 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
               ) : filteredSuggestions.length === 0 ? (
                 <div className="text-center py-12">
                   <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-green-500" />
-                  <p className="text-lg text-gray-900 mb-2">All caught up!</p>
-                  <p className="text-sm text-gray-600">
-                    {dismissedIds.length > 0 || snoozedItems.length > 0
-                      ? `${dismissedIds.length} dismissed, ${snoozedItems.length} snoozed`
-                      : 'No urgent actions needed at the moment.'
+                  <p className="text-lg text-gray-900 mb-2">
+                    {activeSuggestions.length === 0 && suggestions.length === 0 
+                      ? "No suggestions yet" 
+                      : "All caught up!"}
+                  </p>
+                  <p className="text-sm text-gray-600 max-w-md mx-auto">
+                    {activeSuggestions.length === 0 && suggestions.length === 0
+                      ? "Suggestions are generated from your deals, contacts, tasks, and opportunities. Add some data or check the browser console for diagnostics."
+                      : dismissedIds.length > 0 || snoozedItems.length > 0
+                        ? `${dismissedIds.length} dismissed, ${snoozedItems.length} snoozed`
+                        : 'No urgent actions needed at the moment.'
                     }
                   </p>
-                  {dismissedIds.length > 0 && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="mt-4"
-                      onClick={() => {
-                        setDismissedIds([]);
-                        localStorage.setItem(STORAGE_KEYS.dismissed, JSON.stringify([]));
-                        toast.success('All dismissed suggestions restored');
-                      }}
+                  <div className="flex items-center justify-center gap-2 mt-4">
+                    {dismissedIds.length > 0 && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          setDismissedIds([]);
+                          localStorage.setItem(STORAGE_KEYS.dismissed, JSON.stringify([]));
+                          toast.success('All dismissed suggestions restored');
+                        }}
+                      >
+                        Restore Dismissed
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => { refresh(); toast.info('Rescanning your CRM data...'); }}
                     >
-                      Restore Dismissed
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                      Rescan Now
                     </Button>
-                  )}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
