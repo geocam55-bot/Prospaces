@@ -474,13 +474,13 @@ function App() {
           />
 
           <main 
-            className={`flex-1 overflow-auto transition-all duration-300 ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`} 
+            className={`flex-1 overflow-auto transition-all duration-300 lg:fixed lg:top-16 lg:bottom-0 lg:right-0 ${isSidebarCollapsed ? 'lg:left-20' : 'lg:left-64'}`} 
             style={{ background: 'var(--color-background-secondary)' }}
           >
             <OfflineIndicator />
             <PWAInstallPrompt />
 
-            <div className="pt-14 sm:pt-16 lg:pt-16">
+            <div className="pt-14 sm:pt-16 lg:pt-0">
               {currentView === 'dashboard' && <Dashboard user={user} organization={organization} onNavigate={setCurrentView} />}
               {currentView === 'ai-suggestions' && <AITaskSuggestions user={user} onNavigate={setCurrentView} />}
               {currentView === 'contacts' && <Contacts user={user} />}
