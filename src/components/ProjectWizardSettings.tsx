@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Loader2, Save, RefreshCw, Hammer, Home, Warehouse, Building2 } from 'lucide-react';
+import { Loader2, Save, RefreshCw, Hammer, Home, Warehouse, Building2, Info } from 'lucide-react';
 import {
   getProjectWizardDefaults,
   upsertProjectWizardDefault,
   batchUpsertProjectWizardDefaults,
   getInventoryItemsForDropdown,
+  getOrgConversionFactors,
+  saveOrgConversionFactors,
   ProjectWizardDefault,
   InventoryItem,
 } from '../utils/project-wizard-defaults-client';
@@ -128,12 +131,34 @@ const PLANNER_CATEGORIES = {
   },
 };
 
+// Category groups that contain lumber items (no conversion factor needed)
+const LUMBER_CATEGORY_GROUPS = new Set([
+  'Framing',
+  'Decking',
+  'Railing',
+  'Trim',
+  'Flooring',
+]);
+
+/** Returns true if a category group contains lumber items (no CF needed) */
+const isLumberGroup = (groupName: string): boolean => {
+  if (LUMBER_CATEGORY_GROUPS.has(groupName)) return true;
+  if (groupName.includes('by Length')) return true;
+  for (const lumber of LUMBER_CATEGORY_GROUPS) {
+    if (groupName.startsWith(lumber)) return true;
+  }
+  return false;
+};
+
 export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [defaults, setDefaults] = useState<Record<string, string>>({});
+  const [orgCFs, setOrgCFs] = useState<Record<string, string>>({});
   const [selectedDeckType, setSelectedDeckType] = useState<'spruce' | 'treated' | 'composite' | 'cedar'>('treated');
+  // Local string state for CF inputs so users can clear & type decimals freely
+  const [cfEditValues, setCfEditValues] = useState<Record<string, string>>({});
 
   // Refs for scrolling to each planner section
   const deckRef = React.useRef<HTMLDivElement>(null);
@@ -230,6 +255,12 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
         setInventoryItems(allItems);
       }, 100); // Small delay to let UI render first
       
+      // Load organization conversion factors from KV
+      console.log('[ProjectWizardSettings] 📐 Step 4: Loading org conversion factors...');
+      const cfData = await getOrgConversionFactors(organizationId);
+      console.log('[ProjectWizardSettings] ✅ Loaded org CFs:', Object.keys(cfData).length, 'entries');
+      setOrgCFs(cfData);
+      
     } catch (error) {
       console.error('[ProjectWizardSettings] ❌ Error loading project wizard settings:', error);
       // Only show error if it's not an authentication issue
@@ -277,12 +308,19 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
       console.log(`💾 Batch saving ${defaultConfigs.length} defaults to database via server...`);
       const result = await batchUpsertProjectWizardDefaults(defaultConfigs);
       
+      // Also save org conversion factors to KV
+      console.log(`💾 Saving ${Object.keys(orgCFs).length} org conversion factors...`);
+      const cfResult = await saveOrgConversionFactors(organizationId, orgCFs);
+      
       if (!result.success) {
         console.error('❌ Batch save failed');
         onSave('error', 'Failed to save project wizard defaults. Check console for details.');
+      } else if (!cfResult) {
+        console.error('❌ CF save failed');
+        onSave('error', 'Defaults saved but conversion factors failed to save.');
       } else {
-        console.log(`✅ All ${result.savedCount} defaults saved successfully!`);
-        onSave('success', 'Project Wizard defaults saved successfully!');
+        console.log(`✅ All ${result.savedCount} defaults + ${Object.keys(orgCFs).length} CFs saved successfully!`);
+        onSave('success', 'Project Wizard defaults and conversion factors saved successfully!');
       }
     } catch (error) {
       console.error('❌ Error saving project wizard settings:', error);
@@ -295,6 +333,44 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   const getDefaultValue = (plannerType: string, materialType: string | null, category: string): string => {
     const key = `${plannerType}-${materialType || 'default'}-${category}`;
     return defaults[key] || 'none';
+  };
+
+  // Conversion Factor helpers for org-level CFs
+  const getCFKey = (plannerType: string, materialType: string | null, category: string): string => {
+    return `${plannerType}-${materialType || 'default'}-${category}`;
+  };
+
+  const getOrgCF = (plannerType: string, materialType: string | null, category: string): number => {
+    const key = getCFKey(plannerType, materialType, category);
+    const val = orgCFs[key];
+    return val ? parseFloat(val) || 1 : 1;
+  };
+
+  const handleCFInputChange = (plannerType: string, materialType: string | null, category: string, value: string) => {
+    const key = getCFKey(plannerType, materialType, category);
+    setCfEditValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleCFInputBlur = (plannerType: string, materialType: string | null, category: string) => {
+    const key = getCFKey(plannerType, materialType, category);
+    const raw = cfEditValues[key];
+    setCfEditValues((prev) => {
+      const { [key]: _, ...rest } = prev;
+      return rest;
+    });
+    if (raw === undefined) return;
+    const num = parseFloat(raw);
+    if (isNaN(num) || num <= 0 || num === 1) {
+      setOrgCFs((prev) => {
+        const { [key]: _, ...rest } = prev;
+        return rest;
+      });
+    } else {
+      setOrgCFs((prev) => ({
+        ...prev,
+        [key]: String(num),
+      }));
+    }
   };
 
   if (loading) {
@@ -405,25 +481,66 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
             </div>
 
             <div className="space-y-6 p-4 bg-white rounded-lg border border-purple-100">
-              {Object.entries(PLANNER_CATEGORIES.deck[selectedDeckType]).map(([sectionName, categories]) => (
-                <div key={sectionName} className="space-y-3">
-                  <h4 className="font-medium text-gray-700 border-b border-purple-200 pb-1">{sectionName}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {categories.map((category) => (
-                      <div key={category} className="space-y-2">
-                        <Label htmlFor={`deck-${selectedDeckType}-${category}`}>{category}</Label>
-                        <InventoryCombobox
-                          id={`deck-${selectedDeckType}-${category}`}
-                          items={inventoryItems}
-                          value={getDefaultValue('deck', selectedDeckType, category)}
-                          onChange={(value) => handleDefaultChange('deck', selectedDeckType, category, value)}
-                          placeholder="Select inventory item..."
-                        />
-                      </div>
-                    ))}
+              {Object.entries(PLANNER_CATEGORIES.deck[selectedDeckType]).map(([sectionName, categories]) => {
+                const showCF = !isLumberGroup(sectionName);
+                return (
+                  <div key={sectionName} className="space-y-3">
+                    <div className="flex items-center gap-2 border-b border-purple-200 pb-1">
+                      <h4 className="font-medium text-gray-700">{sectionName}</h4>
+                      {showCF && (
+                        <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
+                          <Info className="h-3 w-3" />
+                          CF
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {categories.map((category) => {
+                        const cfValue = showCF ? getOrgCF('deck', selectedDeckType, category) : 1;
+                        return (
+                          <div key={category} className="space-y-2">
+                            <Label htmlFor={`deck-${selectedDeckType}-${category}`}>{category}</Label>
+                            <InventoryCombobox
+                              id={`deck-${selectedDeckType}-${category}`}
+                              items={inventoryItems}
+                              value={getDefaultValue('deck', selectedDeckType, category)}
+                              onChange={(value) => handleDefaultChange('deck', selectedDeckType, category, value)}
+                              placeholder="Select inventory item..."
+                            />
+                            {showCF && (
+                              <div className="flex items-center gap-2">
+                                <Label className="text-xs text-gray-500 whitespace-nowrap">CF:</Label>
+                                {(() => {
+                                  const cfKey = getCFKey('deck', selectedDeckType, category);
+                                  const editVal = cfEditValues[cfKey];
+                                  const displayVal = editVal !== undefined ? editVal : (cfValue === 1 ? '' : String(cfValue));
+                                  return (
+                                    <>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={displayVal}
+                                        onChange={(e) => handleCFInputChange('deck', selectedDeckType, category, e.target.value)}
+                                        onBlur={() => handleCFInputBlur('deck', selectedDeckType, category)}
+                                        placeholder="1"
+                                        className="h-7 w-24 text-xs"
+                                        title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
+                                      />
+                                      {cfValue !== 1 && editVal === undefined && (
+                                        <span className="text-xs text-amber-600 font-medium">×{cfValue}</span>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -434,25 +551,66 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               Garage Planner
             </h3>
             <div className="space-y-6 p-4 bg-white rounded-lg border border-blue-100">
-              {Object.entries(PLANNER_CATEGORIES.garage.default).map(([sectionName, categories]) => (
-                <div key={sectionName} className="space-y-3">
-                  <h4 className="font-medium text-gray-700 border-b border-blue-200 pb-1">{sectionName}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {categories.map((category) => (
-                      <div key={category} className="space-y-2">
-                        <Label htmlFor={`garage-${category}`}>{category}</Label>
-                        <InventoryCombobox
-                          id={`garage-${category}`}
-                          items={inventoryItems}
-                          value={getDefaultValue('garage', null, category)}
-                          onChange={(value) => handleDefaultChange('garage', null, category, value)}
-                          placeholder="Select inventory item..."
-                        />
-                      </div>
-                    ))}
+              {Object.entries(PLANNER_CATEGORIES.garage.default).map(([sectionName, categories]) => {
+                const showCF = !isLumberGroup(sectionName);
+                return (
+                  <div key={sectionName} className="space-y-3">
+                    <div className="flex items-center gap-2 border-b border-blue-200 pb-1">
+                      <h4 className="font-medium text-gray-700">{sectionName}</h4>
+                      {showCF && (
+                        <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
+                          <Info className="h-3 w-3" />
+                          CF
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {categories.map((category) => {
+                        const cfValue = showCF ? getOrgCF('garage', null, category) : 1;
+                        return (
+                          <div key={category} className="space-y-2">
+                            <Label htmlFor={`garage-${category}`}>{category}</Label>
+                            <InventoryCombobox
+                              id={`garage-${category}`}
+                              items={inventoryItems}
+                              value={getDefaultValue('garage', null, category)}
+                              onChange={(value) => handleDefaultChange('garage', null, category, value)}
+                              placeholder="Select inventory item..."
+                            />
+                            {showCF && (
+                              <div className="flex items-center gap-2">
+                                <Label className="text-xs text-gray-500 whitespace-nowrap">CF:</Label>
+                                {(() => {
+                                  const cfKey = getCFKey('garage', null, category);
+                                  const editVal = cfEditValues[cfKey];
+                                  const displayVal = editVal !== undefined ? editVal : (cfValue === 1 ? '' : String(cfValue));
+                                  return (
+                                    <>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={displayVal}
+                                        onChange={(e) => handleCFInputChange('garage', null, category, e.target.value)}
+                                        onBlur={() => handleCFInputBlur('garage', null, category)}
+                                        placeholder="1"
+                                        className="h-7 w-24 text-xs"
+                                        title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
+                                      />
+                                      {cfValue !== 1 && editVal === undefined && (
+                                        <span className="text-xs text-amber-600 font-medium">×{cfValue}</span>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -463,25 +621,66 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               Shed Planner
             </h3>
             <div className="space-y-6 p-4 bg-white rounded-lg border border-green-100">
-              {Object.entries(PLANNER_CATEGORIES.shed.default).map(([sectionName, categories]) => (
-                <div key={sectionName} className="space-y-3">
-                  <h4 className="font-medium text-gray-700 border-b border-green-200 pb-1">{sectionName}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {categories.map((category) => (
-                      <div key={category} className="space-y-2">
-                        <Label htmlFor={`shed-${category}`}>{category}</Label>
-                        <InventoryCombobox
-                          id={`shed-${category}`}
-                          items={inventoryItems}
-                          value={getDefaultValue('shed', null, category)}
-                          onChange={(value) => handleDefaultChange('shed', null, category, value)}
-                          placeholder="Select inventory item..."
-                        />
-                      </div>
-                    ))}
+              {Object.entries(PLANNER_CATEGORIES.shed.default).map(([sectionName, categories]) => {
+                const showCF = !isLumberGroup(sectionName);
+                return (
+                  <div key={sectionName} className="space-y-3">
+                    <div className="flex items-center gap-2 border-b border-green-200 pb-1">
+                      <h4 className="font-medium text-gray-700">{sectionName}</h4>
+                      {showCF && (
+                        <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
+                          <Info className="h-3 w-3" />
+                          CF
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {categories.map((category) => {
+                        const cfValue = showCF ? getOrgCF('shed', null, category) : 1;
+                        return (
+                          <div key={category} className="space-y-2">
+                            <Label htmlFor={`shed-${category}`}>{category}</Label>
+                            <InventoryCombobox
+                              id={`shed-${category}`}
+                              items={inventoryItems}
+                              value={getDefaultValue('shed', null, category)}
+                              onChange={(value) => handleDefaultChange('shed', null, category, value)}
+                              placeholder="Select inventory item..."
+                            />
+                            {showCF && (
+                              <div className="flex items-center gap-2">
+                                <Label className="text-xs text-gray-500 whitespace-nowrap">CF:</Label>
+                                {(() => {
+                                  const cfKey = getCFKey('shed', null, category);
+                                  const editVal = cfEditValues[cfKey];
+                                  const displayVal = editVal !== undefined ? editVal : (cfValue === 1 ? '' : String(cfValue));
+                                  return (
+                                    <>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={displayVal}
+                                        onChange={(e) => handleCFInputChange('shed', null, category, e.target.value)}
+                                        onBlur={() => handleCFInputBlur('shed', null, category)}
+                                        placeholder="1"
+                                        className="h-7 w-24 text-xs"
+                                        title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
+                                      />
+                                      {cfValue !== 1 && editVal === undefined && (
+                                        <span className="text-xs text-amber-600 font-medium">×{cfValue}</span>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -492,25 +691,66 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               Roof Planner
             </h3>
             <div className="space-y-6 p-4 bg-white rounded-lg border border-red-100">
-              {Object.entries(PLANNER_CATEGORIES.roof.default).map(([sectionName, categories]) => (
-                <div key={sectionName} className="space-y-3">
-                  <h4 className="font-medium text-gray-700 border-b border-red-200 pb-1">{sectionName}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {categories.map((category) => (
-                      <div key={category} className="space-y-2">
-                        <Label htmlFor={`roof-${category}`}>{category}</Label>
-                        <InventoryCombobox
-                          id={`roof-${category}`}
-                          items={inventoryItems}
-                          value={getDefaultValue('roof', null, category)}
-                          onChange={(value) => handleDefaultChange('roof', null, category, value)}
-                          placeholder="Select inventory item..."
-                        />
-                      </div>
-                    ))}
+              {Object.entries(PLANNER_CATEGORIES.roof.default).map(([sectionName, categories]) => {
+                const showCF = !isLumberGroup(sectionName);
+                return (
+                  <div key={sectionName} className="space-y-3">
+                    <div className="flex items-center gap-2 border-b border-red-200 pb-1">
+                      <h4 className="font-medium text-gray-700">{sectionName}</h4>
+                      {showCF && (
+                        <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
+                          <Info className="h-3 w-3" />
+                          CF
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {categories.map((category) => {
+                        const cfValue = showCF ? getOrgCF('roof', null, category) : 1;
+                        return (
+                          <div key={category} className="space-y-2">
+                            <Label htmlFor={`roof-${category}`}>{category}</Label>
+                            <InventoryCombobox
+                              id={`roof-${category}`}
+                              items={inventoryItems}
+                              value={getDefaultValue('roof', null, category)}
+                              onChange={(value) => handleDefaultChange('roof', null, category, value)}
+                              placeholder="Select inventory item..."
+                            />
+                            {showCF && (
+                              <div className="flex items-center gap-2">
+                                <Label className="text-xs text-gray-500 whitespace-nowrap">CF:</Label>
+                                {(() => {
+                                  const cfKey = getCFKey('roof', null, category);
+                                  const editVal = cfEditValues[cfKey];
+                                  const displayVal = editVal !== undefined ? editVal : (cfValue === 1 ? '' : String(cfValue));
+                                  return (
+                                    <>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={displayVal}
+                                        onChange={(e) => handleCFInputChange('roof', null, category, e.target.value)}
+                                        onBlur={() => handleCFInputBlur('roof', null, category)}
+                                        placeholder="1"
+                                        className="h-7 w-24 text-xs"
+                                        title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
+                                      />
+                                      {cfValue !== 1 && editVal === undefined && (
+                                        <span className="text-xs text-amber-600 font-medium">×{cfValue}</span>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

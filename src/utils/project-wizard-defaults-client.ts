@@ -417,3 +417,118 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
     return [];
   }
 }
+
+/**
+ * Extract conversion factors from user defaults for a given planner type.
+ * CF entries are stored with `-cf` suffix keys (e.g., "deck-treated-Deck Screws-cf": "10").
+ * Returns a map of lowercased category name -> numeric conversion factor.
+ */
+export function extractConversionFactors(
+  userDefaults: Record<string, string>,
+  plannerType: string,
+  materialType?: string
+): Record<string, number> {
+  const cfMap: Record<string, number> = {};
+  // Lowercase the prefix so 'Treated' matches 'treated', etc.
+  const prefix = `${plannerType}-${(materialType || 'default').toLowerCase()}-`;
+
+  Object.entries(userDefaults).forEach(([key, value]) => {
+    if (key.toLowerCase().startsWith(prefix) && key.endsWith('-cf')) {
+      // Extract category name: remove prefix and '-cf' suffix
+      const categoryName = key.slice(prefix.length, -3); // remove prefix and "-cf"
+      const numVal = parseFloat(value);
+      if (!isNaN(numVal) && numVal > 0 && numVal !== 1) {
+        cfMap[categoryName.toLowerCase()] = numVal;
+      }
+    }
+  });
+
+  console.log('[project-wizard-defaults] 📐 Extracted conversion factors:', cfMap);
+  return cfMap;
+}
+
+/**
+ * Get org-level conversion factors from the server (KV-backed).
+ */
+export async function getOrgConversionFactors(organizationId: string): Promise<Record<string, string>> {
+  console.log('[project-wizard-defaults] 📐 Fetching org conversion factors for:', organizationId);
+
+  try {
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/org-conversion-factors/${encodeURIComponent(organizationId)}`,
+      {
+        method: 'GET',
+        headers: await getServerHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      console.error('[project-wizard-defaults] ❌ Error fetching org CFs:', response.statusText);
+      return {};
+    }
+
+    const data = await response.json();
+    console.log('[project-wizard-defaults] ✅ Org CFs fetched:', Object.keys(data.conversionFactors || {}).length, 'entries');
+    return data.conversionFactors || {};
+  } catch (error) {
+    console.error('[project-wizard-defaults] ❌ Unexpected error fetching org CFs:', error);
+    return {};
+  }
+}
+
+/**
+ * Save org-level conversion factors to the server (KV-backed).
+ */
+export async function saveOrgConversionFactors(organizationId: string, conversionFactors: Record<string, string>): Promise<boolean> {
+  console.log('[project-wizard-defaults] 💾 Saving org conversion factors:', Object.keys(conversionFactors).length, 'entries');
+
+  try {
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/org-conversion-factors/${encodeURIComponent(organizationId)}`,
+      {
+        method: 'POST',
+        headers: await getServerHeaders(),
+        body: JSON.stringify({ conversionFactors }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      console.error('[project-wizard-defaults] ❌ Error saving org CFs:', errorData);
+      return false;
+    }
+
+    console.log('[project-wizard-defaults] ✅ Org CFs saved successfully');
+    return true;
+  } catch (error) {
+    console.error('[project-wizard-defaults] ❌ Unexpected error saving org CFs:', error);
+    return false;
+  }
+}
+
+/**
+ * Extract org-level conversion factors for a specific planner type from the flat map.
+ * Org CFs are stored as "plannerType-materialType-categoryName": "value".
+ * Returns a map of lowercased category name -> numeric conversion factor.
+ */
+export function extractOrgConversionFactors(
+  orgCFs: Record<string, string>,
+  plannerType: string,
+  materialType?: string
+): Record<string, number> {
+  const cfMap: Record<string, number> = {};
+  // Lowercase the prefix so 'Treated' matches 'treated', etc.
+  const prefix = `${plannerType}-${(materialType || 'default').toLowerCase()}-`;
+
+  Object.entries(orgCFs).forEach(([key, value]) => {
+    if (key.toLowerCase().startsWith(prefix)) {
+      const categoryName = key.slice(prefix.length);
+      const numVal = parseFloat(value);
+      if (!isNaN(numVal) && numVal > 0 && numVal !== 1) {
+        cfMap[categoryName.toLowerCase()] = numVal;
+      }
+    }
+  });
+
+  return cfMap;
+}

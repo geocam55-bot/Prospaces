@@ -2603,6 +2603,16 @@
     background-color: var(--color-amber-50);
   }
 
+  .bg-amber-50\/50 {
+    background-color: color-mix(in srgb, oklch(.987 .022 95.277) 50%, transparent);
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-amber-50\/50 {
+      background-color: color-mix(in oklab, var(--color-amber-50) 50%, transparent);
+    }
+  }
+
   .bg-amber-100 {
     background-color: var(--color-amber-100);
   }

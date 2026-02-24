@@ -433,8 +433,8 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
   hardware.push({
     category: 'Hardware',
     description: `Ledger Flashing Tape (${config.width}')`,
-    quantity: 1,
-    unit: 'roll',
+    quantity: config.width,
+    unit: 'ft',
     notes: 'Self-adhesive waterproof membrane for ledger board',
   });
   

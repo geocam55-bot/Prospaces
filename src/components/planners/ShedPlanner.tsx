@@ -10,6 +10,7 @@ import { PlannerDefaults } from '../PlannerDefaults';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { calculateMaterials } from '../../utils/shedCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
+import { getUserDefaults, extractConversionFactors, getOrgConversionFactors, extractOrgConversionFactors } from '../../utils/project-wizard-defaults-client';
 import { ShedConfig } from '../../types/shed';
 import { Ruler, Package, Printer, FileText, Box, Layers, Home, Settings } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -94,10 +95,26 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
   useEffect(() => {
     const enrichMaterials = async () => {
       if (user.organizationId && flatMaterials.length > 0) {
+        let cfMap: Record<string, number> = {};
+        try {
+          // Start with org-level CFs as baseline
+          const orgCFs = await getOrgConversionFactors(user.organizationId);
+          cfMap = extractOrgConversionFactors(orgCFs, 'shed');
+
+          // Overlay user-level CFs (user overrides take priority per-category)
+          const userDefs = await getUserDefaults(user.id, user.organizationId);
+          const userCFMap = extractConversionFactors(userDefs, 'shed');
+          cfMap = { ...cfMap, ...userCFMap };
+        } catch (err) {
+          console.warn('[ShedPlanner] Could not load conversion factors:', err);
+        }
+
         const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(
           flatMaterials,
           user.organizationId,
-          'shed'
+          'shed',
+          undefined,
+          cfMap
         );
         setEnrichedMaterials(enriched);
         setTotalT1Price(total);

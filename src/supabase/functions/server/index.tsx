@@ -1550,6 +1550,50 @@ app.delete(`${PREFIX}/project-wizard-defaults/:id`, async (c) => {
   }
 });
 
+// ── ORG CONVERSION FACTORS (KV-backed) ──────────────────────────────────
+// GET org-level conversion factors
+app.get(`${PREFIX}/org-conversion-factors/:organizationId`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+
+    const orgId = c.req.param('organizationId');
+    console.log(`[org-cf] GET conversion factors for org=${orgId}`);
+
+    const data = await kv.get(`org_cf:${orgId}`);
+    return c.json({ conversionFactors: data || {} });
+  } catch (err: any) {
+    console.error('[org-cf] GET error:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// POST (save) org-level conversion factors
+app.post(`${PREFIX}/org-conversion-factors/:organizationId`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (!['admin', 'super_admin'].includes(auth.profile.role)) {
+      return c.json({ error: 'Only admin or super_admin can set org conversion factors' }, 403);
+    }
+
+    const orgId = c.req.param('organizationId');
+    const body = await c.req.json();
+    const cf = body.conversionFactors;
+
+    if (!cf || typeof cf !== 'object') {
+      return c.json({ error: 'conversionFactors must be an object' }, 400);
+    }
+
+    console.log(`[org-cf] POST saving ${Object.keys(cf).length} conversion factors for org=${orgId}`);
+    await kv.set(`org_cf:${orgId}`, cf);
+    return c.json({ success: true, count: Object.keys(cf).length });
+  } catch (err: any) {
+    console.error('[org-cf] POST error:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ── API KEY MANAGEMENT (Enterprise) ─────────────────────────────────────
 app.route('/', apiKeys);
 

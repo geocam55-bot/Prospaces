@@ -8,6 +8,30 @@ interface ShedMaterialsListProps {
   compact?: boolean;
 }
 
+/** Format quantity display with conversion factor info */
+function formatQty(item: any): React.ReactNode {
+  if (item.conversionFactor && item.conversionFactor !== 1 && item.convertedQuantity != null) {
+    const displayQty = item.convertedQuantity < 1
+      ? item.convertedQuantity.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')
+      : item.convertedQuantity.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+    return (
+      <span>
+        <span className="text-amber-700 font-semibold">{displayQty}</span>{' '}
+        <span className="text-amber-700">{item.convertedUnit || 'units'}</span>
+        {item.orderQuantity != null && item.orderQuantity !== item.convertedQuantity && (
+          <span className="block text-xs text-gray-500">
+            Order: {item.orderQuantity} {item.convertedUnit || 'units'}
+          </span>
+        )}
+        <span className="block text-xs text-amber-600">
+          ({item.quantity} {item.unit} × {item.conversionFactor})
+        </span>
+      </span>
+    );
+  }
+  return <span>{item.quantity} {item.unit}</span>;
+}
+
 export function ShedMaterialsList({ materials, compact = false }: ShedMaterialsListProps) {
   const categories = [
     { key: 'foundation', label: 'Foundation', icon: Box, items: materials.foundation || [] },
@@ -51,7 +75,7 @@ export function ShedMaterialsList({ materials, compact = false }: ShedMaterialsL
                       )}
                     </div>
                     <div className="ml-4 text-right font-medium text-slate-700 whitespace-nowrap">
-                      {item.quantity} {item.unit}
+                      {formatQty(item)}
                     </div>
                   </div>
                 ))}
@@ -96,7 +120,7 @@ export function ShedMaterialsList({ materials, compact = false }: ShedMaterialsL
                           {item.description}
                         </div>
                         <div className="ml-4 font-semibold text-green-600 whitespace-nowrap">
-                          {item.quantity} {item.unit}
+                          {formatQty(item)}
                         </div>
                       </div>
                       {item.notes && (

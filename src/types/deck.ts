@@ -55,6 +55,14 @@ export interface MaterialItem {
   totalCost?: number;
   /** Standard lumber length in feet (8, 10, 12, 14, 16) for length-aware SKU matching */
   lumberLength?: number;
+  /** Conversion factor for non-lumber items (e.g., 10 means 10 units per box). Default 1. */
+  conversionFactor?: number;
+  /** Quantity after applying conversion factor (e.g., qty 50 lbs / CF 10 = 5 boxes) */
+  convertedQuantity?: number;
+  /** The purchase unit after conversion (e.g., 'boxes', 'bags') */
+  convertedUnit?: string;
+  /** Inventory item ID from defaults matching */
+  itemId?: string;
 }
 
 export interface DeckMaterials {

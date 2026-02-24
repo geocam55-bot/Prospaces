@@ -11,6 +11,7 @@ import { PlannerDefaults } from '../PlannerDefaults';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { calculateMaterials } from '../../utils/roofCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
+import { getUserDefaults, extractConversionFactors, getOrgConversionFactors, extractOrgConversionFactors } from '../../utils/project-wizard-defaults-client';
 import { RoofConfig } from '../../types/roof';
 import { Ruler, Package, Printer, FileText, Box, Layers, Triangle, Settings } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -70,11 +71,26 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
   useEffect(() => {
     const enrichMaterials = async () => {
       if (user.organizationId && flatMaterials.length > 0) {
+        let cfMap: Record<string, number> = {};
+        try {
+          // Start with org-level CFs as baseline
+          const orgCFs = await getOrgConversionFactors(user.organizationId);
+          cfMap = extractOrgConversionFactors(orgCFs, 'roof', config.shingleType);
+
+          // Overlay user-level CFs (user overrides take priority per-category)
+          const userDefs = await getUserDefaults(user.id, user.organizationId);
+          const userCFMap = extractConversionFactors(userDefs, 'roof', config.shingleType);
+          cfMap = { ...cfMap, ...userCFMap };
+        } catch (err) {
+          console.warn('[RoofPlanner] Could not load conversion factors:', err);
+        }
+
         const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(
           flatMaterials,
           user.organizationId,
           'roof',
-          config.shingleType
+          config.shingleType,
+          cfMap
         );
         setEnrichedMaterials(enriched);
         setTotalT1Price(total);

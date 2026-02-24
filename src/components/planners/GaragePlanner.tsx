@@ -9,6 +9,7 @@ import { PrintableGarageDesign } from '../project-wizard/PrintableGarageDesign';
 import { PlannerDefaults } from '../PlannerDefaults';
 import { calculateMaterials } from '../../utils/garageCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
+import { getUserDefaults, extractConversionFactors, getOrgConversionFactors, extractOrgConversionFactors } from '../../utils/project-wizard-defaults-client';
 import { GarageConfig } from '../../types/garage';
 import { Ruler, Package, Printer, FileText, Box, Layers, Warehouse, Settings } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -104,10 +105,26 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
   useEffect(() => {
     const enrichMaterials = async () => {
       if (user.organizationId && flatMaterials.length > 0) {
+        let cfMap: Record<string, number> = {};
+        try {
+          // Start with org-level CFs as baseline
+          const orgCFs = await getOrgConversionFactors(user.organizationId);
+          cfMap = extractOrgConversionFactors(orgCFs, 'garage');
+
+          // Overlay user-level CFs (user overrides take priority per-category)
+          const userDefs = await getUserDefaults(user.id, user.organizationId);
+          const userCFMap = extractConversionFactors(userDefs, 'garage');
+          cfMap = { ...cfMap, ...userCFMap };
+        } catch (err) {
+          console.warn('[GaragePlanner] Could not load conversion factors:', err);
+        }
+
         const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(
           flatMaterials,
           user.organizationId,
-          'garage'
+          'garage',
+          undefined,
+          cfMap
         );
         setEnrichedMaterials(enriched);
         setTotalT1Price(total);

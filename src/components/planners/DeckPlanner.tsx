@@ -11,6 +11,7 @@ import { PlannerDefaults } from '../PlannerDefaults';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { calculateMaterials } from '../../utils/deckCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
+import { getUserDefaults, extractConversionFactors, getOrgConversionFactors, extractOrgConversionFactors } from '../../utils/project-wizard-defaults-client';
 import { DeckConfig } from '../../types/deck';
 import { Ruler, Package, Printer, FileText, Box, Layers, Hammer, Settings } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -66,11 +67,27 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
   useEffect(() => {
     const enrichMaterials = async () => {
       if (user.organizationId && flatMaterials.length > 0) {
+        // Load conversion factors: user-level first, then fall back to org-level
+        let cfMap: Record<string, number> = {};
+        try {
+          // Start with org-level CFs as baseline
+          const orgCFs = await getOrgConversionFactors(user.organizationId);
+          cfMap = extractOrgConversionFactors(orgCFs, 'deck', config.deckingType);
+
+          // Overlay user-level CFs (user overrides take priority per-category)
+          const userDefs = await getUserDefaults(user.id, user.organizationId);
+          const userCFMap = extractConversionFactors(userDefs, 'deck', config.deckingType);
+          cfMap = { ...cfMap, ...userCFMap };
+        } catch (err) {
+          console.warn('[DeckPlanner] Could not load conversion factors:', err);
+        }
+
         const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(
           flatMaterials,
           user.organizationId,
           'deck',
-          config.deckingType
+          config.deckingType,
+          cfMap
         );
         setEnrichedMaterials(enriched);
         setTotalT1Price(total);

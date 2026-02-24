@@ -13,6 +13,16 @@ interface MaterialItem {
   totalCost?: number;
   /** Standard lumber length in feet for length-aware SKU matching */
   lumberLength?: number;
+  /** Conversion factor for non-lumber items */
+  conversionFactor?: number;
+  /** Quantity after applying conversion factor */
+  convertedQuantity?: number;
+  /** Whole units to order (ceiled convertedQuantity) */
+  orderQuantity?: number;
+  /** The purchase unit after conversion */
+  convertedUnit?: string;
+  /** Inventory item ID */
+  itemId?: string;
 }
 
 interface InventoryItemWithPricing {
@@ -28,8 +38,9 @@ interface InventoryItemWithPricing {
 export async function enrichMaterialsWithT1Pricing(
   materials: MaterialItem[],
   organizationId: string,
-  plannerType: 'deck' | 'garage' | 'shed',
-  materialType?: string
+  plannerType: 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen',
+  materialType?: string,
+  conversionFactors?: Record<string, number>
 ): Promise<{ materials: MaterialItem[]; totalT1Price: number }> {
   console.log(`[enrichMaterials] Enriching ${materials.length} materials for '${plannerType}' planner${materialType ? ` (${materialType})` : ''}`);
 
@@ -98,6 +109,7 @@ export async function enrichMaterialsWithT1Pricing(
       // Try to find matching inventory item by category OR by smart matching based on description
       const categoryKey = material.category.toLowerCase();
       let inventoryItemId = defaultsMap.get(categoryKey);
+      let matchedDefaultKey: string | undefined = inventoryItemId ? categoryKey : undefined;
       
       // If no direct category match, try smart matching based on description
       if (!inventoryItemId) {
@@ -114,49 +126,64 @@ export async function enrichMaterialsWithT1Pricing(
             const lengthMatch = defaultsMap.get(lengthKey);
             if (lengthMatch) {
               console.log(`[enrichMaterials] 📏 Length-specific match: "${lengthKey}" -> ${lengthMatch}`);
+              matchedDefaultKey = lengthKey;
               return lengthMatch;
             }
+          }
+          if (defaultsMap.has(baseKey)) {
+            matchedDefaultKey = baseKey;
           }
           return defaultsMap.get(baseKey);
         };
 
+        // Helper to match and track the key
+        const tryMatch = (key: string): string | undefined => {
+          const match = defaultsMap.get(key);
+          if (match) matchedDefaultKey = key;
+          return match;
+        };
+
         // Smart matching for deck materials
-        if (description.includes('ledger')) {
+        if (description.includes('ledger flashing')) {
+          inventoryItemId = tryMatch('ledger flashing');
+        } else if (description.includes('ledger')) {
           inventoryItemId = tryLengthFirst('ledger board');
         } else if (description.includes('joist') && !description.includes('hanger') && !description.includes('rim')) {
           inventoryItemId = tryLengthFirst('joists');
         } else if (description.includes('rim joist') || description.includes('rim joists')) {
           inventoryItemId = tryLengthFirst('rim joists');
         } else if (description.includes('joist hanger')) {
-          inventoryItemId = defaultsMap.get('joist hangers');
+          inventoryItemId = tryMatch('joist hangers');
         } else if (description.includes('beam')) {
           inventoryItemId = tryLengthFirst('beams');
         } else if (description.includes('post') && !description.includes('railing') && !description.includes('anchor')) {
           inventoryItemId = tryLengthFirst('posts');
         } else if (description.includes('post anchor')) {
-          inventoryItemId = defaultsMap.get('post anchors');
+          inventoryItemId = tryMatch('post anchors');
         } else if (description.includes('decking') || description.includes('deck board')) {
           inventoryItemId = tryLengthFirst('decking boards');
         } else if (description.includes('railing post')) {
-          inventoryItemId = defaultsMap.get('railing posts');
+          inventoryItemId = tryMatch('railing posts');
         } else if (description.includes('top rail') || description.includes('cap rail')) {
-          inventoryItemId = defaultsMap.get('railing top rail');
+          inventoryItemId = tryMatch('railing top rail');
         } else if (description.includes('bottom rail')) {
-          inventoryItemId = defaultsMap.get('railing bottom rail');
+          inventoryItemId = tryMatch('railing bottom rail');
         } else if (description.includes('baluster') || description.includes('spindle')) {
-          inventoryItemId = defaultsMap.get('railing balusters');
+          inventoryItemId = tryMatch('railing balusters');
         } else if (description.includes('railing bracket')) {
-          inventoryItemId = defaultsMap.get('railing brackets');
+          inventoryItemId = tryMatch('railing brackets');
         } else if (description.includes('stringer')) {
           inventoryItemId = tryLengthFirst('stair stringers');
         } else if (description.includes('stair') && description.includes('tread')) {
-          inventoryItemId = defaultsMap.get('stair treads');
+          inventoryItemId = tryMatch('stair treads');
         } else if (description.includes('deck screw')) {
-          inventoryItemId = defaultsMap.get('deck screws');
+          inventoryItemId = tryMatch('deck screws');
         } else if (description.includes('structural screw')) {
-          inventoryItemId = defaultsMap.get('structural screws');
+          inventoryItemId = tryMatch('structural screws');
+        } else if (description.includes('lag screw') || description.includes('lag bolt')) {
+          inventoryItemId = tryMatch('lag screws');
         } else if (description.includes('concrete mix')) {
-          inventoryItemId = defaultsMap.get('concrete mix');
+          inventoryItemId = tryMatch('concrete mix');
         }
         
         // -----------------------------------------------------------
@@ -170,59 +197,59 @@ export async function enrichMaterialsWithT1Pricing(
           } else if (description.includes('header')) {
             inventoryItemId = tryLengthFirst('headers');
           } else if (description.includes('blocking') || description.includes('bracing')) {
-            inventoryItemId = defaultsMap.get('blocking/bracing');
+            inventoryItemId = tryMatch('blocking/bracing');
           } else if (description.includes('truss')) {
-            inventoryItemId = defaultsMap.get('roof trusses');
+            inventoryItemId = tryMatch('roof trusses');
           } else if (description.includes('wall sheathing')) {
-            inventoryItemId = defaultsMap.get('wall sheathing');
+            inventoryItemId = tryMatch('wall sheathing');
           } else if (description.includes('roof sheathing')) {
-            inventoryItemId = defaultsMap.get('roof sheathing');
+            inventoryItemId = tryMatch('roof sheathing');
           } else if (description.includes('fascia')) {
             inventoryItemId = tryLengthFirst('fascia boards');
           } else if (description.includes('trim')) {
-            inventoryItemId = defaultsMap.get('trim boards');
+            inventoryItemId = tryMatch('trim boards');
           } else if (description.includes('house wrap') || description.includes('tyvek')) {
-            inventoryItemId = defaultsMap.get('house wrap');
+            inventoryItemId = tryMatch('house wrap');
           } else if (description.includes('siding')) {
-            inventoryItemId = defaultsMap.get('siding');
+            inventoryItemId = tryMatch('siding');
           } else if (description.includes('garage door opener')) {
-            inventoryItemId = defaultsMap.get('garage door opener');
+            inventoryItemId = tryMatch('garage door opener');
           } else if (description.includes('overhead') || description.includes('garage door')) {
-            inventoryItemId = defaultsMap.get('garage door');
+            inventoryItemId = tryMatch('garage door');
           } else if (description.includes('walk door') || description.includes('entry door') || description.includes('steel walk')) {
-            inventoryItemId = defaultsMap.get('entry door');
+            inventoryItemId = tryMatch('entry door');
           } else if (description.includes('sub-panel') || description.includes('sub panel')) {
-            inventoryItemId = defaultsMap.get('sub-panel');
+            inventoryItemId = tryMatch('sub-panel');
           } else if (description.includes('romex')) {
-            inventoryItemId = defaultsMap.get('romex wire');
+            inventoryItemId = tryMatch('romex wire');
           } else if (description.includes('shop light') || description.includes('led')) {
-            inventoryItemId = defaultsMap.get('led shop lights');
+            inventoryItemId = tryMatch('led shop lights');
           } else if (description.includes('gfci') || description.includes('outlet')) {
-            inventoryItemId = defaultsMap.get('outlets (gfci)');
+            inventoryItemId = tryMatch('outlets (gfci)');
           } else if (description.includes('light switch')) {
-            inventoryItemId = defaultsMap.get('light switches');
+            inventoryItemId = tryMatch('light switches');
           } else if (description.includes('junction box')) {
-            inventoryItemId = defaultsMap.get('junction boxes');
+            inventoryItemId = tryMatch('junction boxes');
           } else if (description.includes('insulation') && description.includes('wall')) {
-            inventoryItemId = defaultsMap.get('insulation (walls)');
+            inventoryItemId = tryMatch('insulation (walls)');
           } else if (description.includes('insulation') && description.includes('ceiling')) {
-            inventoryItemId = defaultsMap.get('insulation (ceiling)');
+            inventoryItemId = tryMatch('insulation (ceiling)');
           } else if (description.includes('anchor bolt')) {
-            inventoryItemId = defaultsMap.get('anchor bolts');
+            inventoryItemId = tryMatch('anchor bolts');
           } else if (description.includes('hurricane')) {
-            inventoryItemId = defaultsMap.get('hurricane ties');
+            inventoryItemId = tryMatch('hurricane ties');
           } else if (description.includes('felt') || description.includes('underlayment')) {
-            inventoryItemId = defaultsMap.get('felt underlayment');
+            inventoryItemId = tryMatch('felt underlayment');
           } else if (description.includes('shingle')) {
-            inventoryItemId = defaultsMap.get('roof shingles');
+            inventoryItemId = tryMatch('roof shingles');
           } else if (description.includes('ridge cap')) {
-            inventoryItemId = defaultsMap.get('ridge cap');
+            inventoryItemId = tryMatch('ridge cap');
           } else if (description.includes('drip edge')) {
-            inventoryItemId = defaultsMap.get('drip edge');
+            inventoryItemId = tryMatch('drip edge');
           } else if (description.includes('roofing nail')) {
-            inventoryItemId = defaultsMap.get('roofing nails');
+            inventoryItemId = tryMatch('roofing nails');
           } else if (description.includes('window')) {
-            inventoryItemId = defaultsMap.get('windows');
+            inventoryItemId = tryMatch('windows');
           }
         }
 
@@ -243,74 +270,74 @@ export async function enrichMaterialsWithT1Pricing(
           } else if (description.includes('rafter')) {
             inventoryItemId = tryLengthFirst('rafters');
           } else if (description.includes('collar tie')) {
-            inventoryItemId = defaultsMap.get('collar ties');
+            inventoryItemId = tryMatch('collar ties');
           } else if (description.includes('ridge board') || description.includes('ridge')) {
             inventoryItemId = tryLengthFirst('ridge board');
           } else if (description.includes('loft joist')) {
             inventoryItemId = tryLengthFirst('loft joists');
           } else if (description.includes('truss')) {
-            inventoryItemId = defaultsMap.get('roof trusses');
+            inventoryItemId = tryMatch('roof trusses');
           } else if (description.includes('wall sheathing')) {
-            inventoryItemId = defaultsMap.get('wall sheathing');
+            inventoryItemId = tryMatch('wall sheathing');
           } else if (description.includes('roof sheathing')) {
-            inventoryItemId = defaultsMap.get('roof sheathing');
+            inventoryItemId = tryMatch('roof sheathing');
           } else if (description.includes('tongue') || description.includes('floor decking') || description.includes('plywood') && categoryKey === 'flooring') {
-            inventoryItemId = defaultsMap.get('floor decking');
+            inventoryItemId = tryMatch('floor decking');
           } else if (description.includes('fascia')) {
             inventoryItemId = tryLengthFirst('fascia boards');
           } else if (description.includes('corner trim')) {
-            inventoryItemId = defaultsMap.get('corner trim');
+            inventoryItemId = tryMatch('corner trim');
           } else if (description.includes('door/window trim') || (description.includes('trim') && description.includes('door'))) {
-            inventoryItemId = defaultsMap.get('door/window trim');
+            inventoryItemId = tryMatch('door/window trim');
           } else if (description.includes('flower box')) {
-            inventoryItemId = defaultsMap.get('flower box kit');
+            inventoryItemId = tryMatch('flower box kit');
           } else if (description.includes('skid')) {
-            inventoryItemId = defaultsMap.get('foundation skids');
+            inventoryItemId = tryMatch('foundation skids');
           } else if (description.includes('runner')) {
-            inventoryItemId = defaultsMap.get('runners');
+            inventoryItemId = tryMatch('runners');
           } else if (description.includes('concrete block')) {
-            inventoryItemId = defaultsMap.get('concrete blocks');
+            inventoryItemId = tryMatch('concrete blocks');
           } else if (description.includes('landscape fabric')) {
-            inventoryItemId = defaultsMap.get('landscape fabric');
+            inventoryItemId = tryMatch('landscape fabric');
           } else if (description.includes('border')) {
-            inventoryItemId = defaultsMap.get('border');
+            inventoryItemId = tryMatch('border');
           } else if (description.includes('house wrap')) {
-            inventoryItemId = defaultsMap.get('house wrap');
+            inventoryItemId = tryMatch('house wrap');
           } else if (description.includes('siding')) {
-            inventoryItemId = defaultsMap.get('siding');
+            inventoryItemId = tryMatch('siding');
           } else if (description.includes('shutter')) {
-            inventoryItemId = defaultsMap.get('shutters');
+            inventoryItemId = tryMatch('shutters');
           } else if (description.includes('door') && description.includes('hinge')) {
-            inventoryItemId = defaultsMap.get('hinges');
+            inventoryItemId = tryMatch('hinges');
           } else if (description.includes('handle') || description.includes('latch')) {
-            inventoryItemId = defaultsMap.get('handle/latch');
+            inventoryItemId = tryMatch('handle/latch');
           } else if (description.includes('door') && !description.includes('trim') && !description.includes('hinge') && !description.includes('handle')) {
-            inventoryItemId = defaultsMap.get('door');
+            inventoryItemId = tryMatch('door');
           } else if (description.includes('barn door hardware')) {
-            inventoryItemId = defaultsMap.get('door hardware');
+            inventoryItemId = tryMatch('door hardware');
           } else if (description.includes('shelf support') || description.includes('shelf bracket')) {
-            inventoryItemId = defaultsMap.get('shelf supports') || defaultsMap.get('shelf brackets');
+            inventoryItemId = tryMatch('shelf supports') || tryMatch('shelf brackets');
           } else if (description.includes('plywood shelving')) {
-            inventoryItemId = defaultsMap.get('plywood shelving');
+            inventoryItemId = tryMatch('plywood shelving');
           } else if (description.includes('hurricane')) {
-            inventoryItemId = defaultsMap.get('hurricane ties');
+            inventoryItemId = tryMatch('hurricane ties');
           } else if (description.includes('felt') || description.includes('underlayment')) {
-            inventoryItemId = defaultsMap.get('felt underlayment');
+            inventoryItemId = tryMatch('felt underlayment');
           } else if (description.includes('shingle')) {
-            inventoryItemId = defaultsMap.get('roof shingles');
+            inventoryItemId = tryMatch('roof shingles');
           } else if (description.includes('ridge cap')) {
-            inventoryItemId = defaultsMap.get('ridge cap');
+            inventoryItemId = tryMatch('ridge cap');
           } else if (description.includes('drip edge')) {
-            inventoryItemId = defaultsMap.get('drip edge');
+            inventoryItemId = tryMatch('drip edge');
           } else if (description.includes('roofing nail')) {
-            inventoryItemId = defaultsMap.get('roofing nails');
+            inventoryItemId = tryMatch('roofing nails');
           } else if (description.includes('window')) {
-            inventoryItemId = defaultsMap.get('windows');
+            inventoryItemId = tryMatch('windows');
           }
         }
 
         if (inventoryItemId) {
-          console.log(`[enrichMaterials] 🔍 Smart matched "${material.description}" -> inventory item ${inventoryItemId}`);
+          console.log(`[enrichMaterials] 🔍 Smart matched "${material.description}" -> inventory item ${inventoryItemId} (key: ${matchedDefaultKey})`);
         }
       }
       
@@ -321,19 +348,37 @@ export async function enrichMaterialsWithT1Pricing(
           // Convert from cents to dollars for T1 pricing (unit_price)
           const t1Price = inventoryItem.unit_price / 100;
           const costPrice = inventoryItem.cost / 100;
-          const total = t1Price * material.quantity;
+
+          // Apply conversion factor if provided (e.g., screws sold by the box, tape by the roll)
+          // CF is a multiplier: convertedQty = rawQty × CF
+          // Pricing is PROPORTIONAL (no rounding): total = rawQty × CF × unitPrice
+          // e.g., 12 ft of flashing tape, roll=$799, CF=0.0033 → 12 × 0.0033 × $799 = $31.64
+          // e.g., 20 lbs deck screws, box=$X, CF=0.04 → 20 × 0.04 × $X = 0.8 × $X
+          const cf = (matchedDefaultKey && conversionFactors?.[matchedDefaultKey]) || 1;
+          const hasCF = cf !== 1 && cf > 0;
+          const convertedQty = hasCF ? material.quantity * cf : material.quantity;
+          const orderQty = hasCF ? Math.ceil(convertedQty) : material.quantity; // whole units to order
+
+          // Proportional pricing based on actual usage, not rounded-up order qty
+          const total = t1Price * convertedQty;
           
           totalT1Price += total;
           
-          console.log(`[enrichMaterials] ✅ Matched "${material.description}" (${material.category}) -> T1: $${t1Price.toFixed(2)} x ${material.quantity} = $${total.toFixed(2)}`);
+          console.log(`[enrichMaterials] ✅ Matched "${material.description}" (${material.category}) -> T1: $${t1Price.toFixed(2)} × ${material.quantity}${hasCF ? ` (CF: ${cf}, converted: ${convertedQty.toFixed(4)}, order: ${orderQty})` : ''} = $${total.toFixed(2)}`);
           
           return {
             ...material,
-            itemId: inventoryItemId, // Add inventory item ID
+            itemId: inventoryItemId,
             sku: inventoryItem.sku || `MATERIAL-${inventoryItemId.slice(0, 8)}`,
-            unitPrice: t1Price, // T1 pricing
+            unitPrice: t1Price,
             cost: costPrice,
             totalCost: total,
+            ...(hasCF ? {
+              conversionFactor: cf,
+              convertedQuantity: convertedQty,
+              orderQuantity: orderQty,
+              convertedUnit: cf >= 1 ? `box${orderQty !== 1 ? 'es' : ''}` : 'each',
+            } : {}),
           };
         }
       }

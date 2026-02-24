@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Loader2, Save, RefreshCw, Settings } from 'lucide-react';
+import { Loader2, Save, RefreshCw, Settings, Info } from 'lucide-react';
 import {
   getProjectWizardDefaults,
   getUserDefaults,
@@ -11,6 +12,7 @@ import {
   deleteUserDefaults,
   migrateUserDefaultsFromLocalStorage,
   getInventoryItemsForDropdown,
+  getOrgConversionFactors,
   ProjectWizardDefault,
   InventoryItem,
 } from '../utils/project-wizard-defaults-client';
@@ -25,6 +27,27 @@ interface PlannerDefaultsProps {
   plannerType: 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen';
   materialTypes?: string[]; // Optional for planners like deck that have multiple material types
 }
+
+// Category groups that contain lumber items (no conversion factor needed)
+const LUMBER_CATEGORY_GROUPS = new Set([
+  'Framing',
+  'Decking',
+  'Railing',
+  'Trim',
+  'Flooring',
+]);
+
+/** Returns true if a category group contains lumber items (no CF needed) */
+const isLumberGroup = (groupName: string): boolean => {
+  // Check for exact match or "by Length" suffix (e.g., "Framing - Joists by Length")
+  if (LUMBER_CATEGORY_GROUPS.has(groupName)) return true;
+  if (groupName.includes('by Length')) return true;
+  // Decking Boards by Length, etc.
+  for (const lumber of LUMBER_CATEGORY_GROUPS) {
+    if (groupName.startsWith(lumber)) return true;
+  }
+  return false;
+};
 
 // Helper: generate length-specific entries for a lumber category
 const lumberLengthEntries = (baseName: string): string[] =>
@@ -149,9 +172,12 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [userDefaults, setUserDefaults] = useState<Record<string, string>>({});
   const [orgDefaults, setOrgDefaults] = useState<Record<string, string>>({});
+  const [orgCFs, setOrgCFs] = useState<Record<string, string>>({});
   const [selectedMaterialType, setSelectedMaterialType] = useState<string>(
     materialTypes && materialTypes.length > 0 ? materialTypes[0] : 'default'
   );
+  // Local string state for CF inputs so users can clear & type freely (e.g. "0.04")
+  const [cfEditValues, setCfEditValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (organizationId) {
@@ -208,6 +234,15 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
         console.log('[PlannerDefaults] 🔄 Background: loaded all', allItems.length, 'inventory items');
         setInventoryItems(allItems);
       }, 100);
+
+      // Load org-level conversion factors from KV
+      try {
+        const orgCFData = await getOrgConversionFactors(organizationId);
+        setOrgCFs(orgCFData);
+        console.log('[PlannerDefaults] 📐 Org CFs loaded:', Object.keys(orgCFData).length, 'entries', orgCFData);
+      } catch (cfErr) {
+        console.warn('[PlannerDefaults] Could not load org CFs:', cfErr);
+      }
 
     } catch (error) {
       console.error('[PlannerDefaults] Error loading defaults:', error);
@@ -289,6 +324,85 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
     return orgDefaults[key] || 'none';
   };
 
+  // Conversion Factor helpers — stored in userDefaults with `-cf` suffix
+  const getCFKey = (materialType: string | null, category: string): string => {
+    return `${plannerType}-${materialType || 'default'}-${category}-cf`;
+  };
+
+  // Org CF key format (no `-cf` suffix, matches ProjectWizardSettings format)
+  const getOrgCFKey = (materialType: string | null, category: string): string => {
+    return `${plannerType}-${materialType || 'default'}-${category}`;
+  };
+
+  /** Get the effective CF: user override > org default > 1 */
+  const getConversionFactor = (materialType: string | null, category: string): number => {
+    // 1. Check user-level CF
+    const userKey = getCFKey(materialType, category);
+    const userVal = userDefaults[userKey];
+    if (userVal) {
+      const parsed = parseFloat(userVal);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    // 2. Fall back to org-level CF
+    const orgKey = getOrgCFKey(materialType, category);
+    const orgVal = orgCFs[orgKey];
+    if (orgVal) {
+      const parsed = parseFloat(orgVal);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return 1;
+  };
+
+  /** Check if user has their own CF set (vs inheriting from org) */
+  const hasUserCF = (materialType: string | null, category: string): boolean => {
+    const userKey = getCFKey(materialType, category);
+    const userVal = userDefaults[userKey];
+    if (!userVal) return false;
+    const parsed = parseFloat(userVal);
+    return !isNaN(parsed) && parsed > 0 && parsed !== 1;
+  };
+
+  /** Get the org-level CF value (for display) */
+  const getOrgCF = (materialType: string | null, category: string): number => {
+    const orgKey = getOrgCFKey(materialType, category);
+    const orgVal = orgCFs[orgKey];
+    if (orgVal) {
+      const parsed = parseFloat(orgVal);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return 1;
+  };
+
+  const handleCFInputChange = (materialType: string | null, category: string, value: string) => {
+    const key = getCFKey(materialType, category);
+    // Store raw string so user can type freely (e.g. "", "0.", "0.04")
+    setCfEditValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleCFInputBlur = (materialType: string | null, category: string) => {
+    const key = getCFKey(materialType, category);
+    const raw = cfEditValues[key];
+    // Clear the edit buffer
+    setCfEditValues((prev) => {
+      const { [key]: _, ...rest } = prev;
+      return rest;
+    });
+    if (raw === undefined) return;
+    const num = parseFloat(raw);
+    if (isNaN(num) || num <= 0 || num === 1) {
+      // Remove CF entry (effectively reset to 1)
+      setUserDefaults((prev) => {
+        const { [key]: _, ...rest } = prev;
+        return rest;
+      });
+    } else {
+      setUserDefaults((prev) => ({
+        ...prev,
+        [key]: String(num),
+      }));
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -363,45 +477,100 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
           )}
 
           <div className="space-y-6">
-            {Object.entries(categories).map(([categoryGroup, items]) => (
-              <div key={categoryGroup} className="space-y-4">
-                <h3 className="font-semibold text-gray-900 border-b pb-2">{categoryGroup}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {items.map((category) => {
-                    const currentValue = getDefaultValue(selectedMaterialType === 'default' ? null : selectedMaterialType, category);
-                    const orgValue = getOrgDefaultValue(selectedMaterialType === 'default' ? null : selectedMaterialType, category);
-                    const isCustomized = currentValue !== orgValue;
+            {Object.entries(categories).map(([categoryGroup, items]) => {
+              const showCF = !isLumberGroup(categoryGroup);
 
-                    return (
-                      <div key={category} className="space-y-2">
-                        <Label htmlFor={`${plannerType}-${selectedMaterialType}-${category}`} className="flex items-center gap-2">
-                          {category}
-                          {isCustomized && (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Custom</span>
+              return (
+                <div key={categoryGroup} className="space-y-4">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <h3 className="font-semibold text-gray-900">{categoryGroup}</h3>
+                    {showCF && (
+                      <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
+                        <Info className="h-3 w-3" />
+                        Conversion Factor available
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {items.map((category) => {
+                      const matType = selectedMaterialType === 'default' ? null : selectedMaterialType;
+                      const currentValue = getDefaultValue(matType, category);
+                      const orgValue = getOrgDefaultValue(matType, category);
+                      const isCustomized = currentValue !== orgValue;
+                      const cfValue = showCF ? getConversionFactor(matType, category) : 1;
+
+                      return (
+                        <div key={category} className="space-y-2">
+                          <Label htmlFor={`${plannerType}-${selectedMaterialType}-${category}`} className="flex items-center gap-2">
+                            {category}
+                            {isCustomized && (
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Custom</span>
+                            )}
+                          </Label>
+                          <InventoryCombobox
+                            id={`${plannerType}-${selectedMaterialType}-${category}`}
+                            items={inventoryItems}
+                            value={currentValue}
+                            onChange={(value) => handleDefaultChange(matType, category, value)}
+                            placeholder="Select inventory item..."
+                          />
+                          {showCF && (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Label className="text-xs text-gray-500 whitespace-nowrap" htmlFor={`cf-${plannerType}-${selectedMaterialType}-${category}`}>
+                                CF:
+                              </Label>
+                              {(() => {
+                                const cfKey = getCFKey(matType, category);
+                                const editVal = cfEditValues[cfKey];
+                                const userHasCF = hasUserCF(matType, category);
+                                const orgCFVal = getOrgCF(matType, category);
+                                const isInherited = !userHasCF && orgCFVal !== 1;
+                                const displayVal = editVal !== undefined ? editVal : (cfValue === 1 ? '' : String(cfValue));
+                                return (
+                                  <>
+                                    <Input
+                                      id={`cf-${plannerType}-${selectedMaterialType}-${category}`}
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={displayVal}
+                                      onChange={(e) => handleCFInputChange(matType, category, e.target.value)}
+                                      onBlur={() => handleCFInputBlur(matType, category)}
+                                      placeholder={orgCFVal !== 1 ? String(orgCFVal) : '1'}
+                                      className={`h-7 w-24 text-xs ${isInherited ? 'border-amber-300 bg-amber-50/50' : ''}`}
+                                      title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25 screws/box → CF=0.04 (1÷25). Enter any decimal."
+                                    />
+                                    {cfValue !== 1 && editVal === undefined && (
+                                      <span className="text-xs text-amber-600 font-medium">
+                                        ×{cfValue}
+                                      </span>
+                                    )}
+                                    {isInherited && (
+                                      <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded" title="Inherited from organization settings">
+                                        Org
+                                      </span>
+                                    )}
+                                    {userHasCF && orgCFVal !== 1 && (
+                                      <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded" title={`Overrides org CF of ${orgCFVal}`}>
+                                        Override (org: {orgCFVal})
+                                      </span>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </div>
                           )}
-                        </Label>
-                        <InventoryCombobox
-                          id={`${plannerType}-${selectedMaterialType}-${category}`}
-                          items={inventoryItems}
-                          value={currentValue}
-                          onChange={(value) => handleDefaultChange(
-                            selectedMaterialType === 'default' ? null : selectedMaterialType,
-                            category,
-                            value
+                          {isCustomized && orgValue !== 'none' && (
+                            <p className="text-xs text-gray-500">
+                              Org default: {inventoryItems.find(i => i.id === orgValue)?.name || 'Not set'}
+                            </p>
                           )}
-                          placeholder="Select inventory item..."
-                        />
-                        {isCustomized && orgValue !== 'none' && (
-                          <p className="text-xs text-gray-500">
-                            Org default: {inventoryItems.find(i => i.id === orgValue)?.name || 'Not set'}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>

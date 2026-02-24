@@ -7,6 +7,37 @@ interface MaterialsListProps {
   compact?: boolean;
 }
 
+/** Render a material quantity cell — shows converted purchase qty when CF is applied */
+function QtyCell({ item }: { item: any }) {
+  if (item.conversionFactor && item.conversionFactor !== 1 && item.convertedQuantity != null) {
+    const displayQty = item.convertedQuantity < 1
+      ? item.convertedQuantity.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')
+      : item.convertedQuantity.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+    return (
+      <div className="text-right">
+        <span className="text-amber-700 font-semibold">{displayQty}</span>
+        {item.orderQuantity != null && item.orderQuantity !== item.convertedQuantity && (
+          <span className="block text-xs text-gray-500">
+            Order: {item.orderQuantity} {item.convertedUnit || 'units'}
+          </span>
+        )}
+        <span className="block text-xs text-amber-600">
+          ({item.quantity} {item.unit} × {item.conversionFactor})
+        </span>
+      </div>
+    );
+  }
+  return <span>{item.quantity}</span>;
+}
+
+/** Render unit cell — shows converted unit when CF applied */
+function UnitCell({ item }: { item: any }) {
+  if (item.conversionFactor && item.conversionFactor !== 1 && item.convertedUnit) {
+    return <span className="text-amber-700 font-medium">{item.convertedUnit}</span>;
+  }
+  return <span>{item.unit}</span>;
+}
+
 export function MaterialsList({ materials, compact = false }: MaterialsListProps) {
   const allItems = [
     ...(materials.framing || []),
@@ -104,8 +135,8 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
-                    <td className="py-2 px-3 text-slate-900 text-right">{item.quantity}</td>
-                    <td className="py-2 px-3 text-slate-600">{item.unit}</td>
+                    <td className="py-2 px-3 text-slate-900 text-right"><QtyCell item={item} /></td>
+                    <td className="py-2 px-3 text-slate-600"><UnitCell item={item} /></td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.notes || '—'}</td>
@@ -142,8 +173,8 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
-                    <td className="py-2 px-3 text-slate-900 text-right">{item.quantity}</td>
-                    <td className="py-2 px-3 text-slate-600">{item.unit}</td>
+                    <td className="py-2 px-3 text-slate-900 text-right"><QtyCell item={item} /></td>
+                    <td className="py-2 px-3 text-slate-600"><UnitCell item={item} /></td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.notes || '—'}</td>
@@ -180,8 +211,8 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
-                    <td className="py-2 px-3 text-slate-900 text-right">{item.quantity}</td>
-                    <td className="py-2 px-3 text-slate-600">{item.unit}</td>
+                    <td className="py-2 px-3 text-slate-900 text-right"><QtyCell item={item} /></td>
+                    <td className="py-2 px-3 text-slate-600"><UnitCell item={item} /></td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.notes || '—'}</td>
@@ -218,8 +249,8 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
                     <td className="py-2 px-3 text-slate-900">{item.description}</td>
-                    <td className="py-2 px-3 text-slate-900 text-right">{item.quantity}</td>
-                    <td className="py-2 px-3 text-slate-600">{item.unit}</td>
+                    <td className="py-2 px-3 text-slate-900 text-right"><QtyCell item={item} /></td>
+                    <td className="py-2 px-3 text-slate-600"><UnitCell item={item} /></td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
                     <td className="py-2 px-3 text-slate-900 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
                     <td className="py-2 px-3 text-slate-600 text-sm">{item.notes || '—'}</td>

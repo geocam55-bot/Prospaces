@@ -6,6 +6,30 @@ interface RoofMaterialsListProps {
   compact?: boolean;
 }
 
+/** Format quantity display with conversion factor info */
+function formatQty(item: any): React.ReactNode {
+  if (item.conversionFactor && item.conversionFactor !== 1 && item.convertedQuantity != null) {
+    const displayQty = item.convertedQuantity < 1
+      ? item.convertedQuantity.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')
+      : item.convertedQuantity.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+    return (
+      <>
+        <span className="text-amber-700 font-semibold">{displayQty}</span>{' '}
+        <span className="text-amber-700">{item.convertedUnit || 'units'}</span>
+        {item.orderQuantity != null && item.orderQuantity !== item.convertedQuantity && (
+          <span className="block text-xs text-gray-500">
+            Order: {item.orderQuantity} {item.convertedUnit || 'units'}
+          </span>
+        )}
+        <span className="block text-xs text-amber-600">
+          ({item.quantity} {item.unit} × {item.conversionFactor})
+        </span>
+      </>
+    );
+  }
+  return <>{item.quantity} {item.unit}</>;
+}
+
 export function RoofMaterialsList({ materials, compact = false }: RoofMaterialsListProps) {
   const renderMaterialSection = (title: string, items: any[], colorClass: string) => {
     // Filter out items with zero quantity
@@ -40,12 +64,10 @@ export function RoofMaterialsList({ materials, compact = false }: RoofMaterialsL
                   )}
                 </div>
                 <div className="text-right ml-4">
-                  <div className="text-sm font-semibold text-slate-900">
-                    {item.quantity} {item.unit}
-                  </div>
+                  {formatQty(item)}
                   {item.unitPrice && !compact && (
                     <div className="text-xs text-slate-600">
-                      ${item.unitPrice.toFixed(2)} / {item.unit}
+                      ${item.unitPrice.toFixed(2)} / {item.conversionFactor && item.conversionFactor !== 1 ? (item.convertedUnit || 'box') : item.unit}
                     </div>
                   )}
                   {item.totalCost && (
