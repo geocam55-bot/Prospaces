@@ -132,11 +132,10 @@ serve(async (req) => {
 
     console.log('✅ Event created in Nylas:', event.id);
 
-    // Store in Supabase database
+    // Store in Supabase database (only use columns that exist on the table)
     const { data: appointment, error: insertError } = await supabaseClient
       .from('appointments')
       .insert({
-        user_id: user.id,
         organization_id: user.user_metadata?.organizationId || account.organization_id,
         owner_id: user.id,
         title: title,
@@ -144,10 +143,6 @@ serve(async (req) => {
         location: location || null,
         start_time: startTime,
         end_time: endTime,
-        calendar_event_id: event.id,
-        calendar_provider: account.provider,
-        status: 'scheduled',
-        attendees: attendees?.join(', ') || null,
       })
       .select()
       .single();
@@ -156,6 +151,12 @@ serve(async (req) => {
       console.error('Failed to store appointment:', insertError);
       throw new Error(`Failed to store appointment: ${insertError.message}`);
     }
+
+    // Store calendar event mapping in KV for dedup/deletion
+    const calEventKey = `cal_event:${account.nylas_grant_id}:${event.id}`;
+    await supabaseClient
+      .from('kv_store_8405be07')
+      .upsert({ key: calEventKey, value: JSON.stringify(appointment.id) });
 
     console.log('✅ Appointment stored in database:', appointment.id);
 

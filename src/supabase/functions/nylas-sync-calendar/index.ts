@@ -155,11 +155,12 @@ serve(async (req) => {
         // Store events in the database
         for (const event of events) {
           try {
-            // Check if appointment already exists
-            const { data: existing } = await supabaseClient
-              .from('appointments')
-              .select('id')
-              .eq('calendar_event_id', event.id)
+            // Check if this calendar event was already synced by looking up KV mapping
+            const calEventKey = `cal_event:${account.nylas_grant_id}:${event.id}`;
+            const { data: existingMapping } = await supabaseClient
+              .from('kv_store_8405be07')
+              .select('value')
+              .eq('key', calEventKey)
               .single();
 
             // Handle all-day events vs timed events
@@ -174,6 +175,7 @@ serve(async (req) => {
               endTime = new Date(event.when.end_time * 1000).toISOString();
             }
 
+            // Only use columns that exist on the appointments table
             const appointmentData = {
               organization_id: userProfile.organization_id,
               owner_id: user.id,
@@ -182,18 +184,15 @@ serve(async (req) => {
               location: event.location || null,
               start_time: startTime,
               end_time: endTime,
-              calendar_event_id: event.id,
-              calendar_provider: account.provider,
-              status: event.status === 'cancelled' ? 'cancelled' : 'scheduled',
-              attendees: event.participants?.map((p: any) => p.email).join(', ') || null,
             };
 
-            if (existing) {
+            if (existingMapping?.value) {
               // Update existing appointment
+              const existingId = JSON.parse(existingMapping.value);
               const { error: updateError } = await supabaseClient
                 .from('appointments')
                 .update(appointmentData)
-                .eq('id', existing.id);
+                .eq('id', existingId);
               
               if (updateError) {
                 console.error('❌ Failed to update appointment:', event.id, updateError);
@@ -202,7 +201,9 @@ serve(async (req) => {
               // Insert new appointment
               const { data: insertResult, error: insertError } = await supabaseClient
                 .from('appointments')
-                .insert(appointmentData);
+                .insert(appointmentData)
+                .select('id')
+                .single();
               
               if (insertError) {
                 console.error('❌ Failed to insert appointment:', {
@@ -212,6 +213,13 @@ serve(async (req) => {
                   appointmentData
                 });
               } else {
+                // Store mapping in KV so we can dedupe on next sync
+                await supabaseClient
+                  .from('kv_store_8405be07')
+                  .upsert({
+                    key: calEventKey,
+                    value: JSON.stringify(insertResult.id),
+                  });
                 console.log('✅ Successfully inserted appointment:', event.title);
                 syncedCount++;
               }

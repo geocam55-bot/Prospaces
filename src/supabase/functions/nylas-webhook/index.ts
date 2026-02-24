@@ -228,15 +228,16 @@ async function handleEventDelta(
       const eventData = await eventResponse.json();
       const event = eventData.data;
 
-      // Check if appointment already exists
-      const { data: existing } = await supabaseClient
-        .from('appointments')
-        .select('id')
-        .eq('calendar_event_id', event.id)
+      // Check if appointment already exists via KV mapping
+      const calEventKey = `cal_event:${account.nylas_grant_id}:${event.id}`;
+      const { data: existingMapping } = await supabaseClient
+        .from('kv_store_8405be07')
+        .select('value')
+        .eq('key', calEventKey)
         .single();
 
+      // Only use columns that exist on the appointments table
       const appointmentData = {
-        user_id: account.user_id,
         organization_id: account.organization_id,
         owner_id: account.user_id,
         title: event.title || '(No Title)',
@@ -244,26 +245,31 @@ async function handleEventDelta(
         location: event.location || null,
         start_time: new Date(event.when.start_time * 1000).toISOString(),
         end_time: new Date(event.when.end_time * 1000).toISOString(),
-        calendar_event_id: event.id,
-        calendar_provider: account.provider,
-        status: event.status === 'cancelled' ? 'cancelled' : 'scheduled',
-        attendees: event.participants?.map((p: any) => p.email).join(', ') || null,
       };
 
-      if (existing) {
+      if (existingMapping?.value) {
         // Update existing appointment
+        const existingId = JSON.parse(existingMapping.value);
         await supabaseClient
           .from('appointments')
           .update(appointmentData)
-          .eq('id', existing.id);
+          .eq('id', existingId);
         
         console.log('✅ Updated event:', event.id);
       } else {
         // Insert new appointment
-        await supabaseClient
+        const { data: insertResult, error: insertError } = await supabaseClient
           .from('appointments')
-          .insert(appointmentData);
+          .insert(appointmentData)
+          .select('id')
+          .single();
         
+        if (!insertError && insertResult) {
+          // Store mapping in KV for dedup
+          await supabaseClient
+            .from('kv_store_8405be07')
+            .upsert({ key: calEventKey, value: JSON.stringify(insertResult.id) });
+        }
         console.log('✅ Created event:', event.id);
       }
 
@@ -274,11 +280,31 @@ async function handleEventDelta(
   
   // Handle event deletion
   else if (type === 'event.deleted') {
-    await supabaseClient
-      .from('appointments')
-      .delete()
-      .eq('calendar_event_id', objectData.id);
-    
-    console.log('✅ Deleted event:', objectData.id);
+    // Look up the appointment ID from KV mapping
+    const calEventKey = `cal_event_webhook:${objectData.id}`;
+    // Try a broader key pattern - we don't know the grant_id in delete events
+    // so also try to find by iterating possible keys
+    const { data: mappings } = await supabaseClient
+      .from('kv_store_8405be07')
+      .select('key, value')
+      .like('key', `cal_event:%:${objectData.id}`);
+
+    if (mappings && mappings.length > 0) {
+      for (const mapping of mappings) {
+        const appointmentId = JSON.parse(mapping.value);
+        await supabaseClient
+          .from('appointments')
+          .delete()
+          .eq('id', appointmentId);
+        // Clean up the KV entry
+        await supabaseClient
+          .from('kv_store_8405be07')
+          .delete()
+          .eq('key', mapping.key);
+      }
+      console.log('✅ Deleted event:', objectData.id);
+    } else {
+      console.log('⚠️ No mapping found for deleted event:', objectData.id);
+    }
   }
 }

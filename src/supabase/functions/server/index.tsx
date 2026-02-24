@@ -1027,8 +1027,31 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
     const { accountId, limit: emailLimit = 50 } = await c.req.json();
     if (!accountId) return c.json({ error: 'Missing accountId' }, 400);
 
-    const kvAccount = await getAccountTokensFromKV(auth.user.id, accountId);
-    if (!kvAccount) return c.json({ error: 'Email account not found in KV store' }, 404);
+    // Try KV first, then fall back to DB lookup
+    let kvAccount = await getAccountTokensFromKV(auth.user.id, accountId);
+    if (!kvAccount) {
+      // Account may only exist in the email_accounts table (not yet stored in KV)
+      const { data: dbAccount } = await auth.supabase
+        .from('email_accounts')
+        .select('*')
+        .eq('id', accountId)
+        .eq('user_id', auth.user.id)
+        .single();
+      if (dbAccount) {
+        console.log(`[email-sync] Account found in DB (not KV): ${dbAccount.email}`);
+        kvAccount = {
+          id: dbAccount.id,
+          provider: dbAccount.provider,
+          email: dbAccount.email,
+          access_token: dbAccount.access_token || dbAccount.nylas_access_token,
+          refresh_token: dbAccount.refresh_token,
+          token_expires_at: dbAccount.token_expires_at,
+          nylasGrantId: dbAccount.nylas_grant_id,
+          nylas_grant_id: dbAccount.nylas_grant_id,
+        };
+      }
+    }
+    if (!kvAccount) return c.json({ error: 'Email account not found in KV store or database' }, 404);
     console.log(`[email-sync] provider=${kvAccount.provider}, email=${kvAccount.email}`);
 
     const orgId = auth.profile?.organization_id;

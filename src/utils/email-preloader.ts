@@ -84,17 +84,18 @@ async function _backgroundSync(accountId: string, headers: Record<string, string
     console.log(`[email-preloader] Background sync for account ${accountId}...`);
     const res = await fetch(`${SERVER}/email-sync`, {
       method: 'POST',
-      headers,
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ accountId, limit: 50 }),
     });
     const data = await res.json();
     if (data.success) {
       console.log(`[email-preloader] Background sync done: ${data.syncedCount || 0} new emails`);
     } else {
-      console.warn('[email-preloader] Background sync returned error:', data.error);
+      // Non-fatal: account may not have tokens stored yet (e.g. DB-only account without OAuth grant)
+      console.log('[email-preloader] Background sync skipped:', data.error);
     }
   } catch (err: any) {
-    console.warn('[email-preloader] Background sync failed (non-fatal):', err.message);
+    console.log('[email-preloader] Background sync skipped (non-fatal):', err.message);
   }
 }
 
