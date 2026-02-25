@@ -122,7 +122,8 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
              config.sidingType === 'wood' ? 0xc4a57b :
              config.sidingType === 'metal' ? 0xb8c5d6 : 0xd9d9d9,
       roughness: config.sidingType === 'metal' ? 0.3 : 0.8,
-      metalness: config.sidingType === 'metal' ? 0.4 : 0.0
+      metalness: config.sidingType === 'metal' ? 0.4 : 0.0,
+      side: DoubleSide
     });
 
     // Front wall

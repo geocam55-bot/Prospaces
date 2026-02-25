@@ -19,6 +19,11 @@ export function useAppointmentNotifications(user: User) {
     if (user) {
       loadAppointmentCount();
       
+      // Periodically recheck so past-due appointments drop off the badge
+      const interval = setInterval(() => {
+        loadAppointmentCount();
+      }, 60_000); // every 60 seconds
+
       // Set up real-time subscription for appointment updates
       const supabase = createClient();
       const channel = supabase
@@ -64,6 +69,7 @@ export function useAppointmentNotifications(user: User) {
         .subscribe();
 
       return () => {
+        clearInterval(interval);
         supabase.removeChannel(channel);
       };
     }

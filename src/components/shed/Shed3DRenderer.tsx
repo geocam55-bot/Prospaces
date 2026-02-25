@@ -13,7 +13,10 @@ import {
   MeshStandardMaterial,
   Mesh,
   GridHelper,
-  BoxGeometry
+  BoxGeometry,
+  DoubleSide,
+  BufferGeometry,
+  BufferAttribute
 } from '../../utils/three';
 
 interface Shed3DRendererProps {
@@ -144,7 +147,8 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
              config.sidingType === 'wood' ? 0xd4a574 :
              config.sidingType === 'metal' ? 0xb8c5d6 : 0xc9b08a,
       roughness: config.sidingType === 'metal' ? 0.3 : 0.8,
-      metalness: config.sidingType === 'metal' ? 0.4 : 0.0
+      metalness: config.sidingType === 'metal' ? 0.4 : 0.0,
+      side: DoubleSide
     });
 
     // Walls
@@ -215,6 +219,33 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
       rightRoof.castShadow = true;
       rightRoof.receiveShadow = true;
       scene.add(rightRoof);
+
+      // Gable end walls (triangular fills)
+      const gableGeometry = new BufferGeometry();
+      const gableVertices = new Float32Array([
+        -shedWidth/2, wallHeight + 0.2, shedLength/2,
+        shedWidth/2, wallHeight + 0.2, shedLength/2,
+        0, wallHeight + 0.2 + roofRise, shedLength/2,
+      ]);
+      gableGeometry.setAttribute('position', new BufferAttribute(gableVertices, 3));
+      gableGeometry.computeVertexNormals();
+      
+      const gableFront = new Mesh(gableGeometry, wallMaterial);
+      gableFront.castShadow = true;
+      scene.add(gableFront);
+      
+      const gableBackGeometry = new BufferGeometry();
+      const gableBackVertices = new Float32Array([
+        -shedWidth/2, wallHeight + 0.2, -shedLength/2,
+        shedWidth/2, wallHeight + 0.2, -shedLength/2,
+        0, wallHeight + 0.2 + roofRise, -shedLength/2,
+      ]);
+      gableBackGeometry.setAttribute('position', new BufferAttribute(gableBackVertices, 3));
+      gableBackGeometry.computeVertexNormals();
+      
+      const gableBack = new Mesh(gableBackGeometry, wallMaterial);
+      gableBack.castShadow = true;
+      scene.add(gableBack);
     } else if (config.style === 'lean-to') {
       const roofLength = Math.sqrt(Math.pow(shedWidth, 2) + Math.pow(roofRise, 2));
       const roofAngle = Math.atan2(roofRise, shedWidth);
@@ -226,6 +257,33 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
       leanRoof.castShadow = true;
       leanRoof.receiveShadow = true;
       scene.add(leanRoof);
+
+      // Lean-to gable end walls (triangular fills - right triangle shape)
+      const leanGableFrontGeometry = new BufferGeometry();
+      const leanGableFrontVertices = new Float32Array([
+        -shedWidth/2, wallHeight + 0.2, shedLength/2,
+        shedWidth/2, wallHeight + 0.2, shedLength/2,
+        -shedWidth/2, wallHeight + 0.2 + roofRise, shedLength/2,
+      ]);
+      leanGableFrontGeometry.setAttribute('position', new BufferAttribute(leanGableFrontVertices, 3));
+      leanGableFrontGeometry.computeVertexNormals();
+      
+      const leanGableFront = new Mesh(leanGableFrontGeometry, wallMaterial);
+      leanGableFront.castShadow = true;
+      scene.add(leanGableFront);
+      
+      const leanGableBackGeometry = new BufferGeometry();
+      const leanGableBackVertices = new Float32Array([
+        -shedWidth/2, wallHeight + 0.2, -shedLength/2,
+        shedWidth/2, wallHeight + 0.2, -shedLength/2,
+        -shedWidth/2, wallHeight + 0.2 + roofRise, -shedLength/2,
+      ]);
+      leanGableBackGeometry.setAttribute('position', new BufferAttribute(leanGableBackVertices, 3));
+      leanGableBackGeometry.computeVertexNormals();
+      
+      const leanGableBack = new Mesh(leanGableBackGeometry, wallMaterial);
+      leanGableBack.castShadow = true;
+      scene.add(leanGableBack);
     } else if (config.style === 'barn') {
       // Gambrel roof (barn style) - simplified and corrected
       const lowerRise = roofRise * 0.5; // Lower section rises 50% of total
@@ -301,6 +359,227 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
       upperRightRoof.castShadow = true;
       upperRightRoof.receiveShadow = true;
       scene.add(upperRightRoof);
+
+      // Barn/gambrel gable end walls (pentagonal shape: two triangles per side)
+      const barnWallTop = wallHeight + 0.2;
+      const barnLowerY = barnWallTop + lowerRise;
+      const barnPeakY = barnWallTop + lowerRise + upperRise;
+      const barnLowerX = shedWidth / 4; // Inner edge of lower panels
+
+      // Front gable - lower left triangle
+      const barnFrontLLGeom = new BufferGeometry();
+      barnFrontLLGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+        -shedWidth/2, barnWallTop, shedLength/2,
+        -barnLowerX, barnLowerY, shedLength/2,
+        -barnLowerX, barnWallTop, shedLength/2,
+      ]), 3));
+      barnFrontLLGeom.computeVertexNormals();
+      scene.add(new Mesh(barnFrontLLGeom, wallMaterial));
+
+      // Front gable - lower right triangle
+      const barnFrontLRGeom = new BufferGeometry();
+      barnFrontLRGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+        shedWidth/2, barnWallTop, shedLength/2,
+        barnLowerX, barnWallTop, shedLength/2,
+        barnLowerX, barnLowerY, shedLength/2,
+      ]), 3));
+      barnFrontLRGeom.computeVertexNormals();
+      scene.add(new Mesh(barnFrontLRGeom, wallMaterial));
+
+      // Front gable - upper triangle (from lower break points to peak)
+      const barnFrontUpperGeom = new BufferGeometry();
+      barnFrontUpperGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+        -barnLowerX, barnLowerY, shedLength/2,
+        barnLowerX, barnLowerY, shedLength/2,
+        0, barnPeakY, shedLength/2,
+      ]), 3));
+      barnFrontUpperGeom.computeVertexNormals();
+      scene.add(new Mesh(barnFrontUpperGeom, wallMaterial));
+
+      // Front gable - fill rectangle between lower triangles
+      const barnFrontRectGeom = new BufferGeometry();
+      barnFrontRectGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+        -barnLowerX, barnWallTop, shedLength/2,
+        barnLowerX, barnWallTop, shedLength/2,
+        barnLowerX, barnLowerY, shedLength/2,
+        -barnLowerX, barnWallTop, shedLength/2,
+        barnLowerX, barnLowerY, shedLength/2,
+        -barnLowerX, barnLowerY, shedLength/2,
+      ]), 3));
+      barnFrontRectGeom.computeVertexNormals();
+      scene.add(new Mesh(barnFrontRectGeom, wallMaterial));
+
+      // Back gable - lower left triangle
+      const barnBackLLGeom = new BufferGeometry();
+      barnBackLLGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+        -shedWidth/2, barnWallTop, -shedLength/2,
+        -barnLowerX, barnWallTop, -shedLength/2,
+        -barnLowerX, barnLowerY, -shedLength/2,
+      ]), 3));
+      barnBackLLGeom.computeVertexNormals();
+      scene.add(new Mesh(barnBackLLGeom, wallMaterial));
+
+      // Back gable - lower right triangle
+      const barnBackLRGeom = new BufferGeometry();
+      barnBackLRGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+        shedWidth/2, barnWallTop, -shedLength/2,
+        barnLowerX, barnLowerY, -shedLength/2,
+        barnLowerX, barnWallTop, -shedLength/2,
+      ]), 3));
+      barnBackLRGeom.computeVertexNormals();
+      scene.add(new Mesh(barnBackLRGeom, wallMaterial));
+
+      // Back gable - upper triangle
+      const barnBackUpperGeom = new BufferGeometry();
+      barnBackUpperGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+        -barnLowerX, barnLowerY, -shedLength/2,
+        0, barnPeakY, -shedLength/2,
+        barnLowerX, barnLowerY, -shedLength/2,
+      ]), 3));
+      barnBackUpperGeom.computeVertexNormals();
+      scene.add(new Mesh(barnBackUpperGeom, wallMaterial));
+
+      // Back gable - fill rectangle between lower triangles
+      const barnBackRectGeom = new BufferGeometry();
+      barnBackRectGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+        -barnLowerX, barnWallTop, -shedLength/2,
+        barnLowerX, barnLowerY, -shedLength/2,
+        barnLowerX, barnWallTop, -shedLength/2,
+        -barnLowerX, barnWallTop, -shedLength/2,
+        -barnLowerX, barnLowerY, -shedLength/2,
+        barnLowerX, barnLowerY, -shedLength/2,
+      ]), 3));
+      barnBackRectGeom.computeVertexNormals();
+      scene.add(new Mesh(barnBackRectGeom, wallMaterial));
+    } else if (config.style === 'quaker') {
+      // Quaker: gable roof with extended front overhang
+      const roofSlopeLength = Math.sqrt(Math.pow(shedWidth / 2, 2) + Math.pow(roofRise, 2));
+      const roofAngle = Math.atan2(roofRise, shedWidth / 2);
+      const overhangDepth = shedLength * 0.15; // Front porch overhang
+
+      // Left roof slope (extends forward with overhang)
+      const leftRoofGeometry = new BoxGeometry(roofSlopeLength + 0.15, 0.08, shedLength + 0.3 + overhangDepth);
+      const leftRoof = new Mesh(leftRoofGeometry, roofMaterial);
+      leftRoof.position.set(
+        -shedWidth / 4,
+        wallHeight + 0.2 + roofRise / 2,
+        overhangDepth / 2
+      );
+      leftRoof.rotation.z = roofAngle;
+      leftRoof.castShadow = true;
+      leftRoof.receiveShadow = true;
+      scene.add(leftRoof);
+
+      // Right roof slope (extends forward with overhang)
+      const rightRoof = new Mesh(leftRoofGeometry, roofMaterial);
+      rightRoof.position.set(
+        shedWidth / 4,
+        wallHeight + 0.2 + roofRise / 2,
+        overhangDepth / 2
+      );
+      rightRoof.rotation.z = -roofAngle;
+      rightRoof.castShadow = true;
+      rightRoof.receiveShadow = true;
+      scene.add(rightRoof);
+
+      // Overhang support posts
+      const postGeometry = new BoxGeometry(0.08, wallHeight, 0.08);
+      const postMaterial = new MeshStandardMaterial({ color: 0x6b5d4f, roughness: 0.8 });
+
+      const leftPost = new Mesh(postGeometry, postMaterial);
+      leftPost.position.set(-shedWidth / 2 + 0.15, wallHeight / 2 + 0.2, shedLength / 2 + overhangDepth);
+      leftPost.castShadow = true;
+      scene.add(leftPost);
+
+      const rightPost = new Mesh(postGeometry, postMaterial);
+      rightPost.position.set(shedWidth / 2 - 0.15, wallHeight / 2 + 0.2, shedLength / 2 + overhangDepth);
+      rightPost.castShadow = true;
+      scene.add(rightPost);
+
+      // Front gable end wall (on the main wall, not the overhang)
+      const qFrontGableGeom = new BufferGeometry();
+      qFrontGableGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+        -shedWidth/2, wallHeight + 0.2, shedLength/2,
+        shedWidth/2, wallHeight + 0.2, shedLength/2,
+        0, wallHeight + 0.2 + roofRise, shedLength/2,
+      ]), 3));
+      qFrontGableGeom.computeVertexNormals();
+      const qFrontGable = new Mesh(qFrontGableGeom, wallMaterial);
+      qFrontGable.castShadow = true;
+      scene.add(qFrontGable);
+
+      // Back gable end wall
+      const qBackGableGeom = new BufferGeometry();
+      qBackGableGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+        -shedWidth/2, wallHeight + 0.2, -shedLength/2,
+        shedWidth/2, wallHeight + 0.2, -shedLength/2,
+        0, wallHeight + 0.2 + roofRise, -shedLength/2,
+      ]), 3));
+      qBackGableGeom.computeVertexNormals();
+      const qBackGable = new Mesh(qBackGableGeom, wallMaterial);
+      qBackGable.castShadow = true;
+      scene.add(qBackGable);
+
+    } else if (config.style === 'saltbox') {
+      // Saltbox: asymmetric gable — peak is offset toward the front
+      // Front slope is shorter/steeper, back slope is longer/shallower
+      const peakOffsetX = -shedWidth * 0.1; // Peak shifted toward front (left in our coord system matches 2D canvas)
+      const frontHalfW = shedWidth / 2 + peakOffsetX; // shorter front side
+      const backHalfW = shedWidth / 2 - peakOffsetX;  // longer back side
+
+      // Front (left) roof slope
+      const frontSlopeLen = Math.sqrt(frontHalfW * frontHalfW + roofRise * roofRise);
+      const frontSlopeAngle = Math.atan2(roofRise, frontHalfW);
+      const frontRoofGeom = new BoxGeometry(frontSlopeLen + 0.15, 0.08, shedLength + 0.3);
+      const frontRoof = new Mesh(frontRoofGeom, roofMaterial);
+      frontRoof.position.set(
+        (-shedWidth / 2 + peakOffsetX) / 2,
+        wallHeight + 0.2 + roofRise / 2,
+        0
+      );
+      frontRoof.rotation.z = frontSlopeAngle;
+      frontRoof.castShadow = true;
+      frontRoof.receiveShadow = true;
+      scene.add(frontRoof);
+
+      // Back (right) roof slope
+      const backSlopeLen = Math.sqrt(backHalfW * backHalfW + roofRise * roofRise);
+      const backSlopeAngle = Math.atan2(roofRise, backHalfW);
+      const backRoofGeom = new BoxGeometry(backSlopeLen + 0.15, 0.08, shedLength + 0.3);
+      const backRoof = new Mesh(backRoofGeom, roofMaterial);
+      backRoof.position.set(
+        (shedWidth / 2 + peakOffsetX) / 2,
+        wallHeight + 0.2 + roofRise / 2,
+        0
+      );
+      backRoof.rotation.z = -backSlopeAngle;
+      backRoof.castShadow = true;
+      backRoof.receiveShadow = true;
+      scene.add(backRoof);
+
+      // Front gable end wall
+      const sFrontGableGeom = new BufferGeometry();
+      sFrontGableGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+        -shedWidth/2, wallHeight + 0.2, shedLength/2,
+        shedWidth/2, wallHeight + 0.2, shedLength/2,
+        peakOffsetX, wallHeight + 0.2 + roofRise, shedLength/2,
+      ]), 3));
+      sFrontGableGeom.computeVertexNormals();
+      const sFrontGable = new Mesh(sFrontGableGeom, wallMaterial);
+      sFrontGable.castShadow = true;
+      scene.add(sFrontGable);
+
+      // Back gable end wall
+      const sBackGableGeom = new BufferGeometry();
+      sBackGableGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+        -shedWidth/2, wallHeight + 0.2, -shedLength/2,
+        shedWidth/2, wallHeight + 0.2, -shedLength/2,
+        peakOffsetX, wallHeight + 0.2 + roofRise, -shedLength/2,
+      ]), 3));
+      sBackGableGeom.computeVertexNormals();
+      const sBackGable = new Mesh(sBackGableGeom, wallMaterial);
+      sBackGable.castShadow = true;
+      scene.add(sBackGable);
     }
 
     // Door
@@ -308,19 +587,83 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     const doorHeight = config.doorHeight * scale;
     const doorGeometry = new BoxGeometry(doorWidth, doorHeight, 0.05);
     const doorMaterial = new MeshStandardMaterial({ 
-      color: config.doorType === 'sliding-barn' ? 0x8b7355 : 0xffffff,
-      roughness: 0.4,
-      metalness: 0.2
+      color: config.doorType === 'sliding-barn' ? 0x8b7355 :
+             config.doorType === 'double' ? 0xd4d4d4 :
+             config.doorType === 'roll-up' ? 0x9ca3af : 0xf5f0eb,
+      roughness: config.doorType === 'roll-up' ? 0.3 : 0.5,
+      metalness: config.doorType === 'roll-up' ? 0.5 : 0.1
     });
     const door = new Mesh(doorGeometry, doorMaterial);
     
     if (config.doorPosition === 'front') {
-      door.position.set(0, doorHeight / 2 + 0.2, shedLength / 2 + 0.06);
+      door.position.set(0, doorHeight / 2 + 0.2, shedLength / 2 + 0.08);
     } else {
-      door.position.set(0, doorHeight / 2 + 0.2, -shedLength / 2 - 0.06);
+      door.position.set(0, doorHeight / 2 + 0.2, -shedLength / 2 - 0.08);
     }
     door.castShadow = true;
     scene.add(door);
+
+    // Door frame/trim
+    const trimColor = 0x4a5568;
+    const trimMaterial = new MeshStandardMaterial({ color: trimColor, roughness: 0.6 });
+    const trimThickness = 0.04;
+    const trimDepth = 0.06;
+    
+    // Top trim
+    const topTrimGeom = new BoxGeometry(doorWidth + trimThickness * 2, trimThickness, trimDepth);
+    const topTrim = new Mesh(topTrimGeom, trimMaterial);
+    topTrim.position.set(
+      door.position.x,
+      doorHeight + 0.2 + trimThickness / 2,
+      door.position.z
+    );
+    scene.add(topTrim);
+
+    // Left trim
+    const sideTrimGeom = new BoxGeometry(trimThickness, doorHeight, trimDepth);
+    const leftTrim = new Mesh(sideTrimGeom, trimMaterial);
+    leftTrim.position.set(
+      door.position.x - doorWidth / 2 - trimThickness / 2,
+      doorHeight / 2 + 0.2,
+      door.position.z
+    );
+    scene.add(leftTrim);
+
+    // Right trim
+    const rightTrim = new Mesh(sideTrimGeom, trimMaterial);
+    rightTrim.position.set(
+      door.position.x + doorWidth / 2 + trimThickness / 2,
+      doorHeight / 2 + 0.2,
+      door.position.z
+    );
+    scene.add(rightTrim);
+
+    // Door handle
+    const handleGeom = new BoxGeometry(0.03, 0.12, 0.04);
+    const handleMaterial = new MeshStandardMaterial({ color: 0x2d2d2d, metalness: 0.8, roughness: 0.2 });
+    const handle = new Mesh(handleGeom, handleMaterial);
+    handle.position.set(
+      door.position.x + doorWidth * 0.15,
+      doorHeight * 0.45 + 0.2,
+      door.position.z + 0.04
+    );
+    scene.add(handle);
+
+    // For double doors, add a center line and second handle
+    if (config.doorType === 'double') {
+      const centerLineGeom = new BoxGeometry(0.02, doorHeight, trimDepth);
+      const centerLine = new Mesh(centerLineGeom, trimMaterial);
+      centerLine.position.set(door.position.x, doorHeight / 2 + 0.2, door.position.z + 0.01);
+      scene.add(centerLine);
+
+      const handle2 = new Mesh(handleGeom, handleMaterial);
+      handle2.position.set(
+        door.position.x - doorWidth * 0.15,
+        doorHeight * 0.45 + 0.2,
+        door.position.z + 0.04
+      );
+      scene.add(handle2);
+    }
 
     // Windows
     config.windows.forEach((window) => {

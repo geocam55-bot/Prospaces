@@ -289,7 +289,7 @@ export function Email({ user }: EmailProps) {
           id: account.id,
           provider: account.provider as 'gmail' | 'outlook' | 'apple' | 'imap',
           email: account.email,
-          connected: account.connected,
+          connected: account.connected !== false, // default to true for KV-only accounts
           lastSync: account.last_sync,
           imapConfig: account.imap_host ? {
             host: account.imap_host,
@@ -306,11 +306,15 @@ export function Email({ user }: EmailProps) {
         }));
 
         setAccounts(transformedAccounts);
-        console.log(`[Email] Loaded ${transformedAccounts.length} account(s) from Supabase`);
+        console.log(`[Email] Loaded ${transformedAccounts.length} account(s) from server`);
         
         // Debug: Log account IDs
-        const accountIds = transformedAccounts.map(a => a.id);
+        const accountIds = transformedAccounts.map(a => `${a.id} (${a.email})`);
         console.log(`[Email] Account IDs:`, accountIds);
+      } else {
+        // No accounts found — clear the list
+        setAccounts([]);
+        console.log('[Email] No accounts found on server');
       }
     } catch (error) {
       console.error('[Email] Failed to load accounts:', error);
@@ -450,7 +454,7 @@ export function Email({ user }: EmailProps) {
     }
   };
 
-  const deleteAccountFromSupabase = async (accountId: string) => {
+  const deleteAccountFromSupabase = async (accountId: string): Promise<boolean> => {
     try {
       const headers = await getServerHeaders();
       const res = await fetch(
@@ -459,11 +463,18 @@ export function Email({ user }: EmailProps) {
       );
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('[Email] Server delete failed:', res.status, errBody);
         throw new Error(errBody.error || `Server returned ${res.status}`);
       }
-      console.log('[Email] Account deleted via server');
+      const result = await res.json();
+      console.log('[Email] Server delete response:', JSON.stringify(result));
+      if (!result.deletedFromDb && !result.deletedFromKv) {
+        console.warn('[Email] Server reported nothing was deleted — account may have ghost entries');
+      }
+      return true;
     } catch (error) {
       console.error('[Email] Failed to delete account:', error);
+      throw error;
     }
   };
 
@@ -1238,25 +1249,39 @@ export function Email({ user }: EmailProps) {
     if (!selectedAccount) return;
     
     const account = accounts.find(a => a.id === selectedAccount);
-    if (confirm(`Are you sure you want to delete the account ${account?.email}? All associated emails will be removed.`)) {
-      // Delete from Supabase first
-      await deleteAccountFromSupabase(selectedAccount);
-      
-      // Remove account
-      setAccounts(accounts.filter(a => a.id !== selectedAccount));
-      
-      // Remove emails for this account
-      setEmails(emails.filter(e => e.accountId !== selectedAccount));
-      
-      // Select first remaining account or clear
-      const remainingAccounts = accounts.filter(a => a.id !== selectedAccount);
-      if (remainingAccounts.length > 0) {
-        setSelectedAccount(remainingAccounts[0].id);
-      } else {
-        setSelectedAccount('');
+    const emailToDelete = account?.email;
+    if (confirm(`Are you sure you want to delete the account ${emailToDelete}? All associated emails will be removed.`)) {
+      try {
+        // Delete from server first (DB + KV)
+        await deleteAccountFromSupabase(selectedAccount);
+        
+        // Remove ALL accounts matching this email (catches duplicates with different IDs)
+        const remainingAccounts = accounts.filter(a => 
+          a.id !== selectedAccount && (!emailToDelete || a.email !== emailToDelete)
+        );
+        setAccounts(remainingAccounts);
+        
+        // Remove emails for this account
+        setEmails(emails.filter(e => e.accountId !== selectedAccount));
+        
+        // Clear persisted selection from localStorage
+        try { localStorage.removeItem('prospaces_selected_email_account'); } catch {}
+        
+        // Select first remaining account or clear
+        if (remainingAccounts.length > 0) {
+          setSelectedAccount(remainingAccounts[0].id);
+        } else {
+          setSelectedAccount('');
+        }
+        
+        toast.success('Email account deleted successfully');
+        
+        // Re-fetch from server to confirm deletion stuck
+        await loadAccountsFromSupabase();
+      } catch (error) {
+        console.error('[Email] Delete account failed:', error);
+        toast.error(`Failed to delete account: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-      
-      toast.success('Email account deleted successfully');
     }
   };
 

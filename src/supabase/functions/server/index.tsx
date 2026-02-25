@@ -1275,15 +1275,47 @@ app.get(`${PREFIX}/email-accounts`, async (c) => {
   try {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
-    const { data, error } = await auth.supabase
+    
+    // Merge accounts from both DB table and KV store (OAuth accounts live in KV)
+    const accountsMap = new Map<string, any>();
+    
+    // 1. Load from DB table
+    const { data: dbData, error: dbError } = await auth.supabase
       .from('email_accounts')
       .select('*')
       .eq('user_id', auth.user.id);
-    if (error) {
-      console.log(`[email-accounts] GET error: ${error.message}`);
-      return c.json({ error: error.message }, 500);
+    if (dbError) {
+      console.log(`[email-accounts] DB read error (may not have table): ${dbError.message}`);
     }
-    return c.json({ accounts: data || [] });
+    if (dbData) {
+      for (const a of dbData) {
+        accountsMap.set(a.id, a);
+      }
+    }
+    
+    // 2. Load from KV store (OAuth accounts are stored here)
+    const kvAccounts = await kv.getByPrefix(`email_account:${auth.user.id}:`);
+    if (kvAccounts && kvAccounts.length > 0) {
+      for (const kva of kvAccounts) {
+        if (kva.id && (kva.status === 'active' || kva.connected === true)) {
+          const existing = accountsMap.get(kva.id);
+          accountsMap.set(kva.id, {
+            ...(existing || {}),
+            id: kva.id,
+            user_id: auth.user.id,
+            provider: kva.provider,
+            email: kva.email,
+            connected: true,
+            last_sync: kva.last_sync || existing?.last_sync,
+            display_name: kva.displayName,
+          });
+        }
+      }
+    }
+    
+    const mergedAccounts = Array.from(accountsMap.values());
+    console.log(`[email-accounts] GET returning ${mergedAccounts.length} accounts (${dbData?.length || 0} DB + ${kvAccounts?.length || 0} KV) for user ${auth.user.id}`);
+    return c.json({ accounts: mergedAccounts });
   } catch (err: any) {
     console.log(`[email-accounts] GET exception: ${err.message}`);
     return c.json({ error: err.message }, 500);
@@ -1340,23 +1372,122 @@ app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
     const accountId = c.req.param('id');
-    // Delete from DB
-    const { error } = await auth.supabase
+    console.log(`[email-accounts] DELETE request for accountId=${accountId}, userId=${auth.user.id}`);
+    
+    let deletedFromDb = false;
+    let deletedFromKv = false;
+    const supabaseAdmin = getSupabase();
+    
+    // Step 1: Find the account's email so we can purge ALL duplicate entries
+    let targetEmail: string | null = null;
+    
+    // Check DB for the email
+    const { data: dbAccount } = await supabaseAdmin
+      .from('email_accounts')
+      .select('email')
+      .eq('id', accountId)
+      .maybeSingle();
+    if (dbAccount?.email) targetEmail = dbAccount.email;
+    
+    // Step 2: Query ALL KV entries for this user — raw table gives us actual keys
+    const { data: kvRows, error: kvQueryError } = await supabaseAdmin
+      .from('kv_store_8405be07')
+      .select('key, value')
+      .like('key', `email_account:${auth.user.id}:%`);
+    
+    if (kvQueryError) {
+      console.warn(`[email-accounts] KV query error: ${kvQueryError.message}`);
+    }
+    
+    // Find target email from KV if not found in DB
+    if (!targetEmail && kvRows) {
+      for (const row of kvRows) {
+        const val = row.value;
+        if (val && (val.id === accountId || row.key === `email_account:${auth.user.id}:${accountId}`)) {
+          targetEmail = val.email;
+          break;
+        }
+      }
+    }
+    
+    console.log(`[email-accounts] DELETE target: email=${targetEmail}, accountId=${accountId}, userId=${auth.user.id}`);
+    
+    // Step 3: Delete ALL DB entries by ID and by email (catches duplicates)
+    const { error: dbDelById } = await supabaseAdmin
       .from('email_accounts')
       .delete()
-      .eq('id', accountId)
-      .eq('user_id', auth.user.id);
-    if (error) console.warn(`[email-accounts] DB delete error (may not exist in DB): ${error.message}`);
-    // Also remove from KV
-    const allKv = await kv.getByPrefix(`email_account:${auth.user.id}:`);
-    const kvAccount = (allKv || []).find((a: any) => a.id === accountId);
-    if (kvAccount) {
-      const kvKey = kvAccount.kvKey || `${kvAccount.provider === 'gmail' ? 'gmail' : 'outlook'}_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
-      await kv.del(`email_account:${auth.user.id}:${kvKey}`);
-      console.log(`[email-accounts] Deleted KV account: email_account:${auth.user.id}:${kvKey}`);
+      .eq('id', accountId);
+    if (dbDelById) {
+      console.warn(`[email-accounts] DB delete by ID error: ${dbDelById.message}`);
+    } else {
+      deletedFromDb = true;
+      console.log(`[email-accounts] DB delete by ID done for ${accountId}`);
     }
-    return c.json({ success: true });
-  } catch (err: any) { return c.json({ error: err.message }, 500); }
+    
+    if (targetEmail) {
+      const { error: dbDelByEmail } = await supabaseAdmin
+        .from('email_accounts')
+        .delete()
+        .eq('email', targetEmail)
+        .eq('user_id', auth.user.id);
+      if (dbDelByEmail) {
+        console.warn(`[email-accounts] DB delete by email error: ${dbDelByEmail.message}`);
+      } else {
+        deletedFromDb = true;
+        console.log(`[email-accounts] DB delete by email done for ${targetEmail}`);
+      }
+    }
+    
+    // Step 4: Delete ALL KV entries matching by ID, key suffix, OR email
+    const keysToDelete: string[] = [];
+    if (kvRows && kvRows.length > 0) {
+      console.log(`[email-accounts] Found ${kvRows.length} KV rows for user ${auth.user.id}`);
+      for (const row of kvRows) {
+        const val = row.value;
+        const matchById = val && val.id === accountId;
+        const matchByKey = row.key === `email_account:${auth.user.id}:${accountId}`;
+        const matchByEmail = !!(targetEmail && val && val.email === targetEmail);
+        if (matchById || matchByKey || matchByEmail) {
+          keysToDelete.push(row.key);
+          console.log(`[email-accounts] Matched KV key: ${row.key} (byId=${matchById}, byKey=${matchByKey}, byEmail=${matchByEmail})`);
+        }
+      }
+    }
+    
+    // Fallback: also try direct UUID-based key
+    const directKey = `email_account:${auth.user.id}:${accountId}`;
+    if (!keysToDelete.includes(directKey)) {
+      keysToDelete.push(directKey);
+    }
+    
+    for (const key of keysToDelete) {
+      try {
+        await kv.del(key);
+        deletedFromKv = true;
+        console.log(`[email-accounts] Deleted KV key: ${key}`);
+      } catch (delErr: any) {
+        console.warn(`[email-accounts] Failed to delete KV key ${key}: ${delErr.message}`);
+      }
+    }
+    
+    // Clean up by_email index
+    if (targetEmail) {
+      try {
+        await kv.del(`email_account:by_email:${targetEmail}`);
+        console.log(`[email-accounts] Deleted by_email index for: ${targetEmail}`);
+      } catch {}
+    }
+    
+    if (!deletedFromDb && !deletedFromKv) {
+      console.warn(`[email-accounts] Account ${accountId} (${targetEmail}) not found in DB or KV`);
+    }
+    
+    console.log(`[email-accounts] DELETE complete: accountId=${accountId}, deletedFromDb=${deletedFromDb}, deletedFromKv=${deletedFromKv}`);
+    return c.json({ success: true, deletedFromDb, deletedFromKv });
+  } catch (err: any) {
+    console.error(`[email-accounts] DELETE exception: ${err.message}`);
+    return c.json({ error: err.message }, 500);
+  }
 });
 
 // ── UTILITY ─────────────────────────────────────────────────────────────

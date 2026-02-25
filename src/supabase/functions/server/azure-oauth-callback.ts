@@ -90,23 +90,35 @@ export const azureOAuthCallback = (app: Hono) => {
       const userEmail = userData.mail || userData.userPrincipalName;
       console.log('[Azure OAuth] User profile retrieved:', userEmail);
 
-      // Store account in KV (consistent with Google OAuth pattern)
-      const accountId = crypto.randomUUID();
+      // Store account in KV (consistent with index.tsx OAuth pattern)
+      const kvKey = `outlook_${userEmail.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+      const existingAccount = await kv.get(`email_account:${stateData.userId}:${kvKey}`);
+      const accountId = (existingAccount && existingAccount.id && existingAccount.id.includes('-')) ? existingAccount.id : crypto.randomUUID();
+      const purpose = stateData.purpose || 'email';
+      const calendarEnabled = purpose === 'calendar' || purpose === 'both';
+      const emailEnabled = purpose === 'email' || purpose === 'both';
       const accountData = {
         id: accountId,
+        kvKey,
         user_id: stateData.userId,
+        userId: stateData.userId,
         provider: 'outlook',
         email: userEmail,
+        displayName: userData.displayName || userEmail,
         display_name: userData.displayName || userEmail,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
         token_expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
         connected: true,
+        status: 'active',
+        connectedAt: new Date().toISOString(),
         last_sync: new Date().toISOString(),
         created_at: new Date().toISOString(),
+        calendar_enabled: calendarEnabled || (existingAccount?.calendar_enabled ?? false),
+        email_enabled: emailEnabled || (existingAccount?.email_enabled ?? true),
       };
 
-      await kv.set(`email_account:${stateData.userId}:${accountId}`, accountData);
+      await kv.set(`email_account:${stateData.userId}:${kvKey}`, accountData);
       await kv.set(`email_account:by_email:${userEmail}`, accountId);
 
       // Store result for polling fallback (window.opener breaks on cross-origin redirects)

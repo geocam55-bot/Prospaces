@@ -158,22 +158,35 @@ export const googleOAuth = (app: Hono) => {
       const userInfo = await userInfoResponse.json();
       console.log('[Google OAuth] User info retrieved:', userInfo.email);
 
-      // Store account data in KV
-      const accountId = crypto.randomUUID();
+      // Store account data in KV (consistent with index.tsx OAuth pattern)
+      const kvKey = `gmail_${(userInfo.email || 'x').replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+      const existingAccount = await kv.get(`email_account:${stateData.userId}:${kvKey}`);
+      const accountId = (existingAccount && existingAccount.id && existingAccount.id.includes('-')) ? existingAccount.id : crypto.randomUUID();
+      const purpose = stateData.purpose || 'email';
+      const calendarEnabled = purpose === 'calendar' || purpose === 'both';
+      const emailEnabled = purpose === 'email' || purpose === 'both';
       const accountData = {
         id: accountId,
+        kvKey,
         user_id: stateData.userId,
+        userId: stateData.userId,
         provider: 'gmail',
         email: userInfo.email,
+        displayName: userInfo.name || userInfo.email,
+        display_name: userInfo.name || userInfo.email,
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         token_expires_at: new Date(Date.now() + (tokens.expires_in * 1000)).toISOString(),
         connected: true,
+        status: 'active',
+        connectedAt: new Date().toISOString(),
         last_sync: new Date().toISOString(),
         created_at: new Date().toISOString(),
+        calendar_enabled: calendarEnabled || (existingAccount?.calendar_enabled ?? false),
+        email_enabled: emailEnabled || (existingAccount?.email_enabled ?? true),
       };
 
-      await kv.set(`email_account:${stateData.userId}:${accountId}`, accountData);
+      await kv.set(`email_account:${stateData.userId}:${kvKey}`, accountData);
       await kv.set(`email_account:by_email:${userInfo.email}`, accountId);
 
       console.log('[Google OAuth] Account saved successfully');

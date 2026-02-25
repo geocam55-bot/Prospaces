@@ -14,7 +14,10 @@ import {
   Mesh,
   GridHelper,
   BoxGeometry,
-  CylinderGeometry
+  CylinderGeometry,
+  DoubleSide,
+  BufferGeometry,
+  BufferAttribute
 } from '../../utils/three';
 
 interface Roof3DRendererProps {
@@ -110,7 +113,8 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
     // Building walls (simplified)
     const wallMaterial = new MeshStandardMaterial({ 
       color: 0xf0ead6,
-      roughness: 0.8
+      roughness: 0.8,
+      side: DoubleSide
     });
 
     // Front wall
@@ -268,6 +272,226 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
       shedRoof.castShadow = true;
       shedRoof.receiveShadow = true;
       scene.add(shedRoof);
+
+    } else if (config.style === 'gambrel') {
+      // Gambrel (barn) roof — steeper lower slopes, gentler upper slopes
+      const lowerRise = roofRise * 0.55;
+      const upperRise = roofRise * 0.45;
+      const lowerWidth = buildingWidth / 4;
+      const upperWidth = buildingWidth / 4;
+
+      // Lower left roof panel
+      const lowerSlopeLen = Math.sqrt(lowerWidth * lowerWidth + lowerRise * lowerRise);
+      const lowerAngle = Math.atan2(lowerRise, lowerWidth);
+      const lowerLeftRoof = new Mesh(
+        new BoxGeometry(lowerSlopeLen + rakeOverhang * 0.5, 0.1, buildingLength + eaveOverhang * 2),
+        roofMaterial
+      );
+      lowerLeftRoof.position.set(
+        -(buildingWidth / 2 - lowerWidth / 2),
+        wallHeight + lowerRise / 2,
+        0
+      );
+      lowerLeftRoof.rotation.z = lowerAngle;
+      lowerLeftRoof.castShadow = true;
+      lowerLeftRoof.receiveShadow = true;
+      scene.add(lowerLeftRoof);
+
+      // Lower right roof panel
+      const lowerRightRoof = new Mesh(
+        new BoxGeometry(lowerSlopeLen + rakeOverhang * 0.5, 0.1, buildingLength + eaveOverhang * 2),
+        roofMaterial
+      );
+      lowerRightRoof.position.set(
+        (buildingWidth / 2 - lowerWidth / 2),
+        wallHeight + lowerRise / 2,
+        0
+      );
+      lowerRightRoof.rotation.z = -lowerAngle;
+      lowerRightRoof.castShadow = true;
+      lowerRightRoof.receiveShadow = true;
+      scene.add(lowerRightRoof);
+
+      // Upper left roof panel
+      const upperSlopeLen = Math.sqrt(upperWidth * upperWidth + upperRise * upperRise);
+      const upperAngle = Math.atan2(upperRise, upperWidth);
+      const upperLeftRoof = new Mesh(
+        new BoxGeometry(upperSlopeLen + rakeOverhang * 0.5, 0.1, buildingLength + eaveOverhang * 2),
+        roofMaterial
+      );
+      upperLeftRoof.position.set(
+        -upperWidth / 2,
+        wallHeight + lowerRise + upperRise / 2,
+        0
+      );
+      upperLeftRoof.rotation.z = upperAngle;
+      upperLeftRoof.castShadow = true;
+      upperLeftRoof.receiveShadow = true;
+      scene.add(upperLeftRoof);
+
+      // Upper right roof panel
+      const upperRightRoof = new Mesh(
+        new BoxGeometry(upperSlopeLen + rakeOverhang * 0.5, 0.1, buildingLength + eaveOverhang * 2),
+        roofMaterial
+      );
+      upperRightRoof.position.set(
+        upperWidth / 2,
+        wallHeight + lowerRise + upperRise / 2,
+        0
+      );
+      upperRightRoof.rotation.z = -upperAngle;
+      upperRightRoof.castShadow = true;
+      upperRightRoof.receiveShadow = true;
+      scene.add(upperRightRoof);
+
+      // Ridge cap
+      const ridgeGeom = new BoxGeometry(0.15, 0.12, buildingLength + eaveOverhang * 2);
+      const ridgeMat = new MeshStandardMaterial({ color: roofColor, roughness: 0.5 });
+      const ridge = new Mesh(ridgeGeom, ridgeMat);
+      ridge.position.set(0, wallHeight + lowerRise + upperRise + 0.06, 0);
+      ridge.castShadow = true;
+      scene.add(ridge);
+
+      // Gambrel gable end fills
+      const gTop = wallHeight;
+      const gMid = wallHeight + lowerRise;
+      const gPeak = wallHeight + lowerRise + upperRise;
+      const gInner = buildingWidth / 4;
+
+      for (const zPos of [buildingLength / 2, -buildingLength / 2]) {
+        // Lower left triangle
+        const llGeom = new BufferGeometry();
+        llGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+          -buildingWidth / 2, gTop, zPos,
+          -gInner, gMid, zPos,
+          -gInner, gTop, zPos,
+        ]), 3));
+        llGeom.computeVertexNormals();
+        scene.add(new Mesh(llGeom, wallMaterial));
+
+        // Lower right triangle
+        const lrGeom = new BufferGeometry();
+        lrGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+          buildingWidth / 2, gTop, zPos,
+          gInner, gTop, zPos,
+          gInner, gMid, zPos,
+        ]), 3));
+        lrGeom.computeVertexNormals();
+        scene.add(new Mesh(lrGeom, wallMaterial));
+
+        // Center rectangle between lower triangles
+        const rectGeom = new BufferGeometry();
+        rectGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+          -gInner, gTop, zPos,
+          gInner, gTop, zPos,
+          gInner, gMid, zPos,
+          -gInner, gTop, zPos,
+          gInner, gMid, zPos,
+          -gInner, gMid, zPos,
+        ]), 3));
+        rectGeom.computeVertexNormals();
+        scene.add(new Mesh(rectGeom, wallMaterial));
+
+        // Upper triangle to peak
+        const upGeom = new BufferGeometry();
+        upGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+          -gInner, gMid, zPos,
+          gInner, gMid, zPos,
+          0, gPeak, zPos,
+        ]), 3));
+        upGeom.computeVertexNormals();
+        scene.add(new Mesh(upGeom, wallMaterial));
+      }
+
+    } else if (config.style === 'mansard') {
+      // Mansard roof — steep slopes on all four sides with flat or near-flat top
+      const mansardHeight = roofRise * 0.75; // Steep side portion
+      const topInset = buildingWidth * 0.2; // How much the top is inset from each side
+      const topInsetZ = buildingLength * 0.15;
+
+      // Steep lower slope angle
+      const sideLen = Math.sqrt(topInset * topInset + mansardHeight * mansardHeight);
+      const sideAngle = Math.atan2(mansardHeight, topInset);
+
+      // Left steep slope
+      const leftSlopeGeom = new BoxGeometry(sideLen + 0.1, 0.1, buildingLength + eaveOverhang * 2);
+      const leftSlope = new Mesh(leftSlopeGeom, roofMaterial);
+      leftSlope.position.set(
+        -buildingWidth / 2 + topInset / 2,
+        wallHeight + mansardHeight / 2,
+        0
+      );
+      leftSlope.rotation.z = sideAngle;
+      leftSlope.castShadow = true;
+      leftSlope.receiveShadow = true;
+      scene.add(leftSlope);
+
+      // Right steep slope
+      const rightSlope = new Mesh(leftSlopeGeom, roofMaterial);
+      rightSlope.position.set(
+        buildingWidth / 2 - topInset / 2,
+        wallHeight + mansardHeight / 2,
+        0
+      );
+      rightSlope.rotation.z = -sideAngle;
+      rightSlope.castShadow = true;
+      rightSlope.receiveShadow = true;
+      scene.add(rightSlope);
+
+      // Front steep slope
+      const frontSideLen = Math.sqrt(topInsetZ * topInsetZ + mansardHeight * mansardHeight);
+      const frontSideAngle = Math.atan2(mansardHeight, topInsetZ);
+      const frontSlopeGeom = new BoxGeometry(buildingWidth - topInset * 2, 0.1, frontSideLen + 0.1);
+      const frontSlope = new Mesh(frontSlopeGeom, roofMaterial);
+      frontSlope.position.set(
+        0,
+        wallHeight + mansardHeight / 2,
+        buildingLength / 2 - topInsetZ / 2
+      );
+      frontSlope.rotation.x = -frontSideAngle;
+      frontSlope.castShadow = true;
+      frontSlope.receiveShadow = true;
+      scene.add(frontSlope);
+
+      // Back steep slope
+      const backSlope = new Mesh(frontSlopeGeom, roofMaterial);
+      backSlope.position.set(
+        0,
+        wallHeight + mansardHeight / 2,
+        -buildingLength / 2 + topInsetZ / 2
+      );
+      backSlope.rotation.x = frontSideAngle;
+      backSlope.castShadow = true;
+      backSlope.receiveShadow = true;
+      scene.add(backSlope);
+
+      // Flat top
+      const flatTopGeom = new BoxGeometry(
+        buildingWidth - topInset * 2 + 0.1,
+        0.12,
+        buildingLength - topInsetZ * 2 + 0.1
+      );
+      const flatTop = new Mesh(flatTopGeom, roofMaterial);
+      flatTop.position.set(0, wallHeight + mansardHeight + 0.06, 0);
+      flatTop.castShadow = true;
+      flatTop.receiveShadow = true;
+      scene.add(flatTop);
+    }
+
+    // Gable end fills for gable style
+    if (config.style === 'gable') {
+      for (const zPos of [buildingLength / 2, -buildingLength / 2]) {
+        const gableGeom = new BufferGeometry();
+        gableGeom.setAttribute('position', new BufferAttribute(new Float32Array([
+          -buildingWidth / 2, wallHeight, zPos,
+          buildingWidth / 2, wallHeight, zPos,
+          0, wallHeight + roofRise, zPos,
+        ]), 3));
+        gableGeom.computeVertexNormals();
+        const gableMesh = new Mesh(gableGeom, wallMaterial);
+        gableMesh.castShadow = true;
+        scene.add(gableMesh);
+      }
     }
 
     // Chimney (if configured)
