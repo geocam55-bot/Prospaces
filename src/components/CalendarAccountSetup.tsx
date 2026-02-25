@@ -78,6 +78,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
   const popupRef = useRef<Window | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const oauthCompleteRef = useRef(false);
+  const pollIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (editingAccount) {
@@ -164,7 +165,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
 
       const { data, error: invokeError } = await supabase.functions.invoke(functionPath, {
         method: 'POST',
-        body: { frontendOrigin: window.location.origin },
+        body: { frontendOrigin: window.location.origin, purpose: 'calendar' },
         headers: {
           'X-User-Token': session.access_token,
         },
@@ -180,8 +181,9 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         throw new Error(data?.error || 'Failed to get authorization URL from server.');
       }
 
-      // Store the auth URL so we can reopen the popup if closed during MFA
+      // Store the auth URL and pollId so we can reopen the popup if closed during MFA
       setOauthAuthUrl(data.authUrl);
+      pollIdRef.current = data.pollId;
       setPopupClosed(false);
       oauthCompleteRef.current = false;
 
@@ -207,91 +209,90 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
 
       popupRef.current = popup;
 
-      console.log('[CalendarAccountSetup] Popup opened, starting to poll for new account...');
+      const pollId = data.pollId;
+      console.log('[CalendarAccountSetup] Popup opened, polling oauth-poll for pollId:', pollId);
 
       const startTime = Date.now();
       const maxWaitTime = 5 * 60 * 1000;
       let pollAttempts = 0;
       
+      const handleSuccess = (result: any) => {
+        oauthCompleteRef.current = true;
+        clearInterval(pollIntervalRef.current!);
+        pollIntervalRef.current = null;
+        toast.success('Calendar connected!', { description: result?.email || '' });
+        setIsConnecting(false);
+        setStep('success');
+        onAccountAdded();
+        try { popup.close(); } catch (e) {}
+        setTimeout(() => onClose(), 1500);
+      };
+
+      const checkOAuthPoll = async (): Promise<boolean> => {
+        try {
+          const srvHeaders = await getServerHeaders();
+          const pollRes = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/oauth-poll/${pollId}`,
+            { headers: srvHeaders }
+          );
+          if (!pollRes.ok) return false;
+          const pollJson = await pollRes.json();
+          if (pollJson.status === 'complete' && pollJson.result?.success) {
+            return true;
+          }
+          if (pollJson.status === 'complete' && !pollJson.result?.success) {
+            clearInterval(pollIntervalRef.current!);
+            pollIntervalRef.current = null;
+            setIsConnecting(false);
+            setError(pollJson.result?.error || 'OAuth failed on server');
+            return false;
+          }
+        } catch (e) {}
+        return false;
+      };
+
       const pollForAccount = async () => {
         pollAttempts++;
         const elapsed = Date.now() - startTime;
         
         if (elapsed > maxWaitTime) {
-          clearInterval(pollIntervalRef.current);
+          clearInterval(pollIntervalRef.current!);
+          pollIntervalRef.current = null;
           setIsConnecting(false);
           setError('Connection timeout. Please try again.');
           return;
         }
 
+        // Check oauth-poll endpoint (KV-based — works regardless of DB)
+        const complete = await checkOAuthPoll();
+        if (complete) {
+          handleSuccess({ email: email.trim() });
+          return;
+        }
+
+        // Check if popup was closed without completion
         try {
-          try {
-            if (popup.closed) {
-              // Don't immediately give up — check server one more time
-              const srvHeaders = await getServerHeaders();
-              const srvRes = await fetch(
-                `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
-                { headers: srvHeaders }
-              );
-              const srvJson = srvRes.ok ? await srvRes.json() : { accounts: [] };
-              const accounts = (srvJson.accounts || []).filter((a: any) => a.email === email.trim() && a.connected);
-              
-              if (accounts.length > 0 && new Date(accounts[0].created_at).getTime() > startTime) {
-                oauthCompleteRef.current = true;
-                clearInterval(pollIntervalRef.current!);
-                toast.success('Calendar connected!');
-                setIsConnecting(false);
-                setStep('success');
-                onAccountAdded();
-                setTimeout(() => onClose(), 1500);
-              } else {
-                // Popup was closed but no account found yet — show reopen option
-                clearInterval(pollIntervalRef.current!);
-                console.log('[CalendarAccountSetup] Popup closed without completion — showing reopen option');
-                setPopupClosed(true);
-                setIsConnecting(false);
-              }
+          if (popup.closed && !oauthCompleteRef.current) {
+            // One final check
+            const finalCheck = await checkOAuthPoll();
+            if (finalCheck) {
+              handleSuccess({ email: email.trim() });
               return;
             }
-          } catch (e) {
+            clearInterval(pollIntervalRef.current!);
+            pollIntervalRef.current = null;
+            console.log('[CalendarAccountSetup] Popup closed without completion — showing reopen option');
+            setPopupClosed(true);
+            setIsConnecting(false);
+            return;
           }
-
-          const srvHeaders2 = await getServerHeaders();
-          const srvRes2 = await fetch(
-            `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
-            { headers: srvHeaders2 }
-          );
-          if (!srvRes2.ok) return;
-          const srvJson2 = await srvRes2.json();
-          const accounts = (srvJson2.accounts || []).filter((a: any) => a.email === email.trim() && a.connected);
-
-          if (accounts && accounts.length > 0) {
-            const accountCreatedAt = new Date(accounts[0].created_at).getTime();
-            if (accountCreatedAt > startTime) {
-              clearInterval(pollIntervalRef.current);
-              
-              toast.success('Calendar connected!');
-              setIsConnecting(false);
-              setStep('success');
-              onAccountAdded();
-              
-              try {
-                popup.close();
-              } catch (e) {
-              }
-              
-              setTimeout(() => {
-                onClose();
-              }, 1500);
-            }
-          }
-        } catch (error: any) {
-        }
+        } catch (e) {}
       };
 
       const pollInterval = setInterval(pollForAccount, 2000);
       pollIntervalRef.current = pollInterval;
-      pollForAccount();
+      // First poll after a short delay (give the popup time to load)
+      setTimeout(pollForAccount, 1000);
 
     } catch (error: any) {
       console.error('[Calendar] Connection error:', error);
@@ -337,14 +338,42 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
       description: 'Complete the sign-in and MFA approval in the new window.'
     });
 
-    // Restart polling for account creation
+    // Restart polling using oauth-poll endpoint
     const startTime = Date.now();
     const maxWaitTime = 5 * 60 * 1000;
+    const currentPollId = pollIdRef.current;
+
+    const checkPollEndpoint = async (): Promise<boolean> => {
+      if (!currentPollId) return false;
+      try {
+        const srvHeaders = await getServerHeaders();
+        const pollRes = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/oauth-poll/${currentPollId}`,
+          { headers: srvHeaders }
+        );
+        if (!pollRes.ok) return false;
+        const pollJson = await pollRes.json();
+        return pollJson.status === 'complete' && pollJson.result?.success;
+      } catch (e) { return false; }
+    };
+
+    const handleReopenSuccess = () => {
+      oauthCompleteRef.current = true;
+      clearInterval(pollIntervalRef.current!);
+      pollIntervalRef.current = null;
+      toast.success('Calendar connected!');
+      setIsConnecting(false);
+      setStep('success');
+      onAccountAdded();
+      try { newPopup.close(); } catch (e) {}
+      setTimeout(() => onClose(), 1500);
+    };
 
     const pollForAccount = async () => {
       const elapsed = Date.now() - startTime;
       if (elapsed > maxWaitTime || oauthCompleteRef.current) {
         clearInterval(pollIntervalRef.current!);
+        pollIntervalRef.current = null;
         if (!oauthCompleteRef.current) {
           setIsConnecting(false);
           setError('Connection timeout. Please try again.');
@@ -352,58 +381,24 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         return;
       }
 
+      const complete = await checkPollEndpoint();
+      if (complete) { handleReopenSuccess(); return; }
+
       try {
-        try {
-          if (newPopup.closed) {
-            const srvHeaders = await getServerHeaders();
-            const srvRes = await fetch(
-              `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
-              { headers: srvHeaders }
-            );
-            const srvJson = srvRes.ok ? await srvRes.json() : { accounts: [] };
-            const accounts = (srvJson.accounts || []).filter((a: any) => a.email === email.trim() && a.connected);
-
-            if (accounts.length > 0) {
-              oauthCompleteRef.current = true;
-              clearInterval(pollIntervalRef.current!);
-              toast.success('Calendar connected!');
-              setIsConnecting(false);
-              setStep('success');
-              onAccountAdded();
-              setTimeout(() => onClose(), 1500);
-            } else {
-              clearInterval(pollIntervalRef.current!);
-              setPopupClosed(true);
-              setIsConnecting(false);
-            }
-            return;
-          }
-        } catch (e) {}
-
-        const srvHeaders2 = await getServerHeaders();
-        const srvRes2 = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
-          { headers: srvHeaders2 }
-        );
-        if (!srvRes2.ok) return;
-        const srvJson2 = await srvRes2.json();
-        const accounts = (srvJson2.accounts || []).filter((a: any) => a.email === email.trim() && a.connected);
-
-        if (accounts && accounts.length > 0) {
-          oauthCompleteRef.current = true;
+        if (newPopup.closed && !oauthCompleteRef.current) {
+          const finalCheck = await checkPollEndpoint();
+          if (finalCheck) { handleReopenSuccess(); return; }
           clearInterval(pollIntervalRef.current!);
-          toast.success('Calendar connected!');
+          pollIntervalRef.current = null;
+          setPopupClosed(true);
           setIsConnecting(false);
-          setStep('success');
-          onAccountAdded();
-          try { newPopup.close(); } catch (e) {}
-          setTimeout(() => onClose(), 1500);
+          return;
         }
-      } catch (err) {}
+      } catch (e) {}
     };
 
     pollIntervalRef.current = setInterval(pollForAccount, 2000);
-    pollForAccount();
+    setTimeout(pollForAccount, 1000);
   };
 
   const handleDeleteAccount = async (accountId: string, email: string) => {

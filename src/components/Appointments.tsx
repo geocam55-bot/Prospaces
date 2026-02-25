@@ -286,13 +286,12 @@ export function Appointments({ user }: AppointmentsProps) {
   const loadCalendarAccounts = async () => {
     try {
       const headers = await getServerHeaders();
-      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`, { headers });
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/calendar-accounts`, { headers });
       if (!res.ok) { console.error('Error fetching calendar accounts:', await res.text()); return; }
       const json = await res.json();
       if (json.error) { console.error('Error fetching calendar accounts:', json.error); }
       else {
-        const connected = (json.accounts || []).filter((a: any) => a.connected);
-        setCalendarAccounts(connected);
+        setCalendarAccounts(json.accounts || []);
       }
     } catch (error) {
       console.error('Failed to load calendar accounts:', error);
@@ -329,7 +328,11 @@ export function Appointments({ user }: AppointmentsProps) {
             }
             continue;
           }
-          toast.success(`Synced ${account.provider || 'calendar'}!`, { description: `${data.syncedCount || 0} new event(s) imported` });
+          if (data.skipped) {
+            console.log(`[Sync] Skipped ${account.email}: ${data.skipReason}`);
+          } else {
+            toast.success(`Synced ${account.provider || 'calendar'}!`, { description: `${data.syncedCount || 0} new event(s) imported` });
+          }
         } catch (accountError: any) {
           console.warn('[Sync] Error syncing account:', account.email, accountError.message);
           toast.error(`Failed to sync ${account.provider || 'calendar'}`, {
@@ -1034,15 +1037,13 @@ export function Appointments({ user }: AppointmentsProps) {
           </DialogContent>
         </Dialog>
 
-        {/* Calendar setup dialog */}
-        <Dialog open={isCalendarSetupOpen} onOpenChange={setIsCalendarSetupOpen}>
-          <CalendarAccountSetup
-            isOpen={isCalendarSetupOpen}
-            onClose={() => setIsCalendarSetupOpen(false)}
-            onAccountAdded={loadCalendarAccounts}
-            existingAccounts={calendarAccounts}
-          />
-        </Dialog>
+        {/* Calendar setup dialog — CalendarAccountSetup has its own <Dialog> */}
+        <CalendarAccountSetup
+          isOpen={isCalendarSetupOpen}
+          onClose={() => setIsCalendarSetupOpen(false)}
+          onAccountAdded={loadCalendarAccounts}
+          existingAccounts={calendarAccounts}
+        />
       </div>
     </PermissionGate>
   );

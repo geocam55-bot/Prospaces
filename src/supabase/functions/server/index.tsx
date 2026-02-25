@@ -778,7 +778,8 @@ app.post(`${PREFIX}/microsoft-oauth-init`, async (c) => {
     console.log(`[Azure OAuth] redirect_uri = ${redirectUri}`);
 
     const state = crypto.randomUUID();
-    await kv.set(`oauth_state:${state}`, { userId: user.id, provider: 'microsoft', redirectUri, ts: new Date().toISOString() });
+    const purpose = body.purpose || 'email'; // 'email' | 'calendar' | 'both'
+    await kv.set(`oauth_state:${state}`, { userId: user.id, provider: 'microsoft', redirectUri, purpose, ts: new Date().toISOString() });
     const url = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
     url.searchParams.set('client_id', CID);
     url.searchParams.set('response_type', 'code');
@@ -802,7 +803,10 @@ app.post(`${PREFIX}/oauth-exchange`, async (c) => {
     await kv.del(`oauth_state:${state}`);
 
     const provider = sd.provider; // 'microsoft' or 'google'
-    console.log(`[OAuth Exchange] provider=${provider}, userId=${sd.userId}`);
+    const purpose = sd.purpose || 'email'; // 'email' | 'calendar' | 'both'
+    const calendarEnabled = purpose === 'calendar' || purpose === 'both';
+    const emailEnabled = purpose === 'email' || purpose === 'both';
+    console.log(`[OAuth Exchange] provider=${provider}, userId=${sd.userId}, purpose=${purpose}`);
 
     if (provider === 'microsoft' || provider === 'outlook') {
       const redirectUri = sd.redirectUri || Deno.env.get('AZURE_REDIRECT_URI') || '';
@@ -822,7 +826,14 @@ app.post(`${PREFIX}/oauth-exchange`, async (c) => {
       const kvKey = `outlook_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
       const existingAccount = await kv.get(`email_account:${sd.userId}:${kvKey}`);
       const aid = (existingAccount && existingAccount.id && existingAccount.id.includes('-')) ? existingAccount.id : crypto.randomUUID();
-      await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+      await kv.set(`email_account:${sd.userId}:${kvKey}`, {
+        id: aid, kvKey, provider: 'outlook', email, displayName: ui.displayName || email,
+        access_token: td.access_token, refresh_token: td.refresh_token,
+        token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(),
+        userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active',
+        calendar_enabled: calendarEnabled || (existingAccount?.calendar_enabled ?? false),
+        email_enabled: emailEnabled || (existingAccount?.email_enabled ?? true),
+      });
       const result = { success: true, accountId: aid, email, provider: 'outlook' };
       await kv.set(`oauth_result:${state}`, result);
       return c.json(result);
@@ -844,7 +855,14 @@ app.post(`${PREFIX}/oauth-exchange`, async (c) => {
       const kvKey = `gmail_${(ui.email || 'x').replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
       const existingAccount = await kv.get(`email_account:${sd.userId}:${kvKey}`);
       const aid = (existingAccount && existingAccount.id && existingAccount.id.includes('-')) ? existingAccount.id : crypto.randomUUID();
-      await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'gmail', email: ui.email, displayName: ui.name || ui.email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+      await kv.set(`email_account:${sd.userId}:${kvKey}`, {
+        id: aid, kvKey, provider: 'gmail', email: ui.email, displayName: ui.name || ui.email,
+        access_token: td.access_token, refresh_token: td.refresh_token,
+        token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(),
+        userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active',
+        calendar_enabled: calendarEnabled || (existingAccount?.calendar_enabled ?? false),
+        email_enabled: emailEnabled || (existingAccount?.email_enabled ?? true),
+      });
       const result = { success: true, accountId: aid, email: ui.email, provider: 'gmail' };
       await kv.set(`oauth_result:${state}`, result);
       return c.json(result);
@@ -879,7 +897,10 @@ app.post(`${PREFIX}/microsoft-oauth-exchange`, async (c) => {
     const kvKey = `outlook_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
     const existingAccount = await kv.get(`email_account:${sd.userId}:${kvKey}`);
     const aid = (existingAccount && existingAccount.id && existingAccount.id.includes('-')) ? existingAccount.id : crypto.randomUUID();
-    await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+    const legacyPurpose = sd.purpose || 'email';
+    const legacyCalEnabled = legacyPurpose === 'calendar' || legacyPurpose === 'both';
+    const legacyEmailEnabled = legacyPurpose === 'email' || legacyPurpose === 'both';
+    await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active', calendar_enabled: legacyCalEnabled || (existingAccount?.calendar_enabled ?? false), email_enabled: legacyEmailEnabled || (existingAccount?.email_enabled ?? true) });
     const result = { success: true, accountId: aid, email, provider: 'outlook' };
     await kv.set(`oauth_result:${state}`, result);
     return c.json(result);
@@ -911,7 +932,10 @@ app.get(`${PREFIX}/azure-oauth-callback`, async (c) => {
     const kvKey = `outlook_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
     const existingAccount = await kv.get(`email_account:${sd.userId}:${kvKey}`);
     const aid = (existingAccount && existingAccount.id && existingAccount.id.includes('-')) ? existingAccount.id : crypto.randomUUID();
-    await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+    const cbPurpose = sd.purpose || 'email';
+    const cbCalEnabled = cbPurpose === 'calendar' || cbPurpose === 'both';
+    const cbEmailEnabled = cbPurpose === 'email' || cbPurpose === 'both';
+    await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'outlook', email, displayName: ui.displayName || email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active', calendar_enabled: cbCalEnabled || (existingAccount?.calendar_enabled ?? false), email_enabled: cbEmailEnabled || (existingAccount?.email_enabled ?? true) });
     const result = { success: true, accountId: aid, email, provider: 'outlook' };
     await kv.set(`oauth_result:${state}`, result);
     return c.html(`<html><body><h2>Connected!</h2><p>${email}</p><script>try{window.opener&&window.opener.postMessage(${JSON.stringify(JSON.stringify(result))},'*')}catch(e){}setTimeout(()=>window.close(),2000)</script></body></html>`);
@@ -949,7 +973,8 @@ app.post(`${PREFIX}/google-oauth-init`, async (c) => {
     console.log(`[Google OAuth] redirect_uri = ${redirectUri}`);
 
     const state = crypto.randomUUID();
-    await kv.set(`oauth_state:${state}`, { userId: user.id, provider: 'google', redirectUri, ts: new Date().toISOString() });
+    const purpose = body.purpose || 'email'; // 'email' | 'calendar' | 'both'
+    await kv.set(`oauth_state:${state}`, { userId: user.id, provider: 'google', redirectUri, purpose, ts: new Date().toISOString() });
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     url.searchParams.set('client_id', cid);
     url.searchParams.set('redirect_uri', redirectUri);
@@ -981,7 +1006,10 @@ app.get(`${PREFIX}/google-oauth-callback`, async (c) => {
     const kvKey = `gmail_${(ui.email || 'x').replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
     const existingAccount = await kv.get(`email_account:${sd.userId}:${kvKey}`);
     const aid = (existingAccount && existingAccount.id && existingAccount.id.includes('-')) ? existingAccount.id : crypto.randomUUID();
-    await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'gmail', email: ui.email, displayName: ui.name || ui.email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active' });
+    const gcbPurpose = sd.purpose || 'email';
+    const gcbCalEnabled = gcbPurpose === 'calendar' || gcbPurpose === 'both';
+    const gcbEmailEnabled = gcbPurpose === 'email' || gcbPurpose === 'both';
+    await kv.set(`email_account:${sd.userId}:${kvKey}`, { id: aid, kvKey, provider: 'gmail', email: ui.email, displayName: ui.name || ui.email, access_token: td.access_token, refresh_token: td.refresh_token, token_expires_at: new Date(Date.now() + td.expires_in * 1000).toISOString(), userId: sd.userId, connectedAt: new Date().toISOString(), status: 'active', calendar_enabled: gcbCalEnabled || (existingAccount?.calendar_enabled ?? false), email_enabled: gcbEmailEnabled || (existingAccount?.email_enabled ?? true) });
     const result = { success: true, accountId: aid, email: ui.email, provider: 'gmail' };
     await kv.set(`oauth_result:${state}`, result);
     return c.html(`<html><body><h2>Connected!</h2><p>${ui.email}</p><script>try{window.opener&&window.opener.postMessage(${JSON.stringify(JSON.stringify(result))},'*')}catch(e){}setTimeout(()=>window.close(),2000)</script></body></html>`);
@@ -1262,16 +1290,71 @@ app.get(`${PREFIX}/email-accounts`, async (c) => {
   }
 });
 
+// ── CALENDAR ACCOUNTS (KV-based, filtered by calendar_enabled) ──────────
+app.get(`${PREFIX}/calendar-accounts`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status as any);
+    const allKv = await kv.getByPrefix(`email_account:${auth.user.id}:`);
+    const calAccounts = (allKv || [])
+      .filter((a: any) => a.calendar_enabled === true && a.status === 'active')
+      .map((a: any) => ({
+        id: a.id, kvKey: a.kvKey, provider: a.provider, email: a.email,
+        displayName: a.displayName, connected: true,
+        last_sync: a.last_sync, connectedAt: a.connectedAt,
+        calendar_enabled: true,
+      }));
+    console.log(`[calendar-accounts] Returning ${calAccounts.length} calendar-enabled accounts for user ${auth.user.id}`);
+    return c.json({ accounts: calAccounts });
+  } catch (err: any) {
+    console.error('[calendar-accounts] GET error:', err.message);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Mark/unmark an existing email account as calendar-enabled
+app.post(`${PREFIX}/calendar-accounts/toggle`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status as any);
+    const { accountId, enabled } = await c.req.json();
+    if (!accountId) return c.json({ error: 'Missing accountId' }, 400);
+    const allKv = await kv.getByPrefix(`email_account:${auth.user.id}:`);
+    const account = (allKv || []).find((a: any) => a.id === accountId);
+    if (!account) return c.json({ error: 'Account not found' }, 404);
+    const kvKey = account.kvKey || `${account.provider === 'gmail' ? 'gmail' : 'outlook'}_${account.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+    await kv.set(`email_account:${auth.user.id}:${kvKey}`, {
+      ...account,
+      calendar_enabled: enabled !== false,
+    });
+    console.log(`[calendar-accounts] Toggled calendar_enabled=${enabled !== false} for account ${accountId}`);
+    return c.json({ success: true });
+  } catch (err: any) {
+    console.error('[calendar-accounts] toggle error:', err.message);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
   try {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const accountId = c.req.param('id');
+    // Delete from DB
     const { error } = await auth.supabase
       .from('email_accounts')
       .delete()
-      .eq('id', c.req.param('id'))
+      .eq('id', accountId)
       .eq('user_id', auth.user.id);
-    if (error) return c.json({ error: error.message }, 500);
+    if (error) console.warn(`[email-accounts] DB delete error (may not exist in DB): ${error.message}`);
+    // Also remove from KV
+    const allKv = await kv.getByPrefix(`email_account:${auth.user.id}:`);
+    const kvAccount = (allKv || []).find((a: any) => a.id === accountId);
+    if (kvAccount) {
+      const kvKey = kvAccount.kvKey || `${kvAccount.provider === 'gmail' ? 'gmail' : 'outlook'}_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+      await kv.del(`email_account:${auth.user.id}:${kvKey}`);
+      console.log(`[email-accounts] Deleted KV account: email_account:${auth.user.id}:${kvKey}`);
+    }
     return c.json({ success: true });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
@@ -1830,7 +1913,16 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
     }
     if (!kvAccount) return c.json({ success: false, error: `Email account not found. Account ID: ${accountId}` }, 404);
 
-    console.log(`[calendar-sync] provider=${kvAccount.provider}, email=${kvAccount.email}`);
+    console.log(`[calendar-sync] provider=${kvAccount.provider}, email=${kvAccount.email}, calendar_enabled=${kvAccount.calendar_enabled}`);
+
+    // Skip accounts that were not connected for calendar access
+    if (!kvAccount.calendar_enabled) {
+      console.log(`[calendar-sync] Skipping account ${kvAccount.email} — calendar_enabled is not set. Account was likely connected for email only.`);
+      return c.json({
+        success: true, syncedCount: 0, skipped: true,
+        skipReason: 'Account not enabled for calendar sync. Please reconnect via Calendar setup.',
+      });
+    }
 
     // Time range: last 30 days to next 90 days
     const now = new Date();
