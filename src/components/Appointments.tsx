@@ -317,9 +317,16 @@ export function Appointments({ user }: AppointmentsProps) {
           const data = await res.json();
           if (!res.ok || !data?.success) {
             console.warn('[Sync] Calendar sync error for', account.email, ':', data?.error || res.statusText);
-            toast.error(`Failed to sync ${account.provider || 'calendar'}`, {
-              description: data?.error || 'Sync operation was not successful'
-            });
+            if (data?.needsReconnect) {
+              toast.error(`Failed to sync ${account.email}`, {
+                description: 'Calendar permissions missing. Please disconnect and reconnect this account with calendar access.',
+                duration: 8000,
+              });
+            } else {
+              toast.error(`Failed to sync ${account.provider || 'calendar'}`, {
+                description: data?.error || 'Sync operation was not successful'
+              });
+            }
             continue;
           }
           toast.success(`Synced ${account.provider || 'calendar'}!`, { description: `${data.syncedCount || 0} new event(s) imported` });

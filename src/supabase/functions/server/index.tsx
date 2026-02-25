@@ -954,7 +954,7 @@ app.post(`${PREFIX}/google-oauth-init`, async (c) => {
     url.searchParams.set('client_id', cid);
     url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('response_type', 'code');
-    url.searchParams.set('scope', 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile');
+    url.searchParams.set('scope', 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events');
     url.searchParams.set('state', state);
     url.searchParams.set('access_type', 'offline');
     url.searchParams.set('prompt', 'consent');
@@ -1843,20 +1843,40 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
       let accessToken = kvAccount.access_token;
       if (new Date(kvAccount.token_expires_at || 0) <= now && kvAccount.refresh_token) {
         console.log('[calendar-sync] Google token expired, refreshing...');
-        const nt = await refreshGoogleTokenFn(kvAccount.refresh_token);
-        accessToken = nt.access_token;
-        const kvKey = kvAccount.kvKey || `gmail_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
-        await kv.set(`email_account:${user.id}:${kvKey}`, {
-          ...kvAccount, access_token: nt.access_token,
-          token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString(),
-        });
+        try {
+          const nt = await refreshGoogleTokenFn(kvAccount.refresh_token);
+          accessToken = nt.access_token;
+          const kvKey = kvAccount.kvKey || `gmail_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+          await kv.set(`email_account:${user.id}:${kvKey}`, {
+            ...kvAccount, access_token: nt.access_token,
+            token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString(),
+          });
+        } catch (refreshErr: any) {
+          console.error('[calendar-sync] Google token refresh failed:', refreshErr.message);
+          return c.json({
+            success: false,
+            error: `Google token refresh failed. Please disconnect and reconnect your Gmail account to restore calendar access.`,
+            needsReconnect: true,
+          }, 502);
+        }
       }
 
       const calUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
         `timeMin=${rangeStart.toISOString()}&timeMax=${rangeEnd.toISOString()}` +
         `&maxResults=250&singleEvents=true&orderBy=startTime`;
       const calRes = await fetch(calUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
-      if (!calRes.ok) return c.json({ success: false, error: `Google Calendar API error: ${await calRes.text()}` }, 502);
+      if (!calRes.ok) {
+        const errText = await calRes.text();
+        console.error(`[calendar-sync] Google Calendar API error (${calRes.status}):`, errText);
+        if (calRes.status === 401 || calRes.status === 403) {
+          return c.json({
+            success: false,
+            error: `Google Calendar access denied (${calRes.status}). Your Google account may need to be reconnected with calendar permissions. Please disconnect and reconnect your Gmail account.`,
+            needsReconnect: true,
+          }, 502);
+        }
+        return c.json({ success: false, error: `Google Calendar API error: ${errText}` }, 502);
+      }
       const calData = await calRes.json();
       const events = calData.items || [];
       console.log(`[calendar-sync] Google Calendar: ${events.length} events`);
@@ -1905,21 +1925,41 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
       let accessToken = kvAccount.access_token;
       if (new Date(kvAccount.token_expires_at || 0) <= now && kvAccount.refresh_token) {
         console.log('[calendar-sync] Outlook token expired, refreshing...');
-        const nt = await refreshAzureTokenFn(kvAccount.refresh_token);
-        accessToken = nt.access_token;
-        const kvKey = kvAccount.kvKey || `outlook_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
-        await kv.set(`email_account:${user.id}:${kvKey}`, {
-          ...kvAccount, access_token: nt.access_token,
-          refresh_token: nt.refresh_token || kvAccount.refresh_token,
-          token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString(),
-        });
+        try {
+          const nt = await refreshAzureTokenFn(kvAccount.refresh_token);
+          accessToken = nt.access_token;
+          const kvKey = kvAccount.kvKey || `outlook_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+          await kv.set(`email_account:${user.id}:${kvKey}`, {
+            ...kvAccount, access_token: nt.access_token,
+            refresh_token: nt.refresh_token || kvAccount.refresh_token,
+            token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString(),
+          });
+        } catch (refreshErr: any) {
+          console.error('[calendar-sync] Outlook token refresh failed:', refreshErr.message);
+          return c.json({
+            success: false,
+            error: `Outlook token refresh failed. Please disconnect and reconnect your Outlook account.`,
+            needsReconnect: true,
+          }, 502);
+        }
       }
 
       const graphUrl = `https://graph.microsoft.com/v1.0/me/calendarView?` +
         `startDateTime=${rangeStart.toISOString()}&endDateTime=${rangeEnd.toISOString()}` +
         `&$top=250&$orderby=start/dateTime`;
       const graphRes = await fetch(graphUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
-      if (!graphRes.ok) return c.json({ success: false, error: `Microsoft Graph Calendar error: ${await graphRes.text()}` }, 502);
+      if (!graphRes.ok) {
+        const errText = await graphRes.text();
+        console.error(`[calendar-sync] Microsoft Graph Calendar error (${graphRes.status}):`, errText);
+        if (graphRes.status === 401 || graphRes.status === 403) {
+          return c.json({
+            success: false,
+            error: `Outlook Calendar access denied (${graphRes.status}). Your Outlook account may need to be reconnected. Please disconnect and reconnect your Outlook account.`,
+            needsReconnect: true,
+          }, 502);
+        }
+        return c.json({ success: false, error: `Microsoft Graph Calendar error: ${errText}` }, 502);
+      }
       const graphData = await graphRes.json();
       const events = graphData.value || [];
       console.log(`[calendar-sync] Outlook Calendar: ${events.length} events`);
