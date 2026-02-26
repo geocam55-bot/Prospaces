@@ -267,7 +267,7 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
 
   return (
     <PermissionGate user={user} module="team-dashboard" action="view">
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         {/* Navigation Tabs */}

@@ -161,7 +161,7 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
           </div>
           <Button 
             variant="outline" 
-            className="border-red-300 text-red-700 hover:bg-red-100 hover:border-red-400"
+            className="hidden sm:flex border-red-300 text-red-700 hover:bg-red-100 hover:border-red-400"
             onClick={() => {
               toast.info('Roof Planner is under active development. Your feedback helps us build better tools!');
             }}
@@ -223,10 +223,10 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
             </nav>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
             >
               <Printer className="w-4 h-4" />
-              Print Plan
+              <span className="hidden sm:inline">Print Plan</span>
             </button>
           </div>
         </div>

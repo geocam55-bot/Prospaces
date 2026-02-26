@@ -487,7 +487,7 @@ export function Appointments({ user }: AppointmentsProps) {
 
   return (
     <PermissionGate user={user} module="appointments" action="view">
-      <div className="p-6 space-y-5">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
         {/* ── Toolbar ────────────────────────────────────────────── */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {/* Left: View toggle + date nav */}

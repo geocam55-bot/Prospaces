@@ -1350,7 +1350,7 @@ export function Email({ user }: EmailProps) {
 
   return (
     <PermissionGate user={user} module="email" action="view">
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center justify-end gap-2">
           <Button variant="outline" onClick={() => setIsSettingsOpen(true)} className="text-xs sm:text-sm">

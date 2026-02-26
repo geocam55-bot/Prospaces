@@ -1230,7 +1230,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
   return (
     <PermissionGate user={user} module="import-export" action="view">
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex items-center justify-end gap-3">
         <Button
           variant="outline"

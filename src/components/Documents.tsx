@@ -347,7 +347,7 @@ export function Documents({ user }: DocumentsProps) {
 
   return (
     <PermissionGate user={user} module="documents" action="view">
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex justify-end items-center">
         <PermissionButton module="documents" action="add" userRole={user.role}>
@@ -557,12 +557,12 @@ export function Documents({ user }: DocumentsProps) {
                   <thead>
                     <tr className="border-b">
                       <th className="text-left p-3">File</th>
-                      <th className="text-left p-3">Title</th>
-                      <th className="text-left p-3">Contact</th>
-                      <th className="text-left p-3">Category</th>
-                      <th className="text-left p-3">Size</th>
-                      <th className="text-left p-3">Uploaded</th>
-                      <th className="text-left p-3">Tags</th>
+                      <th className="text-left p-3 hidden sm:table-cell">Title</th>
+                      <th className="text-left p-3 hidden lg:table-cell">Contact</th>
+                      <th className="text-left p-3 hidden md:table-cell">Category</th>
+                      <th className="text-left p-3 hidden md:table-cell">Size</th>
+                      <th className="text-left p-3 hidden lg:table-cell">Uploaded</th>
+                      <th className="text-left p-3 hidden lg:table-cell">Tags</th>
                       <th className="text-right p-3">Actions</th>
                     </tr>
                   </thead>
@@ -577,7 +577,7 @@ export function Documents({ user }: DocumentsProps) {
                             </span>
                           </div>
                         </td>
-                        <td className="p-3">
+                        <td className="p-3 hidden sm:table-cell">
                           <div>
                             <div className="truncate max-w-[200px]" title={doc.title}>
                               {doc.title}
@@ -589,7 +589,7 @@ export function Documents({ user }: DocumentsProps) {
                             )}
                           </div>
                         </td>
-                        <td className="p-3">
+                        <td className="p-3 hidden lg:table-cell">
                           {doc.contactName ? (
                             <span className="text-sm truncate max-w-[150px] inline-block" title={doc.contactName}>
                               {doc.contactName}
@@ -598,23 +598,23 @@ export function Documents({ user }: DocumentsProps) {
                             <span className="text-muted-foreground text-sm">-</span>
                           )}
                         </td>
-                        <td className="p-3">
+                        <td className="p-3 hidden md:table-cell">
                           {doc.category ? (
                             <Badge variant="outline">{doc.category}</Badge>
                           ) : (
                             <span className="text-muted-foreground text-sm">-</span>
                           )}
                         </td>
-                        <td className="p-3 text-sm text-muted-foreground">
+                        <td className="p-3 text-sm text-muted-foreground hidden md:table-cell">
                           {formatFileSize(doc.fileSize)}
                         </td>
-                        <td className="p-3">
+                        <td className="p-3 hidden lg:table-cell">
                           <div className="text-sm">
                             <div>{formatDate(doc.createdAt)}</div>
                             <div className="text-muted-foreground">{doc.uploadedByName}</div>
                           </div>
                         </td>
-                        <td className="p-3">
+                        <td className="p-3 hidden lg:table-cell">
                           <div className="flex flex-wrap gap-1">
                             {doc.tags && doc.tags.length > 0 ? (
                               doc.tags.slice(0, 2).map((tag, i) => (

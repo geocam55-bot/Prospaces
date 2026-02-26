@@ -12,7 +12,7 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 sm:p-6">
       <h2 className="text-slate-900 mb-4">Roof Configuration</h2>
       
       <div className="space-y-4">

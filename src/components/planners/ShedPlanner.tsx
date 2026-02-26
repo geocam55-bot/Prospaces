@@ -189,7 +189,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
           </div>
           <Button 
             variant="outline" 
-            className="border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400"
+            className="hidden sm:flex border-green-300 text-green-700 hover:bg-green-100 hover:border-green-400"
             onClick={() => {
               toast.info('Shed Planner is under active development. Your feedback helps us build better tools!');
             }}
@@ -251,10 +251,10 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
             </nav>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
             >
               <Printer className="w-4 h-4" />
-              Print Plan
+              <span className="hidden sm:inline">Print Plan</span>
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -287,8 +288,16 @@ export function DealsKanban({ quotes, onStatusChange, onEdit, onPreview, onDelet
     }
   };
 
+  // Detect touch device and choose appropriate DnD backend
+  const isTouchDevice = useMemo(() => {
+    return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  }, []);
+
+  const backend = isTouchDevice ? TouchBackend : HTML5Backend;
+  const backendOptions = isTouchDevice ? { enableMouseEvents: true, delayTouchStart: 200 } : undefined;
+
   return (
-    <DndProvider backend={HTML5Backend}>
+    <DndProvider backend={backend} options={backendOptions}>
       <div className="flex h-full overflow-x-auto gap-4 pb-4 items-start">
         {columns.map(col => (
           <KanbanColumn

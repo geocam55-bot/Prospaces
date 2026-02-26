@@ -1070,7 +1070,7 @@ export function Bids({ user }: BidsProps) {
 
   return (
     <PermissionGate user={user} module="bids" action="view">
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center justify-end gap-3">
@@ -1777,7 +1777,7 @@ export function Bids({ user }: BidsProps) {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Unit Price *</Label>
                 <Input
@@ -1917,7 +1917,7 @@ export function Bids({ user }: BidsProps) {
 
               {/* Totals */}
               <div className="flex justify-end">
-                <div className="w-64 space-y-2">
+                <div className="w-full sm:w-64 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Subtotal:</span>
                     <span className="text-gray-900">${previewQuote.subtotal.toFixed(2)}</span>

@@ -17,7 +17,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 sm:p-6">
       <h2 className="text-slate-900 mb-4">Deck Configuration</h2>
       
       <div className="space-y-4">

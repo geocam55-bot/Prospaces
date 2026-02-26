@@ -611,12 +611,12 @@ export function Login({ onLogin, onBack }: LoginProps) {
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <div className="h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <Building2 className="h-10 w-10 text-white" />
+            <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <Building2 className="h-7 w-7 sm:h-10 sm:w-10 text-white" />
             </div>
-            <h1 className="text-5xl text-white">ProSpaces CRM</h1>
+            <h1 className="text-3xl sm:text-5xl text-white">ProSpaces CRM</h1>
           </div>
-          <p className="text-xl text-white/90">
+          <p className="text-base sm:text-xl text-white/90 px-2">
             Complete solution for sales, marketing, and project management. Designed from the ground up for the Home Renovations Industry.
           </p>
         </div>

@@ -196,7 +196,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
           </div>
           <Button 
             variant="outline" 
-            className="border-blue-300 text-blue-700 hover:bg-blue-100 hover:border-blue-400"
+            className="hidden sm:flex border-blue-300 text-blue-700 hover:bg-blue-100 hover:border-blue-400"
             onClick={() => {
               toast.info('Garage Planner is under active development. Your feedback helps us build better tools!');
             }}
@@ -258,10 +258,10 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
             </nav>
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
             >
               <Printer className="w-4 h-4" />
-              Print Plan
+              <span className="hidden sm:inline">Print Plan</span>
             </button>
           </div>
         </div>

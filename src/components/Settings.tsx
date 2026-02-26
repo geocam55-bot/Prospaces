@@ -666,7 +666,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
 
   return (
     <PermissionGate user={user} module="settings" action="view">
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Database Warning Banner */}
       {showDatabaseWarning && (
         <Alert className="bg-yellow-50 border-yellow-200">

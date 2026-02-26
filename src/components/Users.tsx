@@ -619,7 +619,7 @@ export function Users({ user }: UsersProps) {
 
   return (
     <PermissionGate user={user} module="users" action="view">
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <Tabs defaultValue="users" className="space-y-6">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-3">
