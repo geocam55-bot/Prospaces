@@ -34,6 +34,7 @@ import {
   Triangle,
   Globe,
   CreditCard,
+  History,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -54,6 +55,7 @@ import { useBidNotifications } from '../hooks/useBidNotifications';
 import { useTaskNotifications } from '../hooks/useTaskNotifications';
 import { useAppointmentNotifications } from '../hooks/useAppointmentNotifications';
 import { SubscriptionBadge } from './subscription/SubscriptionBadge';
+import { getCurrentSubscription } from '../utils/subscription-client';
 
 interface NavigationProps {
   user: UserType;
@@ -85,6 +87,20 @@ export function Navigation({
     'admin': false,
     'project-wizards': false,
   });
+  const [currentPlanId, setCurrentPlanId] = useState<string | null>(null);
+
+  // Load subscription plan to gate enterprise features
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentSubscription()
+      .then((sub) => {
+        if (!cancelled && sub) {
+          setCurrentPlanId(sub.plan_id);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Toggle submenu expansion
   const toggleSubmenu = (menuId: string) => {
@@ -167,6 +183,11 @@ export function Navigation({
       }
     }
     
+    // Add Audit Log for admin roles on Enterprise plan
+    if (['admin', 'super_admin'].includes(user.role) && currentPlanId === 'enterprise') {
+      submenuItems.push({ id: 'audit-log', label: 'Audit Log', icon: History });
+    }
+
     // Add Settings for roles that can view it
     if (canView('settings', user.role)) {
       submenuItems.push({ id: 'settings', label: 'Settings', icon: Settings });

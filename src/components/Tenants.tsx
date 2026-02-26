@@ -641,7 +641,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
       {/* Create/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle>{editingTenant ? 'Edit Organization' : 'Create New Organization'}</DialogTitle>
             <DialogDescription>
@@ -653,7 +653,7 @@ export function Tenants({ user, organization }: TenantsProps) {
             {/* Basic Information */}
             <div className="space-y-4">
               <h3 className="text-sm text-gray-900">Basic Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label>Organization Name *</Label>
                   <Input
@@ -756,7 +756,7 @@ export function Tenants({ user, organization }: TenantsProps) {
             {/* Subscription */}
             <div className="space-y-4">
               <h3 className="text-sm text-gray-900">Subscription & Features</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label>Status</Label>
                   <Select value={formData.status} onValueChange={(value: any) => setFormData({ ...formData, status: value })}>

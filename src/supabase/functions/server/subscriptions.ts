@@ -221,12 +221,19 @@ export function subscriptions(app: Hono) {
       const auth = await authenticateAndGetOrg(c);
       if (!auth) return c.json({ error: 'Unauthorized' }, 401);
 
-      const sub: Subscription | null = await kv.get(`subscription:${auth.orgId}`);
+      // Allow super_admin to query any org's subscription
+      let targetOrgId = auth.orgId;
+      const orgOverride = c.req.query('org_override');
+      if (orgOverride && auth.role === 'super_admin') {
+        targetOrgId = orgOverride;
+      }
+
+      const sub: Subscription | null = await kv.get(`subscription:${targetOrgId}`);
 
       // If subscription exists, check if it's expired
       if (sub && sub.status === 'active' && new Date(sub.current_period_end) < new Date()) {
         sub.status = 'expired';
-        await kv.set(`subscription:${auth.orgId}`, sub);
+        await kv.set(`subscription:${targetOrgId}`, sub);
       }
 
       return c.json({ subscription: sub || null });
@@ -361,6 +368,18 @@ export function subscriptions(app: Hono) {
       }
 
       console.log(`[subscriptions] Created ${status} subscription for org ${auth.orgId}: ${plan_id} (${billing_interval})`);
+
+      // Sync plan to org_details KV so Tenants page stays in sync
+      try {
+        const orgDetails: any = await kv.get(`org_details:${auth.orgId}`) || {};
+        orgDetails.plan = plan_id;
+        orgDetails.updated_at = new Date().toISOString();
+        await kv.set(`org_details:${auth.orgId}`, orgDetails);
+        console.log(`[subscriptions] Synced plan '${plan_id}' to org_details for org ${auth.orgId}`);
+      } catch (syncErr: any) {
+        console.log(`[subscriptions] Failed to sync plan to org_details (non-critical):`, syncErr.message);
+      }
+
       return c.json({ subscription });
     } catch (error: any) {
       console.error('[subscriptions] Error creating subscription:', error);
@@ -469,6 +488,18 @@ export function subscriptions(app: Hono) {
       }
 
       console.log(`[subscriptions] Plan changed for org ${auth.orgId}: ${existing.plan_id} → ${newPlanId}`);
+
+      // Sync plan to org_details KV so Tenants page stays in sync
+      try {
+        const orgDetails: any = await kv.get(`org_details:${auth.orgId}`) || {};
+        orgDetails.plan = newPlanId;
+        orgDetails.updated_at = new Date().toISOString();
+        await kv.set(`org_details:${auth.orgId}`, orgDetails);
+        console.log(`[subscriptions] Synced plan '${newPlanId}' to org_details for org ${auth.orgId}`);
+      } catch (syncErr: any) {
+        console.log(`[subscriptions] Failed to sync plan to org_details (non-critical):`, syncErr.message);
+      }
+
       return c.json({ subscription: updated });
     } catch (error: any) {
       console.error('[subscriptions] Error updating subscription:', error);

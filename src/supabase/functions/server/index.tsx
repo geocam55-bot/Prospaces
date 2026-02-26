@@ -10,6 +10,8 @@ import { publicApi } from './public-api.ts';
 import { designsApi } from './designs-api.ts';
 import { contactsAPI } from './contacts-api.ts';
 import { inventoryDiagnostic } from './inventory-diagnostic.ts';
+import { auditAPI } from './audit-api.ts';
+import { tenantsAPI as tenantsAPIRoutes } from './tenants-api.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -109,6 +111,9 @@ app.get(`${PREFIX}/permissions/audit-logs`, async (c) => {
 
 // ── CONTACTS (delegated to contacts-api.ts — column detection + KV fallback for price_level) ──
 contactsAPI(app);
+
+// ── TENANTS (server-side CRUD bypassing RLS for super_admin) ──
+tenantsAPIRoutes(app);
 
 // ── ORG STATS (for Tenants / Organizations module) ─────────────────────
 // Returns user counts and contact counts per organization, bypassing RLS
@@ -1709,6 +1714,9 @@ marketing(app);
 
 // ── SAVED DESIGNS (deck, garage, shed, roof, kitchen — service-role to bypass RLS) ──
 designsApi(app);
+
+// ── AUDIT LOGS (Enterprise — writes to audit_logs Supabase table) ────────
+auditAPI(app);
 
 // ── INVENTORY DIAGNOSTIC (duplicate SKU scan, cleanup, import jobs) ──────
 inventoryDiagnostic(app);

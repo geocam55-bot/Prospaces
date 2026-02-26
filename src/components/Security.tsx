@@ -27,6 +27,8 @@ import { ALL_MODULES, ALL_ROLES, getDefaultPermission, refreshPermissionsFromSto
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { createClient } from '../utils/supabase/client';
 import { getServerHeaders } from '../utils/server-headers';
+import { AuditLog as AuditLogViewer } from './AuditLog';
+import { logAuditEvent } from '../utils/audit';
 
 const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
@@ -43,7 +45,7 @@ interface ModulePermission {
   delete: boolean;
 }
 
-interface AuditLog {
+interface LegacyAuditLog {
   id: string;
   timestamp: string;
   user: string;
@@ -55,7 +57,7 @@ interface AuditLog {
 
 export function Security({ user }: SecurityProps) {
   const [permissions, setPermissions] = useState<ModulePermission[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [legacyAuditLogs, setLegacyAuditLogs] = useState<LegacyAuditLog[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [selectedModule, setSelectedModule] = useState<string>('all');
@@ -224,7 +226,7 @@ export function Security({ user }: SecurityProps) {
           console.log(`[Security] Loaded ${json.logs.length} audit logs from server`);
           // Sync to localStorage
           localStorage.setItem(`audit_logs_${orgId}`, JSON.stringify(json.logs));
-          setAuditLogs(json.logs);
+          setLegacyAuditLogs(json.logs);
           return;
         }
       }
@@ -236,13 +238,13 @@ export function Security({ user }: SecurityProps) {
     try {
       const storedLogs = localStorage.getItem(`audit_logs_${orgId}`);
       if (storedLogs) {
-        setAuditLogs(JSON.parse(storedLogs));
+        setLegacyAuditLogs(JSON.parse(storedLogs));
       } else {
-        setAuditLogs([]);
+        setLegacyAuditLogs([]);
       }
     } catch (error) {
       console.error('[Security] Failed to load audit logs from localStorage:', error);
-      setAuditLogs([]);
+      setLegacyAuditLogs([]);
     }
   };
 
@@ -308,7 +310,7 @@ export function Security({ user }: SecurityProps) {
     const orgId = localStorage.getItem('currentOrgId') || user.organizationId || user.organization_id || 'org_001';
 
     // Create audit log entry
-    const logEntry: AuditLog = {
+    const logEntry: LegacyAuditLog = {
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
       user: user.full_name || user.email || 'User',
@@ -363,6 +365,14 @@ export function Security({ user }: SecurityProps) {
     } else {
       setSaveMessage({ type: 'success', text: 'Permissions saved locally. Server sync will retry on next save.' });
     }
+
+    // Also log to enterprise audit log (Supabase table)
+    logAuditEvent({
+      action: 'permission_change',
+      resourceType: 'permission',
+      description: `Updated ${permissions.length} permission entries`,
+      metadata: { permission_count: permissions.length },
+    });
 
     setHasChanges(false);
     await loadAuditLogs();
@@ -730,47 +740,7 @@ export function Security({ user }: SecurityProps) {
         </TabsContent>
 
         <TabsContent value="audit" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <History className="h-5 w-5 text-gray-600" />
-                <CardTitle>Audit Logs</CardTitle>
-              </div>
-              <p className="text-sm text-gray-600 mt-1">
-                Track all changes to security permissions
-              </p>
-            </CardHeader>
-            <CardContent>
-              {auditLogs.length > 0 ? (
-                <div className="space-y-3">
-                  {auditLogs.map(log => (
-                    <div key={log.id} className="p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm text-gray-900">{log.action}</p>
-                          <p className="text-xs text-gray-600 mt-1">
-                            Module: <span className="font-medium">{log.module}</span> • 
-                            Role: <span className="font-medium">{roleLabels[log.role]}</span>
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">{log.changes}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500">{log.user}</p>
-                          <p className="text-xs text-gray-400">{log.timestamp}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <History className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>No audit logs yet</p>
-                  <p className="text-sm mt-1">Changes to permissions will appear here</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <AuditLogViewer user={user} embedded={true} />
         </TabsContent>
       </Tabs>
     </div>

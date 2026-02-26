@@ -19,6 +19,7 @@ import { Reports } from './components/Reports';
 import { Bids } from './components/Bids';
 import { ManagerDashboard } from './components/ManagerDashboard';
 import { Security } from './components/Security';
+import { AuditLog } from './components/AuditLog';
 import { ImportExport } from './components/ImportExport';
 import { ScheduledJobs } from './components/ScheduledJobs';
 import { BackgroundImportManager } from './components/BackgroundImportManager';
@@ -498,6 +499,7 @@ function App() {
               {currentView === 'tenants' && <Tenants user={user} />}
               {currentView === 'settings' && <Settings user={user} organization={organization} onUserUpdate={setUser} onOrganizationUpdate={setOrganization} />}
               {currentView === 'security' && <Security user={user} />}
+              {currentView === 'audit-log' && <AuditLog user={user} />}
               {currentView === 'import-export' && <ImportExport user={user} onNavigate={setCurrentView} />}
               {currentView === 'scheduled-jobs' && <ScheduledJobs user={user} onNavigate={setCurrentView} />}
               {currentView === 'background-imports' && <BackgroundImportManager user={user} onNavigate={setCurrentView} />}

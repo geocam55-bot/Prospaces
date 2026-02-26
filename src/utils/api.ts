@@ -201,13 +201,28 @@ export const tenantsAPI = {
       } catch (_kvErr) {
         // Non-critical: KV details not available, use DB defaults
       }
+
+      // Fetch subscription to get authoritative plan
+      let subPlan: string | null = null;
+      try {
+        const hdrs = await getServerHeaders();
+        const subResp = await fetch(`${BASE}/subscriptions/current?org_override=${org.id}`, { headers: hdrs });
+        if (subResp.ok) {
+          const subJson = await subResp.json();
+          if (subJson.subscription?.plan_id) {
+            subPlan = subJson.subscription.plan_id;
+          }
+        }
+      } catch (_subErr) {
+        // Non-critical
+      }
       
       return {
         id: org.id,
         name: org.name,
         domain: kvDetails.domain || org.domain || '',
         status: org.status || 'active',
-        plan: kvDetails.plan || org.plan || 'starter',
+        plan: subPlan || kvDetails.plan || org.plan || 'starter',
         customPlanPrice: kvDetails.custom_plan_price || '',
         logo: org.logo || '',
         billingEmail: kvDetails.billing_email || org.billing_email || '',
@@ -260,328 +275,69 @@ export const tenantsAPI = {
     return { tenant: data };
   },
   create: async (data: any) => {
-    // Generate ID from name (slug format) or use random UUID
-    const generateId = (name: string) => {
-      // Convert to lowercase, replace spaces with hyphens, remove special chars
-      return name
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9\\s-]/g, '')
-        .replace(/\\s+/g, '-')
-        .replace(/-+/g, '-')
-        .substring(0, 50); // Limit length
-    };
-    
-    let orgId = generateId(data.name);
-    
-    // Check if ID already exists, if so, append a number
-    const { data: existingOrg } = await supabase
-      .from('organizations')
-      .select('id')
-      .eq('id', orgId)
-      .single();
-    
-    if (existingOrg) {
-      // Append timestamp to make it unique
-      orgId = `${orgId}-${Date.now()}`;
+    console.log('[tenantsAPI] Creating organization via server...');
+    const hdrs = await getServerHeaders();
+    const resp = await fetch(`${BASE}/tenants`, {
+      method: 'POST',
+      headers: hdrs,
+      body: JSON.stringify(data),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }));
+      console.error('[tenantsAPI] Failed to create tenant:', err);
+      throw new Error(err.error || 'Failed to create organization');
     }
-    
-    // Only write columns that actually exist in the organizations table
-    const dbData: any = {
-      id: orgId,
-      name: data.name,
-      status: data.status,
-      logo: data.logo || null,
-      ai_suggestions_enabled: data.ai_suggestions_enabled ?? false,
-      marketing_enabled: data.marketing_enabled ?? true,
-      inventory_enabled: data.inventory_enabled ?? true,
-      import_export_enabled: data.import_export_enabled ?? true,
-      documents_enabled: data.documents_enabled ?? true,
-    };
-    
-    console.log('[tenantsAPI] Creating organization with DB fields:', Object.keys(dbData));
-    
-    const { data: org, error } = await supabase
-      .from('organizations')
-      .insert([dbData])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Failed to save tenant:', error);
-      throw error;
-    }
-
-    // Persist extra fields (domain, plan, billing_email, phone, address, notes, features) in KV
-    try {
-      const extraFields = {
-        domain: data.domain || '',
-        billing_email: data.billingEmail || '',
-        phone: data.phone || '',
-        address: data.address || '',
-        plan: data.plan || 'starter',
-        custom_plan_price: data.customPlanPrice || '',
-        notes: data.notes || '',
-        features: data.features || [],
-      };
-      const hdrs = await getServerHeaders();
-      const resp = await fetch(`${BASE}/settings/org-details/${orgId}`, {
-        method: 'PUT',
-        headers: hdrs,
-        body: JSON.stringify(extraFields),
-      });
-      if (!resp.ok) console.warn('[tenantsAPI] Failed to save org details to KV:', await resp.text());
-      else console.log('[tenantsAPI] Extra org details saved to KV for', orgId);
-    } catch (kvErr) {
-      console.warn('[tenantsAPI] KV save for org details failed (non-critical):', kvErr);
-    }
-
-    // SuperAdmin-created orgs default to Multi User mode
-    try {
-      await setOrgMode(org.id, 'multi');
-      console.log('[tenantsAPI] Org mode set to multi for SuperAdmin-created org:', org.id);
-    } catch (modeErr) {
-      console.warn('[tenantsAPI] Failed to set org mode to multi (non-critical):', modeErr);
-    }
-
-    return { tenant: org };
+    const result = await resp.json();
+    console.log('[tenantsAPI] Organization created via server:', result.tenant?.id);
+    return result;
   },
   update: async (id: string, data: any) => {
-    // Only write columns that actually exist in the organizations table
-    const dbData: any = {
-      name: data.name,
-      status: data.status,
-      logo: data.logo || null,
-      ai_suggestions_enabled: data.ai_suggestions_enabled,
-      marketing_enabled: data.marketing_enabled,
-      inventory_enabled: data.inventory_enabled,
-      import_export_enabled: data.import_export_enabled,
-      documents_enabled: data.documents_enabled,
-    };
-    
-    console.log('[tenantsAPI] Updating organization', id, 'DB fields:', Object.keys(dbData));
-    
-    const { data: org, error } = await supabase
-      .from('organizations')
-      .update(dbData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[tenantsAPI] Failed to update tenant DB row:', error);
-      throw error;
+    console.log('[tenantsAPI] Updating organization via server:', id);
+    const hdrs = await getServerHeaders();
+    const resp = await fetch(`${BASE}/tenants/${id}`, {
+      method: 'PUT',
+      headers: hdrs,
+      body: JSON.stringify(data),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }));
+      console.error('[tenantsAPI] Failed to update tenant:', err);
+      throw new Error(err.error || 'Failed to update organization');
     }
-
-    // Persist extra fields (domain, plan, billing_email, phone, address, notes, features) in KV
-    try {
-      const extraFields = {
-        domain: data.domain || '',
-        billing_email: data.billingEmail || '',
-        phone: data.phone || '',
-        address: data.address || '',
-        plan: data.plan || 'starter',
-        custom_plan_price: data.customPlanPrice || '',
-        notes: data.notes || '',
-        features: data.features || [],
-      };
-      const hdrs = await getServerHeaders();
-      const resp = await fetch(`${BASE}/settings/org-details/${id}`, {
-        method: 'PUT',
-        headers: hdrs,
-        body: JSON.stringify(extraFields),
-      });
-      if (!resp.ok) console.warn('[tenantsAPI] Failed to save org details to KV:', await resp.text());
-      else console.log('[tenantsAPI] Extra org details saved to KV for', id);
-    } catch (kvErr) {
-      console.warn('[tenantsAPI] KV save for org details failed (non-critical):', kvErr);
-    }
-
-    console.log('[tenantsAPI] Organization updated successfully:', id);
-    return { tenant: org };
+    const result = await resp.json();
+    console.log('[tenantsAPI] Organization updated via server:', id);
+    return result;
   },
   updateFeatures: async (id: string, features: { ai_suggestions_enabled?: boolean }) => {
-    const { data: org, error } = await supabase
-      .from('organizations')
-      .update(features)
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('Failed to update organization features:', error);
-      throw error;
+    console.log('[tenantsAPI] Updating features via server:', id, features);
+    const hdrs = await getServerHeaders();
+    const resp = await fetch(`${BASE}/tenants/${id}/features`, {
+      method: 'PATCH',
+      headers: hdrs,
+      body: JSON.stringify(features),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }));
+      console.error('[tenantsAPI] Failed to update features:', err);
+      throw new Error(err.error || 'Failed to update features');
     }
-    return { tenant: org };
+    return await resp.json();
   },
   delete: async (id: string) => {
-    // Comprehensive deletion - delete all related data first, then organization
-    console.log(`[tenantsAPI] 🗑️ Starting comprehensive deletion of organization: ${id}`);
-    
-    try {
-      // Delete in order: dependent records first, then organization
-      
-      // 1. Delete bids
-      console.log('[tenantsAPI] 1/13 Deleting bids...');
-      const { data: bidsData, error: bidsError } = await supabase
-        .from('bids')
-        .delete()
-        .eq('organization_id', id)
-        .select();
-      console.log(`[tenantsAPI] Deleted ${bidsData?.length || 0} bids`);
-      if (bidsError) console.error('[tenantsAPI] Error deleting bids:', bidsError);
-      
-      // 2. Delete opportunities
-      console.log('[tenantsAPI] 2/13 Deleting opportunities...');
-      const { data: oppData, error: opportunitiesError } = await supabase
-        .from('opportunities')
-        .delete()
-        .eq('organization_id', id)
-        .select();
-      console.log(`[tenantsAPI] Deleted ${oppData?.length || 0} opportunities`);
-      if (opportunitiesError) console.error('[tenantsAPI] Error deleting opportunities:', opportunitiesError);
-      
-      // 3. Delete project managers
-      console.log('[tenantsAPI] 3/13 Deleting project managers...');
-      const { data: pmData, error: projectManagersError } = await supabase
-        .from('project_managers')
-        .delete()
-        .eq('organization_id', id)
-        .select();
-      console.log(`[tenantsAPI] Deleted ${pmData?.length || 0} project managers`);
-      if (projectManagersError) console.error('[tenantsAPI] Error deleting project managers:', projectManagersError);
-      
-      // 4. Delete contacts
-      console.log('[tenantsAPI] 4/13 Deleting contacts...');
-      const { data: contactsData, error: contactsError } = await supabase
-        .from('contacts')
-        .delete()
-        .eq('organization_id', id)
-        .select();
-      console.log(`[tenantsAPI] Deleted ${contactsData?.length || 0} contacts`);
-      if (contactsError) console.error('[tenantsAPI] Error deleting contacts:', contactsError);
-      
-      // 5. Delete appointments
-      console.log('[tenantsAPI] 5/13 Deleting appointments...');
-      const { data: apptData, error: appointmentsError } = await supabase
-        .from('appointments')
-        .delete()
-        .eq('organization_id', id)
-        .select();
-      console.log(`[tenantsAPI] Deleted ${apptData?.length || 0} appointments`);
-      if (appointmentsError) console.error('[tenantsAPI] Error deleting appointments:', appointmentsError);
-      
-      // 6. Delete notes
-      console.log('[tenantsAPI] 6/13 Deleting notes...');
-      const { data: notesData, error: notesError } = await supabase
-        .from('notes')
-        .delete()
-        .eq('organization_id', id)
-        .select();
-      console.log(`[tenantsAPI] Deleted ${notesData?.length || 0} notes`);
-      if (notesError) console.error('[tenantsAPI] Error deleting notes:', notesError);
-      
-      // 7. Delete tasks
-      console.log('[tenantsAPI] 7/13 Deleting tasks...');
-      const { data: tasksData, error: tasksError } = await supabase
-        .from('tasks')
-        .delete()
-        .eq('organization_id', id)
-        .select();
-      console.log(`[tenantsAPI] Deleted ${tasksData?.length || 0} tasks`);
-      if (tasksError) console.error('[tenantsAPI] Error deleting tasks:', tasksError);
-      
-      // 8. Delete quotes
-      console.log('[tenantsAPI] 8/13 Deleting quotes...');
-      const { data: quotesData, error: quotesError } = await supabase
-        .from('quotes')
-        .delete()
-        .eq('organization_id', id)
-        .select();
-      console.log(`[tenantsAPI] Deleted ${quotesData?.length || 0} quotes`);
-      if (quotesError) console.error('[tenantsAPI] Error deleting quotes:', quotesError);
-      
-      // 9. Delete documents
-      console.log('[tenantsAPI] 9/13 Deleting documents...');
-      const { data: docsData, error: documentsError } = await supabase
-        .from('documents')
-        .delete()
-        .eq('organization_id', id)
-        .select();
-      console.log(`[tenantsAPI] Deleted ${docsData?.length || 0} documents`);
-      if (documentsError) console.error('[tenantsAPI] Error deleting documents:', documentsError);
-      
-      // 10. Delete inventory items
-      console.log('[tenantsAPI] 10/13 Deleting inventory...');
-      const { data: invData, error: inventoryError } = await supabase
-        .from('inventory')
-        .delete()
-        .eq('organization_id', id)
-        .select();
-      console.log(`[tenantsAPI] Deleted ${invData?.length || 0} inventory items`);
-      if (inventoryError) console.error('[tenantsAPI] Error deleting inventory:', inventoryError);
-      
-      // 11. Delete files from storage (documents bucket)
-      console.log('[tenantsAPI] 11/13 Deleting storage files...');
-      const { data: files } = await supabase
-        .storage
-        .from('documents')
-        .list(id);
-      
-      if (files && files.length > 0) {
-        console.log(`[tenantsAPI] Found ${files.length} storage files to delete`);
-        const filePaths = files.map(file => `${id}/${file.name}`);
-        const { error: storageError } = await supabase
-          .storage
-          .from('documents')
-          .remove(filePaths);
-        if (storageError) console.error('[tenantsAPI] Error deleting storage files:', storageError);
-        else console.log(`[tenantsAPI] Deleted ${files.length} storage files`);
-      } else {
-        console.log('[tenantsAPI] No storage files to delete');
-      }
-      
-      // 12. Delete user profiles
-      console.log('[tenantsAPI] 12/13 Deleting user profiles...');
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('organization_id', id)
-        .select();
-      console.log(`[tenantsAPI] Deleted ${profilesData?.length || 0} user profiles`);
-      if (profilesError) console.error('[tenantsAPI] Error deleting profiles:', profilesError);
-      
-      // 13. Finally, delete the organization
-      console.log('[tenantsAPI] 13/13 Deleting organization...');
-      const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .delete()
-        .eq('id', id)
-        .select();
-      
-      if (orgError) {
-        console.error('[tenantsAPI] ❌ Error deleting organization:', orgError);
-        console.error('[tenantsAPI] ❌ Error code:', orgError.code);
-        console.error('[tenantsAPI] ❌ Error message:', orgError.message);
-        console.error('[tenantsAPI] ❌ Error details:', orgError.details);
-        console.error('[tenantsAPI] ❌ Error hint:', orgError.hint);
-        throw orgError;
-      }
-      
-      console.log(`[tenantsAPI] ✅ Deleted organization:`, orgData);
-      console.log(`[tenantsAPI] ✅ Successfully deleted organization and all related data: ${id}`);
-      return { success: true };
-    } catch (error: any) {
-      console.error('[tenantsAPI] ❌ Error during organization deletion:', error);
-      console.error('[tenantsAPI] ❌ Full error object:', {
-        message: error?.message,
-        code: error?.code,
-        details: error?.details,
-        hint: error?.hint,
-        status: error?.status
-      });
-      throw error;
+    console.log(`[tenantsAPI] Deleting organization via server: ${id}`);
+    const hdrs = await getServerHeaders();
+    const resp = await fetch(`${BASE}/tenants/${id}`, {
+      method: 'DELETE',
+      headers: hdrs,
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }));
+      console.error('[tenantsAPI] Failed to delete tenant:', err);
+      throw new Error(err.error || 'Failed to delete organization');
     }
+    const result = await resp.json();
+    console.log('[tenantsAPI] Organization deleted via server:', id);
+    return result;
   },
 };
 
