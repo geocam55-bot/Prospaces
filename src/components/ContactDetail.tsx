@@ -1064,67 +1064,57 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
           <CardHeader>
             <CardTitle>Sales & Financial Data</CardTitle>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(contact.ptdSales !== undefined || contact.ptdGpPercent !== undefined) && (
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="flex items-center gap-2 text-blue-600 mb-2">
-                  <TrendingUp className="h-5 w-5" />
-                  <span>PTD (Period to Date)</span>
-                </div>
-                {contact.ptdSales !== undefined && (
-                  <div className="mb-2">
-                    <p className="text-sm text-gray-600">Sales</p>
-                    <p className="text-gray-900">${(contact.ptdSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  </div>
-                )}
-                {contact.ptdGpPercent !== undefined && (
-                  <div>
-                    <p className="text-sm text-gray-600">GP%</p>
-                    <p className="text-gray-900">{contact.ptdGpPercent ?? 0}%</p>
-                  </div>
-                )}
-              </div>
-            )}
-            {(contact.ytdSales !== undefined || contact.ytdGpPercent !== undefined) && (
-              <div className="p-4 bg-green-50 rounded-lg">
-                <div className="flex items-center gap-2 text-green-600 mb-2">
-                  <TrendingUp className="h-5 w-5" />
-                  <span>YTD (Year to Date)</span>
-                </div>
-                {contact.ytdSales !== undefined && (
-                  <div className="mb-2">
-                    <p className="text-sm text-gray-600">Sales</p>
-                    <p className="text-gray-900">${(contact.ytdSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  </div>
-                )}
-                {contact.ytdGpPercent !== undefined && (
-                  <div>
-                    <p className="text-sm text-gray-600">GP%</p>
-                    <p className="text-gray-900">{contact.ytdGpPercent ?? 0}%</p>
-                  </div>
-                )}
-              </div>
-            )}
-            {(contact.lyrSales !== undefined || contact.lyrGpPercent !== undefined) && (
-              <div className="p-4 bg-purple-50 rounded-lg">
-                <div className="flex items-center gap-2 text-purple-600 mb-2">
-                  <TrendingUp className="h-5 w-5" />
-                  <span>LYR (Last Year)</span>
-                </div>
-                {contact.lyrSales !== undefined && (
-                  <div className="mb-2">
-                    <p className="text-sm text-gray-600">Sales</p>
-                    <p className="text-gray-900">${(contact.lyrSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  </div>
-                )}
-                {contact.lyrGpPercent !== undefined && (
-                  <div>
-                    <p className="text-sm text-gray-600">GP%</p>
-                    <p className="text-gray-900">{contact.lyrGpPercent ?? 0}%</p>
-                  </div>
-                )}
-              </div>
-            )}
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label className="text-blue-900 font-semibold">PTD Sales</Label>
+              <Input 
+                readOnly 
+                value={contact.ptdSales != null ? `$${contact.ptdSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''} 
+                className="bg-white"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-blue-900 font-semibold">PTD GP%</Label>
+              <Input 
+                readOnly 
+                value={contact.ptdGpPercent != null ? `${Number(contact.ptdGpPercent).toFixed(1)}%` : ''} 
+                className="bg-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-blue-900 font-semibold">YTD Sales</Label>
+              <Input 
+                readOnly 
+                value={contact.ytdSales != null ? `$${contact.ytdSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''} 
+                className="bg-white"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-blue-900 font-semibold">YTD GP%</Label>
+              <Input 
+                readOnly 
+                value={contact.ytdGpPercent != null ? `${Number(contact.ytdGpPercent).toFixed(1)}%` : ''} 
+                className="bg-white"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-blue-900 font-semibold">LYR Sales</Label>
+              <Input 
+                readOnly 
+                value={contact.lyrSales != null ? `$${contact.lyrSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''} 
+                className="bg-white"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-blue-900 font-semibold">LYR GP%</Label>
+              <Input 
+                readOnly 
+                value={contact.lyrGpPercent != null ? `${Number(contact.lyrGpPercent).toFixed(1)}%` : ''} 
+                className="bg-white"
+              />
+            </div>
           </CardContent>
         </Card>
       )}
