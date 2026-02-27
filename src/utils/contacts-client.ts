@@ -615,6 +615,48 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
     // Transform data from camelCase to snake_case
     const transformedData = transformToDbFormat(contactData);
 
+    // ── Capture financial data BEFORE filtering strips it ──────────────
+    const financialExtras: Record<string, any> = {};
+    const finFields = ['ptd_sales', 'ptd_gp_percent', 'ytd_sales', 'ytd_gp_percent', 'lyr_sales', 'lyr_gp_percent'];
+    for (const f of finFields) {
+      if (transformedData[f] !== undefined && transformedData[f] !== null && transformedData[f] !== '') {
+        financialExtras[f] = Number(transformedData[f]);
+      }
+    }
+    const hasFinancialExtras = Object.keys(financialExtras).length > 0;
+    if (hasFinancialExtras) {
+      console.log(`[upsert] Captured financial extras before filtering:`, Object.keys(financialExtras));
+    }
+
+    // ── Helper: persist financial extras to KV via server PATCH ────────
+    // Called after each DB write to ensure financial data survives
+    // even when DB columns don't exist (filterToExistingColumns strips them).
+    const persistFinancialExtras = async (contactId: string) => {
+      if (!hasFinancialExtras || !contactId) return;
+      try {
+        const headers = await getServerHeaders();
+        if (!headers['X-User-Token']) {
+          console.warn('[upsert] No user token — skipping financial extras persistence');
+          return;
+        }
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${contactId}`,
+          {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(financialExtras),
+          }
+        );
+        if (res.ok) {
+          console.log(`[upsert] Financial extras persisted to KV for contact ${contactId}:`, Object.keys(financialExtras));
+        } else {
+          console.warn(`[upsert] Failed to persist financial extras (${res.status}) — data may be lost on reload`);
+        }
+      } catch (e: any) {
+        console.warn(`[upsert] Financial extras persistence error (non-fatal):`, e.message);
+      }
+    };
+
     // ── Resolve owner from account_owner_number ─────────────────────────
     // If the CSV provides an account_owner_number (email), look up the
     // matching profile in the same org and use that user as the owner.
@@ -685,6 +727,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
         if (error) throw error;
 
         console.log('✅ Contact updated (by legacy number):', data?.name || data?.email);
+        await persistFinancialExtras(data.id);
         return { contact: transformFromDbFormat(data), action: 'updated' as const };
       }
     }
@@ -713,6 +756,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
         if (error) throw error;
 
         console.log('✅ Contact updated (by email):', data?.name || data?.email);
+        await persistFinancialExtras(data.id);
         return { contact: transformFromDbFormat(data), action: 'updated' as const };
       }
     }
@@ -743,6 +787,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
         if (error) throw error;
 
         console.log('✅ Contact updated (by account_owner_number + name):', data?.name || data?.email);
+        await persistFinancialExtras(data.id);
         return { contact: transformFromDbFormat(data), action: 'updated' as const };
       }
     }
@@ -772,6 +817,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
         if (error) throw error;
 
         console.log('✅ Contact updated (by name+company):', data?.name || data?.email);
+        await persistFinancialExtras(data.id);
         return { contact: transformFromDbFormat(data), action: 'updated' as const };
       }
     }
@@ -799,6 +845,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
     if (error) throw error;
 
     console.log('✅ Contact created (via import):', data?.name || data?.email, '| owner:', resolvedOwnerId);
+    await persistFinancialExtras(data.id);
     return { contact: transformFromDbFormat(data), action: 'created' as const };
   } catch (error: any) {
     console.error('Error upserting contact:', error.message, error.code, error.details);
@@ -808,79 +855,26 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
 
 export async function updateContactClient(id: string, contactData: any) {
   try {
-    const supabase = createClient();
-    
-    // Transform data to DB format (camelCase → snake_case)
-    const transformedData = transformToDbFormat(contactData);
-    
-    // Try server endpoint first (bypasses RLS)
-    try {
-      const headers = await getServerHeaders();
-      console.log(`[contacts-client] Updating contact ${id} via server endpoint...`);
-      console.log(`[contacts-client] Payload keys:`, Object.keys(transformedData));
-      console.log(`[contacts-client] price_level in payload:`, transformedData.price_level);
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${id}`,
-        {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify(transformedData),
-        }
-      );
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log(`[contacts-client] Server update successful. Response keys:`, Object.keys(result.contact || {}));
-        console.log(`[contacts-client] Server update — name="${result.contact?.name}", price_level="${result.contact?.price_level}", updated_at="${result.contact?.updated_at}"`);
-        if (result.warnings && result.warnings.length > 0) {
-          console.warn('[contacts-client] Server warnings:', result.warnings);
-        }
-        const transformedContact = transformFromDbFormat(result.contact);
-        return { contact: transformedContact };
-      } else {
-        const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-        console.error('[contacts-client] Server update error:', response.status, JSON.stringify(errorBody));
-        // If the update included a price_level change, do NOT silently fall back
-        // because the fallback path will lose the price_level value.
-        if (transformedData.price_level !== undefined) {
-          console.error('[contacts-client] Server failed and update includes price_level — throwing instead of fallback');
-          throw new Error(`Server update failed (${response.status}): ${errorBody?.error || 'Unknown error'}. Price level change was not saved.`);
-        }
-        // Fall through to direct Supabase update for non-price-level updates
+    const headers = await getServerHeaders();
+    const dbData = transformToDbFormat(contactData);
+
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${id}`,
+      {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(dbData),
       }
-    } catch (serverError: any) {
-      // If it's our deliberate throw from above, re-throw it
-      if (serverError.message?.includes('Price level change was not saved')) {
-        throw serverError;
-      }
-      console.warn('[contacts-client] Server update failed, falling back to direct:', serverError.message);
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+      console.error('[contacts-client] Update error:', response.status, errorBody);
+      throw new Error(errorBody.error || `Failed to update contact (${response.status})`);
     }
-    
-    // Fallback: direct Supabase update (subject to RLS)
-    // NOTE: price_level is stripped here since the column doesn't exist.
-    // The server path (contacts-api.ts) handles it via KV fallback instead.
-    console.log(`[contacts-client] Falling back to direct Supabase update for contact ${id}`);
-    const existingColumns = await getExistingContactColumns(supabase);
-    const cleanedData = filterToExistingColumns(transformedData, existingColumns);
 
-    const { data, error } = await supabase
-      .from('contacts')
-      .update(cleanedData)
-      .eq('id', id)
-      .select('*')
-      .single();
-
-    if (error) throw error;
-
-    const fallbackContact = transformFromDbFormat(data);
-    // If the original request had a priceLevel, preserve it in the local response
-    // so the UI doesn't revert — but log that it wasn't persisted to KV
-    if (contactData.priceLevel && contactData.priceLevel !== fallbackContact.priceLevel) {
-      console.warn(`[contacts-client] ⚠ price_level "${contactData.priceLevel}" was NOT saved (fallback path). UI will show submitted value but it may revert on reload.`);
-      fallbackContact.priceLevel = contactData.priceLevel;
-    }
-    return { contact: fallbackContact };
+    const result = await response.json();
+    return { contact: transformFromDbFormat(result.contact) };
   } catch (error: any) {
     console.error('Error updating contact:', error);
     throw error;
@@ -889,41 +883,21 @@ export async function updateContactClient(id: string, contactData: any) {
 
 export async function deleteContactClient(id: string) {
   try {
-    const supabase = createClient();
-    
-    // Try server endpoint first (bypasses RLS)
-    try {
-      const headers = await getServerHeaders();
-      console.log(`[contacts-client] Deleting contact ${id} via server endpoint (bypasses RLS)...`);
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${id}`,
-        {
-          method: 'DELETE',
-          headers,
-        }
-      );
-      
-      if (response.ok) {
-        console.log(`[contacts-client] Server delete successful for contact ${id}`);
-        return { success: true };
-      } else {
-        const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-        console.error('[contacts-client] Server delete error:', response.status, errorBody);
-        // Fall through to direct Supabase delete
-      }
-    } catch (serverError: any) {
-      console.warn('[contacts-client] Server delete failed, falling back to direct:', serverError.message);
-    }
-    
-    // Fallback: direct Supabase delete (subject to RLS)
-    console.log(`[contacts-client] Falling back to direct Supabase delete for contact ${id}`);
-    const { error } = await supabase
-      .from('contacts')
-      .delete()
-      .eq('id', id);
+    const headers = await getServerHeaders();
 
-    if (error) throw error;
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${id}`,
+      {
+        method: 'DELETE',
+        headers,
+      }
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({ error: response.statusText }));
+      console.error('[contacts-client] Delete error:', response.status, errorBody);
+      throw new Error(errorBody.error || `Failed to delete contact (${response.status})`);
+    }
 
     return { success: true };
   } catch (error: any) {
@@ -932,100 +906,29 @@ export async function deleteContactClient(id: string) {
   }
 }
 
-export async function claimUnassignedContactsClient(accountOwnerEmail: string) {
+export async function claimUnassignedContactsClient() {
   try {
     const supabase = createClient();
-    
-    // Detect available columns
-    const existingCols = await getExistingContactColumns(supabase);
-    
-    // If account_owner_number column doesn't exist, we can't claim contacts this way
-    if (!existingCols.has('account_owner_number')) {
-      console.warn('⚠️ account_owner_number column does not exist — skipping claim');
-      return getAllContactsClient();
-    }
-    
-    // Get the current user and their profile
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
+    if (!user) throw new Error('User not authenticated');
 
-    // Get user's profile to get their organization_id
     const profile = await ensureUserProfile(user.id);
     const userOrgId = profile.organization_id;
-    
-    console.log('🔍 Claiming unassigned contacts for:', accountOwnerEmail, 'Org:', userOrgId);
-    
-    // Find all contacts without an account_owner_number
-    const { data: allUnassigned, error: fetchError } = await supabase
+
+    // Find contacts in this org with no owner_id and claim them for the current user
+    const { data, error } = await supabase
       .from('contacts')
-      .select('id, organization_id, name, company, account_owner_number')
-      .or('account_owner_number.is.null,account_owner_number.eq.');
+      .update({ owner_id: user.id, updated_at: new Date().toISOString() })
+      .eq('organization_id', userOrgId)
+      .is('owner_id', null)
+      .select();
 
-    if (fetchError) {
-      // If the column doesn't exist at runtime (cache stale), gracefully return
-      if (fetchError.code === '42703') {
-        console.warn('⚠️ account_owner_number column missing at query time — skipping claim');
-        _existingColumns = null; // bust cache
-        return getAllContactsClient();
-      }
-      console.error('❌ Fetch error:', fetchError);
-      throw fetchError;
-    }
+    if (error) throw error;
 
-    console.log('📊 Total unassigned contacts found:', allUnassigned?.length || 0);
-    if (allUnassigned && allUnassigned.length > 0) {
-      console.log('📊 Sample unassigned contacts:', allUnassigned.slice(0, 5).map(c => ({
-        name: c.name,
-        company: c.company,
-        org_id: c.organization_id,
-        account_owner: c.account_owner_number
-      })));
-    }
-
-    if (!allUnassigned || allUnassigned.length === 0) {
-      console.log('No unassigned contacts found');
-      // Return contacts using the proper filtering
-      return getAllContactsClient();
-    }
-
-    // Filter to only those that either have no org or belong to user's org
-    const unassignedContacts = allUnassigned.filter(c => 
-      !c.organization_id || c.organization_id === userOrgId
-    );
-
-    console.log(`📊 Unassigned contacts in user's org or orphaned: ${unassignedContacts.length}`);
-    
-    if (unassignedContacts.length === 0) {
-      console.log('⚠️ No claimable unassigned contacts found for this organization');
-      console.log('⚠️ User org:', userOrgId);
-      console.log('⚠️ Unassigned contact orgs:', [...new Set(allUnassigned.map(c => c.organization_id || 'NULL'))]);
-      return getAllContactsClient();
-    }
-
-    console.log(`✅ Found ${unassignedContacts.length} claimable contacts:`, unassignedContacts.map(c => `${c.name} (${c.company}) - Org: ${c.organization_id || 'NULL'}`));
-
-    // Update all unassigned contacts - set BOTH account_owner_number AND organization_id
-    const { error: updateError } = await supabase
-      .from('contacts')
-      .update({ 
-        account_owner_number: accountOwnerEmail,
-        organization_id: userOrgId  // CRITICAL: Set the organization_id!
-      })
-      .in('id', unassignedContacts.map(c => c.id));
-
-    if (updateError) {
-      console.error('❌ Error updating contacts:', updateError);
-      throw updateError;
-    }
-
-    console.log(`✅ Successfully assigned ${unassignedContacts.length} contacts to ${accountOwnerEmail} in organization ${userOrgId}`);
-
-    // Return contacts using the proper filtering logic
-    return getAllContactsClient();
+    console.log(`[contacts-client] Claimed ${data?.length || 0} unassigned contacts`);
+    return { claimed: (data || []).map(transformFromDbFormat) };
   } catch (error: any) {
-    console.error('❌ Error claiming unassigned contacts:', error);
+    console.error('Error claiming unassigned contacts:', error);
     throw error;
   }
 }
@@ -1034,50 +937,40 @@ export async function getSegmentsClient() {
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      console.warn('⚠️ User not authenticated, returning empty segments');
-      return { segments: [] };
-    }
+    if (!user) throw new Error('User not authenticated');
 
     const profile = await ensureUserProfile(user.id);
+    const userOrgId = profile.organization_id;
 
-    // Check if tags column exists before querying it
+    // Fetch all distinct tags/segments from contacts in the user's org
     const existingCols = await getExistingContactColumns(supabase);
-    if (!existingCols.has('tags')) {
-      console.warn('⚠️ tags column does not exist — returning empty segments');
+    const hasTags = existingCols.has('tags');
+
+    if (!hasTags) {
       return { segments: [] };
     }
 
-    // Get all unique tags from contacts
     const { data, error } = await supabase
       .from('contacts')
       .select('tags')
-      .eq('organization_id', profile.organization_id)
+      .eq('organization_id', userOrgId)
       .not('tags', 'is', null);
 
-    if (error) {
-      if (error.code === '42703') {
-        console.warn('⚠️ tags column missing at query time — returning empty segments');
-        _existingColumns = null; // bust cache
-        return { segments: [] };
+    if (error) throw error;
+
+    // Collect all unique tags across contacts
+    const tagSet = new Set<string>();
+    for (const row of data || []) {
+      if (Array.isArray(row.tags)) {
+        row.tags.forEach((t: string) => tagSet.add(t));
+      } else if (typeof row.tags === 'string' && row.tags.trim()) {
+        row.tags.split(',').map((t: string) => t.trim()).filter(Boolean).forEach((t: string) => tagSet.add(t));
       }
-      throw error;
     }
 
-    // Extract unique tags
-    const tagsSet = new Set<string>();
-    data?.forEach((contact: any) => {
-      if (contact.tags && Array.isArray(contact.tags)) {
-        contact.tags.forEach((tag: string) => tagsSet.add(tag));
-      }
-    });
-
-    const segments = Array.from(tagsSet).sort();
-    console.log('✅ Loaded segments:', segments);
-    return { segments };
+    return { segments: [...tagSet].sort() };
   } catch (error: any) {
-    console.error('Error loading segments:', error);
-    return { segments: [] };
+    console.error('Error fetching segments:', error);
+    throw error;
   }
 }

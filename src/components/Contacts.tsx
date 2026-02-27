@@ -829,7 +829,7 @@ export function Contacts({ user }: ContactsProps) {
                   id="edit-ptdSales"
                   type="number"
                   step="0.01"
-                  value={editingContact?.ptdSales || ''}
+                  value={editingContact?.ptdSales ?? ''}
                   onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ptdSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
                   placeholder="Optional"
                 />
@@ -840,7 +840,7 @@ export function Contacts({ user }: ContactsProps) {
                   id="edit-ptdGpPercent"
                   type="number"
                   step="0.01"
-                  value={editingContact?.ptdGpPercent || ''}
+                  value={editingContact?.ptdGpPercent ?? ''}
                   onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ptdGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
                   placeholder="Optional"
                 />
@@ -851,7 +851,7 @@ export function Contacts({ user }: ContactsProps) {
                   id="edit-ytdSales"
                   type="number"
                   step="0.01"
-                  value={editingContact?.ytdSales || ''}
+                  value={editingContact?.ytdSales ?? ''}
                   onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ytdSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
                   placeholder="Optional"
                 />
@@ -862,7 +862,7 @@ export function Contacts({ user }: ContactsProps) {
                   id="edit-ytdGpPercent"
                   type="number"
                   step="0.01"
-                  value={editingContact?.ytdGpPercent || ''}
+                  value={editingContact?.ytdGpPercent ?? ''}
                   onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ytdGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
                   placeholder="Optional"
                 />
@@ -873,7 +873,7 @@ export function Contacts({ user }: ContactsProps) {
                   id="edit-lyrSales"
                   type="number"
                   step="0.01"
-                  value={editingContact?.lyrSales || ''}
+                  value={editingContact?.lyrSales ?? ''}
                   onChange={(e) => setEditingContact(editingContact ? { ...editingContact, lyrSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
                   placeholder="Optional"
                 />
@@ -884,7 +884,7 @@ export function Contacts({ user }: ContactsProps) {
                   id="edit-lyrGpPercent"
                   type="number"
                   step="0.01"
-                  value={editingContact?.lyrGpPercent || ''}
+                  value={editingContact?.lyrGpPercent ?? ''}
                   onChange={(e) => setEditingContact(editingContact ? { ...editingContact, lyrGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
                   placeholder="Optional"
                 />
@@ -1482,7 +1482,7 @@ export function Contacts({ user }: ContactsProps) {
                 id="edit-ptdSales"
                 type="number"
                 step="0.01"
-                value={editingContact?.ptdSales || ''}
+                value={editingContact?.ptdSales ?? ''}
                 onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ptdSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
                 placeholder="Optional"
               />
@@ -1493,7 +1493,7 @@ export function Contacts({ user }: ContactsProps) {
                 id="edit-ptdGpPercent"
                 type="number"
                 step="0.01"
-                value={editingContact?.ptdGpPercent || ''}
+                value={editingContact?.ptdGpPercent ?? ''}
                 onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ptdGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
                 placeholder="Optional"
               />
@@ -1504,7 +1504,7 @@ export function Contacts({ user }: ContactsProps) {
                 id="edit-ytdSales"
                 type="number"
                 step="0.01"
-                value={editingContact?.ytdSales || ''}
+                value={editingContact?.ytdSales ?? ''}
                 onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ytdSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
                 placeholder="Optional"
               />
@@ -1515,7 +1515,7 @@ export function Contacts({ user }: ContactsProps) {
                 id="edit-ytdGpPercent"
                 type="number"
                 step="0.01"
-                value={editingContact?.ytdGpPercent || ''}
+                value={editingContact?.ytdGpPercent ?? ''}
                 onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ytdGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
                 placeholder="Optional"
               />
@@ -1526,7 +1526,7 @@ export function Contacts({ user }: ContactsProps) {
                 id="edit-lyrSales"
                 type="number"
                 step="0.01"
-                value={editingContact?.lyrSales || ''}
+                value={editingContact?.lyrSales ?? ''}
                 onChange={(e) => setEditingContact(editingContact ? { ...editingContact, lyrSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
                 placeholder="Optional"
               />
@@ -1537,7 +1537,7 @@ export function Contacts({ user }: ContactsProps) {
                 id="edit-lyrGpPercent"
                 type="number"
                 step="0.01"
-                value={editingContact?.lyrGpPercent || ''}
+                value={editingContact?.lyrGpPercent ?? ''}
                 onChange={(e) => setEditingContact(editingContact ? { ...editingContact, lyrGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
                 placeholder="Optional"
               />

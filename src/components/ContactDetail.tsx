@@ -1053,7 +1053,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       </Card>
 
       {/* Sales & Financial Data */}
-      {(contact.ptdSales || contact.ptdGpPercent || contact.ytdSales || contact.ytdGpPercent || contact.lyrSales || contact.lyrGpPercent) && (
+      {(contact.ptdSales != null || contact.ptdGpPercent != null || contact.ytdSales != null || contact.ytdGpPercent != null || contact.lyrSales != null || contact.lyrGpPercent != null) && (
         <Card>
           <CardHeader>
             <CardTitle>Sales & Financial Data</CardTitle>
@@ -1068,13 +1068,13 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 {contact.ptdSales !== undefined && (
                   <div className="mb-2">
                     <p className="text-sm text-gray-600">Sales</p>
-                    <p className="text-gray-900">${contact.ptdSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-gray-900">${(contact.ptdSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                 )}
                 {contact.ptdGpPercent !== undefined && (
                   <div>
                     <p className="text-sm text-gray-600">GP%</p>
-                    <p className="text-gray-900">{contact.ptdGpPercent}%</p>
+                    <p className="text-gray-900">{contact.ptdGpPercent ?? 0}%</p>
                   </div>
                 )}
               </div>
@@ -1088,13 +1088,13 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 {contact.ytdSales !== undefined && (
                   <div className="mb-2">
                     <p className="text-sm text-gray-600">Sales</p>
-                    <p className="text-gray-900">${contact.ytdSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-gray-900">${(contact.ytdSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                 )}
                 {contact.ytdGpPercent !== undefined && (
                   <div>
                     <p className="text-sm text-gray-600">GP%</p>
-                    <p className="text-gray-900">{contact.ytdGpPercent}%</p>
+                    <p className="text-gray-900">{contact.ytdGpPercent ?? 0}%</p>
                   </div>
                 )}
               </div>
@@ -1108,13 +1108,13 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 {contact.lyrSales !== undefined && (
                   <div className="mb-2">
                     <p className="text-sm text-gray-600">Sales</p>
-                    <p className="text-gray-900">${contact.lyrSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="text-gray-900">${(contact.lyrSales ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                 )}
                 {contact.lyrGpPercent !== undefined && (
                   <div>
                     <p className="text-sm text-gray-600">GP%</p>
-                    <p className="text-gray-900">{contact.lyrGpPercent}%</p>
+                    <p className="text-gray-900">{contact.lyrGpPercent ?? 0}%</p>
                   </div>
                 )}
               </div>

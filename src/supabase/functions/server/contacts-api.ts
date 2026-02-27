@@ -261,8 +261,8 @@ export function contactsAPI(app: Hono) {
       console.log(`[contacts-api] Returning ${contacts?.length || 0} contacts for role=${userRole}`);
 
       // ── ALWAYS enrich optional fields from KV (authoritative source) ──
-      // This guarantees price_level, address, notes, tags are always returned
-      // regardless of whether those DB columns exist.
+      // This guarantees price_level, address, notes, tags, and financial data
+      // survive even if the DB columns don't exist or the DB write silently drops them.
       let enrichedContacts = contacts || [];
       if (enrichedContacts.length > 0) {
         try {
@@ -277,6 +277,13 @@ export function contactsAPI(app: Hono) {
               if (overlay.address !== undefined && !enrichedContacts[i].address) enrichedContacts[i].address = overlay.address;
               if (overlay.notes !== undefined && !enrichedContacts[i].notes) enrichedContacts[i].notes = overlay.notes;
               if (overlay.tags !== undefined && !enrichedContacts[i].tags) enrichedContacts[i].tags = overlay.tags;
+              // Financial fields — KV is authoritative when DB columns don't exist
+              if (overlay.ptd_sales !== undefined && enrichedContacts[i].ptd_sales == null) enrichedContacts[i].ptd_sales = overlay.ptd_sales;
+              if (overlay.ptd_gp_percent !== undefined && enrichedContacts[i].ptd_gp_percent == null) enrichedContacts[i].ptd_gp_percent = overlay.ptd_gp_percent;
+              if (overlay.ytd_sales !== undefined && enrichedContacts[i].ytd_sales == null) enrichedContacts[i].ytd_sales = overlay.ytd_sales;
+              if (overlay.ytd_gp_percent !== undefined && enrichedContacts[i].ytd_gp_percent == null) enrichedContacts[i].ytd_gp_percent = overlay.ytd_gp_percent;
+              if (overlay.lyr_sales !== undefined && enrichedContacts[i].lyr_sales == null) enrichedContacts[i].lyr_sales = overlay.lyr_sales;
+              if (overlay.lyr_gp_percent !== undefined && enrichedContacts[i].lyr_gp_percent == null) enrichedContacts[i].lyr_gp_percent = overlay.lyr_gp_percent;
               enrichCount++;
             }
           }
@@ -505,14 +512,21 @@ export function contactsAPI(app: Hono) {
       console.log(`[contacts-api] Contact updated. DB price_level="${updatedContact?.price_level}", KV=${priceLevelSavedToKV}`);
 
       // ── ALWAYS save optional fields to KV overlay (authoritative source) ──
-      // This guarantees price_level, address, notes, tags survive even if
-      // the DB columns don't exist or the DB write silently drops them.
+      // This guarantees price_level, address, notes, tags, and financial data
+      // survive even if the DB columns don't exist or the DB write silently drops them.
       try {
         const kvExtras: Record<string, any> = {};
         if (body.price_level !== undefined) kvExtras.price_level = body.price_level;
         if (body.address !== undefined) kvExtras.address = body.address;
         if (body.notes !== undefined) kvExtras.notes = body.notes;
         if (body.tags !== undefined) kvExtras.tags = body.tags;
+        // Financial fields — always persist to KV so they survive missing DB columns
+        if (body.ptd_sales !== undefined) kvExtras.ptd_sales = body.ptd_sales;
+        if (body.ptd_gp_percent !== undefined) kvExtras.ptd_gp_percent = body.ptd_gp_percent;
+        if (body.ytd_sales !== undefined) kvExtras.ytd_sales = body.ytd_sales;
+        if (body.ytd_gp_percent !== undefined) kvExtras.ytd_gp_percent = body.ytd_gp_percent;
+        if (body.lyr_sales !== undefined) kvExtras.lyr_sales = body.lyr_sales;
+        if (body.lyr_gp_percent !== undefined) kvExtras.lyr_gp_percent = body.lyr_gp_percent;
         
         if (Object.keys(kvExtras).length > 0) {
           // Merge with any existing overlay to preserve fields not in this update
@@ -553,6 +567,14 @@ export function contactsAPI(app: Hono) {
         // This prevents the UI from reverting to T1 on save.
         enrichedContact.price_level = priceLevelValue;
       }
+      // Always reflect submitted financial fields back in the response
+      // so the UI doesn't lose them when DB columns don't exist
+      if (body.ptd_sales !== undefined) enrichedContact.ptd_sales = body.ptd_sales;
+      if (body.ptd_gp_percent !== undefined) enrichedContact.ptd_gp_percent = body.ptd_gp_percent;
+      if (body.ytd_sales !== undefined) enrichedContact.ytd_sales = body.ytd_sales;
+      if (body.ytd_gp_percent !== undefined) enrichedContact.ytd_gp_percent = body.ytd_gp_percent;
+      if (body.lyr_sales !== undefined) enrichedContact.lyr_sales = body.lyr_sales;
+      if (body.lyr_gp_percent !== undefined) enrichedContact.lyr_gp_percent = body.lyr_gp_percent;
 
       return c.json({ contact: enrichedContact });
     } catch (error: any) {
@@ -723,6 +745,13 @@ export function contactsAPI(app: Hono) {
           if (body.address !== undefined) kvExtras.address = body.address;
           if (body.notes !== undefined) kvExtras.notes = body.notes;
           if (body.tags !== undefined) kvExtras.tags = body.tags;
+          // Financial fields — always persist to KV so they survive missing DB columns
+          if (body.ptd_sales !== undefined) kvExtras.ptd_sales = body.ptd_sales;
+          if (body.ptd_gp_percent !== undefined) kvExtras.ptd_gp_percent = body.ptd_gp_percent;
+          if (body.ytd_sales !== undefined) kvExtras.ytd_sales = body.ytd_sales;
+          if (body.ytd_gp_percent !== undefined) kvExtras.ytd_gp_percent = body.ytd_gp_percent;
+          if (body.lyr_sales !== undefined) kvExtras.lyr_sales = body.lyr_sales;
+          if (body.lyr_gp_percent !== undefined) kvExtras.lyr_gp_percent = body.lyr_gp_percent;
           if (Object.keys(kvExtras).length > 0) {
             await kv.set(`contact_extras:${newContact.id}`, kvExtras);
             console.log(`[contacts-api] KV overlay saved for new contact ${newContact.id}:`, Object.keys(kvExtras));
