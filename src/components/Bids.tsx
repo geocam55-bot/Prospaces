@@ -1107,6 +1107,66 @@ export function Bids({ user }: BidsProps) {
     checkExpired();
   }, [quotes.length, isLoading]); // Depend on length to avoid loops, assuming loadData updates it
 
+  const handleRecoverDeals = async () => {
+    // 1. Run Diagnostic first
+    try {
+      setIsLoading(true);
+      const { getServerHeaders } = await import('../utils/server-headers');
+      const { projectId } = await import('../utils/supabase/info');
+      const headers = await getServerHeaders();
+      
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/diagnose-missing-deals`, { headers });
+      const json = await res.json();
+      console.log('Diagnostic Report:', json);
+      
+      let missingCount = 0;
+      if (json.report) {
+         Object.values(json.report).forEach((r: any) => {
+            missingCount += (r.quotes?.length || 0) + (r.bids?.length || 0) + (r.quotesByText?.length || 0);
+         });
+      }
+
+      if (missingCount > 0) {
+        if (confirm(`Found ${missingCount} specific deals for George & Larry that are detached! Do you want to fix them?`)) {
+             await bidsAPI.fixOrganizationIds();
+             await quotesAPI.fixOrganizationIds();
+             showAlert('success', `Successfully recovered ${missingCount} deals!`);
+             loadData();
+             return;
+        }
+      }
+    } catch (e) {
+      console.error('Diagnostic check failed', e);
+    }
+
+    // 2. Fallback to standard recovery
+    if (!confirm('Run standard recovery? This will attach ANY orphan deals to your organization.')) {
+        setIsLoading(false);
+        return;
+    }
+    
+    try {
+      const [bidsResult, quotesResult] = await Promise.all([
+        bidsAPI.fixOrganizationIds(),
+        quotesAPI.fixOrganizationIds()
+      ]);
+      
+      const totalFixed = (bidsResult.count || 0) + (quotesResult.count || 0);
+      
+      if (totalFixed > 0) {
+        showAlert('success', `Recovered ${totalFixed} lost deals!`);
+        loadData(); // Reload to see them
+      } else {
+        showAlert('success', 'No other lost deals found.');
+      }
+    } catch (error) {
+      console.error('Failed to recover deals:', error);
+      showAlert('error', 'Failed to recover deals');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <PermissionGate user={user} module="bids" action="view">
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
@@ -1114,10 +1174,16 @@ export function Bids({ user }: BidsProps) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center justify-end gap-3">
           {canAdd('bids', user.role) && (
-          <Button onClick={() => handleOpenDialog()}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Deal
-          </Button>
+            <>
+            <Button variant="outline" onClick={handleRecoverDeals} title="Find and attach orphaned deals">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Recover Deals
+            </Button>
+            <Button onClick={() => handleOpenDialog()}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Deal
+            </Button>
+            </>
           )}
         </div>
       </div>

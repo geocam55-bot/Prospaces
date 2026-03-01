@@ -1,6 +1,6 @@
 import { createClient } from './supabase/client';
 import { getAllCampaignsClient, createCampaignClient, updateCampaignClient, deleteCampaignClient, sendCampaignClient } from './campaigns-client';
-import { getAllQuotesClient, getQuotesByOpportunityClient, createQuoteClient, updateQuoteClient, deleteQuoteClient, getQuoteTrackingStatusClient } from './quotes-client';
+import { getAllQuotesClient, getQuotesByOpportunityClient, createQuoteClient, updateQuoteClient, deleteQuoteClient, getQuoteTrackingStatusClient, fixQuoteOrganizationIds } from './quotes-client';
 import { getAllInventoryClient, createInventoryClient, updateInventoryClient, deleteInventoryClient, upsertInventoryBySKUClient, bulkUpsertInventoryBySKUClient, searchInventoryClient } from './inventory-client';
 import { getAllProjectManagersClient, getProjectManagersByCustomerClient, createProjectManagerClient, updateProjectManagerClient, deleteProjectManagerClient } from './project-managers-client';
 import { getAllContactsClient, createContactClient, updateContactClient, deleteContactClient, claimUnassignedContactsClient, upsertContactByLegacyNumberClient, getSegmentsClient } from './contacts-client';
@@ -572,6 +572,7 @@ export const quotesAPI = {
   update: (id: string, data: any) => updateQuoteClient(id, data),
   delete: (id: string) => deleteQuoteClient(id),
   getTrackingStatus: (id: string) => getQuoteTrackingStatusClient(id),
+  fixOrganizationIds: () => fixQuoteOrganizationIds(),
 };
 
 // Journeys APIs

@@ -29,6 +29,7 @@ import {
   Clipboard,
   X,
   Loader2,
+  Download,
 } from 'lucide-react';
 import { inventoryAPI } from '../utils/api';
 import type { User } from '../App';
@@ -37,6 +38,7 @@ import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { DatabaseInit } from './DatabaseInit';
 import { toast } from 'sonner@2.0.3';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { getServerHeaders } from '../utils/server-headers';
 import { advancedSearch, getSearchSuggestions } from '../utils/advanced-search';
 import { InventorySearchHelp } from './InventorySearchHelp';
 import { useDebounce } from '../utils/useDebounce';
@@ -96,7 +98,8 @@ export function Inventory({ user }: InventoryProps) {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [activeTab, setActiveTab] = useState('items');
-  const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [scanResult, setScanResult] = useState<{ title: string; message: string; type: 'info' | 'success' | 'error'; action?: () => void } | null>(null);
   const [tableExists, setTableExists] = useState(true);
   
   // ✅ Pagination state to prevent rendering all 14k+ items at once
@@ -123,6 +126,15 @@ export function Inventory({ user }: InventoryProps) {
   
   // 📊 Track low stock count from server (qty <= 0, across all pages)
   const [serverLowStockCount, setServerLowStockCount] = useState(0);
+  
+  // 🔍 Track potential lost inventory
+  const [lostInventory, setLostInventory] = useState<{
+    total: number;
+    nullOrg: number;
+    otherOrgs: number;
+    found: boolean;
+  } | null>(null);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -401,8 +413,44 @@ export function Inventory({ user }: InventoryProps) {
       // ⚡ Log pagination info on first page
       if (currentPage === 1 && count > 0) {
         console.log(`✅ [Inventory] Server-side pagination active - showing page 1 of ${Math.ceil(count / itemsPerPage)}`);
-        // Note: Duplicate detection is now handled by the always-mounted InventoryDuplicateCleaner component
-        // which uses the server-side dedup-scan endpoint (no client-side 78K+ SKU fetch)
+      }
+      
+      // 🕵️‍♂️ Auto-detect lost inventory if list is empty
+      if (count === 0 && currentPage === 1) {
+        try {
+          console.log('🔍 Auto-scanning for lost inventory...');
+          const headers = await getServerHeaders();
+          // Use the CORRECT endpoint: /inventory-diagnostic/run
+          const diagRes = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/inventory-diagnostic/run`, { 
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ email: authUser.email, role: profile.role })
+          });
+          
+          if (diagRes.ok) {
+            const diagData = await diagRes.json();
+            console.log('📊 Diagnostic result:', diagData.counts);
+            
+            const nullCount = diagData.counts?.withNullOrg || 0;
+            const otherCount = diagData.counts?.inOtherOrgs || 0;
+            
+            if (nullCount > 0 || otherCount > 0) {
+              console.warn(`⚠️ Found lost inventory: ${nullCount} orphaned, ${otherCount} in other orgs`);
+              setLostInventory({
+                total: nullCount + otherCount,
+                nullOrg: nullCount,
+                otherOrgs: otherCount,
+                found: true
+              });
+            } else {
+              console.log('✅ No lost inventory found.');
+            }
+          } else {
+            console.error('Diagnostic endpoint failed:', await diagRes.text());
+          }
+        } catch (err) {
+          console.error('Failed to run auto-diagnostic:', err);
+        }
       }
       
     } catch (error: any) {
@@ -425,8 +473,8 @@ export function Inventory({ user }: InventoryProps) {
   };
 
   const showAlert = (type: 'success' | 'error', message: string) => {
-    setAlert({ type, message });
-    setTimeout(() => setAlert(null), 3000);
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 3000);
   };
 
   const handleOpenDialog = (item?: InventoryItem) => {
@@ -662,6 +710,313 @@ export function Inventory({ user }: InventoryProps) {
   // ✅ FIX: Low stock count from server (qty <= 0 across ALL pages, not just current page's 50 items)
   const displayLowStockCount = serverLowStockCount;
 
+  const handleRecoverInventory = async () => {
+    if (!confirm('This will move all discovered inventory items to your current organization. Continue?')) return;
+    
+    setIsRecovering(true);
+    try {
+      const headers = await getServerHeaders();
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/inventory-diagnostic/fix-org-ids`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ 
+          fixType: 'all_to_user',
+        }),
+      });
+
+      if (!response.ok) throw new Error('Recovery failed: ' + response.statusText);
+      
+      const result = await response.json();
+      showAlert('success', `Recovered ${result.updatedCount} items!`);
+      setLostInventory(null);
+      
+      // Reload inventory
+      setTimeout(() => {
+        loadInventory();
+      }, 1000);
+      
+    } catch (err: any) {
+      console.error(err);
+      showAlert('error', 'Recovery failed: ' + err.message);
+    } finally {
+      setIsRecovering(false);
+    }
+  };
+
+  const handleProcessPendingJobs = async () => {
+    if (!confirm('This will process all stuck import jobs and insert them into your inventory. This may take a few minutes. Continue?')) return;
+    
+    setIsRecovering(true);
+    try {
+      showAlert('success', 'Processing pending jobs...');
+      const headers = await getServerHeaders();
+      const { data: { user } } = await supabase.auth.getUser();
+      const profile = await ensureUserProfile(user?.id || '');
+      const organizationId = profile.organization_id;
+
+      // Call the process-all-pending endpoint repeatedly until done
+      let done = false;
+      let totalInserted = 0;
+      let resumeOffset = 0;
+      let currentJobId = null;
+
+      while (!done) {
+        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/inventory-diagnostic/process-all-pending`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ 
+            targetOrgId: organizationId,
+            batchLimit: 500,
+            resumeOffset,
+            currentJobId
+          }),
+        });
+
+        if (!response.ok) throw new Error('Processing failed: ' + response.statusText);
+        
+        const data = await response.json();
+        done = data.done;
+        resumeOffset = data.nextOffset || 0;
+        currentJobId = data.currentJobId;
+        totalInserted = data.cumulativeInserted || (totalInserted + data.batchInserted);
+        
+        console.log(`📦 Processed batch: ${data.batchInserted} items inserted (${totalInserted} total)`);
+      }
+      
+      showAlert('success', `Successfully processed pending jobs! Added ${totalInserted} items.`);
+      loadInventory();
+      
+    } catch (err: any) {
+      console.error(err);
+      showAlert('error', 'Processing failed: ' + err.message);
+    } finally {
+      setIsRecovering(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    // Generate CSV content
+    const headers = [
+      'ID',
+      'Name',
+      'Description',
+      'SKU',
+      'Category',
+      'Quantity',
+      'Price',
+      'Cost',
+      'Location',
+      'Department',
+      'Unit of Measure'
+    ];
+
+    const csvRows = [headers.join(',')];
+
+    // If no items, we still export the headers as a template
+    if (items.length > 0) {
+      items.forEach(item => {
+        const row = [
+          item.id,
+          `"${(item.name || '').replace(/"/g, '""')}"`,
+          `"${(item.description || '').replace(/"/g, '""')}"`,
+          `"${(item.sku || '').replace(/"/g, '""')}"`,
+          `"${(item.category || '').replace(/"/g, '""')}"`,
+          item.quantity || 0,
+          item.unit_price || 0,
+          item.cost || 0,
+          `"${(item.location || '').replace(/"/g, '""')}"`,
+          `"${(item.department_code || '').replace(/"/g, '""')}"`,
+          `"${(item.unit_of_measure || '').replace(/"/g, '""')}"`
+        ];
+        csvRows.push(row.join(','));
+      });
+    }
+
+    const csvString = csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `inventory_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      if (items.length === 0) {
+        toast.info('Exported empty template (no items found)');
+      } else {
+        toast.success(`Exported ${items.length} items to CSV`);
+      }
+    }
+  };
+
+  const handleManualScan = async () => {
+    setIsRecovering(true);
+    try {
+      showAlert('success', 'Scanning for lost inventory...');
+      const headers = await getServerHeaders();
+      const { data: { user } } = await supabase.auth.getUser();
+      const profile = await ensureUserProfile(user?.id || '');
+      
+      const diagRes = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/inventory-diagnostic/run`, { 
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email: user?.email, role: profile.role })
+      });
+      
+      if (diagRes.ok) {
+        const diagData = await diagRes.json();
+        console.log('📊 Diagnostic result:', diagData);
+        
+        const nullCount = diagData.counts?.withNullOrg || 0;
+        const otherCount = diagData.counts?.inOtherOrgs || 0;
+        const totalInDb = diagData.counts?.totalInDatabase || 0;
+        const inUserOrg = diagData.counts?.inUserOrg || 0;
+        const inStaging = diagData.counts?.inStaging || 0;
+        
+        // Detailed report
+        let message = `Scan Complete:\n`;
+        message += `• Total Items in DB: ${totalInDb.toLocaleString()}\n`;
+        message += `• Items in Your Org (${diagData.user?.orgId || 'None'}): ${inUserOrg.toLocaleString()}\n`;
+        message += `• Orphaned Items: ${nullCount.toLocaleString()}\n`;
+        message += `• Items in Other Orgs: ${otherCount.toLocaleString()}\n`;
+        message += `• Items in Staging Area: ${inStaging.toLocaleString()}`;
+        
+        if (diagData.orgBreakdown && diagData.orgBreakdown.length > 0) {
+           message += `\n\nOrg Breakdown:\n` + diagData.orgBreakdown.map((o: any) => 
+             `- ${o.org_id}: ${o.count} items${o.is_user_org ? ' (YOURS)' : ''}`
+           ).join('\n');
+        }
+
+        if (diagData.backupTables && Object.keys(diagData.backupTables).length > 0) {
+           message += `\n\n⚠️ FOUND BACKUP TABLES:`;
+           Object.entries(diagData.backupTables).forEach(([table, count]) => {
+             message += `\n- ${table}: ${count} items`;
+           });
+           message += `\nAsk an admin to restore from one of these tables if needed.`;
+        }
+
+        if (inStaging > 0) {
+           message += `\n\n⚠️ FOUND ${inStaging.toLocaleString()} ITEMS IN STAGING AREA!`;
+           message += `\nThese items were imported but not fully processed.`;
+           setLostInventory({
+             total: inStaging,
+             nullOrg: 0,
+             otherOrgs: 0,
+             found: true
+           }); // This triggers the banner too
+           
+           showAlert('error', `Found ${inStaging} stuck items in staging!`);
+           setScanResult({
+             title: 'Stuck Items Found',
+             message,
+             type: 'error'
+           });
+           return;
+        }
+
+        if (nullCount > 0 || otherCount > 0) {
+           setLostInventory({
+            total: nullCount + otherCount,
+            nullOrg: nullCount,
+            otherOrgs: otherCount,
+            found: true
+           });
+           showAlert('success', `Found ${nullCount + otherCount} lost items! See banner above.`);
+           setScanResult({
+             title: 'Lost Inventory Found',
+             message,
+             type: 'error'
+           });
+        } else {
+          // If DB is clean but empty, check for pending jobs
+          if (totalInDb === 0) {
+             console.log('🔍 DB empty, checking for pending jobs...');
+             const jobsRes = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/inventory-diagnostic/find-pending-jobs`, { headers, method: 'POST' });
+             if (jobsRes.ok) {
+                const jobsData = await jobsRes.json();
+                
+                // Filter for inventory-related jobs
+                const isInvJob = (j: any) => j.data_type === 'inventory' || j.job_type === 'inventory_import' || (j.file_name && (j.file_name.toLowerCase().includes('inventory') || j.file_name.toLowerCase().includes('.csv') || j.file_name.toLowerCase().includes('.xlsx')));
+                const recentJobs = (jobsData.jobs || []).filter(isInvJob);
+                
+                const pendingJobs = recentJobs.filter((j: any) => j.status === 'pending' || j.status === 'processing');
+                const failedJobs = recentJobs.filter((j: any) => j.status === 'failed');
+                const emptyJobs = recentJobs.filter((j: any) => j.status === 'completed' && (!j.record_count || j.record_count === 0));
+
+                if (pendingJobs.length > 0) {
+                   const count = pendingJobs.length;
+                   const records = pendingJobs.reduce((acc: number, j: any) => acc + (j.recordsInFileData || 0), 0);
+                   
+                   message += `\n\n⚠️ FOUND ${count} PENDING IMPORT JOBS with ${records.toLocaleString()} records!`;
+                   message += `\nThese items are stuck in the queue. Please contact an admin or use the Diagnostic tab (if available) to process them.`;
+                   message += `\n\nClick 'Proceed' to start processing these jobs now.`;
+                   showAlert('error', `Found ${count} stuck import jobs!`);
+                   setScanResult({
+                     title: 'Pending Import Jobs Found',
+                     message,
+                     type: 'error',
+                     action: () => handleProcessPendingJobs()
+                   });
+                   return; // Exit early as we're handling jobs
+                } 
+                
+                if (failedJobs.length > 0) {
+                   const job = failedJobs[0];
+                   message += `\n\n❌ FOUND ${failedJobs.length} FAILED IMPORT JOBS`;
+                   message += `\nThe most recent job '${job.file_name}' failed with error:`;
+                   message += `\n"${job.error_message || 'Unknown error'}"`;
+                   message += `\n\nPlease check your file and try importing again.`;
+                   
+                   setScanResult({
+                     title: 'Import Failed',
+                     message,
+                     type: 'error'
+                   });
+                   return;
+                }
+
+                if (emptyJobs.length > 0) {
+                   const job = emptyJobs[0];
+                   message += `\n\n⚠️ FOUND EMPTY IMPORT JOBS`;
+                   message += `\nThe most recent job '${job.file_name}' completed but imported 0 records.`;
+                   message += `\nThis usually means the column mapping was incorrect or the file was empty.`;
+                   
+                   setScanResult({
+                     title: 'Empty Import Found',
+                     message,
+                     type: 'info'
+                   });
+                   return;
+                }
+
+                message += `\n\nNo pending, failed, or empty import jobs found.`;
+                message += `\nIt looks like no inventory data has been uploaded yet, or it was deleted.`;
+                showAlert('success', 'Database is clean and empty.');
+             }
+          } else {
+             showAlert('success', 'No lost inventory found. Database is clean.');
+          }
+          setScanResult({
+            title: 'Scan Complete',
+            message,
+            type: 'success'
+          });
+        }
+      } else {
+        throw new Error('Scan failed: ' + diagRes.statusText);
+      }
+    } catch (e: any) {
+      console.error(e);
+      showAlert('error', 'Scan failed: ' + e.message);
+    } finally {
+      setIsRecovering(false);
+    }
+  };
+
   // Show database setup if table doesn't exist
   if (!tableExists && !isLoading) {
     return <DatabaseInit onComplete={loadInventory} currentUser={user} />;
@@ -673,6 +1028,10 @@ export function Inventory({ user }: InventoryProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center justify-end gap-3">
+          <Button variant="outline" onClick={handleExportCSV}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
           {canAdd('inventory', user.role) && (
           <Button onClick={() => handleOpenDialog()}>
             <Plus className="h-4 w-4 mr-2" />
@@ -682,17 +1041,48 @@ export function Inventory({ user }: InventoryProps) {
         </div>
       </div>
 
-      {/* Alert */}
-      {alert && (
-        <Alert variant={alert.type === 'error' ? 'destructive' : 'default'}>
-          {alert.type === 'success' ? (
+      {/* Notification Alert */}
+      {notification && (
+        <Alert variant={notification.type === 'error' ? 'destructive' : 'default'}>
+          {notification.type === 'success' ? (
             <CheckCircle2 className="h-4 w-4" />
           ) : (
             <AlertCircle className="h-4 w-4" />
           )}
-          <AlertDescription>{alert.message}</AlertDescription>
+          <AlertDescription>{notification.message}</AlertDescription>
         </Alert>
       )}
+
+      {/* Scan Result Dialog */}
+      <Dialog open={!!scanResult} onOpenChange={(open) => !open && setScanResult(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {scanResult?.type === 'error' ? <AlertTriangle className="h-5 w-5 text-red-500" /> : <Sparkles className="h-5 w-5 text-blue-500" />}
+              {scanResult?.title || 'Scan Result'}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Detailed results of the inventory deep scan operation
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto py-4">
+            <div className="bg-slate-50 p-4 rounded-md border text-sm font-mono whitespace-pre-wrap">
+              {scanResult?.message}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setScanResult(null)}>Close</Button>
+            {scanResult?.action && (
+              <Button onClick={() => {
+                scanResult.action?.();
+                setScanResult(null);
+              }}>
+                Proceed
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -740,6 +1130,52 @@ export function Inventory({ user }: InventoryProps) {
           {/* Filters */}
           <Card>
             <CardContent className="pt-6">
+              {/* Lost Inventory Recovery Banner */}
+              {lostInventory && lostInventory.found && (
+                <Alert className="mb-6 border-orange-200 bg-orange-50">
+                  <AlertTriangle className="h-5 w-5 text-orange-600" />
+                  <AlertDescription>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div>
+                        <h4 className="font-semibold text-orange-900">Missing Inventory Found</h4>
+                        <p className="text-orange-800 mt-1">
+                          We found <strong>{lostInventory.total.toLocaleString()}</strong> inventory items that are not visible.
+                          {lostInventory.otherOrgs > 0 ? ` They appear to be assigned to a different organization ID.` : ' They appear to be orphaned (no organization).'}
+                        </p>
+                      </div>
+                      <Button 
+                        onClick={handleRecoverInventory} 
+                        disabled={isRecovering}
+                        variant="default"
+                        className="bg-orange-600 hover:bg-orange-700 text-white shrink-0"
+                      >
+                        {isRecovering ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Recovering...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Recover Items Now
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {/* Manual Scan Button (only visible if list is empty and no banner) */}
+              {!lostInventory?.found && items.length === 0 && (
+                <div className="mb-6 flex justify-end">
+                   <Button variant="outline" size="sm" onClick={handleManualScan} disabled={isRecovering}>
+                      {isRecovering ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Search className="mr-2 h-3 w-3" />}
+                      Deep Scan for Lost Items
+                   </Button>
+                </div>
+              )}
+
               <div className="space-y-4">
                 {/* Search Mode Toggle */}
                 <div className="flex items-center justify-between">

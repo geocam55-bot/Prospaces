@@ -274,6 +274,74 @@ app.post(`${PREFIX}/bids`, async (c) => {
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
+// ── RECOVER LOST DEALS (Fix NULL organization_id) ───────────────────────
+app.post(`${PREFIX}/recover-deals`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+
+    const orgId = auth.profile.organization_id;
+    if (!orgId) return c.json({ error: 'User has no organization' }, 400);
+
+    // Use service role to bypass RLS and fix records
+    const supabase = getSupabase();
+    
+    // 1. Fix Quotes created by this user
+    const { data: fixedQuotes, error: qError } = await supabase
+      .from('quotes')
+      .update({ organization_id: orgId })
+      .eq('created_by', auth.user.id)
+      .is('organization_id', null)
+      .select();
+
+    if (qError) console.error('[recover-deals] Quotes error:', qError);
+
+    // 2. Fix Bids created by this user
+    const { data: fixedBids, error: bError } = await supabase
+      .from('bids')
+      .update({ organization_id: orgId })
+      .eq('created_by', auth.user.id)
+      .is('organization_id', null)
+      .select();
+
+    if (bError) console.error('[recover-deals] Bids error:', bError);
+
+    // 3. Admin Power: If admin, also fix any orphan records that belong to contacts in this org
+    // (This handles imported deals where created_by might be generic but contact is linked)
+    let adminFixedQuotes = 0;
+    let adminFixedBids = 0;
+
+    if (['admin', 'super_admin'].includes(auth.profile.role)) {
+       // Find contacts in this org
+       const { data: contacts } = await supabase.from('contacts').select('id').eq('organization_id', orgId);
+       if (contacts && contacts.length > 0) {
+         const contactIds = contacts.map((ct: any) => ct.id);
+         
+         // Fix quotes linked to these contacts but with NULL org
+         const { data: fq } = await supabase
+           .from('quotes')
+           .update({ organization_id: orgId })
+           .in('contact_id', contactIds)
+           .is('organization_id', null)
+           .select();
+         adminFixedQuotes = fq?.length || 0;
+
+         // Fix bids linked to opportunities linked to these contacts
+         // (More complex join, skipping for now to keep it fast/safe)
+       }
+    }
+
+    return c.json({ 
+      success: true, 
+      fixedQuotes: (fixedQuotes?.length || 0) + adminFixedQuotes, 
+      fixedBids: (fixedBids?.length || 0) + adminFixedBids
+    });
+
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ── PROFILES ────────────────────────────────────────────────────────────
 app.get(`${PREFIX}/profiles`, async (c) => {
   try {
@@ -1446,6 +1514,123 @@ app.post(`${PREFIX}/email-send`, async (c) => {
     }
   } catch (err: any) {
     console.log(`[email-send] exception: ${err.message}`);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// ── DIAGNOSE SPECIFIC EMAILS (Temporary Helper) ─────────────────────────
+app.get(`${PREFIX}/diagnose-missing-deals`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+
+    const emails = ['george.campbell@ronaatlantic.ca', 'larry.lee@ronaatlantic.ca'];
+    const supabase = getSupabase(); // service role
+
+    const report: any = {};
+
+    for (const email of emails) {
+      // 1. Find Contact
+      const { data: contacts } = await supabase
+        .from('contacts')
+        .select('id, organization_id, name, email')
+        .ilike('email', email);
+      
+      const contactInfo = contacts && contacts.length > 0 ? contacts[0] : null;
+      
+      const emailReport: any = {
+        contactFound: !!contactInfo,
+        contact: contactInfo,
+        quotes: [],
+        bids: []
+      };
+
+      if (contactInfo) {
+        // 2. Find Quotes by Contact ID
+        const { data: quotes } = await supabase
+          .from('quotes')
+          .select('id, quote_number, title, total, status, organization_id, created_at')
+          .eq('contact_id', contactInfo.id);
+        
+        emailReport.quotes = quotes || [];
+
+        // 3. Find Opportunities -> Bids
+        const { data: opps } = await supabase
+          .from('opportunities')
+          .select('id')
+          .eq('customer_id', contactInfo.id);
+
+        const allOppIds = (opps || []).map((o: any) => o.id);
+        
+        if (allOppIds.length > 0) {
+           const { data: bids } = await supabase
+            .from('bids')
+            .select('id, title, amount, status, organization_id, created_at')
+            .in('opportunity_id', allOppIds);
+           emailReport.bids = bids || [];
+        }
+      } else {
+         const { data: quotes } = await supabase
+          .from('quotes')
+          .select('id, quote_number, title, total, status, organization_id, created_at')
+          .ilike('contact_name', `%${email}%`);
+         
+         if (quotes && quotes.length > 0) emailReport.quotesByText = quotes;
+      }
+
+      report[email] = emailReport;
+    }
+
+    return c.json({ report });
+
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// ── DIAGNOSE INVENTORY (Find where items are hiding) ────────────────────
+app.get(`${PREFIX}/diagnose-inventory`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+
+    const orgId = auth.profile.organization_id;
+    const supabase = getSupabase(); // service role
+
+    // 1. Total Count
+    const { count: total } = await supabase.from('inventory').select('id', { count: 'exact', head: true });
+    
+    // 2. Count by Org
+    const { count: myOrg } = await supabase.from('inventory').select('id', { count: 'exact', head: true }).eq('organization_id', orgId);
+    const { count: nullOrg } = await supabase.from('inventory').select('id', { count: 'exact', head: true }).is('organization_id', null);
+    
+    // 3. Find top other orgs (manual grouping since no group by)
+    const { data: others } = await supabase
+      .from('inventory')
+      .select('organization_id, name, sku')
+      .neq('organization_id', orgId)
+      .not('organization_id', 'is', null)
+      .limit(50);
+
+    const othersByOrg: any = {};
+    if (others) {
+        others.forEach((item: any) => {
+            const oid = item.organization_id;
+            if (!othersByOrg[oid]) othersByOrg[oid] = { count: 0, samples: [] };
+            othersByOrg[oid].count++;
+            if (othersByOrg[oid].samples.length < 3) othersByOrg[oid].samples.push(`${item.sku} - ${item.name}`);
+        });
+    }
+
+    return c.json({
+        totalItems: total,
+        myOrgCount: myOrg,
+        nullOrgCount: nullOrg,
+        otherOrgs: othersByOrg,
+        myOrgId: orgId
+    });
+
+  } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
 });

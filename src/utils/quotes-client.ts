@@ -420,3 +420,27 @@ export async function deleteQuoteClient(id: string) {
     throw error;
   }
 }
+
+// Fix organization IDs for quotes that have NULL organization_id
+export async function fixQuoteOrganizationIds() {
+  try {
+    console.log('[fixQuoteOrganizationIds] Calling server to fix NULL organization IDs...');
+    const headers = await getServerHeaders();
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/recover-deals`,
+      { method: 'POST', headers }
+    );
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('[fixQuoteOrganizationIds] Server recovered:', result);
+      return { count: result.fixedQuotes || 0, quotes: [] };
+    }
+
+    console.warn('[fixQuoteOrganizationIds] Server recover failed:', response.status);
+    throw new Error('Server recover failed');
+  } catch (error: any) {
+    console.error('[fixQuoteOrganizationIds] Error:', error.message);
+    throw error;
+  }
+}

@@ -465,7 +465,36 @@ export function inventoryDiagnostic(app: Hono) {
         (job.file_name && job.file_name.toLowerCase().includes('inventory'))
       );
 
-      // 7. Try to get a raw sample to understand the data shape
+      // 7. Check staging table (background_import_items)
+      let stagingCount = 0;
+      try {
+        const { count: sCount } = await supabase
+          .from('background_import_items')
+          .select('*', { count: 'exact', head: true });
+        stagingCount = sCount || 0;
+      } catch (e) {
+        // ignore
+      }
+
+      // 8. Check for potential backup tables
+      const backupTables: Record<string, number> = {};
+      const potentialBackups = ['inventory_backup', 'inventory_old', 'inventory_v1', 'products_backup', 'old_inventory'];
+      
+      for (const tableName of potentialBackups) {
+        try {
+          const { count: bCount, error: bError } = await supabase
+            .from(tableName)
+            .select('*', { count: 'exact', head: true });
+          
+          if (!bError && bCount !== null) {
+            backupTables[tableName] = bCount;
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // 9. Try to get a raw sample to understand the data shape
       let rawSample: any = null;
       try {
         const { data: rawData, error: rawError } = await supabase
@@ -499,6 +528,7 @@ export function inventoryDiagnostic(app: Hono) {
           inUserOrg: userOrgCount || 0,
           withNullOrg: nullOrgCount || 0,
           inOtherOrgs: Math.max(0, (totalCount || 0) - (userOrgCount || 0) - (nullOrgCount || 0)),
+          inStaging: stagingCount || 0,
         },
         orgBreakdown,
         orgResolutionLog,
@@ -511,6 +541,7 @@ export function inventoryDiagnostic(app: Hono) {
         },
         recentJobs: inventoryJobs.length > 0 ? inventoryJobs : (recentJobs || []).slice(0, 10),
         diagnosis: getDiagnosis(totalCount || 0, userOrgCount || 0, nullOrgCount || 0, orgBreakdown, userOrgId),
+        backupTables, // Include found backups
       };
 
       console.log('✅ Diagnostic complete:', JSON.stringify(result.counts));

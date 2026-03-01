@@ -411,52 +411,21 @@ export async function deleteBidClient(id: string) {
 // Fix organization IDs for bids that have NULL organization_id
 export async function fixBidOrganizationIds() {
   try {
-    console.log('[fixBidOrganizationIds] Starting to fix NULL organization IDs...');
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('Not authenticated');
+    console.log('[fixBidOrganizationIds] Calling server to fix NULL organization IDs...');
+    const headers = await getServerHeaders();
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/recover-deals`,
+      { method: 'POST', headers }
+    );
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('[fixBidOrganizationIds] Server recovered:', result);
+      return { count: result.fixedBids || 0, bids: [] };
     }
 
-    // FIXED: Get organization_id from profile, not just metadata
-    let organizationId: string | null = null;
-    try {
-      const profile = await ensureUserProfile(user.id);
-      organizationId = profile.organization_id;
-    } catch {
-      organizationId = user.user_metadata?.organizationId || null;
-    }
-
-    console.log('[fixBidOrganizationIds] Current user organization ID:', organizationId);
-    
-    if (!organizationId) {
-      throw new Error('No organization ID found for user');
-    }
-    
-    const { data: nullBids, error: queryError } = await supabase
-      .from('bids')
-      .select('*')
-      .is('organization_id', null);
-    
-    console.log('[fixBidOrganizationIds] Bids with NULL organization_id:', nullBids?.length || 0);
-    
-    if (queryError) {
-      console.error('[fixBidOrganizationIds] Error querying NULL bids:', queryError);
-    }
-    
-    const { data, error } = await supabase
-      .from('bids')
-      .update({ organization_id: organizationId })
-      .is('organization_id', null)
-      .select();
-    
-    if (error) {
-      console.error('[fixBidOrganizationIds] Update error:', error);
-      throw error;
-    }
-    
-    console.log('[fixBidOrganizationIds] Fixed organization IDs for', data?.length || 0, 'bids');
-    return { count: data?.length || 0, bids: data };
+    console.warn('[fixBidOrganizationIds] Server recover failed:', response.status);
+    throw new Error('Server recover failed');
   } catch (error: any) {
     console.error('[fixBidOrganizationIds] Error:', error.message);
     throw error;
