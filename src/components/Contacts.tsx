@@ -7,13 +7,14 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, MapPin, Eye, X, Tag, AlertTriangle, Wrench } from 'lucide-react';
+import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, MapPin, Eye, X, Tag, AlertTriangle, Wrench, Users, UserCheck, UserPlus, Target } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import { MetricCard } from './MetricCard';
 import { contactsAPI, projectManagersAPI } from '../utils/api';
 import { projectId } from '../utils/supabase/info';
 import { createClient } from '../utils/supabase/client';
@@ -159,6 +160,23 @@ export function Contacts({ user }: ContactsProps) {
       setIsLoading(false);
     }
   };
+
+  // Calculate metrics
+  const metrics = useMemo(() => {
+    const total = contacts.length;
+    const active = contacts.filter(c => c?.status === 'Active').length;
+    const prospects = contacts.filter(c => c?.status === 'Prospect').length;
+    
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const newContacts = contacts.filter(c => {
+      if (!c?.createdAt) return false;
+      const created = new Date(c.createdAt);
+      return created >= firstDayOfMonth;
+    }).length;
+
+    return { total, active, prospects, newContacts };
+  }, [contacts]);
 
   // Diagnose and fix contact ownership via server endpoint (bypasses RLS)
   const diagnoseAndFixOwnership = async () => {
@@ -955,6 +973,38 @@ export function Contacts({ user }: ContactsProps) {
   return (
     <PermissionGate user={user} module="contacts" action="view">
       <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard 
+            title="Total Contacts" 
+            value={metrics.total.toString()} 
+            icon={<Users className="h-4 w-4" />} 
+            description="All contacts in database"
+            className="bg-indigo-600 text-white"
+          />
+          <MetricCard 
+            title="Active Clients" 
+            value={metrics.active.toString()} 
+            icon={<UserCheck className="h-4 w-4" />} 
+            description="Currently active customers"
+            className="bg-blue-900 text-white"
+          />
+          <MetricCard 
+            title="Prospects" 
+            value={metrics.prospects.toString()} 
+            icon={<Target className="h-4 w-4" />} 
+            description="Potential opportunities"
+            className="bg-sky-600 text-white"
+          />
+          <MetricCard 
+            title="New This Month" 
+            value={metrics.newContacts.toString()} 
+            icon={<UserPlus className="h-4 w-4" />} 
+            description="Added in current month"
+            className="bg-teal-500 text-white"
+          />
+        </div>
+
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
           {canAdd('contacts', user.role) && (
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
