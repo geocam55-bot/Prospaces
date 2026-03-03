@@ -468,17 +468,17 @@ export const loadTheme = (): string => {
 // may not have a 'theme' column. Falls back gracefully.
 export const saveThemeToDatabase = async (themeId: string, userId: string): Promise<void> => {
   try {
-    // Always save to localStorage as primary
+    // Always save to localStorage as backup
     localStorage.setItem('prospace-theme', themeId);
     
-    // Try saving to KV via server API (non-blocking)
+    // Save to database via server API
     const { projectId, publicAnonKey } = await import('./supabase/info');
     const { createClient } = await import('./supabase/client');
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session?.access_token) {
-      fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/settings/theme`, {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/settings/theme`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${publicAnonKey}`,
@@ -486,14 +486,20 @@ export const saveThemeToDatabase = async (themeId: string, userId: string): Prom
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ theme: themeId }),
-      }).catch(() => {
-        // Non-blocking — if server endpoint doesn't exist yet, localStorage is primary
       });
+      
+      if (response.ok) {
+        console.log('✅ Theme saved to database:', themeId);
+      } else {
+        const errorText = await response.text();
+        console.warn('⚠️ Failed to save theme to database:', errorText);
+      }
+    } else {
+      console.warn('⚠️ No session available, theme saved to localStorage only');
     }
-    
-    console.log('Theme saved:', themeId);
   } catch (error) {
-    console.error('Error saving theme:', error);
+    console.error('❌ Error saving theme to database:', error);
+    // Theme is still saved to localStorage, so this is non-fatal
   }
 };
 
@@ -501,13 +507,8 @@ export const saveThemeToDatabase = async (themeId: string, userId: string): Prom
 // NOTE: Uses localStorage as primary source; KV store as optional fallback
 export const loadThemeFromDatabase = async (userId: string): Promise<string | null> => {
   try {
-    // Primary source is localStorage
-    const localTheme = localStorage.getItem('prospace-theme');
-    if (localTheme) {
-      return localTheme;
-    }
-    
-    // Optional: try loading from server KV store
+    // When user is logged in, prioritize database over localStorage
+    // This ensures theme persists across logout/login cycles
     const { projectId, publicAnonKey } = await import('./supabase/info');
     const { createClient } = await import('./supabase/client');
     const supabase = createClient();
@@ -524,13 +525,22 @@ export const loadThemeFromDatabase = async (userId: string): Promise<string | nu
         if (res.ok) {
           const data = await res.json();
           if (data?.theme) {
+            // Sync database theme to localStorage
             localStorage.setItem('prospace-theme', data.theme);
+            console.log('Loaded theme from database:', data.theme);
             return data.theme;
           }
         }
-      } catch {
-        // Server endpoint may not exist yet — fall through
+      } catch (err) {
+        console.warn('Could not load theme from server, falling back to localStorage:', err);
       }
+    }
+    
+    // Fallback to localStorage if database load fails or no session
+    const localTheme = localStorage.getItem('prospace-theme');
+    if (localTheme) {
+      console.log('Loaded theme from localStorage:', localTheme);
+      return localTheme;
     }
     
     return null;

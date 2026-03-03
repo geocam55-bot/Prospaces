@@ -1103,6 +1103,55 @@ export function Inventory({ user }: InventoryProps) {
         </div>
 
         <TabsContent value="items" className="space-y-4 mt-6">
+          {/* Lost Inventory Recovery Banner - Highest Priority */}
+          {lostInventory && lostInventory.found && lostInventory.total > 0 && (
+            <Alert className="border-orange-300 bg-orange-50">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              <AlertDescription className="ml-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-orange-900 mb-1">
+                      Found {lostInventory.total.toLocaleString()} Imported Items Not Showing in Your Inventory
+                    </p>
+                    <p className="text-sm text-orange-800">
+                      {lostInventory.nullOrg > 0 && `${lostInventory.nullOrg} items have no organization assigned. `}
+                      {lostInventory.otherOrgs > 0 && `${lostInventory.otherOrgs} items are in other organizations. `}
+                      Click the button to recover these items.
+                    </p>
+                  </div>
+                  <div className="flex gap-2 sm:flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveTab('diagnostic')}
+                      className="border-orange-400 text-orange-700 hover:bg-orange-100"
+                    >
+                      View Details
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleDeepScan}
+                      disabled={isRecovering}
+                      className="bg-orange-600 hover:bg-orange-700"
+                    >
+                      {isRecovering ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Recovering...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-4 w-4 mr-2" />
+                          Recover Items
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Database Performance Fix - Show prominently if slow */}
           {loadTimeMs > 5000 && (
             <InventoryIndexFixer />

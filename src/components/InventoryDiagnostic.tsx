@@ -558,10 +558,26 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Quick Start Guide */}
+          {!result && !pendingJobs && (
+            <Alert className="border-blue-200 bg-blue-50">
+              <Info className="h-4 w-4 text-blue-600" />
+              <AlertDescription>
+                <p className="font-semibold text-blue-900 mb-2">Missing imported items? Follow these steps:</p>
+                <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+                  <li>Click <strong>"Run Diagnostic"</strong> to scan for all inventory in the database</li>
+                  <li>Review the results to see where your items are located</li>
+                  <li>Use the <strong>"Quick Fixes"</strong> buttons to reassign items to your organization</li>
+                  <li>If items are stuck in imports, use <strong>"Find Pending Jobs"</strong> to process them</li>
+                </ol>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2">
-            <Button onClick={runDiagnostic} disabled={isChecking} className="flex-1 min-w-[180px]">
-              {isChecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            <Button onClick={runDiagnostic} disabled={isChecking} size="lg" className="flex-1 min-w-[180px] bg-blue-600 hover:bg-blue-700">
+              {isChecking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <RefreshCw className="mr-2 h-5 w-5" />}
               {isChecking ? 'Running...' : 'Run Diagnostic'}
             </Button>
             <Button onClick={checkTable} disabled={isCheckingTable} variant="outline" className="min-w-[160px]">
