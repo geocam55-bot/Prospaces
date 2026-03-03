@@ -449,6 +449,226 @@ export const themes: Record<string, Theme> = {
       shadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3)',
     },
   },
+  
+  mocha: {
+    id: 'mocha',
+    name: 'Mocha',
+    description: 'Warm coffee and chocolate tones',
+    isDark: false,
+    colors: {
+      background: '#faf8f5',
+      backgroundSecondary: '#f5f1eb',
+      backgroundTertiary: '#ede7dd',
+      
+      text: '#3e2723',
+      textSecondary: '#5d4037',
+      textMuted: '#8d6e63',
+      
+      primary: '#6d4c41',
+      primaryHover: '#5d4037',
+      primaryText: '#ffffff',
+      
+      secondary: '#efebe9',
+      secondaryText: '#3e2723',
+      
+      accent: '#8d6e63',
+      accentHover: '#795548',
+      accentText: '#ffffff',
+      
+      border: '#d7ccc8',
+      borderLight: '#efebe9',
+      
+      card: '#ffffff',
+      cardHover: '#f5f1eb',
+      cardText: '#3e2723',
+      
+      input: '#d7ccc8',
+      
+      success: '#10b981',
+      warning: '#f59e0b',
+      error: '#ef4444',
+      info: '#3b82f6',
+      
+      destructive: '#d32f2f',
+      destructiveText: '#ffffff',
+      
+      navBackground: 'linear-gradient(to bottom, #6d4c41, #5d4037)',
+      navText: '#ffffff',
+      navHover: 'rgba(255, 255, 255, 0.2)',
+      navActive: 'rgba(255, 255, 255, 0.3)',
+      
+      topBarBackground: '#6d4c41',
+      topBarText: '#ffffff',
+      
+      gradient: 'linear-gradient(135deg, #8d6e63 0%, #5d4037 100%)',
+      shadow: '0 10px 15px -3px rgba(109, 76, 65, 0.1), 0 4px 6px -2px rgba(109, 76, 65, 0.05)',
+    },
+  },
+  
+  lavender: {
+    id: 'lavender',
+    name: 'Lavender',
+    description: 'Soft purple and violet elegance',
+    isDark: false,
+    colors: {
+      background: '#fdfbff',
+      backgroundSecondary: '#f5f3ff',
+      backgroundTertiary: '#ede9fe',
+      
+      text: '#4c1d95',
+      textSecondary: '#6b21a8',
+      textMuted: '#9333ea',
+      
+      primary: '#7c3aed',
+      primaryHover: '#6d28d9',
+      primaryText: '#ffffff',
+      
+      secondary: '#f5f3ff',
+      secondaryText: '#4c1d95',
+      
+      accent: '#a78bfa',
+      accentHover: '#8b5cf6',
+      accentText: '#ffffff',
+      
+      border: '#ddd6fe',
+      borderLight: '#ede9fe',
+      
+      card: '#ffffff',
+      cardHover: '#f5f3ff',
+      cardText: '#4c1d95',
+      
+      input: '#ddd6fe',
+      
+      success: '#10b981',
+      warning: '#f59e0b',
+      error: '#ef4444',
+      info: '#8b5cf6',
+      
+      destructive: '#dc2626',
+      destructiveText: '#ffffff',
+      
+      navBackground: 'linear-gradient(to bottom, #7c3aed, #6d28d9)',
+      navText: '#ffffff',
+      navHover: 'rgba(255, 255, 255, 0.2)',
+      navActive: 'rgba(255, 255, 255, 0.3)',
+      
+      topBarBackground: '#7c3aed',
+      topBarText: '#ffffff',
+      
+      gradient: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)',
+      shadow: '0 10px 15px -3px rgba(124, 58, 237, 0.1), 0 4px 6px -2px rgba(124, 58, 237, 0.05)',
+    },
+  },
+  
+  arctic: {
+    id: 'arctic',
+    name: 'Arctic',
+    description: 'Cool crisp whites and ice blues',
+    isDark: false,
+    colors: {
+      background: '#f8fafc',
+      backgroundSecondary: '#f1f5f9',
+      backgroundTertiary: '#e2e8f0',
+      
+      text: '#0f172a',
+      textSecondary: '#334155',
+      textMuted: '#64748b',
+      
+      primary: '#0ea5e9',
+      primaryHover: '#0284c7',
+      primaryText: '#ffffff',
+      
+      secondary: '#f1f5f9',
+      secondaryText: '#0f172a',
+      
+      accent: '#38bdf8',
+      accentHover: '#0ea5e9',
+      accentText: '#ffffff',
+      
+      border: '#cbd5e1',
+      borderLight: '#e2e8f0',
+      
+      card: '#ffffff',
+      cardHover: '#f8fafc',
+      cardText: '#0f172a',
+      
+      input: '#cbd5e1',
+      
+      success: '#10b981',
+      warning: '#f59e0b',
+      error: '#ef4444',
+      info: '#0ea5e9',
+      
+      destructive: '#dc2626',
+      destructiveText: '#ffffff',
+      
+      navBackground: 'linear-gradient(to bottom, #0ea5e9, #0284c7)',
+      navText: '#ffffff',
+      navHover: 'rgba(255, 255, 255, 0.2)',
+      navActive: 'rgba(255, 255, 255, 0.3)',
+      
+      topBarBackground: '#0ea5e9',
+      topBarText: '#ffffff',
+      
+      gradient: 'linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)',
+      shadow: '0 10px 15px -3px rgba(14, 165, 233, 0.1), 0 4px 6px -2px rgba(14, 165, 233, 0.05)',
+    },
+  },
+  
+  neon: {
+    id: 'neon',
+    name: 'Neon',
+    description: 'Cyberpunk vibes with electric accents',
+    isDark: true,
+    colors: {
+      background: '#0a0a0a',
+      backgroundSecondary: '#141414',
+      backgroundTertiary: '#1e1e1e',
+      
+      text: '#f0f0f0',
+      textSecondary: '#d4d4d4',
+      textMuted: '#a3a3a3',
+      
+      primary: '#00ff9f',
+      primaryHover: '#00d98a',
+      primaryText: '#0a0a0a',
+      
+      secondary: '#1e1e1e',
+      secondaryText: '#f0f0f0',
+      
+      accent: '#ff006e',
+      accentHover: '#d9005c',
+      accentText: '#ffffff',
+      
+      border: '#2a2a2a',
+      borderLight: '#3a3a3a',
+      
+      card: '#141414',
+      cardHover: '#1e1e1e',
+      cardText: '#f0f0f0',
+      
+      input: '#1e1e1e',
+      
+      success: '#00ff9f',
+      warning: '#ffbe0b',
+      error: '#ff006e',
+      info: '#00d4ff',
+      
+      destructive: '#ff006e',
+      destructiveText: '#ffffff',
+      
+      navBackground: '#050505',
+      navText: '#d4d4d4',
+      navHover: '#1a1a1a',
+      navActive: '#2a2a2a',
+      
+      topBarBackground: '#050505',
+      topBarText: '#f0f0f0',
+      
+      gradient: 'linear-gradient(135deg, #00ff9f 0%, #00d4ff 50%, #ff006e 100%)',
+      shadow: '0 0 20px rgba(0, 255, 159, 0.3), 0 10px 15px -3px rgba(0, 0, 0, 0.5)',
+    },
+  },
 };
 
 export const getTheme = (themeId: string): Theme => {
