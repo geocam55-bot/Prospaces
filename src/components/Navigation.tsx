@@ -35,6 +35,7 @@ import {
   Globe,
   CreditCard,
   History,
+  Info,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -568,6 +569,10 @@ export function Navigation({
                   <User className="mr-2 h-4 w-4" />
                   Profile
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleNavClick('about')}>
+                  <Info className="mr-2 h-4 w-4" />
+                  About
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onLogout} className="text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />
@@ -884,6 +889,10 @@ export function Navigation({
                 <DropdownMenuItem onClick={() => handleNavClick('settings')} className="text-gray-200 focus:bg-[#1E1E1E] focus:text-white">
                   <User className="mr-2 h-4 w-4" />
                   Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleNavClick('about')} className="text-gray-200 focus:bg-[#1E1E1E] focus:text-white">
+                  <Info className="mr-2 h-4 w-4" />
+                  About
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-[#2E2E2E]" />
                 <DropdownMenuItem onClick={onLogout} className="text-red-500 focus:bg-[#1E1E1E] focus:text-red-400">

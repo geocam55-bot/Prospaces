@@ -19,9 +19,11 @@ import {
   DollarSign,
   ArrowRight,
   Sparkles,
-  Lock
+  Lock,
+  Info
 } from 'lucide-react';
 import { ModuleDetail } from './ModuleDetail';
+import { About } from './About';
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -30,6 +32,12 @@ interface LandingPageProps {
 
 export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
+  const [showAbout, setShowAbout] = useState(false);
+
+  // If showing About page
+  if (showAbout) {
+    return <About onClose={() => setShowAbout(false)} />;
+  }
 
   // If a module is selected, show the detail page
   if (selectedModule) {
@@ -330,6 +338,14 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
             </div>
             <div className="flex flex-col items-center md:items-end gap-2">
               <div className="flex items-center gap-4 text-sm">
+                <button 
+                  onClick={() => setShowAbout(true)}
+                  className="text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                  About
+                </button>
+                <span className="text-gray-600">|</span>
                 <a href="?view=privacy-policy" className="text-gray-400 hover:text-white transition-colors">
                   Privacy Policy
                 </a>

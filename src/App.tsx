@@ -56,9 +56,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
 import { initializePermissions } from './utils/permissions';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
-
-import { AdminFixUsers } from './components/AdminFixUsers';
-import { preloadEmailAccounts, resetEmailPreloader } from './utils/email-preloader';
+import { About } from './components/About';
 
 export type UserRole = 'standard_user' | 'manager' | 'director' | 'admin' | 'super_admin' | 'marketing';
 
@@ -501,6 +499,7 @@ export function AppContent() {
               {currentView === 'roof-planner' && <PlannerErrorBoundary onNavigate={setCurrentView}><Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense></PlannerErrorBoundary>}
               {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
               {currentView === 'subscription-billing' && <SubscriptionBilling user={user} />}
+              {currentView === 'about' && <About />}
             </div>
           </main>
 

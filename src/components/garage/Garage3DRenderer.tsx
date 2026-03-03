@@ -58,7 +58,7 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
   useEffect(() => {
     if (!containerRef.current) return;
     
-    // v1.1 - Fixed door and window positioning to account for foundation height
+    // v1.2 - Fixed door and window rotation to align with walls
 
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
@@ -287,16 +287,19 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       });
       const doorMesh = new Mesh(doorGeometry, doorMaterial);
 
-      let x = 0, z = 0;
+      let x = 0, z = 0, rotationY = 0;
       if (door.position === 'front') {
         x = -garageWidth/2 + doorWidth/2 + (door.offsetFromLeft || 0) * scale;
         z = garageLength/2 + 0.1;
+        rotationY = 0; // Door faces +z direction (no rotation needed)
       } else if (door.position === 'side') {
         x = garageWidth/2 + 0.1;
         z = -garageLength/2 + doorWidth/2 + (door.offsetFromLeft || 0) * scale;
+        rotationY = Math.PI / 2; // Rotate 90° to face +x direction
       }
 
       doorMesh.position.set(x, doorHeight/2 + 0.2, z);
+      doorMesh.rotation.y = rotationY;
       doorMesh.castShadow = true;
       doorMesh.receiveShadow = true;
       scene.add(doorMesh);
@@ -312,7 +315,10 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
         });
         const panel = new Mesh(panelGeometry, panelMaterial);
         // Position panels relative to foundation top (0.2)
-        panel.position.set(x, (doorHeight / 5) * i + 0.2, z + 0.035);
+        const panelZ = door.position === 'front' ? z + 0.035 : z;
+        const panelX = door.position === 'front' ? x : x + 0.035;
+        panel.position.set(panelX, (doorHeight / 5) * i + 0.2, panelZ);
+        panel.rotation.y = rotationY;
         panel.castShadow = true;
         scene.add(panel);
       }
@@ -325,7 +331,12 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
         roughness: 0.2 
       });
       const handle = new Mesh(handleGeometry, handleMaterial);
-      handle.position.set(x + doorWidth * 0.4, doorHeight * 0.45 + 0.2, z + 0.08);
+      const handleOffsetX = door.position === 'front' ? doorWidth * 0.4 : 0;
+      const handleOffsetZ = door.position === 'front' ? 0.08 : doorWidth * 0.4;
+      const handleX = door.position === 'front' ? x + handleOffsetX : x + 0.08;
+      const handleZ = door.position === 'front' ? z + 0.08 : z + handleOffsetZ;
+      handle.position.set(handleX, doorHeight * 0.45 + 0.2, handleZ);
+      handle.rotation.y = rotationY;
       scene.add(handle);
     });
 
@@ -338,17 +349,20 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       });
       const walkDoor = new Mesh(walkDoorGeometry, walkDoorMaterial);
 
-      let x = 0, z = 0;
+      let x = 0, z = 0, rotationY = 0;
       if (config.walkDoorPosition === 'front') {
         x = garageWidth/3;
         z = garageLength/2 + 0.1;
+        rotationY = 0; // Face +z direction
       } else if (config.walkDoorPosition === 'side') {
         x = garageWidth/2 + 0.1;
         z = 0;
+        rotationY = Math.PI / 2; // Rotate 90° to face +x direction
       }
 
       // Position door with bottom at foundation top (0.2) + half door height
       walkDoor.position.set(x, 1.0 + 0.2, z);
+      walkDoor.rotation.y = rotationY;
       walkDoor.castShadow = true;
       walkDoor.receiveShadow = true;
       scene.add(walkDoor);
@@ -362,13 +376,19 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       const leftFrameGeom = new BoxGeometry(frameThickness, 2.1, frameDepth);
       const frameMat = new MeshStandardMaterial({ color: 0x654321, roughness: 0.6 });
       const leftFrame = new Mesh(leftFrameGeom, frameMat);
-      leftFrame.position.set(x - 0.49, 1.05 + 0.2, z);
+      const leftFrameX = config.walkDoorPosition === 'front' ? x - 0.49 : x;
+      const leftFrameZ = config.walkDoorPosition === 'front' ? z : z - 0.49;
+      leftFrame.position.set(leftFrameX, 1.05 + 0.2, leftFrameZ);
+      leftFrame.rotation.y = rotationY;
       leftFrame.castShadow = true;
       scene.add(leftFrame);
       
       // Vertical right frame
       const rightFrame = new Mesh(leftFrameGeom, frameMat);
-      rightFrame.position.set(x + 0.49, 1.05 + 0.2, z);
+      const rightFrameX = config.walkDoorPosition === 'front' ? x + 0.49 : x;
+      const rightFrameZ = config.walkDoorPosition === 'front' ? z : z + 0.49;
+      rightFrame.position.set(rightFrameX, 1.05 + 0.2, rightFrameZ);
+      rightFrame.rotation.y = rotationY;
       rightFrame.castShadow = true;
       scene.add(rightFrame);
       
@@ -376,6 +396,7 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       const topFrameGeom = new BoxGeometry(0.98, frameThickness, frameDepth);
       const topFrame = new Mesh(topFrameGeom, frameMat);
       topFrame.position.set(x, 2.1 + 0.2, z);
+      topFrame.rotation.y = rotationY;
       topFrame.castShadow = true;
       scene.add(topFrame);
       
@@ -383,8 +404,11 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       const handleGeom = new CylinderGeometry(0.025, 0.025, 0.12, 8);
       const handleMat = new MeshStandardMaterial({ color: 0xc0c0c0, metalness: 0.9, roughness: 0.2 });
       const doorHandle = new Mesh(handleGeom, handleMat);
-      doorHandle.position.set(x + 0.35, 1.0 + 0.2, z + 0.08);
+      const handleX = config.walkDoorPosition === 'front' ? x + 0.35 : x + 0.08;
+      const handleZ = config.walkDoorPosition === 'front' ? z + 0.08 : z + 0.35;
+      doorHandle.position.set(handleX, 1.0 + 0.2, handleZ);
       doorHandle.rotation.z = Math.PI / 2;
+      doorHandle.rotation.y = rotationY;
       scene.add(doorHandle);
     }
 
@@ -396,32 +420,36 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       const windowMaterial = new MeshStandardMaterial({ 
         color: 0x87ceeb,
         transparent: true,
-        opacity: 0.7,
-        metalness: 0.9,
-        roughness: 0.1
+        roughness: 0.1,
+        metalness: 0.9
       });
       const windowMesh = new Mesh(windowGeometry, windowMaterial);
 
-      let x = 0, z = 0;
+      let x = 0, z = 0, rotationY = 0;
       // offsetFromFloor is in feet, convert to meters and add foundation height (0.2)
       const offsetY = (window.offsetFromFloor || 5) * scale + 0.2;
       
       if (window.position === 'front') {
         x = -garageWidth/2 + windowWidth/2 + (window.offsetFromLeft || 0) * scale;
         z = garageLength/2 + 0.11;
+        rotationY = 0; // Face +z direction
       } else if (window.position === 'back') {
         x = -garageWidth/2 + windowWidth/2 + (window.offsetFromLeft || 0) * scale;
         z = -garageLength/2 - 0.11;
+        rotationY = Math.PI; // Rotate 180° to face -z direction
       } else if (window.position === 'left') {
         x = -garageWidth/2 - 0.11;
         z = -garageLength/2 + windowWidth/2 + (window.offsetFromLeft || 0) * scale;
-      } else {
+        rotationY = -Math.PI / 2; // Rotate -90° to face -x direction
+      } else { // right
         x = garageWidth/2 + 0.11;
         z = -garageLength/2 + windowWidth/2 + (window.offsetFromLeft || 0) * scale;
+        rotationY = Math.PI / 2; // Rotate 90° to face +x direction
       }
 
       // Position window: offsetY is bottom of window, add half window height for center
       windowMesh.position.set(x, windowHeight/2 + offsetY, z);
+      windowMesh.rotation.y = rotationY;
       windowMesh.castShadow = true;
       windowMesh.receiveShadow = true;
       scene.add(windowMesh);
@@ -432,16 +460,25 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       const frameDepth = 0.08;
       const frameMat = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.2 });
       
+      // Determine frame offsets based on wall position
+      const isVerticalWall = window.position === 'left' || window.position === 'right';
+      
       // Vertical left frame
       const vFrameGeom = new BoxGeometry(frameThickness, windowHeight + frameThickness * 2, frameDepth);
       const leftFrame = new Mesh(vFrameGeom, frameMat);
-      leftFrame.position.set(x - windowWidth/2 - frameThickness/2, windowHeight/2 + offsetY, z);
+      const leftFrameOffsetX = isVerticalWall ? 0 : -windowWidth/2 - frameThickness/2;
+      const leftFrameOffsetZ = isVerticalWall ? -windowWidth/2 - frameThickness/2 : 0;
+      leftFrame.position.set(x + leftFrameOffsetX, windowHeight/2 + offsetY, z + leftFrameOffsetZ);
+      leftFrame.rotation.y = rotationY;
       leftFrame.castShadow = true;
       scene.add(leftFrame);
       
       // Vertical right frame
       const rightFrame = new Mesh(vFrameGeom, frameMat);
-      rightFrame.position.set(x + windowWidth/2 + frameThickness/2, windowHeight/2 + offsetY, z);
+      const rightFrameOffsetX = isVerticalWall ? 0 : windowWidth/2 + frameThickness/2;
+      const rightFrameOffsetZ = isVerticalWall ? windowWidth/2 + frameThickness/2 : 0;
+      rightFrame.position.set(x + rightFrameOffsetX, windowHeight/2 + offsetY, z + rightFrameOffsetZ);
+      rightFrame.rotation.y = rotationY;
       rightFrame.castShadow = true;
       scene.add(rightFrame);
       
@@ -449,12 +486,14 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       const hFrameGeom = new BoxGeometry(windowWidth + frameThickness * 2, frameThickness, frameDepth);
       const topFrame = new Mesh(hFrameGeom, frameMat);
       topFrame.position.set(x, windowHeight/2 + offsetY + windowHeight/2 + frameThickness/2, z);
+      topFrame.rotation.y = rotationY;
       topFrame.castShadow = true;
       scene.add(topFrame);
       
       // Horizontal bottom frame
       const bottomFrame = new Mesh(hFrameGeom, frameMat);
       bottomFrame.position.set(x, windowHeight/2 + offsetY - windowHeight/2 - frameThickness/2, z);
+      bottomFrame.rotation.y = rotationY;
       bottomFrame.castShadow = true;
       scene.add(bottomFrame);
     });
