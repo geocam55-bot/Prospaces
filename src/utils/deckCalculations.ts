@@ -131,7 +131,7 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
   ledgerCombo.forEach(({ length, count }) => {
     framing.push({
       category: 'Framing',
-      description: `2x8 Pressure Treated Ledger Board (${length}')`,
+      description: `Pressure Treated Ledger Board (${length}')`,
       quantity: count,
       unit: 'pcs',
       notes: ledgerCombo.length > 1
@@ -151,12 +151,12 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
   joistCombo.forEach(({ length, count }) => {
     framing.push({
       category: 'Framing',
-      description: `2x8 Pressure Treated Joists (${length}')`,
+      description: `Pressure Treated Joists (${length}')`,
       quantity: numberOfJoists * count,
       unit: 'pcs',
       notes: joistCombo.length > 1
-        ? `Spaced ${config.joistSpacing}" O.C. (${getLumberLengthDescription(joistSpan)} per joist)`
-        : `Spaced ${config.joistSpacing}" on center`,
+        ? `Spaced ${config.joistSpacing}\" O.C. (${getLumberLengthDescription(joistSpan)} per joist)`
+        : `Spaced ${config.joistSpacing}\" on center`,
       lumberLength: length,
     });
   });
@@ -172,7 +172,7 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
     .forEach(([length, quantity]) => {
       framing.push({
         category: 'Framing',
-        description: `2x8 Pressure Treated Rim Joists (${length}')`,
+        description: `Pressure Treated Rim Joists (${length}')`,
         quantity,
         unit: 'pcs',
         notes: 'Perimeter band boards',
@@ -188,7 +188,7 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
   beamCombo.forEach(({ length, count }) => {
     framing.push({
       category: 'Framing',
-      description: `2x10 Pressure Treated Beams (${length}')`,
+      description: `Pressure Treated Beams (${length}')`,
       quantity: beamCount * count,
       unit: 'pcs',
       notes: beamCombo.length > 1
@@ -206,7 +206,7 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
 
   framing.push({
     category: 'Framing',
-    description: `6x6 Pressure Treated Posts (${postLumberLength}')`,
+    description: `Pressure Treated Posts (${postLumberLength}')`,
     quantity: postCount,
     unit: 'pcs',
     notes: 'Support posts with concrete footings',
@@ -398,7 +398,7 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
     
     framing.push({
       category: 'Stairs',
-      description: `2x12 Stair Stringers (${stringerLumberLength}')`,
+      description: `Stair Stringers (${stringerLumberLength}')`,
       quantity: 3,
       unit: 'pcs',
       notes: `${numberOfSteps} steps with 7" rise, 11" run`,
@@ -407,7 +407,7 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
     
     decking.push({
       category: 'Stairs',
-      description: '2x6 Stair Treads',
+      description: 'Stair Treads',
       quantity: numberOfSteps * 2,
       unit: 'pcs',
       notes: 'Two boards per tread',
