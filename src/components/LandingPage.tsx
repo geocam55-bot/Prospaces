@@ -187,20 +187,20 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-purple-100 rounded-full blur-3xl opacity-50"></div>
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-50"></div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16 sm:pt-40 sm:pb-24">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 sm:pt-24 sm:pb-24">
           <div className="text-center">
-            <div className="flex flex-col items-center justify-center mb-10">
+            <div className="flex flex-col items-center justify-center mb-4">
               <img 
                 src={logo3d} 
                 alt="ProSpaces Logo" 
-                className="relative h-40 w-40 sm:h-52 sm:w-52 hover:scale-105 transition-transform duration-500 ease-out"
+                className="relative h-52 w-52 sm:h-68 sm:w-68 hover:scale-105 transition-transform duration-500 ease-out"
               />
             </div>
             <h1 className="text-5xl sm:text-7xl text-gray-900 font-bold tracking-tight mb-6">
               ProSpaces CRM
             </h1>
             <p className="text-xl sm:text-2xl text-gray-600 mb-4 max-w-3xl mx-auto">
-              Complete solution for sales, marketing, and project management. Designed from the ground up for the Home Renovations Industry.
+              Complete solution for sales, marketing, and project management. Designed from the ground up for the Home Renovation Centres and Lumber Yards.
             </p>
             <p className="text-lg text-gray-500 mb-12 max-w-2xl mx-auto">
               Streamline your business operations with our all-in-one CRM platform. 
