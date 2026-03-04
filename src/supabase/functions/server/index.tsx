@@ -14,6 +14,7 @@ import { inventoryDiagnostic } from './inventory-diagnostic.ts';
 import { auditAPI } from './audit-api.ts';
 import { tenantsAPI as tenantsAPIRoutes } from './tenants-api.ts';
 import { debugSubscriptions } from './debug-subscriptions.ts';
+import { backgroundJobs } from './background-jobs.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -2491,6 +2492,9 @@ app.route('/', apiKeys);
 
 // ── PUBLIC REST API (Enterprise, API-key auth) ──────────────────────────
 app.route('/', publicApi);
+
+// ── BACKGROUND IMPORT JOBS ──────────────────────────────────────────────
+backgroundJobs(app);
 
 // ── CALENDAR SYNC (direct Google Calendar & Microsoft Graph APIs) ──
 app.post(`${PREFIX}/calendar-sync`, async (c) => {
