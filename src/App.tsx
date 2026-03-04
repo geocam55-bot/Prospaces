@@ -104,7 +104,7 @@ function PlannerLoading() {
 // Error boundary that wraps each lazy-loaded planner so a failed dynamic
 // import only affects that planner, not the entire app.
 class PlannerErrorBoundary extends React.Component<
-  { children: React.ReactNode; onNavigate: (view: string) => void },
+  { children: React.ReactNode; onNavigate: (view: string) => void; plannerKey: string },
   { hasError: boolean }
 > {
   constructor(props: any) {
@@ -115,7 +115,13 @@ class PlannerErrorBoundary extends React.Component<
     return { hasError: true };
   }
   componentDidCatch(error: any, info: any) {
-    console.warn('3D Planner failed to load:', error);
+    console.warn('3D Planner failed to load:', error, info);
+  }
+  componentDidUpdate(prevProps: { plannerKey: string }) {
+    // Reset error state when switching to a different planner
+    if (prevProps.plannerKey !== this.props.plannerKey && this.state.hasError) {
+      this.setState({ hasError: false });
+    }
   }
   render() {
     if (this.state.hasError) {
@@ -502,11 +508,11 @@ export function AppContent() {
               {currentView === 'import-export' && <ImportExport user={user} onNavigate={setCurrentView} />}
               {currentView === 'scheduled-jobs' && <ScheduledJobs user={user} onNavigate={setCurrentView} />}
               {currentView === 'background-imports' && <BackgroundImportManager user={user} onNavigate={setCurrentView} />}
-              {currentView === 'kitchen-planner' && <PlannerErrorBoundary onNavigate={setCurrentView}><Suspense fallback={<PlannerLoading />}><KitchenPlanner user={user} /></Suspense></PlannerErrorBoundary>}
-              {currentView === 'deck-planner' && <PlannerErrorBoundary onNavigate={setCurrentView}><Suspense fallback={<PlannerLoading />}><DeckPlanner user={user} /></Suspense></PlannerErrorBoundary>}
-              {currentView === 'garage-planner' && <PlannerErrorBoundary onNavigate={setCurrentView}><Suspense fallback={<PlannerLoading />}><GaragePlanner user={user} /></Suspense></PlannerErrorBoundary>}
-              {currentView === 'shed-planner' && <PlannerErrorBoundary onNavigate={setCurrentView}><Suspense fallback={<PlannerLoading />}><ShedPlanner user={user} /></Suspense></PlannerErrorBoundary>}
-              {currentView === 'roof-planner' && <PlannerErrorBoundary onNavigate={setCurrentView}><Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense></PlannerErrorBoundary>}
+              {currentView === 'kitchen-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="kitchen-planner"><Suspense fallback={<PlannerLoading />}><KitchenPlanner user={user} /></Suspense></PlannerErrorBoundary>}
+              {currentView === 'deck-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="deck-planner"><Suspense fallback={<PlannerLoading />}><DeckPlanner user={user} /></Suspense></PlannerErrorBoundary>}
+              {currentView === 'garage-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="garage-planner"><Suspense fallback={<PlannerLoading />}><GaragePlanner user={user} /></Suspense></PlannerErrorBoundary>}
+              {currentView === 'shed-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="shed-planner"><Suspense fallback={<PlannerLoading />}><ShedPlanner user={user} /></Suspense></PlannerErrorBoundary>}
+              {currentView === 'roof-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="roof-planner"><Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense></PlannerErrorBoundary>}
               {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
               {currentView === 'subscription-billing' && <SubscriptionBilling user={user} />}
               {currentView === 'about' && <About />}
