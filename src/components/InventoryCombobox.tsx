@@ -131,21 +131,21 @@ export function InventoryCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between h-auto min-h-[40px] py-2"
+          className="w-full justify-between h-auto min-h-[40px] py-2 text-black"
         >
           <div className="flex flex-col items-start text-left flex-1 min-w-0">
             {value === 'none' ? (
-              <span className="truncate">None</span>
+              <span className="truncate text-black">None</span>
             ) : selectedItem ? (
               <>
-                <span className="truncate w-full font-medium">{selectedItem.name}</span>
+                <span className="truncate w-full font-medium text-black">{selectedItem.name}</span>
                 {selectedItem.description && (
                   <span className="text-xs text-gray-600 truncate w-full">{selectedItem.description}</span>
                 )}
                 <span className="text-xs text-gray-500">SKU: {selectedItem.sku}</span>
               </>
             ) : (
-              <span className="truncate">{placeholder}</span>
+              <span className="truncate text-black">{placeholder}</span>
             )}
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -191,7 +191,7 @@ export function InventoryCombobox({
                   : "Search by name, SKU..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8"
+                className="pl-8 text-black"
               />
             </div>
             {debouncedSearch && (
@@ -223,7 +223,7 @@ export function InventoryCombobox({
                     value === 'none' ? 'opacity-100' : 'opacity-0'
                   }`}
                 />
-                <span>None</span>
+                <span className="text-black">None</span>
               </button>
 
               {/* Filtered Items */}
@@ -248,7 +248,7 @@ export function InventoryCombobox({
                         }`}
                       />
                       <div className="flex flex-col items-start text-left flex-1">
-                        <span>{item.name}</span>
+                        <span className="text-black">{item.name}</span>
                         {item.description && (
                           <span className="text-xs text-gray-600 line-clamp-1">{item.description}</span>
                         )}

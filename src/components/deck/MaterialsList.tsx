@@ -60,43 +60,43 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
         {/* Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="flex items-center gap-2 text-blue-700 mb-1">
+            <div className="flex items-center gap-2 text-black mb-1">
               <Hammer className="w-4 h-4" />
               <span className="text-xs">Framing</span>
             </div>
-            <div className="text-blue-900">{materials.framing.length} items</div>
+            <div className="text-black">{materials.framing.length} items</div>
           </div>
           
           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <div className="flex items-center gap-2 text-green-700 mb-1">
+            <div className="flex items-center gap-2 text-black mb-1">
               <Package className="w-4 h-4" />
               <span className="text-xs">Decking</span>
             </div>
-            <div className="text-green-900">{materials.decking.length} items</div>
+            <div className="text-black">{materials.decking.length} items</div>
           </div>
           
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-            <div className="flex items-center gap-2 text-purple-700 mb-1">
+            <div className="flex items-center gap-2 text-black mb-1">
               <Fence className="w-4 h-4" />
               <span className="text-xs">Railing</span>
             </div>
-            <div className="text-purple-900">{materials.railing.length} items</div>
+            <div className="text-black">{materials.railing.length} items</div>
           </div>
           
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-            <div className="flex items-center gap-2 text-orange-700 mb-1">
+            <div className="flex items-center gap-2 text-black mb-1">
               <Wrench className="w-4 h-4" />
               <span className="text-xs">Hardware</span>
             </div>
-            <div className="text-orange-900">{materials.hardware.length} items</div>
+            <div className="text-black">{materials.hardware.length} items</div>
           </div>
         </div>
 
         {/* Total Items */}
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <div className="flex justify-between items-center">
-            <span className="text-slate-700 text-sm">Total Material Items:</span>
-            <span className="text-slate-900">{allItems.length}</span>
+            <span className="text-black text-sm">Total Material Items:</span>
+            <span className="text-black">{allItems.length}</span>
           </div>
         </div>
       </div>

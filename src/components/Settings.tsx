@@ -36,7 +36,8 @@ import {
   Users,
   Plus,
   Trash2,
-  Loader2
+  Loader2,
+  Hammer,
 } from 'lucide-react';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
@@ -698,6 +699,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             <TabsTrigger value="notifications" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Notifications</TabsTrigger>
             {canManageSettings && <TabsTrigger value="organization" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Organization</TabsTrigger>}
             {canAccessSecurity && <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Permissions</TabsTrigger>}
+            {canManageSettings && <TabsTrigger value="project-wizards" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Project Wizards</TabsTrigger>}
             {canManageSettings && <TabsTrigger value="diagnostics" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Diagnostics</TabsTrigger>}
             <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
             {(userMode === 'single' || canManageSettings) && <TabsTrigger value="billing" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Billing</TabsTrigger>}
@@ -1222,20 +1224,35 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                 </CardContent>
               </Card>
             )}
-
-            {/* Project Wizard Settings Card */}
-            {(user.role === 'super_admin' || user.role === 'admin') && (
-              <ProjectWizardSettings 
-                organizationId={user.organizationId}
-                onSave={showAlert}
-              />
-            )}
+            
+            <ThemeSelector />
           </TabsContent>
         )}
 
         {canAccessSecurity && (
           <TabsContent value="permissions" className="space-y-4">
             <Security user={user} />
+          </TabsContent>
+        )}
+
+        {canManageSettings && (
+          <TabsContent value="project-wizards" className="space-y-4">
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Hammer className="h-6 w-6" />
+                Project Wizard Settings
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure material defaults and settings for project planning tools
+              </p>
+            </div>
+            
+            {(user.role === 'super_admin' || user.role === 'admin') && (
+              <ProjectWizardSettings 
+                organizationId={user.organizationId}
+                onSave={showAlert}
+              />
+            )}
           </TabsContent>
         )}
 

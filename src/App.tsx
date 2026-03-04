@@ -28,6 +28,8 @@ import { BackgroundImportManager } from './components/BackgroundImportManager';
 import { BackgroundJobProcessor } from './components/BackgroundJobProcessor';
 import { AITaskSuggestions } from './components/AITaskSuggestions';
 import { ChangePasswordDialog } from './components/ChangePasswordDialog';
+import { AdminFixUsers } from './components/AdminFixUsers';
+import { preloadEmailAccounts, resetEmailPreloader } from './utils/email-preloader';
 // Lazy-load planners that depend on Three.js (heavy + may not resolve in all environments)
 const KitchenPlanner = React.lazy(() => import('./components/planners/KitchenPlanner').then(m => ({ default: m.KitchenPlanner })));
 const DeckPlanner = React.lazy(() => import('./components/planners/DeckPlanner').then(m => ({ default: m.DeckPlanner })));
@@ -366,7 +368,11 @@ export function AppContent() {
 
         // Eagerly preload email accounts + trigger background sync so the
         // Email tab is ready instantly when the user navigates to it.
-        preloadEmailAccounts();
+        try {
+          preloadEmailAccounts();
+        } catch (preloadErr) {
+          console.warn('[App] Email preload failed (non-critical):', preloadErr);
+        }
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -388,7 +394,11 @@ export function AppContent() {
       // Clear persisted view so user doesn't land on a protected page after logout
       sessionStorage.removeItem('prospaces_current_view');
       // Reset email preloader cache
-      resetEmailPreloader();
+      try {
+        resetEmailPreloader();
+      } catch (err) {
+        console.warn('[App] Email preloader reset failed (non-critical):', err);
+      }
     }
   };
 
@@ -500,6 +510,7 @@ export function AppContent() {
               {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
               {currentView === 'subscription-billing' && <SubscriptionBilling user={user} />}
               {currentView === 'about' && <About />}
+              {currentView === 'admin-fix-users' && <AdminFixUsers user={user} />}
             </div>
           </main>
 

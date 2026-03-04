@@ -483,7 +483,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
               return (
                 <div key={categoryGroup} className="space-y-4">
                   <div className="flex items-center gap-2 border-b pb-2">
-                    <h3 className="font-semibold text-gray-900">{categoryGroup}</h3>
+                    <h3 className="font-semibold text-black">{categoryGroup}</h3>
                     {showCF && (
                       <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
                         <Info className="h-3 w-3" />
@@ -501,7 +501,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
 
                       return (
                         <div key={category} className="space-y-2">
-                          <Label htmlFor={`${plannerType}-${selectedMaterialType}-${category}`} className="flex items-center gap-2">
+                          <Label htmlFor={`${plannerType}-${selectedMaterialType}-${category}`} className="flex items-center gap-2 text-black">
                             {category}
                             {isCustomized && (
                               <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Custom</span>

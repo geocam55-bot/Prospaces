@@ -417,7 +417,7 @@ export function SavedDeckDesigns({
           
           {saveMessage && (
             <Alert className={saveMessage.includes('success') ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}>
-              <AlertDescription className={saveMessage.includes('success') ? 'text-green-800' : 'text-yellow-800'}>
+              <AlertDescription className={saveMessage.includes('success') ? 'text-black' : 'text-black'}>
                 {saveMessage}
               </AlertDescription>
             </Alert>
@@ -492,7 +492,7 @@ export function SavedDeckDesigns({
                           {design.customer_company && (
                             <span className="text-slate-500">({design.customer_company})</span>
                           )}
-                          <span className="text-green-600 ml-2">
+                          <span className="text-black ml-2">
                             {design.price_tier.toUpperCase()}
                           </span>
                         </div>
@@ -500,7 +500,7 @@ export function SavedDeckDesigns({
                       <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                         <span>Saved {new Date(design.created_at).toLocaleDateString()}</span>
                         <span>•</span>
-                        <span className="text-green-600">${design.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-black">${design.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     </div>
                   </div>

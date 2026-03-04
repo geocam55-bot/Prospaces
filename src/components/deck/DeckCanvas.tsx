@@ -815,42 +815,42 @@ export function DeckCanvas({ config }: DeckCanvasProps) {
       {/* Specifications Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 print:hidden">
         <div className="p-3 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
-          <div className="text-xs text-purple-700 font-medium">Deck Size</div>
-          <div className="text-sm font-bold text-purple-900 mt-1">{config.width}' × {config.length}'</div>
+          <div className="text-xs text-black font-medium">Deck Size</div>
+          <div className="text-sm font-bold text-black mt-1">{config.width}' × {config.length}'</div>
         </div>
         <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-          <div className="text-xs text-blue-700 font-medium">Height</div>
-          <div className="text-sm font-bold text-blue-900 mt-1">{config.height}' from ground</div>
+          <div className="text-xs text-black font-medium">Height</div>
+          <div className="text-sm font-bold text-black mt-1">{config.height}' from ground</div>
         </div>
         <div className="p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
-          <div className="text-xs text-green-700 font-medium">Decking Type</div>
-          <div className="text-sm font-bold text-green-900 mt-1">{config.deckingType}</div>
+          <div className="text-xs text-black font-medium">Decking Type</div>
+          <div className="text-sm font-bold text-black mt-1">{config.deckingType}</div>
         </div>
         <div className="p-3 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg border border-amber-200">
-          <div className="text-xs text-amber-700 font-medium">Pattern</div>
-          <div className="text-sm font-bold text-amber-900 mt-1 capitalize">{config.deckingPattern}</div>
+          <div className="text-xs text-black font-medium">Pattern</div>
+          <div className="text-sm font-bold text-black mt-1 capitalize">{config.deckingPattern}</div>
         </div>
       </div>
 
       {/* Legend */}
       <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:hidden mt-6">
-        <h4 className="font-semibold text-slate-900 mb-3">Drawing Legend</h4>
+        <h4 className="font-semibold text-black mb-3">Drawing Legend</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-6 h-3 bg-purple-600 rounded"></div>
-            <span className="text-slate-700">Railing</span>
+            <span className="text-black">Railing</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-3 bg-amber-800 rounded"></div>
-            <span className="text-slate-700">Support Posts</span>
+            <span className="text-black">Support Posts</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-3 bg-purple-400 rounded"></div>
-            <span className="text-slate-700">Stairs</span>
+            <span className="text-black">Stairs</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-1 bg-slate-600"></div>
-            <span className="text-slate-700">Dimension Lines</span>
+            <span className="text-black">Dimension Lines</span>
           </div>
         </div>
       </div>

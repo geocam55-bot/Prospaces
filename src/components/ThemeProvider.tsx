@@ -194,7 +194,10 @@ export function useTheme() {
   if (context === undefined) {
     // Return a safe fallback instead of throwing so hot-reload and
     // component-tree race conditions don't crash the app.
-    console.warn('useTheme called outside ThemeProvider – using fallback theme');
+    // Only warn in development mode to avoid console spam
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('useTheme called outside ThemeProvider – using fallback theme');
+    }
     return fallbackContext;
   }
   return context;

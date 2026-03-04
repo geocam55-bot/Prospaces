@@ -423,7 +423,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
           {/* Quick Navigation Dropdown */}
           <div className="bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-300 rounded-lg p-4">
             <div className="flex items-center gap-3">
-              <Label htmlFor="planner-nav" className="text-sm font-medium text-slate-700 whitespace-nowrap">
+              <Label htmlFor="planner-nav" className="text-sm font-medium text-black whitespace-nowrap">
                 Jump to Planner:
               </Label>
               <Select onValueChange={scrollToPlanner}>
@@ -499,7 +499,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                         const cfValue = showCF ? getOrgCF('deck', selectedDeckType, category) : 1;
                         return (
                           <div key={category} className="space-y-2">
-                            <Label htmlFor={`deck-${selectedDeckType}-${category}`}>{category}</Label>
+                            <Label htmlFor={`deck-${selectedDeckType}-${category}`} className="text-black">{category}</Label>
                             <InventoryCombobox
                               id={`deck-${selectedDeckType}-${category}`}
                               items={inventoryItems}
@@ -523,7 +523,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         onChange={(e) => handleCFInputChange('deck', selectedDeckType, category, e.target.value)}
                                         onBlur={() => handleCFInputBlur('deck', selectedDeckType, category)}
                                         placeholder="1"
-                                        className="h-7 w-24 text-xs"
+                                        className="h-7 w-24 text-xs text-black"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
                                       />
                                       {cfValue !== 1 && editVal === undefined && (
@@ -569,7 +569,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                         const cfValue = showCF ? getOrgCF('garage', null, category) : 1;
                         return (
                           <div key={category} className="space-y-2">
-                            <Label htmlFor={`garage-${category}`}>{category}</Label>
+                            <Label htmlFor={`garage-${category}`} className="text-black">{category}</Label>
                             <InventoryCombobox
                               id={`garage-${category}`}
                               items={inventoryItems}
@@ -593,7 +593,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         onChange={(e) => handleCFInputChange('garage', null, category, e.target.value)}
                                         onBlur={() => handleCFInputBlur('garage', null, category)}
                                         placeholder="1"
-                                        className="h-7 w-24 text-xs"
+                                        className="h-7 w-24 text-xs text-black"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
                                       />
                                       {cfValue !== 1 && editVal === undefined && (
@@ -639,7 +639,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                         const cfValue = showCF ? getOrgCF('shed', null, category) : 1;
                         return (
                           <div key={category} className="space-y-2">
-                            <Label htmlFor={`shed-${category}`}>{category}</Label>
+                            <Label htmlFor={`shed-${category}`} className="text-black">{category}</Label>
                             <InventoryCombobox
                               id={`shed-${category}`}
                               items={inventoryItems}
@@ -663,7 +663,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         onChange={(e) => handleCFInputChange('shed', null, category, e.target.value)}
                                         onBlur={() => handleCFInputBlur('shed', null, category)}
                                         placeholder="1"
-                                        className="h-7 w-24 text-xs"
+                                        className="h-7 w-24 text-xs text-black"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
                                       />
                                       {cfValue !== 1 && editVal === undefined && (
@@ -709,7 +709,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                         const cfValue = showCF ? getOrgCF('roof', null, category) : 1;
                         return (
                           <div key={category} className="space-y-2">
-                            <Label htmlFor={`roof-${category}`}>{category}</Label>
+                            <Label htmlFor={`roof-${category}`} className="text-black">{category}</Label>
                             <InventoryCombobox
                               id={`roof-${category}`}
                               items={inventoryItems}
@@ -733,7 +733,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         onChange={(e) => handleCFInputChange('roof', null, category, e.target.value)}
                                         onBlur={() => handleCFInputBlur('roof', null, category)}
                                         placeholder="1"
-                                        className="h-7 w-24 text-xs"
+                                        className="h-7 w-24 text-xs text-black"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
                                       />
                                       {cfValue !== 1 && editVal === undefined && (

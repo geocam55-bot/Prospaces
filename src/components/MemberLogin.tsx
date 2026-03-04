@@ -89,6 +89,8 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
         if (activeError.message.toLowerCase().includes('email not confirmed') ||
             activeError.message.includes('Invalid login credentials')) {
           console.log('🔧 MemberLogin: Sign-in failed. Attempting auto-confirm email fix...');
+          console.log('📧 Email:', email);
+          console.log('❌ Error:', activeError.message);
           try {
             const confirmResp = await fetch(
               `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/confirm-email`,
@@ -98,6 +100,9 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
                 body: JSON.stringify({ email }),
               }
             );
+            const confirmResult = await confirmResp.json();
+            console.log('🔧 Confirm email response:', confirmResp.status, confirmResult);
+            
             if (confirmResp.ok) {
               console.log('✅ Email confirmed server-side. Retrying sign-in...');
               const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({ email, password });
@@ -105,7 +110,11 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
                 console.log('✅ Retry sign-in successful after email confirmation fix!');
                 activeSignIn = retryData;
                 activeError = null;
+              } else if (retryError) {
+                console.log('❌ Retry sign-in still failed:', retryError.message);
               }
+            } else {
+              console.log('⚠️ Email confirmation endpoint returned error:', confirmResult.error);
             }
           } catch (confirmErr) {
             console.warn('⚠️ Auto-confirm attempt failed:', confirmErr);
@@ -118,7 +127,7 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
           }
           if (activeError.message.includes('Invalid login credentials')) {
             console.log('[MemberLogin] Invalid credentials error:', { email, errorMessage: activeError.message });
-            throw new Error('Invalid email or password.');
+            throw new Error('Invalid email or password. Please check your credentials and try again.');
           }
           // Log unexpected errors for debugging
           console.warn('[MemberLogin] Unexpected sign-in error:', activeError.message);
