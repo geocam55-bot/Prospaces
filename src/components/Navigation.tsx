@@ -127,7 +127,7 @@ export function Navigation({
       hasSubmenu: true,
       submenu: [
         { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-        ...(organization?.appointments_enabled !== false ? [{ id: 'appointments', label: 'Appointments', icon: Calendar }] : []),
+        ...(organization?.appointments_enabled !== false && canView('appointments', user.role) ? [{ id: 'appointments', label: 'Appointments', icon: Calendar }] : []),
       ]
     },
     // Only show Documents if enabled for the organization
