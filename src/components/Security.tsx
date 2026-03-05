@@ -107,6 +107,7 @@ export function Security({ user }: SecurityProps) {
     director: 'Director',
     manager: 'Manager',
     marketing: 'Marketing',
+    designer: 'Designer',
     standard_user: 'Standard User',
   };
 
