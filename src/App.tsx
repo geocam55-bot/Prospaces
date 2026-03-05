@@ -23,6 +23,7 @@ import { ManagerDashboard } from './components/ManagerDashboard';
 import { Security } from './components/Security';
 import { AuditLog } from './components/AuditLog';
 import { ImportExport } from './components/ImportExport';
+import { SubscriptionAgreement } from './components/SubscriptionAgreement';
 import { ScheduledJobs } from './components/ScheduledJobs';
 import { BackgroundImportManager } from './components/BackgroundImportManager';
 import { BackgroundJobProcessor } from './components/BackgroundJobProcessor';
@@ -517,6 +518,7 @@ export function AppContent() {
               {currentView === 'roof-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="roof-planner"><Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense></PlannerErrorBoundary>}
               {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
               {currentView === 'subscription-billing' && <SubscriptionBilling user={user} />}
+              {currentView === 'subscription-agreement' && <SubscriptionAgreement />}
               {currentView === 'about' && <About />}
               {currentView === 'admin-fix-users' && <AdminFixUsers user={user} />}
             </div>

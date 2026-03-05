@@ -76,6 +76,7 @@
 @layer theme {
   :root, :host {
     --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     --color-red-50: oklch(.971 .013 17.38);
     --color-red-100: oklch(.936 .032 17.717);
@@ -1001,6 +1002,10 @@
 
   .my-4 {
     margin-block: calc(var(--spacing) * 4);
+  }
+
+  .my-8 {
+    margin-block: calc(var(--spacing) * 8);
   }
 
   .-mt-20 {
@@ -4601,6 +4606,10 @@
     font-family: var(--font-sans);
   }
 
+  .font-serif {
+    font-family: var(--font-serif);
+  }
+
   .text-2xl {
     font-size: var(--text-2xl);
     line-height: var(--tw-leading, var(--text-2xl--line-height));
@@ -5329,6 +5338,11 @@
 
   .shadow-md {
     --tw-shadow: 0 4px 6px -1px var(--tw-shadow-color, #0000001a), 0 2px 4px -2px var(--tw-shadow-color, #0000001a);
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+
+  .shadow-none {
+    --tw-shadow: 0 0 #0000;
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
 
@@ -7527,6 +7541,12 @@
   }
 
   @media (width >= 40rem) {
+    .sm\:p-12 {
+      padding: calc(var(--spacing) * 12);
+    }
+  }
+
+  @media (width >= 40rem) {
     .sm\:px-0 {
       padding-inline: calc(var(--spacing) * 0);
     }
@@ -8068,6 +8088,12 @@
   }
 
   @media (width >= 64rem) {
+    .lg\:p-8 {
+      padding: calc(var(--spacing) * 8);
+    }
+  }
+
+  @media (width >= 64rem) {
     .lg\:px-8 {
       padding-inline: calc(var(--spacing) * 8);
     }
@@ -8572,6 +8598,12 @@
   }
 
   @media print {
+    .print\:h-auto {
+      height: auto;
+    }
+  }
+
+  @media print {
     .print\:max-w-none {
       max-width: none;
     }
@@ -8670,6 +8702,13 @@
   }
 
   @media print {
+    .print\:border-none {
+      --tw-border-style: none;
+      border-style: none;
+    }
+  }
+
+  @media print {
     .print\:border-amber-600 {
       border-color: var(--color-amber-600);
     }
@@ -8727,6 +8766,12 @@
     .print\:text-base {
       font-size: var(--text-base);
       line-height: var(--tw-leading, var(--text-base--line-height));
+    }
+  }
+
+  @media print {
+    .print\:opacity-100 {
+      opacity: 1;
     }
   }
 

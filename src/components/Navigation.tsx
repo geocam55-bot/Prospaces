@@ -195,9 +195,10 @@ export function Navigation({
       submenuItems.push({ id: 'settings', label: 'Settings', icon: Settings });
     }
 
-    // Add Billing for admin roles
+    // Add Billing and Subscription Agreement for admin roles
     if (['admin', 'super_admin'].includes(user.role)) {
       submenuItems.push({ id: 'subscription-billing', label: 'Billing', icon: CreditCard });
+      submenuItems.push({ id: 'subscription-agreement', label: 'Subscription Agreement', icon: FileText });
     }
     
     return submenuItems;
