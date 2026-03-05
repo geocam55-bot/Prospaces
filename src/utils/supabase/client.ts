@@ -4,6 +4,17 @@ import type { Database } from '../../src/types/database.types';
 
 let supabaseClient: ReturnType<typeof createSupabaseClient<Database>> | null = null;
 
+export function getSupabaseUrl() {
+  let envUrl;
+  try {
+    // @ts-ignore
+    envUrl = process.env.SUPABASE_URL;
+  } catch (e) {
+    // process is not defined, ignore
+  }
+  return envUrl || `https://${projectId}.supabase.co`;
+}
+
 export function createClient() {
   if (supabaseClient) {
     return supabaseClient;

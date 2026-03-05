@@ -13,7 +13,7 @@ import {
   ArrowLeft,
   ShieldCheck,
 } from 'lucide-react';
-import { createClient } from '../utils/supabase/client';
+import { createClient, getSupabaseUrl } from '../utils/supabase/client';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import type { User, UserRole } from '../App';
@@ -93,7 +93,7 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
           console.log('❌ Error:', activeError.message);
           try {
             const confirmResp = await fetch(
-              `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/confirm-email`,
+              `${getSupabaseUrl()}/functions/v1/make-server-8405be07/confirm-email`,
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${publicAnonKey}` },
@@ -129,6 +129,12 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
             console.log('[MemberLogin] Invalid credentials error:', { email, errorMessage: activeError.message });
             throw new Error('Invalid email or password. Please check your credentials and try again.');
           }
+          
+          if (activeError.message === 'Failed to fetch') {
+            console.warn('[MemberLogin] Network error (Failed to fetch). Supabase server might be paused or unreachable.');
+            throw new Error('Unable to connect to server. Please check your internet connection or verify that the Supabase project is active.');
+          }
+
           // Log unexpected errors for debugging
           console.warn('[MemberLogin] Unexpected sign-in error:', activeError.message);
           throw new Error(activeError.message);
@@ -146,7 +152,7 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
       try {
         console.log('📋 Calling /profiles/ensure for profile resolution...');
         const serverResp = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles/ensure`,
+          `${getSupabaseUrl()}/functions/v1/make-server-8405be07/profiles/ensure`,
           {
             method: 'GET',
             headers: {
@@ -195,7 +201,7 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
             // Attempt server-side ID fix
             try {
               const fixResp = await fetch(
-                `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/fix-profile-mismatch`,
+                `${getSupabaseUrl()}/functions/v1/make-server-8405be07/fix-profile-mismatch`,
                 {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${publicAnonKey}` },

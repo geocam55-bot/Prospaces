@@ -13,11 +13,11 @@ import { getAllNotesClient, createNoteClient, deleteNoteClient, getNotesByContac
 import { getUserPreferencesClient, upsertUserPreferencesClient, getOrganizationSettingsClient, upsertOrganizationSettingsClient, updateOrganizationNameClient, updateUserProfileClient, getOrgMode, setOrgMode } from './settings-client';
 import { getJourneys, createJourney, updateJourney, deleteJourney, getLandingPages, createLandingPage, updateLandingPage, deleteLandingPage, getLeadScores, updateLeadScore, getScoringRules, createScoringRule, updateScoringRule, deleteScoringRule, getLeadScoreStats } from './marketing-client';
 import { getServerHeaders } from './server-headers';
-import { projectId } from './supabase/info';
+import { getSupabaseUrl } from './supabase/client';
 
 const supabase = createClient();
 
-const BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
+const BASE = `${getSupabaseUrl()}/functions/v1/make-server-8405be07`;
 
 let accessToken: string | null = null;
 
@@ -400,7 +400,7 @@ export const emailAPI = {
     try {
       const headers = await getServerHeaders();
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
+        `${BASE}/email-accounts`,
         { headers }
       );
       if (!res.ok) {
@@ -417,7 +417,7 @@ export const emailAPI = {
   addAccount: async (accountData: any) => {
     const headers = await getServerHeaders();
     const res = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
+      `${BASE}/email-accounts`,
       { method: 'POST', headers, body: JSON.stringify(accountData) }
     );
     if (!res.ok) throw new Error('Failed to add email account');
@@ -427,7 +427,7 @@ export const emailAPI = {
   deleteAccount: async (id: string) => {
     const headers = await getServerHeaders();
     const res = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts/${id}`,
+      `${BASE}/email-accounts/${id}`,
       { method: 'DELETE', headers }
     );
     if (!res.ok) throw new Error('Failed to delete email account');
@@ -437,7 +437,7 @@ export const emailAPI = {
     try {
       const headers = await getServerHeaders();
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-sync`,
+        `${BASE}/email-sync`,
         { method: 'POST', headers, body: JSON.stringify({ accountId: id, limit: 50 }) }
       );
       if (!res.ok) throw new Error('Sync failed');

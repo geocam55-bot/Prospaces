@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Building2, AlertCircle, Info, ArrowLeft } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { authAPI } from '../utils/api';
-import { createClient } from '../utils/supabase/client';
+import { createClient, getSupabaseUrl } from '../utils/supabase/client';
 import type { User, UserRole } from '../App';
 import { CompleteDatabaseSetup } from './CompleteDatabaseSetup';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
@@ -146,7 +146,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
               console.log('🔧 Profile exists but login failed. Attempting auto-confirm email fix...');
               try {
                 const confirmResp = await fetch(
-                  `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/confirm-email`,
+                  `${getSupabaseUrl()}/functions/v1/make-server-8405be07/confirm-email`,
                   {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${publicAnonKey}` },
@@ -205,7 +205,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
       try {
         console.log('📋 Calling /profiles/ensure for profile resolution...');
         const serverResp = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles/ensure`,
+          `${getSupabaseUrl()}/functions/v1/make-server-8405be07/profiles/ensure`,
           {
             method: 'GET',
             headers: {
@@ -334,7 +334,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
             console.log('🔄 Retry path: Profile not found. Delegating to server-side /profiles/ensure...');
             try {
               const serverResp = await fetch(
-                `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles/ensure`,
+                `${getSupabaseUrl()}/functions/v1/make-server-8405be07/profiles/ensure`,
                 {
                   method: 'GET',
                   headers: {
