@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Separator } from './ui/separator';
 import { Calendar, Download, Printer, FileText, ArrowLeft, Save, Edit2, Check, X } from 'lucide-react';
 import { Logo } from './Logo';
-import { subscriptionAgreementAPI } from '../utils/api';
+import { subscriptionAgreementAPI, settingsAPI } from '../utils/api';
 import { toast } from 'sonner@2.0.3';
 import type { Organization } from '../App';
 
@@ -57,10 +57,12 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
   const [editingService, setEditingService] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [taxRate, setTaxRate] = useState<number>(0);
+  const [taxRate2, setTaxRate2] = useState<number>(0);
 
-  // Load saved agreement data
+  // Load saved agreement data and organization settings
   useEffect(() => {
-    const loadAgreement = async () => {
+    const loadData = async () => {
       if (organization?.id) {
         setIsLoading(true);
         try {
@@ -78,8 +80,22 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
           setIsLoading(false);
         }
       }
+      
+      // Load SuperAdmin tax rates
+      try {
+        const orgId = localStorage.getItem('currentOrgId');
+        if (orgId) {
+          const settings = await settingsAPI.getOrganizationSettings(orgId);
+          if (settings) {
+            setTaxRate(settings.tax_rate ?? 0);
+            setTaxRate2(settings.tax_rate_2 ?? 0);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load global tax settings:', err);
+      }
     };
-    loadAgreement();
+    loadData();
   }, [organization?.id]);
 
   // Prefill with organization data when available
@@ -100,7 +116,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
     { id: 'deals', name: 'Deal Pipeline', description: 'Visual sales pipeline with stage tracking', price: 0 },
     { id: 'quotes', name: 'Quotes & Proposals', description: 'Professional quote generation and tracking', price: 0 },
     { id: 'projects', name: 'Project Management', description: 'Task management, timelines, and collaboration', price: 29 },
-    { id: '3d-planner', name: '3D Planner Modules', description: 'Kitchen & Garage 3D visualization tools', price: 49 },
+    { id: '3d-planner', name: '3D Planner Modules', description: 'Deck & Garage 3D visualization tools', price: 49 },
     { id: 'ai-suggestions', name: 'AI Suggestions', description: 'Intelligent recommendations and insights', price: 39 },
     { id: 'marketing', name: 'Marketing Automation', description: 'Email campaigns, templates, and tracking', price: 29 },
     { id: 'reports', name: 'Advanced Reports', description: 'Custom reports and data exports', price: 19 },
@@ -179,6 +195,20 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
     // Apply per-user pricing to modules and base fee
     const modulesCostTotal = modulesCost * numberOfUsers;
     const baseFeeTotal = baseFee * numberOfUsers;
+    const monthlyRecurring = modulesCostTotal + baseFeeTotal;
+    
+    // Tax calculation
+    const taxAmount1 = taxRate > 0 ? (monthlyRecurring * taxRate) / 100 : 0;
+    const taxAmount2 = taxRate2 > 0 ? (monthlyRecurring * taxRate2) / 100 : 0;
+    const totalMonthlyTax = taxAmount1 + taxAmount2;
+
+    const setupTax1 = taxRate > 0 ? (setupFee * taxRate) / 100 : 0;
+    const setupTax2 = taxRate2 > 0 ? (setupFee * taxRate2) / 100 : 0;
+    const totalSetupTax = setupTax1 + setupTax2;
+
+    const servicesTax1 = taxRate > 0 ? (servicesCost * taxRate) / 100 : 0;
+    const servicesTax2 = taxRate2 > 0 ? (servicesCost * taxRate2) / 100 : 0;
+    const totalServicesTax = servicesTax1 + servicesTax2;
 
     return {
       modules: modulesCost,
@@ -188,8 +218,12 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
       baseTotal: baseFeeTotal,
       setup: setupFee,
       numberOfUsers: numberOfUsers,
-      monthlyRecurring: modulesCostTotal + baseFeeTotal,
-      total: modulesCostTotal + servicesCost + baseFeeTotal + setupFee
+      monthlyRecurring: monthlyRecurring,
+      monthlyTax: totalMonthlyTax,
+      monthlyTotalWithTax: monthlyRecurring + totalMonthlyTax,
+      setupTax: totalSetupTax,
+      servicesTax: totalServicesTax,
+      total: monthlyRecurring + totalMonthlyTax + servicesCost + totalServicesTax + baseFeeTotal + setupFee + totalSetupTax // Check logical sum
     };
   };
 
@@ -751,9 +785,21 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                     <span>Monthly Recurring Total ({totals.numberOfUsers} user{totals.numberOfUsers !== 1 ? 's' : ''}):</span>
                     <span className="text-purple-600">${totals.monthlyRecurring.toFixed(2)}/month</span>
                   </div>
-                  <div className="flex justify-between text-base font-semibold">
+                  {totals.monthlyTax > 0 && (
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>Monthly Tax:</span>
+                      <span>${totals.monthlyTax.toFixed(2)}/month</span>
+                    </div>
+                  )}
+                  {totals.monthlyTax > 0 && (
+                    <div className="flex justify-between text-base font-semibold">
+                      <span>Total Monthly (w/ Tax):</span>
+                      <span className="text-purple-600">${totals.monthlyTotalWithTax.toFixed(2)}/month</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-base font-semibold mt-2">
                     <span>First Payment Due:</span>
-                    <span className="text-purple-600">${(totals.monthlyRecurring + totals.setup).toFixed(2)}</span>
+                    <span className="text-purple-600">${(totals.monthlyTotalWithTax + totals.setup + totals.setupTax + totals.services + totals.servicesTax).toFixed(2)}</span>
                   </div>
                 </div>
 
