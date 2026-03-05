@@ -341,6 +341,47 @@ export const tenantsAPI = {
   },
 };
 
+// Subscription Agreement APIs - use KV store
+export const subscriptionAgreementAPI = {
+  get: async (organizationId: string) => {
+    const hdrs = await getServerHeaders();
+    const resp = await fetch(`${BASE}/kv/get/subscription_agreement_${organizationId}`, {
+      headers: hdrs,
+    });
+    if (!resp.ok) {
+      if (resp.status === 404) return { agreement: null };
+      throw new Error('Failed to fetch subscription agreement');
+    }
+    const result = await resp.json();
+    let parsedAgreement = result.value;
+    if (typeof parsedAgreement === 'string') {
+      try {
+        parsedAgreement = JSON.parse(parsedAgreement);
+      } catch (e) {
+        console.error('Failed to parse agreement data', e);
+      }
+    }
+    return { agreement: parsedAgreement || null };
+  },
+  save: async (organizationId: string, agreementData: any) => {
+    const hdrs = await getServerHeaders();
+    const resp = await fetch(`${BASE}/kv/set`, {
+      method: 'POST',
+      headers: hdrs,
+      body: JSON.stringify({
+        key: `subscription_agreement_${organizationId}`,
+        value: agreementData,
+      }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error('Failed to save subscription agreement:', errText);
+      throw new Error(`Failed to save subscription agreement: ${resp.status}`);
+    }
+    return await resp.json();
+  },
+};
+
 // Inventory APIs - use direct Supabase client
 export const inventoryAPI = {
   getAll: () => getAllInventoryClient(),

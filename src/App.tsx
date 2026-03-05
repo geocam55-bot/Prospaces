@@ -518,7 +518,7 @@ export function AppContent() {
               {currentView === 'roof-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="roof-planner"><Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense></PlannerErrorBoundary>}
               {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
               {currentView === 'subscription-billing' && <SubscriptionBilling user={user} />}
-              {currentView === 'subscription-agreement' && <SubscriptionAgreement />}
+              {currentView === 'subscription-agreement' && <SubscriptionAgreement organization={organization} />}
               {currentView === 'about' && <About />}
               {currentView === 'admin-fix-users' && <AdminFixUsers user={user} />}
             </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -6,8 +6,11 @@ import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Separator } from './ui/separator';
-import { Calendar, Download, Printer, FileText } from 'lucide-react';
+import { Calendar, Download, Printer, FileText, ArrowLeft, Save, Edit2, Check, X } from 'lucide-react';
 import { Logo } from './Logo';
+import { subscriptionAgreementAPI } from '../utils/api';
+import { toast } from 'sonner@2.0.3';
+import type { Organization } from '../App';
 
 interface Module {
   id: string;
@@ -23,7 +26,12 @@ interface Service {
   price?: number;
 }
 
-export function SubscriptionAgreement() {
+interface SubscriptionAgreementProps {
+  organization?: Organization | null;
+  onBack?: () => void;
+}
+
+export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgreementProps) {
   const [agreementData, setAgreementData] = useState({
     clientName: '',
     clientCompany: '',
@@ -31,6 +39,7 @@ export function SubscriptionAgreement() {
     clientEmail: '',
     startDate: new Date().toISOString().split('T')[0],
     duration: '12',
+    numberOfUsers: '5', // Default to 5 users
     baseFee: '',
     setupFee: '',
     additionalNotes: '',
@@ -42,6 +51,48 @@ export function SubscriptionAgreement() {
 
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [moduleOverrides, setModuleOverrides] = useState<Record<string, { price?: number; description?: string }>>({});
+  const [serviceOverrides, setServiceOverrides] = useState<Record<string, { price?: number; description?: string }>>({});
+  const [editingModule, setEditingModule] = useState<string | null>(null);
+  const [editingService, setEditingService] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Load saved agreement data
+  useEffect(() => {
+    const loadAgreement = async () => {
+      if (organization?.id) {
+        setIsLoading(true);
+        try {
+          const { agreement } = await subscriptionAgreementAPI.get(organization.id);
+          if (agreement) {
+            setAgreementData(agreement.data || agreementData);
+            setSelectedModules(agreement.selectedModules || []);
+            setSelectedServices(agreement.selectedServices || []);
+            setModuleOverrides(agreement.moduleOverrides || {});
+            setServiceOverrides(agreement.serviceOverrides || {});
+          }
+        } catch (error) {
+          console.error('Failed to load subscription agreement:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    loadAgreement();
+  }, [organization?.id]);
+
+  // Prefill with organization data when available
+  useEffect(() => {
+    if (organization && !isLoading) {
+      setAgreementData(prev => ({
+        ...prev,
+        clientCompany: prev.clientCompany || organization.name || '',
+        clientAddress: prev.clientAddress || (organization as any).address || '',
+        clientEmail: prev.clientEmail || (organization as any).billingEmail || '',
+      }));
+    }
+  }, [organization, isLoading]);
 
   const modules: Module[] = [
     { id: 'dashboard', name: 'Dashboard & Analytics', description: 'Real-time metrics, charts, and KPI tracking', price: 0 },
@@ -78,25 +129,67 @@ export function SubscriptionAgreement() {
     );
   };
 
+  const handleSave = async () => {
+    if (!organization?.id) {
+      toast.error('No organization selected');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await subscriptionAgreementAPI.save(organization.id, {
+        data: agreementData,
+        selectedModules,
+        selectedServices,
+        moduleOverrides,
+        serviceOverrides,
+        savedAt: new Date().toISOString(),
+      });
+      toast.success('Subscription agreement saved successfully');
+    } catch (error) {
+      console.error('Failed to save subscription agreement:', error);
+      toast.error('Failed to save subscription agreement');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const calculateTotal = () => {
+    const numberOfUsers = parseInt(agreementData.numberOfUsers) || 1;
+    
     const modulesCost = modules
       .filter(m => selectedModules.includes(m.id))
-      .reduce((sum, m) => sum + (m.price || 0), 0);
+      .reduce((sum, m) => {
+        const overridePrice = moduleOverrides[m.id]?.price;
+        const price = overridePrice !== undefined ? overridePrice : (m.price || 0);
+        return sum + price;
+      }, 0);
     
     const servicesCost = services
       .filter(s => selectedServices.includes(s.id))
-      .reduce((sum, s) => sum + (s.price || 0), 0);
+      .reduce((sum, s) => {
+        const overridePrice = serviceOverrides[s.id]?.price;
+        const price = overridePrice !== undefined ? overridePrice : (s.price || 0);
+        return sum + price;
+      }, 0);
 
     const baseFee = parseFloat(agreementData.baseFee) || 0;
     const setupFee = parseFloat(agreementData.setupFee) || 0;
 
+    // Apply per-user pricing to modules and base fee
+    const modulesCostTotal = modulesCost * numberOfUsers;
+    const baseFeeTotal = baseFee * numberOfUsers;
+
     return {
       modules: modulesCost,
+      modulesTotal: modulesCostTotal,
       services: servicesCost,
       base: baseFee,
+      baseTotal: baseFeeTotal,
       setup: setupFee,
-      monthlyRecurring: modulesCost + baseFee,
-      total: modulesCost + servicesCost + baseFee + setupFee
+      numberOfUsers: numberOfUsers,
+      monthlyRecurring: modulesCostTotal + baseFeeTotal,
+      total: modulesCostTotal + servicesCost + baseFeeTotal + setupFee
     };
   };
 
@@ -106,11 +199,38 @@ export function SubscriptionAgreement() {
 
   const totals = calculateTotal();
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading subscription agreement...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto">
         {/* Action Buttons - Hidden when printing */}
         <div className="flex gap-3 mb-6 print:hidden">
+          {onBack && (
+            <Button onClick={onBack} variant="outline" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Organizations
+            </Button>
+          )}
+          {organization && (
+            <Button 
+              onClick={handleSave} 
+              disabled={isSaving}
+              className="flex items-center gap-2"
+            >
+              <Save className="h-4 w-4" />
+              {isSaving ? 'Saving...' : 'Save Agreement'}
+            </Button>
+          )}
           <Button onClick={handlePrint} variant="outline" className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
             Print Agreement
@@ -283,7 +403,7 @@ export function SubscriptionAgreement() {
             {/* Agreement Duration */}
             <div className="mb-8">
               <h3 className="font-semibold text-lg mb-4">SUBSCRIPTION PERIOD</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg">
                 <div>
                   <Label htmlFor="startDate" className="text-xs flex items-center gap-2">
                     <Calendar className="h-3 w-3" />
@@ -313,10 +433,27 @@ export function SubscriptionAgreement() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <Label htmlFor="numberOfUsers" className="text-xs">Number of Users</Label>
+                  <Input
+                    id="numberOfUsers"
+                    type="number"
+                    min="1"
+                    value={agreementData.numberOfUsers}
+                    onChange={(e) => setAgreementData({ ...agreementData, numberOfUsers: e.target.value })}
+                    className="mt-1 print:border-none print:p-0 print:h-auto"
+                    placeholder="5"
+                  />
+                </div>
               </div>
-              <p className="text-sm text-gray-600 mt-2">
-                Agreement End Date: {new Date(new Date(agreementData.startDate).setMonth(new Date(agreementData.startDate).getMonth() + parseInt(agreementData.duration))).toLocaleDateString()}
-              </p>
+              <div className="flex flex-col gap-1 mt-2">
+                <p className="text-sm text-gray-600">
+                  Agreement End Date: {new Date(new Date(agreementData.startDate).setMonth(new Date(agreementData.startDate).getMonth() + parseInt(agreementData.duration))).toLocaleDateString()}
+                </p>
+                <p className="text-sm text-gray-600">
+                  Licensed Users: {agreementData.numberOfUsers || 0} user{parseInt(agreementData.numberOfUsers) !== 1 ? 's' : ''}
+                </p>
+              </div>
             </div>
 
             <Separator className="my-8" />
@@ -327,27 +464,102 @@ export function SubscriptionAgreement() {
               <p className="text-sm text-gray-600 mb-4">Select the modules to be included in this subscription:</p>
               
               <div className="space-y-2">
-                {modules.map((module) => (
-                  <div key={module.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-200">
-                    <Checkbox
-                      id={`module-${module.id}`}
-                      checked={selectedModules.includes(module.id)}
-                      onCheckedChange={() => toggleModule(module.id)}
-                      className="mt-1 print:opacity-100"
-                    />
-                    <div className="flex-1">
-                      <Label htmlFor={`module-${module.id}`} className="font-medium cursor-pointer">
-                        {module.name}
-                      </Label>
-                      <p className="text-xs text-gray-600 mt-0.5">{module.description}</p>
+                {modules.map((module) => {
+                  const isEditing = editingModule === module.id;
+                  const overridePrice = moduleOverrides[module.id]?.price;
+                  const overrideDescription = moduleOverrides[module.id]?.description;
+                  const displayPrice = overridePrice !== undefined ? overridePrice : module.price;
+                  const displayDescription = overrideDescription || module.description;
+                  
+                  return (
+                    <div key={module.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-200">
+                      <Checkbox
+                        id={`module-${module.id}`}
+                        checked={selectedModules.includes(module.id)}
+                        onCheckedChange={() => toggleModule(module.id)}
+                        className="mt-1 print:opacity-100"
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor={`module-${module.id}`} className="font-medium cursor-pointer">
+                          {module.name}
+                        </Label>
+                        {isEditing ? (
+                          <Input
+                            value={overrideDescription || module.description}
+                            onChange={(e) => setModuleOverrides(prev => ({
+                              ...prev,
+                              [module.id]: { ...prev[module.id], description: e.target.value }
+                            }))}
+                            className="text-xs mt-1"
+                            placeholder="Module description"
+                          />
+                        ) : (
+                          <p className="text-xs text-gray-600 mt-0.5">{displayDescription}</p>
+                        )}
+                      </div>
+                      <div className="text-right flex items-center gap-2">
+                        {isEditing ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs">$</span>
+                            <Input
+                              type="number"
+                              value={overridePrice !== undefined ? overridePrice : module.price}
+                              onChange={(e) => setModuleOverrides(prev => ({
+                                ...prev,
+                                [module.id]: { ...prev[module.id], price: parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-20 h-8 text-sm"
+                              placeholder="0"
+                            />
+                            <span className="text-xs">/mo</span>
+                          </div>
+                        ) : (
+                          <p className="text-sm font-semibold">
+                            {displayPrice === 0 ? 'Included' : `$${displayPrice}/mo`}
+                          </p>
+                        )}
+                        <div className="print:hidden flex gap-1">
+                          {isEditing ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                onClick={() => setEditingModule(null)}
+                              >
+                                <Check className="h-3 w-3 text-green-600" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                onClick={() => {
+                                  setModuleOverrides(prev => {
+                                    const newOverrides = { ...prev };
+                                    delete newOverrides[module.id];
+                                    return newOverrides;
+                                  });
+                                  setEditingModule(null);
+                                }}
+                              >
+                                <X className="h-3 w-3 text-red-600" />
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              onClick={() => setEditingModule(module.id)}
+                            >
+                              <Edit2 className="h-3 w-3 text-gray-500" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold">
-                        {module.price === 0 ? 'Included' : `$${module.price}/mo`}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -359,27 +571,104 @@ export function SubscriptionAgreement() {
               <p className="text-sm text-gray-600 mb-4">Select additional services (one-time or monthly fees as noted):</p>
               
               <div className="space-y-2">
-                {services.map((service) => (
-                  <div key={service.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-200">
-                    <Checkbox
-                      id={`service-${service.id}`}
-                      checked={selectedServices.includes(service.id)}
-                      onCheckedChange={() => toggleService(service.id)}
-                      className="mt-1 print:opacity-100"
-                    />
-                    <div className="flex-1">
-                      <Label htmlFor={`service-${service.id}`} className="font-medium cursor-pointer">
-                        {service.name}
-                      </Label>
-                      <p className="text-xs text-gray-600 mt-0.5">{service.description}</p>
+                {services.map((service) => {
+                  const isEditing = editingService === service.id;
+                  const overridePrice = serviceOverrides[service.id]?.price;
+                  const overrideDescription = serviceOverrides[service.id]?.description;
+                  const displayPrice = overridePrice !== undefined ? overridePrice : service.price;
+                  const displayDescription = overrideDescription || service.description;
+                  
+                  return (
+                    <div key={service.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-200">
+                      <Checkbox
+                        id={`service-${service.id}`}
+                        checked={selectedServices.includes(service.id)}
+                        onCheckedChange={() => toggleService(service.id)}
+                        className="mt-1 print:opacity-100"
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor={`service-${service.id}`} className="font-medium cursor-pointer">
+                          {service.name}
+                        </Label>
+                        {isEditing ? (
+                          <Input
+                            value={overrideDescription || service.description}
+                            onChange={(e) => setServiceOverrides(prev => ({
+                              ...prev,
+                              [service.id]: { ...prev[service.id], description: e.target.value }
+                            }))}
+                            className="text-xs mt-1"
+                            placeholder="Service description"
+                          />
+                        ) : (
+                          <p className="text-xs text-gray-600 mt-0.5">{displayDescription}</p>
+                        )}
+                      </div>
+                      <div className="text-right flex items-center gap-2">
+                        {isEditing ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs">$</span>
+                            <Input
+                              type="number"
+                              value={overridePrice !== undefined ? overridePrice : service.price}
+                              onChange={(e) => setServiceOverrides(prev => ({
+                                ...prev,
+                                [service.id]: { ...prev[service.id], price: parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-20 h-8 text-sm"
+                              placeholder="0"
+                            />
+                            <span className="text-xs text-gray-600">
+                              {service.id === 'support-priority' ? '/mo' : '(one-time)'}
+                            </span>
+                          </div>
+                        ) : (
+                          <p className="text-sm font-semibold">
+                            {service.id === 'support-priority' ? `$${displayPrice}/mo` : `$${displayPrice} (one-time)`}
+                          </p>
+                        )}
+                        <div className="print:hidden flex gap-1">
+                          {isEditing ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                onClick={() => setEditingService(null)}
+                              >
+                                <Check className="h-3 w-3 text-green-600" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0"
+                                onClick={() => {
+                                  setServiceOverrides(prev => {
+                                    const newOverrides = { ...prev };
+                                    delete newOverrides[service.id];
+                                    return newOverrides;
+                                  });
+                                  setEditingService(null);
+                                }}
+                              >
+                                <X className="h-3 w-3 text-red-600" />
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              onClick={() => setEditingService(service.id)}
+                            >
+                              <Edit2 className="h-3 w-3 text-gray-500" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold">
-                        {service.id === 'support-priority' ? `$${service.price}/mo` : `$${service.price} (one-time)`}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -428,13 +717,25 @@ export function SubscriptionAgreement() {
                 {/* Cost Breakdown */}
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-700">Base Platform Fee:</span>
+                    <span className="text-gray-700">Base Platform Fee (per user):</span>
                     <span className="font-medium">${totals.base.toFixed(2)}/month</span>
                   </div>
+                  {totals.numberOfUsers > 1 && (
+                    <div className="flex justify-between text-xs text-gray-600 ml-4">
+                      <span>× {totals.numberOfUsers} users</span>
+                      <span>${totals.baseTotal.toFixed(2)}/month</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
-                    <span className="text-gray-700">Selected Modules:</span>
+                    <span className="text-gray-700">Selected Modules (per user):</span>
                     <span className="font-medium">${totals.modules.toFixed(2)}/month</span>
                   </div>
+                  {totals.numberOfUsers > 1 && (
+                    <div className="flex justify-between text-xs text-gray-600 ml-4">
+                      <span>× {totals.numberOfUsers} users</span>
+                      <span>${totals.modulesTotal.toFixed(2)}/month</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-gray-700">Additional Services:</span>
                     <span className="font-medium">${totals.services.toFixed(2)}</span>
@@ -447,7 +748,7 @@ export function SubscriptionAgreement() {
                   <Separator />
                   
                   <div className="flex justify-between text-base font-semibold">
-                    <span>Monthly Recurring Total:</span>
+                    <span>Monthly Recurring Total ({totals.numberOfUsers} user{totals.numberOfUsers !== 1 ? 's' : ''}):</span>
                     <span className="text-purple-600">${totals.monthlyRecurring.toFixed(2)}/month</span>
                   </div>
                   <div className="flex justify-between text-base font-semibold">

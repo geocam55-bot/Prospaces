@@ -1,1355 +1,389 @@
-import { useState, useEffect, useMemo } from 'react';
-import { quotesAPI, bidsAPI, contactsAPI, inventoryAPI, projectManagersAPI, settingsAPI } from '../utils/api';
-import type { User } from '../App';
-import { PermissionGate } from './PermissionGate';
-import { canAdd, canChange, canDelete } from '../utils/permissions';
-import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms, priceLevelToTier, getPriceTierLabel } from '../lib/global-settings';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Alert, AlertDescription } from './ui/alert';
-import { Badge } from './ui/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { 
-  FileText, 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  Download, 
-  Send, 
-  CheckCircle2, 
-  X, 
-  AlertCircle, 
-  DollarSign, 
-  ShoppingCart, 
-  MoreVertical, 
-  RefreshCw,
-  LayoutGrid,
-  List
-} from 'lucide-react';
-import { useDebounce } from '../utils/useDebounce';
-import { advancedSearch } from '../utils/advanced-search';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { Plus, Edit, Trash2, Eye, FileText, Search, Filter, Calendar, DollarSign, User, MoreVertical, Send, Building, AlertCircle } from 'lucide-react';
+import { bidsAPI, quotesAPI, contactsAPI, inventoryAPI } from '../utils/api';
+import { BidLineItems } from './BidLineItems';
+import { DealsKanban, Quote } from './DealsKanban';
 import { EmailQuoteDialog } from './EmailQuoteDialog';
-import { MetricCard } from './MetricCard';
+import { createClient } from '../utils/supabase/client';
+import { SubscriptionAgreement, Organization } from './SubscriptionAgreement';
+import { toast } from 'sonner@2.0.3';
 
-import { DealsKanban } from './DealsKanban';
-
-export interface LineItem {
+interface User {
   id: string;
-  itemId: string;
-  itemName: string;
-  sku: string;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  cost: number;
-  discount: number;
-  total: number;
-}
-
-export interface Quote {
-  id: string;
-  quoteNumber: string;
-  title: string;
-  contactId: string;
-  contactName: string;
-  contactEmail?: string;
-  priceTier: number;
-  status: 'draft' | 'sent' | 'viewed' | 'accepted' | 'rejected' | 'expired' | 'completed';
-  validUntil: string;
-  lineItems: LineItem[];
-  subtotal: number;
-  discountPercent: number;
-  discountAmount: number;
-  taxPercent: number;
-  taxPercent2?: number;
-  taxAmount: number;
-  taxAmount2?: number;
-  total: number;
-  notes?: string;
-  terms?: string;
-  createdAt: string;
-  updatedAt: string;
-  ownerId: string;
-  readAt?: string;
-}
-
-interface BidsProps {
-  user: User;
+  email: string;
+  role: string;
+  organization_id?: string;
 }
 
 interface Contact {
   id: string;
   name: string;
   email?: string;
-  priceLevel?: string; // Named price level (dynamically configured in Admin Settings)
 }
 
-interface InventoryItem {
-  id: string;
-  name: string;
-  sku: string;
-  description: string;
-  quantityOnHand: number;
-  cost: number;
-  priceTier1: number;
-  priceTier2: number;
-  priceTier3: number;
-  priceTier4: number;
-  priceTier5: number;
-  unitOfMeasure: string;
-  status: string;
+interface BidsProps {
+  user: User;
 }
 
-interface ProjectManager {
+// Legacy Bid interface (from bids table)
+interface Bid {
   id: string;
-  name: string;
-  email?: string;
-  phone?: string;
+  clientName: string;
+  projectName: string;
+  description?: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+  validUntil: string;
+  notes?: string;
+  terms?: string;
+  createdAt: string;
+  updatedAt: string;
+  ownerId: string;
+  organizationId?: string;
 }
 
 export function Bids({ user }: BidsProps) {
+  const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [legacyBids, setLegacyBids] = useState<Bid[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [projectManagers, setProjectManagers] = useState<ProjectManager[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<'list' | 'board'>('board');
-  const [showDialog, setShowDialog] = useState(false);
-  const [showLineItemDialog, setShowLineItemDialog] = useState(false);
-  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
-  const [showStatusDialog, setShowStatusDialog] = useState(false);
-  const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
-  const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
-  const [statusQuote, setStatusQuote] = useState<Quote | null>(null);
-  const [newStatus, setNewStatus] = useState<Quote['status']>('draft');
   const [isLoading, setIsLoading] = useState(true);
-  const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-  // Email Dialog State
-  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [emailQuote, setEmailQuote] = useState<Quote | null>(null);
-  const [sentQuotes, setSentQuotes] = useState<Set<string>>(new Set());
+  const [viewingAgreement, setViewingAgreement] = useState<Quote | null>(null);
 
-  // Organization settings
-  const [orgSettings, setOrgSettings] = useState<{
-    taxRate: number;
-    taxRate2: number;
-    quoteTerms: string;
-  }>({
-    taxRate: 0,
-    taxRate2: 0,
-    quoteTerms: 'Payment due within 30 days. All prices in USD.',
-  });
-
-  // ⚡ Performance: Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 50;
-
-  // Form state
-  const [formData, setFormData] = useState({
-    title: '',
-    contactId: '',
-    validUntil: '',
-    discountPercent: 0,
-    taxPercent: getGlobalTaxRate(),
-    taxPercent2: getGlobalTaxRate2(),
-    notes: '',
-    terms: getDefaultQuoteTerms(),
-  });
-
-  const [currentLineItems, setCurrentLineItems] = useState<LineItem[]>([]);
-  const [selectedInventoryId, setSelectedInventoryId] = useState('');
-  const [lineItemQuantity, setLineItemQuantity] = useState(1);
-  const [lineItemDiscount, setLineItemDiscount] = useState(0);
-  const [lineItemUnitPrice, setLineItemUnitPrice] = useState(0);
-  
-  // Inventory search state for Add Line Item dialog
-  const [inventorySearchQuery, setInventorySearchQuery] = useState('');
-  const [isSearchingInventory, setIsSearchingInventory] = useState(false);
-  const [editingLineItemId, setEditingLineItemId] = useState<string | null>(null);
-
+  // Load data
   useEffect(() => {
     loadData();
   }, []);
 
-  // 🛠️ Fix: Patch line items with missing data by matching against inventory (by ID, Name, or Description)
-  // This automatically repairs imported deals where line items might have lost their connection to inventory
-  // or have zeroed out prices.
-  useEffect(() => {
-    if (showDialog && inventory.length > 0 && currentLineItems.length > 0) {
-      const contact = contacts.find(c => c.id === formData.contactId);
-      const priceTier = priceLevelToTier(contact?.priceLevel || getPriceTierLabel(1));
-      
-      let hasChanges = false;
-      const updatedItems = currentLineItems.map(item => {
-        let newItem = { ...item };
-        let changed = false;
-
-        // 1. Try to find inventory item by ID
-        let inventoryItem = inventory.find(inv => inv.id === newItem.itemId);
-        
-        const cleanStr = (s: string) => (s || '').toLowerCase().trim();
-
-        // 2. Fallback: Match by SKU (if exists)
-        if (!inventoryItem && newItem.sku) {
-             inventoryItem = inventory.find(inv => inv.sku && cleanStr(inv.sku) === cleanStr(newItem.sku));
-        }
-
-        // 3. Fallback: Fuzzy match by Name or Description if ID lookup failed
-        if (!inventoryItem) {
-          const name = cleanStr(newItem.itemName);
-          const desc = cleanStr(newItem.description);
-
-          inventoryItem = inventory.find(inv => {
-             const invName = cleanStr(inv.name);
-             const invDesc = cleanStr(inv.description);
-             
-             return (
-               (name && invName === name) || 
-               (desc && invName === desc) || 
-               (desc && invDesc === desc) ||
-               (name && invDesc === name)
-             );
-          });
-
-          if (inventoryItem) {
-            // Found a match! Link it up
-            newItem.itemId = inventoryItem.id;
-            newItem.itemName = inventoryItem.name;
-            newItem.sku = inventoryItem.sku;
-            // Only update description if it was missing or generic "Item"
-            if (!newItem.description || newItem.description === newItem.itemName || newItem.itemName === 'Item') {
-                newItem.description = inventoryItem.description;
-            }
-            changed = true;
-          }
-        }
-
-        // 3. If we have a valid inventory item (either found by ID or patched), fill in missing prices
-        if (inventoryItem) {
-          // Fix zero cost
-          if ((!newItem.cost || newItem.cost === 0) && inventoryItem.cost > 0) {
-            newItem.cost = inventoryItem.cost;
-            changed = true;
-          }
-
-          // Fix zero unit price
-          if ((!newItem.unitPrice || newItem.unitPrice === 0)) {
-             const tieredPrice = getPriceForTier(inventoryItem, priceTier);
-             if (tieredPrice > 0) {
-               newItem.unitPrice = tieredPrice;
-               changed = true;
-             }
-          }
-        }
-
-        // 4. Recalculate Total if price/qty changed or if it was zero
-        // Ensure we respect any manual discount that might be on the line item
-        const expectedTotal = newItem.quantity * newItem.unitPrice * (1 - (newItem.discount || 0) / 100);
-        if (Math.abs(newItem.total - expectedTotal) > 0.01) {
-            newItem.total = expectedTotal;
-            changed = true;
-        }
-
-        if (changed) hasChanges = true;
-        return newItem;
-      });
-
-      if (hasChanges) {
-        setCurrentLineItems(updatedItems);
-      }
-    }
-  }, [showDialog, inventory, formData.contactId]); 
-
-  // ⚡ Manual Price Refresh Handler
-  const handleRefreshPrices = async () => {
-      if (!confirm('This will update all line item prices to current inventory pricing based on the selected contact. Continue?')) return;
-      
-      let activeInventory = inventory;
-
-      // 🔄 Auto-reload inventory if empty
-      if (activeInventory.length === 0) {
-        try {
-          const res = await inventoryAPI.getAll();
-          if (res && res.items) {
-            setInventory(res.items);
-            activeInventory = res.items;
-          }
-        } catch (e) {
-          console.error("Failed to reload inventory", e);
-        }
-      }
-
-      if (activeInventory.length === 0) {
-        showAlert('error', 'Cannot refresh prices: No inventory loaded.');
-        return;
-      }
-
-      const contact = contacts.find(c => c.id === formData.contactId);
-      const priceTier = priceLevelToTier(contact?.priceLevel || getPriceTierLabel(1));
-      const cleanStr = (s: string) => (s || '').toLowerCase().trim();
-      
-      let updateCount = 0;
-
-      const cleanSearchTerm = (str: string) => {
-        if (!str) return '';
-        return str.toLowerCase()
-            // Remove common punctuation but keep meaningful chars for dimensions like . / -
-            .replace(/["'(),]/g, '') 
-            .replace(/\s+/g, ' ')
-            .trim();
-      };
-
-      const updatedItems = currentLineItems.map(item => {
-        let inventoryItem = activeInventory.find(inv => inv.id === item.itemId);
-
-        // Fallback: Robust search if ID lookup fails
-        if (!inventoryItem) {
-             const cleanItemName = cleanStr(item.itemName);
-             const cleanSku = cleanStr(item.sku);
-
-             // 1. Try Exact SKU Match (Highest Confidence)
-             if (cleanSku) {
-                 inventoryItem = activeInventory.find(inv => cleanStr(inv.sku) === cleanSku);
-             }
-             
-             // 2. Fuzzy/Smart Search using advancedSearch
-             if (!inventoryItem) {
-                // Construct a search query
-                const queryParts = [];
-                
-                if (item.sku) queryParts.push(item.sku);
-                
-                // Add Name if it's not generic "Item" or "Product"
-                if (cleanItemName && cleanItemName !== 'item' && cleanItemName !== 'product') {
-                     queryParts.push(item.itemName);
-                }
-                
-                // Add Description - usually the most valuable field for imports
-                if (item.description) {
-                     queryParts.push(item.description);
-                }
-                
-                const rawQuery = queryParts.join(' ');
-                const searchQuery = cleanSearchTerm(rawQuery);
-
-                if (searchQuery.length > 1) {
-                     // Use advanced search with lenient scoring
-                     const matches = advancedSearch(activeInventory, searchQuery, {
-                         fuzzyThreshold: 0.3, // Slightly stricter fuzzy to prefer word matches
-                         includeInactive: false,
-                         minScore: 0.05,       // Very low threshold to catch partial matches
-                         maxResults: 1
-                     });
-
-                     if (matches.length > 0) {
-                         inventoryItem = matches[0].item;
-                         console.log(`✨ Fuzzy matched: "${searchQuery}" -> "${inventoryItem.name}" (Score: ${matches[0].score})`);
-                     } else {
-                         // Fallback: Manual Keyword Match in Description
-                         // This catches cases where fuzzy search fails on long descriptions
-                         const keywords = searchQuery.split(' ').filter(k => k.length > 1);
-                         
-                         let bestMatch = null;
-                         let maxMatches = 0;
-
-                         for (const inv of activeInventory) {
-                             const invDesc = cleanStr(inv.description || inv.name);
-                             let matchCount = 0;
-                             
-                             for (const keyword of keywords) {
-                                 if (invDesc.includes(keyword)) {
-                                     matchCount++;
-                                 }
-                             }
-
-                             // Require at least 50% of keywords to match, and better than previous best
-                             if (matchCount > maxMatches && matchCount >= Math.ceil(keywords.length * 0.5)) {
-                                 maxMatches = matchCount;
-                                 bestMatch = inv;
-                             }
-                         }
-
-                         if (bestMatch) {
-                             inventoryItem = bestMatch;
-                             console.log(`✨ Keyword matched: "${searchQuery}" -> "${inventoryItem.name}" (${maxMatches}/${keywords.length} keywords)`);
-                         } else {
-                             console.log(`🔍 Search failed for query: "${searchQuery}"`);
-                         }
-                     }
-                }
-             }
-        }
-
-        if (!inventoryItem) {
-            console.log(`❌ Could not find match for item. ID: ${item.itemId}, Name: "${item.itemName}", Desc: "${item.description}"`);
-            return item;
-        }
-
-        // Found the item! Update everything to current values
-        const newUnitPrice = getPriceForTier(inventoryItem, priceTier);
-        const newCost = inventoryItem.cost;
-        
-        // Calculate new total, respecting existing discount
-        const newTotal = item.quantity * newUnitPrice * (1 - (item.discount || 0) / 100);
-
-        // Check if anything actually changed to avoid unnecessary updates/counting
-        if (item.unitPrice !== newUnitPrice || item.cost !== newCost || Math.abs(item.total - newTotal) > 0.01) {
-            updateCount++;
-            return {
-              ...item,
-              itemId: inventoryItem.id, // Repair ID link
-              itemName: inventoryItem.name, // Refresh Name
-              sku: inventoryItem.sku, // Refresh SKU
-              description: inventoryItem.description, // Refresh Description
-              unitPrice: newUnitPrice,
-              cost: newCost,
-              total: newTotal
-            };
-        }
-        
-        return item;
-      });
-
-      if (updateCount > 0) {
-          setCurrentLineItems(updatedItems);
-          showAlert('success', `Updated prices for ${updateCount} items.`);
-      } else {
-          showAlert('error', 'No items matched current inventory or prices are already up to date.');
-      }
-  }; 
-
-  // 🚀 Debounce search query (200ms delay for fast typing)
-  const debouncedInventorySearch = useDebounce(inventorySearchQuery, 200);
-
-  // 🌟 Advanced inventory search with fuzzy matching, plurals, and semantic understanding
-  const filteredInventory = useMemo(() => {
-    if (!debouncedInventorySearch.trim()) {
-      // Show all active inventory items when search is empty
-      return inventory.filter((item: InventoryItem) => item.status === 'active').slice(0, 100);
-    }
-
-    // 🚀 Use advanced search with fuzzy matching, plural handling (hammer/hammers), and semantic search
-    const searchResults = advancedSearch(inventory, debouncedInventorySearch, {
-      fuzzyThreshold: 0.6,      // Optimal for typo tolerance
-      includeInactive: false,   // Only show active items
-      minScore: 0.05,           // Low threshold to catch fuzzy matches
-      maxResults: 100,          // Limit results
-      sortBy: 'relevance',      // Sort by best match
-    });
-    
-    return searchResults.map(result => result.item);
-  }, [debouncedInventorySearch, inventory]);
-
-  // Initialize when dialog opens
-  useEffect(() => {
-    if (showLineItemDialog) {
-      if (!editingLineItemId) {
-          setInventorySearchQuery('');
-      }
-    } else {
-        // Reset edit mode when dialog closes
-        setEditingLineItemId(null);
-    }
-  }, [showLineItemDialog, editingLineItemId]);
-
-  // Auto-populate unit price when inventory item is selected
-  useEffect(() => {
-    if (selectedInventoryId && formData.contactId) {
-      const item = inventory.find(i => i.id === selectedInventoryId);
-      const contact = contacts.find(c => c.id === formData.contactId);
-      if (item && contact) {
-        const priceTier = priceLevelToTier(contact.priceLevel || getPriceTierLabel(1));
-        const price = getPriceForTier(item, priceTier);
-        setLineItemUnitPrice(price);
-      }
-    }
-  }, [selectedInventoryId, formData.contactId, inventory, contacts]);
-
   const loadData = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      setIsLoading(true);
-      // ⚡ Performance: Load only essential data first (quotes, bids, contacts)
-      // Inventory and project managers will be loaded when needed (when adding/editing)
-      const [quotesData, bidsData, contactsData, orgSettingsData, trackingData] = await Promise.all([
-        quotesAPI.getAll(),
-        bidsAPI.getAll(), // Also load from bids table
-        contactsAPI.getAll(),
-        settingsAPI.getOrganizationSettings(user.organizationId),
-        quotesAPI.getTrackingStatus(),
+      const scope = user.role === 'admin' || user.role === 'manager' ? 'team' : 'personal';
+      
+      // Load both quotes and legacy bids
+      const [quotesResponse, bidsResponse, contactsResponse] = await Promise.all([
+        quotesAPI.getAll(scope),
+        bidsAPI.getAll(scope),
+        contactsAPI.getAll(scope),
       ]);
 
-      // Load organization settings
-      if (orgSettingsData) {
-        setOrgSettings({
-          taxRate: orgSettingsData.tax_rate || 0,
-          taxRate2: orgSettingsData.tax_rate_2 || 0,
-          quoteTerms: orgSettingsData.quote_terms || 'Payment due within 30 days. All prices in USD.',
-        });
-      }
+      console.log('Loaded quotes:', quotesResponse.quotes?.length || 0);
+      console.log('Loaded legacy bids:', bidsResponse.bids?.length || 0);
 
-      // Parse quotes if they have stringified lineItems
-      const parsedQuotes = (quotesData.quotes || []).map((q: any) => {
-        // Handle both line_items (snake_case from DB) and lineItems (camelCase)
-        const rawLineItems = q.lineItems || q.line_items || q.items || q.line_item_data || q.bid_items;
-        let parsedLineItems = [];
-        
-        try {
-          if (typeof rawLineItems === 'string') {
-            parsedLineItems = JSON.parse(rawLineItems);
-          } else if (Array.isArray(rawLineItems)) {
-            parsedLineItems = rawLineItems;
-          }
-        } catch (error) {
-          console.error('Failed to parse line items for quote:', q.id, error);
-          parsedLineItems = [];
-        }
-
-        const tracking = trackingData?.trackingStatus?.[q.id];
-
-        // Normalize line items to ensure camelCase and valid numbers
-        const normalizedLineItems = parsedLineItems.map((item: any) => ({
-          ...item,
-          id: item.id || `line-${Math.random().toString(36).substr(2, 9)}`,
-          itemId: item.itemId ?? item.item_id ?? item.id, 
-          itemName: item.itemName ?? item.item_name ?? item.name ?? item.title ?? 'Item',
-          sku: item.sku ?? '',
-          description: item.description ?? '',
-          quantity: Number(item.quantity ?? 1),
-          unitPrice: Number(item.unitPrice ?? item.unit_price ?? item.price ?? 0),
-          cost: Number(item.cost ?? 0),
-          discount: Number(item.discount ?? 0),
-          total: Number(item.total ?? item.amount ?? 0),
-        }));
-
-        return {
-          ...q,
-          lineItems: normalizedLineItems,
-          subtotal: q.subtotal ?? q.amount ?? 0,
-          discountPercent: q.discountPercent ?? q.discount_percent ?? 0,
-          discountAmount: q.discountAmount ?? q.discount_amount ?? 0,
-          taxPercent: q.taxPercent ?? q.tax_percent ?? q.tax_rate ?? 0,
-          taxPercent2: q.taxPercent2 ?? q.tax_percent_2 ?? 0,
-          taxAmount: q.taxAmount ?? q.tax_amount ?? 0,
-          taxAmount2: q.taxAmount2 ?? q.tax_amount_2 ?? 0,
-          total: q.total ?? q.amount ?? 0,
-          contactId: q.contactId ?? q.contact_id,
-          contactName: q.contactName ?? q.contact_name ?? '',
-          contactEmail: q.contactEmail ?? q.contact_email ?? '',
-          quoteNumber: q.quoteNumber ?? q.quote_number ?? '',
-          validUntil: q.validUntil ?? q.valid_until ?? '',
-          priceTier: q.priceTier ?? q.price_tier ?? 1,
-          status: (q.status ?? 'draft').toLowerCase(),
-          createdAt: q.createdAt ?? q.created_at,
-          updatedAt: q.updatedAt ?? q.updated_at,
-          readAt: tracking?.readAt || q.readAt || q.read_at,
-        };
-      });
-
-      // Parse bids from bids table (same structure as quotes)
-      const parsedBids = (bidsData.bids || []).map((b: any) => {
-        const rawLineItems = b.lineItems || b.line_items || b.items || b.line_item_data || b.bid_items;
-        let parsedLineItems = [];
-        
-        try {
-          if (typeof rawLineItems === 'string') {
-            parsedLineItems = JSON.parse(rawLineItems);
-          } else if (Array.isArray(rawLineItems)) {
-            parsedLineItems = rawLineItems;
-          }
-        } catch (error) {
-          console.error('Failed to parse line items for bid:', b.id, error);
-          parsedLineItems = [];
-        }
-
-        // Normalize line items
-        const normalizedLineItems = parsedLineItems.map((item: any) => ({
-          ...item,
-          id: item.id || `line-${Math.random().toString(36).substr(2, 9)}`,
-          itemId: item.itemId ?? item.item_id ?? item.id, 
-          itemName: item.itemName ?? item.item_name ?? item.name ?? item.title ?? 'Item',
-          sku: item.sku ?? '',
-          description: item.description ?? '',
-          quantity: Number(item.quantity ?? 1),
-          unitPrice: Number(item.unitPrice ?? item.unit_price ?? item.price ?? 0),
-          cost: Number(item.cost ?? 0),
-          discount: Number(item.discount ?? 0),
-          total: Number(item.total ?? item.amount ?? 0),
-        }));
-
-        // Convert bid to quote format so it displays consistently
-        return {
-          ...b,
-          lineItems: normalizedLineItems,
-          title: b.title || '',
-          subtotal: b.subtotal ?? b.amount ?? 0,
-          discountPercent: b.discountPercent ?? b.discount_percent ?? 0,
-          discountAmount: b.discountAmount ?? b.discount_amount ?? 0,
-          taxPercent: b.taxPercent ?? b.tax_percent ?? b.tax_rate ?? 0,
-          taxPercent2: b.taxPercent2 ?? b.tax_percent_2 ?? 0,
-          taxAmount: b.taxAmount ?? b.tax_amount ?? 0,
-          taxAmount2: b.taxAmount2 ?? b.tax_amount_2 ?? 0,
-          total: b.total ?? b.amount ?? 0,
-          contactId: b.contactId ?? b.contact_id ?? b.opportunity_id,
-          contactName: b.contactName ?? b.contact_name ?? '',
-          contactEmail: b.contactEmail ?? b.contact_email ?? '',
-          quoteNumber: b.quoteNumber ?? b.quote_number ?? b.id?.substring(0, 8) ?? '',
-          validUntil: b.validUntil ?? b.valid_until ?? new Date(Date.now() + 30*24*60*60*1000).toISOString(),
-          priceTier: b.priceTier ?? b.price_tier ?? 1,
-          status: (b.status ?? 'draft').toLowerCase(),
-          createdAt: b.createdAt ?? b.created_at,
-          updatedAt: b.updatedAt ?? b.updated_at,
-          readAt: b.readAt ?? b.read_at,
-          _source: 'bids', // Tag to identify source table
-        };
-      });
-
-      // Merge quotes and bids, sort by creation date
-      const allQuotes = [...parsedQuotes, ...parsedBids].sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setQuotes(allQuotes);
-      setContacts(contactsData.contacts || []);
-      
-      // ⚡ Performance: Load inventory and project managers in background (non-blocking)
-      loadInventoryAndManagers();
-    } catch (error) {
-      console.error('Failed to load data:', error);
-      showAlert('error', 'Failed to load data');
+      setQuotes(quotesResponse.quotes || []);
+      setLegacyBids(bidsResponse.bids || []);
+      setContacts(contactsResponse.contacts || []);
+    } catch (err: any) {
+      console.error('Failed to load bids/quotes:', err);
+      setError(err.message || 'Failed to load data');
     } finally {
       setIsLoading(false);
     }
   };
-  
-  // ⚡ Performance: Separate function to load inventory and project managers
-  const loadInventoryAndManagers = async () => {
-    try {
-      const [inventoryData, projectManagersData] = await Promise.all([
-        inventoryAPI.getAll(),
-        projectManagersAPI.getAll(),
-      ]);
-      
-      setInventory(inventoryData.items || []);
-      setProjectManagers(projectManagersData.projectManagers || []);
-    } catch (error) {
-      console.error('Failed to load inventory/managers:', error);
-      // Don't show error alert - this is background loading
-    }
-  };
 
-  const showAlert = (type: 'success' | 'error', message: string) => {
-    setAlert({ type, message });
-    setTimeout(() => setAlert(null), 3000);
-  };
+  // Convert legacy bid to Quote format for display
+  const convertBidToQuote = (bid: Bid): Quote => ({
+    id: bid.id,
+    quoteNumber: `BID-${bid.id.slice(0, 8)}`,
+    title: bid.projectName,
+    contactId: '',
+    contactName: bid.clientName,
+    contactEmail: undefined,
+    priceTier: 1,
+    status: bid.status === 'sent' ? 'sent' : 
+            bid.status === 'accepted' ? 'accepted' : 
+            bid.status === 'rejected' ? 'rejected' : 
+            bid.status === 'expired' ? 'expired' : 'draft',
+    validUntil: bid.validUntil,
+    lineItems: [],
+    subtotal: bid.subtotal,
+    discountPercent: 0,
+    discountAmount: 0,
+    taxPercent: bid.tax / bid.subtotal * 100,
+    taxAmount: bid.tax,
+    total: bid.total,
+    notes: bid.notes,
+    terms: bid.terms,
+    createdAt: bid.createdAt,
+    updatedAt: bid.updatedAt,
+    ownerId: bid.ownerId,
+  });
 
-  const generateQuoteNumber = () => {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    return `QT-${year}${month}-${random}`;
-  };
+  // Merge quotes and legacy bids
+  const allQuotes = [
+    ...quotes,
+    ...legacyBids.map(convertBidToQuote)
+  ];
 
-  const getPriceForTier = (item: InventoryItem | undefined, tier: number): number => {
-    if (!item) return 0;
-    const tierKey = `priceTier${tier}` as keyof InventoryItem;
-    return Number(item[tierKey]) || item.priceTier1 || 0;
-  };
-
-  const calculateLineItemTotal = (quantity: number, unitPrice: number, discount: number): number => {
-    const subtotal = quantity * unitPrice;
-    return subtotal - (subtotal * discount / 100);
-  };
-
-  const calculateQuoteTotals = (lineItems: LineItem[], discountPercent: number, taxPercent: number, taxPercent2: number = 0) => {
-    const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
-    const discountAmount = subtotal * (discountPercent / 100);
-    const afterDiscount = subtotal - discountAmount;
-    const taxAmount = afterDiscount * (taxPercent / 100);
-    const taxAmount2 = afterDiscount * (taxPercent2 / 100);
-    const total = afterDiscount + taxAmount + taxAmount2;
-
-    return {
-      subtotal,
-      discountAmount,
-      taxAmount,
-      taxAmount2,
-      total,
-    };
-  };
-
-  const handleOpenDialog = (quote?: Quote) => {
-    if (quote) {
-      setEditingQuote(quote);
-      setFormData({
-        title: quote.title,
-        contactId: quote.contactId,
-        validUntil: quote.validUntil,
-        discountPercent: quote.discountPercent,
-        // Use quote's tax rates if they exist (> 0), otherwise use org defaults
-        taxPercent: quote.taxPercent > 0 ? quote.taxPercent : orgSettings.taxRate,
-        taxPercent2: (quote.taxPercent2 && quote.taxPercent2 > 0) ? quote.taxPercent2 : orgSettings.taxRate2,
-        notes: quote.notes || '',
-        // Use quote's terms if they exist, otherwise use org defaults
-        terms: quote.terms || orgSettings.quoteTerms,
-      });
-      // Ensure line items have cost field and valid total
-      const lineItemsWithCost = quote.lineItems.map(item => {
-        // Calculate what the total *should* be
-        const calculatedTotal = item.quantity * item.unitPrice * (1 - (item.discount || 0) / 100);
-        
-        // If the stored total is 0 but we have valid quantity and price, use the calculated total
-        // This fixes the issue where imported bids might have 0 total
-        const shouldUseCalculated = item.total === 0 && calculatedTotal > 0;
-        
-        return {
-          ...item,
-          cost: item.cost ?? 0,
-          total: shouldUseCalculated ? calculatedTotal : (item.total ?? calculatedTotal)
-        };
-      });
-      setCurrentLineItems(lineItemsWithCost);
-    } else {
-      setEditingQuote(null);
-      const defaultDate = new Date();
-      defaultDate.setDate(defaultDate.getDate() + 30);
-      setFormData({
-        title: '',
-        contactId: '',
-        validUntil: defaultDate.toISOString().split('T')[0],
-        discountPercent: 0,
-        taxPercent: orgSettings.taxRate,
-        taxPercent2: orgSettings.taxRate2,
-        notes: '',
-        terms: orgSettings.quoteTerms,
-      });
-      setCurrentLineItems([]);
-    }
-    setShowDialog(true);
-  };
-
-  const handleContactChange = (contactId: string) => {
-    // If there are existing line items and contact is changing, recalculate prices
-    if (currentLineItems.length > 0 && formData.contactId && formData.contactId !== contactId) {
-      if (confirm('Changing the contact will recalculate all line item prices based on the new price level. Continue?')) {
-        const newContact = contacts.find(c => c.id === contactId);
-        const newPriceTier = priceLevelToTier(newContact?.priceLevel || getPriceTierLabel(1));
-        
-        // Recalculate all line items with new price tier
-        const updatedLineItems = currentLineItems.map(lineItem => {
-          const inventoryItem = inventory.find(i => i.id === lineItem.itemId);
-          if (!inventoryItem) return lineItem;
-          
-          const newUnitPrice = getPriceForTier(inventoryItem, newPriceTier);
-          const newTotal = calculateLineItemTotal(lineItem.quantity, newUnitPrice, lineItem.discount);
-          
-          return {
-            ...lineItem,
-            unitPrice: newUnitPrice,
-            total: newTotal,
-          };
-        });
-        
-        setCurrentLineItems(updatedLineItems);
-        setFormData({ ...formData, contactId });
-      }
-    } else {
-      // No line items yet or same contact, just update
-      setFormData({ ...formData, contactId });
-    }
-  };
-
-  const handleEditLineItem = (item: LineItem) => {
-    setEditingLineItemId(item.id);
-    setSelectedInventoryId(item.itemId);
-    setLineItemQuantity(item.quantity);
-    setLineItemUnitPrice(item.unitPrice);
-    setInventorySearchQuery(item.itemName);
-    setShowLineItemDialog(true);
-  };
-
-  const handleAddLineItem = () => {
-    if (!selectedInventoryId) {
-      showAlert('error', 'Please select a product');
-      return;
-    }
-
-    // Search in filteredInventory first (from search results), then fall back to full inventory
-    const item = filteredInventory.find(i => i.id === selectedInventoryId) || 
-                 inventory.find(i => i.id === selectedInventoryId);
+  // Filter quotes
+  const filteredQuotes = allQuotes.filter(quote => {
+    const matchesSearch = !searchTerm || 
+      quote.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      quote.contactName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      quote.quoteNumber.toLowerCase().includes(searchTerm.toLowerCase());
     
-    if (!item) {
-      showAlert('error', 'Product not found in inventory');
-      return;
-    }
-
-    // Use the custom unit price (already set via useEffect or manually edited)
-    const total = lineItemQuantity * lineItemUnitPrice;
-
-    if (editingLineItemId) {
-        // UPDATE EXISTING ITEM
-        const updatedItems = currentLineItems.map(line => {
-            if (line.id === editingLineItemId) {
-                return {
-                    ...line,
-                    itemId: item.id,
-                    itemName: item.name,
-                    sku: item.sku,
-                    description: item.description,
-                    quantity: lineItemQuantity,
-                    unitPrice: lineItemUnitPrice,
-                    cost: item.cost || 0,
-                    total: total
-                };
-            }
-            return line;
-        });
-        setCurrentLineItems(updatedItems);
-        showAlert('success', 'Item updated');
-    } else {
-        // ADD NEW ITEM
-        const lineItem: LineItem = {
-          id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          itemId: item.id,
-          itemName: item.name,
-          sku: item.sku,
-          description: item.description,
-          quantity: lineItemQuantity,
-          unitPrice: lineItemUnitPrice, // Use editable unit price
-          cost: item.cost || 0,
-          discount: 0, // Keep for backwards compatibility but not used
-          total,
-        };
-        setCurrentLineItems([...currentLineItems, lineItem]);
-        showAlert('success', 'Item added to quote');
-    }
-
-    setSelectedInventoryId('');
-    setLineItemQuantity(1);
-    setLineItemUnitPrice(0);
-    setEditingLineItemId(null);
-    setShowLineItemDialog(false);
-  };
-
-  const handleRemoveLineItem = (id: string) => {
-    setCurrentLineItems(currentLineItems.filter(item => item.id !== id));
-  };
-
-  const handleSave = async () => {
-    if (!formData.title || !formData.contactId) {
-      showAlert('error', 'Please fill in required fields');
-      return;
-    }
-
-    if (currentLineItems.length === 0) {
-      showAlert('error', 'Please add at least one line item');
-      return;
-    }
-
-    try {
-      const contact = contacts.find(c => c.id === formData.contactId);
-      const totals = calculateQuoteTotals(
-        currentLineItems,
-        formData.discountPercent,
-        formData.taxPercent,
-        formData.taxPercent2 || 0
-      );
-
-      // Map to snake_case for database
-      const quoteData = {
-        quote_number: editingQuote?.quoteNumber || generateQuoteNumber(),
-        title: formData.title,
-        contact_id: formData.contactId,
-        contact_name: contact?.name || '',
-        price_tier: priceLevelToTier(contact?.priceLevel || getPriceTierLabel(1)),
-        status: editingQuote?.status || 'draft',
-        valid_until: formData.validUntil,
-        line_items: JSON.stringify(currentLineItems),
-        subtotal: totals.subtotal,
-        discount_percent: formData.discountPercent,
-        discount_amount: totals.discountAmount,
-        tax_percent: formData.taxPercent,
-        tax_percent_2: formData.taxPercent2 || 0,
-        tax_amount: totals.taxAmount,
-        tax_amount_2: totals.taxAmount2 || 0,
-        total: totals.total,
-        notes: formData.notes,
-        terms: formData.terms,
-      };
-
-      if (editingQuote) {
-        if ((editingQuote as any)._source === 'bids') {
-          // For bids table, use opportunity_id instead of contact_id
-          // We must remove contact_id if it doesn't exist on the table to avoid errors
-          // Also check other fields that might not exist on bids table
-          const { contact_id, ...rest } = quoteData;
-          const bidData = {
-            ...rest,
-            opportunity_id: formData.contactId,
-          };
-          await bidsAPI.update(editingQuote.id, bidData);
-        } else {
-          await quotesAPI.update(editingQuote.id, quoteData);
-        }
-        showAlert('success', 'Deal updated successfully');
-      } else {
-        // Default to creating quotes for now, or switch to bids if that's the intention
-        // Given the prompt "Deals (mapped to bids)", we might want to create bids, 
-        // but let's stick to quotes to avoid breaking changes unless requested.
-        await quotesAPI.create(quoteData);
-        showAlert('success', 'Deal created successfully');
-      }
-
-      setShowDialog(false);
-      loadData();
-    } catch (error) {
-      console.error('Failed to save quote:', error);
-      showAlert('error', 'Failed to save quote');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this deal?')) return;
-
-    try {
-      const quoteToDelete = quotes.find(q => q.id === id);
-      if (quoteToDelete && (quoteToDelete as any)._source === 'bids') {
-        await bidsAPI.delete(id);
-      } else {
-        await quotesAPI.delete(id);
-      }
-      showAlert('success', 'Deal deleted successfully');
-      loadData();
-    } catch (error) {
-      console.error('Failed to delete deal:', error);
-      showAlert('error', 'Failed to delete deal');
-    }
-  };
+    const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
 
   const handleStatusChange = async (quote: Quote, newStatus: Quote['status']) => {
     try {
-      if ((quote as any)._source === 'bids') {
-        await bidsAPI.update(quote.id, { ...quote, status: newStatus });
-      } else {
-        await quotesAPI.update(quote.id, { ...quote, status: newStatus });
-      }
-      showAlert('success', 'Deal status updated');
-      loadData();
-    } catch (error) {
-      console.error('Failed to update status:', error);
-      showAlert('error', 'Failed to update status');
+      await quotesAPI.update(quote.id, { status: newStatus });
+      await loadData();
+      toast.success('Status updated successfully');
+    } catch (err: any) {
+      console.error('Failed to update status:', err);
+      toast.error('Failed to update status: ' + err.message);
     }
   };
 
-  const handleEmailQuote = (quote: Quote) => {
-    // If quote doesn't have email, try to find it from contacts list
-    let quoteToEmail = { ...quote };
-    if (!quoteToEmail.contactEmail && quoteToEmail.contactId) {
-      const contact = contacts.find(c => c.id === quoteToEmail.contactId);
-      if (contact && contact.email) {
-        quoteToEmail.contactEmail = contact.email;
-      }
-    }
-    
-    setEmailQuote(quoteToEmail);
-    setShowEmailDialog(true);
-  };
-
-  const handleEmailSuccess = async () => {
-    if (emailQuote) {
-      setSentQuotes(prev => new Set(prev).add(emailQuote.id));
-      
-      // Update quote status to 'sent' if it's currently 'draft' (case-insensitive for DB compat)
-      if ((emailQuote.status || '').toLowerCase() === 'draft') {
-        try {
-          if ((emailQuote as any)._source === 'bids') {
-            await bidsAPI.update(emailQuote.id, { ...emailQuote, status: 'sent' });
-          } else {
-            await quotesAPI.update(emailQuote.id, { ...emailQuote, status: 'sent' });
-          }
-          loadData(); // Reload to reflect status change
-        } catch (error) {
-          console.error('Failed to update deal status after sending email:', error);
-        }
-      }
-
-      // Record deal activity for marketing feed (fire-and-forget)
-      try {
-        const { recordDealActivity } = await import('../utils/marketing-client');
-        const dealType = (emailQuote as any)._source === 'bids' ? 'bid' : 'quote';
-        await recordDealActivity({
-          deal_id: emailQuote.id,
-          deal_type: dealType,
-          deal_title: emailQuote.title,
-          deal_number: emailQuote.quoteNumber,
-          contact_name: emailQuote.contactName,
-          contact_email: emailQuote.contactEmail || '',
-          deal_total: emailQuote.total,
-          event_type: 'deal_email_sent',
-          description: `Deal #${emailQuote.quoteNumber} "${emailQuote.title}" emailed to ${emailQuote.contactName}`,
-        });
-      } catch (err) {
-        console.error('Failed to record deal activity:', err);
-      }
-    }
+  const handleEdit = (quote: Quote) => {
+    setSelectedQuote(quote);
+    setIsDialogOpen(true);
   };
 
   const handlePreview = (quote: Quote) => {
     setPreviewQuote(quote);
-    setShowPreviewDialog(true);
+    setIsPreviewOpen(true);
   };
 
-  // ⚡ Performance: Memoize filtered quotes to avoid re-filtering on every render
-  const filteredQuotes = useMemo(() => {
-    return quotes.filter(quote => {
-      const matchesSearch =
-        quote.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        quote.contactName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        quote.quoteNumber.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const effectiveStatus = (quote.status === 'sent' && quote.readAt) ? 'viewed' : (quote.status || '');
-      const status = effectiveStatus.toLowerCase();
-      const matchesStatus = statusFilter === 'all' || 
-                            (statusFilter === 'open' && status !== 'accepted' && status !== 'rejected' && status !== 'won' && status !== 'lost' && status !== 'completed') ||
-                            status === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [quotes, searchQuery, statusFilter]);
-
-  // ⚡ Performance: Paginate filtered quotes - only render current page
-  const paginatedQuotes = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredQuotes.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredQuotes, currentPage, itemsPerPage]);
-
-  // Calculate total pages
-  const totalPages = Math.ceil(filteredQuotes.length / itemsPerPage);
-
-  // Reset to page 1 when search query or filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'accepted': return 'bg-green-100 text-green-700 border-green-200';
-      case 'completed': return 'bg-teal-100 text-teal-700 border-teal-200';
-      case 'rejected': return 'bg-red-100 text-red-700 border-red-200';
-      case 'sent': return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'viewed': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
-      case 'expired': return 'bg-orange-100 text-orange-700 border-orange-200';
-      case 'draft': return 'bg-gray-100 text-gray-700 border-gray-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this quote/bid?')) return;
+    
+    try {
+      await quotesAPI.delete(id);
+      await loadData();
+      toast.success('Deleted successfully');
+    } catch (err: any) {
+      console.error('Failed to delete:', err);
+      toast.error('Failed to delete: ' + err.message);
     }
   };
 
-  // Calculate stats with detailed logging
-  const openBidsDetails: any[] = [];
-  const stats = {
-    total: quotes.length,
-    totalValue: quotes.reduce((sum, q) => sum + q.total, 0),
-    acceptedValue: quotes.filter(q => q.status === 'accepted').reduce((sum, q) => sum + q.total, 0),
-    pending: quotes.filter(q => q.status === 'sent').length,
-    open: quotes.filter(q => {
-      const status = (q.status || '').toLowerCase().trim();
-      const isOpen = status !== 'accepted' && status !== 'rejected' && status !== 'won' && status !== 'lost';
-      if (isOpen) {
-        openBidsDetails.push({ id: q.id, title: q.title, status: q.status, normalizedStatus: status });
-      }
-      return isOpen;
-    }).length,
+  const handleEmail = (quote: Quote) => {
+    setEmailQuote(quote);
+    setIsEmailDialogOpen(true);
   };
 
-  // 📊 Advanced Analytics: Win Rate & Pipeline
-  const winRate = useMemo(() => {
-    const closedDeals = quotes.filter(q => ['accepted', 'rejected', 'expired', 'completed'].includes(q.status));
-    if (closedDeals.length === 0) return 0;
-    const wins = closedDeals.filter(q => ['accepted', 'completed'].includes(q.status)).length;
-    return Math.round((wins / closedDeals.length) * 100);
-  }, [quotes]);
+  const handleViewAgreement = (quote: Quote) => {
+    setViewingAgreement(quote);
+  };
 
-  const pipelineValue = useMemo(() => {
-    return quotes
-      .filter(q => ['draft', 'sent', 'viewed'].includes(q.status))
-      .reduce((sum, q) => sum + q.total, 0);
-  }, [quotes]);
-
-  // 🤖 Automation: Check for expired quotes
-  useEffect(() => {
-    if (isLoading || quotes.length === 0) return;
-
-    const checkExpired = async () => {
-      const now = new Date();
-      const expiredQuotes = quotes.filter(q => {
-        const isValidDate = q.validUntil && !isNaN(new Date(q.validUntil).getTime());
-        return isValidDate && 
-               new Date(q.validUntil) < now && 
-               ['draft', 'sent', 'viewed'].includes(q.status);
-      });
-
-      if (expiredQuotes.length > 0) {
-        console.log(`🤖 Auto-expiring ${expiredQuotes.length} quotes...`);
-        for (const quote of expiredQuotes) {
-          await handleStatusChange(quote, 'expired');
-        }
-        showAlert('success', `Auto-expired ${expiredQuotes.length} overdue quotes`);
+  // If viewing agreement, show subscription agreement
+  if (viewingAgreement) {
+    // Get organization data for the quote
+    const getOrgData = async (): Promise<Organization | null> => {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('tenants')
+          .select('*')
+          .eq('id', user.organization_id)
+          .single();
+        
+        if (error) throw error;
+        
+        return {
+          id: data.id,
+          name: data.name,
+          ai_suggestions_enabled: data.ai_suggestions_enabled,
+          marketing_enabled: data.marketing_enabled,
+          inventory_enabled: data.inventory_enabled,
+          import_export_enabled: data.import_export_enabled,
+          documents_enabled: data.documents_enabled,
+        };
+      } catch (err) {
+        console.error('Failed to load organization:', err);
+        return null;
       }
     };
 
-    checkExpired();
-  }, [quotes.length, isLoading]); // Depend on length to avoid loops, assuming loadData updates it
-
-  const handleRecoverDeals = async () => {
-    // 1. Run Diagnostic first
-    try {
-      setIsLoading(true);
-      const { getServerHeaders } = await import('../utils/server-headers');
-      const { projectId } = await import('../utils/supabase/info');
-      const headers = await getServerHeaders();
-      
-      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/diagnose-missing-deals`, { headers });
-      const json = await res.json();
-      console.log('Diagnostic Report:', json);
-      
-      let missingCount = 0;
-      if (json.report) {
-         Object.values(json.report).forEach((r: any) => {
-            missingCount += (r.quotes?.length || 0) + (r.bids?.length || 0) + (r.quotesByText?.length || 0);
-         });
-      }
-
-      if (missingCount > 0) {
-        if (confirm(`Found ${missingCount} specific deals for George & Larry that are detached! Do you want to fix them?`)) {
-             await bidsAPI.fixOrganizationIds();
-             await quotesAPI.fixOrganizationIds();
-             showAlert('success', `Successfully recovered ${missingCount} deals!`);
-             loadData();
-             return;
-        }
-      }
-    } catch (e) {
-      console.error('Diagnostic check failed', e);
-    }
-
-    // 2. Fallback to standard recovery
-    if (!confirm('Run standard recovery? This will attach ANY orphan deals to your organization.')) {
-        setIsLoading(false);
-        return;
-    }
+    // We need to make this work with async - create a wrapper component
+    const [orgData, setOrgData] = useState<Organization | null>(null);
     
-    try {
-      const [bidsResult, quotesResult] = await Promise.all([
-        bidsAPI.fixOrganizationIds(),
-        quotesAPI.fixOrganizationIds()
-      ]);
-      
-      const totalFixed = (bidsResult.count || 0) + (quotesResult.count || 0);
-      
-      if (totalFixed > 0) {
-        showAlert('success', `Recovered ${totalFixed} lost deals!`);
-        loadData(); // Reload to see them
-      } else {
-        showAlert('success', 'No other lost deals found.');
-      }
-    } catch (error) {
-      console.error('Failed to recover deals:', error);
-      showAlert('error', 'Failed to recover deals');
-    } finally {
-      setIsLoading(false);
+    useEffect(() => {
+      getOrgData().then(setOrgData);
+    }, [viewingAgreement]);
+
+    if (!orgData) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      );
     }
-  };
+
+    return (
+      <SubscriptionAgreement 
+        organization={orgData}
+        onBack={() => setViewingAgreement(null)}
+      />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
-    <PermissionGate user={user} module="bids" action="view">
-    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center justify-end gap-3">
-          {canAdd('bids', user.role) && (
-            <>
-            <Button variant="outline" onClick={handleRecoverDeals} title="Find and attach orphaned deals">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Recover Deals
-            </Button>
-            <Button onClick={() => handleOpenDialog()}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Deal
-            </Button>
-            </>
-          )}
+    <div className="flex flex-col h-full">
+      <div className="border-b bg-white px-6 py-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Bids & Quotes</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Manage your quotes, proposals, and deals
+            </p>
+          </div>
+          <Button onClick={() => { setSelectedQuote(null); setIsDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Quote
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search quotes..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="sent">Sent</SelectItem>
+              <SelectItem value="viewed">Viewed</SelectItem>
+              <SelectItem value="accepted">Accepted</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Tabs value={view} onValueChange={(v) => setView(v as 'kanban' | 'list')}>
+            <TabsList>
+              <TabsTrigger value="kanban">Kanban</TabsTrigger>
+              <TabsTrigger value="list">List</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        <div className="flex items-center gap-2 mt-3 text-sm text-gray-500">
+          <span>{filteredQuotes.length} quotes</span>
+          <span>•</span>
+          <span>Total Value: ${filteredQuotes.reduce((sum, q) => sum + q.total, 0).toLocaleString()}</span>
         </div>
       </div>
 
-      {/* Alert */}
-      {alert && (
-        <Alert variant={alert.type === 'error' ? 'destructive' : 'default'}>
-          {alert.type === 'success' ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
-          )}
-          <AlertDescription>{alert.message}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <MetricCard 
-          title="Total Deals" 
-          value={stats.total.toString()}
-          icon={<FileText className="h-4 w-4" />}
-          className="bg-blue-600 text-white"
-          description={`Win Rate: ${winRate}%`}
-        />
-        <MetricCard 
-          title="Pipeline Value" 
-          value={`$${pipelineValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-          icon={<ShoppingCart className="h-4 w-4" />}
-          className="bg-indigo-600 text-white"
-          description="Active opportunities"
-        />
-        <MetricCard 
-          title="Accepted Value" 
-          value={`$${stats.acceptedValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
-          icon={<DollarSign className="h-4 w-4" />}
-          className="bg-green-600 text-white"
-          description="Closed won revenue"
-        />
-        <MetricCard 
-          title="Open Deals" 
-          value={stats.open.toString()}
-          icon={<Send className="h-4 w-4" />}
-          className="bg-orange-500 text-white"
-          description={`${stats.pending} pending sent`}
-        />
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4 items-center">
-            <div className="flex-1 w-full">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search deals..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+      <div className="flex-1 overflow-hidden">
+        {view === 'kanban' ? (
+          <div className="h-full overflow-auto p-6">
+            {filteredQuotes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                <FileText className="h-12 w-12 mb-4" />
+                <p className="text-lg font-medium">No bids found</p>
+                <p className="text-sm">Create your first quote to get started</p>
               </div>
-            </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="open">Open (Not Accepted/Rejected)</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="sent">Sent</SelectItem>
-                  <SelectItem value="viewed">Viewed</SelectItem>
-                  <SelectItem value="accepted">Accepted</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <div className="flex items-center border rounded-md bg-white shadow-sm">
-                <Button
-                  variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                  className="rounded-none rounded-l-md px-3 gap-2"
-                  title="List View"
-                >
-                  <List className="h-4 w-4" />
-                  <span className="hidden sm:inline">List</span>
-                </Button>
-                <div className="w-[1px] h-6 bg-gray-200" />
-                <Button
-                  variant={viewMode === 'board' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('board')}
-                  className="rounded-none rounded-r-md px-3 gap-2"
-                  title="Board View"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                  <span className="hidden sm:inline">Board</span>
-                </Button>
-              </div>
-            </div>
+            ) : (
+              <DealsKanban
+                quotes={filteredQuotes}
+                onStatusChange={handleStatusChange}
+                onEdit={handleEdit}
+                onPreview={handlePreview}
+                onDelete={handleDelete}
+                onEmail={handleEmail}
+                onViewAgreement={handleViewAgreement}
+              />
+            )}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Quotes List or Kanban Board */}
-      {viewMode === 'list' ? (
-        <>
-        <div className="grid grid-cols-1 gap-4">
-        {isLoading ? (
-          <Card>
-            <CardContent className="py-12 text-center text-gray-500">
-              Loading deals...
-            </CardContent>
-          </Card>
-        ) : filteredQuotes.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-gray-500">No deals found</p>
-              {canAdd('bids', user.role) && (
-              <Button className="mt-4" onClick={() => handleOpenDialog()}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Your First Deal
-              </Button>
-              )}
-            </CardContent>
-          </Card>
         ) : (
-          paginatedQuotes.map(quote => (
-            <Card key={quote.id}>
-              <CardContent className="pt-6">
-                <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-                  {/* Left Section */}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-lg text-gray-900">{quote.title}</h3>
-                          {(() => {
-                            const displayStatus = (quote.status === 'sent' && quote.readAt) ? 'viewed' : quote.status;
-                            return (
-                              <Badge variant="outline" className={getStatusColor(displayStatus)}>
-                                {displayStatus}
-                              </Badge>
-                            );
-                          })()}
+          <div className="p-6 overflow-auto">
+            {filteredQuotes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+                <FileText className="h-12 w-12 mb-4" />
+                <p className="text-lg font-medium">No bids found</p>
+                <p className="text-sm">Create your first quote to get started</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredQuotes.map(quote => (
+                  <Card key={quote.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-semibold text-lg">{quote.title}</h3>
+                            <Badge variant={
+                              quote.status === 'accepted' ? 'default' :
+                              quote.status === 'rejected' ? 'destructive' :
+                              quote.status === 'sent' ? 'secondary' :
+                              'outline'
+                            }>
+                              {quote.status}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {quote.contactName || 'No Contact'}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <DollarSign className="h-3 w-3" />
+                              ${quote.total.toLocaleString()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(quote.validUntil).toLocaleDateString()}
+                            </span>
+                            <span className="font-mono text-xs">{quote.quoteNumber}</span>
+                          </div>
                         </div>
-                        <p className="text-sm text-gray-600 mt-1">Deal #{quote.quoteNumber}</p>
-                        <p className="text-sm text-gray-600">Contact: {quote.contactName}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => handleEmailQuote(quote)}
-                          className="gap-2"
-                        >
-                          <Send className="h-4 w-4" />
-                          {quote.status === 'sent' || sentQuotes.has(quote.id) ? 'Resend Deal' : 'Send Deal'}
-                        </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm">
@@ -1357,769 +391,101 @@ export function Bids({ user }: BidsProps) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handlePreview(quote)}>
-                            <Eye className="h-4 w-4 mr-2" />
-                            Preview
-                          </DropdownMenuItem>
-                          {canChange('bids', user.role) && (
-                          <DropdownMenuItem onClick={() => handleOpenDialog(quote)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          )}
-                          {canChange('bids', user.role) && (
-                          <DropdownMenuItem onClick={() => {
-                            setStatusQuote(quote);
-                            setNewStatus(quote.status);
-                            setShowStatusDialog(true);
-                          }}>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Change Status
-                          </DropdownMenuItem>
-                          )}
-                          {canChange('bids', user.role) && quote.status === 'draft' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(quote, 'sent')}>
+                            <DropdownMenuItem onClick={() => handleViewAgreement(quote)}>
+                              <FileText className="h-4 w-4 mr-2" />
+                              View Agreement
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleEdit(quote)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handlePreview(quote)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Preview
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEmail(quote)}>
                               <Send className="h-4 w-4 mr-2" />
-                              Mark as Sent
+                              {quote.status === 'sent' ? 'Resend' : 'Send Quote'}
                             </DropdownMenuItem>
-                          )}
-                          {canChange('bids', user.role) && quote.status === 'sent' && (
-                            <>
-                              <DropdownMenuItem onClick={() => handleStatusChange(quote, 'accepted')}>
-                                <CheckCircle2 className="h-4 w-4 mr-2" />
-                                Mark as Accepted
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleStatusChange(quote, 'rejected')}>
-                                <X className="h-4 w-4 mr-2" />
-                                Mark as Rejected
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {canChange('bids', user.role) && quote.status === 'accepted' && (
-                            <DropdownMenuItem onClick={() => handleStatusChange(quote, 'completed')}>
-                              <CheckCircle2 className="h-4 w-4 mr-2" />
-                              Mark as Completed
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleDelete(quote.id)} className="text-red-600">
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
                             </DropdownMenuItem>
-                          )}
-                          {canDelete('bids', user.role) && (
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => handleDelete(quote.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
-                      <div>
-                        <p className="text-xs text-gray-500">Line Items</p>
-                        <p className="text-sm text-gray-900 mt-1">{quote.lineItems.length} items</p>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Price Tier</p>
-                        <p className="text-sm text-gray-900 mt-1">Tier {quote.priceTier}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Valid Until</p>
-                        <p className="text-sm text-gray-900 mt-1">
-                          {new Date(quote.validUntil).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Created</p>
-                        <p className="text-sm text-gray-900 mt-1">
-                          {new Date(quote.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Section - Totals */}
-                  <div className="lg:w-64 border-l-0 lg:border-l lg:pl-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Subtotal:</span>
-                        <span className="text-gray-900">${quote.subtotal.toFixed(2)}</span>
-                      </div>
-                      {quote.discountAmount > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Discount ({quote.discountPercent}%):</span>
-                          <span className="text-red-600">-${quote.discountAmount.toFixed(2)}</span>
-                        </div>
-                      )}
-                      {quote.taxAmount > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Tax 1 ({quote.taxPercent}%):</span>
-                          <span className="text-gray-900">${quote.taxAmount.toFixed(2)}</span>
-                        </div>
-                      )}
-                      {(quote.taxAmount2 || 0) > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Tax 2 ({quote.taxPercent2}%):</span>
-                          <span className="text-gray-900">${(quote.taxAmount2 || 0).toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between pt-2 border-t">
-                        <span className="text-gray-900">Total:</span>
-                        <span className="text-lg text-gray-900">${quote.total.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center mt-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            Previous
-          </Button>
-          <div className="mx-2">
-            Page {currentPage} of {totalPages}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentPage(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
-      </>
-      ) : (
-        <div className="h-[calc(100vh-28rem)] min-h-[300px] mt-6">
-          <DealsKanban 
-            quotes={filteredQuotes} 
-            onStatusChange={handleStatusChange}
-            onEdit={handleOpenDialog}
-            onPreview={handlePreview}
-            onDelete={handleDelete}
-            onEmail={handleEmailQuote}
-          />
-        </div>
+      {/* Email Dialog */}
+      {isEmailDialogOpen && emailQuote && (
+        <EmailQuoteDialog
+          quote={emailQuote}
+          isOpen={isEmailDialogOpen}
+          onClose={() => {
+            setIsEmailDialogOpen(false);
+            setEmailQuote(null);
+            loadData();
+          }}
+        />
       )}
 
-      {/* Create/Edit Deal Dialog */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto bg-white">
-          <DialogHeader>
-            <DialogTitle>{editingQuote ? 'Edit Deal' : 'Create New Deal'}</DialogTitle>
-            <DialogDescription>
-              {editingQuote ? 'Update the deal details below.' : 'Fill in the details to create a new deal with line items and pricing.'}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Basic Information */}
-            <div className="space-y-2">
-              <Label>Deal Title *</Label>
-              <Input
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Enter deal title"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Contact *</Label>
-              <Select value={formData.contactId} onValueChange={handleContactChange}>
-                <SelectTrigger className="w-full truncate">
-                  <SelectValue placeholder="Select contact" />
-                </SelectTrigger>
-                <SelectContent>
-                  {contacts.map(contact => (
-                    <SelectItem key={contact.id} value={contact.id}>
-                      {contact.name} {contact.priceLevel ? `(${contact.priceLevel})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Valid Until</Label>
-              <Input
-                type="date"
-                value={formData.validUntil}
-                onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Selected Contact Price Level</Label>
-              <Input
-                value={formData.contactId ? (contacts.find(c => c.id === formData.contactId)?.priceLevel || getPriceTierLabel(1)) : 'Select a contact'}
-                disabled
-                className="bg-gray-50"
-              />
-            </div>
-
-            {/* Line Items */}
-            <div className="md:col-span-2 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm text-gray-900">Line Items</h3>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRefreshPrices}
-                    title="Update prices to current inventory rates"
-                    disabled={!formData.contactId || currentLineItems.length === 0}
-                  >
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                    Refresh Prices
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowLineItemDialog(true)}
-                    disabled={!formData.contactId}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Item
-                  </Button>
-                </div>
-              </div>
-
-              {currentLineItems.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
-                  <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm text-gray-500">No items added yet</p>
-                  {!formData.contactId && (
-                    <p className="text-xs text-gray-400 mt-1">Select a contact first</p>
-                  )}
-                </div>
-              ) : (
-                <div className="border rounded-lg overflow-x-auto">
-                  <table className="w-full min-w-[500px]">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="text-left py-2 px-3 text-xs text-gray-600">Item</th>
-                        <th className="text-right py-2 px-3 text-xs text-gray-600 whitespace-nowrap">Cost</th>
-                        <th className="text-right py-2 px-3 text-xs text-gray-600">Qty</th>
-                        <th className="text-right py-2 px-3 text-xs text-gray-600 whitespace-nowrap">Unit Price</th>
-                        <th className="text-right py-2 px-3 text-xs text-gray-600">Total</th>
-                        <th className="w-20"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentLineItems.map(item => {
-                        // Find current details from inventory table to supplement snapshot
-                        const inventoryItem = inventory.find(inv => inv.id === item.itemId);
-                        
-                        // Use inventory data if snapshot is missing details
-                        const displaySku = item.sku || inventoryItem?.sku || '';
-                        const displayDesc = item.description || inventoryItem?.description || '';
-                        const displayName = item.itemName || inventoryItem?.name || 'Unknown Item';
-                        const currentCost = inventoryItem?.cost ?? item.cost ?? 0;
-                        
-                        return (
-                          <tr key={item.id} className="border-t">
-                            <td className="py-2 px-3">
-                              <p className="text-sm font-medium text-gray-900 break-words max-w-[200px]">{displayName}</p>
-                              {displayDesc && (
-                                <p className="text-xs text-gray-500 truncate max-w-[200px] mt-0.5">{displayDesc}</p>
-                              )}
-                              {displaySku && (
-                                <p className="text-xs text-gray-400 mt-0.5">SKU: {displaySku}</p>
-                              )}
-                            </td>
-                            <td className="py-2 px-3 text-right text-sm whitespace-nowrap">
-                              ${currentCost.toFixed(2)}
-                              {!inventoryItem && inventory.length > 0 && (
-                                <span className="block text-[10px] text-orange-500">Archived</span>
-                              )}
-                            </td>
-                            <td className="py-2 px-3 text-right text-sm">{item.quantity}</td>
-                            <td className="py-2 px-3 text-right text-sm whitespace-nowrap">${(item.unitPrice ?? 0).toFixed(2)}</td>
-                            <td className="py-2 px-3 text-right text-sm whitespace-nowrap">${(item.total ?? 0).toFixed(2)}</td>
-                            <td className="py-2 px-3">
-                              <div className="flex justify-end items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditLineItem(item)}
-                                >
-                                  <Edit className="h-4 w-4 text-blue-600" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleRemoveLineItem(item.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-600" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Pricing */}
-            {currentLineItems.length > 0 && (
-              <div className="md:col-span-2 space-y-4">
-                <h3 className="text-sm text-gray-900">Pricing</h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Quote Discount (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.discountPercent}
-                      onChange={(e) => setFormData({ ...formData, discountPercent: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tax Rate 1 (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.taxPercent}
-                      onChange={(e) => setFormData({ ...formData, taxPercent: Number(e.target.value) })}
-                    />
-                    <p className="text-xs text-gray-500">
-                      Primary tax rate
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tax Rate 2 (%) - Optional</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.taxPercent2 || 0}
-                      onChange={(e) => setFormData({ ...formData, taxPercent2: Number(e.target.value) })}
-                    />
-                    <p className="text-xs text-gray-500">
-                      Secondary tax rate
-                    </p>
-                  </div>
-                </div>
-
-                {/* Quote Summary */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Subtotal:</span>
-                      <span className="text-gray-900">
-                        ${calculateQuoteTotals(currentLineItems, formData.discountPercent, formData.taxPercent, formData.taxPercent2 || 0).subtotal.toFixed(2)}
-                      </span>
-                    </div>
-                    {formData.discountPercent > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Discount ({formData.discountPercent}%):</span>
-                        <span className="text-red-600">
-                          -${calculateQuoteTotals(currentLineItems, formData.discountPercent, formData.taxPercent, formData.taxPercent2 || 0).discountAmount.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                    {formData.taxPercent > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Tax 1 ({formData.taxPercent}%):</span>
-                        <span className="text-gray-900">
-                          ${calculateQuoteTotals(currentLineItems, formData.discountPercent, formData.taxPercent, formData.taxPercent2 || 0).taxAmount.toFixed(2)}
-                        </span>
-                      </div>
-                    )}
-                    {(formData.taxPercent2 || 0) > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Tax 2 ({formData.taxPercent2}%):</span>
-                        <span className="text-gray-900">
-                          ${calculateQuoteTotals(currentLineItems, formData.discountPercent, formData.taxPercent, formData.taxPercent2 || 0).taxAmount2?.toFixed(2) || '0.00'}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between pt-2 border-t border-gray-300">
-                      <span className="text-gray-900">Total:</span>
-                      <span className="text-xl text-gray-900">
-                        ${calculateQuoteTotals(currentLineItems, formData.discountPercent, formData.taxPercent, formData.taxPercent2 || 0).total.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Additional Information */}
-            <div className="space-y-2">
-              <Label>Notes (Internal)</Label>
-              <Textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Internal notes (not visible to client)"
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Terms & Conditions</Label>
-              <Textarea
-                value={formData.terms}
-                onChange={(e) => setFormData({ ...formData, terms: e.target.value })}
-                placeholder="Payment terms and conditions"
-                rows={3}
-              />
-            </div>
-
-            <div className="flex gap-2 pt-4 md:col-span-2">
-              <Button type="button" variant="outline" onClick={() => setShowDialog(false)} className="flex-1">
-                Cancel
-              </Button>
-              <Button onClick={handleSave} className="flex-1">
-                {editingQuote ? 'Update Deal' : 'Create Quote'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Line Item Dialog */}
-      <Dialog open={showLineItemDialog} onOpenChange={setShowLineItemDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
-          <DialogHeader>
-            <DialogTitle>Add Line Item</DialogTitle>
-            <DialogDescription>
-              Select a product from inventory and specify quantity and price.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <Label>Search Inventory</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Try: 'Hammers under $40', 'Screws', 'Paint red'..."
-                  value={inventorySearchQuery}
-                  onChange={(e) => setInventorySearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              {isSearchingInventory && (
-                <p className="text-xs text-gray-500 mt-1">Searching...</p>
-              )}
-              {filteredInventory.length === 0 && inventorySearchQuery && !isSearchingInventory && (
-                <p className="text-xs text-red-600 mt-1">No items found. Try a different search.</p>
-              )}
-              {!inventorySearchQuery && (
-                <p className="text-xs text-gray-500 mt-1">💡 Supports natural language: plurals, typos, and price filters (e.g., "under $40")</p>
-              )}
-            </div>
-
-            <div>
-              <Label>Select Product *</Label>
-              <Select value={selectedInventoryId} onValueChange={setSelectedInventoryId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={filteredInventory.length > 0 ? "Choose from results below" : "Search above to find products"} />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px] overflow-y-auto">
-                  {filteredInventory.length > 0 ? (
-                    filteredInventory.map(item => {
-                      const contact = contacts.find(c => c.id === formData.contactId);
-                      const priceTier = priceLevelToTier(contact?.priceLevel || getPriceTierLabel(1));
-                      const price = getPriceForTier(item, priceTier);
-                      return (
-                        <SelectItem key={item.id} value={item.id}>
-                          <div className="flex items-center justify-between gap-4 w-full">
-                            <div className="flex flex-col items-start text-left overflow-hidden">
-                              <div>
-                                <span className="font-medium">{item.name}</span>
-                                <span className="text-xs text-gray-500 ml-2">({item.sku})</span>
-                              </div>
-                              {item.description && (
-                                <span className="text-xs text-gray-400 truncate w-full max-w-[300px] block" title={item.description}>
-                                  {item.description}
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-sm text-gray-600 whitespace-nowrap ml-2">${price.toFixed(2)}</span>
-                          </div>
-                        </SelectItem>
-                      );
-                    })
-                  ) : (
-                    <SelectItem value="no-items" disabled>
-                      {inventorySearchQuery ? 'No items found' : 'Type above to search'}
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-              {selectedInventoryId && (
-                <div className="mt-2 p-3 bg-blue-50 rounded text-xs text-blue-700">
-                  {inventory.find(i => i.id === selectedInventoryId)?.description}
-                </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label>Unit Price *</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={lineItemUnitPrice}
-                  onChange={(e) => setLineItemUnitPrice(Number(e.target.value))}
-                />
-                {selectedInventoryId && (() => {
-                  const contact = contacts.find(c => c.id === formData.contactId);
-                  const priceLevel = contact?.priceLevel || getPriceTierLabel(1);
-                  const priceTier = priceLevelToTier(priceLevel);
-                  return (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {priceLevel} default: $
-                      {getPriceForTier(inventory.find(i => i.id === selectedInventoryId)!, priceTier).toFixed(2)}
-                    </p>
-                  );
-                })()}
-              </div>
-              <div>
-                <Label>Quantity *</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={lineItemQuantity}
-                  onChange={(e) => setLineItemQuantity(Number(e.target.value))}
-                />
-              </div>
-            </div>
-
-            {selectedInventoryId && lineItemUnitPrice > 0 && (() => {
-              const selectedItem = inventory.find(i => i.id === selectedInventoryId);
-              return (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Cost:</span>
-                      <span className="text-gray-900">${(selectedItem?.cost || 0).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Unit Price:</span>
-                      <span className="text-gray-900">${lineItemUnitPrice.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Quantity:</span>
-                      <span className="text-gray-900">{lineItemQuantity}</span>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t">
-                      <span className="text-gray-900">Line Total:</span>
-                      <span className="text-gray-900">
-                        ${(lineItemQuantity * lineItemUnitPrice).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-
-          <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
-            <Button variant="outline" onClick={() => setShowLineItemDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddLineItem}>
-              {editingLineItemId ? 'Update Item' : 'Add Item'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Preview Quote Dialog */}
-      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
-          <DialogHeader>
-            <DialogTitle>Quote Preview</DialogTitle>
-            <DialogDescription>
-              Preview how the quote will look before sending it to the client.
-            </DialogDescription>
-          </DialogHeader>
-
-          {previewQuote && (
-            <div className="space-y-6 p-6 bg-white">
-              {/* Header */}
-              <div className="flex justify-between items-start border-b pb-4">
-                <div>
-                  <h2 className="text-2xl text-gray-900">QUOTATION</h2>
-                  <p className="text-sm text-gray-600 mt-1">Quote #{previewQuote.quoteNumber}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Date: {new Date(previewQuote.createdAt).toLocaleDateString()}</p>
-                  <p className="text-sm text-gray-600">Valid Until: {new Date(previewQuote.validUntil).toLocaleDateString()}</p>
-                </div>
-              </div>
-
-              {/* Contact Info */}
-              <div>
-                <h3 className="text-sm text-gray-600 mb-2">Quote For:</h3>
-                <p className="text-gray-900">{previewQuote.contactName}</p>
-                {previewQuote.contactEmail && (
-                  <p className="text-sm text-gray-600">{previewQuote.contactEmail}</p>
-                )}
-              </div>
-
-              {/* Title */}
-              <div>
-                <h3 className="text-lg text-gray-900">{previewQuote.title}</h3>
-              </div>
-
-              {/* Line Items */}
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="text-left py-3 px-4 text-sm text-gray-700">Item</th>
-                      <th className="text-right py-3 px-4 text-sm text-gray-700">Qty</th>
-                      <th className="text-right py-3 px-4 text-sm text-gray-700">Unit Price</th>
-                      <th className="text-right py-3 px-4 text-sm text-gray-700">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewQuote.lineItems.map(item => (
-                      <tr key={item.id} className="border-t">
-                        <td className="py-3 px-4">
-                          <p className="text-sm text-gray-900">{item.itemName}</p>
-                          <p className="text-xs text-gray-500">{item.description}</p>
-                        </td>
-                        <td className="py-3 px-4 text-right text-sm">{item.quantity}</td>
-                        <td className="py-3 px-4 text-right text-sm">${item.unitPrice.toFixed(2)}</td>
-                        <td className="py-3 px-4 text-right text-sm">${item.total.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Totals */}
-              <div className="flex justify-end">
-                <div className="w-full sm:w-64 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal:</span>
-                    <span className="text-gray-900">${previewQuote.subtotal.toFixed(2)}</span>
-                  </div>
-                  {previewQuote.discountAmount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Discount ({previewQuote.discountPercent}%):</span>
-                      <span className="text-red-600">-${previewQuote.discountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {previewQuote.taxAmount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Tax 1 ({previewQuote.taxPercent}%):</span>
-                      <span className="text-gray-900">${previewQuote.taxAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {(previewQuote.taxAmount2 || 0) > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Tax 2 ({previewQuote.taxPercent2}%):</span>
-                      <span className="text-gray-900">${(previewQuote.taxAmount2 || 0).toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between pt-2 border-t">
-                    <span className="text-gray-900">Total:</span>
-                    <span className="text-xl text-gray-900">${previewQuote.total.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Terms */}
-              {previewQuote.terms && (
-                <div className="pt-4 border-t">
-                  <h3 className="text-sm text-gray-700 mb-2">Terms & Conditions:</h3>
-                  <p className="text-sm text-gray-600 whitespace-pre-line">{previewQuote.terms}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
-            <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>
-              Close
-            </Button>
-            <Button>
-              <Download className="h-4 w-4 mr-2" />
-              Download PDF
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Change Status Dialog */}
-      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-        <DialogContent className="max-w-2xl bg-white">
-          <DialogHeader>
-            <DialogTitle>Change Quote Status</DialogTitle>
-            <DialogDescription>
-              Update the quote status to reflect its current state in your workflow.
-            </DialogDescription>
-          </DialogHeader>
-
-          {statusQuote && (
+      {/* Preview Dialog */}
+      {isPreviewOpen && previewQuote && (
+        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>Quote Preview</DialogTitle>
+              <DialogDescription>
+                {previewQuote.quoteNumber} - {previewQuote.title}
+              </DialogDescription>
+            </DialogHeader>
             <div className="space-y-4">
-              <div>
-                <Label>Current Status</Label>
-                <Input
-                  value={statusQuote.status}
-                  disabled
-                  className="bg-gray-50"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm text-gray-500">Contact</Label>
+                  <p className="font-medium">{previewQuote.contactName}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-500">Total</Label>
+                  <p className="font-medium">${previewQuote.total.toLocaleString()}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-500">Status</Label>
+                  <Badge>{previewQuote.status}</Badge>
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-500">Valid Until</Label>
+                  <p className="font-medium">{new Date(previewQuote.validUntil).toLocaleDateString()}</p>
+                </div>
               </div>
-              <div>
-                <Label>New Status</Label>
-                <Select value={newStatus} onValueChange={setNewStatus}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select new status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="sent">Sent</SelectItem>
-                    <SelectItem value="accepted">Accepted</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                    <SelectItem value="expired">Expired</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {previewQuote.notes && (
+                <div>
+                  <Label className="text-sm text-gray-500">Notes</Label>
+                  <p className="text-sm">{previewQuote.notes}</p>
+                </div>
+              )}
+              {previewQuote.terms && (
+                <div>
+                  <Label className="text-sm text-gray-500">Terms</Label>
+                  <p className="text-sm">{previewQuote.terms}</p>
+                </div>
+              )}
             </div>
-          )}
-
-          <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
-            <Button variant="outline" onClick={() => setShowStatusDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => {
-              if (statusQuote) {
-                handleStatusChange(statusQuote, newStatus);
-                setShowStatusDialog(false);
-              }
-            }}>
-              Update Status
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <EmailQuoteDialog
-        open={showEmailDialog}
-        onOpenChange={setShowEmailDialog}
-        quote={emailQuote}
-        onSuccess={handleEmailSuccess}
-      />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
-    </PermissionGate>
   );
 }

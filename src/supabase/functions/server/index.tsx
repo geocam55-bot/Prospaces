@@ -2774,6 +2774,36 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
   }
 });
 
+// ── GENERIC KV ROUTES (Authenticated) ───────────────────────────────────
+app.get(`${PREFIX}/kv/get/:key`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const key = c.req.param('key');
+    if (!key) return c.json({ error: 'Missing key' }, 400);
+    const val = await kv.get(key);
+    if (val === undefined || val === null) return c.json({ error: 'Not found' }, 404);
+    // Return wrapped in a 'value' property
+    return c.json({ value: val });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+app.post(`${PREFIX}/kv/set`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const body = await c.req.json();
+    if (!body.key) return c.json({ error: 'Missing key' }, 400);
+    // Parse value if it is a JSON string to store as an object, or store as is
+    let valToStore = body.value;
+    if (typeof body.value === 'string') {
+      try { valToStore = JSON.parse(body.value); } catch { /* ignore */ }
+    }
+    await kv.set(body.key, valToStore);
+    return c.json({ success: true });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
 // ── CATCH-ALL ───────────────────────────────────────────────────────────
 // Return 200 with diagnostic info so platform health checks always succeed.
 // The `matched: false` flag lets callers distinguish real routes from the fallback.

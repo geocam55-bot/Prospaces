@@ -246,7 +246,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       const pipelineData = Object.entries(statusCounts)
         .filter(([name, value]) => name && value > 0)
         .map(([name, value], index) => ({ 
-          id: `pipeline-${index}`,
+          id: `pipeline-${name.replace(/\s+/g, '-').toLowerCase()}-idx${index}`,
           name, 
           value 
         }));
@@ -258,7 +258,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       // 2. Won Deals Trend (Line)
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       // Initialize with 0
-      const trendData = months.map(m => ({ name: m, value: 0, deals: 0 }));
+      const trendData = months.map((m, idx) => ({ id: `trend-${m}-${idx}`, name: m, value: 0, deals: 0 }));
       
       wonDeals.forEach(d => {
         const date = new Date(d.updated_at || d.created_at);
@@ -278,14 +278,15 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       const lossReasonData = Object.entries(lossReasonCounts)
         .filter(([name, value]) => name && value > 0)
         .map(([name, value], index) => ({ 
-          id: `loss-${index}`,
+          id: `loss-${name.replace(/\s+/g, '-').toLowerCase()}-idx${index}`,
           name, 
           value 
         }));
 
       // 4. Projection (Line) - Calculate from open deals
       // For projection, we'll show open deals by valid until month (proxy for expected close)
-      const projectionData = months.map(m => ({
+      const projectionData = months.map((m, idx) => ({
+        id: `projection-${m}-${idx}`,
         name: m,
         projected: 0,
         actual: 0
@@ -443,19 +444,21 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
                 <AreaChart data={charts.wonDeals} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorValueWonDeals" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={theme.colors.primary} stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor={theme.colors.primary} stopOpacity={0}/>
+                      <stop key="wondeals-gradient-stop-5" offset="5%" stopColor={theme.colors.primary} stopOpacity={0.3}/>
+                      <stop key="wondeals-gradient-stop-95" offset="95%" stopColor={theme.colors.primary} stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} fontSize={12} />
-                  <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} width={40} fontSize={12} />
+                  <CartesianGrid key="wondeals-grid" strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                  <XAxis key="wondeals-xaxis" dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} fontSize={12} />
+                  <YAxis key="wondeals-yaxis" yAxisId="left" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} width={40} fontSize={12} />
                   <Tooltip 
+                    key="wondeals-tooltip"
                     contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
                     itemStyle={{ color: 'var(--foreground)' }}
                   />
-                  <Legend />
+                  <Legend key="wondeals-legend" />
                   <Area 
+                    key="area-won-deals"
                     yAxisId="left" 
                     type="monotone" 
                     dataKey="value" 
@@ -477,28 +480,34 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full flex items-center justify-center">
-              <ExplicitChartContainer>
-                <PieChart>
-                  <Pie
-                    data={charts.pipeline}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {charts.pipeline.map((entry, index) => (
-                      <Cell key={entry.id || `pipeline-cell-${index}`} fill={PIPELINE_COLORS[index % PIPELINE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
-                    itemStyle={{ color: 'var(--foreground)' }}
-                  />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                </PieChart>
-              </ExplicitChartContainer>
+              {charts.pipeline.length > 0 ? (
+                <ExplicitChartContainer>
+                  <PieChart>
+                    <Pie
+                      key="sales-pipeline-pie-chart"
+                      data={charts.pipeline}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {charts.pipeline.map((entry, index) => (
+                        <Cell key={`pipeline-cell-${entry.name}-${index}`} fill={PIPELINE_COLORS[index % PIPELINE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      key="pipeline-tooltip"
+                      contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
+                      itemStyle={{ color: 'var(--foreground)' }}
+                    />
+                    <Legend key="pipeline-legend" verticalAlign="bottom" height={36} iconType="circle" />
+                  </PieChart>
+                </ExplicitChartContainer>
+              ) : (
+                <p className="text-muted-foreground text-sm">No pipeline data available</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -512,16 +521,17 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
             <div className="h-[300px] w-full">
               <ExplicitChartContainer>
                 <LineChart data={charts.projection} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} fontSize={12} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} width={40} fontSize={12} />
+                  <CartesianGrid key="projection-grid" strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                  <XAxis key="projection-xaxis" dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} fontSize={12} />
+                  <YAxis key="projection-yaxis" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} width={40} fontSize={12} />
                   <Tooltip 
+                    key="projection-tooltip"
                     contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
                     itemStyle={{ color: 'var(--foreground)' }}
                   />
-                  <Legend />
-                  <Line type="monotone" dataKey="projected" stroke={theme.colors.info} strokeWidth={2} dot={false} name="Projected" />
-                  <Line type="monotone" dataKey="actual" stroke={theme.colors.primary} strokeWidth={2} dot={false} name="Actual" />
+                  <Legend key="projection-legend" />
+                  <Line key="line-projected" type="monotone" dataKey="projected" stroke={theme.colors.info} strokeWidth={2} dot={false} name="Projected" />
+                  <Line key="line-actual" type="monotone" dataKey="actual" stroke={theme.colors.primary} strokeWidth={2} dot={false} name="Actual" />
                 </LineChart>
               </ExplicitChartContainer>
             </div>
@@ -535,28 +545,34 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full flex items-center justify-center">
-              <ExplicitChartContainer>
-                <PieChart>
-                  <Pie
-                    data={charts.lossReasons}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {charts.lossReasons.map((entry, index) => (
-                      <Cell key={entry.id || `loss-cell-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
-                    itemStyle={{ color: 'var(--foreground)' }}
-                  />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                </PieChart>
-              </ExplicitChartContainer>
+              {charts.lossReasons.length > 0 ? (
+                <ExplicitChartContainer>
+                  <PieChart>
+                    <Pie
+                      key="loss-reasons-pie-chart"
+                      data={charts.lossReasons}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {charts.lossReasons.map((entry, index) => (
+                        <Cell key={`loss-cell-${entry.name}-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      key="loss-tooltip"
+                      contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
+                      itemStyle={{ color: 'var(--foreground)' }}
+                    />
+                    <Legend key="loss-legend" verticalAlign="bottom" height={36} iconType="circle" />
+                  </PieChart>
+                </ExplicitChartContainer>
+              ) : (
+                <p className="text-muted-foreground text-sm">No loss data available</p>
+              )}
             </div>
           </CardContent>
         </Card>

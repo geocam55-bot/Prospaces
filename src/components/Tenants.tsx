@@ -4,6 +4,7 @@ import type { User, Organization } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { canView, canAdd, canChange, canDelete } from '../utils/permissions';
 import { CleanupUnusedOrganizations } from './CleanupUnusedOrganizations';
+import { SubscriptionAgreement } from './SubscriptionAgreement';
 import { getOrgMode, setOrgMode } from '../utils/settings-client';
 import type { OrgUserMode } from '../utils/settings-client';
 import { 
@@ -91,6 +92,7 @@ export function Tenants({ user, organization }: TenantsProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null); // Track which org is being deleted
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [viewingAgreement, setViewingAgreement] = useState<Tenant | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -384,6 +386,26 @@ export function Tenants({ user, organization }: TenantsProps) {
     );
   }
 
+  // If viewing agreement, show that instead
+  if (viewingAgreement) {
+    const orgData: Organization = {
+      id: viewingAgreement.id,
+      name: viewingAgreement.name,
+      ai_suggestions_enabled: viewingAgreement.ai_suggestions_enabled,
+      marketing_enabled: viewingAgreement.marketing_enabled,
+      inventory_enabled: viewingAgreement.inventory_enabled,
+      import_export_enabled: viewingAgreement.import_export_enabled,
+      documents_enabled: viewingAgreement.documents_enabled,
+    };
+    
+    return (
+      <SubscriptionAgreement 
+        organization={orgData} 
+        onBack={() => setViewingAgreement(null)}
+      />
+    );
+  }
+
   return (
     <PermissionGate user={user} module="tenants" action="view">
     <div className="space-y-6">
@@ -572,6 +594,10 @@ export function Tenants({ user, organization }: TenantsProps) {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setViewingAgreement(tenant)} disabled={isDeleting === tenant.id}>
+                            <FileText className="h-4 w-4 mr-2" />
+                            View Agreement
+                          </DropdownMenuItem>
                           {canChange('tenants', user.role) && (
                             <DropdownMenuItem onClick={() => handleOpenDialog(tenant)} disabled={isDeleting === tenant.id}>
                               <Edit className="h-4 w-4 mr-2" />

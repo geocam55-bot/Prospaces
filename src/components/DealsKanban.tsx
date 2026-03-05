@@ -56,6 +56,7 @@ interface DealsKanbanProps {
   onPreview: (quote: Quote) => void;
   onDelete: (id: string) => void;
   onEmail: (quote: Quote) => void;
+  onViewAgreement?: (quote: Quote) => void;
 }
 
 const ItemTypes = {
@@ -73,13 +74,15 @@ const DealCard = ({
   onEdit, 
   onPreview, 
   onDelete,
-  onEmail
+  onEmail,
+  onViewAgreement
 }: { 
   quote: Quote; 
   onEdit: (q: Quote) => void; 
   onPreview: (q: Quote) => void; 
   onDelete: (id: string) => void;
   onEmail: (q: Quote) => void;
+  onViewAgreement?: (q: Quote) => void;
 }) => {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ItemTypes.DEAL,
@@ -171,6 +174,15 @@ const DealCard = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-white">
+                {onViewAgreement && (
+                  <>
+                    <DropdownMenuItem onClick={() => onViewAgreement(quote)}>
+                      <FileText className="h-3 w-3 mr-2" />
+                      View Agreement
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuItem onClick={() => onEdit(quote)}>
                   Edit
                 </DropdownMenuItem>
@@ -237,7 +249,8 @@ const KanbanColumn = ({
   onEdit, 
   onPreview, 
   onDelete,
-  onEmail
+  onEmail,
+  onViewAgreement
 }: { 
   title: string; 
   status: string; 
@@ -247,6 +260,7 @@ const KanbanColumn = ({
   onPreview: (q: Quote) => void;
   onDelete: (id: string) => void;
   onEmail: (q: Quote) => void;
+  onViewAgreement?: (q: Quote) => void;
 }) => {
   const [{ isOver }, drop] = useDrop(() => ({
     accept: ItemTypes.DEAL,
@@ -306,6 +320,7 @@ const KanbanColumn = ({
             onPreview={onPreview} 
             onDelete={onDelete}
             onEmail={onEmail}
+            onViewAgreement={onViewAgreement}
           />
         ))}
         {quotes.length === 0 && (
@@ -319,7 +334,7 @@ const KanbanColumn = ({
   );
 };
 
-export function DealsKanban({ quotes, onStatusChange, onEdit, onPreview, onDelete, onEmail }: DealsKanbanProps) {
+export function DealsKanban({ quotes, onStatusChange, onEdit, onPreview, onDelete, onEmail, onViewAgreement }: DealsKanbanProps) {
   const columns = [
     { id: 'draft', title: 'Draft' },
     { id: 'sent', title: 'Sent' },
@@ -368,6 +383,7 @@ export function DealsKanban({ quotes, onStatusChange, onEdit, onPreview, onDelet
             onPreview={onPreview}
             onDelete={onDelete}
             onEmail={onEmail}
+            onViewAgreement={onViewAgreement}
           />
         ))}
       </div>
