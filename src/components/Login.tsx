@@ -14,6 +14,7 @@ import { CompleteDatabaseSetup } from './CompleteDatabaseSetup';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { setOrgMode } from '../utils/settings-client';
+import { Logo } from './Logo';
 
 interface LoginProps {
   onLogin: (user: User, token: string) => void;
@@ -650,9 +651,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <Building2 className="h-7 w-7 sm:h-10 sm:w-10 text-white" />
-            </div>
+            <Logo size="xl" className="sm:h-20 sm:w-20" />
             <h1 className="text-3xl sm:text-5xl text-white">ProSpaces CRM</h1>
           </div>
           <p className="text-base sm:text-xl text-white/90 px-2">

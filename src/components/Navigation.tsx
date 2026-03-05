@@ -49,6 +49,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import type { User as UserType } from '../App';
 import type { Organization } from '../App';
 import { canView } from '../utils/permissions';
+import { Logo } from './Logo';
 import { useTheme } from './ThemeProvider';
 import { useAISuggestions } from '../hooks/useAISuggestions';
 import { useUnreadEmails } from '../hooks/useUnreadEmails';
@@ -446,9 +447,7 @@ export function Navigation({
       >
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-white" />
-            </div>
+            <Logo size="sm" />
             <span className="font-semibold">ProSpaces CRM</span>
           </div>
           <div className="flex items-center gap-1">
@@ -711,9 +710,7 @@ export function Navigation({
           <div className="flex items-center gap-3">
             {/* Logo & Brand */}
             <div className="flex items-center gap-2 mr-2">
-              <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-blue-600">
-                <Building2 className="h-5 w-5 text-white" />
-              </div>
+              <Logo size="md" className="h-9 w-9" />
               {!isSidebarCollapsed && (
                 <span className="text-lg font-semibold whitespace-nowrap" style={{ color: theme.colors.topBarText }}>
                   ProSpaces CRM

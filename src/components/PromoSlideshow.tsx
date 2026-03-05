@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Play, Pause, ChevronRight, ChevronLeft, X, ArrowRight, DollarSign, TrendingUp, Briefcase, Activity, User, MessageSquare, FileText, Calendar, PieChart, HardDrive, Megaphone, PenTool, Folder, Plus, Search, MoreHorizontal, Mail, Shield, Filter, Upload, Download, LayoutGrid, Clock } from 'lucide-react';
 import { MetricCard } from './MetricCard';
 import { DealsKanban } from './DealsKanban';
+import { Logo } from './Logo';
 
 // Lazy load 3D renderers to keep the bundle size small
 const LazyKitchen3D = React.lazy(() => import('./kitchen/Kitchen3DRenderer').then(m => ({ default: m.Kitchen3DRenderer })));
@@ -476,8 +477,8 @@ const LoginScreen = () => (
       <div className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 relative z-10">
         <div className="p-16 flex flex-col items-center border-b border-slate-100 bg-slate-900 text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20"></div>
-          <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/50 mb-8 relative z-10">
-            <span className="font-bold text-white text-4xl">PS</span>
+          <div className="mb-8 relative z-10">
+            <Logo size="xl" className="h-20 w-20" />
           </div>
           <h2 className="text-5xl font-bold mb-4 relative z-10">ProSpaces Identity</h2>
           <p className="text-2xl text-blue-200 relative z-10">Enterprise Secure Access</p>
@@ -537,9 +538,7 @@ const CalendarScreen = () => {
         <div className="w-64 bg-slate-900 text-white flex flex-col shrink-0">
           <div className="p-6 border-b border-slate-800">
             <h2 className="text-xl font-bold flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                <span className="font-bold text-white">PS</span>
-              </div>
+              <Logo size="sm" className="w-8 h-8" />
               ProSpaces
             </h2>
           </div>
@@ -763,9 +762,7 @@ const FeaturesScreen = () => {
         <div className="w-64 bg-slate-900 text-white flex flex-col shrink-0 border-r border-slate-800">
           <div className="p-6 border-b border-slate-800">
             <h2 className="text-xl font-bold flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                <span className="font-bold text-white">PS</span>
-              </div>
+              <Logo size="sm" className="w-8 h-8" />
               ProSpaces
             </h2>
           </div>
@@ -842,9 +839,7 @@ const TeamDashboardScreen = () => {
         <div className="w-64 bg-slate-900 text-white flex flex-col shrink-0">
           <div className="p-6 border-b border-slate-800">
             <h2 className="text-xl font-bold flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-                <span className="font-bold text-white">PS</span>
-              </div>
+              <Logo size="sm" className="w-8 h-8" />
               ProSpaces
             </h2>
           </div>
@@ -1010,9 +1005,7 @@ const DashboardScreen = () => (
       <div className="w-64 bg-slate-900 text-white flex flex-col shrink-0">
         <div className="p-6 border-b border-slate-800">
           <h2 className="text-xl font-bold flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-              <span className="font-bold text-white">PS</span>
-            </div>
+            <Logo size="sm" className="w-8 h-8" />
             ProSpaces
           </h2>
         </div>
@@ -1211,9 +1204,7 @@ const ContactPortalScreen = () => (
       <div className="w-64 bg-slate-900 text-white flex flex-col">
         <div className="p-6 border-b border-slate-800">
           <h2 className="text-xl font-bold flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
-              <span className="font-bold text-white">PS</span>
-            </div>
+            <Logo size="sm" className="w-8 h-8" />
             ProSpaces
           </h2>
         </div>

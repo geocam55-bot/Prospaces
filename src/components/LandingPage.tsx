@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
-import logo3d from 'figma:asset/4cd72a4f09d0fbe8ab643136b41fdb815e72afdb.png';
+import { Logo } from './Logo';
 import { 
   Building2, 
   Users, 
@@ -167,7 +167,7 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
       {/* Top bar - Logo and Member Login */}
       <div className="absolute top-0 left-0 right-0 z-20 p-4 sm:p-6 flex justify-between items-center max-w-7xl mx-auto w-full">
         <div className="flex items-center gap-3">
-          <img src={logo3d} alt="ProSpaces Logo" className="h-10 w-10 sm:h-12 sm:w-12" />
+          <Logo size="md" className="h-10 w-10 sm:h-12 sm:w-12" />
           <span className="text-xl font-bold text-gray-900 tracking-tight hidden sm:block">ProSpaces CRM</span>
         </div>
 
@@ -191,9 +191,8 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 sm:pt-24 sm:pb-24">
           <div className="text-center">
             <div className="flex flex-col items-center justify-center mb-4">
-              <img 
-                src={logo3d} 
-                alt="ProSpaces Logo" 
+              <Logo 
+                size="xl"
                 className="relative h-52 w-52 sm:h-68 sm:w-68 hover:scale-105 transition-transform duration-500 ease-out"
               />
             </div>
@@ -201,7 +200,7 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
               ProSpaces CRM
             </h1>
             <p className="text-xl sm:text-2xl text-gray-600 mb-4 max-w-3xl mx-auto">
-              Complete solution for sales, marketing, and project management. Designed from the ground up for the Home Renovation Centres and Lumber Yards.
+              Complete solution for sales, marketing, and project management. Designed from the ground up for Home Renovation Centres and Lumber Yards.
             </p>
             <p className="text-lg text-gray-500 mb-12 max-w-2xl mx-auto">
               Streamline your business operations with our all-in-one CRM platform. 
@@ -342,7 +341,7 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center gap-3 mb-4 md:mb-0">
-              <img src={logo3d} alt="ProSpaces Logo" className="h-10 w-10 rounded-lg" />
+              <Logo size="md" className="h-10 w-10" />
               <span className="text-xl font-bold">ProSpaces CRM</span>
             </div>
             <div className="flex flex-col items-center md:items-end gap-2">
