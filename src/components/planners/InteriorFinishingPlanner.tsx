@@ -318,28 +318,40 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
         bipassTrackSize,
         hingeSize,
         doorKnobType,
+        lastSaved: Date.now(),
       };
 
-      // Try saving to cloud first for persistence across devices/sessions
-      try {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        const accessToken = session?.access_token || publicAnonKey;
-        
-        await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/api/projects/interior-planner/draft`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: JSON.stringify(draft)
-        });
-      } catch (cloudErr) {
-        console.warn('Could not save draft to cloud, falling back to local only:', cloudErr);
+      // 1. Save locally FIRST so it's instantly fast and reliable
+      await saveToIndexedDB(draft);
+      toast.success('Draft saved locally!');
+      
+      // 2. Try saving to cloud in the background
+      // Only stringify and upload if it's reasonably sized (e.g. < 5MB)
+      // Base64 strings are 1 character = 1 byte (roughly 2 bytes in memory but length is char count)
+      const approxSize = bgImage.length + pdfPages.reduce((acc, p) => acc + (p?.length || 0), 0);
+      
+      if (approxSize < 5000000) { // ~5MB
+        try {
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          const accessToken = session?.access_token || publicAnonKey;
+          
+          fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/api/projects/interior-planner/draft`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify(draft)
+          }).catch(e => console.warn('Cloud sync failed:', e));
+        } catch (cloudErr) {
+          console.warn('Could not save draft to cloud:', cloudErr);
+        }
+      } else {
+        console.info('Draft too large for cloud sync. Saved locally only.');
+        toast.info('Draft too large for cloud sync. It has been saved to this device only.', { duration: 4000 });
       }
 
-      await saveToIndexedDB(draft);
-      toast.success('Draft saved successfully!');
     } catch (err) {
       console.error('Save failed', err);
       toast.error('Failed to save draft.');
@@ -351,9 +363,10 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   const handleLoadDraft = async () => {
     setLoading(true);
     try {
-      let draft: any = null;
+      let cloudDraft: any = null;
+      let localDraft: any = null;
       
-      // Try loading from cloud first
+      // 1. Try loading from cloud
       try {
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
@@ -365,16 +378,26 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
         if (res.ok) {
           const data = await res.json();
           if (data.draft) {
-            draft = typeof data.draft === 'string' ? JSON.parse(data.draft) : data.draft;
+            cloudDraft = typeof data.draft === 'string' ? JSON.parse(data.draft) : data.draft;
           }
         }
       } catch (cloudErr) {
         console.warn('Could not load draft from cloud:', cloudErr);
       }
 
-      // Fallback to IndexedDB if cloud is empty or failed
-      if (!draft) {
-        draft = await loadFromIndexedDB();
+      // 2. Try loading from IndexedDB
+      try {
+        localDraft = await loadFromIndexedDB();
+      } catch (localErr) {
+        console.warn('Could not load draft from local DB:', localErr);
+      }
+
+      // 3. Choose the most recent draft
+      let draft = cloudDraft;
+      if (localDraft) {
+        if (!cloudDraft || (localDraft.lastSaved || 0) > (cloudDraft.lastSaved || 0)) {
+          draft = localDraft;
+        }
       }
 
       if (draft && draft.bgImage) {
@@ -1139,7 +1162,11 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                         if (imageDims && containerRef.current) {
                           const cw = containerRef.current.clientWidth - 40;
                           const ch = containerRef.current.clientHeight - 40;
-                          setZoom(Math.min(cw / imageDims.w, ch / imageDims.h));
+                          const scale = Math.min(cw / imageDims.w, ch / imageDims.h);
+                          setZoom(scale > 0 ? scale : 1);
+                          // Reset scroll so the fitted image is visible in the center
+                          containerRef.current.scrollLeft = 0;
+                          containerRef.current.scrollTop = 0;
                         }
                       }}>
                         Fit
