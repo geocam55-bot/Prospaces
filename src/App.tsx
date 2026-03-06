@@ -37,6 +37,7 @@ const DeckPlanner = React.lazy(() => import('./components/planners/DeckPlanner')
 const GaragePlanner = React.lazy(() => import('./components/planners/GaragePlanner').then(m => ({ default: m.GaragePlanner })));
 const ShedPlanner = React.lazy(() => import('./components/planners/ShedPlanner').then(m => ({ default: m.ShedPlanner })));
 const RoofPlanner = React.lazy(() => import('./components/planners/RoofPlanner').then(m => ({ default: m.RoofPlanner })));
+const InteriorFinishingPlanner = React.lazy(() => import('./components/planners/InteriorFinishingPlanner').then(m => ({ default: m.InteriorFinishingPlanner })));
 import { ThemeProvider } from './components/ThemeProvider';
 
 import { OfflineIndicator } from './components/OfflineIndicator';
@@ -516,6 +517,7 @@ export function AppContent() {
               {currentView === 'garage-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="garage-planner"><Suspense fallback={<PlannerLoading />}><GaragePlanner user={user} /></Suspense></PlannerErrorBoundary>}
               {currentView === 'shed-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="shed-planner"><Suspense fallback={<PlannerLoading />}><ShedPlanner user={user} /></Suspense></PlannerErrorBoundary>}
               {currentView === 'roof-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="roof-planner"><Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense></PlannerErrorBoundary>}
+              {currentView === 'interior-finishing' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="interior-finishing"><Suspense fallback={<PlannerLoading />}><InteriorFinishingPlanner user={user} /></Suspense></PlannerErrorBoundary>}
               {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
               {currentView === 'subscription-billing' && <SubscriptionBilling user={user} />}
               {currentView === 'subscription-agreement' && <SubscriptionAgreement organization={organization} />}
