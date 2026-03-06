@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Ruler, Package, Brush, Trash2, UploadCloud, Undo, Maximize2, Square, Minus, DoorOpen, LayoutGrid, AlertCircle, MousePointer2, ZoomIn, ZoomOut, Save, FolderOpen, RotateCw } from 'lucide-react';
+import { Ruler, Package, Brush, Trash2, UploadCloud, Undo, Maximize2, Square, Minus, DoorOpen, LayoutGrid, AlertCircle, MousePointer2, ZoomIn, ZoomOut, Save, FolderOpen, RotateCw, Check } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -107,7 +107,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
         <Brush className="w-16 h-16 text-slate-300 mb-4" />
         <h2 className="text-xl font-semibold text-slate-700">Under Construction</h2>
         <p className="text-slate-500 mt-2 text-center max-w-md">
-          The Interior Finishing Planner is currently being developed and is only visible to administrators.
+          The Finishing Planner is currently being developed and is only visible to administrators.
         </p>
       </div>
     );
@@ -117,6 +117,12 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   const [loading, setLoading] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
 
+  // --- PDF Modal State ---
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfDocument, setPdfDocument] = useState<any>(null);
+  const [pdfThumbnails, setPdfThumbnails] = useState<{ index: number, dataUrl: string }[]>([]);
+  const [selectedPdfPages, setSelectedPdfPages] = useState<Set<number>>(new Set());
+
   // --- Digitizer State ---
   const [bgImage, setBgImage] = useState<string | null>(null);
   const [pdfPages, setPdfPages] = useState<string[]>([]);
@@ -125,7 +131,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   
   const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(null);
   const [mode, setMode] = useState<'idle' | 'calibrate' | 'perimeter' | 'wall' | 'door' | 'window'>('idle');
-  
+
   const [scaleData, setScaleData] = useState<{ p1: Point | null; p2: Point | null; distance: number }>({ p1: null, p2: null, distance: 0 });
   const [perimeter, setPerimeter] = useState<Point[]>([]);
   const [walls, setWalls] = useState<Wall[]>([]);
@@ -144,6 +150,50 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState<number>(1);
+
+  // Canvas Interaction State
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    // Only zoom on ctrl+wheel or meta+wheel (standard map behavior),
+    // OR if they just use wheel, let's make it zoom since that's often what people mean by "mouse wheel zoom"
+    // To prevent scrolling while zooming, we handle preventDefault in the useEffect attached to the container.
+    const zoomDelta = -e.deltaY * 0.002;
+    setZoom(z => Math.max(0.1, Math.min(10, z + (z * zoomDelta))));
+  };
+
+  const handleContainerMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button === 1 || (e.button === 0 && mode === 'idle')) {
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleContainerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPanning || !containerRef.current) return;
+    const dx = e.clientX - panStart.x;
+    const dy = e.clientY - panStart.y;
+    containerRef.current.scrollLeft -= dx;
+    containerRef.current.scrollTop -= dy;
+    setPanStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleContainerMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const handleNativeWheel = (e: WheelEvent) => {
+      // Prevent default scrolling so we use wheel for zoom without jumping around
+      e.preventDefault();
+    };
+    container.addEventListener('wheel', handleNativeWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleNativeWheel);
+  }, [containerRef.current]);
 
   type HistoryState = {
     scaleData: { p1: Point | null; p2: Point | null; distance: number };
@@ -458,34 +508,52 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         
-        const extractedPages: string[] = [];
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
+        if (pdf.numPages === 1) {
+          const page = await pdf.getPage(1);
           const viewport = page.getViewport({ scale: 2.0 });
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
-          if (!context) continue;
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          await page.render({ canvasContext: context, viewport }).promise;
-          extractedPages.push(canvas.toDataURL('image/jpeg', 0.8));
-        }
-        
-        if (extractedPages.length > 0) {
-          setPdfPages(extractedPages);
-          setActivePageIndex(0);
-          setPagesData({});
-          
-          setBgImage(extractedPages[0]);
-          setScaleData({ p1: null, p2: null, distance: 0 });
-          setPerimeter([]);
-          setWalls([]);
-          setDoors([]);
-          setWindows([]);
-          setMode('calibrate');
-          toast.success(`Loaded ${extractedPages.length} page(s) from PDF! Please set the scale first.`);
+          if (context) {
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            await page.render({ canvasContext: context, viewport }).promise;
+            const extracted = canvas.toDataURL('image/jpeg', 0.8);
+            
+            setPdfPages([extracted]);
+            setActivePageIndex(0);
+            setPagesData({});
+            
+            setBgImage(extracted);
+            setScaleData({ p1: null, p2: null, distance: 0 });
+            setPerimeter([]);
+            setWalls([]);
+            setDoors([]);
+            setWindows([]);
+            setMode('calibrate');
+            toast.success(`Loaded 1 page from PDF! Please set the scale first.`);
+          }
         } else {
-          toast.error("Could not extract any pages from this PDF.");
+          toast.info('Generating previews...', { duration: 2000 });
+          setPdfDocument(pdf);
+          
+          const thumbs = [];
+          // To avoid freezing, we could just render thumbnails for the first 20 pages max for quick preview, 
+          // or just loop sequentially. Given it's a browser, looping 20 pages at 0.2 scale is usually <1s.
+          for (let i = 1; i <= Math.min(pdf.numPages, 50); i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 0.2 });
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            if (context) {
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+              await page.render({ canvasContext: context, viewport }).promise;
+              thumbs.push({ index: i, dataUrl: canvas.toDataURL('image/jpeg', 0.5) });
+            }
+          }
+          setPdfThumbnails(thumbs);
+          setSelectedPdfPages(new Set([1]));
+          setShowPdfModal(true);
         }
       } catch (error) {
         console.error("PDF processing error:", error);
@@ -515,6 +583,52 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     };
     reader.readAsDataURL(file);
     e.target.value = ''; // Reset input
+  };
+
+  const handleExtractSelectedPages = async () => {
+    if (!pdfDocument || selectedPdfPages.size === 0) return;
+    try {
+      setLoading(true);
+      setShowPdfModal(false);
+      toast.info('Extracting selected pages...', { duration: 3000 });
+      
+      const extractedPages: string[] = [];
+      const sortedPages = Array.from(selectedPdfPages).sort((a, b) => a - b);
+      
+      for (const pageNum of sortedPages) {
+        const page = await pdfDocument.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 2.0 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) continue;
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: context, viewport }).promise;
+        extractedPages.push(canvas.toDataURL('image/jpeg', 0.8));
+      }
+      
+      if (extractedPages.length > 0) {
+        setPdfPages(extractedPages);
+        setActivePageIndex(0);
+        setPagesData({});
+        
+        setBgImage(extractedPages[0]);
+        setScaleData({ p1: null, p2: null, distance: 0 });
+        setPerimeter([]);
+        setWalls([]);
+        setDoors([]);
+        setWindows([]);
+        setMode('calibrate');
+        toast.success(`Loaded ${extractedPages.length} page(s) from PDF! Please set the scale first.`);
+      }
+    } catch (error) {
+      console.error("Extraction error:", error);
+      toast.error("Failed to extract the selected pages.");
+    } finally {
+      setLoading(false);
+      setPdfDocument(null);
+      setPdfThumbnails([]);
+    }
   };
 
   const handlePageSwitch = (index: number) => {
@@ -1039,7 +1153,12 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
 
                   <div 
                     ref={containerRef}
-                    className="overflow-auto h-[700px] w-full"
+                    className={`overflow-auto h-[700px] w-full ${isPanning ? 'cursor-grabbing' : mode === 'idle' && bgImage ? 'cursor-grab' : ''}`}
+                    onWheel={handleWheel}
+                    onMouseDown={handleContainerMouseDown}
+                    onMouseMove={handleContainerMouseMove}
+                    onMouseUp={handleContainerMouseUp}
+                    onMouseLeave={handleContainerMouseUp}
                   >
                     {!bgImage ? (
                       <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 p-8">
@@ -1335,6 +1454,69 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
           )}
         </div>
       </div>
+
+      {/* PDF Page Selection Modal */}
+      {showPdfModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="font-semibold text-slate-800 text-lg">Select Pages to Extract</h3>
+                <p className="text-sm text-slate-500">Choose which pages from the PDF you want to digitize.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" onClick={() => {
+                  setShowPdfModal(false);
+                  setPdfDocument(null);
+                  setPdfThumbnails([]);
+                }}>Cancel</Button>
+                <Button onClick={handleExtractSelectedPages} disabled={selectedPdfPages.size === 0 || loading}>
+                  {loading ? 'Processing...' : `Extract ${selectedPdfPages.size} Page${selectedPdfPages.size !== 1 ? 's' : ''}`}
+                </Button>
+              </div>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-medium text-slate-600">{pdfThumbnails.length} Pages Available</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setSelectedPdfPages(new Set(pdfThumbnails.map(t => t.index)))}>Select All</Button>
+                  <Button variant="outline" size="sm" onClick={() => setSelectedPdfPages(new Set())}>Clear All</Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {pdfThumbnails.map((thumb) => {
+                  const isSelected = selectedPdfPages.has(thumb.index);
+                  return (
+                    <div 
+                      key={thumb.index}
+                      onClick={() => {
+                        const newSet = new Set(selectedPdfPages);
+                        if (isSelected) newSet.delete(thumb.index);
+                        else newSet.add(thumb.index);
+                        setSelectedPdfPages(newSet);
+                      }}
+                      className={`relative cursor-pointer group rounded-lg overflow-hidden transition-all duration-200 border-2 ${isSelected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200 hover:border-slate-300'}`}
+                    >
+                      <div className="aspect-[3/4] bg-white flex items-center justify-center p-2 relative">
+                        <img src={thumb.dataUrl} alt={`Page ${thumb.index}`} className={`max-w-full max-h-full object-contain ${isSelected ? 'opacity-100' : 'opacity-80 group-hover:opacity-100'}`} />
+                        
+                        {/* Selection indicator */}
+                        <div className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white/80 border-slate-300 text-transparent group-hover:border-slate-400'}`}>
+                          <Check className="w-3 h-3" />
+                        </div>
+                      </div>
+                      <div className={`text-center py-2 text-xs font-medium ${isSelected ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                        Page {thumb.index}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </PermissionGate>
   );
 }
