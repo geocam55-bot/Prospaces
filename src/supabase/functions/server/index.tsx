@@ -297,6 +297,33 @@ app.post(`${PREFIX}/bids`, async (c) => {
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
+app.post(`${PREFIX}/interior-planner/draft`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const body = await c.req.json();
+    // Using stringify with a large base64 image
+    await kv.set(`interior_draft_${auth.user.id}`, JSON.stringify(body));
+    return c.json({ success: true });
+  } catch (err: any) { 
+    return c.json({ error: err.message }, 500); 
+  }
+});
+
+app.get(`${PREFIX}/interior-planner/draft`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const draftStr = await kv.get(`interior_draft_${auth.user.id}`);
+    if (!draftStr) return c.json({ draft: null });
+    // draftStr is stored as string so we parse it
+    const draft = typeof draftStr === 'string' ? JSON.parse(draftStr) : draftStr;
+    return c.json({ draft });
+  } catch (err: any) { 
+    return c.json({ error: err.message }, 500); 
+  }
+});
+
 // ── RECOVER LOST DEALS (Fix NULL organization_id) ───────────────────────
 app.post(`${PREFIX}/recover-deals`, async (c) => {
   try {

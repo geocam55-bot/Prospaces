@@ -10,6 +10,8 @@ import type { User } from '../../App';
 import { PermissionGate } from '../PermissionGate';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { searchInventoryClient } from '../../utils/inventory-client';
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { createClient } from '../../utils/supabase/client';
 
 interface InteriorFinishingPlannerProps {
   user: User;
@@ -17,7 +19,7 @@ interface InteriorFinishingPlannerProps {
 
 type Point = { x: number; y: number };
 type Wall = { p1: Point; p2: Point };
-type PlacedItem = { p: Point; id: string };
+type PlacedItem = { p: Point; id: string; doorType?: string; doorSize?: string; doorHanding?: string };
 
 const DB_NAME = 'InteriorFinishingDB';
 const STORE_NAME = 'drafts';
@@ -126,6 +128,11 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   const [doors, setDoors] = useState<PlacedItem[]>([]);
   const [windows, setWindows] = useState<PlacedItem[]>([]);
 
+  // Door placement settings
+  const [currentDoorType, setCurrentDoorType] = useState('Prehung');
+  const [currentDoorSize, setCurrentDoorSize] = useState('30"');
+  const [currentDoorHanding, setCurrentDoorHanding] = useState('Left');
+
   // Interactive tracking
   const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 });
   const [currentWallPoint, setCurrentWallPoint] = useState<Point | null>(null);
@@ -196,6 +203,12 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   const [casingId, setCasingId] = useState('colonial-2');
   const [crownId, setCrownId] = useState('none');
   const [wainscottingId, setWainscottingId] = useState('none');
+  
+  // Additional door material preferences
+  const [jambStockSize, setJambStockSize] = useState('5"');
+  const [bipassTrackSize, setBipassTrackSize] = useState('48"');
+  const [hingeSize, setHingeSize] = useState('3"');
+  const [doorKnobType, setDoorKnobType] = useState('Passage');
 
   useEffect(() => {
     async function loadInventory() {
@@ -234,7 +247,30 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
         casingId,
         crownId,
         wainscottingId,
+        jambStockSize,
+        bipassTrackSize,
+        hingeSize,
+        doorKnobType,
       };
+
+      // Try saving to cloud first for persistence across devices/sessions
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const accessToken = session?.access_token || publicAnonKey;
+        
+        await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/api/projects/interior-planner/draft`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify(draft)
+        });
+      } catch (cloudErr) {
+        console.warn('Could not save draft to cloud, falling back to local only:', cloudErr);
+      }
+
       await saveToIndexedDB(draft);
       toast.success('Draft saved successfully!');
     } catch (err) {
@@ -248,7 +284,32 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   const handleLoadDraft = async () => {
     setLoading(true);
     try {
-      const draft = await loadFromIndexedDB();
+      let draft: any = null;
+      
+      // Try loading from cloud first
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const accessToken = session?.access_token || publicAnonKey;
+
+        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/api/projects/interior-planner/draft`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.draft) {
+            draft = typeof data.draft === 'string' ? JSON.parse(data.draft) : data.draft;
+          }
+        }
+      } catch (cloudErr) {
+        console.warn('Could not load draft from cloud:', cloudErr);
+      }
+
+      // Fallback to IndexedDB if cloud is empty or failed
+      if (!draft) {
+        draft = await loadFromIndexedDB();
+      }
+
       if (draft && draft.bgImage) {
         setBgImage(draft.bgImage);
         setImageDims(draft.imageDims || null);
@@ -261,6 +322,12 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
         setCasingId(draft.casingId || 'colonial-2');
         setCrownId(draft.crownId || 'none');
         setWainscottingId(draft.wainscottingId || 'none');
+        
+        setJambStockSize(draft.jambStockSize || '5"');
+        setBipassTrackSize(draft.bipassTrackSize || '48"');
+        setHingeSize(draft.hingeSize || '3"');
+        setDoorKnobType(draft.doorKnobType || 'Passage');
+        
         setMode('idle');
         
         // Ensure zoom is recalculated in case image onLoad doesn't fire for base64
@@ -493,7 +560,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
         setCurrentWallPoint(null);
       }
     } else if (mode === 'door') {
-      setDoors([...doors, { p: pt, id: Date.now().toString() }]);
+      setDoors([...doors, { p: pt, id: Date.now().toString(), doorType: currentDoorType, doorSize: currentDoorSize, doorHanding: currentDoorHanding }]);
     } else if (mode === 'window') {
       setWindows([...windows, { p: pt, id: Date.now().toString() }]);
     }
@@ -541,7 +608,9 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   // Interior walls have baseboard on both sides (x2), exterior perimeter has 1 side.
   const rawBaseboardLF = (exteriorLF + (interiorLF * 2)) - (doors.length * 3);
   const totalBaseboardLF = Math.max(0, rawBaseboardLF);
-  const totalCasingLF = (doors.length * 17) + (windows.length * 12); // rough estimates
+  const doorCasingLF = doors.length * 17; // rough estimate per door
+  const windowCasingLF = windows.length * 12; // rough estimate per window
+  const totalCasingLF = doorCasingLF + windowCasingLF;
   const totalCrownLF = exteriorLF + (interiorLF * 2);
 
   // Generate Materials Array
@@ -561,9 +630,14 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     materials.push({ description: baseboardDetails.description, quantity: Math.ceil(totalBaseboardLF * 1.1), unit: 'LF', price: baseboardDetails.price });
   }
 
-  const casingDetails = getMaterialDetails(casingId, "Standard Door Casing", 1.75);
-  if (casingDetails && totalCasingLF > 0) {
-    materials.push({ description: casingDetails.description, quantity: Math.ceil(totalCasingLF * 1.1), unit: 'LF', price: casingDetails.price });
+  const casingDetails = getMaterialDetails(casingId, "Standard Casing", 1.75);
+  if (casingDetails) {
+    if (doorCasingLF > 0) {
+      materials.push({ description: `${casingDetails.description} (Doors)`, quantity: Math.ceil(doorCasingLF * 1.1), unit: 'LF', price: casingDetails.price });
+    }
+    if (windowCasingLF > 0) {
+      materials.push({ description: `${casingDetails.description} (Windows)`, quantity: Math.ceil(windowCasingLF * 1.1), unit: 'LF', price: casingDetails.price });
+    }
   }
 
   const crownDetails = getMaterialDetails(crownId, "Crown Molding", 3.00);
@@ -577,7 +651,47 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   }
 
   if (doors.length > 0) {
-    materials.push({ description: `Standard Interior Doors`, quantity: doors.length, unit: 'EA', price: 150.00 });
+    const doorGroups = doors.reduce((acc, door) => {
+      const type = door.doorType || 'Prehung';
+      const size = door.doorSize || '30"';
+      let handingStr = '';
+      if (type === 'Prehung') {
+        const hand = door.doorHanding || 'Left';
+        handingStr = ` - ${hand} Hand`;
+      }
+      
+      const desc = `${type} Interior Door (${size})${handingStr}`;
+      acc[desc] = (acc[desc] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    Object.entries(doorGroups).forEach(([desc, qty]) => {
+      // Basic estimated prices based on type
+      let price = 150.00;
+      if (desc.includes('BiFolding')) price = 120.00;
+      if (desc.includes('Slab')) price = 80.00;
+      
+      materials.push({ description: desc, quantity: qty, unit: 'EA', price });
+    });
+
+    // Hardware based on door count
+    let standardDoorCount = doors.filter(d => d.doorType !== 'BiFolding' && d.doorType !== 'BiPassing').length;
+    let bifoldPassCount = doors.filter(d => d.doorType === 'BiFolding' || d.doorType === 'BiPassing').length;
+    
+    // Fallback if types aren't matching perfectly
+    if (standardDoorCount === 0 && bifoldPassCount === 0 && doors.length > 0) {
+      standardDoorCount = doors.length;
+    }
+
+    if (standardDoorCount > 0) {
+      materials.push({ description: `Jamb Stock (${jambStockSize})`, quantity: standardDoorCount, unit: 'EA', price: 25.00 });
+      materials.push({ description: `Door Hinges (${hingeSize})`, quantity: standardDoorCount * 3, unit: 'EA', price: 4.50 });
+      materials.push({ description: `Door Knob Set (${doorKnobType})`, quantity: standardDoorCount, unit: 'EA', price: 35.00 });
+    }
+
+    if (bifoldPassCount > 0) {
+      materials.push({ description: `BiPassing/BiFold Track (${bipassTrackSize})`, quantity: bifoldPassCount, unit: 'EA', price: 45.00 });
+    }
   }
 
   const totalCost = materials.reduce((sum, item) => sum + (item.quantity * item.price), 0);
@@ -653,11 +767,11 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                       </p>
                     </div>
                     
-                    <div className="flex gap-2 pt-2 border-t border-slate-100 mt-2">
-                      <Button variant="secondary" size="sm" className="flex-1" onClick={handleSaveDraft} disabled={loading || !bgImage}>
+                    <div className="flex flex-col gap-2 pt-2 border-t border-slate-100 mt-2">
+                      <Button variant="secondary" size="sm" className="w-full" onClick={handleSaveDraft} disabled={loading || !bgImage}>
                         <Save className="w-4 h-4 mr-2" /> Save Draft
                       </Button>
-                      <Button variant="secondary" size="sm" className="flex-1" onClick={handleLoadDraft} disabled={loading}>
+                      <Button variant="secondary" size="sm" className="w-full" onClick={handleLoadDraft} disabled={loading}>
                         <FolderOpen className="w-4 h-4 mr-2" /> Load Draft
                       </Button>
                     </div>
@@ -719,6 +833,51 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                         <span className="text-xs">Select / Pan</span>
                       </Button>
                     </div>
+
+                    {mode === 'door' && (
+                      <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-md space-y-3">
+                        <Label className="text-xs font-semibold text-slate-700">Door Settings</Label>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase text-slate-500 font-bold">Type</Label>
+                          <Select value={currentDoorType} onValueChange={setCurrentDoorType}>
+                            <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Prehung">Prehung</SelectItem>
+                              <SelectItem value="BiFolding">BiFolding</SelectItem>
+                              <SelectItem value="BiPassing">BiPassing</SelectItem>
+                              <SelectItem value="Slab">Slab</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase text-slate-500 font-bold">Size</Label>
+                          <Select value={currentDoorSize} onValueChange={setCurrentDoorSize}>
+                            <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value='18"'>18"</SelectItem>
+                              <SelectItem value='24"'>24"</SelectItem>
+                              <SelectItem value='28"'>28"</SelectItem>
+                              <SelectItem value='30"'>30"</SelectItem>
+                              <SelectItem value='32"'>32"</SelectItem>
+                              <SelectItem value='34"'>34"</SelectItem>
+                              <SelectItem value='38"'>38"</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {currentDoorType === 'Prehung' && (
+                          <div className="space-y-2">
+                            <Label className="text-[10px] uppercase text-slate-500 font-bold">Handing</Label>
+                            <Select value={currentDoorHanding} onValueChange={setCurrentDoorHanding}>
+                              <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Left">Left Hand</SelectItem>
+                                <SelectItem value="Right">Right Hand</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 mt-4 text-sm text-slate-600 min-h-[80px]">
                       {mode === 'idle' && "Select a tool above to begin tracing."}
@@ -894,12 +1053,19 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                           )}
 
                           {/* Doors */}
-                          {doors.map((d) => (
-                            <g key={d.id} transform={`translate(${d.p.x}, ${d.p.y})`}>
-                              <circle cx={0} cy={0} r={Math.max(6, imageDims.w / 150)} fill="#f59e0b" stroke="#fff" strokeWidth={2} />
-                              <text x={0} y={Math.max(16, imageDims.w / 80)} fontSize={Math.max(12, imageDims.w / 100)} textAnchor="middle" fill="#b45309" fontWeight="bold">D</text>
-                            </g>
-                          ))}
+                          {doors.map((d) => {
+                            const dType = d.doorType || 'Prehung';
+                            const dSize = d.doorSize || '30"';
+                            const dHand = d.doorHanding || 'Left';
+                            const dTitle = `${dType} (${dSize})${dType === 'Prehung' ? ` - ${dHand}` : ''}`;
+                            return (
+                              <g key={d.id} transform={`translate(${d.p.x}, ${d.p.y})`} className="cursor-pointer">
+                                <title>{dTitle}</title>
+                                <circle cx={0} cy={0} r={Math.max(6, imageDims.w / 150)} fill="#f59e0b" stroke="#fff" strokeWidth={2} />
+                                <text x={0} y={Math.max(16, imageDims.w / 80)} fontSize={Math.max(12, imageDims.w / 100)} textAnchor="middle" fill="#b45309" fontWeight="bold">D</text>
+                              </g>
+                            );
+                          })}
 
                           {/* Windows */}
                           {windows.map((w) => (
@@ -945,7 +1111,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Door Casing</Label>
+                      <Label>Door & Window Casing</Label>
                       <Select value={casingId} onValueChange={setCasingId}>
                         <SelectTrigger><SelectValue placeholder="Select Casing..." /></SelectTrigger>
                         <SelectContent>
@@ -982,6 +1148,55 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100">
+                      <h4 className="text-sm font-semibold mb-4 text-slate-800">Door Hardware & Framing</h4>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Jamb Stock</Label>
+                          <Select value={jambStockSize} onValueChange={setJambStockSize}>
+                            <SelectTrigger><SelectValue placeholder="Select size..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value='5"'>5"</SelectItem>
+                              <SelectItem value='6"'>6"</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>BiPassing Track Size</Label>
+                          <Select value={bipassTrackSize} onValueChange={setBipassTrackSize}>
+                            <SelectTrigger><SelectValue placeholder="Select size..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value='48"'>48"</SelectItem>
+                              <SelectItem value='72"'>72"</SelectItem>
+                              <SelectItem value='96"'>96"</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Hinges Size</Label>
+                          <Select value={hingeSize} onValueChange={setHingeSize}>
+                            <SelectTrigger><SelectValue placeholder="Select size..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value='3"'>3"</SelectItem>
+                              <SelectItem value='3-1/2"'>3-1/2"</SelectItem>
+                              <SelectItem value='4"'>4"</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Door Knob Set</Label>
+                          <Select value={doorKnobType} onValueChange={setDoorKnobType}>
+                            <SelectTrigger><SelectValue placeholder="Select type..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Passage">Passage</SelectItem>
+                              <SelectItem value="Bed and Bath">Bed and Bath</SelectItem>
+                              <SelectItem value="Entrance">Entrance</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
