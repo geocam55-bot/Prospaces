@@ -95,6 +95,63 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState<number>(1);
 
+  type HistoryState = {
+    scaleData: { p1: Point | null; p2: Point | null; distance: number };
+    perimeter: Point[];
+    walls: Wall[];
+    doors: PlacedItem[];
+    windows: PlacedItem[];
+    currentWallPoint: Point | null;
+  };
+  const historyRef = useRef<HistoryState[]>([]);
+
+  // Since handleUndoAction requires access to the latest state, we should use a generic state approach,
+  // but let's actually just use refs for the latest state inside the event listener to avoid stale closures,
+  // or simply rely on React state since handleUndoAction updates state. 
+  // Actually, to push the *current* state to history, we need access to the current state variables.
+  const stateRef = useRef({ scaleData, perimeter, walls, doors, windows, currentWallPoint });
+  useEffect(() => {
+    stateRef.current = { scaleData, perimeter, walls, doors, windows, currentWallPoint };
+  }, [scaleData, perimeter, walls, doors, windows, currentWallPoint]);
+
+  const saveHistory = () => {
+    historyRef.current.push({
+      scaleData: { ...stateRef.current.scaleData },
+      perimeter: [...stateRef.current.perimeter],
+      walls: [...stateRef.current.walls],
+      doors: [...stateRef.current.doors],
+      windows: [...stateRef.current.windows],
+      currentWallPoint: stateRef.current.currentWallPoint
+    });
+    if (historyRef.current.length > 50) {
+      historyRef.current.shift();
+    }
+  };
+
+  const handleUndoAction = () => {
+    if (historyRef.current.length === 0) {
+      toast.info('Nothing to undo.');
+      return;
+    }
+    const lastState = historyRef.current.pop()!;
+    setScaleData(lastState.scaleData);
+    setPerimeter(lastState.perimeter);
+    setWalls(lastState.walls);
+    setDoors(lastState.doors);
+    setWindows(lastState.windows);
+    setCurrentWallPoint(lastState.currentWallPoint);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleUndoAction();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Material preferences
   const [baseboardId, setBaseboardId] = useState('modern-5');
   const [casingId, setCasingId] = useState('colonial-2');
@@ -345,6 +402,10 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   const handleClick = (e: React.MouseEvent) => {
     const pt = getNaturalCoords(e);
     if (!pt) return;
+
+    if (mode !== 'idle') {
+      saveHistory();
+    }
 
     if (mode === 'calibrate') {
       if (!scaleData.p1) {
@@ -609,19 +670,12 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                     </div>
 
                     <div className="flex gap-2 pt-2 border-t border-slate-100">
-                      <Button variant="ghost" size="sm" className="flex-1" onClick={() => {
-                        if (mode === 'perimeter') setPerimeter(p => p.slice(0, -1));
-                        if (mode === 'wall') {
-                          if (currentWallPoint) setCurrentWallPoint(null);
-                          else setWalls(w => w.slice(0, -1));
-                        }
-                        if (mode === 'door') setDoors(d => d.slice(0, -1));
-                        if (mode === 'window') setWindows(w => w.slice(0, -1));
-                      }}>
+                      <Button variant="ghost" size="sm" className="flex-1" onClick={handleUndoAction}>
                         <Undo className="w-4 h-4 mr-2" /> Undo
                       </Button>
                       <Button variant="ghost" size="sm" className="flex-1 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => {
                         if (confirm("Clear all tracing data?")) {
+                          saveHistory();
                           setPerimeter([]); setWalls([]); setDoors([]); setWindows([]);
                         }
                       }}>
