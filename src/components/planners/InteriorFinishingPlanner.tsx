@@ -119,6 +119,10 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
 
   // --- Digitizer State ---
   const [bgImage, setBgImage] = useState<string | null>(null);
+  const [pdfPages, setPdfPages] = useState<string[]>([]);
+  const [activePageIndex, setActivePageIndex] = useState<number>(0);
+  const [pagesData, setPagesData] = useState<Record<number, any>>({});
+  
   const [imageDims, setImageDims] = useState<{ w: number; h: number } | null>(null);
   const [mode, setMode] = useState<'idle' | 'calibrate' | 'perimeter' | 'wall' | 'door' | 'window'>('idle');
   
@@ -237,6 +241,19 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     try {
       const draft = {
         bgImage,
+        pdfPages,
+        activePageIndex,
+        pagesData: {
+          ...pagesData,
+          [activePageIndex]: {
+            imageDims,
+            scaleData,
+            perimeter,
+            walls,
+            doors,
+            windows
+          }
+        },
         imageDims,
         scaleData,
         perimeter,
@@ -311,6 +328,10 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
       }
 
       if (draft && draft.bgImage) {
+        setPdfPages(draft.pdfPages || [draft.bgImage]);
+        setActivePageIndex(draft.activePageIndex || 0);
+        setPagesData(draft.pagesData || {});
+        
         setBgImage(draft.bgImage);
         setImageDims(draft.imageDims || null);
         setScaleData(draft.scaleData || { p1: null, p2: null, distance: 0 });
@@ -436,30 +457,36 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
 
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        const page = await pdf.getPage(1);
         
-        // Render at 2x scale for better clarity
-        const viewport = page.getViewport({ scale: 2.0 });
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
+        const extractedPages: string[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 2.0 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          if (!context) continue;
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          await page.render({ canvasContext: context, viewport }).promise;
+          extractedPages.push(canvas.toDataURL('image/jpeg', 0.8));
+        }
         
-        if (!context) throw new Error('Could not create canvas context');
-        
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        
-        await page.render({ canvasContext: context, viewport }).promise;
-        
-        const dataUrl = canvas.toDataURL('image/png');
-        
-        setBgImage(dataUrl);
-        setScaleData({ p1: null, p2: null, distance: 0 });
-        setPerimeter([]);
-        setWalls([]);
-        setDoors([]);
-        setWindows([]);
-        setMode('calibrate');
-        toast.success('PDF loaded! Please set the scale first.');
+        if (extractedPages.length > 0) {
+          setPdfPages(extractedPages);
+          setActivePageIndex(0);
+          setPagesData({});
+          
+          setBgImage(extractedPages[0]);
+          setScaleData({ p1: null, p2: null, distance: 0 });
+          setPerimeter([]);
+          setWalls([]);
+          setDoors([]);
+          setWindows([]);
+          setMode('calibrate');
+          toast.success(`Loaded ${extractedPages.length} page(s) from PDF! Please set the scale first.`);
+        } else {
+          toast.error("Could not extract any pages from this PDF.");
+        }
       } catch (error) {
         console.error("PDF processing error:", error);
         toast.error("Failed to process the PDF. Please try a different file.");
@@ -472,7 +499,12 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      setBgImage(event.target?.result as string);
+      const result = event.target?.result as string;
+      setPdfPages([result]);
+      setActivePageIndex(0);
+      setPagesData({});
+      
+      setBgImage(result);
       setScaleData({ p1: null, p2: null, distance: 0 });
       setPerimeter([]);
       setWalls([]);
@@ -483,6 +515,44 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     };
     reader.readAsDataURL(file);
     e.target.value = ''; // Reset input
+  };
+
+  const handlePageSwitch = (index: number) => {
+    if (index === activePageIndex) return;
+    
+    // Save current active page state
+    setPagesData(prev => ({
+      ...prev,
+      [activePageIndex]: {
+        imageDims,
+        scaleData,
+        perimeter,
+        walls,
+        doors,
+        windows
+      }
+    }));
+
+    // Load target page state
+    const next = pagesData[index] || {
+      imageDims: null,
+      scaleData: { p1: null, p2: null, distance: 0 },
+      perimeter: [],
+      walls: [],
+      doors: [],
+      windows: []
+    };
+
+    setImageDims(next.imageDims);
+    setScaleData(next.scaleData);
+    setPerimeter(next.perimeter);
+    setWalls(next.walls);
+    setDoors(next.doors);
+    setWindows(next.windows);
+    
+    setActivePageIndex(index);
+    setBgImage(pdfPages[index]);
+    setMode('idle');
   };
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement> | Event) => {
@@ -600,16 +670,69 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     return len / pixelsPerFoot;
   };
 
-  const sqFt = calculateArea();
-  const exteriorLF = calculatePerimeterLF();
-  const interiorLF = calculateWallsLF();
+  const getAggregatedTakeoffData = () => {
+    const allPagesData = { ...pagesData };
+    allPagesData[activePageIndex] = { imageDims, scaleData, perimeter, walls, doors, windows };
+
+    let totalSqFt = 0;
+    let totalExteriorLF = 0;
+    let totalInteriorLF = 0;
+    let allDoors: PlacedItem[] = [];
+    let allWindows: PlacedItem[] = [];
+
+    Object.values(allPagesData).forEach((page: any) => {
+      if (!page) return;
+      const pScale = page.scaleData || { p1: null, p2: null, distance: 0 };
+      const pPerimeter = page.perimeter || [];
+      const pWalls = page.walls || [];
+      
+      const ppf = pScale.distance > 0 && pScale.p1 && pScale.p2
+        ? getDistance(pScale.p1, pScale.p2) / pScale.distance
+        : 0;
+
+      if (ppf > 0 && pPerimeter.length >= 3) {
+        let area = 0;
+        for (let i = 0; i < pPerimeter.length; i++) {
+          const j = (i + 1) % pPerimeter.length;
+          area += pPerimeter[i].x * pPerimeter[j].y - pPerimeter[j].x * pPerimeter[i].y;
+        }
+        totalSqFt += Math.abs(area / 2) / (ppf * ppf);
+      }
+
+      if (ppf > 0 && pPerimeter.length >= 2) {
+        let len = 0;
+        for (let i = 0; i < pPerimeter.length; i++) {
+          const j = (i + 1) % pPerimeter.length;
+          len += getDistance(pPerimeter[i], pPerimeter[j]);
+        }
+        totalExteriorLF += len / ppf;
+      }
+
+      if (ppf > 0) {
+        const len = pWalls.reduce((sum: number, w: Wall) => sum + getDistance(w.p1, w.p2), 0);
+        totalInteriorLF += len / ppf;
+      }
+
+      if (page.doors) allDoors = [...allDoors, ...page.doors];
+      if (page.windows) allWindows = [...allWindows, ...page.windows];
+    });
+
+    return { totalSqFt, totalExteriorLF, totalInteriorLF, allDoors, allWindows };
+  };
+
+  const aggData = getAggregatedTakeoffData();
+  const sqFt = aggData.totalSqFt;
+  const exteriorLF = aggData.totalExteriorLF;
+  const interiorLF = aggData.totalInteriorLF;
+  const allDoors = aggData.allDoors;
+  const allWindows = aggData.allWindows;
   
   // Assume a door removes ~3 feet of baseboard and a window doesn't affect baseboard.
   // Interior walls have baseboard on both sides (x2), exterior perimeter has 1 side.
-  const rawBaseboardLF = (exteriorLF + (interiorLF * 2)) - (doors.length * 3);
+  const rawBaseboardLF = (exteriorLF + (interiorLF * 2)) - (allDoors.length * 3);
   const totalBaseboardLF = Math.max(0, rawBaseboardLF);
-  const doorCasingLF = doors.length * 17; // rough estimate per door
-  const windowCasingLF = windows.length * 12; // rough estimate per window
+  const doorCasingLF = allDoors.length * 17; // rough estimate per door
+  const windowCasingLF = allWindows.length * 12; // rough estimate per window
   const totalCasingLF = doorCasingLF + windowCasingLF;
   const totalCrownLF = exteriorLF + (interiorLF * 2);
 
@@ -650,8 +773,8 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     materials.push({ description: wainscottingDetails.description, quantity: Math.ceil(totalBaseboardLF * 1.1), unit: 'LF', price: wainscottingDetails.price });
   }
 
-  if (doors.length > 0) {
-    const doorGroups = doors.reduce((acc, door) => {
+  if (allDoors.length > 0) {
+    const doorGroups = allDoors.reduce((acc, door) => {
       const type = door.doorType || 'Prehung';
       const size = door.doorSize || '30"';
       let handingStr = '';
@@ -675,12 +798,12 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     });
 
     // Hardware based on door count
-    let standardDoorCount = doors.filter(d => d.doorType !== 'BiFolding' && d.doorType !== 'BiPassing').length;
-    let bifoldPassCount = doors.filter(d => d.doorType === 'BiFolding' || d.doorType === 'BiPassing').length;
+    let standardDoorCount = allDoors.filter(d => d.doorType !== 'BiFolding' && d.doorType !== 'BiPassing').length;
+    let bifoldPassCount = allDoors.filter(d => d.doorType === 'BiFolding' || d.doorType === 'BiPassing').length;
     
     // Fallback if types aren't matching perfectly
-    if (standardDoorCount === 0 && bifoldPassCount === 0 && doors.length > 0) {
-      standardDoorCount = doors.length;
+    if (standardDoorCount === 0 && bifoldPassCount === 0 && allDoors.length > 0) {
+      standardDoorCount = allDoors.length;
     }
 
     if (standardDoorCount > 0) {
@@ -744,200 +867,150 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
 
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {activeTab === 'digitizer' && (
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              {/* Left Sidebar Tools */}
-              <div className="lg:col-span-1 space-y-6">
-                <Card>
-                  <CardHeader className="pb-3 border-b border-slate-100">
-                    <CardTitle className="text-base">1. Upload Image</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4 space-y-3">
-                    <div className="flex flex-col gap-2">
-                      <Label className="text-xs text-slate-500">Supported: PDF, JPG, PNG</Label>
-                      <Button asChild variant="outline" className="w-full relative overflow-hidden" disabled={loading}>
-                        <label className={`cursor-pointer ${loading ? 'opacity-50' : ''}`}>
-                          <UploadCloud className="w-4 h-4 mr-2" />
-                          {loading ? 'Processing...' : (bgImage ? 'Replace Floorplan' : 'Upload Floorplan')}
-                          <input type="file" accept="application/pdf, image/jpeg, image/png" className="hidden" disabled={loading} onChange={handleFileUpload} />
-                        </label>
-                      </Button>
-                      <p className="text-[10px] text-slate-400 mt-1 flex items-start gap-1">
-                        <AlertCircle className="w-3 h-3 flex-shrink-0" />
-                        PDFs will automatically extract the first page.
-                      </p>
-                    </div>
-                    
-                    <div className="flex flex-col gap-2 pt-2 border-t border-slate-100 mt-2">
-                      <Button variant="secondary" size="sm" className="w-full" onClick={handleSaveDraft} disabled={loading || !bgImage}>
-                        <Save className="w-4 h-4 mr-2" /> Save Draft
-                      </Button>
-                      <Button variant="secondary" size="sm" className="w-full" onClick={handleLoadDraft} disabled={loading}>
-                        <FolderOpen className="w-4 h-4 mr-2" /> Load Draft
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+            <div className="flex flex-col gap-4">
+              {/* Top Toolbar */}
+              <div className="bg-white p-3 rounded-lg shadow-sm border border-slate-200 flex flex-wrap items-center gap-3">
+                {/* Upload & Draft */}
+                <div className="flex items-center gap-1 pr-3 border-r border-slate-200">
+                  <label className={`cursor-pointer flex flex-col items-center justify-center p-2 rounded-md hover:bg-purple-50 transition-colors ${loading ? 'opacity-50' : ''}`}>
+                    <UploadCloud className="w-5 h-5 mb-1 text-purple-500" />
+                    <span className="text-[10px] font-medium text-slate-600">Upload</span>
+                    <input type="file" accept="application/pdf, image/jpeg, image/png" className="hidden" disabled={loading} onChange={handleFileUpload} />
+                  </label>
+                  <button onClick={handleSaveDraft} disabled={loading || !bgImage} className="flex flex-col items-center justify-center p-2 rounded-md hover:bg-green-50 transition-colors disabled:opacity-50">
+                    <Save className="w-5 h-5 mb-1 text-green-500" />
+                    <span className="text-[10px] font-medium text-slate-600">Save</span>
+                  </button>
+                  <button onClick={handleLoadDraft} disabled={loading} className="flex flex-col items-center justify-center p-2 rounded-md hover:bg-orange-50 transition-colors disabled:opacity-50">
+                    <FolderOpen className="w-5 h-5 mb-1 text-orange-500" />
+                    <span className="text-[10px] font-medium text-slate-600">Load</span>
+                  </button>
+                </div>
 
-                <Card>
-                  <CardHeader className="pb-3 border-b border-slate-100">
-                    <CardTitle className="text-base">2. Digitizing Tools</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button 
-                        variant={mode === 'calibrate' ? 'default' : 'outline'} 
-                        className={`h-auto py-3 px-2 flex flex-col items-center gap-1 ${mode === 'calibrate' ? 'bg-indigo-600 hover:bg-indigo-700' : ''}`}
-                        onClick={() => setMode('calibrate')}
-                      >
-                        <Maximize2 className="w-5 h-5 mb-1" />
-                        <span className="text-xs">Set Scale</span>
-                      </Button>
-                      <Button 
-                        variant={mode === 'perimeter' ? 'default' : 'outline'} 
-                        className={`h-auto py-3 px-2 flex flex-col items-center gap-1 ${mode === 'perimeter' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-                        onClick={() => setMode('perimeter')}
-                      >
-                        <Square className="w-5 h-5 mb-1" />
-                        <span className="text-xs">Perimeter</span>
-                      </Button>
-                      <Button 
-                        variant={mode === 'wall' ? 'default' : 'outline'} 
-                        className={`h-auto py-3 px-2 flex flex-col items-center gap-1 ${mode === 'wall' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-                        onClick={() => { setMode('wall'); setCurrentWallPoint(null); }}
-                      >
-                        <Minus className="w-5 h-5 mb-1" />
-                        <span className="text-xs">Int. Walls</span>
-                      </Button>
-                      <Button 
-                        variant={mode === 'door' ? 'default' : 'outline'} 
-                        className={`h-auto py-3 px-2 flex flex-col items-center gap-1 ${mode === 'door' ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500' : ''}`}
-                        onClick={() => setMode('door')}
-                      >
-                        <DoorOpen className="w-5 h-5 mb-1" />
-                        <span className="text-xs">Add Doors</span>
-                      </Button>
-                      <Button 
-                        variant={mode === 'window' ? 'default' : 'outline'} 
-                        className={`h-auto py-3 px-2 flex flex-col items-center gap-1 ${mode === 'window' ? 'bg-cyan-500 hover:bg-cyan-600 text-white border-cyan-500' : ''}`}
-                        onClick={() => setMode('window')}
-                      >
-                        <LayoutGrid className="w-5 h-5 mb-1" />
-                        <span className="text-xs">Add Windows</span>
-                      </Button>
-                      <Button 
-                        variant={mode === 'idle' ? 'default' : 'outline'} 
-                        className="h-auto py-3 px-2 flex flex-col items-center gap-1"
-                        onClick={() => setMode('idle')}
-                      >
-                        <MousePointer2 className="w-5 h-5 mb-1" />
-                        <span className="text-xs">Select / Pan</span>
-                      </Button>
-                    </div>
+                {/* History Tools */}
+                <div className="flex items-center gap-1 pr-3 border-r border-slate-200">
+                  <button onClick={handleUndoAction} className="flex flex-col items-center justify-center p-2 rounded-md hover:bg-slate-100 transition-colors">
+                    <Undo className="w-5 h-5 mb-1 text-slate-600" />
+                    <span className="text-[10px] font-medium text-slate-600">Undo</span>
+                  </button>
+                  <button onClick={() => {
+                    if (confirm("Clear all tracing data?")) {
+                      saveHistory();
+                      setPerimeter([]); setWalls([]); setDoors([]); setWindows([]);
+                    }
+                  }} className="flex flex-col items-center justify-center p-2 rounded-md hover:bg-red-50 transition-colors">
+                    <Trash2 className="w-5 h-5 mb-1 text-red-500" />
+                    <span className="text-[10px] font-medium text-slate-600">Clear</span>
+                  </button>
+                </div>
 
-                    {mode === 'door' && (
-                      <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-md space-y-3">
-                        <Label className="text-xs font-semibold text-slate-700">Door Settings</Label>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] uppercase text-slate-500 font-bold">Type</Label>
-                          <Select value={currentDoorType} onValueChange={setCurrentDoorType}>
-                            <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
+                {/* Digitizing Tools */}
+                <div className="flex items-center gap-1 flex-1">
+                  <button onClick={() => setMode('calibrate')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'calibrate' ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-indigo-50 text-slate-600'}`}>
+                    <Maximize2 className={`w-5 h-5 mb-1 ${mode === 'calibrate' ? 'text-white' : 'text-indigo-500'}`} />
+                    <span className="text-[10px] font-medium">Set Scale</span>
+                  </button>
+                  <button onClick={() => setMode('perimeter')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'perimeter' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-blue-50 text-slate-600'}`}>
+                    <Square className={`w-5 h-5 mb-1 ${mode === 'perimeter' ? 'text-white' : 'text-blue-500'}`} />
+                    <span className="text-[10px] font-medium">Perimeter</span>
+                  </button>
+                  <button onClick={() => { setMode('wall'); setCurrentWallPoint(null); }} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'wall' ? 'bg-cyan-600 text-white shadow-md' : 'hover:bg-cyan-50 text-slate-600'}`}>
+                    <Minus className={`w-5 h-5 mb-1 ${mode === 'wall' ? 'text-white' : 'text-cyan-500'}`} />
+                    <span className="text-[10px] font-medium">Int. Walls</span>
+                  </button>
+                  <button onClick={() => setMode('door')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'door' ? 'bg-emerald-600 text-white shadow-md' : 'hover:bg-emerald-50 text-slate-600'}`}>
+                    <DoorOpen className={`w-5 h-5 mb-1 ${mode === 'door' ? 'text-white' : 'text-emerald-500'}`} />
+                    <span className="text-[10px] font-medium">Doors</span>
+                  </button>
+                  <button onClick={() => setMode('window')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'window' ? 'bg-teal-600 text-white shadow-md' : 'hover:bg-teal-50 text-slate-600'}`}>
+                    <LayoutGrid className={`w-5 h-5 mb-1 ${mode === 'window' ? 'text-white' : 'text-teal-500'}`} />
+                    <span className="text-[10px] font-medium">Windows</span>
+                  </button>
+                  <button onClick={() => setMode('idle')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'idle' ? 'bg-slate-700 text-white shadow-md' : 'hover:bg-slate-100 text-slate-600'}`}>
+                    <MousePointer2 className={`w-5 h-5 mb-1 ${mode === 'idle' ? 'text-white' : 'text-slate-500'}`} />
+                    <span className="text-[10px] font-medium">Select/Pan</span>
+                  </button>
+
+                  {/* Door Settings Inline */}
+                  {mode === 'door' && (
+                    <div className="flex items-center gap-3 pl-4 border-l border-slate-200 ml-2">
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-[9px] uppercase text-slate-500 font-bold">Type</Label>
+                        <Select value={currentDoorType} onValueChange={setCurrentDoorType}>
+                          <SelectTrigger className="h-7 text-xs bg-slate-50 w-[100px] border-slate-200"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Prehung">Prehung</SelectItem>
+                            <SelectItem value="BiFolding">BiFolding</SelectItem>
+                            <SelectItem value="BiPassing">BiPassing</SelectItem>
+                            <SelectItem value="Slab">Slab</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-[9px] uppercase text-slate-500 font-bold">Size</Label>
+                        <Select value={currentDoorSize} onValueChange={setCurrentDoorSize}>
+                          <SelectTrigger className="h-7 text-xs bg-slate-50 w-[80px] border-slate-200"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {['18"','24"','28"','30"','32"','34"','38"'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {currentDoorType === 'Prehung' && (
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-[9px] uppercase text-slate-500 font-bold">Handing</Label>
+                          <Select value={currentDoorHanding} onValueChange={setCurrentDoorHanding}>
+                            <SelectTrigger className="h-7 text-xs bg-slate-50 w-[80px] border-slate-200"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Prehung">Prehung</SelectItem>
-                              <SelectItem value="BiFolding">BiFolding</SelectItem>
-                              <SelectItem value="BiPassing">BiPassing</SelectItem>
-                              <SelectItem value="Slab">Slab</SelectItem>
+                              <SelectItem value="Left">Left</SelectItem>
+                              <SelectItem value="Right">Right</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="space-y-2">
-                          <Label className="text-[10px] uppercase text-slate-500 font-bold">Size</Label>
-                          <Select value={currentDoorSize} onValueChange={setCurrentDoorSize}>
-                            <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value='18"'>18"</SelectItem>
-                              <SelectItem value='24"'>24"</SelectItem>
-                              <SelectItem value='28"'>28"</SelectItem>
-                              <SelectItem value='30"'>30"</SelectItem>
-                              <SelectItem value='32"'>32"</SelectItem>
-                              <SelectItem value='34"'>34"</SelectItem>
-                              <SelectItem value='38"'>38"</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {currentDoorType === 'Prehung' && (
-                          <div className="space-y-2">
-                            <Label className="text-[10px] uppercase text-slate-500 font-bold">Handing</Label>
-                            <Select value={currentDoorHanding} onValueChange={setCurrentDoorHanding}>
-                              <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Left">Left Hand</SelectItem>
-                                <SelectItem value="Right">Right Hand</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                      )}
+                    </div>
+                  )}
+                </div>
 
-                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 mt-4 text-sm text-slate-600 min-h-[80px]">
-                      {mode === 'idle' && "Select a tool above to begin tracing."}
-                      {mode === 'calibrate' && (!scaleData.p1 ? "Click to set the FIRST point of a known measurement." : "Click to set the SECOND point of the measurement.")}
-                      {mode === 'perimeter' && "Click corners to trace the exterior perimeter. It will automatically connect."}
-                      {mode === 'wall' && (!currentWallPoint ? "Click to START an interior wall segment." : "Click to END the interior wall segment.")}
-                      {mode === 'door' && "Click on walls to place doors."}
-                      {mode === 'window' && "Click on walls to place windows."}
+                {/* Takeoff Quick Stats */}
+                <div className="flex items-center gap-4 text-xs ml-auto pl-4 border-l border-slate-200 min-w-max">
+                  <div className="flex flex-col items-end">
+                    <span className="text-slate-400 text-[9px] uppercase font-semibold">Area</span>
+                    <span className="font-bold text-slate-700">{sqFt > 0 ? sqFt.toFixed(1) : '--'} sqft</span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-slate-400 text-[9px] uppercase font-semibold">Baseboard</span>
+                    <span className="font-bold text-slate-700">{totalBaseboardLF > 0 ? totalBaseboardLF.toFixed(1) : '--'} lf</span>
+                  </div>
+                  {pixelsPerFoot === 0 && perimeter.length > 0 && (
+                    <div className="text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200 flex items-center gap-1.5 ml-2 shadow-sm">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      <span className="font-medium text-[10px]">Set Scale</span>
                     </div>
-
-                    <div className="flex gap-2 pt-2 border-t border-slate-100">
-                      <Button variant="ghost" size="sm" className="flex-1" onClick={handleUndoAction}>
-                        <Undo className="w-4 h-4 mr-2" /> Undo
-                      </Button>
-                      <Button variant="ghost" size="sm" className="flex-1 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => {
-                        if (confirm("Clear all tracing data?")) {
-                          saveHistory();
-                          setPerimeter([]); setWalls([]); setDoors([]); setWindows([]);
-                        }
-                      }}>
-                        <Trash2 className="w-4 h-4 mr-2" /> Clear
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-3 border-b border-slate-100">
-                    <CardTitle className="text-base">Real-time Takeoff</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-4 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-slate-500">Floor Area</span>
-                      <span className="font-semibold text-slate-900">{sqFt > 0 ? sqFt.toFixed(1) : '--'} SqFt</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-slate-500">Est. Baseboard</span>
-                      <span className="font-semibold text-slate-900">{totalBaseboardLF > 0 ? totalBaseboardLF.toFixed(1) : '--'} LF</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-slate-500">Doors Placed</span>
-                      <span className="font-semibold text-slate-900">{doors.length || '--'}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-slate-500">Windows Placed</span>
-                      <span className="font-semibold text-slate-900">{windows.length || '--'}</span>
-                    </div>
-                    {pixelsPerFoot === 0 && (
-                      <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200 flex items-start gap-1 mt-2">
-                        <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
-                        Please set scale to calculate real-world measurements.
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                  )}
+                </div>
               </div>
 
-              {/* Right Canvas Area */}
-              <div className="lg:col-span-3 flex flex-col h-full">
-                <div className="relative border-2 border-slate-300 rounded-lg shadow-inner bg-slate-200">
+              {/* Full Width Canvas Area */}
+              <div className="flex flex-col h-full">
+                {pdfPages.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-thin scrollbar-thumb-slate-300">
+                    {pdfPages.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handlePageSwitch(index)}
+                        className={`px-4 py-2 text-sm font-medium rounded-t-lg border-t border-x transition-colors whitespace-nowrap ${
+                          activePageIndex === index
+                            ? 'bg-white text-blue-600 border-slate-300 border-b-white'
+                            : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-50'
+                        }`}
+                        style={{ marginBottom: activePageIndex === index ? '-2px' : '0' }}
+                      >
+                        Page {index + 1}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className={`relative border-2 border-slate-300 shadow-inner bg-slate-200 ${pdfPages.length > 1 ? 'rounded-b-lg rounded-tr-lg' : 'rounded-lg'}`}>
                   {bgImage && imageDims && (
                     <div className="absolute top-4 right-4 bg-white/90 backdrop-blur rounded-lg shadow-md border border-slate-200 flex items-center p-1 z-10">
                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-600 hover:text-slate-900" onClick={() => setZoom(z => Math.max(0.1, z - 0.1))}>
@@ -972,7 +1045,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                       <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 p-8">
                         <UploadCloud className="w-12 h-12 mx-auto mb-3 opacity-50" />
                         <p className="font-medium text-slate-500">No Floorplan Uploaded</p>
-                        <p className="text-sm">Upload an image file using the sidebar to begin tracing.</p>
+                        <p className="text-sm">Upload a floorplan file using the toolbar above to begin tracing.</p>
                       </div>
                     ) : (
                       <div className="min-w-full min-h-full flex items-center justify-center p-4">
@@ -1220,7 +1293,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                       projectType="interior"
                       materials={materials}
                       totalCost={totalCost}
-                      projectData={{ sqFt, exteriorLF, interiorLF, doors: doors.length, windows: windows.length, baseboardId, casingId, crownId, wainscottingId }}
+                      projectData={{ sqFt, exteriorLF, interiorLF, doors: allDoors.length, windows: allWindows.length, baseboardId, casingId, crownId, wainscottingId }}
                     />
                   </div>
 
