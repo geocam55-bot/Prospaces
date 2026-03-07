@@ -46,7 +46,7 @@ interface BidLineItemsProps {
   priceTier?: number; // Price tier to use for pricing (1-5, defaults to 1)
 }
 
-export function BidLineItems({ isOpen, onClose, inventoryItems, currentItems, onAddItem, priceTier = 1 }: BidLineItemsProps) {
+export function BidLineItems({ isOpen, onClose, inventoryItems: propsInventoryItems, currentItems, onAddItem, priceTier = 1 }: BidLineItemsProps) {
   const [selectedInventoryId, setSelectedInventoryId] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [discount, setDiscount] = useState(0);
@@ -57,19 +57,49 @@ export function BidLineItems({ isOpen, onClose, inventoryItems, currentItems, on
   // 🚀 Debounce search query (200ms delay for fast typing)
   const debouncedSearchQuery = useDebounce(searchQuery, 200);
 
-  // Instant client-side filtering
-  const filteredInventory = useMemo(() => {
-    if (!debouncedSearchQuery.trim()) {
-      return inventoryItems.slice(0, 100); // Limit to first 100 items for performance
-    }
-    const query = debouncedSearchQuery.toLowerCase();
-    const filtered = inventoryItems.filter(item => (
-      item.name.toLowerCase().includes(query) ||
-      item.sku.toLowerCase().includes(query) ||
-      item.description?.toLowerCase().includes(query)
-    ));
-    return filtered.slice(0, 100); // Limit results to 100 items for performance
-  }, [debouncedSearchQuery, inventoryItems]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Instant client-side filtering + API fallback
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (!debouncedSearchQuery.trim()) {
+        setInventoryItems(propsInventoryItems.slice(0, 100));
+        return;
+      }
+      
+      const query = debouncedSearchQuery.toLowerCase();
+      // First try to filter locally
+      const localFiltered = propsInventoryItems.filter(item => (
+        item.name.toLowerCase().includes(query) ||
+        item.sku.toLowerCase().includes(query) ||
+        item.description?.toLowerCase().includes(query)
+      ));
+
+      if (localFiltered.length > 0) {
+        setInventoryItems(localFiltered.slice(0, 100));
+      } else {
+        // If not found locally, try hitting the API
+        try {
+          setIsSearching(true);
+          const { inventoryAPI } = await import('../utils/api');
+          const results = await inventoryAPI.search({ search: debouncedSearchQuery });
+          if (results && results.items) {
+            const apiItems = results.items.slice(0, 100);
+            setInventoryItems(apiItems);
+          }
+        } catch (err) {
+          console.error("Search failed:", err);
+        } finally {
+          setIsSearching(false);
+        }
+      }
+    };
+    
+    fetchSearchResults();
+  }, [debouncedSearchQuery, propsInventoryItems]);
+
+  const filteredInventory = inventoryItems;
 
   // Helper function to get price for the given tier
   const getPriceForTier = (item: InventoryItem): number => {
@@ -192,7 +222,7 @@ export function BidLineItems({ isOpen, onClose, inventoryItems, currentItems, on
                   ))
                 ) : (
                   <SelectItem value="no-items" disabled>
-                    {searchQuery ? 'No items found' : 'Type above to search'}
+                    {isSearching ? 'Searching database...' : (searchQuery ? 'No items found' : 'Type above to search')}
                   </SelectItem>
                 )}
               </SelectContent>

@@ -50,55 +50,33 @@ export async function getAllInventoryClient() {
       return { items: [] };
     }
 
-    // ✅ CRITICAL FIX: Load ALL items by fetching in batches (Supabase has a hard 1000 row limit per query)
-    // We'll fetch 1000 items at a time until we have all 14k+ SKUs
-    console.log('🔄 Fetching inventory in batches...');
+    // ✅ CRITICAL FIX: Limit the initial load to 1000 items to prevent "Failed to fetch"
+    // network errors on the Deals page. A full sync of 14,000+ items inside Promise.all
+    // causes the browser to abort the request.
+    console.log('🔄 Fetching inventory...');
     
-    const allData: any[] = [];
-    let offset = 0;
-    const batchSize = 1000;
-    let hasMore = true;
-    
-    while (hasMore) {
-      const batchQuery = supabase
-        .from('inventory')
-        .select(INVENTORY_SELECT, { count: 'exact' })
-        .eq('organization_id', userOrgId)
-        .order('name', { ascending: true })
-        .range(offset, offset + batchSize - 1);
+    const { data: allData, error: batchError } = await supabase
+      .from('inventory')
+      .select(INVENTORY_SELECT, { count: 'exact' })
+      .eq('organization_id', userOrgId)
+      .order('name', { ascending: true })
+      .limit(1000);
       
-      const { data: batchData, error: batchError } = await batchQuery;
+    if (batchError) {
+      console.error('❌ Database error loading inventory:', batchError);
+      console.error('❌ Error code:', batchError.code);
+      console.error('❌ Error message:', batchError.message);
       
-      if (batchError) {
-        console.error('❌ Database error loading inventory:', batchError);
-        console.error('❌ Error code:', batchError.code);
-        console.error('❌ Error message:', batchError.message);
-        
-        // Handle specific error cases gracefully
-        if (batchError.code === '42703') {
-          console.error('❌ Column missing - database migration may be needed');
-          return { items: [] };
-        } else if (batchError.code === 'PGRST205' || batchError.code === '42P01') {
-          console.error('❌ Table missing - database setup may be needed');
-          return { items: [] };
-        }
-        
-        throw batchError;
+      // Handle specific error cases gracefully
+      if (batchError.code === '42703') {
+        console.error('❌ Column missing - database migration may be needed');
+        return { items: [] };
+      } else if (batchError.code === 'PGRST205' || batchError.code === '42P01') {
+        console.error('❌ Table missing - database setup may be needed');
+        return { items: [] };
       }
       
-      if (batchData && batchData.length > 0) {
-        allData.push(...batchData);
-        console.log(`📦 Fetched batch: ${batchData.length} items (total so far: ${allData.length})`);
-        
-        // If we got fewer items than batchSize, we've reached the end
-        if (batchData.length < batchSize) {
-          hasMore = false;
-        } else {
-          offset += batchSize;
-        }
-      } else {
-        hasMore = false;
-      }
+      throw batchError;
     }
     
     console.log('📊 Inventory filtered data - Total rows returned:', allData.length);

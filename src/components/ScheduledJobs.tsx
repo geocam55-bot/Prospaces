@@ -168,7 +168,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
       ].join('\n');
     } else if (dataType === 'inventory') {
       const response = await inventoryAPI.getAll();
-      data = response.inventory || [];
+      data = response.items || [];
       csvContent = [
         'name,sku,description,category,quantity,quantity_on_order,unit_price,cost',
         ...data.map((i: any) => 

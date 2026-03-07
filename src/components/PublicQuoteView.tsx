@@ -185,7 +185,7 @@ export function PublicQuoteView() {
                     <tbody className="divide-y divide-slate-100">
                         {lineItems?.map((item: any, index: number) => (
                             <tr key={index} className="hover:bg-slate-50/50 print:break-inside-avoid">
-                                <td className="py-4 px-6 font-medium text-slate-800">{item.itemName || item.title || item.item_name || 'Item'}</td>
+                                <td className="py-4 px-6 font-medium text-slate-800">{item.itemName || item.title || item.item_name || item.sku || item.itemId || 'Item'}</td>
                                 <td className="py-4 px-6 text-slate-600 text-sm">{item.description}</td>
                                 <td className="py-4 px-6 text-center text-slate-600">{item.quantity || 1}</td>
                                 <td className="py-4 px-6 text-right font-mono text-slate-600">

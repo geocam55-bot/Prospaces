@@ -10,10 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { Plus, Edit, Trash2, Eye, FileText, Search, Filter, Calendar, DollarSign, User, MoreVertical, Send, Building, AlertCircle } from 'lucide-react';
-import { bidsAPI, quotesAPI, contactsAPI, inventoryAPI } from '../utils/api';
+import { Plus, Edit, Trash2, Eye, FileText, Search, Filter, Calendar, DollarSign, User, MoreVertical, Send, Building, AlertCircle, ShoppingCart, RefreshCw } from 'lucide-react';
+import { bidsAPI, quotesAPI, contactsAPI, inventoryAPI, settingsAPI } from '../utils/api';
 import { BidLineItems } from './BidLineItems';
-import { DealsKanban, Quote } from './DealsKanban';
+import { DealsKanban, Quote, LineItem } from './DealsKanban';
 import { EmailQuoteDialog } from './EmailQuoteDialog';
 import { createClient } from '../utils/supabase/client';
 import { SubscriptionAgreement, Organization } from './SubscriptionAgreement';
@@ -75,6 +75,9 @@ export function Bids({ user }: BidsProps) {
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [emailQuote, setEmailQuote] = useState<Quote | null>(null);
   const [viewingAgreement, setViewingAgreement] = useState<Quote | null>(null);
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [isLineItemDialogOpen, setIsLineItemDialogOpen] = useState(false);
+  const [orgSettings, setOrgSettings] = useState<any>(null);
 
   const [orgData, setOrgData] = useState<Organization | null>(null);
 
@@ -125,10 +128,14 @@ export function Bids({ user }: BidsProps) {
           title: selectedQuote.title || '',
           contactId: selectedQuote.contactId || '',
           status: selectedQuote.status || 'draft',
-          validUntil: selectedQuote.validUntil ? new Date(selectedQuote.validUntil).toISOString().split('T')[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          validUntil: selectedQuote.validUntil && !isNaN(new Date(selectedQuote.validUntil).getTime()) ? new Date(selectedQuote.validUntil).toISOString().split('T')[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           notes: selectedQuote.notes || '',
-          terms: selectedQuote.terms || '',
+          terms: selectedQuote.terms || orgSettings?.quote_terms || 'Payment due within 30 days. All prices in USD.',
           priceTier: selectedQuote.priceTier || 1,
+          lineItems: selectedQuote.lineItems || [],
+          discountPercent: selectedQuote.discountPercent || 0,
+          taxPercent: selectedQuote.taxPercent || orgSettings?.tax_rate || 0,
+          taxPercent2: selectedQuote.taxPercent2 || orgSettings?.tax_rate_2 || 0,
         });
       } else {
         setEditFormData({
@@ -137,8 +144,12 @@ export function Bids({ user }: BidsProps) {
           status: 'draft',
           validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           notes: '',
-          terms: '',
+          terms: orgSettings?.quote_terms || 'Payment due within 30 days. All prices in USD.',
           priceTier: 1,
+          lineItems: [],
+          discountPercent: 0,
+          taxPercent: orgSettings?.tax_rate || 0,
+          taxPercent2: orgSettings?.tax_rate_2 || 0,
         });
       }
     }
@@ -151,11 +162,17 @@ export function Bids({ user }: BidsProps) {
       const scope = user.role === 'admin' || user.role === 'manager' ? 'team' : 'personal';
       
       // Load both quotes and legacy bids
-      const [quotesResponse, bidsResponse, contactsResponse] = await Promise.all([
+      const [quotesResponse, bidsResponse, contactsResponse, inventoryResponse, settingsData] = await Promise.all([
         quotesAPI.getAll(scope),
         bidsAPI.getAll(scope),
         contactsAPI.getAll(scope),
+        inventoryAPI.getAll(),
+        settingsAPI.getOrganizationSettings(user.organizationId || user.organization_id || '')
       ]);
+      
+      if (settingsData) {
+        setOrgSettings(settingsData);
+      }
 
       console.log('Loaded quotes:', quotesResponse.quotes?.length || 0);
       console.log('Loaded legacy bids:', bidsResponse.bids?.length || 0);
@@ -166,6 +183,28 @@ export function Bids({ user }: BidsProps) {
       // Format db quotes to match Quote interface, and look up contact names
       const mappedQuotes: Quote[] = dbQuotes.map((q: any) => {
         const contact = loadedContacts.find((c: any) => c.id === q.contact_id);
+        let parsedLineItems: LineItem[] = [];
+        if (q.line_items) {
+          try {
+            const rawLineItemsField = typeof q.line_items === 'string' ? JSON.parse(q.line_items) : q.line_items;
+            const rawLineItems = Array.isArray(rawLineItemsField) ? rawLineItemsField : [];
+            parsedLineItems = rawLineItems.map((item: any) => ({
+              id: item.id || `line-${Math.random().toString(36).substr(2, 9)}`,
+              itemId: item.itemId || item.item_id || item.product_id || '',
+              itemName: item.itemName || item.item_name || item.name || item.title || item.description || '',
+              sku: item.sku || item.item || '',
+              description: item.description || item.desc || '',
+              quantity: item.quantity || item.qty || 1,
+              unitPrice: item.unitPrice ?? item.unit_price ?? item.price ?? 0,
+              cost: item.cost ?? 0,
+              discount: item.discount ?? 0,
+              total: item.total ?? 0,
+            }));
+          } catch (e) {
+            console.error('Failed to parse line_items for quote:', q.id, e);
+          }
+        }
+        
         return {
           id: q.id,
           quoteNumber: q.quote_number,
@@ -176,7 +215,7 @@ export function Bids({ user }: BidsProps) {
           priceTier: q.price_tier || 1,
           status: q.status || 'draft',
           validUntil: q.valid_until,
-          lineItems: q.line_items || [],
+          lineItems: parsedLineItems,
           subtotal: q.subtotal || 0,
           discountPercent: q.discount_percent || 0,
           discountAmount: q.discount_amount || 0,
@@ -190,12 +229,14 @@ export function Bids({ user }: BidsProps) {
           createdAt: q.created_at || new Date().toISOString(),
           updatedAt: q.updated_at || new Date().toISOString(),
           ownerId: q.created_by,
+          _source: 'quotes'
         };
       });
 
       setQuotes(mappedQuotes);
       setLegacyBids(bidsResponse.bids || []);
       setContacts(loadedContacts);
+      setInventoryItems(inventoryResponse.items || []);
     } catch (err: any) {
       console.error('Failed to load bids/quotes:', err);
       setError(err.message || 'Failed to load data');
@@ -205,32 +246,59 @@ export function Bids({ user }: BidsProps) {
   };
 
   // Convert legacy bid to Quote format for display
-  const convertBidToQuote = (bid: Bid): Quote => ({
-    id: bid.id,
-    quoteNumber: `BID-${bid.id.slice(0, 8)}`,
-    title: bid.projectName,
-    contactId: '',
-    contactName: bid.clientName,
-    contactEmail: undefined,
-    priceTier: 1,
-    status: bid.status === 'sent' ? 'sent' : 
-            bid.status === 'accepted' ? 'accepted' : 
-            bid.status === 'rejected' ? 'rejected' : 
-            bid.status === 'expired' ? 'expired' : 'draft',
-    validUntil: bid.validUntil,
-    lineItems: [],
-    subtotal: bid.subtotal,
-    discountPercent: 0,
-    discountAmount: 0,
-    taxPercent: bid.tax / bid.subtotal * 100,
-    taxAmount: bid.tax,
-    total: bid.total,
-    notes: bid.notes,
-    terms: bid.terms,
-    createdAt: bid.createdAt,
-    updatedAt: bid.updatedAt,
-    ownerId: bid.ownerId,
-  });
+  const convertBidToQuote = (bid: any): Quote => {
+    let parsedLineItems: LineItem[] = [];
+    if (bid.line_items || bid.lineItems) {
+      try {
+        const rawLineItemsField = bid.line_items || bid.lineItems;
+        const rawLineItems = typeof rawLineItemsField === 'string' ? JSON.parse(rawLineItemsField) : rawLineItemsField;
+        if (Array.isArray(rawLineItems)) {
+          parsedLineItems = rawLineItems.map((item: any) => ({
+            id: item.id || `line-${Math.random().toString(36).substr(2, 9)}`,
+            itemId: item.itemId || item.item_id || item.product_id || '',
+            itemName: item.itemName || item.item_name || item.name || item.title || item.description || '',
+            sku: item.sku || item.item || '',
+            description: item.description || item.desc || '',
+            quantity: item.quantity || item.qty || 1,
+            unitPrice: item.unitPrice ?? item.unit_price ?? item.price ?? 0,
+            cost: item.cost ?? 0,
+            discount: item.discount ?? 0,
+            total: item.total ?? 0,
+          }));
+        }
+      } catch (e) {
+        console.error('Failed to parse line_items for bid:', bid.id, e);
+      }
+    }
+
+    return {
+      id: bid.id || `bid-${Math.random()}`,
+      quoteNumber: bid.id ? `BID-${bid.id.slice(0, 8)}` : `BID-UNKNOWN`,
+      title: bid.projectName || bid.title || 'Untitled',
+      contactId: bid.contact_id || bid.contactId || '',
+      contactName: bid.clientName || bid.contact_name || 'Unknown Client',
+      contactEmail: undefined,
+      priceTier: bid.price_tier || bid.priceTier || 1,
+      status: bid.status === 'sent' ? 'sent' : 
+              bid.status === 'accepted' ? 'accepted' : 
+              bid.status === 'rejected' ? 'rejected' : 
+              bid.status === 'expired' ? 'expired' : 'draft',
+      validUntil: bid.validUntil || bid.valid_until,
+      lineItems: parsedLineItems,
+      subtotal: bid.subtotal || 0,
+      discountPercent: bid.discount_percent || bid.discountPercent || 0,
+      discountAmount: bid.discount_amount || bid.discountAmount || 0,
+      taxPercent: bid.tax_percent || bid.taxPercent || (bid.subtotal ? (bid.tax / bid.subtotal * 100) : 0) || 0,
+      taxAmount: bid.tax_amount || bid.taxAmount || bid.tax || 0,
+      total: bid.total || 0,
+      notes: bid.notes,
+      terms: bid.terms,
+      createdAt: bid.createdAt || bid.created_at,
+      updatedAt: bid.updatedAt || bid.updated_at,
+      ownerId: bid.ownerId || bid.owner_id,
+      _source: 'bids',
+    };
+  };
 
   // Merge quotes and legacy bids
   const allQuotes = [
@@ -252,7 +320,11 @@ export function Bids({ user }: BidsProps) {
 
   const handleStatusChange = async (quote: Quote, newStatus: Quote['status']) => {
     try {
-      await quotesAPI.update(quote.id, { status: newStatus });
+      if (quote._source === 'bids') {
+        await bidsAPI.update(quote.id, { status: newStatus });
+      } else {
+        await quotesAPI.update(quote.id, { status: newStatus });
+      }
       await loadData();
       toast.success('Status updated successfully');
     } catch (err: any) {
@@ -266,8 +338,120 @@ export function Bids({ user }: BidsProps) {
     setIsDialogOpen(true);
   };
 
+  const calculateBidTotals = (items: LineItem[], discountPercent: number, taxPercent: number, taxPercent2: number = 0) => {
+    const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
+    const discountAmount = subtotal * (discountPercent / 100);
+    const afterDiscount = subtotal - discountAmount;
+    const taxAmount = afterDiscount * (taxPercent / 100);
+    const taxAmount2 = afterDiscount * (taxPercent2 / 100);
+    const total = afterDiscount + taxAmount + taxAmount2;
+
+    return {
+      subtotal,
+      discountAmount,
+      taxAmount,
+      taxAmount2,
+      total,
+    };
+  };
+
+  const handleAddLineItem = (item: LineItem) => {
+    setEditFormData(prev => ({
+      ...prev,
+      lineItems: [...(prev.lineItems || []), item]
+    }));
+  };
+
+  const handleRemoveLineItem = (id: string) => {
+    setEditFormData(prev => ({
+      ...prev,
+      lineItems: (prev.lineItems || []).filter(item => item.id !== id)
+    }));
+  };
+
+  const handleUpdateLineItem = (id: string, field: keyof LineItem, value: number) => {
+    setEditFormData(prev => {
+      const newLineItems = (prev.lineItems || []).map(item => {
+        if (item.id === id) {
+          const updatedItem = { ...item, [field]: value as any };
+          // Recalculate total for this item
+          const subtotal = updatedItem.quantity * updatedItem.unitPrice;
+          updatedItem.total = subtotal - (subtotal * updatedItem.discount / 100);
+          return updatedItem;
+        }
+        return item;
+      });
+      return { ...prev, lineItems: newLineItems };
+    });
+  };
+
+  const [isRepricing, setIsRepricing] = useState(false);
+
+  const handleReprice = async () => {
+    if (!editFormData.lineItems || editFormData.lineItems.length === 0) return;
+    
+    setIsRepricing(true);
+    try {
+      const { inventoryAPI } = await import('../utils/api');
+      
+      const newItems = await Promise.all(editFormData.lineItems.map(async (item) => {
+        // try to find in local inventory first
+        let inventoryItem = inventoryItems.find(i => i.id === item.itemId || (item.sku && i.sku === item.sku) || (item.itemId && i.sku === item.itemId));
+        
+        // if not found locally, try API
+        if (!inventoryItem && item.sku) {
+          const results = await inventoryAPI.search({ search: item.sku });
+          if (results && results.items && results.items.length > 0) {
+            inventoryItem = results.items.find((i: any) => i.sku === item.sku) || results.items[0];
+          }
+        }
+
+        if (inventoryItem) {
+          // get price for the selected price tier
+          const tier = editFormData.priceTier || 1;
+          const tierKey = `priceTier${tier}` as keyof typeof inventoryItem;
+          const snakeKey = `price_tier_${tier}` as keyof typeof inventoryItem;
+          
+          const newUnitPrice = Number(inventoryItem[tierKey] || inventoryItem[snakeKey] || inventoryItem.price || 0);
+          
+          const subtotal = item.quantity * newUnitPrice;
+          const newTotal = subtotal - (subtotal * (item.discount || 0) / 100);
+
+          return {
+            ...item,
+            unitPrice: newUnitPrice,
+            cost: inventoryItem.cost || item.cost,
+            total: newTotal
+          };
+        }
+
+        return item; // if couldn't find, keep as is
+      }));
+
+      setEditFormData(prev => ({
+        ...prev,
+        lineItems: newItems
+      }));
+      
+      toast.success('Line items repriced successfully');
+    } catch (error) {
+      console.error('Error repricing line items:', error);
+      toast.error('Failed to reprice line items');
+    } finally {
+      setIsRepricing(false);
+    }
+  };
+
   const handleSave = async () => {
     try {
+      const items = editFormData.lineItems || [];
+      const totals = calculateBidTotals(
+        items,
+        editFormData.discountPercent || 0,
+        editFormData.taxPercent || 0,
+        editFormData.taxPercent2 || 0
+      );
+
       const dataToSave = {
         title: editFormData.title,
         contact_id: editFormData.contactId,
@@ -276,12 +460,31 @@ export function Bids({ user }: BidsProps) {
         notes: editFormData.notes,
         terms: editFormData.terms,
         price_tier: editFormData.priceTier,
+        line_items: JSON.stringify(items),
+        subtotal: totals.subtotal,
+        discount_percent: editFormData.discountPercent || 0,
+        discount_amount: totals.discountAmount,
+        tax_percent: editFormData.taxPercent || 0,
+        tax_percent_2: editFormData.taxPercent2 || 0,
+        tax_amount: totals.taxAmount,
+        tax_amount_2: totals.taxAmount2,
+        total: totals.total,
         owner_id: user.id
       };
       
       if (selectedQuote) {
-        await quotesAPI.update(selectedQuote.id, dataToSave);
-        toast.success('Quote updated successfully');
+        if (selectedQuote._source === 'bids') {
+          // It's a legacy bid, save to bids API
+          const { contact_id, ...bidFields } = dataToSave;
+          await bidsAPI.update(selectedQuote.id, {
+            ...bidFields,
+            opportunity_id: dataToSave.contact_id
+          });
+          toast.success('Bid updated successfully');
+        } else {
+          await quotesAPI.update(selectedQuote.id, dataToSave);
+          toast.success('Quote updated successfully');
+        }
       } else {
         await quotesAPI.create(dataToSave);
         toast.success('Quote created successfully');
@@ -299,11 +502,15 @@ export function Bids({ user }: BidsProps) {
     setIsPreviewOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, quote?: Quote) => {
     if (!confirm('Are you sure you want to delete this quote/bid?')) return;
     
     try {
-      await quotesAPI.delete(id);
+      if (quote && quote._source === 'bids') {
+        await bidsAPI.delete(id);
+      } else {
+        await quotesAPI.delete(id);
+      }
       await loadData();
       toast.success('Deleted successfully');
     } catch (err: any) {
@@ -473,7 +680,7 @@ export function Bids({ user }: BidsProps) {
                             </span>
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
-                              {new Date(quote.validUntil).toLocaleDateString()}
+                              {quote.validUntil && !isNaN(new Date(quote.validUntil).getTime()) ? new Date(quote.validUntil).toLocaleDateString() : ''}
                             </span>
                             <span className="font-mono text-xs">{quote.quoteNumber}</span>
                           </div>
@@ -507,7 +714,7 @@ export function Bids({ user }: BidsProps) {
                               {quote.status === 'sent' ? 'Resend' : 'Send Quote'}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleDelete(quote.id)} className="text-red-600">
+                            <DropdownMenuItem onClick={() => handleDelete(quote.id, quote)} className="text-red-600">
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
                             </DropdownMenuItem>
@@ -562,7 +769,7 @@ export function Bids({ user }: BidsProps) {
                 </div>
                 <div>
                   <Label className="text-sm text-gray-500">Valid Until</Label>
-                  <p className="font-medium">{new Date(previewQuote.validUntil).toLocaleDateString()}</p>
+                  <p className="font-medium">{previewQuote.validUntil && !isNaN(new Date(previewQuote.validUntil).getTime()) ? new Date(previewQuote.validUntil).toLocaleDateString() : ''}</p>
                 </div>
               </div>
               {previewQuote.notes && (
@@ -587,15 +794,17 @@ export function Bids({ user }: BidsProps) {
 
       {/* Edit/Create Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedQuote ? 'Edit Quote' : 'New Quote'}</DialogTitle>
-            <DialogDescription>
-              {selectedQuote ? 'Update the details of your quote.' : 'Create a new quote or bid.'}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-[1400px] w-[95vw] h-[90vh] flex flex-col bg-white p-0 border-0 shadow-2xl">
+          <div className="p-6 border-b flex-shrink-0">
+            <DialogHeader>
+              <DialogTitle>{selectedQuote ? 'Edit Quote' : 'New Quote'}</DialogTitle>
+              <DialogDescription>
+                {selectedQuote ? 'Update the details of your quote.' : 'Create a new quote or bid.'}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
           
-          <div className="space-y-4 py-4">
+          <div className="p-6 overflow-y-auto flex-1">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Title / Project Name</Label>
@@ -612,7 +821,7 @@ export function Bids({ user }: BidsProps) {
                   value={editFormData.contactId || ''}
                   onValueChange={val => {
                     const selectedContact = contacts.find(c => c.id === val);
-                    const newTier = selectedContact?.pricing_tier || 1;
+                    const newTier = selectedContact?.priceLevel ? priceLevelToTier(selectedContact.priceLevel) : 1;
                     setEditFormData(prev => ({ 
                       ...prev, 
                       contactId: val,
@@ -681,37 +890,242 @@ export function Bids({ user }: BidsProps) {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Notes (Internal)</Label>
-              <Textarea
-                value={editFormData.notes || ''}
-                onChange={e => setEditFormData({ ...editFormData, notes: e.target.value })}
-                placeholder="Internal notes about this quote..."
-                rows={3}
-              />
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Notes (Internal)</Label>
+                <Textarea
+                  value={editFormData.notes || ''}
+                  onChange={e => setEditFormData({ ...editFormData, notes: e.target.value })}
+                  placeholder="Internal notes about this quote..."
+                  rows={2}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Terms & Conditions (Visible to client)</Label>
+                <Textarea
+                  value={editFormData.terms || ''}
+                  onChange={e => setEditFormData({ ...editFormData, terms: e.target.value })}
+                  placeholder="Terms and conditions..."
+                  rows={2}
+                />
+              </div>
             </div>
             
-            <div className="space-y-2">
-              <Label>Terms & Conditions (Visible to client)</Label>
-              <Textarea
-                value={editFormData.terms || ''}
-                onChange={e => setEditFormData({ ...editFormData, terms: e.target.value })}
-                placeholder="Terms and conditions..."
-                rows={3}
-              />
+            {/* Line Items Section */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-900">Line Items</h3>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReprice}
+                    disabled={isRepricing || !(editFormData.lineItems && editFormData.lineItems.length > 0)}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isRepricing ? 'animate-spin' : ''}`} />
+                    Reprice
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsLineItemDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Item
+                  </Button>
+                </div>
+              </div>
+
+              {!(editFormData.lineItems && editFormData.lineItems.length > 0) ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm text-gray-500">No items added yet</p>
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left py-2 px-4 text-xs text-gray-600">Item</th>
+                        <th className="text-right py-2 px-4 text-xs text-gray-600">Qty</th>
+                        <th className="text-right py-2 px-4 text-xs text-gray-600">Unit Price</th>
+                        <th className="text-right py-2 px-4 text-xs text-gray-600">Discount</th>
+                        <th className="text-right py-2 px-4 text-xs text-gray-600">Total</th>
+                        <th className="w-12"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {editFormData.lineItems.map(item => {
+                        const inventoryItem = inventoryItems.find(inv => inv.id === item.itemId || (item.sku && inv.sku === item.sku) || (item.itemId && inv.sku === item.itemId));
+                        const displaySku = item.sku || inventoryItem?.sku || '';
+                        const displayName = item.itemName || inventoryItem?.name || inventoryItem?.sku || item.sku || item.itemId || 'Unknown Item';
+
+                        return (
+                        <tr key={item.id} className="border-t">
+                          <td className="py-2 px-4">
+                            <p className="text-sm text-gray-900">{displayName}</p>
+                            {displaySku && <p className="text-xs text-gray-500">SKU: {displaySku}</p>}
+                          </td>
+                          <td className="py-2 px-4">
+                            <Input 
+                              type="number" 
+                              className="w-20 text-right h-8" 
+                              value={item.quantity || 1} 
+                              min="1"
+                              onChange={(e) => handleUpdateLineItem(item.id, 'quantity', Number(e.target.value))} 
+                            />
+                          </td>
+                          <td className="py-2 px-4">
+                            <Input 
+                              type="number" 
+                              className="w-24 text-right h-8" 
+                              step="0.01"
+                              value={item.unitPrice || 0} 
+                              onChange={(e) => handleUpdateLineItem(item.id, 'unitPrice', Number(e.target.value))} 
+                            />
+                          </td>
+                          <td className="py-2 px-4">
+                            <Input 
+                              type="number" 
+                              className="w-20 text-right h-8" 
+                              min="0"
+                              max="100"
+                              value={item.discount || 0} 
+                              onChange={(e) => handleUpdateLineItem(item.id, 'discount', Number(e.target.value))} 
+                            />
+                          </td>
+                          <td className="py-2 px-4 text-right text-sm">${(item.total || 0).toFixed(2)}</td>
+                          <td className="py-2 px-4">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveLineItem(item.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </td>
+                        </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-            
-            {/* Note: Line items editing is handled elsewhere */}
+
+            {/* Pricing */}
+            {editFormData.lineItems && editFormData.lineItems.length > 0 && (
+              <div className="space-y-4 pt-4 border-t">
+                <h3 className="text-sm font-medium text-gray-900">Pricing</h3>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Bid Discount (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editFormData.discountPercent || 0}
+                      onChange={(e) => setEditFormData({ ...editFormData, discountPercent: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tax Rate 1 (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editFormData.taxPercent || 0}
+                      onChange={(e) => setEditFormData({ ...editFormData, taxPercent: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tax Rate 2 (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editFormData.taxPercent2 || 0}
+                      onChange={(e) => setEditFormData({ ...editFormData, taxPercent2: Number(e.target.value) })}
+                    />
+                  </div>
+                </div>
+
+                {/* Bid Summary */}
+                {(() => {
+                  const editTotals = calculateBidTotals(
+                    editFormData.lineItems || [], 
+                    editFormData.discountPercent || 0, 
+                    editFormData.taxPercent || 0, 
+                    editFormData.taxPercent2 || 0
+                  );
+                  return (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Subtotal:</span>
+                          <span className="text-gray-900">
+                            ${editTotals.subtotal.toFixed(2)}
+                          </span>
+                        </div>
+                        {(editFormData.discountPercent || 0) > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Discount ({editFormData.discountPercent}%):</span>
+                            <span className="text-red-600">
+                              -${editTotals.discountAmount.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        {(editFormData.taxPercent || 0) > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Tax 1 ({editFormData.taxPercent}%):</span>
+                            <span className="text-gray-900">
+                              ${editTotals.taxAmount.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        {(editFormData.taxPercent2 || 0) > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Tax 2 ({editFormData.taxPercent2}%):</span>
+                            <span className="text-gray-900">
+                              ${editTotals.taxAmount2.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between pt-2 border-t border-gray-300">
+                          <span className="text-gray-900 font-medium">Total:</span>
+                          <span className="text-xl font-bold text-gray-900">
+                            ${editTotals.total.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave}>
-              {selectedQuote ? 'Save Changes' : 'Create Quote'}
-            </Button>
-          </DialogFooter>
+          <div className="p-6 border-t flex-shrink-0 bg-gray-50">
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSave}>
+                {selectedQuote ? 'Save Changes' : 'Create Quote'}
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* Line Items Dialog */}
+      <BidLineItems
+        isOpen={isLineItemDialogOpen}
+        onClose={() => setIsLineItemDialogOpen(false)}
+        inventoryItems={inventoryItems}
+        currentItems={editFormData.lineItems || []}
+        onAddItem={handleAddLineItem}
+        priceTier={editFormData.priceTier || 1}
+      />
     </div>
   );
 }

@@ -115,6 +115,7 @@ interface Bid {
   status: string;
   valid_until: string;
   notes?: string;
+  terms?: string;
   created_at: string;
   project_managers?: { id: string; name: string };
   line_items?: string | LineItem[]; // Can be JSON string from DB or parsed array
@@ -243,22 +244,60 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
   // 🚀 Debounce search query (200ms delay for fast typing)
   const debouncedInventorySearch = useDebounce(inventorySearchQuery, 200);
 
-  // Filtered inventory for search - using advanced search
-  const filteredInventory = useMemo(() => {
-    if (!debouncedInventorySearch.trim()) {
-      return inventoryItems.filter(item => item.status === 'active').slice(0, 100); // Show first 100 active items
-    }
+  // Use state instead of useMemo for inventory search to allow async fallback
+  const [filteredInventory, setFilteredInventory] = useState<InventoryItem[]>([]);
+
+  // 🚀 Filter inventory - using advanced search + API fallback
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (!debouncedInventorySearch.trim()) {
+        setFilteredInventory(inventoryItems.filter(item => item.status === 'active').slice(0, 100)); // Show first 100 active items
+        return;
+      }
+      
+      setIsSearchingInventory(true);
+      
+      // 🚀 Use advanced search with fuzzy matching, plural handling, and multi-word support
+      const searchResults = advancedSearch(inventoryItems, debouncedInventorySearch, {
+        fuzzyThreshold: 0.6,      // Optimal for typo tolerance
+        includeInactive: false,   // Only show active items
+        minScore: 0.05,           // Low threshold to catch fuzzy matches
+        maxResults: 100,
+        sortBy: 'relevance',
+      });
+      
+      if (searchResults.length > 0) {
+        setFilteredInventory(searchResults.map(result => result.item));
+        setIsSearchingInventory(false);
+      } else {
+        // Fallback to API search if not found locally
+        try {
+          const { inventoryAPI } = await import('../utils/api');
+          const results = await inventoryAPI.search({ search: debouncedInventorySearch });
+          if (results && results.items) {
+            const apiItems = results.items.slice(0, 100);
+            setFilteredInventory(apiItems);
+            // Append to local inventory cache so `.find()` works later
+            setInventoryItems(prev => {
+              const newItems = [...prev];
+              apiItems.forEach((item: any) => {
+                if (!newItems.find(i => i.id === item.id)) newItems.push(item);
+              });
+              return newItems;
+            });
+          } else {
+            setFilteredInventory([]);
+          }
+        } catch (err) {
+          console.error("Search failed:", err);
+          setFilteredInventory([]);
+        } finally {
+          setIsSearchingInventory(false);
+        }
+      }
+    };
     
-    // 🚀 Use advanced search with fuzzy matching, plural handling, and multi-word support
-    const searchResults = advancedSearch(inventoryItems, debouncedInventorySearch, {
-      fuzzyThreshold: 0.6,      // Optimal for typo tolerance
-      includeInactive: false,   // Only show active items
-      minScore: 0.05,           // Low threshold to catch fuzzy matches
-      maxResults: 100,
-      sortBy: 'relevance',
-    });
-    
-    return searchResults.map(result => result.item);
+    fetchSearchResults();
   }, [debouncedInventorySearch, inventoryItems]);
 
   // Auto-populate unit price when inventory item is selected (uses contact's price level)
@@ -520,15 +559,24 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         let parsedLineItems: LineItem[] = [];
         if (bid.line_items) {
           try {
+            let rawLineItems = [];
             if (typeof bid.line_items === 'string') {
-              parsedLineItems = JSON.parse(bid.line_items);
+              rawLineItems = JSON.parse(bid.line_items);
             } else if (Array.isArray(bid.line_items)) {
-              parsedLineItems = bid.line_items;
+              rawLineItems = bid.line_items;
             }
-            // Ensure cost field exists for backward compatibility
-            parsedLineItems = parsedLineItems.map(item => ({
-              ...item,
+            // Ensure cost field exists and handle snake_case to camelCase mapping for older records
+            parsedLineItems = rawLineItems.map((item: any) => ({
+              id: item.id || `line-${Math.random().toString(36).substr(2, 9)}`,
+              itemId: item.itemId || item.item_id || item.product_id || '',
+              itemName: item.itemName || item.item_name || item.name || item.title || item.description || '',
+              sku: item.sku || item.item || '',
+              description: item.description || item.desc || '',
+              quantity: item.quantity || item.qty || 1,
+              unitPrice: item.unitPrice ?? item.unit_price ?? item.price ?? 0,
               cost: item.cost ?? 0,
+              discount: item.discount ?? 0,
+              total: item.total ?? 0,
             }));
           } catch (error) {
             console.error('Failed to parse line items for bid:', bid.id, error);
@@ -544,18 +592,27 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       // Parse line items for each quote and convert to bid format
       const parsedQuotes = quotesForContact.map((quote: any) => {
         let parsedLineItems: LineItem[] = [];
-        const rawLineItems = quote.lineItems || quote.line_items || quote.items;
-        if (rawLineItems) {
+        const rawLineItemsField = quote.lineItems || quote.line_items || quote.items;
+        if (rawLineItemsField) {
           try {
-            if (typeof rawLineItems === 'string') {
-              parsedLineItems = JSON.parse(rawLineItems);
-            } else if (Array.isArray(rawLineItems)) {
-              parsedLineItems = rawLineItems;
+            let rawLineItems = [];
+            if (typeof rawLineItemsField === 'string') {
+              rawLineItems = JSON.parse(rawLineItemsField);
+            } else if (Array.isArray(rawLineItemsField)) {
+              rawLineItems = rawLineItemsField;
             }
-            // Ensure cost field exists for backward compatibility
-            parsedLineItems = parsedLineItems.map(item => ({
-              ...item,
+            // Ensure cost field exists and handle snake_case to camelCase mapping for older records
+            parsedLineItems = rawLineItems.map((item: any) => ({
+              id: item.id || `line-${Math.random().toString(36).substr(2, 9)}`,
+              itemId: item.itemId || item.item_id || item.product_id || '',
+              itemName: item.itemName || item.item_name || item.name || item.title || item.description || '',
+              sku: item.sku || item.item || '',
+              description: item.description || item.desc || '',
+              quantity: item.quantity || item.qty || 1,
+              unitPrice: item.unitPrice ?? item.unit_price ?? item.price ?? 0,
               cost: item.cost ?? 0,
+              discount: item.discount ?? 0,
+              total: item.total ?? 0,
             }));
           } catch (error) {
             console.error('Failed to parse line items for quote:', quote.id, error);
@@ -614,7 +671,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
   };
 
   const calculateBidTotals = (items: LineItem[], discountPercent: number, taxPercent: number, taxPercent2: number = 0) => {
-    const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+    const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
     const discountAmount = subtotal * (discountPercent / 100);
     const afterDiscount = subtotal - discountAmount;
     const taxAmount = afterDiscount * (taxPercent / 100);
@@ -781,50 +838,54 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     setCurrentLineItems(currentLineItems.filter(item => item.id !== id));
   };
 
-  // ── Refresh Prices (copied from Bids.tsx) ──
+  // ── Refresh Prices (used for new deals) ──
   const handleRefreshPrices = async () => {
-    if (!confirm('This will update all line item prices to current inventory pricing. Continue?')) return;
-
-    let activeInventory = inventoryItems;
-    if (activeInventory.length === 0) {
-      try {
-        const res = await inventoryAPI.getAll();
-        if (res && res.items) {
-          setInventoryItems(res.items);
-          activeInventory = res.items;
+    if (!currentLineItems || currentLineItems.length === 0) return;
+    
+    setIsRepricing(true);
+    try {
+      const { inventoryAPI } = await import('../utils/api');
+      
+      const newItems = await Promise.all(currentLineItems.map(async (item) => {
+        // try to find in local inventory first
+        let inventoryItem = inventoryItems.find(i => i.id === item.itemId || (item.sku && i.sku === item.sku) || (item.itemId && i.sku === item.itemId));
+        
+        // if not found locally, try API
+        if (!inventoryItem && item.sku) {
+          const results = await inventoryAPI.search({ search: item.sku });
+          if (results && results.items && results.items.length > 0) {
+            inventoryItem = results.items.find((i: any) => i.sku === item.sku) || results.items[0];
+          }
         }
-      } catch (e) {
-        console.error('Failed to reload inventory', e);
-      }
-    }
-    if (activeInventory.length === 0) {
-      toast.error('Cannot refresh prices: No inventory loaded.');
-      return;
-    }
 
-    const priceTier = priceLevelToTier(contact.priceLevel || getPriceTierLabel(1));
-    let updateCount = 0;
+        if (inventoryItem) {
+          // get price for the selected price tier
+          const tier = priceLevelToTier(contact.priceLevel || getPriceTierLabel(1));
+          
+          const newUnitPrice = getPriceForTier(inventoryItem, tier);
+          
+          const subtotal = item.quantity * newUnitPrice;
+          const newTotal = subtotal - (subtotal * (item.discount || 0) / 100);
 
-    const updatedItems = currentLineItems.map(item => {
-      const inventoryItem = activeInventory.find(inv => inv.id === item.itemId);
-      if (!inventoryItem) return item;
+          return {
+            ...item,
+            unitPrice: newUnitPrice,
+            cost: inventoryItem.cost || item.cost,
+            total: newTotal
+          };
+        }
 
-      const newUnitPrice = getPriceForTier(inventoryItem, priceTier);
-      const newCost = inventoryItem.cost;
-      const newTotal = item.quantity * newUnitPrice;
+        return item; // if couldn't find, keep as is
+      }));
 
-      if (item.unitPrice !== newUnitPrice || item.cost !== newCost || Math.abs(item.total - newTotal) > 0.01) {
-        updateCount++;
-        return { ...item, unitPrice: newUnitPrice, cost: newCost, total: newTotal };
-      }
-      return item;
-    });
-
-    if (updateCount > 0) {
-      setCurrentLineItems(updatedItems);
-      toast.success(`Updated prices for ${updateCount} items.`);
-    } else {
-      toast.error('No items matched current inventory or prices are already up to date.');
+      setCurrentLineItems(newItems);
+      
+      toast.success('Line items repriced successfully');
+    } catch (error) {
+      console.error('Error repricing line items:', error);
+      toast.error('Failed to reprice line items');
+    } finally {
+      setIsRepricing(false);
     }
   };
 
@@ -868,6 +929,89 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     setEditingBidLineItems(editingBidLineItems.filter(item => item.id !== id));
   };
 
+  const handleUpdateEditLineItem = (id: string, field: keyof LineItem, value: number) => {
+    setEditingBidLineItems(prev => prev.map(item => {
+      if (item.id === id) {
+        const updatedItem = { ...item, [field]: value as never };
+        // Recalculate total for this item
+        const subtotal = updatedItem.quantity * updatedItem.unitPrice;
+        updatedItem.total = subtotal - (subtotal * updatedItem.discount / 100);
+        return updatedItem;
+      }
+      return item;
+    }));
+  };
+
+  const [isRepricing, setIsRepricing] = useState(false);
+
+  const handleRepriceEditBid = async () => {
+    console.log('Reprice button clicked');
+    console.log('editingBidLineItems:', editingBidLineItems);
+    
+    if (!editingBidLineItems || editingBidLineItems.length === 0) {
+      console.log('No line items to reprice');
+      toast.error('No line items to reprice');
+      return;
+    }
+    
+    setIsRepricing(true);
+    try {
+      console.log('Starting repricing process...');
+      const { inventoryAPI } = await import('../utils/api');
+      
+      const newItems = await Promise.all(editingBidLineItems.map(async (item) => {
+        console.log('Processing item:', item);
+        
+        // try to find in local inventory first
+        let inventoryItem = inventoryItems.find(i => i.id === item.itemId || (item.sku && i.sku === item.sku) || (item.itemId && i.sku === item.itemId));
+        
+        console.log('Found in local inventory:', inventoryItem ? inventoryItem.name : 'Not found');
+        
+        // if not found locally, try API
+        if (!inventoryItem && item.sku) {
+          console.log('Searching API for SKU:', item.sku);
+          const results = await inventoryAPI.search({ search: item.sku });
+          if (results && results.items && results.items.length > 0) {
+            inventoryItem = results.items.find((i: any) => i.sku === item.sku) || results.items[0];
+            console.log('Found via API:', inventoryItem ? inventoryItem.name : 'Not found');
+          }
+        }
+
+        if (inventoryItem) {
+          // get price for the selected price tier
+          const tier = priceLevelToTier(contact.priceLevel || getPriceTierLabel(1));
+          console.log('Price tier:', tier, 'for price level:', contact.priceLevel);
+          
+          const newUnitPrice = getPriceForTier(inventoryItem, tier);
+          console.log('Old price:', item.unitPrice, 'New price:', newUnitPrice);
+          
+          const subtotal = item.quantity * newUnitPrice;
+          const newTotal = subtotal - (subtotal * (item.discount || 0) / 100);
+
+          return {
+            ...item,
+            unitPrice: newUnitPrice,
+            cost: inventoryItem.cost || item.cost,
+            total: newTotal
+          };
+        }
+
+        console.log('Could not find inventory item, keeping as is');
+        return item; // if couldn't find, keep as is
+      }));
+
+      console.log('Repriced items:', newItems);
+      setEditingBidLineItems(newItems);
+      
+      toast.success('Line items repriced successfully');
+    } catch (error) {
+      console.error('Error repricing line items:', error);
+      toast.error('Failed to reprice line items');
+    } finally {
+      setIsRepricing(false);
+    }
+  };
+
   const handleEditBid = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBid) return;
@@ -905,6 +1049,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         tax_amount_2: totals.taxAmount2,
         total: totals.total,
         notes: editingBid.notes || '',
+        terms: editingBid.terms || '',
       };
 
       if (source === 'bids') {
@@ -1379,13 +1524,16 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                           variant="ghost" 
                           size="sm"
                           onClick={() => {
-                            setEditingBid(bid);
+                            setEditingBid({
+                              ...bid,
+                              terms: bid.terms || orgSettings.quoteTerms || getDefaultQuoteTerms()
+                            });
                             // Ensure line items are typed correctly
                             const items = Array.isArray(bid.line_items) ? bid.line_items : [];
                             setEditingBidLineItems(items as LineItem[]);
                             // Set tax rates from bid or default from org settings (server-loaded)
-                            setBidTaxRate(bid.tax_percent ? bid.tax_percent.toString() : orgSettings.taxRate.toString());
-                            setBidTaxRate2(bid.tax_percent_2 ? bid.tax_percent_2.toString() : orgSettings.taxRate2.toString());
+                            setBidTaxRate((bid.tax_percent || orgSettings.taxRate || 0).toString());
+                            setBidTaxRate2((bid.tax_percent_2 || orgSettings.taxRate2 || 0).toString());
                             setBidDiscountPercent(bid.discount_percent || 0);
                             setIsEditBidDialogOpen(true);
                           }}
@@ -1681,17 +1829,20 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
 
 
-      {/* ── Create Deal Dialog (copied from Bids.tsx / Deals module) ── */}
+      {/* Create Deal Dialog (copied from Bids.tsx / Deals module) */}
       <Dialog open={isAddBidDialogOpen} onOpenChange={setIsAddBidDialogOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto bg-white">
-          <DialogHeader>
-            <DialogTitle>Create New Deal</DialogTitle>
-            <DialogDescription>
-              Fill in the details to create a new deal for {contact.name} with line items and pricing.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-[1400px] w-[95vw] h-[90vh] flex flex-col bg-white p-0 border-0 shadow-2xl">
+          <div className="p-6 border-b flex-shrink-0">
+            <DialogHeader>
+              <DialogTitle>Create New Deal</DialogTitle>
+              <DialogDescription>
+                Fill in the details to create a new deal for {contact.name} with line items and pricing.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="p-6 overflow-y-auto flex-1">
+            <div className="grid md:grid-cols-2 gap-4">
             {/* Basic Information */}
             <div className="space-y-2">
               <Label>Deal Title *</Label>
@@ -1732,16 +1883,18 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 <h3 className="text-sm text-gray-900">Line Items</h3>
                 <div className="flex flex-wrap gap-2">
                   <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     onClick={handleRefreshPrices}
                     title="Update prices to current inventory rates"
-                    disabled={currentLineItems.length === 0}
+                    disabled={isRepricing || currentLineItems.length === 0}
                   >
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                    Refresh Prices
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isRepricing ? 'animate-spin' : ''}`} />
+                    Reprice
                   </Button>
                   <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setShowLineItemDialog(true)}
@@ -1772,10 +1925,10 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                     </thead>
                     <tbody>
                       {currentLineItems.map(item => {
-                        const inventoryItem = inventoryItems.find(inv => inv.id === item.itemId);
+                        const inventoryItem = inventoryItems.find(inv => inv.id === item.itemId || (item.sku && inv.sku === item.sku) || (item.itemId && inv.sku === item.itemId));
                         const displaySku = item.sku || inventoryItem?.sku || '';
                         const displayDesc = item.description || inventoryItem?.description || '';
-                        const displayName = item.itemName || inventoryItem?.name || 'Unknown Item';
+                        const displayName = item.itemName || inventoryItem?.name || inventoryItem?.sku || item.sku || item.itemId || 'Unknown Item';
                         const currentCost = inventoryItem?.cost ?? item.cost ?? 0;
 
                         return (
@@ -1903,26 +2056,32 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             )}
 
             {/* Additional Information */}
-            <div className="space-y-2">
-              <Label>Notes (Internal)</Label>
-              <Textarea
-                value={dealFormData.notes}
-                onChange={(e) => setDealFormData({ ...dealFormData, notes: e.target.value })}
-                placeholder="Internal notes (not visible to client)"
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Terms & Conditions</Label>
-              <Textarea
-                value={dealFormData.terms}
-                onChange={(e) => setDealFormData({ ...dealFormData, terms: e.target.value })}
-                placeholder="Payment terms and conditions"
-                rows={3}
-              />
+            <div className="md:col-span-2 grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Notes (Internal)</Label>
+                <Textarea
+                  value={dealFormData.notes}
+                  onChange={(e) => setDealFormData({ ...dealFormData, notes: e.target.value })}
+                  placeholder="Internal notes (not visible to client)"
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Terms & Conditions</Label>
+                <Textarea
+                  value={dealFormData.terms}
+                  onChange={(e) => setDealFormData({ ...dealFormData, terms: e.target.value })}
+                  placeholder="Payment terms and conditions"
+                  rows={2}
+                />
+              </div>
             </div>
 
-            <div className="flex gap-2 pt-4 md:col-span-2">
+            </div>
+          </div>
+
+          <div className="p-6 border-t flex-shrink-0 bg-gray-50">
+            <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => setIsAddBidDialogOpen(false)} className="flex-1" disabled={isSaving}>
                 Cancel
               </Button>
@@ -1964,7 +2123,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 />
               </div>
               {filteredInventory.length === 0 && inventorySearchQuery && (
-                <p className="text-xs text-red-600 mt-1">No items found. Try a different search.</p>
+                <p className="text-xs text-red-600 mt-1">{isSearchingInventory ? 'Searching...' : 'No items found. Try a different search.'}</p>
               )}
               {!inventorySearchQuery && (
                 <p className="text-xs text-gray-500 mt-1">Supports natural language: plurals, typos, and price filters</p>
@@ -2003,14 +2162,14 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                     })
                   ) : (
                     <SelectItem value="no-items" disabled>
-                      {inventorySearchQuery ? 'No items found' : 'Type above to search'}
+                      {isSearchingInventory ? 'Searching...' : (inventorySearchQuery ? 'No items found' : 'Type above to search')}
                     </SelectItem>
                   )}
                 </SelectContent>
               </Select>
               {selectedInventoryId && (
                 <div className="mt-2 p-3 bg-blue-50 rounded text-xs text-blue-700">
-                  {inventoryItems.find(i => i.id === selectedInventoryId)?.description}
+                  {filteredInventory.find(i => i.id === selectedInventoryId)?.description}
                 </div>
               )}
             </div>
@@ -2089,15 +2248,19 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
       {/* Edit Deal Dialog */}
       <Dialog open={isEditBidDialogOpen} onOpenChange={setIsEditBidDialogOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-white">
-          <DialogHeader>
-            <DialogTitle>Edit Deal</DialogTitle>
-            <DialogDescription>
-              Update the deal's information and line items
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleEditBid} className="grid md:grid-cols-2 gap-4">
-            {/* Basic Information */}
+        <DialogContent className="max-w-[1800px] w-[78vw] h-[60vh] flex flex-col bg-white p-0 border-0 shadow-2xl">
+          <div className="p-6 border-b flex-shrink-0">
+            <DialogHeader>
+              <DialogTitle>Edit Deal</DialogTitle>
+              <DialogDescription>
+                Update the deal's information and line items
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <form onSubmit={handleEditBid} className="flex flex-col flex-1 overflow-hidden">
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="grid md:grid-cols-3 gap-4">
+                {/* Basic Information */}
               <div className="space-y-2">
                 <Label htmlFor="edit-bid-title">Title *</Label>
                 <Input
@@ -2174,18 +2337,37 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               </div>
 
             {/* Line Items Section */}
-            <div className="md:col-span-2 space-y-4">
+            <div className="md:col-span-3 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm text-gray-900">Line Items</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditLineItemDialogOpen(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Item
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🔵 REPRICE BUTTON CLICKED!');
+                      console.log('isRepricing:', isRepricing);
+                      console.log('editingBidLineItems.length:', editingBidLineItems.length);
+                      handleRepriceEditBid();
+                    }}
+                    disabled={isRepricing || editingBidLineItems.length === 0}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isRepricing ? 'animate-spin' : ''}`} />
+                    Reprice
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditLineItemDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Item
+                  </Button>
+                </div>
               </div>
 
               {editingBidLineItems.length === 0 ? (
@@ -2194,8 +2376,8 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                   <p className="text-sm text-gray-500">No items added yet</p>
                 </div>
               ) : (
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="w-full">
+                <div className="border rounded-lg overflow-x-auto">
+                  <table className="w-full min-w-[500px]">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="text-left py-2 px-4 text-xs text-gray-600">Item</th>
@@ -2207,16 +2389,46 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                       </tr>
                     </thead>
                     <tbody>
-                      {editingBidLineItems.map(item => (
+                      {editingBidLineItems.map(item => {
+                        const inventoryItem = inventoryItems.find(inv => inv.id === item.itemId || (item.sku && inv.sku === item.sku) || (item.itemId && inv.sku === item.itemId));
+                        const displaySku = item.sku || inventoryItem?.sku || '';
+                        const displayName = item.itemName || inventoryItem?.name || inventoryItem?.sku || item.sku || item.itemId || 'Unknown Item';
+
+                        return (
                         <tr key={item.id} className="border-t">
                           <td className="py-2 px-4">
-                            <p className="text-sm text-gray-900">{item.itemName}</p>
-                            <p className="text-xs text-gray-500">SKU: {item.sku}</p>
+                            <p className="text-sm text-gray-900">{displayName}</p>
+                            {displaySku && <p className="text-xs text-gray-500">SKU: {displaySku}</p>}
                           </td>
-                          <td className="py-2 px-4 text-right text-sm">{item.quantity}</td>
-                          <td className="py-2 px-4 text-right text-sm">${item.unitPrice.toFixed(2)}</td>
-                          <td className="py-2 px-4 text-right text-sm">{item.discount}%</td>
-                          <td className="py-2 px-4 text-right text-sm">${item.total.toFixed(2)}</td>
+                          <td className="py-2 px-4">
+                            <Input 
+                              type="number" 
+                              className="w-20 text-right h-8" 
+                              value={item.quantity || 1} 
+                              min="1"
+                              onChange={(e) => handleUpdateEditLineItem(item.id, 'quantity', Number(e.target.value))} 
+                            />
+                          </td>
+                          <td className="py-2 px-4">
+                            <Input 
+                              type="number" 
+                              className="w-24 text-right h-8" 
+                              step="0.01"
+                              value={item.unitPrice || 0} 
+                              onChange={(e) => handleUpdateEditLineItem(item.id, 'unitPrice', Number(e.target.value))} 
+                            />
+                          </td>
+                          <td className="py-2 px-4">
+                            <Input 
+                              type="number" 
+                              className="w-20 text-right h-8" 
+                              min="0"
+                              max="100"
+                              value={item.discount || 0} 
+                              onChange={(e) => handleUpdateEditLineItem(item.id, 'discount', Number(e.target.value))} 
+                            />
+                          </td>
+                          <td className="py-2 px-4 text-right text-sm">${(item.total || 0).toFixed(2)}</td>
                           <td className="py-2 px-4">
                             <Button
                               type="button"
@@ -2228,7 +2440,8 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                             </Button>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -2237,9 +2450,9 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
             {/* Pricing */}
             {editingBidLineItems.length > 0 && (
-              <div className="md:col-span-2 space-y-4">
+              <div className="md:col-span-3 space-y-4">
                 <h3 className="text-sm text-gray-900">Pricing</h3>
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Bid Discount (%)</Label>
                     <Input
@@ -2324,41 +2537,58 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               </div>
             )}
 
-            {/* Notes */}
-            <div className="md:col-span-2 space-y-2">
-              <Label htmlFor="edit-bid-notes">Notes</Label>
-              <Textarea
-                id="edit-bid-notes"
-                value={editingBid?.notes || ''}
-                onChange={(e) => setEditingBid(editingBid ? { ...editingBid, notes: e.target.value } : null)}
-                rows={3}
-              />
+            {/* Additional Information */}
+            <div className="md:col-span-3 grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-bid-notes">Notes (Internal)</Label>
+                <Textarea
+                  id="edit-bid-notes"
+                  value={editingBid?.notes || ''}
+                  onChange={(e) => setEditingBid(editingBid ? { ...editingBid, notes: e.target.value } : null)}
+                  placeholder="Internal notes (not visible to client)"
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-bid-terms">Terms & Conditions</Label>
+                <Textarea
+                  id="edit-bid-terms"
+                  value={editingBid?.terms || ''}
+                  onChange={(e) => setEditingBid(editingBid ? { ...editingBid, terms: e.target.value } : null)}
+                  placeholder="Payment terms and conditions"
+                  rows={2}
+                />
+              </div>
+            </div>
+            </div>
             </div>
 
-            <div className="flex gap-2 pt-4 md:col-span-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setEditingBid(null);
-                  setEditingBidLineItems([]);
-                  setIsEditBidDialogOpen(false);
-                }}
-                className="flex-1"
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" className="flex-1" disabled={isSaving}>
-                {isSaving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Changes'
-                )}
-              </Button>
+            <div className="p-6 border-t flex-shrink-0 bg-gray-50">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingBid(null);
+                    setEditingBidLineItems([]);
+                    setIsEditBidDialogOpen(false);
+                  }}
+                  className="flex-1"
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1" disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
         </DialogContent>
@@ -2420,14 +2650,14 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                     })
                   ) : (
                     <SelectItem value="no-items" disabled>
-                      {inventorySearchQuery ? 'No items found' : 'Type above to search'}
+                      {isSearchingInventory ? 'Searching...' : (inventorySearchQuery ? 'No items found' : 'Type above to search')}
                     </SelectItem>
                   )}
                 </SelectContent>
               </Select>
               {selectedInventoryId && (
                 <div className="mt-2 p-3 bg-blue-50 rounded text-xs text-blue-700">
-                  {inventoryItems.find(i => i.id === selectedInventoryId)?.description}
+                  {filteredInventory.find(i => i.id === selectedInventoryId)?.description}
                 </div>
               )}
             </div>

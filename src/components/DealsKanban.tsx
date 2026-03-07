@@ -54,7 +54,7 @@ interface DealsKanbanProps {
   onStatusChange: (quote: Quote, newStatus: Quote['status']) => void;
   onEdit: (quote: Quote) => void;
   onPreview: (quote: Quote) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, quote?: Quote) => void;
   onEmail: (quote: Quote) => void;
   onViewAgreement?: (quote: Quote) => void;
 }
@@ -80,7 +80,7 @@ const DealCard = ({
   quote: Quote; 
   onEdit: (q: Quote) => void; 
   onPreview: (q: Quote) => void; 
-  onDelete: (id: string) => void;
+  onDelete: (id: string, quote?: Quote) => void;
   onEmail: (q: Quote) => void;
   onViewAgreement?: (q: Quote) => void;
 }) => {
@@ -118,11 +118,17 @@ const DealCard = ({
   const probability = getProbability(quote.status);
 
   // Calculate Urgency & Staleness
-  const daysUntilExpiration = Math.ceil((new Date(quote.validUntil).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  const validUntilDate = quote.validUntil ? new Date(quote.validUntil) : null;
+  const daysUntilExpiration = validUntilDate && !isNaN(validUntilDate.getTime()) 
+    ? Math.ceil((validUntilDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
   const isUrgent = daysUntilExpiration > 0 && daysUntilExpiration <= 3;
-  const isExpired = daysUntilExpiration <= 0;
+  const isExpired = daysUntilExpiration <= 0 && validUntilDate !== null;
   
-  const daysSinceUpdate = Math.floor((new Date().getTime() - new Date(quote.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+  const updatedDate = quote.updatedAt ? new Date(quote.updatedAt) : new Date();
+  const daysSinceUpdate = !isNaN(updatedDate.getTime()) 
+    ? Math.floor((new Date().getTime() - updatedDate.getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
   const isStale = daysSinceUpdate > 7 && ['draft', 'sent', 'viewed'].includes(quote.status);
 
   return (
@@ -194,7 +200,7 @@ const DealCard = ({
                   {quote.status === 'sent' ? 'Resend' : 'Send Quote'}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onDelete(quote.id)} className="text-red-600">
+                <DropdownMenuItem onClick={() => onDelete(quote.id, quote)} className="text-red-600">
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -222,7 +228,7 @@ const DealCard = ({
             <div className="flex items-center gap-1">
               <span className="font-mono">{quote.quoteNumber}</span>
               <span>•</span>
-              <span>{new Date(quote.createdAt).toLocaleDateString()}</span>
+              <span>{quote.createdAt && !isNaN(new Date(quote.createdAt).getTime()) ? new Date(quote.createdAt).toLocaleDateString() : ''}</span>
             </div>
             
             {isViewed ? (
@@ -258,7 +264,7 @@ const KanbanColumn = ({
   onDrop: (item: DragItem, newStatus: string) => void;
   onEdit: (q: Quote) => void;
   onPreview: (q: Quote) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, quote?: Quote) => void;
   onEmail: (q: Quote) => void;
   onViewAgreement?: (q: Quote) => void;
 }) => {

@@ -594,10 +594,12 @@ export function Tenants({ user, organization }: TenantsProps) {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setViewingAgreement(tenant)} disabled={isDeleting === tenant.id}>
-                            <FileText className="h-4 w-4 mr-2" />
-                            View Agreement
-                          </DropdownMenuItem>
+                          {user?.role === 'SUPERADMIN' && (
+                            <DropdownMenuItem onClick={() => setViewingAgreement(tenant)} disabled={isDeleting === tenant.id}>
+                              <FileText className="h-4 w-4 mr-2" />
+                              View Agreement
+                            </DropdownMenuItem>
+                          )}
                           {canChange('tenants', user.role) && (
                             <DropdownMenuItem onClick={() => handleOpenDialog(tenant)} disabled={isDeleting === tenant.id}>
                               <Edit className="h-4 w-4 mr-2" />
