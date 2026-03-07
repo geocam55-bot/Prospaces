@@ -785,8 +785,12 @@ export function Bids({ user }: BidsProps) {
           }}
           onSuccess={() => {
             setIsEmailDialogOpen(false);
+            if (emailQuote.status === 'draft') {
+              handleStatusChange(emailQuote, 'sent');
+            } else {
+              loadData();
+            }
             setEmailQuote(null);
-            loadData();
           }}
         />
       )}
