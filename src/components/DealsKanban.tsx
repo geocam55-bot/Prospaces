@@ -46,6 +46,7 @@ export interface Quote {
   createdAt: string;
   updatedAt: string;
   ownerId: string;
+  organizationId?: string;
   readAt?: string;
 }
 

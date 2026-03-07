@@ -250,6 +250,7 @@ export function Bids({ user }: BidsProps) {
           createdAt: q.created_at || new Date().toISOString(),
           updatedAt: q.updated_at || new Date().toISOString(),
           ownerId: q.created_by,
+          organizationId: q.organization_id || q.organizationId || user.organization_id || '',
           readAt: q.read_at,
           _source: 'quotes'
         };
@@ -331,6 +332,7 @@ export function Bids({ user }: BidsProps) {
       createdAt: bid.createdAt || bid.created_at,
       updatedAt: bid.updatedAt || bid.updated_at,
       ownerId: bid.ownerId || bid.owner_id,
+      organizationId: bid.organizationId || bid.organization_id || user.organization_id || '',
       readAt: bid.readAt || bid.read_at,
       _source: 'bids',
     };
