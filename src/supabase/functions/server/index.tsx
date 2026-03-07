@@ -522,7 +522,7 @@ app.get(`${PREFIX}/profiles/ensure`, async (c) => {
   }
 });
 
-// ── SYNC AUTH USERS → PROFILES ──────────────────────────────────────────
+// ── SYNC AUTH USERS → PROFILES ────────��─────────────────────────────────
 app.get(`${PREFIX}/profiles/find-missing`, async (c) => {
   try {
     const auth = await authenticateUser(c);
@@ -2238,11 +2238,12 @@ app.post(`${PREFIX}/public/events`, async (c) => {
       timestamp: now,
     }));
 
-    // Look up deal details from DB to enrich the activity record
+    // Look up deal details from DB to enrich the activity record and update status
     let dealTitle = '';
     let dealNumber = '';
     let contactName = '';
     let contactEmail = '';
+    let contactId = '';
     let dealTotal = 0;
     try {
       const supabase = getSupabase();
@@ -2254,12 +2255,77 @@ app.post(`${PREFIX}/public/events`, async (c) => {
         .eq('id', entityId)
         .eq('organization_id', orgId)
         .single();
+        
       if (dealData) {
         dealTitle = (dealData as any).title || '';
         dealNumber = (dealData as any).quote_number || (dealData as any).bid_number || '';
         contactName = (dealData as any).contact_name || (dealData as any).client_name || '';
         contactEmail = (dealData as any).contact_email || '';
+        contactId = (dealData as any).contact_id || '';
         dealTotal = (dealData as any).total || (dealData as any).amount || 0;
+        
+        // Update Deal status to 'viewed' if it was 'sent' or 'draft'
+        const currentStatus = (dealData as any).status || 'draft';
+        if (['draft', 'sent'].includes(currentStatus)) {
+          await supabase
+            .from(table)
+            .update({ 
+              status: 'viewed',
+              read_at: now
+            })
+            .eq('id', entityId)
+            .eq('organization_id', orgId);
+            
+          console.log(`Updated ${table} ${entityId} status to viewed`);
+        } else if (!(dealData as any).read_at) {
+           // Just update read_at if not set
+           await supabase
+            .from(table)
+            .update({ read_at: now })
+            .eq('id', entityId)
+            .eq('organization_id', orgId);
+        }
+        
+        // Also log this in marketing lead scores if it's a contact
+        if (contactId) {
+          try {
+            const scorePayload = {
+              organization_id: orgId,
+              contact_id: contactId,
+              score_change: 5,
+              reason: `Viewed ${entityType || 'quote'} ${dealNumber || dealTitle}`,
+              created_at: now
+            };
+            
+            // Try to find existing lead score record or create one
+            const kvKey = `lead_score:${orgId}:${contactId}`;
+            const existing = await kv.get(kvKey);
+            
+            const currentScore = existing?.score || 0;
+            const newScore = currentScore + scorePayload.score_change;
+            
+            const scoreHistory = existing?.score_history || [];
+            scoreHistory.unshift(scorePayload);
+            
+            if (scoreHistory.length > 50) scoreHistory.pop();
+            
+            const leadScore = {
+              contact_id: contactId,
+              organization_id: orgId,
+              score: newScore,
+              status: existing?.status || 'Cold',
+              last_activity: now,
+              score_history: scoreHistory,
+              created_at: existing?.created_at || now,
+              updated_at: now,
+            };
+            
+            await kv.set(kvKey, leadScore);
+            console.log(`Updated lead score for ${contactEmail || contactId}: +5 for viewing deal`);
+          } catch (e) {
+            console.log(`Failed to update lead score:`, e);
+          }
+        }
       }
     } catch (_) { /* best-effort enrichment */ }
 
