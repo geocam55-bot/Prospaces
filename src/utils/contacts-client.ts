@@ -387,6 +387,7 @@ export async function getAllContactsClient(filterByAccountOwner?: string, scope:
       {
         method: 'GET',
         headers,
+        cache: 'no-store',
       }
     );
 
@@ -405,7 +406,7 @@ export async function getAllContactsClient(filterByAccountOwner?: string, scope:
             const retryHeaders = await getServerHeaders();
             const retryResponse = await fetch(
               `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts?scope=${scope}`,
-              { method: 'GET', headers: retryHeaders }
+              { method: 'GET', headers: retryHeaders, cache: 'no-store' }
             );
             if (retryResponse.ok) {
               const retryResult = await retryResponse.json();
@@ -639,7 +640,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
     // Transform data from camelCase to snake_case
     const transformedData = transformToDbFormat(contactData);
 
-    // ── Capture financial + location data BEFORE filtering strips it ────
+    // ── Capture financial + location + price data BEFORE filtering strips it ────
     const financialExtras: Record<string, any> = {};
     const finFields = ['ptd_sales', 'ptd_gp_percent', 'ytd_sales', 'ytd_gp_percent', 'lyr_sales', 'lyr_gp_percent'];
     for (const f of finFields) {
@@ -648,7 +649,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
       }
     }
     // Location fields — stored as strings, not numbers
-    const locationFields = ['city', 'province', 'postal_code'];
+    const locationFields = ['city', 'province', 'postal_code', 'price_level'];
     for (const f of locationFields) {
       if (transformedData[f] !== undefined && transformedData[f] !== null && String(transformedData[f]).trim() !== '') {
         financialExtras[f] = String(transformedData[f]).trim();

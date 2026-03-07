@@ -75,7 +75,8 @@ export function ProjectQuoteGenerator({
 
   // Reload contacts when dialog opens
   useEffect(() => {
-    if (isOpen && contacts.length === 0) {
+    if (isOpen) {
+      console.log('[ProjectQuoteGenerator] Dialog opened - reloading contacts to get latest price levels...');
       loadContacts();
     }
   }, [isOpen]);

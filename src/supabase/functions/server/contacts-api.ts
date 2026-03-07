@@ -266,48 +266,62 @@ export function contactsAPI(app: Hono) {
       let enrichedContacts = contacts || [];
       if (enrichedContacts.length > 0) {
         try {
-          const overlayKeys = enrichedContacts.map((ct: any) => `contact_extras:${ct.id}`);
-          const overlayValues = await kv.mget(overlayKeys);
-          let enrichCount = 0;
-          for (let i = 0; i < enrichedContacts.length; i++) {
-            const overlay = overlayValues?.[i];
-            if (overlay && typeof overlay === 'object') {
-              // Merge KV extras onto the contact — KV is authoritative for these fields
-              if (overlay.price_level !== undefined) enrichedContacts[i].price_level = overlay.price_level;
-              if (overlay.address !== undefined && !enrichedContacts[i].address) enrichedContacts[i].address = overlay.address;
-              if (overlay.notes !== undefined && !enrichedContacts[i].notes) enrichedContacts[i].notes = overlay.notes;
-              if (overlay.tags !== undefined && !enrichedContacts[i].tags) enrichedContacts[i].tags = overlay.tags;
-              // Financial fields — KV is authoritative when DB columns don't exist
-              if (overlay.ptd_sales !== undefined && enrichedContacts[i].ptd_sales == null) enrichedContacts[i].ptd_sales = overlay.ptd_sales;
-              if (overlay.ptd_gp_percent !== undefined && enrichedContacts[i].ptd_gp_percent == null) enrichedContacts[i].ptd_gp_percent = overlay.ptd_gp_percent;
-              if (overlay.ytd_sales !== undefined && enrichedContacts[i].ytd_sales == null) enrichedContacts[i].ytd_sales = overlay.ytd_sales;
-              if (overlay.ytd_gp_percent !== undefined && enrichedContacts[i].ytd_gp_percent == null) enrichedContacts[i].ytd_gp_percent = overlay.ytd_gp_percent;
-              if (overlay.lyr_sales !== undefined && enrichedContacts[i].lyr_sales == null) enrichedContacts[i].lyr_sales = overlay.lyr_sales;
-              if (overlay.lyr_gp_percent !== undefined && enrichedContacts[i].lyr_gp_percent == null) enrichedContacts[i].lyr_gp_percent = overlay.lyr_gp_percent;
-              // Location fields
-              if (overlay.city !== undefined && !enrichedContacts[i].city) enrichedContacts[i].city = overlay.city;
-              if (overlay.province !== undefined && !enrichedContacts[i].province) enrichedContacts[i].province = overlay.province;
-              if (overlay.postal_code !== undefined && !enrichedContacts[i].postal_code) enrichedContacts[i].postal_code = overlay.postal_code;
-              enrichCount++;
+          const contactIds = enrichedContacts.map((ct: any) => ct.id);
+          const overlayKeys = contactIds.map((id: string) => `contact_extras:${id}`);
+          const legacyKeys = contactIds.map((id: string) => `contact_price_level:${id}`);
+
+          const { data: kvData, error: kvError } = await supabase
+            .from('kv_store_8405be07')
+            .select('key, value')
+            .in('key', [...overlayKeys, ...legacyKeys]);
+
+          if (kvError) {
+            console.warn(`[contacts-api] KV fetch error:`, kvError.message);
+          } else if (kvData) {
+            const kvMap = new Map();
+            for (const row of kvData) {
+              kvMap.set(row.key, row.value);
             }
-          }
-          console.log(`[contacts-api] Enriched ${enrichCount}/${enrichedContacts.length} contacts from KV overlays`);
-          
-          // Also try legacy single-key price_level for contacts that don't have one yet
-          const needsPL = enrichedContacts.filter((ct: any) => !ct.price_level);
-          if (needsPL.length > 0) {
-            const legacyKeys = needsPL.map((ct: any) => `contact_price_level:${ct.id}`);
-            const legacyValues = await kv.mget(legacyKeys);
-            for (let i = 0; i < needsPL.length; i++) {
-              let val = legacyValues?.[i];
-              if (val !== null && val !== undefined) {
-                // Unwrap double-serialized strings
-                if (typeof val === 'string' && val.startsWith('"') && val.endsWith('"')) {
-                  try { val = JSON.parse(val); } catch { /* use as-is */ }
-                }
-                needsPL[i].price_level = val;
+
+            let enrichCount = 0;
+            for (let i = 0; i < enrichedContacts.length; i++) {
+              const cid = enrichedContacts[i].id;
+              let updated = false;
+
+              // 1. Overlay
+              const overlay = kvMap.get(`contact_extras:${cid}`);
+              if (overlay && typeof overlay === 'object') {
+                if (overlay.price_level !== undefined) enrichedContacts[i].price_level = overlay.price_level;
+                if (overlay.address !== undefined && !enrichedContacts[i].address) enrichedContacts[i].address = overlay.address;
+                if (overlay.notes !== undefined && !enrichedContacts[i].notes) enrichedContacts[i].notes = overlay.notes;
+                if (overlay.tags !== undefined && !enrichedContacts[i].tags) enrichedContacts[i].tags = overlay.tags;
+                if (overlay.ptd_sales !== undefined && enrichedContacts[i].ptd_sales == null) enrichedContacts[i].ptd_sales = overlay.ptd_sales;
+                if (overlay.ptd_gp_percent !== undefined && enrichedContacts[i].ptd_gp_percent == null) enrichedContacts[i].ptd_gp_percent = overlay.ptd_gp_percent;
+                if (overlay.ytd_sales !== undefined && enrichedContacts[i].ytd_sales == null) enrichedContacts[i].ytd_sales = overlay.ytd_sales;
+                if (overlay.ytd_gp_percent !== undefined && enrichedContacts[i].ytd_gp_percent == null) enrichedContacts[i].ytd_gp_percent = overlay.ytd_gp_percent;
+                if (overlay.lyr_sales !== undefined && enrichedContacts[i].lyr_sales == null) enrichedContacts[i].lyr_sales = overlay.lyr_sales;
+                if (overlay.lyr_gp_percent !== undefined && enrichedContacts[i].lyr_gp_percent == null) enrichedContacts[i].lyr_gp_percent = overlay.lyr_gp_percent;
+                if (overlay.city !== undefined && !enrichedContacts[i].city) enrichedContacts[i].city = overlay.city;
+                if (overlay.province !== undefined && !enrichedContacts[i].province) enrichedContacts[i].province = overlay.province;
+                if (overlay.postal_code !== undefined && !enrichedContacts[i].postal_code) enrichedContacts[i].postal_code = overlay.postal_code;
+                updated = true;
               }
+
+              // 2. Legacy price_level fallback
+              if (!enrichedContacts[i].price_level) {
+                let val = kvMap.get(`contact_price_level:${cid}`);
+                if (val !== null && val !== undefined) {
+                  if (typeof val === 'string' && val.startsWith('"') && val.endsWith('"')) {
+                    try { val = JSON.parse(val); } catch { /* use as-is */ }
+                  }
+                  enrichedContacts[i].price_level = val;
+                  updated = true;
+                }
+              }
+
+              if (updated) enrichCount++;
             }
+            console.log(`[contacts-api] Enriched ${enrichCount}/${enrichedContacts.length} contacts from KV store batch query`);
           }
         } catch (kvErr: any) {
           console.warn(`[contacts-api] KV enrichment error (non-fatal):`, kvErr.message);
