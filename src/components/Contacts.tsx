@@ -755,7 +755,12 @@ export function Contacts({ user }: ContactsProps) {
           user={user}
           onBack={() => setSelectedContact(null)}
           onEdit={(contact) => {
-            setEditingContact(contact);
+            // Use selectedContact directly instead of the contact parameter
+            // to ensure we have the latest data after save + reload
+            console.log('[Contacts] onEdit called - using selectedContact instead of passed contact');
+            console.log('[Contacts] selectedContact priceLevel:', selectedContact?.priceLevel);
+            console.log('[Contacts] passed contact priceLevel:', contact?.priceLevel);
+            setEditingContact(selectedContact);
             setIsEditDialogOpen(true);
           }}
         />
