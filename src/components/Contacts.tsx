@@ -510,11 +510,10 @@ export function Contacts({ user }: ContactsProps) {
         // Update contacts list
         setContacts(prev => prev.map(c => (c?.id === contact.id ? contact : c)));
         
-        // ALWAYS update selectedContact if this is the contact being viewed
-        if (selectedContact && selectedContact.id === contact.id) {
-          console.log('[Contacts] 🔍 Updating selectedContact with price level:', contact.priceLevel);
-          setSelectedContact(contact);
-        }
+        // Update selectedContact with the fresh data from the server
+        // We were viewing this contact (that's why the edit dialog was open)
+        console.log('[Contacts] 🔍 Setting selectedContact to updated contact with priceLevel:', contact.priceLevel);
+        setSelectedContact(contact);
         
         console.log(`[Contacts] Local state updated for contact ${contact.id}`);
         toast.success(`Contact "${contactName}" saved successfully`);
