@@ -342,7 +342,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
                 <ProjectQuoteGenerator 
                   user={user}
                   projectType="deck"
-                  materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+                  materials={enrichedMaterials}
                   totalCost={totalT1Price}
                   projectData={config}
                 />

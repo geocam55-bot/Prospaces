@@ -147,6 +147,19 @@ export function ProjectQuoteGenerator({
       return;
     }
 
+    // ✅ VALIDATION: Check if materials are enriched (have SKUs and pricing)
+    const unenrichedMaterials = materials.filter(m => !m.sku || !m.itemId || m.unitPrice === 0 || m.cost === 0);
+    if (unenrichedMaterials.length > 0) {
+      console.error('[ProjectQuoteGenerator] ❌ ERROR: Materials not enriched!', {
+        totalMaterials: materials.length,
+        unenrichedCount: unenrichedMaterials.length,
+        sampleUnenriched: unenrichedMaterials.slice(0, 3),
+        sampleEnriched: materials.filter(m => m.sku && m.itemId).slice(0, 3)
+      });
+      showAlert('error', 'Please wait for pricing to load before creating a quote. If pricing does not appear, check that Project Wizard Defaults are configured in Admin Settings.');
+      return;
+    }
+
     try {
       setIsSaving(true);
 
@@ -167,7 +180,7 @@ export function ProjectQuoteGenerator({
         total: material.totalCost || (material.quantity * (material.unitPrice || material.costPerUnit || material.price || material.cost || 0)),
       }));
 
-      console.log('[ProjectQuoteGenerator] Line items created:', lineItems.map(item => ({
+      console.log('[ProjectQuoteGenerator] ✅ Line items created with SKUs:', lineItems.map(item => ({
         itemName: item.itemName,
         itemId: item.itemId || '(none)',
         sku: item.sku || '(none)',
