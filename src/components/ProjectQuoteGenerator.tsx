@@ -86,9 +86,14 @@ export function ProjectQuoteGenerator({
       // Find selected contact and get their price level
       const contact = contacts.find(c => c.id === selectedContact);
       if (contact) {
+        console.log('[ProjectQuoteGenerator] Selected contact:', {
+          name: contact.name,
+          priceLevel: contact.priceLevel,
+          allFields: Object.keys(contact)
+        });
         const priceLevel = contact.priceLevel || getPriceTierLabel(1);
         setCustomerPriceLevel(priceLevel);
-        console.log('[ProjectQuoteGenerator] Customer price level:', priceLevel);
+        console.log('[ProjectQuoteGenerator] ✅ Set customer price level to:', priceLevel);
       }
     } else {
       setCustomerPriceLevel(getPriceTierLabel(1)); // Reset to default
