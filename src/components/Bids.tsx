@@ -124,6 +124,27 @@ export function Bids({ user }: BidsProps) {
   useEffect(() => {
     if (isDialogOpen) {
       if (selectedQuote) {
+        // Normalize line items to ensure all expected fields are present
+        const items = selectedQuote.lineItems || [];
+        console.log('[Bids] Loading line items for editing:', items);
+        
+        const normalizedItems = items.map((item: any) => {
+          const normalized = {
+            id: item.id,
+            itemId: item.itemId || item.item_id || '',
+            itemName: item.itemName || item.item_name || item.description || item.name || '',
+            sku: item.sku || '',
+            description: item.description || item.itemName || item.item_name || '',
+            quantity: Number(item.quantity) || 1,
+            unitPrice: Number(item.unitPrice || item.unit_price || item.price || 0),
+            cost: Number(item.cost || 0),
+            discount: Number(item.discount || 0),
+            total: Number(item.total || 0)
+          };
+          console.log('[Bids] Normalized item:', normalized);
+          return normalized;
+        });
+        
         setEditFormData({
           title: selectedQuote.title || '',
           contactId: selectedQuote.contactId || '',
@@ -132,7 +153,7 @@ export function Bids({ user }: BidsProps) {
           notes: selectedQuote.notes || '',
           terms: selectedQuote.terms || orgSettings?.quote_terms || 'Payment due within 30 days. All prices in USD.',
           priceTier: selectedQuote.priceTier || 1,
-          lineItems: selectedQuote.lineItems || [],
+          lineItems: normalizedItems,
           discountPercent: selectedQuote.discountPercent || 0,
           taxPercent: selectedQuote.taxPercent || orgSettings?.tax_rate || 0,
           taxPercent2: selectedQuote.taxPercent2 || orgSettings?.tax_rate_2 || 0,
@@ -237,6 +258,17 @@ export function Bids({ user }: BidsProps) {
       setLegacyBids(bidsResponse.bids || []);
       setContacts(loadedContacts);
       setInventoryItems(inventoryResponse.items || []);
+      
+      console.log('[Bids] Loaded inventory items:', inventoryResponse.items?.length || 0);
+      if (inventoryResponse.items && inventoryResponse.items.length > 0) {
+        console.log('[Bids] Sample inventory items:', inventoryResponse.items.slice(0, 5).map(item => ({
+          id: item.id,
+          sku: item.sku,
+          name: item.name,
+          cost: item.cost,
+          priceTier1: item.priceTier1 || item.price_tier_1
+        })));
+      }
     } catch (err: any) {
       console.error('Failed to load bids/quotes:', err);
       setError(err.message || 'Failed to load data');
@@ -395,18 +427,30 @@ export function Bids({ user }: BidsProps) {
       const { inventoryAPI } = await import('../utils/api');
       
       const newItems = await Promise.all(editFormData.lineItems.map(async (item) => {
-        // try to find in local inventory first
-        let inventoryItem = inventoryItems.find(i => i.id === item.itemId || (item.sku && i.sku === item.sku) || (item.itemId && i.sku === item.itemId));
+        // STRATEGY 1: Match by SKU (most reliable - SKUs are unique)
+        let inventoryItem = item.sku ? inventoryItems.find(i => i.sku && i.sku.toLowerCase() === item.sku.toLowerCase()) : null;
         
-        // if not found locally, try API
-        if (!inventoryItem && item.sku) {
-          const results = await inventoryAPI.search({ search: item.sku });
-          if (results && results.items && results.items.length > 0) {
-            inventoryItem = results.items.find((i: any) => i.sku === item.sku) || results.items[0];
-          }
+        // STRATEGY 2: Match by itemId (fallback)
+        if (!inventoryItem && item.itemId) {
+          inventoryItem = inventoryItems.find(i => i.id === item.itemId);
+        }
+        
+        // STRATEGY 3: If not found, try matching by name
+        if (!inventoryItem && item.itemName) {
+          inventoryItem = inventoryItems.find(inv => 
+            inv.name && item.itemName && inv.name.toLowerCase().includes(item.itemName.toLowerCase())
+          );
+        }
+        
+        // STRATEGY 4: If still not found, try reverse match (item name contains inventory name)
+        if (!inventoryItem && item.itemName) {
+          inventoryItem = inventoryItems.find(inv => 
+            inv.name && item.itemName && item.itemName.toLowerCase().includes(inv.name.toLowerCase())
+          );
         }
 
         if (inventoryItem) {
+          console.log(`[Reprice] ✅ Matched line item "${item.itemName}" (SKU: ${item.sku || 'none'}) -> inventory "${inventoryItem.name}" (SKU: ${inventoryItem.sku})`);
           // get price for the selected price tier
           const tier = editFormData.priceTier || 1;
           const tierKey = `priceTier${tier}` as keyof typeof inventoryItem;
@@ -794,7 +838,7 @@ export function Bids({ user }: BidsProps) {
 
       {/* Edit/Create Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-[1400px] w-[95vw] h-[90vh] flex flex-col bg-white p-0 border-0 shadow-2xl">
+        <DialogContent className="!max-w-none w-[98vw] h-[90vh] flex flex-col bg-white p-0 border-0 shadow-2xl">
           <div className="p-6 border-b flex-shrink-0">
             <DialogHeader>
               <DialogTitle>{selectedQuote ? 'Edit Quote' : 'New Quote'}</DialogTitle>
@@ -949,64 +993,109 @@ export function Bids({ user }: BidsProps) {
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="text-left py-2 px-4 text-xs text-gray-600">Item</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Qty</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Unit Price</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Discount</th>
+                        <th className="text-left py-2 px-4 text-xs text-gray-600">SKU</th>
+                        <th className="text-left py-2 px-4 text-xs text-gray-600">Item Name</th>
+                        <th className="text-right py-2 px-4 text-xs text-gray-600">Quote Qty</th>
+                        <th className="text-right py-2 px-4 text-xs text-gray-600">Cost (Base)</th>
+                        <th className="text-right py-2 px-4 text-xs text-gray-600">Tier {editFormData.priceTier || 1} Price</th>
                         <th className="text-right py-2 px-4 text-xs text-gray-600">Total</th>
                         <th className="w-12"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {editFormData.lineItems.map(item => {
-                        const inventoryItem = inventoryItems.find(inv => inv.id === item.itemId || (item.sku && inv.sku === item.sku) || (item.itemId && inv.sku === item.itemId));
+                        // STRATEGY 1: Match by SKU (most reliable - SKUs are unique)
+                        let inventoryItem = item.sku ? inventoryItems.find(inv => inv.sku && inv.sku.toLowerCase() === item.sku.toLowerCase()) : null;
+                        
+                        // STRATEGY 2: Match by itemId (fallback)
+                        if (!inventoryItem && item.itemId) {
+                          inventoryItem = inventoryItems.find(inv => inv.id === item.itemId);
+                        }
+                        
+                        // STRATEGY 3: If not found, try matching by name
+                        if (!inventoryItem && item.itemName) {
+                          inventoryItem = inventoryItems.find(inv => 
+                            inv.name && item.itemName && inv.name.toLowerCase().includes(item.itemName.toLowerCase())
+                          );
+                        }
+                        
+                        // STRATEGY 4: If still not found, try reverse match (item name contains inventory name)
+                        if (!inventoryItem && item.itemName) {
+                          inventoryItem = inventoryItems.find(inv => 
+                            inv.name && item.itemName && item.itemName.toLowerCase().includes(inv.name.toLowerCase())
+                          );
+                        }
+                        
                         const displaySku = item.sku || inventoryItem?.sku || '';
-                        const displayName = item.itemName || inventoryItem?.name || inventoryItem?.sku || item.sku || item.itemId || 'Unknown Item';
+                        const displayName = item.itemName || inventoryItem?.name || 'Unknown Item';
+                        
+                        // Get pricing from inventory item if available
+                        const tier = editFormData.priceTier || 1;
+                        const tierKey = `priceTier${tier}` as keyof typeof inventoryItem;
+                        const snakeKey = `price_tier_${tier}` as keyof typeof inventoryItem;
+                        const tierPrice = inventoryItem ? Number(inventoryItem[tierKey] || inventoryItem[snakeKey] || item.unitPrice || 0) : Number(item.unitPrice || 0);
+                        const baseCost = inventoryItem?.cost || item.cost || 0;
+                        
+                        console.log('[Bids] Line item display:', {
+                          itemName: item.itemName,
+                          itemId: item.itemId,
+                          itemSku: item.sku,
+                          foundInventory: !!inventoryItem,
+                          inventoryName: inventoryItem?.name,
+                          inventorySku: inventoryItem?.sku,
+                          displaySku,
+                          displayName,
+                          tierPrice,
+                          baseCost,
+                          rawItem: item,
+                          matchStrategy: item.sku ? (inventoryItem ? 'SKU-matched' : 'SKU-not-found') : (inventoryItem ? 'ID-matched' : 'no-match')
+                        });
 
                         return (
-                        <tr key={item.id} className="border-t">
+                        <tr key={item.id} className="border-t hover:bg-gray-50">
+                          <td className="py-2 px-4">
+                            <p className="text-sm font-mono text-gray-700">{displaySku || '-'}</p>
+                          </td>
                           <td className="py-2 px-4">
                             <p className="text-sm text-gray-900">{displayName}</p>
-                            {displaySku && <p className="text-xs text-gray-500">SKU: {displaySku}</p>}
+                            {item.description && item.description !== displayName && (
+                              <p className="text-xs text-gray-500">{item.description}</p>
+                            )}
+                          </td>
+                          <td className="py-2 px-4 text-right">
+                            <p className="text-sm text-gray-900">{item.quantity || 1}</p>
+                          </td>
+                          <td className="py-2 px-4 text-right">
+                            <p className="text-sm text-gray-900">${Number(baseCost || 0).toFixed(2)}</p>
+                          </td>
+                          <td className="py-2 px-4 text-right">
+                            <p className="text-sm text-gray-900">${Number(tierPrice || 0).toFixed(2)}</p>
+                          </td>
+                          <td className="py-2 px-4 text-right">
+                            <p className="text-sm font-medium text-gray-900">${(item.total || 0).toFixed(2)}</p>
                           </td>
                           <td className="py-2 px-4">
-                            <Input 
-                              type="number" 
-                              className="w-20 text-right h-8" 
-                              value={item.quantity || 1} 
-                              min="1"
-                              onChange={(e) => handleUpdateLineItem(item.id, 'quantity', Number(e.target.value))} 
-                            />
-                          </td>
-                          <td className="py-2 px-4">
-                            <Input 
-                              type="number" 
-                              className="w-24 text-right h-8" 
-                              step="0.01"
-                              value={item.unitPrice || 0} 
-                              onChange={(e) => handleUpdateLineItem(item.id, 'unitPrice', Number(e.target.value))} 
-                            />
-                          </td>
-                          <td className="py-2 px-4">
-                            <Input 
-                              type="number" 
-                              className="w-20 text-right h-8" 
-                              min="0"
-                              max="100"
-                              value={item.discount || 0} 
-                              onChange={(e) => handleUpdateLineItem(item.id, 'discount', Number(e.target.value))} 
-                            />
-                          </td>
-                          <td className="py-2 px-4 text-right text-sm">${(item.total || 0).toFixed(2)}</td>
-                          <td className="py-2 px-4">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveLineItem(item.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  // TODO: Open edit line item dialog
+                                  toast.info('Edit line item coming soon');
+                                }}
+                              >
+                                <Edit className="h-4 w-4 text-blue-600" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveLineItem(item.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                         );

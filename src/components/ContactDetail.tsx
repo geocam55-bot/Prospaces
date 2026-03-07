@@ -847,18 +847,24 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       const { inventoryAPI } = await import('../utils/api');
       
       const newItems = await Promise.all(currentLineItems.map(async (item) => {
-        // try to find in local inventory first
-        let inventoryItem = inventoryItems.find(i => i.id === item.itemId || (item.sku && i.sku === item.sku) || (item.itemId && i.sku === item.itemId));
+        // STRATEGY 1: Match by SKU (most reliable - SKUs are unique)
+        let inventoryItem = item.sku ? inventoryItems.find(i => i.sku && i.sku.toLowerCase() === item.sku.toLowerCase()) : null;
         
-        // if not found locally, try API
+        // STRATEGY 2: Match by itemId (fallback)
+        if (!inventoryItem && item.itemId) {
+          inventoryItem = inventoryItems.find(i => i.id === item.itemId);
+        }
+        
+        // STRATEGY 3: If not found locally, try API search by SKU
         if (!inventoryItem && item.sku) {
           const results = await inventoryAPI.search({ search: item.sku });
           if (results && results.items && results.items.length > 0) {
-            inventoryItem = results.items.find((i: any) => i.sku === item.sku) || results.items[0];
+            inventoryItem = results.items.find((i: any) => i.sku && i.sku.toLowerCase() === item.sku.toLowerCase()) || results.items[0];
           }
         }
 
         if (inventoryItem) {
+          console.log(`[Refresh Prices] ✅ Matched line item "${item.itemName}" (SKU: ${item.sku || 'none'}) -> inventory "${inventoryItem.name}" (SKU: ${inventoryItem.sku})`);
           // get price for the selected price tier
           const tier = priceLevelToTier(contact.priceLevel || getPriceTierLabel(1));
           
@@ -962,17 +968,22 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       const newItems = await Promise.all(editingBidLineItems.map(async (item) => {
         console.log('Processing item:', item);
         
-        // try to find in local inventory first
-        let inventoryItem = inventoryItems.find(i => i.id === item.itemId || (item.sku && i.sku === item.sku) || (item.itemId && i.sku === item.itemId));
+        // STRATEGY 1: Match by SKU (most reliable - SKUs are unique)
+        let inventoryItem = item.sku ? inventoryItems.find(i => i.sku && i.sku.toLowerCase() === item.sku.toLowerCase()) : null;
+        
+        // STRATEGY 2: Match by itemId (fallback)
+        if (!inventoryItem && item.itemId) {
+          inventoryItem = inventoryItems.find(i => i.id === item.itemId);
+        }
         
         console.log('Found in local inventory:', inventoryItem ? inventoryItem.name : 'Not found');
         
-        // if not found locally, try API
+        // STRATEGY 3: If not found locally, try API search by SKU
         if (!inventoryItem && item.sku) {
           console.log('Searching API for SKU:', item.sku);
           const results = await inventoryAPI.search({ search: item.sku });
           if (results && results.items && results.items.length > 0) {
-            inventoryItem = results.items.find((i: any) => i.sku === item.sku) || results.items[0];
+            inventoryItem = results.items.find((i: any) => i.sku && i.sku.toLowerCase() === item.sku.toLowerCase()) || results.items[0];
             console.log('Found via API:', inventoryItem ? inventoryItem.name : 'Not found');
           }
         }
@@ -1528,9 +1539,29 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                               ...bid,
                               terms: bid.terms || orgSettings.quoteTerms || getDefaultQuoteTerms()
                             });
-                            // Ensure line items are typed correctly
+                            // Ensure line items are typed correctly and normalize field names
                             const items = Array.isArray(bid.line_items) ? bid.line_items : [];
-                            setEditingBidLineItems(items as LineItem[]);
+                            console.log('[ContactDetail] Loading line items for editing:', items);
+                            
+                            // Normalize line items to ensure all expected fields are present
+                            const normalizedItems = items.map((item: any) => {
+                              const normalized = {
+                                id: item.id,
+                                itemId: item.itemId || item.item_id || '',
+                                itemName: item.itemName || item.item_name || item.description || item.name || '',
+                                sku: item.sku || '',
+                                description: item.description || item.itemName || item.item_name || '',
+                                quantity: Number(item.quantity) || 1,
+                                unitPrice: Number(item.unitPrice || item.unit_price || item.price || 0),
+                                cost: Number(item.cost || 0),
+                                discount: Number(item.discount || 0),
+                                total: Number(item.total || 0)
+                              };
+                              console.log('[ContactDetail] Normalized item:', normalized);
+                              return normalized;
+                            });
+                            
+                            setEditingBidLineItems(normalizedItems as LineItem[]);
                             // Set tax rates from bid or default from org settings (server-loaded)
                             setBidTaxRate((bid.tax_percent || orgSettings.taxRate || 0).toString());
                             setBidTaxRate2((bid.tax_percent_2 || orgSettings.taxRate2 || 0).toString());
@@ -1925,7 +1956,12 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                     </thead>
                     <tbody>
                       {currentLineItems.map(item => {
-                        const inventoryItem = inventoryItems.find(inv => inv.id === item.itemId || (item.sku && inv.sku === item.sku) || (item.itemId && inv.sku === item.itemId));
+                        // STRATEGY 1: Match by SKU (most reliable)
+                        let inventoryItem = item.sku ? inventoryItems.find(inv => inv.sku && inv.sku.toLowerCase() === item.sku.toLowerCase()) : null;
+                        // STRATEGY 2: Match by itemId (fallback)
+                        if (!inventoryItem && item.itemId) {
+                          inventoryItem = inventoryItems.find(inv => inv.id === item.itemId);
+                        }
                         const displaySku = item.sku || inventoryItem?.sku || '';
                         const displayDesc = item.description || inventoryItem?.description || '';
                         const displayName = item.itemName || inventoryItem?.name || inventoryItem?.sku || item.sku || item.itemId || 'Unknown Item';
@@ -2248,7 +2284,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
       {/* Edit Deal Dialog */}
       <Dialog open={isEditBidDialogOpen} onOpenChange={setIsEditBidDialogOpen}>
-        <DialogContent className="max-w-[1800px] w-[78vw] h-[60vh] flex flex-col bg-white p-0 border-0 shadow-2xl">
+        <DialogContent className="!max-w-none w-[98vw] h-[90vh] flex flex-col bg-white p-0 border-0 shadow-2xl">
           <div className="p-6 border-b flex-shrink-0">
             <DialogHeader>
               <DialogTitle>Edit Deal</DialogTitle>
@@ -2380,64 +2416,108 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                   <table className="w-full min-w-[500px]">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="text-left py-2 px-4 text-xs text-gray-600">Item</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Qty</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Unit Price</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Discount</th>
+                        <th className="text-left py-2 px-4 text-xs text-gray-600">SKU</th>
+                        <th className="text-left py-2 px-4 text-xs text-gray-600">Item Name</th>
+                        <th className="text-right py-2 px-4 text-xs text-gray-600">Quote Qty</th>
+                        <th className="text-right py-2 px-4 text-xs text-gray-600">Cost (Base)</th>
+                        <th className="text-right py-2 px-4 text-xs text-gray-600">Tier {editingBid?.price_tier || 1} Price</th>
                         <th className="text-right py-2 px-4 text-xs text-gray-600">Total</th>
                         <th className="w-12"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {editingBidLineItems.map(item => {
-                        const inventoryItem = inventoryItems.find(inv => inv.id === item.itemId || (item.sku && inv.sku === item.sku) || (item.itemId && inv.sku === item.itemId));
+                        // STRATEGY 1: Match by SKU (most reliable - SKUs are unique)
+                        let inventoryItem = item.sku ? inventoryItems.find(inv => inv.sku && inv.sku.toLowerCase() === item.sku.toLowerCase()) : null;
+                        
+                        // STRATEGY 2: Match by itemId (fallback)
+                        if (!inventoryItem && item.itemId) {
+                          inventoryItem = inventoryItems.find(inv => inv.id === item.itemId);
+                        }
+                        
+                        // STRATEGY 3: If not found, try matching by name
+                        if (!inventoryItem && item.itemName) {
+                          inventoryItem = inventoryItems.find(inv => 
+                            inv.name && item.itemName && inv.name.toLowerCase().includes(item.itemName.toLowerCase())
+                          );
+                        }
+                        
+                        // STRATEGY 4: If still not found, try reverse match (item name contains inventory name)
+                        if (!inventoryItem && item.itemName) {
+                          inventoryItem = inventoryItems.find(inv => 
+                            inv.name && item.itemName && item.itemName.toLowerCase().includes(inv.name.toLowerCase())
+                          );
+                        }
+                        
                         const displaySku = item.sku || inventoryItem?.sku || '';
-                        const displayName = item.itemName || inventoryItem?.name || inventoryItem?.sku || item.sku || item.itemId || 'Unknown Item';
+                        const displayName = item.itemName || inventoryItem?.name || 'Unknown Item';
+                        
+                        // Get pricing from inventory item if available
+                        const tier = editingBid?.price_tier || 1;
+                        const tierKey = `priceTier${tier}` as keyof typeof inventoryItem;
+                        const snakeKey = `price_tier_${tier}` as keyof typeof inventoryItem;
+                        const tierPrice = inventoryItem ? Number(inventoryItem[tierKey] || inventoryItem[snakeKey] || item.unitPrice || 0) : Number(item.unitPrice || 0);
+                        const baseCost = inventoryItem?.cost || item.cost || 0;
+                        
+                        console.log('[ContactDetail] Line item display:', {
+                          itemName: item.itemName,
+                          itemId: item.itemId,
+                          itemSku: item.sku,
+                          foundInventory: !!inventoryItem,
+                          inventoryName: inventoryItem?.name,
+                          inventorySku: inventoryItem?.sku,
+                          displaySku,
+                          displayName,
+                          tierPrice,
+                          baseCost,
+                          rawItem: item
+                        });
 
                         return (
-                        <tr key={item.id} className="border-t">
+                        <tr key={item.id} className="border-t hover:bg-gray-50">
+                          <td className="py-2 px-4">
+                            <p className="text-sm font-mono text-gray-700">{displaySku || '-'}</p>
+                          </td>
                           <td className="py-2 px-4">
                             <p className="text-sm text-gray-900">{displayName}</p>
-                            {displaySku && <p className="text-xs text-gray-500">SKU: {displaySku}</p>}
+                            {item.description && item.description !== displayName && (
+                              <p className="text-xs text-gray-500">{item.description}</p>
+                            )}
+                          </td>
+                          <td className="py-2 px-4 text-right">
+                            <p className="text-sm text-gray-900">{item.quantity || 1}</p>
+                          </td>
+                          <td className="py-2 px-4 text-right">
+                            <p className="text-sm text-gray-900">${Number(baseCost || 0).toFixed(2)}</p>
+                          </td>
+                          <td className="py-2 px-4 text-right">
+                            <p className="text-sm text-gray-900">${Number(tierPrice || 0).toFixed(2)}</p>
+                          </td>
+                          <td className="py-2 px-4 text-right">
+                            <p className="text-sm font-medium text-gray-900">${(item.total || 0).toFixed(2)}</p>
                           </td>
                           <td className="py-2 px-4">
-                            <Input 
-                              type="number" 
-                              className="w-20 text-right h-8" 
-                              value={item.quantity || 1} 
-                              min="1"
-                              onChange={(e) => handleUpdateEditLineItem(item.id, 'quantity', Number(e.target.value))} 
-                            />
-                          </td>
-                          <td className="py-2 px-4">
-                            <Input 
-                              type="number" 
-                              className="w-24 text-right h-8" 
-                              step="0.01"
-                              value={item.unitPrice || 0} 
-                              onChange={(e) => handleUpdateEditLineItem(item.id, 'unitPrice', Number(e.target.value))} 
-                            />
-                          </td>
-                          <td className="py-2 px-4">
-                            <Input 
-                              type="number" 
-                              className="w-20 text-right h-8" 
-                              min="0"
-                              max="100"
-                              value={item.discount || 0} 
-                              onChange={(e) => handleUpdateEditLineItem(item.id, 'discount', Number(e.target.value))} 
-                            />
-                          </td>
-                          <td className="py-2 px-4 text-right text-sm">${(item.total || 0).toFixed(2)}</td>
-                          <td className="py-2 px-4">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveEditLineItem(item.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  // TODO: Open edit line item dialog
+                                  toast.info('Edit line item coming soon');
+                                }}
+                              >
+                                <Edit className="h-4 w-4 text-blue-600" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveEditLineItem(item.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                         );

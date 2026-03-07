@@ -156,9 +156,9 @@ export function ProjectQuoteGenerator({
       // Build line items from materials
       const lineItems = materials.map((material, index) => ({
         id: `item_${index}`,
-        itemId: material.itemId, // Add inventory item ID for linking to inventory
-        itemName: material.description || material.name || material.item || 'Material',
-        sku: material.sku || `PROJ-${projectType.toUpperCase()}-${index + 1}`,
+        itemId: material.itemId || '', // Inventory item ID - may be empty if not enriched
+        itemName: material.name || material.description || material.item || 'Material', // Prioritize inventory name over deck planner description
+        sku: material.sku || '', // Use actual SKU from inventory, leave empty if not found
         description: material.description || material.name || material.item || 'Material',
         quantity: material.quantity,
         unit: material.unit || 'ea',
@@ -166,6 +166,14 @@ export function ProjectQuoteGenerator({
         cost: material.cost || 0,
         total: material.totalCost || (material.quantity * (material.unitPrice || material.costPerUnit || material.price || material.cost || 0)),
       }));
+
+      console.log('[ProjectQuoteGenerator] Line items created:', lineItems.map(item => ({
+        itemName: item.itemName,
+        itemId: item.itemId || '(none)',
+        sku: item.sku || '(none)',
+        unitPrice: item.unitPrice,
+        cost: item.cost
+      })));
 
       // Build enhanced notes with project and pricing information
       const enhancedNotes = [
