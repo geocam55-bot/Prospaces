@@ -1575,9 +1575,21 @@ app.post(`${PREFIX}/email-send`, async (c) => {
         const kvKey = kvAccount.kvKey || `outlook_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
         await kv.set(`email_account:${auth.user.id}:${kvKey}`, { ...kvAccount, access_token: nt.access_token, refresh_token: nt.refresh_token || kvAccount.refresh_token, token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString() });
       }
-      const message: any = { subject, body: { contentType: 'HTML', content: emailBody }, toRecipients: (Array.isArray(to) ? to : [to]).map((e: string) => ({ emailAddress: { address: e } })) };
-      if (cc) message.ccRecipients = (Array.isArray(cc) ? cc : [cc]).map((e: string) => ({ emailAddress: { address: e } }));
-      if (bcc) message.bccRecipients = (Array.isArray(bcc) ? bcc : [bcc]).map((e: string) => ({ emailAddress: { address: e } }));
+
+      const parseEmails = (input: any) => {
+        if (!input) return [];
+        if (Array.isArray(input)) return input;
+        return input.split(',').map((e: string) => e.trim()).filter(Boolean);
+      };
+
+      const toArray = parseEmails(to);
+      const ccArray = parseEmails(cc);
+      const bccArray = parseEmails(bcc);
+
+      const message: any = { subject, body: { contentType: 'HTML', content: emailBody }, toRecipients: toArray.map((e: string) => ({ emailAddress: { address: e } })) };
+      if (ccArray.length > 0) message.ccRecipients = ccArray.map((e: string) => ({ emailAddress: { address: e } }));
+      if (bccArray.length > 0) message.bccRecipients = bccArray.map((e: string) => ({ emailAddress: { address: e } }));
+      
       const gRes = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message }) });
       if (!gRes.ok) {
         const errText = await gRes.text();
@@ -1609,10 +1621,26 @@ app.post(`${PREFIX}/email-send`, async (c) => {
         const kvKey = kvAccount.kvKey || `gmail_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
         await kv.set(`email_account:${auth.user.id}:${kvKey}`, { ...kvAccount, access_token: nt.access_token, token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString() });
       }
-      const raw = btoa(`From: ${kvAccount.email}\r\nTo: ${Array.isArray(to) ? to.join(', ') : to}\r\n${cc ? `Cc: ${Array.isArray(cc) ? cc.join(', ') : cc}\r\n` : ''}Subject: ${subject}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${emailBody}`).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      const gRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw }) });
+
+      const parseEmails = (input: any) => {
+        if (!input) return [];
+        if (Array.isArray(input)) return input;
+        return input.split(',').map((e: string) => e.trim()).filter(Boolean);
+      };
+
+      const toArray = parseEmails(to);
+      const ccArray = parseEmails(cc);
+      
+      const rawText = `From: ${kvAccount.email}\r\nTo: ${toArray.join(', ')}\r\n${ccArray.length > 0 ? `Cc: ${ccArray.join(', ')}\r\n` : ''}Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${emailBody}`;
+      
+      const base64Encoded = btoa(unescape(encodeURIComponent(rawText)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      const gRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw: base64Encoded }) });
       if (!gRes.ok) return c.json({ error: 'Gmail send error: ' + await gRes.text() }, 502);
-      await auth.supabase.from('emails').insert({ id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId, message_id: crypto.randomUUID(), from_email: kvAccount.email, to_email: Array.isArray(to) ? to[0] : to, subject, body: emailBody, folder: 'sent', is_read: true, is_starred: false, received_at: new Date().toISOString() });
+      await auth.supabase.from('emails').insert({ id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId, message_id: crypto.randomUUID(), from_email: kvAccount.email, to_email: toArray[0] || '', subject, body: emailBody, folder: 'sent', is_read: true, is_starred: false, received_at: new Date().toISOString() });
       return c.json({ success: true, message: 'Email sent via Gmail API' });
     } else {
       return c.json({ error: `Sending not supported for provider: ${kvAccount.provider}` }, 400);

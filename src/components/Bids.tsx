@@ -278,7 +278,7 @@ export function Bids({ user }: BidsProps) {
   };
 
   // Convert legacy bid to Quote format for display
-  const convertBidToQuote = (bid: any): Quote => {
+  const convertBidToQuote = (bid: any, loadedContacts: any[]): Quote => {
     let parsedLineItems: LineItem[] = [];
     if (bid.line_items || bid.lineItems) {
       try {
@@ -303,13 +303,15 @@ export function Bids({ user }: BidsProps) {
       }
     }
 
+    const contact = loadedContacts.find((c: any) => c.id === (bid.contact_id || bid.contactId));
+
     return {
       id: bid.id || `bid-${Math.random()}`,
       quoteNumber: bid.id ? `BID-${bid.id.slice(0, 8)}` : `BID-UNKNOWN`,
       title: bid.projectName || bid.title || 'Untitled',
       contactId: bid.contact_id || bid.contactId || '',
-      contactName: bid.clientName || bid.contact_name || 'Unknown Client',
-      contactEmail: undefined,
+      contactName: bid.clientName || bid.contact_name || contact?.name || contact?.company || 'Unknown Client',
+      contactEmail: contact?.email || undefined,
       priceTier: bid.price_tier || bid.priceTier || 1,
       status: bid.status === 'sent' ? 'sent' : 
               bid.status === 'accepted' ? 'accepted' : 
@@ -335,7 +337,7 @@ export function Bids({ user }: BidsProps) {
   // Merge quotes and legacy bids
   const allQuotes = [
     ...quotes,
-    ...legacyBids.map(convertBidToQuote)
+    ...legacyBids.map(bid => convertBidToQuote(bid, contacts))
   ];
 
   // Filter quotes
