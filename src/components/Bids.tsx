@@ -17,6 +17,7 @@ import { DealsKanban, Quote } from './DealsKanban';
 import { EmailQuoteDialog } from './EmailQuoteDialog';
 import { createClient } from '../utils/supabase/client';
 import { SubscriptionAgreement, Organization } from './SubscriptionAgreement';
+import { getPriceTierLabel, getActivePriceLevels, priceLevelToTier } from '../lib/global-settings';
 import { toast } from 'sonner@2.0.3';
 
 interface User {
@@ -30,6 +31,8 @@ interface Contact {
   id: string;
   name: string;
   email?: string;
+  company?: string;
+  priceLevel?: string;
 }
 
 interface BidsProps {
@@ -66,16 +69,80 @@ export function Bids({ user }: BidsProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<Quote>>({});
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [emailQuote, setEmailQuote] = useState<Quote | null>(null);
   const [viewingAgreement, setViewingAgreement] = useState<Quote | null>(null);
 
+  const [orgData, setOrgData] = useState<Organization | null>(null);
+
   // Load data
   useEffect(() => {
     loadData();
   }, []);
+
+  // Fetch organization data when viewing an agreement
+  useEffect(() => {
+    if (viewingAgreement) {
+      const getOrgData = async (): Promise<void> => {
+        try {
+          const supabase = createClient();
+          const { data, error } = await supabase
+            .from('organizations')
+            .select('*')
+            .eq('id', user.organization_id)
+            .single();
+          
+          if (error) throw error;
+          
+          setOrgData({
+            id: data.id,
+            name: data.name,
+            ai_suggestions_enabled: data.ai_suggestions_enabled,
+            marketing_enabled: data.marketing_enabled,
+            inventory_enabled: data.inventory_enabled,
+            import_export_enabled: data.import_export_enabled,
+            documents_enabled: data.documents_enabled,
+          });
+        } catch (err) {
+          console.error('Failed to load organization:', err);
+          setOrgData(null);
+        }
+      };
+      
+      getOrgData();
+    } else {
+      setOrgData(null);
+    }
+  }, [viewingAgreement, user.organization_id]);
+
+  useEffect(() => {
+    if (isDialogOpen) {
+      if (selectedQuote) {
+        setEditFormData({
+          title: selectedQuote.title || '',
+          contactId: selectedQuote.contactId || '',
+          status: selectedQuote.status || 'draft',
+          validUntil: selectedQuote.validUntil ? new Date(selectedQuote.validUntil).toISOString().split('T')[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          notes: selectedQuote.notes || '',
+          terms: selectedQuote.terms || '',
+          priceTier: selectedQuote.priceTier || 1,
+        });
+      } else {
+        setEditFormData({
+          title: '',
+          contactId: '',
+          status: 'draft',
+          validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          notes: '',
+          terms: '',
+          priceTier: 1,
+        });
+      }
+    }
+  }, [selectedQuote, isDialogOpen]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -93,9 +160,42 @@ export function Bids({ user }: BidsProps) {
       console.log('Loaded quotes:', quotesResponse.quotes?.length || 0);
       console.log('Loaded legacy bids:', bidsResponse.bids?.length || 0);
 
-      setQuotes(quotesResponse.quotes || []);
+      const dbQuotes = quotesResponse.quotes || [];
+      const loadedContacts = contactsResponse.contacts || [];
+
+      // Format db quotes to match Quote interface, and look up contact names
+      const mappedQuotes: Quote[] = dbQuotes.map((q: any) => {
+        const contact = loadedContacts.find((c: any) => c.id === q.contact_id);
+        return {
+          id: q.id,
+          quoteNumber: q.quote_number,
+          title: q.title,
+          contactId: q.contact_id,
+          contactName: q.contact_name || contact?.name || contact?.company || '',
+          contactEmail: contact?.email || '',
+          priceTier: q.price_tier || 1,
+          status: q.status || 'draft',
+          validUntil: q.valid_until,
+          lineItems: q.line_items || [],
+          subtotal: q.subtotal || 0,
+          discountPercent: q.discount_percent || 0,
+          discountAmount: q.discount_amount || 0,
+          taxPercent: q.tax_percent || 0,
+          taxPercent2: q.tax_percent_2 || 0,
+          taxAmount: q.tax_amount || 0,
+          taxAmount2: q.tax_amount_2 || 0,
+          total: q.total || 0,
+          notes: q.notes || '',
+          terms: q.terms || '',
+          createdAt: q.created_at || new Date().toISOString(),
+          updatedAt: q.updated_at || new Date().toISOString(),
+          ownerId: q.created_by,
+        };
+      });
+
+      setQuotes(mappedQuotes);
       setLegacyBids(bidsResponse.bids || []);
-      setContacts(contactsResponse.contacts || []);
+      setContacts(loadedContacts);
     } catch (err: any) {
       console.error('Failed to load bids/quotes:', err);
       setError(err.message || 'Failed to load data');
@@ -166,6 +266,34 @@ export function Bids({ user }: BidsProps) {
     setIsDialogOpen(true);
   };
 
+  const handleSave = async () => {
+    try {
+      const dataToSave = {
+        title: editFormData.title,
+        contact_id: editFormData.contactId,
+        status: editFormData.status,
+        valid_until: editFormData.validUntil,
+        notes: editFormData.notes,
+        terms: editFormData.terms,
+        price_tier: editFormData.priceTier,
+        owner_id: user.id
+      };
+      
+      if (selectedQuote) {
+        await quotesAPI.update(selectedQuote.id, dataToSave);
+        toast.success('Quote updated successfully');
+      } else {
+        await quotesAPI.create(dataToSave);
+        toast.success('Quote created successfully');
+      }
+      setIsDialogOpen(false);
+      loadData();
+    } catch (err: any) {
+      console.error('Failed to save quote:', err);
+      toast.error('Failed to save quote: ' + err.message);
+    }
+  };
+
   const handlePreview = (quote: Quote) => {
     setPreviewQuote(quote);
     setIsPreviewOpen(true);
@@ -195,40 +323,6 @@ export function Bids({ user }: BidsProps) {
 
   // If viewing agreement, show subscription agreement
   if (viewingAgreement) {
-    // Get organization data for the quote
-    const getOrgData = async (): Promise<Organization | null> => {
-      try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from('tenants')
-          .select('*')
-          .eq('id', user.organization_id)
-          .single();
-        
-        if (error) throw error;
-        
-        return {
-          id: data.id,
-          name: data.name,
-          ai_suggestions_enabled: data.ai_suggestions_enabled,
-          marketing_enabled: data.marketing_enabled,
-          inventory_enabled: data.inventory_enabled,
-          import_export_enabled: data.import_export_enabled,
-          documents_enabled: data.documents_enabled,
-        };
-      } catch (err) {
-        console.error('Failed to load organization:', err);
-        return null;
-      }
-    };
-
-    // We need to make this work with async - create a wrapper component
-    const [orgData, setOrgData] = useState<Organization | null>(null);
-    
-    useEffect(() => {
-      getOrgData().then(setOrgData);
-    }, [viewingAgreement]);
-
     if (!orgData) {
       return (
         <div className="flex items-center justify-center h-full">
@@ -269,7 +363,7 @@ export function Bids({ user }: BidsProps) {
       <div className="border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Bids & Quotes</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Deals & Quotes</h1>
             <p className="text-sm text-gray-500 mt-1">
               Manage your quotes, proposals, and deals
             </p>
@@ -338,7 +432,7 @@ export function Bids({ user }: BidsProps) {
                 onPreview={handlePreview}
                 onDelete={handleDelete}
                 onEmail={handleEmail}
-                onViewAgreement={handleViewAgreement}
+                onViewAgreement={user?.role === 'SUPERADMIN' ? handleViewAgreement : undefined}
               />
             )}
           </div>
@@ -391,11 +485,15 @@ export function Bids({ user }: BidsProps) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewAgreement(quote)}>
-                              <FileText className="h-4 w-4 mr-2" />
-                              View Agreement
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                            {user?.role === 'SUPERADMIN' && (
+                              <>
+                                <DropdownMenuItem onClick={() => handleViewAgreement(quote)}>
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  View Agreement
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
                             <DropdownMenuItem onClick={() => handleEdit(quote)}>
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
@@ -486,6 +584,134 @@ export function Bids({ user }: BidsProps) {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Edit/Create Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedQuote ? 'Edit Quote' : 'New Quote'}</DialogTitle>
+            <DialogDescription>
+              {selectedQuote ? 'Update the details of your quote.' : 'Create a new quote or bid.'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Title / Project Name</Label>
+                <Input
+                  id="title"
+                  value={editFormData.title || ''}
+                  onChange={e => setEditFormData({ ...editFormData, title: e.target.value })}
+                  placeholder="e.g., Office Renovation Phase 1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contact">Contact</Label>
+                <Select
+                  value={editFormData.contactId || ''}
+                  onValueChange={val => {
+                    const selectedContact = contacts.find(c => c.id === val);
+                    const newTier = selectedContact?.pricing_tier || 1;
+                    setEditFormData(prev => ({ 
+                      ...prev, 
+                      contactId: val,
+                      priceTier: newTier
+                    }));
+                  }}
+                >
+                  <SelectTrigger id="contact">
+                    <SelectValue placeholder="Select a contact" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contacts.map(contact => (
+                      <SelectItem key={contact.id} value={contact.id}>
+                        {contact.name} {contact.company ? `(${contact.company})` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Select
+                  value={editFormData.status || 'draft'}
+                  onValueChange={(val: any) => setEditFormData({ ...editFormData, status: val })}
+                >
+                  <SelectTrigger id="status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="sent">Sent</SelectItem>
+                    <SelectItem value="accepted">Accepted</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="validUntil">Valid Until</Label>
+                <Input
+                  id="validUntil"
+                  type="date"
+                  value={editFormData.validUntil || ''}
+                  onChange={e => setEditFormData({ ...editFormData, validUntil: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="priceTier">Pricing Tier</Label>
+                <Select
+                  value={String(editFormData.priceTier || '1')}
+                  onValueChange={(val) => setEditFormData({ ...editFormData, priceTier: parseInt(val) })}
+                >
+                  <SelectTrigger id="priceTier">
+                    <SelectValue placeholder="Select tier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getActivePriceLevels().map(level => (
+                      <SelectItem key={level} value={String(priceLevelToTier(level))}>
+                        Tier {priceLevelToTier(level)} - {getPriceTierLabel(level)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notes (Internal)</Label>
+              <Textarea
+                value={editFormData.notes || ''}
+                onChange={e => setEditFormData({ ...editFormData, notes: e.target.value })}
+                placeholder="Internal notes about this quote..."
+                rows={3}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Terms & Conditions (Visible to client)</Label>
+              <Textarea
+                value={editFormData.terms || ''}
+                onChange={e => setEditFormData({ ...editFormData, terms: e.target.value })}
+                placeholder="Terms and conditions..."
+                rows={3}
+              />
+            </div>
+            
+            {/* Note: Line items editing is handled elsewhere */}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave}>
+              {selectedQuote ? 'Save Changes' : 'Create Quote'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

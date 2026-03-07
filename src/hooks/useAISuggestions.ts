@@ -123,7 +123,7 @@ export function useAISuggestions(user: User) {
         return Math.round(Math.max(30, valueScore * decayFactor)); // Minimum 30 impact
       };
 
-      // ── 1. ANALYZE BIDS & QUOTES ──
+      // ── 1. ANALYZE DEALS & QUOTES ──
       const allDeals = [...bids, ...quotes];
       allDeals.forEach(bid => {
         const daysInactive = getDaysSince(bid.updated_at || bid.created_at);

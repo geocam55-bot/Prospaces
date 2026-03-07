@@ -783,7 +783,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     if (!id || id === 'none') return null;
     const item = inventoryItems.find(i => i.id === id || i.sku === id);
     if (item) {
-      return { description: item.name, price: item.unit_price || fallbackPrice };
+      return { id: item.id, sku: item.sku, description: item.name, price: item.unit_price || fallbackPrice };
     }
     return { description: fallbackDesc, price: fallbackPrice };
   };
@@ -792,27 +792,27 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   
   const baseboardDetails = getMaterialDetails(baseboardId, "Standard Baseboard", 2.50);
   if (baseboardDetails && totalBaseboardLF > 0) {
-    materials.push({ description: baseboardDetails.description, quantity: Math.ceil(totalBaseboardLF * 1.1), unit: 'LF', price: baseboardDetails.price });
+    materials.push({ itemId: baseboardDetails.id, sku: baseboardDetails.sku, description: baseboardDetails.description, quantity: Math.ceil(totalBaseboardLF * 1.1), unit: 'LF', price: baseboardDetails.price });
   }
 
   const casingDetails = getMaterialDetails(casingId, "Standard Casing", 1.75);
   if (casingDetails) {
     if (doorCasingLF > 0) {
-      materials.push({ description: `${casingDetails.description} (Doors)`, quantity: Math.ceil(doorCasingLF * 1.1), unit: 'LF', price: casingDetails.price });
+      materials.push({ itemId: casingDetails.id, sku: casingDetails.sku, description: `${casingDetails.description} (Doors)`, quantity: Math.ceil(doorCasingLF * 1.1), unit: 'LF', price: casingDetails.price });
     }
     if (windowCasingLF > 0) {
-      materials.push({ description: `${casingDetails.description} (Windows)`, quantity: Math.ceil(windowCasingLF * 1.1), unit: 'LF', price: casingDetails.price });
+      materials.push({ itemId: casingDetails.id, sku: casingDetails.sku, description: `${casingDetails.description} (Windows)`, quantity: Math.ceil(windowCasingLF * 1.1), unit: 'LF', price: casingDetails.price });
     }
   }
 
   const crownDetails = getMaterialDetails(crownId, "Crown Molding", 3.00);
   if (crownDetails && totalCrownLF > 0 && crownId !== 'none') {
-    materials.push({ description: crownDetails.description, quantity: Math.ceil(totalCrownLF * 1.1), unit: 'LF', price: crownDetails.price });
+    materials.push({ itemId: crownDetails.id, sku: crownDetails.sku, description: crownDetails.description, quantity: Math.ceil(totalCrownLF * 1.1), unit: 'LF', price: crownDetails.price });
   }
 
   const wainscottingDetails = getMaterialDetails(wainscottingId, "Wainscotting Panels", 12.00);
   if (wainscottingDetails && totalBaseboardLF > 0 && wainscottingId !== 'none') {
-    materials.push({ description: wainscottingDetails.description, quantity: Math.ceil(totalBaseboardLF * 1.1), unit: 'LF', price: wainscottingDetails.price });
+    materials.push({ itemId: wainscottingDetails.id, sku: wainscottingDetails.sku, description: wainscottingDetails.description, quantity: Math.ceil(totalBaseboardLF * 1.1), unit: 'LF', price: wainscottingDetails.price });
   }
 
   if (allDoors.length > 0) {

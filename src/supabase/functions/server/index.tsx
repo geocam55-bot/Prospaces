@@ -241,6 +241,13 @@ app.post(`${PREFIX}/quotes`, async (c) => {
     body.created_by = auth.user.id;
     body.created_at = new Date().toISOString();
     body.updated_at = new Date().toISOString();
+    if (!body.quote_number) {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      body.quote_number = `QT-${year}${month}-${random}`;
+    }
     const { data, error } = await auth.supabase.from('quotes').insert([body]).select('*').single();
     if (error) return c.json({ error: error.message }, 500);
     return c.json({ quote: data }, 201);

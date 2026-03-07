@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
 import { contactsAPI, quotesAPI, settingsAPI } from '../utils/api';
-import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms, getPriceTierLabel } from '../lib/global-settings';
+import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms, getPriceTierLabel, getActivePriceLevels, priceLevelToTier } from '../lib/global-settings';
 import type { User as AppUser } from '../App';
 
 interface ProjectQuoteGeneratorProps {
@@ -109,7 +109,8 @@ export function ProjectQuoteGenerator({
     try {
       setIsLoading(true);
       console.log('[ProjectQuoteGenerator] Loading contacts...');
-      const { contacts: data } = await contactsAPI.getAll();
+      const scope = user.role === 'admin' || user.role === 'manager' ? 'team' : 'personal';
+      const { contacts: data } = await contactsAPI.getAll(scope);
       console.log('[ProjectQuoteGenerator] Loaded contacts:', data?.length || 0, data);
       setContacts(data || []);
     } catch (error) {
@@ -161,9 +162,9 @@ export function ProjectQuoteGenerator({
         description: material.description || material.name || material.item || 'Material',
         quantity: material.quantity,
         unit: material.unit || 'ea',
-        unitPrice: material.unitPrice || material.costPerUnit || material.cost || 0,
+        unitPrice: material.unitPrice || material.costPerUnit || material.price || material.cost || 0,
         cost: material.cost || 0,
-        total: material.totalCost || (material.quantity * (material.unitPrice || material.costPerUnit || material.cost || 0)),
+        total: material.totalCost || (material.quantity * (material.unitPrice || material.costPerUnit || material.price || material.cost || 0)),
       }));
 
       // Build enhanced notes with project and pricing information
@@ -184,10 +185,14 @@ export function ProjectQuoteGenerator({
       const afterDiscount = subtotal - discountAmount;
       const total = afterDiscount + taxAmount + taxAmount2;
 
+      const selectedContactObj = contacts.find(c => c.id === selectedContact);
+      
       // Create quote data
       const quoteData = {
         title: quoteTitle,
         contact_id: selectedContact,
+        contact_name: selectedContactObj ? (selectedContactObj.name || selectedContactObj.company || 'Unknown') : 'Unknown',
+        price_tier: priceLevelToTier(customerPriceLevel),
         subtotal: subtotal,
         discount_percent: discountPercent,
         discount_amount: discountAmount,
@@ -304,6 +309,27 @@ export function ProjectQuoteGenerator({
               </p>
             )}
           </div>
+          
+          {/* Customer Price Level Override */}
+          {selectedContact && (
+            <div>
+              <Label htmlFor="priceLevel" className="text-sm mb-1.5 block text-slate-600">
+                Customer Pricing Tier (Override for Quote)
+              </Label>
+              <Select value={customerPriceLevel} onValueChange={setCustomerPriceLevel}>
+                <SelectTrigger id="priceLevel" className="h-9 w-[200px]">
+                  <SelectValue placeholder="Select pricing tier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getActivePriceLevels().map((label, index) => (
+                    <SelectItem key={`tier-${index+1}`} value={label}>
+                      Tier {index+1} - {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {/* Quote Title */}

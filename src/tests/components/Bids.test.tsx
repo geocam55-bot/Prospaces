@@ -39,7 +39,7 @@ describe('Bids Component', () => {
 
     renderWithUser(<Bids user={mockAdminUser} />, { user: mockAdminUser });
     
-    expect(screen.getByText('Bids & Quotes')).toBeInTheDocument();
+    expect(screen.getByText('Deals & Quotes')).toBeInTheDocument();
   });
 
   it('should load bids from BOTH bids and quotes tables', async () => {
