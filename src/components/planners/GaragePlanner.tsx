@@ -7,6 +7,7 @@ import { GarageTemplates } from '../garage/GarageTemplates';
 import { SavedGarageDesigns } from '../garage/SavedGarageDesigns';
 import { PrintableGarageDesign } from '../project-wizard/PrintableGarageDesign';
 import { PlannerDefaults } from '../PlannerDefaults';
+import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { calculateMaterials } from '../../utils/garageCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { getUserDefaults, extractConversionFactors, getOrgConversionFactors, extractOrgConversionFactors } from '../../utils/project-wizard-defaults-client';
@@ -353,17 +354,28 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
         {activeTab === 'materials' && (
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              {enrichedMaterials.length > 0 && totalT1Price > 0 && (
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-blue-700">Total Estimated Cost (Tier 1 Pricing)</p>
-                      <p className="text-xs text-blue-600 mt-1">Based on your organization's default pricing</p>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                {enrichedMaterials.length > 0 && totalT1Price > 0 ? (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex-1 w-full sm:w-auto">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-blue-700">Total Estimated Cost (Tier 1 Pricing)</p>
+                        <p className="text-xs text-blue-600 mt-1">Based on your organization's default pricing</p>
+                      </div>
+                      <p className="text-2xl font-semibold text-blue-900">${totalT1Price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
-                    <p className="text-2xl font-semibold text-blue-900">${totalT1Price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
-                </div>
-              )}
+                ) : <div className="flex-1"></div>}
+                
+                <ProjectQuoteGenerator 
+                  user={user}
+                  projectType="garage"
+                  materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+                  totalCost={totalT1Price}
+                  projectData={config}
+                />
+              </div>
+
               <GarageMaterialsList 
                 materials={getEnrichedMaterialsStructure()} 
                 compact={false} 

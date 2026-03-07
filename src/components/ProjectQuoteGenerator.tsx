@@ -13,7 +13,7 @@ import type { User as AppUser } from '../App';
 
 interface ProjectQuoteGeneratorProps {
   user: AppUser;
-  projectType: 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen';
+  projectType: 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen' | 'interior';
   materials: any[];
   totalCost: number;
   projectData: any;
@@ -281,7 +281,7 @@ export function ProjectQuoteGenerator({
           variant="outline"
         >
           <FileText className="w-4 h-4" />
-          Create Quote for Customer
+          Create Quote for Contact
         </Button>
       </div>
     );

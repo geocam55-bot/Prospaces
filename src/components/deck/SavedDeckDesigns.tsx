@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { listDesigns, saveDesign, deleteDesign as deleteDesignApi, createDeal as createDealAPI, createQuote as createQuoteAPI } from '../../utils/designs-client';
+import { listDesigns, saveDesign, deleteDesign as deleteDesignApi, createDeal as createDealAPI } from '../../utils/designs-client';
 import { DeckConfig } from '../../types/deck';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -62,7 +62,6 @@ export function SavedDeckDesigns({
   const [saveName, setSaveName] = useState('');
   const [saveDescription, setSaveDescription] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [createQuote, setCreateQuote] = useState(false);
   const [createDeal, setCreateDeal] = useState(false);
   const [dealTitle, setDealTitle] = useState('');
   const [dealValue, setDealValue] = useState('');
@@ -125,11 +124,6 @@ export function SavedDeckDesigns({
       return;
     }
 
-    if (createQuote && !selectedCustomer) {
-      setSaveMessage('Please select a customer to create a quote');
-      return;
-    }
-
     if (createDeal && !selectedCustomer) {
       setSaveMessage('Please select a customer to create a deal');
       return;
@@ -177,42 +171,6 @@ export function SavedDeckDesigns({
         }
       }
 
-      // 3. Create quote if requested
-      if (createQuote && selectedCustomer) {
-        try {
-          const date = new Date();
-          const year = date.getFullYear();
-          const month = String(date.getMonth() + 1).padStart(2, '0');
-          const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-          const quoteNumber = `QT-${year}${month}-${random}`;
-
-          const quoteResult = await createQuoteAPI({
-            quote_number: quoteNumber,
-            contact_id: selectedCustomer.id,
-            title: `Deck Design - ${saveName.trim()}`,
-            line_items: materials.map(item => ({
-              id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              description: item.description,
-              quantity: item.quantity,
-              unit: item.unit,
-              unit_price: item.price || 0,
-              total: (item.price || 0) * item.quantity,
-            })),
-            subtotal: totalCost,
-            total: totalCost,
-            status: 'draft',
-            valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          });
-
-          console.log('✓ Quote created successfully:', quoteResult);
-          successParts.push('quote created');
-        } catch (quoteErr: any) {
-          console.error('Error creating quote:', quoteErr);
-          setSaveMessage(`Design saved, but error creating quote: ${quoteErr.message}`);
-          setTimeout(() => setSaveMessage(''), 5000);
-        }
-      }
-
       // Set final success message
       if (!saveMessage || saveMessage.includes('success') || !saveMessage.includes('error')) {
         const finalMsg = successParts.join(', ') + ' successfully!';
@@ -220,11 +178,10 @@ export function SavedDeckDesigns({
         setTimeout(() => setSaveMessage(''), 3000);
       }
 
-      // 4. Reset form
+      // 3. Reset form
       setSaveName('');
       setSaveDescription('');
       setSelectedCustomer(null);
-      setCreateQuote(false);
       setCreateDeal(false);
       setDealTitle('');
       setDealValue('');
@@ -311,31 +268,6 @@ export function SavedDeckDesigns({
             onCustomerSelect={setSelectedCustomer}
             userId={user.id}
           />
-          
-          {/* Option to create quote */}
-          {selectedCustomer && (
-            <div className="flex items-start space-x-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-              <Checkbox
-                id="createQuote"
-                checked={createQuote}
-                onCheckedChange={(checked) => setCreateQuote(checked as boolean)}
-              />
-              <div className="flex-1">
-                <Label 
-                  htmlFor="createQuote" 
-                  className="text-sm cursor-pointer text-purple-900"
-                >
-                  <div className="flex items-center gap-2">
-                    <FileCheck className="w-4 h-4" />
-                    <span className="font-medium">Also create a quote for {selectedCustomer.name}</span>
-                  </div>
-                </Label>
-                <p className="text-xs text-purple-700 mt-1">
-                  This will save the design and automatically create a draft quote that you can finalize later
-                </p>
-              </div>
-            </div>
-          )}
           
           {/* Option to create deal */}
           {selectedCustomer && (
@@ -431,12 +363,12 @@ export function SavedDeckDesigns({
             {isSaving ? (
               <>
                 <Save className="w-4 h-4 mr-2 animate-spin" />
-                {(createQuote || createDeal) ? `Saving Design${createDeal ? ' & Creating Deal' : ''}${createQuote ? ' & Creating Quote' : ''}...` : 'Saving Design...'}
+                {createDeal ? 'Saving Design & Creating Deal...' : 'Saving Design...'}
               </>
             ) : (
               <>
                 <Save className="w-4 h-4 mr-2" />
-                {(createQuote || createDeal) ? `Save Design${createDeal ? ' & Create Deal' : ''}${createQuote ? ' & Create Quote' : ''}` : 'Save Design'}
+                {createDeal ? 'Save Design & Create Deal' : 'Save Design'}
               </>
             )}
           </Button>
