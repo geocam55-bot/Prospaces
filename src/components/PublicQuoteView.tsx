@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, AlertCircle, Printer, Download, Mail } from 'lucide-react';
+import { Loader2, AlertCircle, Printer, Download, Mail, CheckCircle2 } from 'lucide-react';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from './ui/card';
+import { toast } from 'sonner@2.0.3';
 import logo3d from 'figma:asset/be5b4222007ecc637bb5194974d9567e1b72e1de.png';
 
 interface PublicQuoteViewProps {
@@ -11,6 +12,8 @@ interface PublicQuoteViewProps {
 
 export function PublicQuoteView() {
   const [loading, setLoading] = useState(true);
+  const [isAccepting, setIsAccepting] = useState(false);
+  const [showThankYou, setShowThankYou] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
 
@@ -85,6 +88,71 @@ export function PublicQuoteView() {
           </CardHeader>
           <CardFooter className="justify-center">
              <Button variant="outline" onClick={() => window.location.reload()}>Try Again</Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
+  const handleAccept = async () => {
+    setIsAccepting(true);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      const orgId = params.get('orgId');
+      const type = params.get('type') || 'quote';
+      const campaignId = params.get('campaignId');
+
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/accept`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id, orgId, type, campaignId })
+      });
+      
+      let result;
+      try {
+          result = await response.json();
+      } catch (e) {
+          throw new Error(`Failed to accept ${type}: ${response.statusText}`);
+      }
+      
+      if (!response.ok || result.error) {
+          throw new Error(result.error || `Failed to accept ${type}: ${response.statusText}`);
+      }
+      
+      setData({ ...data, status: 'accepted' });
+      toast.success('Quote accepted successfully!');
+      setShowThankYou(true);
+    } catch (err: any) {
+      toast.error(err.message || 'An error occurred while accepting.');
+    } finally {
+      setIsAccepting(false);
+    }
+  };
+
+  if (showThankYou) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 print:bg-white print:p-0">
+        <Card className="w-full max-w-md shadow-lg border-t-4 border-t-green-500 text-center py-8">
+          <CardHeader className="pb-4">
+            <div className="mx-auto bg-green-100 p-4 rounded-full w-fit mb-6">
+              <CheckCircle2 className="h-10 w-10 text-green-600" />
+            </div>
+            <CardTitle className="text-3xl font-bold text-slate-900 mb-2">Thank You!</CardTitle>
+            <CardDescription className="text-base text-slate-600">
+              Your acceptance has been confirmed and our team has been notified.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-slate-600">
+            <p>We're thrilled to move forward with your project. You will receive a follow-up email shortly with the next steps.</p>
+          </CardContent>
+          <CardFooter className="justify-center pt-6">
+            <Button onClick={() => setShowThankYou(false)} variant="outline">
+              Review Quote Document
+            </Button>
           </CardFooter>
         </Card>
       </div>
@@ -248,6 +316,23 @@ export function PublicQuoteView() {
                 </div>
             )}
           </CardContent>
+          
+          {data.status !== 'accepted' && (
+            <CardFooter className="bg-slate-50 border-t p-6 flex justify-end print:hidden">
+                <Button 
+                    className="bg-green-600 hover:bg-green-700 text-white font-medium px-8 py-2 h-auto text-lg"
+                    onClick={handleAccept}
+                    disabled={isAccepting}
+                >
+                    {isAccepting ? (
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    ) : (
+                        <CheckCircle2 className="h-5 w-5 mr-2" />
+                    )}
+                    Accept Quote
+                </Button>
+            </CardFooter>
+          )}
         </Card>
         
         <div className="mt-8 text-center text-slate-400 text-xs print:hidden">

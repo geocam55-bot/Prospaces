@@ -339,6 +339,8 @@ export function CampaignManager({ user }: CampaignManagerProps) {
         return <Facebook className="h-4 w-4" />;
       case 'instagram':
         return <Instagram className="h-4 w-4" />;
+      case 'portal':
+        return <Globe className="h-4 w-4" />;
       default:
         return <Mail className="h-4 w-4" />;
     }
@@ -386,11 +388,12 @@ export function CampaignManager({ user }: CampaignManagerProps) {
               <DialogDescription>Choose the type of campaign you want to create.</DialogDescription>
             </DialogHeader>
             <Tabs value={selectedCampaignType} onValueChange={setSelectedCampaignType}>
-              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5">
                 <TabsTrigger value="email" className="text-xs sm:text-sm">Email</TabsTrigger>
                 <TabsTrigger value="sms" className="text-xs sm:text-sm">SMS</TabsTrigger>
                 <TabsTrigger value="social" className="text-xs sm:text-sm">Social</TabsTrigger>
-                <TabsTrigger value="multi" className="text-xs sm:text-sm">Multi-channel</TabsTrigger>
+                <TabsTrigger value="portal" className="text-xs sm:text-sm">Portal</TabsTrigger>
+                <TabsTrigger value="multi" className="text-xs sm:text-sm">Multi</TabsTrigger>
               </TabsList>
 
               <TabsContent value="email" className="space-y-4 mt-4">
@@ -594,6 +597,28 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                 </div>
               </TabsContent>
 
+              <TabsContent value="portal" className="space-y-4 mt-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Campaign Name</Label>
+                    <Input 
+                      placeholder="e.g., Spring Sale Announcement" 
+                      value={campaignName} 
+                      onChange={(e) => setCampaignName(e.target.value)} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Portal Message Content</Label>
+                    <Textarea 
+                      placeholder="Message to display in the customer portal..."
+                      rows={6}
+                      value={emailContent}
+                      onChange={(e) => setEmailContent(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
               <TabsContent value="multi" className="space-y-4 mt-4">
                 <div className="space-y-4">
                   <p className="text-sm text-gray-600">
@@ -715,6 +740,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                   <SelectItem value="email">Email</SelectItem>
                   <SelectItem value="sms">SMS</SelectItem>
                   <SelectItem value="social">Social</SelectItem>
+                  <SelectItem value="portal">Customer Portal</SelectItem>
                   <SelectItem value="multi">Multi-channel</SelectItem>
                 </SelectContent>
               </Select>

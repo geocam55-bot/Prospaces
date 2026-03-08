@@ -108,9 +108,11 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
       // Use query parameters instead of path parameters to avoid 404s on static host
       // Use _source tag from Bids.tsx loadData to determine table, fallback to quote
       const type = quote._source === 'bids' ? 'bid' : 'quote';
-      const targetUrl = `${appUrl}/?view=public-quote&id=${quoteId}&orgId=${orgId}&type=${type}`;
+      // Append campaignId if available in the context (can be passed via props or state in the future)
+      const campaignIdParam = (quote as any).campaignId ? `&campaignId=${(quote as any).campaignId}` : '';
+      const targetUrl = `${appUrl}/?view=public-quote&id=${quoteId}&orgId=${orgId}&type=${type}${campaignIdParam}`;
       const encodedTargetUrl = encodeURIComponent(targetUrl);
-      const trackingLinkUrl = `${appUrl}/?view=redirect&url=${encodedTargetUrl}&id=${quoteId}&orgId=${orgId}&type=${type}`;
+      const trackingLinkUrl = `${appUrl}/?view=redirect&url=${encodedTargetUrl}&id=${quoteId}&orgId=${orgId}&type=${type}${campaignIdParam}`;
       
       // 2. Tracking Pixel (Disabled for now as it requires auth headers which email clients can't send)
       // const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;

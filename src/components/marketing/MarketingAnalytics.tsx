@@ -16,7 +16,8 @@ import {
   MessageSquare,
   Facebook,
   Instagram,
-  Linkedin
+  Linkedin,
+  Globe
 } from 'lucide-react';
 import type { User } from '../../App';
 import { campaignsAPI } from '../../utils/api';
@@ -52,13 +53,13 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
   const totalClicked = campaigns.reduce((sum, c) => sum + (c.clicked_count || c.clicked || c.landing_page_clicks || 0), 0);
   const totalConverted = campaigns.reduce((sum, c) => sum + (c.converted_count || c.converted || 0), 0);
   const totalRevenue = campaigns.reduce((sum, c) => sum + (c.revenue || 0), 0);
-  
+
   // Calculate specific metrics
   const conversionRate = totalSent > 0 ? ((totalConverted / totalSent) * 100).toFixed(1) : '0.0';
-  
+
   // Group by Channel (Type)
   const channelStats: Record<string, any> = {};
-  
+
   campaigns.forEach(c => {
     const type = c.type || 'email';
     const channelName = type.charAt(0).toUpperCase() + type.slice(1);
@@ -83,9 +84,12 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
   
   const channelPerformance = Object.values(channelStats);
   
-  // Fallback for channel performance if empty (so chart isn't just blank)
-  if (channelPerformance.length === 0) {
+  // Ensure default channels always exist in the table, even if there are no campaigns yet
+  if (!channelPerformance.some(c => c.channel === 'Email')) {
     channelPerformance.push({ channel: 'Email', sent: 0, opened: 0, clicked: 0, converted: 0, revenue: 0 });
+  }
+  if (!channelPerformance.some(c => c.channel === 'Customer Portal')) {
+    channelPerformance.push({ channel: 'Customer Portal', sent: 0, opened: 0, clicked: 0, converted: 0, revenue: 0 });
   }
 
   // Funnel Data
@@ -244,6 +248,7 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                           {channel.channel === 'Email' && <Mail className="h-4 w-4 text-gray-500" />}
                           {channel.channel === 'Sms' && <MessageSquare className="h-4 w-4 text-gray-500" />}
                           {channel.channel === 'Facebook' && <Facebook className="h-4 w-4 text-gray-500" />}
+                          {channel.channel === 'Customer Portal' && <Globe className="h-4 w-4 text-gray-500" />}
                           {channel.channel}
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">{channel.sent.toLocaleString()}</td>

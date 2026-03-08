@@ -1051,6 +1051,41 @@ app.post(`${P}/quotes/:id/accept`, async (c) => {
     const { data, error } = await supabase.from('quotes').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', qid).eq('contact_id', s.contactId).select().single();
     if (error) return c.json({ error: 'Accept failed: ' + error.message }, 500);
     console.log(`[portal] Quote ${qid} accepted by ${s.email}`);
+
+    // Create Task for the owner
+    const ownerId = data.created_by || data.owner_id;
+    if (ownerId) {
+      await supabase.from('tasks').insert([{
+        title: `Quote Accepted: ${data.title || data.quote_number || qid}`,
+        description: `Customer has accepted the quote via the portal. Follow up with them.`,
+        status: 'pending',
+        priority: 'high',
+        assigned_to: ownerId,
+        created_by: ownerId,
+        organization_id: data.organization_id || s.orgId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }]);
+    }
+
+    // Update Converted in Marketing (increment most recent campaign)
+    try {
+      const orgId = data.organization_id || s.orgId;
+      if (orgId) {
+        const campaigns = await kv.getByPrefix(`campaign:${orgId}:`);
+        if (campaigns && campaigns.length > 0) {
+          campaigns.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+          const latestCampaign = campaigns[0];
+          latestCampaign.converted_count = (latestCampaign.converted_count || 0) + 1;
+          latestCampaign.updated_at = new Date().toISOString();
+          await kv.set(`campaign:${orgId}:${latestCampaign.id}`, latestCampaign);
+          console.log(`[portal] Incremented converted_count for campaign ${latestCampaign.id}`);
+        }
+      }
+    } catch (campErr) {
+      console.error('[portal] Failed to update campaign conversions:', campErr);
+    }
+
     return c.json({ success: true, quote: data });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
@@ -1550,6 +1585,106 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
     return c.json({ success: true, syncedCount, lastSync: new Date().toISOString() });
   } catch (err: any) {
     console.log(`[email-sync] exception: ${err.message}`);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// ── CAMPAIGN SEND (Backend processing for Marketing Campaigns) ──
+app.post(`${PREFIX}/campaigns/:id/send`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+
+    const campaignId = c.req.param('id');
+    const supabase = getSupabase();
+
+    // 1. Fetch campaign
+    const { data: campaign, error: campaignError } = await supabase
+      .from('campaigns')
+      .select('*')
+      .eq('id', campaignId)
+      .single();
+
+    if (campaignError || !campaign) {
+      return c.json({ error: 'Campaign not found' }, 404);
+    }
+
+    // 2. Fetch contacts for this org
+    let contactsQuery = supabase
+      .from('contacts')
+      .select('*')
+      .eq('organization_id', auth.profile.organization_id);
+
+    const { data: contacts, error: contactsError } = await contactsQuery;
+    if (contactsError) {
+      return c.json({ error: 'Failed to fetch contacts for segment' }, 500);
+    }
+
+    const targetSegment = campaign.audience_segment || 'all';
+
+    const validContacts = (contacts || []).filter((contact: any) => {
+      if (!contact.email) return false;
+      if (targetSegment === 'all') return true;
+      
+      if (Array.isArray(contact.tags)) {
+        return contact.tags.includes(targetSegment);
+      } else if (typeof contact.tags === 'string') {
+        return contact.tags.includes(targetSegment);
+      }
+      return false;
+    });
+    let sentCount = 0;
+    const sentTo: string[] = [];
+    const failedContacts: any[] = [];
+
+    // Mock sending loop
+    for (const contact of validContacts) {
+      try {
+        console.log(`[Campaign Send] Mock email to ${contact.email} for campaign ${campaign.name}`);
+        
+        // Ensure to run the metric logging silently without blocking the request
+        const logPromise = fetch(`https://${Deno.env.get('SUPABASE_PROJECT_REF') || projectId}.supabase.co/functions/v1/make-server-8405be07/public/events`, {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({
+             type: 'email_sent',
+             entityType: 'campaign',
+             entityId: campaignId,
+             orgId: auth.profile.organization_id,
+             url: '',
+             userAgent: 'Server-Side-Send'
+           })
+        }).catch(e => console.error("Event logging failed", e));
+        
+        sentCount++;
+        sentTo.push(contact.email);
+      } catch (err: any) {
+        failedContacts.push({ email: contact.email, error: err.message });
+      }
+    }
+
+    // Update campaign metrics & status in DB
+    const newSentCount = (campaign.sent_count || 0) + sentCount;
+    await supabase
+      .from('campaigns')
+      .update({ 
+        status: 'Active', 
+        sent_date: new Date().toISOString(),
+        sent_count: newSentCount,
+        audience_count: Math.max(campaign.audience_count || 0, sentCount)
+      })
+      .eq('id', campaignId);
+
+    return c.json({
+      success: true,
+      sent: sentCount,
+      sentTo,
+      failed: failedContacts.length,
+      failedContacts
+    });
+
+  } catch (err: any) {
+    console.error('[Campaign Send Endpoint] Error:', err);
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2368,6 +2503,88 @@ app.post(`${PREFIX}/public/events`, async (c) => {
     return c.json({ success: true });
   } catch (err: any) {
     console.log(`[public/events] Error: ${err.message}`);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Public quote acceptance — called from the Public Quote View
+app.post(`${PREFIX}/public/accept`, async (c) => {
+  try {
+    const { id, orgId, type, campaignId } = await c.req.json();
+    if (!id || !orgId) return c.json({ error: 'Missing required parameters' }, 400);
+
+    const supabase = getSupabase();
+    const table = type === 'bid' ? 'bids' : 'quotes';
+
+    // 1. Update status
+    const { data, error } = await supabase
+      .from(table)
+      .update({ status: 'accepted', updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('organization_id', orgId)
+      .select()
+      .single();
+
+    if (error) return c.json({ error: error.message }, 500);
+
+    // 2. Create a Task for the owner
+    const ownerId = data.created_by || data.owner_id;
+    if (ownerId) {
+      await supabase.from('tasks').insert([{
+        title: `Quote Accepted: ${data.title || data.quote_number || id}`,
+        description: `Customer has accepted the ${type} from the public link. Follow up with them.`,
+        status: 'pending',
+        priority: 'high',
+        assigned_to: ownerId,
+        created_by: ownerId,
+        organization_id: orgId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }]);
+    }
+
+    // 3. Update Converted in Marketing (use explicit campaignId if provided, else most recent)
+    try {
+      if (campaignId) {
+        // Update Postgres
+        const { data: pgCamp } = await supabase.from('campaigns').select('converted_count').eq('id', campaignId).single();
+        if (pgCamp) {
+          await supabase.from('campaigns').update({ converted_count: (pgCamp.converted_count || 0) + 1 }).eq('id', campaignId);
+        }
+
+        // Update KV (legacy/backup)
+        const campaign = await kv.get(`campaign:${orgId}:${campaignId}`);
+        if (campaign) {
+          campaign.converted_count = (campaign.converted_count || 0) + 1;
+          campaign.updated_at = new Date().toISOString();
+          await kv.set(`campaign:${orgId}:${campaignId}`, campaign);
+          console.log(`[public/accept] Incremented converted_count for explicitly passed campaign ${campaignId}`);
+        }
+      } else {
+        // Fallback to updating latest KV campaign
+        const campaigns = await kv.getByPrefix(`campaign:${orgId}:`);
+        if (campaigns && campaigns.length > 0) {
+          campaigns.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+          const latestCampaign = campaigns[0];
+          latestCampaign.converted_count = (latestCampaign.converted_count || 0) + 1;
+          latestCampaign.updated_at = new Date().toISOString();
+          await kv.set(`campaign:${orgId}:${latestCampaign.id}`, latestCampaign);
+          console.log(`[public/accept] Incremented converted_count for latest KV campaign ${latestCampaign.id}`);
+          
+          // Also try to update latest Postgres campaign
+          const { data: pgCamps } = await supabase.from('campaigns').select('id, converted_count').eq('organization_id', orgId).order('created_at', { ascending: false }).limit(1);
+          if (pgCamps && pgCamps.length > 0) {
+            await supabase.from('campaigns').update({ converted_count: (pgCamps[0].converted_count || 0) + 1 }).eq('id', pgCamps[0].id);
+            console.log(`[public/accept] Incremented converted_count for latest Postgres campaign ${pgCamps[0].id}`);
+          }
+        }
+      }
+    } catch (campErr) {
+      console.error('[public/accept] Failed to update campaign conversions:', campErr);
+    }
+
+    return c.json({ success: true, data });
+  } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
 });

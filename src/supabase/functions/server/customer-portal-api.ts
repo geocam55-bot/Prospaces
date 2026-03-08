@@ -609,6 +609,40 @@ export function customerPortalAPI(app: Hono) {
 
       console.log(`[portal] Quote ${quoteId} accepted by ${session.email}`);
 
+      // Create Task for the owner
+      const ownerId = data.created_by || data.owner_id;
+      if (ownerId) {
+        await supabase.from('tasks').insert([{
+          title: `Quote Accepted: ${data.title || data.quote_number || quoteId}`,
+          description: `Customer has accepted the quote via the portal. Follow up with them.`,
+          status: 'pending',
+          priority: 'high',
+          assigned_to: ownerId,
+          created_by: ownerId,
+          organization_id: data.organization_id || session.orgId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }]);
+      }
+
+      // Update Converted in Marketing (increment most recent campaign)
+      try {
+        const orgId = data.organization_id || session.orgId;
+        if (orgId) {
+          const campaigns = await kv.getByPrefix(`campaign:${orgId}:`);
+          if (campaigns && campaigns.length > 0) {
+            campaigns.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+            const latestCampaign = campaigns[0];
+            latestCampaign.converted_count = (latestCampaign.converted_count || 0) + 1;
+            latestCampaign.updated_at = new Date().toISOString();
+            await kv.set(`campaign:${orgId}:${latestCampaign.id}`, latestCampaign);
+            console.log(`[portal] Incremented converted_count for campaign ${latestCampaign.id}`);
+          }
+        }
+      } catch (campErr) {
+        console.error('[portal] Failed to update campaign conversions:', campErr);
+      }
+
       return c.json({ success: true, quote: data });
     } catch (err: any) {
       return c.json({ error: 'Failed to accept quote: ' + err.message }, 500);
