@@ -76,7 +76,7 @@ export function DealsTab({ opportunities, users }: DealsTabProps) {
                     <td className="px-4 py-3 font-medium text-gray-900">{opp.title}</td>
                     <td className="px-4 py-3 text-gray-600">
                       <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
+                        <Avatar className="h-12 w-12">
                           <AvatarImage src={getUserAvatar(opp.ownerId)} alt={getUserName(opp.ownerId)} />
                           <AvatarFallback className="bg-blue-100 text-blue-700 text-[10px]">
                             {getInitials(getUserName(opp.ownerId))}

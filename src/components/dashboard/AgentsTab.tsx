@@ -192,7 +192,7 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
                   <tr key={agent.id} className="border-b last:border-0 hover:bg-gray-50/50">
                     <td className="px-4 py-3 font-medium text-gray-900">
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
+                        <Avatar className="h-16 w-16">
                           <AvatarImage src={agent.avatar} alt={agent.name} />
                           <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">
                             {getInitials(agent.name)}
