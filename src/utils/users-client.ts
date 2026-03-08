@@ -13,6 +13,7 @@ export interface ClientUser {
   status: 'active' | 'invited' | 'inactive';
   last_login?: string;
   created_at: string;
+  avatar_url?: string;
 }
 
 /**
@@ -166,6 +167,7 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
       status: 'active',
       last_login: user.last_sign_in_at || undefined,
       created_at: user.created_at!,
+      avatar_url: user.user_metadata?.avatar_url,
     };
 
     // Check permissions
@@ -196,6 +198,7 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
             status: profile.status || 'active',
             last_login: profile.last_login || undefined,
             created_at: profile.created_at,
+            avatar_url: profile.avatar_url,
           });
         });
         console.log(`[users-client] Returning ${usersMap.size} users (via server API)`);
@@ -247,6 +250,7 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
           status: profile.status || 'active',
           last_login: profile.last_login || undefined,
           created_at: profile.created_at,
+          avatar_url: profile.avatar_url,
         });
       });
       
