@@ -1,40 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import JSZip from 'jszip';
+import logoAsset from 'figma:asset/09aa6b9a364cd19b8e73e23401db6a6a0b182a0e.png';
 
 interface FaviconConfig {
   size: number;
   name: string;
   label: string;
 }
-
-const svgSource = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2563eb"/>
-      <stop offset="50%" stop-color="#9333ea"/>
-      <stop offset="100%" stop-color="#ec4899"/>
-    </linearGradient>
-  </defs>
-  <rect width="100" height="100" rx="20" fill="url(#bg)"/>
-  <g fill="white" opacity="0.95">
-    <rect x="32" y="22" width="22" height="56" rx="2"/>
-    <rect x="22" y="46" width="14" height="32" rx="2"/>
-    <rect x="62" y="36" width="14" height="42" rx="2"/>
-    <rect x="37" y="28" width="4" height="4" rx="1" fill="#9333ea"/>
-    <rect x="45" y="28" width="4" height="4" rx="1" fill="#9333ea"/>
-    <rect x="37" y="36" width="4" height="4" rx="1" fill="#9333ea"/>
-    <rect x="45" y="36" width="4" height="4" rx="1" fill="#9333ea"/>
-    <rect x="37" y="44" width="4" height="4" rx="1" fill="#9333ea"/>
-    <rect x="45" y="44" width="4" height="4" rx="1" fill="#9333ea"/>
-    <rect x="37" y="52" width="4" height="4" rx="1" fill="#9333ea"/>
-    <rect x="45" y="52" width="4" height="4" rx="1" fill="#9333ea"/>
-    <rect x="26" y="52" width="6" height="5" rx="1" fill="#9333ea"/>
-    <rect x="26" y="60" width="6" height="5" rx="1" fill="#9333ea"/>
-    <rect x="66" y="42" width="6" height="5" rx="1" fill="#9333ea"/>
-    <rect x="66" y="50" width="6" height="5" rx="1" fill="#9333ea"/>
-    <rect x="66" y="58" width="6" height="5" rx="1" fill="#9333ea"/>
-  </g>
-</svg>`;
 
 const sizes: FaviconConfig[] = [
   { size: 16, name: 'favicon-16x16.png', label: '16x16 (Browser Tab)' },
@@ -53,7 +25,7 @@ export function FaviconGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const svgToCanvas = async (size: number): Promise<HTMLCanvasElement> => {
+  const imgToCanvas = async (size: number): Promise<HTMLCanvasElement> => {
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -62,17 +34,16 @@ export function FaviconGenerator() {
     if (!ctx) throw new Error('Failed to get canvas context');
 
     const img = new Image();
-    const blob = new Blob([svgSource], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
+    img.crossOrigin = 'anonymous'; // Important for external URLs
     
     return new Promise((resolve, reject) => {
       img.onload = () => {
+        ctx.clearRect(0, 0, size, size);
         ctx.drawImage(img, 0, 0, size, size);
-        URL.revokeObjectURL(url);
         resolve(canvas);
       };
       img.onerror = reject;
-      img.src = url;
+      img.src = logoAsset;
     });
   };
 
@@ -81,8 +52,12 @@ export function FaviconGenerator() {
       const newCanvases = new Map<string, HTMLCanvasElement>();
       
       for (const config of sizes) {
-        const canvas = await svgToCanvas(config.size);
-        newCanvases.set(config.name, canvas);
+        try {
+          const canvas = await imgToCanvas(config.size);
+          newCanvases.set(config.name, canvas);
+        } catch (error) {
+          console.error(`Failed to generate favicon for ${config.size}:`, error);
+        }
       }
       
       setCanvases(newCanvases);
@@ -109,7 +84,7 @@ export function FaviconGenerator() {
     
     try {
       for (const config of sizes) {
-        const canvas = await svgToCanvas(config.size);
+        const canvas = await imgToCanvas(config.size);
         const blob = await new Promise<Blob>((resolve) => {
           canvas.toBlob((b) => resolve(b!));
         });

@@ -559,7 +559,26 @@ const router = createBrowserRouter([
   },
 ]);
 
+import logoAsset from "figma:asset/09aa6b9a364cd19b8e73e23401db6a6a0b182a0e.png";
+
 // Default export: RouterProvider wrapper (required by Figma Make diagnostic)
 export default function App() {
+  useEffect(() => {
+    // Remove existing favicons
+    document.querySelectorAll("link[rel*='icon'], link[rel='apple-touch-icon']").forEach(e => e.remove());
+    
+    // Add new dynamic favicon
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.type = 'image/png';
+    link.href = logoAsset;
+    document.head.appendChild(link);
+    
+    const appleLink = document.createElement('link');
+    appleLink.rel = 'apple-touch-icon';
+    appleLink.href = logoAsset;
+    document.head.appendChild(appleLink);
+  }, []);
+
   return <RouterProvider router={router} />;
 }

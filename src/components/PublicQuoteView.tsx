@@ -4,7 +4,7 @@ import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from './ui/card';
 import { toast } from 'sonner@2.0.3';
-import logo3d from 'figma:asset/984eb42813bbe5924f24c73a5f00cbdb5e1db2bc.png';
+import logo3d from 'figma:asset/09aa6b9a364cd19b8e73e23401db6a6a0b182a0e.png';
 
 interface PublicQuoteViewProps {
   // No props needed, reads from URL
