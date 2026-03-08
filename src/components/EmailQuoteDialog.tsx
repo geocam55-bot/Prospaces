@@ -106,6 +106,35 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
       // Construct HTML body with quote details
       const quoteHtml = generateQuoteHtml(quote);
 
+      // Resolve Campaign ID before building the link to enable accurate conversion tracking
+      let campaignIdToUse = (quote as any).campaignId;
+      try {
+        if (!campaignIdToUse) {
+          const { campaignsAPI } = await import('../utils/api');
+          const campaignsData = await campaignsAPI.getAll();
+          const campaigns = campaignsData.campaigns || [];
+          const emailCampaigns = campaigns.filter((c: any) => c.type === 'email');
+          
+          if (emailCampaigns.length > 0) {
+            campaignIdToUse = emailCampaigns[0].id;
+          } else {
+            const res = await campaignsAPI.create({
+              name: 'Direct Email Quotes',
+              type: 'email',
+              status: 'active',
+              audience_segment: 'all',
+              channel: 'Email',
+              sent_count: 0,
+              audience_count: 0,
+              start_date: new Date().toISOString()
+            });
+            campaignIdToUse = res.campaign.id;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to resolve campaign ID:', err);
+      }
+
       // Tracking Setup
       const appUrl = window.location.origin;
       const orgId = quote.organization_id || quote.organizationId || account.organization_id;
@@ -116,8 +145,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
       // Use query parameters instead of path parameters to avoid 404s on static host
       // Use _source tag from Bids.tsx loadData to determine table, fallback to quote
       const type = quote._source === 'bids' ? 'bid' : 'quote';
-      // Append campaignId if available in the context (can be passed via props or state in the future)
-      const campaignIdParam = (quote as any).campaignId ? `&campaignId=${(quote as any).campaignId}` : '';
+      const campaignIdParam = campaignIdToUse ? `&campaignId=${campaignIdToUse}` : '';
       const targetUrl = `${appUrl}/?view=public-quote&id=${quoteId}&orgId=${orgId}&type=${type}${campaignIdParam}`;
       const encodedTargetUrl = encodeURIComponent(targetUrl);
       const trackingLinkUrl = `${appUrl}/?view=redirect&url=${encodedTargetUrl}&id=${quoteId}&orgId=${orgId}&type=${type}${campaignIdParam}`;
@@ -184,34 +212,21 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
         received_at: new Date().toISOString(),
       });
       
-      // Also update latest campaign to track this in Marketing Channel stats
-      try {
-        const { campaignsAPI } = await import('../utils/api');
-        const campaignsData = await campaignsAPI.getAll();
-        const campaigns = campaignsData.campaigns || [];
-        const emailCampaigns = campaigns.filter((c: any) => c.type === 'email');
-        
-        if (emailCampaigns.length > 0) {
-          const targetCampaign = emailCampaigns[0];
-          await campaignsAPI.update(targetCampaign.id, {
-            sent_count: (targetCampaign.sent_count || targetCampaign.sent || 0) + 1,
-            audience_count: Math.max((targetCampaign.audience_count || targetCampaign.audience || 0), (targetCampaign.sent_count || targetCampaign.sent || 0) + 1)
-          });
-        } else {
-          // Create a default campaign for one-off emails if none exists
-          await campaignsAPI.create({
-            name: 'Direct Email Quotes',
-            type: 'email',
-            status: 'active',
-            audience_segment: 'all',
-            channel: 'Email',
-            sent_count: 1,
-            audience_count: 1,
-            start_date: new Date().toISOString()
-          });
+      // Also update campaign to track this in Marketing Channel stats
+      if (campaignIdToUse) {
+        try {
+          const { campaignsAPI } = await import('../utils/api');
+          const campaignsData = await campaignsAPI.getAll();
+          const targetCampaign = campaignsData.campaigns?.find((c: any) => c.id === campaignIdToUse);
+          if (targetCampaign) {
+            await campaignsAPI.update(targetCampaign.id, {
+              sent_count: (targetCampaign.sent_count || targetCampaign.sent || 0) + 1,
+              audience_count: Math.max((targetCampaign.audience_count || targetCampaign.audience || 0), (targetCampaign.sent_count || targetCampaign.sent || 0) + 1)
+            });
+          }
+        } catch (err) {
+          console.error('Failed to update marketing campaign stats for email quote:', err);
         }
-      } catch (err) {
-        console.error('Failed to update marketing campaign stats for email quote:', err);
       }
 
       onSuccess();

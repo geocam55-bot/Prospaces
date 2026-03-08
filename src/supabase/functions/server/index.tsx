@@ -2536,16 +2536,19 @@ app.post(`${PREFIX}/public/events`, async (c) => {
         created_at: now,
       });
 
-      // Update marketing metrics (opened/clicked) on the latest campaign if this originated from an email link
+      // Update marketing metrics (opened/clicked) on the linked campaign
       const isClick = eventType === 'click';
       const isOpen = eventType === 'open';
+      const campaignId = body.campaignId;
       if (isClick || isOpen) {
-        const { data: pgCamps } = await getSupabase().from('campaigns')
-          .select('id, description')
-          .eq('organization_id', orgId)
-          .eq('type', 'email')
-          .order('created_at', { ascending: false })
-          .limit(1);
+        let query = getSupabase().from('campaigns').select('id, description');
+        if (campaignId) {
+            query = query.eq('id', campaignId);
+        } else {
+            query = query.eq('organization_id', orgId).eq('type', 'email').order('created_at', { ascending: false }).limit(1);
+        }
+        
+        const { data: pgCamps } = await query;
 
         if (pgCamps && pgCamps.length > 0) {
           const pgCamp = pgCamps[0];

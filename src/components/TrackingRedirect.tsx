@@ -9,6 +9,7 @@ export function TrackingRedirect() {
       const id = params.get('id');
       const orgId = params.get('orgId');
       const type = params.get('type') || 'quote';
+      const campaignId = params.get('campaignId');
 
       if (!url) {
         document.body.innerHTML = 'Invalid tracking link: Missing destination URL';
@@ -29,6 +30,7 @@ export function TrackingRedirect() {
               entityType: type,
               entityId: id,
               orgId: orgId,
+              campaignId: campaignId,
               url: url,
               userAgent: navigator.userAgent
             })
