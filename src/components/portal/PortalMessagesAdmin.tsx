@@ -90,6 +90,36 @@ export function PortalMessagesAdmin({ user }: PortalMessagesAdminProps) {
       );
       toast.success('Reply sent!');
       setReplyText('');
+      
+      // Update Customer Portal campaign stats
+      try {
+        const { campaignsAPI } = await import('../../utils/api');
+        const campaignsData = await campaignsAPI.getAll();
+        const campaigns = campaignsData.campaigns || [];
+        const portalCampaigns = campaigns.filter((c: any) => c.type === 'portal');
+        
+        if (portalCampaigns.length > 0) {
+          const targetCampaign = portalCampaigns[0];
+          await campaignsAPI.update(targetCampaign.id, {
+            sent_count: (targetCampaign.sent_count || targetCampaign.sent || 0) + 1,
+            audience_count: Math.max((targetCampaign.audience_count || targetCampaign.audience || 0), (targetCampaign.sent_count || targetCampaign.sent || 0) + 1)
+          });
+        } else {
+          await campaignsAPI.create({
+            name: 'Direct Portal Messages',
+            type: 'portal',
+            channel: 'Customer Portal',
+            status: 'active',
+            audience_segment: 'all',
+            sent_count: 1,
+            audience_count: 1,
+            start_date: new Date().toISOString()
+          });
+        }
+      } catch (err) {
+        console.error('Failed to update marketing campaign stats for portal message:', err);
+      }
+
       // Refresh messages to get updated reply
       loadData();
       // Update the selected message locally

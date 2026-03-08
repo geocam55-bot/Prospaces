@@ -62,7 +62,8 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
 
   campaigns.forEach(c => {
     const type = c.type || 'email';
-    const channelName = type.charAt(0).toUpperCase() + type.slice(1);
+    let channelName = type.charAt(0).toUpperCase() + type.slice(1);
+    if (type === 'portal') channelName = 'Customer Portal';
     
     if (!channelStats[channelName]) {
       channelStats[channelName] = { 

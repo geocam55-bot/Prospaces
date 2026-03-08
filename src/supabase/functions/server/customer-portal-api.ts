@@ -112,6 +112,68 @@ export function customerPortalAPI(app: Hono) {
 
       console.log(`[portal] Invite created for ${contactEmail} by ${profile.email}, code=${inviteCode}`);
 
+      // Track portal "Sent" metrics for creating an invite
+      try {
+        // Postgres
+        const { data: pgCamps } = await supabase.from('campaigns').select('id, sent_count, audience_count')
+          .eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
+          
+        if (pgCamps && pgCamps.length > 0) {
+          const updates = { 
+            sent_count: (pgCamps[0].sent_count || 0) + 1,
+            audience_count: Math.max((pgCamps[0].audience_count || 0), (pgCamps[0].sent_count || 0) + 1)
+          };
+          await supabase.from('campaigns').update(updates).eq('id', pgCamps[0].id);
+        } else {
+          // Create default if none exists
+          await supabase.from('campaigns').insert([{
+            organization_id: orgId,
+            name: 'Direct Portal Invites',
+            type: 'portal',
+            channel: 'Customer Portal',
+            status: 'active',
+            audience_segment: 'all',
+            sent_count: 1,
+            audience_count: 1,
+            created_at: new Date().toISOString()
+          }]);
+        }
+        
+        // KV
+        const campaigns = await kv.getByPrefix(`campaign:${orgId}:`);
+        let latestCamp = null;
+        if (campaigns && campaigns.length > 0) {
+          const portalCamps = campaigns.filter((c: any) => c.type === 'portal');
+          if (portalCamps.length > 0) {
+            portalCamps.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+            latestCamp = portalCamps[0];
+          }
+        }
+        
+        if (latestCamp) {
+          latestCamp.sent_count = (latestCamp.sent_count || 0) + 1;
+          latestCamp.audience_count = Math.max((latestCamp.audience_count || 0), latestCamp.sent_count);
+          latestCamp.updated_at = new Date().toISOString();
+          await kv.set(`campaign:${orgId}:${latestCamp.id}`, latestCamp);
+        } else {
+          const newCampId = crypto.randomUUID();
+          await kv.set(`campaign:${orgId}:${newCampId}`, {
+            id: newCampId,
+            organization_id: orgId,
+            name: 'Direct Portal Invites',
+            type: 'portal',
+            channel: 'Customer Portal',
+            status: 'active',
+            audience_segment: 'all',
+            sent_count: 1,
+            audience_count: 1,
+            created_at: new Date().toISOString()
+          });
+        }
+      } catch (e) {
+        console.error('[portal] failed to track campaign stats for invite creation', e);
+      }
+
       return c.json({
         success: true,
         inviteCode,
@@ -233,6 +295,43 @@ export function customerPortalAPI(app: Hono) {
       });
 
       console.log(`[portal] Customer logged in: ${email}`);
+      
+      // Track "Open" and "Click" events for the Customer Portal channel
+      try {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+        const orgId = portalUser.orgId;
+        
+        // Postgres
+        const { data: pgCamps } = await supabase.from('campaigns').select('id, opened_count, clicked_count')
+          .eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
+          
+        if (pgCamps && pgCamps.length > 0) {
+          const updates = { 
+            opened_count: (pgCamps[0].opened_count || 0) + 1,
+            clicked_count: (pgCamps[0].clicked_count || 0) + 1
+          };
+          await supabase.from('campaigns').update(updates).eq('id', pgCamps[0].id);
+        }
+        
+        // KV
+        const campaigns = await kv.getByPrefix(`campaign:${orgId}:`);
+        if (campaigns && campaigns.length > 0) {
+          const portalCamps = campaigns.filter((c: any) => c.type === 'portal');
+          if (portalCamps.length > 0) {
+            portalCamps.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+            const latestCamp = portalCamps[0];
+            latestCamp.opened_count = (latestCamp.opened_count || 0) + 1;
+            latestCamp.clicked_count = (latestCamp.clicked_count || 0) + 1;
+            latestCamp.updated_at = new Date().toISOString();
+            await kv.set(`campaign:${orgId}:${latestCamp.id}`, latestCamp);
+          }
+        }
+      } catch (e) {
+        console.error('[portal] failed to track campaign stats for portal login', e);
+      }
 
       return c.json({
         success: true,
@@ -625,18 +724,29 @@ export function customerPortalAPI(app: Hono) {
         }]);
       }
 
-      // Update Converted in Marketing (increment most recent campaign)
+      // Update Converted in Marketing (increment most recent portal campaign)
       try {
         const orgId = data.organization_id || session.orgId;
         if (orgId) {
+          // Update Postgres
+          const { data: pgCamps } = await supabase.from('campaigns').select('id, converted_count').eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
+          if (pgCamps && pgCamps.length > 0) {
+            await supabase.from('campaigns').update({ converted_count: (pgCamps[0].converted_count || 0) + 1 }).eq('id', pgCamps[0].id);
+            console.log(`[portal] Incremented converted_count for latest Postgres portal campaign ${pgCamps[0].id}`);
+          }
+          
+          // Update KV backup
           const campaigns = await kv.getByPrefix(`campaign:${orgId}:`);
           if (campaigns && campaigns.length > 0) {
-            campaigns.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-            const latestCampaign = campaigns[0];
-            latestCampaign.converted_count = (latestCampaign.converted_count || 0) + 1;
-            latestCampaign.updated_at = new Date().toISOString();
-            await kv.set(`campaign:${orgId}:${latestCampaign.id}`, latestCampaign);
-            console.log(`[portal] Incremented converted_count for campaign ${latestCampaign.id}`);
+            const portalCamps = campaigns.filter((c: any) => c.type === 'portal');
+            if (portalCamps.length > 0) {
+              portalCamps.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+              const latestCampaign = portalCamps[0];
+              latestCampaign.converted_count = (latestCampaign.converted_count || 0) + 1;
+              latestCampaign.updated_at = new Date().toISOString();
+              await kv.set(`campaign:${orgId}:${latestCampaign.id}`, latestCampaign);
+              console.log(`[portal] Incremented converted_count for KV campaign ${latestCampaign.id}`);
+            }
           }
         }
       } catch (campErr) {
