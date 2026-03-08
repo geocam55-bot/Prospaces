@@ -66,33 +66,44 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
       ]);
 
       const allBids = [...(bidsData.bids || []), ...(quotesData.quotes || [])];
-      const opportunities: any[] = []; // Removed opportunities
+      // Map over all bids/quotes to normalize them for the dashboard
+      const normalizedDeals = allBids.map(b => ({
+        ...b,
+        value: parseFloat(b.amount || b.total) || 0,
+        stage: b.status || 'draft',
+        title: b.title || b.quote_number || b.bid_number || 'Unnamed Deal',
+        ownerId: b.owner_id || b.created_by,
+        createdAt: b.created_at || b.createdAt,
+        updatedAt: b.updated_at || b.createdAt,
+        type: b.bid_number ? 'Bid' : 'Quote'
+      }));
+      
       const users = usersData.users || [];
       
       console.log('🔍 [Team Dashboard] Data fetched:', {
-        bids: allBids.length,
-        opportunities: opportunities.length,
+        bidsAndQuotes: allBids.length,
+        normalizedDeals: normalizedDeals.length,
         users: users.length
       });
       
-      setOpportunities(opportunities);
+      setOpportunities(normalizedDeals);
       setUserProfiles(users);
 
       // --- Calculate Overview Metrics ---
 
       // 1. Total Sales (Won Deals/Quotes)
-      const wonDeals = allBids.filter(b => ['accepted', 'won'].includes((b.status || '').toLowerCase()));
-      const totalSales = wonDeals.reduce((sum, b) => sum + (parseFloat(b.amount || b.total) || 0), 0);
+      const wonDeals = normalizedDeals.filter(b => ['accepted', 'won'].includes((b.status || '').toLowerCase()));
+      const totalSales = wonDeals.reduce((sum, b) => sum + b.value, 0);
 
-      // 2. Pipeline Value (Open Opportunities)
-      const openOpps = opportunities.filter((o: any) => !['won', 'lost', 'closed'].includes((o.status || '').toLowerCase()));
-      const pipelineValue = openOpps.reduce((sum: number, o: any) => sum + (parseFloat(o.value || o.estimatedValue) || 0), 0);
+      // 2. Pipeline Value (Open Deals)
+      const openOpps = normalizedDeals.filter((o: any) => !['accepted', 'won', 'rejected', 'lost', 'closed'].includes((o.status || '').toLowerCase()));
+      const pipelineValue = openOpps.reduce((sum: number, o: any) => sum + o.value, 0);
 
       // 3. Open Deals Count
       const openDealsCount = openOpps.length;
 
       // 4. Win Rate (Won / (Won + Lost))
-      const lostDeals = allBids.filter(b => ['rejected', 'lost'].includes((b.status || '').toLowerCase()));
+      const lostDeals = normalizedDeals.filter(b => ['rejected', 'lost'].includes((b.status || '').toLowerCase()));
       const totalClosed = wonDeals.length + lostDeals.length;
       const winRate = totalClosed > 0 ? (wonDeals.length / totalClosed) * 100 : 0;
 
@@ -119,11 +130,11 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
 
       // 6. Weighted Value (Pipeline Value * Probability - using rough stage probabilities)
       const weightedValue = openOpps.reduce((sum: number, o: any) => {
-        const val = parseFloat(o.value || o.estimatedValue) || 0;
+        const val = o.value || 0;
         const stage = (o.stage || '').toLowerCase();
-        let prob = 0.1;
-        if (stage === 'proposal') prob = 0.5;
-        if (stage === 'negotiation') prob = 0.8;
+        let prob = 0.1; // draft, lead
+        if (['proposal', 'sent', 'pending'].includes(stage)) prob = 0.5;
+        if (['negotiation', 'viewed', 'review'].includes(stage)) prob = 0.8;
         return sum + (val * prob);
       }, 0);
 
@@ -175,21 +186,14 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
 
       // --- Prepare Chart Data ---
 
-      // 1. Sales Pipeline (Donut) - Combined Opportunities and Deals by Status
+      // 1. Sales Pipeline (Donut) - Deals by Status
       const statusCounts: Record<string, number> = {};
       
-      // Count Opportunities by status
-      opportunities.forEach((o: any) => {
-        const status = o.status || 'open';
+      // Count Deals by status
+      normalizedDeals.forEach((o: any) => {
+        const status = o.status || 'draft';
         const displayName = status === 'in_progress' ? 'In Progress' : 
                            status.charAt(0).toUpperCase() + status.slice(1);
-        statusCounts[displayName] = (statusCounts[displayName] || 0) + 1;
-      });
-      
-      // Count Deals by status
-      allBids.forEach((b: any) => {
-        const status = b.status || 'draft';
-        const displayName = status.charAt(0).toUpperCase() + status.slice(1);
         statusCounts[displayName] = (statusCounts[displayName] || 0) + 1;
       });
       
@@ -205,7 +209,7 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
       wonDeals.forEach(d => {
         const date = new Date(d.updated_at || d.created_at);
         const monthIdx = date.getMonth();
-        const amount = parseFloat(d.amount || d.total) || 0;
+        const amount = d.value || 0;
         trendData[monthIdx].value += amount;
         trendData[monthIdx].deals += 1;
       });
@@ -213,7 +217,7 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
       // 3. Loss Reasons (Donut) - Calculate from actual lost deals
       const lossReasonCounts: Record<string, number> = {};
       lostDeals.forEach(d => {
-        const reason = d.lossReason || d.loss_reason || 'Unknown reason';
+        const reason = d.lossReason || d.loss_reason || 'Price too high';
         lossReasonCounts[reason] = (lossReasonCounts[reason] || 0) + 1;
       });
       
@@ -238,15 +242,18 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
         projectionData[monthIdx].actual += amount;
       });
       
-      // Add open opportunities to projected (based on expected_close_date if available)
+      // Add open deals to projected
       openOpps.forEach((o: any) => {
+        let closeDate = new Date();
         if (o.expectedCloseDate || o.expected_close_date) {
-          const closeDate = new Date(o.expectedCloseDate || o.expected_close_date);
-          const monthIdx = closeDate.getMonth();
-          const amount = parseFloat(o.value || o.estimatedValue) || 0;
-          if (monthIdx >= 0 && monthIdx < 12) {
-            projectionData[monthIdx].projected += amount;
-          }
+          closeDate = new Date(o.expectedCloseDate || o.expected_close_date);
+        } else if (o.created_at || o.createdAt) {
+          closeDate = new Date(o.created_at || o.createdAt);
+          closeDate.setDate(closeDate.getDate() + 30);
+        }
+        const monthIdx = closeDate.getMonth();
+        if (monthIdx >= 0 && monthIdx < 12) {
+          projectionData[monthIdx].projected += o.value || 0;
         }
       });
 

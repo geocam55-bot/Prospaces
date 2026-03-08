@@ -21,11 +21,13 @@ export function DealsTab({ opportunities, users }: DealsTabProps) {
   const getProbability = (stage: string) => {
     // Calculate probability based on stage
     const stageLower = (stage || '').toLowerCase();
-    if (stageLower.includes('lead')) return '10%';
-    if (stageLower.includes('contact')) return '20%';
-    if (stageLower.includes('needs') || stageLower.includes('qualified')) return '30%';
-    if (stageLower.includes('proposal')) return '50%';
-    if (stageLower.includes('negotiation')) return '80%';
+    if (['lead', 'draft'].includes(stageLower)) return '10%';
+    if (['contact', 'pending'].includes(stageLower)) return '20%';
+    if (['needs analysis', 'qualified'].includes(stageLower)) return '30%';
+    if (['proposal', 'sent'].includes(stageLower)) return '50%';
+    if (['negotiation', 'viewed', 'review'].includes(stageLower)) return '80%';
+    if (['accepted', 'won', 'closed won'].includes(stageLower)) return '100%';
+    if (['rejected', 'lost', 'closed lost'].includes(stageLower)) return '0%';
     return '25%'; // Default
   };
   
@@ -65,7 +67,7 @@ export function DealsTab({ opportunities, users }: DealsTabProps) {
                     <td className="px-4 py-3 text-gray-600 capitalize">{opp.status}</td>
                     <td className="px-4 py-3">
                         <Badge variant="outline" className="font-normal text-gray-500">
-                            Business
+                            {opp.type || 'Deal'}
                         </Badge>
                     </td>
                     <td className="px-4 py-3 text-right font-medium">
