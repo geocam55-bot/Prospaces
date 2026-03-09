@@ -541,9 +541,9 @@ export function Navigation({
 
             <DropdownMenu>
               <DropdownMenuTrigger className="focus:outline-none">
-                <Avatar className="h-14 w-14 sm:h-16 sm:w-16">
+                <Avatar className="h-8 w-8">
                   <AvatarImage src={user.avatar_url} alt={user.full_name || user.email || 'User'} />
-                  <AvatarFallback className="bg-blue-600 text-white text-base sm:text-lg">
+                  <AvatarFallback className="bg-blue-600 text-white text-sm">
                     {getInitials(user.full_name || user.email || '')}
                   </AvatarFallback>
                 </Avatar>
@@ -860,9 +860,9 @@ export function Navigation({
 
             <DropdownMenu>
               <DropdownMenuTrigger className="focus:outline-none">
-                <Avatar className="h-16 w-16 cursor-pointer ring-2 ring-offset-2 ring-transparent hover:ring-blue-500 transition-all" style={{ '--tw-ring-offset-color': theme.colors.topBarBackground } as any}>
+                <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-offset-2 ring-transparent hover:ring-blue-500 transition-all" style={{ '--tw-ring-offset-color': theme.colors.topBarBackground } as any}>
                   <AvatarImage src={user.avatar_url} alt={user.full_name || user.email || 'User'} />
-                  <AvatarFallback className="bg-blue-600 text-white text-lg">
+                  <AvatarFallback className="bg-blue-600 text-white text-sm">
                     {getInitials(user.full_name || user.email || '')}
                   </AvatarFallback>
                 </Avatar>
