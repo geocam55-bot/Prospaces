@@ -424,6 +424,46 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
           handle.position.set(doorX + doorWidth * 0.3, y, localZ + d / 2 + 0.015);
           pivot.add(handle);
         }
+      } else if (cabinet.hasDoors && !isCustomModel && isCornerCabinet) {
+        const doorMaterial = new MeshStandardMaterial({
+          color: 0xffffff,
+          roughness: 0.2,
+          metalness: 0.3
+        });
+        const handleMaterial = new MeshStandardMaterial({
+          color: 0x374151,
+          roughness: 0.1,
+          metalness: 0.8
+        });
+        const handleGeometry = new CylinderGeometry(0.008, 0.008, h * 0.4, 8);
+        const thickness = Math.min(w, d) * 0.45;
+        
+        // Door 1 (Face 1 facing +Z)
+        const door1Width = w - thickness;
+        const door1X = thickness + door1Width / 2;
+        const door1Geometry = new BoxGeometry(door1Width * 0.95, h * 0.95, 0.005);
+        const door1 = new Mesh(door1Geometry, doorMaterial);
+        door1.position.set(door1X, y, thickness + 0.003);
+        door1.castShadow = true;
+        pivot.add(door1);
+
+        const handle1 = new Mesh(handleGeometry, handleMaterial);
+        handle1.position.set(door1X - door1Width * 0.35, y, thickness + 0.015);
+        pivot.add(handle1);
+
+        // Door 2 (Face 2 facing +X)
+        const door2Width = d - thickness;
+        const door2Z = thickness + door2Width / 2;
+        const door2Geometry = new BoxGeometry(door2Width * 0.95, h * 0.95, 0.005);
+        const door2 = new Mesh(door2Geometry, doorMaterial);
+        door2.position.set(thickness + 0.003, y, door2Z);
+        door2.rotation.y = Math.PI / 2;
+        door2.castShadow = true;
+        pivot.add(door2);
+
+        const handle2 = new Mesh(handleGeometry, handleMaterial);
+        handle2.position.set(thickness + 0.015, y, door2Z - door2Width * 0.35);
+        pivot.add(handle2);
       }
 
       // Add countertop for base cabinets

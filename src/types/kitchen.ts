@@ -192,8 +192,8 @@ export const CABINET_CATALOG: CabinetItem[] = [
   { id: 'tall-filler-6', type: 'tall', name: 'Tall Filler 6"', width: 6, height: 84, depth: 24, hasDoors: false, image: fillerImage, modelUrl: 'tall-cabinet.obj' },
   
   // Corner Cabinets
-  { id: 'corner-base-36', type: 'corner-base', name: 'Corner Base Cabinet', width: 36, height: 34.5, depth: 36, hasDoors: true, numberOfDoors: 2, modelUrl: 'corner-base.obj' },
-  { id: 'corner-wall-24', type: 'corner-wall', name: 'Corner Wall Cabinet', width: 24, height: 30, depth: 24, hasDoors: true, numberOfDoors: 2, modelUrl: 'corner-wall.obj' },
+  { id: 'corner-base-36', type: 'corner-base', name: 'Corner Base Cabinet', width: 36, height: 34.5, depth: 36, hasDoors: true, numberOfDoors: 2, modelUrl: 'corner-base.obj', image: 'figma:asset/bac1d266a92cf883752573e8e929817da35ab048.png' },
+  { id: 'corner-wall-24', type: 'corner-wall', name: 'Corner Wall Cabinet', width: 24, height: 30, depth: 24, hasDoors: true, numberOfDoors: 2, modelUrl: 'corner-wall.obj', image: 'figma:asset/456ea0f6aadf0920f2177e3ca5928a5703a977c9.png' },
   
   // Island Cabinets
   { id: 'island-36x36', type: 'island', name: 'Island Base 36"x36"', width: 36, height: 34.5, depth: 36, hasDoors: true, numberOfDoors: 4, modelUrl: 'island-cabinet.obj' },
