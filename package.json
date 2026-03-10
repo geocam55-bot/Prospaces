@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@babel/parser": "*",
     "@capacitor/cli": "*",
     "@jsr/supabase__supabase-js": "^2.49.8",
     "@radix-ui/react-accordion": "*",

@@ -24,8 +24,6 @@ import {
   CylinderGeometry,
   CanvasTexture,
   Object3D,
-  Shape,
-  ExtrudeGeometry,
   BufferGeometry
 } from '../../utils/three';
 import { 
@@ -286,32 +284,6 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
       let isCustomModel = false;
       const isCornerCabinet = cabinet.type === 'corner-base' || cabinet.type === 'corner-wall';
 
-      if (isCornerCabinet) {
-        // Procedurally generate an L-shape for corner cabinets
-        const shape = new Shape();
-        const thickness = Math.min(w, d) * 0.45; // Thickness of the L arms
-        
-        // Draw L shape in X-Z plane coordinates
-        shape.moveTo(0, 0);
-        shape.lineTo(w, 0);
-        shape.lineTo(w, thickness);
-        shape.lineTo(thickness, thickness);
-        shape.lineTo(thickness, d);
-        shape.lineTo(0, d);
-        shape.lineTo(0, 0);
-        
-        const extrudeSettings = {
-          depth: h,
-          bevelEnabled: false
-        };
-        const extrudeGeo = new ExtrudeGeometry(shape, extrudeSettings);
-        // ExtrudeGeometry builds along Z. We rotate it to align with X-Z plane.
-        extrudeGeo.rotateX(Math.PI / 2);
-        // Automatically center it exactly like BoxGeometry
-        extrudeGeo.center(); 
-        cabinetGeometry = extrudeGeo;
-      }
-
       // Handle custom 3D model injection
       if (cabinet.modelUrl) {
         if (modelCache[cabinet.modelUrl] && modelCache[cabinet.modelUrl] !== 'failed') {
@@ -355,7 +327,7 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
       }
 
       let color = 0xd1d5db;
-      if (cabinet.type === 'wall') color = 0xf3f4f6;
+      if (cabinet.type === 'wall' || cabinet.type === 'corner-wall') color = 0xf3f4f6;
       if (cabinet.type === 'tall') color = 0xe5e7eb;
       
       const cabinetMaterial = new MeshStandardMaterial({
@@ -363,37 +335,57 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
         roughness: 0.3,
         metalness: 0.1
       });
-      const cabinetMesh = new Mesh(cabinetGeometry, cabinetMaterial);
 
-      if (isCustomModel) {
-        // Adjust for custom model pivot/scaling based on bounding box
-        if (!cabinetGeometry.boundingBox) {
-          cabinetGeometry.computeBoundingBox();
-        }
-        const bbox = cabinetGeometry.boundingBox;
-        if (bbox) {
-          const sizeX = bbox.max.x - bbox.min.x || 1;
-          const sizeY = bbox.max.y - bbox.min.y || 1;
-          const sizeZ = bbox.max.z - bbox.min.z || 1;
-          
-          // Scale to fit requested dimensions (w, h, d in meters)
-          cabinetMesh.scale.set(w / sizeX, h / sizeY, d / sizeZ);
-          
-          // Position it exactly where the BoxGeometry was
-          cabinetMesh.position.set(localX, y, localZ);
+      if (!isCustomModel && isCornerCabinet) {
+        // Procedurally build L-shape from two standard BoxGeometries
+        const thickness = Math.min(w, d) * 0.45;
+        
+        // Main back arm (along X axis)
+        const arm1Geo = new BoxGeometry(w, h, thickness);
+        const arm1 = new Mesh(arm1Geo, cabinetMaterial);
+        arm1.position.set(localX, y, thickness / 2);
+        arm1.castShadow = true;
+        arm1.receiveShadow = true;
+        pivot.add(arm1);
+        addEdgeOutline(pivot, arm1Geo, arm1);
+
+        // Side arm (along Z axis) extending forward
+        const arm2Depth = d - thickness;
+        const arm2Geo = new BoxGeometry(thickness, h, arm2Depth);
+        const arm2 = new Mesh(arm2Geo, cabinetMaterial);
+        arm2.position.set(thickness / 2, y, thickness + arm2Depth / 2);
+        arm2.castShadow = true;
+        arm2.receiveShadow = true;
+        pivot.add(arm2);
+        addEdgeOutline(pivot, arm2Geo, arm2);
+
+      } else {
+        // Standard cabinet or custom model
+        const cabinetMesh = new Mesh(cabinetGeometry, cabinetMaterial);
+
+        if (isCustomModel) {
+          if (!cabinetGeometry.boundingBox) {
+            cabinetGeometry.computeBoundingBox();
+          }
+          const bbox = cabinetGeometry.boundingBox;
+          if (bbox) {
+            const sizeX = bbox.max.x - bbox.min.x || 1;
+            const sizeY = bbox.max.y - bbox.min.y || 1;
+            const sizeZ = bbox.max.z - bbox.min.z || 1;
+            cabinetMesh.scale.set(w / sizeX, h / sizeY, d / sizeZ);
+            cabinetMesh.position.set(localX, y, localZ);
+          } else {
+            cabinetMesh.position.set(localX, y, localZ);
+          }
         } else {
           cabinetMesh.position.set(localX, y, localZ);
         }
-      } else {
-        cabinetMesh.position.set(localX, y, localZ);
+
+        cabinetMesh.castShadow = true;
+        cabinetMesh.receiveShadow = true;
+        pivot.add(cabinetMesh);
+        addEdgeOutline(pivot, cabinetGeometry, cabinetMesh);
       }
-
-      cabinetMesh.castShadow = true;
-      cabinetMesh.receiveShadow = true;
-      pivot.add(cabinetMesh);
-
-      // Add edge outlines
-      addEdgeOutline(pivot, cabinetGeometry, cabinetMesh);
 
       // Add doors if applicable (only if not a custom model, and skip for procedural corner cabinets)
       if (cabinet.hasDoors && cabinet.numberOfDoors && !isCustomModel && !isCornerCabinet) {
@@ -468,39 +460,51 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
 
       // Add countertop for base cabinets
       if (cabinet.type === 'base' || cabinet.type === 'island' || cabinet.type === 'corner-base') {
-        let countertopGeometry: BufferGeometry = new BoxGeometry(w + 0.05, 0.04, d + 0.05);
-        
-        if (isCornerCabinet) {
-          // Countertop should also be L-shaped
-          const shape = new Shape();
-          const thickness = Math.min(w, d) * 0.45 + 0.025; // Slightly thicker for overhang
-          const cw = w + 0.05;
-          const cd = d + 0.05;
-          
-          shape.moveTo(0, 0);
-          shape.lineTo(cw, 0);
-          shape.lineTo(cw, thickness);
-          shape.lineTo(thickness, thickness);
-          shape.lineTo(thickness, cd);
-          shape.lineTo(0, cd);
-          shape.lineTo(0, 0);
-          
-          const extrudeGeo = new ExtrudeGeometry(shape, { depth: 0.04, bevelEnabled: false });
-          extrudeGeo.rotateX(Math.PI / 2);
-          extrudeGeo.center();
-          countertopGeometry = extrudeGeo;
-        }
-
         const countertopMaterial = new MeshStandardMaterial({
           color: 0x64748b,
           roughness: 0.1,
           metalness: 0.5
         });
-        const countertop = new Mesh(countertopGeometry, countertopMaterial);
-        countertop.position.set(localX, y + h / 2 + 0.02, localZ);
-        countertop.castShadow = true;
-        countertop.receiveShadow = true;
-        pivot.add(countertop);
+
+        if (isCornerCabinet && !isCustomModel) {
+          // Countertop L-shape
+          const baseThickness = Math.min(w, d) * 0.45;
+          const ctThickness = baseThickness + 0.05; // 0.025 overhang on both sides (back and front)
+          const cw = w + 0.05; // 0.025 overhang on left and right
+          const cd = d + 0.05; // 0.025 overhang on back and front
+          
+          // Main back arm (along X axis)
+          // Spans X from -0.025 to w + 0.025. Center X = w/2
+          // Spans Z from -0.025 to baseThickness + 0.025. Center Z = baseThickness/2
+          const ctArm1Geo = new BoxGeometry(cw, 0.04, ctThickness);
+          const ctArm1 = new Mesh(ctArm1Geo, countertopMaterial);
+          ctArm1.position.set(w / 2, y + h / 2 + 0.02, baseThickness / 2);
+          ctArm1.castShadow = true;
+          ctArm1.receiveShadow = true;
+          pivot.add(ctArm1);
+
+          // Side arm (along Z axis) extending forward
+          // Needs to cover the rest of the left arm.
+          // Left arm spans X from -0.025 to baseThickness + 0.025. Center X = baseThickness/2
+          // Spans Z from baseThickness + 0.025 to d + 0.025.
+          // Depth = d + 0.025 - (baseThickness + 0.025) = d - baseThickness.
+          // Center Z = baseThickness + 0.025 + (d - baseThickness)/2 = (d + baseThickness)/2 + 0.025
+          const ctArm2Depth = d - baseThickness;
+          const ctArm2Geo = new BoxGeometry(ctThickness, 0.04, ctArm2Depth);
+          const ctArm2 = new Mesh(ctArm2Geo, countertopMaterial);
+          ctArm2.position.set(baseThickness / 2, y + h / 2 + 0.02, (d + baseThickness) / 2 + 0.025);
+          ctArm2.castShadow = true;
+          ctArm2.receiveShadow = true;
+          pivot.add(ctArm2);
+
+        } else {
+          const countertopGeometry = new BoxGeometry(w + 0.05, 0.04, d + 0.05);
+          const countertop = new Mesh(countertopGeometry, countertopMaterial);
+          countertop.position.set(localX, y + h / 2 + 0.02, localZ);
+          countertop.castShadow = true;
+          countertop.receiveShadow = true;
+          pivot.add(countertop);
+        }
       }
     });
 

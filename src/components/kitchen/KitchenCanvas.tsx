@@ -92,9 +92,10 @@ export function KitchenCanvas({
       const isHovered = hoveredCabinet?.id === cabinet.id;
       drawCabinet(ctx, cabinet, isSelected, isHovered);
       
-      // Draw rotation handle if selected
+      // Draw rotation and delete handles if selected
       if (isSelected) {
         drawRotationHandle(ctx, cabinet);
+        drawDeleteHandle(ctx, cabinet);
       }
     });
 
@@ -367,6 +368,44 @@ export function KitchenCanvas({
     ctx.restore();
   };
 
+  const getDeleteHandlePos = (cabinet: PlacedCabinet) => {
+    const padding = 20;
+    const x = padding + cabinet.x * PIXELS_PER_INCH;
+    const y = padding + cabinet.y * PIXELS_PER_INCH;
+    const width = cabinet.width * PIXELS_PER_INCH;
+
+    // Calculate rotated top-right corner position
+    const angle = (cabinet.rotation * Math.PI) / 180;
+    // Top-right corner is (width, 0) in local coordinates
+    const handleX = x + width * Math.cos(angle);
+    const handleY = y + width * Math.sin(angle);
+
+    return { x: handleX, y: handleY };
+  };
+
+  const drawDeleteHandle = (ctx: CanvasRenderingContext2D, cabinet: PlacedCabinet) => {
+    const handlePos = getDeleteHandlePos(cabinet);
+
+    // Delete handle with outline
+    ctx.fillStyle = '#ef4444'; // Red-500
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(handlePos.x, handlePos.y, 10, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw 'X' icon
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(handlePos.x - 4, handlePos.y - 4);
+    ctx.lineTo(handlePos.x + 4, handlePos.y + 4);
+    ctx.moveTo(handlePos.x + 4, handlePos.y - 4);
+    ctx.lineTo(handlePos.x - 4, handlePos.y + 4);
+    ctx.stroke();
+  };
+
   const drawRotationHandle = (ctx: CanvasRenderingContext2D, cabinet: PlacedCabinet) => {
     const padding = 20;
     const x = padding + cabinet.x * PIXELS_PER_INCH;
@@ -551,21 +590,24 @@ export function KitchenCanvas({
       const hoveredCab = findCabinetAtPoint(x, y);
       const hoveredApp = findApplianceAtPoint(x, y);
       
-      // Check if hovering over rotation handle
+      // Check if hovering over rotation handle or delete handle
       let onRotHandle = false;
+      let onDeleteHandle = false;
+
       if (selectedCabinet) {
-        const handlePos = getRotationHandlePos(selectedCabinet);
-        const dist = Math.sqrt(Math.pow(x - handlePos.x, 2) + Math.pow(y - handlePos.y, 2));
-        if (dist <= 10) onRotHandle = true;
+        const rotPos = getRotationHandlePos(selectedCabinet);
+        if (Math.sqrt(Math.pow(x - rotPos.x, 2) + Math.pow(y - rotPos.y, 2)) <= 10) onRotHandle = true;
+
+        const delPos = getDeleteHandlePos(selectedCabinet);
+        if (Math.sqrt(Math.pow(x - delPos.x, 2) + Math.pow(y - delPos.y, 2)) <= 10) onDeleteHandle = true;
       }
       if (selectedAppliance) {
-        const handlePos = getApplianceRotationHandlePos(selectedAppliance);
-        const dist = Math.sqrt(Math.pow(x - handlePos.x, 2) + Math.pow(y - handlePos.y, 2));
-        if (dist <= 10) onRotHandle = true;
+        const rotPos = getApplianceRotationHandlePos(selectedAppliance);
+        if (Math.sqrt(Math.pow(x - rotPos.x, 2) + Math.pow(y - rotPos.y, 2)) <= 10) onRotHandle = true;
       }
       
       setHoveredCabinet(hoveredCab);
-      canvas.style.cursor = onRotHandle ? 'grab' : (hoveredCab || hoveredApp) ? 'move' : 'default';
+      canvas.style.cursor = onDeleteHandle ? 'pointer' : onRotHandle ? 'grab' : (hoveredCab || hoveredApp) ? 'move' : 'default';
     }
   };
 
@@ -577,7 +619,17 @@ export function KitchenCanvas({
     const x = (e.clientX - rect.left) / zoom;
     const y = (e.clientY - rect.top) / zoom;
 
-    // Check if clicked on rotation handle first
+    // Check if clicked on delete handle first
+    if (selectedCabinet) {
+      const deletePos = getDeleteHandlePos(selectedCabinet);
+      const deleteDist = Math.sqrt(Math.pow(x - deletePos.x, 2) + Math.pow(y - deletePos.y, 2));
+      if (deleteDist <= 10) {
+        onDeleteCabinet(selectedCabinet.id);
+        return;
+      }
+    }
+
+    // Check if clicked on rotation handle
     if (selectedCabinet) {
       const handlePos = getRotationHandlePos(selectedCabinet);
       const dist = Math.sqrt(Math.pow(x - handlePos.x, 2) + Math.pow(y - handlePos.y, 2));
@@ -837,105 +889,82 @@ export function KitchenCanvas({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-4 pb-3 border-b">
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={handleZoomIn}>
+    <div className="flex flex-col h-full relative bg-gray-50">
+      {/* Floating Toolbar */}
+      <div className="absolute top-4 left-0 right-0 flex items-start justify-between pointer-events-none z-10 px-4">
+        {/* Left Side: General Tools */}
+        <div className="pointer-events-auto bg-white/90 backdrop-blur rounded-lg shadow-sm border border-gray-200 flex items-center p-1 gap-1">
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600" onClick={handleZoomIn}>
             <ZoomIn className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="outline" onClick={handleZoomOut}>
+          <span className="text-xs font-medium w-12 text-center text-gray-600">{Math.round(zoom * 100)}%</span>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600" onClick={handleZoomOut}>
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-gray-600 ml-2">{Math.round(zoom * 100)}%</span>
-        </div>
-
-        <div className="flex items-center gap-2">
+          
+          <div className="w-px h-4 bg-gray-300 mx-1" />
+          
           <Button
+            variant={config.showGrid ? 'secondary' : 'ghost'}
             size="sm"
-            variant={config.showGrid ? 'default' : 'outline'}
-            onClick={() => {
-              if (onUpdateConfig) {
-                onUpdateConfig({ showGrid: !config.showGrid });
-              }
-            }}
+            className={`h-8 px-2 text-xs ${config.showGrid ? 'bg-gray-200 text-gray-900' : 'text-gray-600'}`}
+            onClick={() => onUpdateConfig?.({ showGrid: !config.showGrid })}
           >
-            <Grid3x3 className="h-4 w-4 mr-2" />
+            <Grid3x3 className="h-4 w-4 mr-1.5" />
             Grid
           </Button>
-          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          
+          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer px-2 h-8 hover:bg-gray-100 rounded-md">
             <input
               type="checkbox"
               checked={config.snapToGrid || false}
-              onChange={(e) => {
-                if (onUpdateConfig) {
-                  onUpdateConfig({ snapToGrid: e.target.checked });
-                }
-              }}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => onUpdateConfig?.({ snapToGrid: e.target.checked })}
+              className="w-3.5 h-3.5 text-blue-600 rounded focus:ring-blue-500"
             />
-            Snap to Grid
+            Snap
           </label>
+        </div>
+
+        {/* Right Side: Item Tools */}
+        <div className="flex gap-2">
           {(selectedCabinet || selectedAppliance) && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRotateCounterClockwise}
-                title="Rotate 90° counter-clockwise"
-              >
+            <div className="pointer-events-auto bg-white/90 backdrop-blur rounded-lg shadow-sm border border-gray-200 flex items-center p-1 gap-1">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600" onClick={handleRotateCounterClockwise} title="Rotate 90° counter-clockwise">
                 <RotateCcw className="h-4 w-4" />
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRotateClockwise}
-                title="Rotate 90° clockwise"
-              >
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600" onClick={handleRotateClockwise} title="Rotate 90° clockwise">
                 <RotateCw className="h-4 w-4" />
               </Button>
-            </>
+            </div>
           )}
+
           {selectedCabinet && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  // Move cabinet to (0, 0) which represents the northwest corner
-                  // The 3D renderer will handle the conversion to place it flush against walls
-                  onUpdateCabinet(selectedCabinet.id, { 
-                    x: 0, 
-                    y: 0 
-                  });
-                }}
-                title="Move cabinet to corner - flush against North and West walls"
-              >
-                Move to Corner
+            <div className="pointer-events-auto bg-white/90 backdrop-blur rounded-lg shadow-sm border border-gray-200 flex items-center p-1 gap-1">
+              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-gray-600" onClick={() => onUpdateCabinet(selectedCabinet.id, { x: 0, y: 0 })} title="Move cabinet to corner">
+                <Move className="h-4 w-4 mr-1.5" />
+                To Corner
               </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => onDeleteCabinet(selectedCabinet.id)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
+              <div className="w-px h-4 bg-gray-300 mx-1" />
+              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => onDeleteCabinet(selectedCabinet.id)}>
+                <Trash2 className="h-4 w-4 mr-1.5" />
                 Delete
               </Button>
-            </>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Canvas */}
+      {/* Canvas Container */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-auto bg-gray-50 rounded-lg border"
+        className="flex-1 overflow-auto w-full h-full relative"
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        style={{ backgroundColor: isDragOver ? '#f0f9ff' : '#f5f5f5' }}
+        style={{ backgroundColor: isDragOver ? '#f0f9ff' : 'transparent' }}
       >
+
         <canvas
           ref={canvasRef}
           width={800}

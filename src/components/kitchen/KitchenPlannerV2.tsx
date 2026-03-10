@@ -18,6 +18,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ScrollArea } from '../ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { 
   Box, 
   Refrigerator, 
@@ -386,11 +387,12 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
   );
 
   return (
-    <div className="bg-white">
-      <div className="print:hidden">
-        {/* Main Tab Navigation - Design / Materials / Saved Designs */}
-        <div className="border-b bg-white">
-        <div className="px-6 py-0 flex items-center justify-between">
+    <>
+      <div className="bg-white">
+        <div className="print:hidden">
+          {/* Main Tab Navigation - Design / Materials / Saved Designs */}
+          <div className="border-b bg-white">
+          <div className="px-6 py-0 flex items-center justify-between">
           {/* Tab Navigation */}
           <div className="flex gap-1">
             <button
@@ -519,170 +521,168 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'design' && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Left Sidebar - Item Library */}
-            <div className="lg:col-span-1 space-y-6">
-              {/* Selected Item Properties */}
-              {selectedCabinet && (
-                <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-4 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                  <div className="flex justify-between items-center mb-3">
-                    <h2 className="font-semibold text-lg">Selected Item</h2>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-6 w-6 p-0 rounded-full" 
-                      onClick={() => setSelectedCabinet(null)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{selectedCabinet.name}</div>
-                      <div className="text-xs text-gray-500">{selectedCabinet.width}W × {selectedCabinet.height}H × {selectedCabinet.depth}D</div>
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-gray-700">Custom 3D Model (OBJ URL)</label>
-                      <Input 
-                        placeholder="https://.../model.obj"
-                        value={selectedCabinet.modelUrl || ''}
-                        onChange={(e) => handleUpdateCabinet(selectedCabinet.id, { modelUrl: e.target.value })}
-                        className="text-xs h-8"
-                      />
-                      <p className="text-[10px] text-gray-500 leading-tight">Paste a signed URL from the 3D Models library to replace the default box geometry.</p>
-                    </div>
+          <div className="flex gap-6">
+            {/* Left Catalog Panel */}
+            <div className="w-64 flex-shrink-0 flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 h-[calc(100vh-14rem)] min-h-[600px]">
+              {/* Category Tabs */}
+              <div className="flex p-2 gap-1 border-b border-gray-100 bg-gray-50/50">
+                <button
+                  onClick={() => setActiveCategory('cabinets')}
+                  className={`flex-1 flex flex-col items-center justify-center gap-1 p-2 rounded-md transition-all ${
+                    activeCategory === 'cabinets'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                  title="Cabinets"
+                >
+                  <Box className="w-5 h-5" />
+                  <span className="text-[10px] font-medium leading-none">Cabinets</span>
+                </button>
+                <button
+                  onClick={() => setActiveCategory('appliances')}
+                  className={`flex-1 flex flex-col items-center justify-center gap-1 p-2 rounded-md transition-all ${
+                    activeCategory === 'appliances'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                  title="Appliances"
+                >
+                  <Refrigerator className="w-5 h-5" />
+                  <span className="text-[10px] font-medium leading-none">Appliances</span>
+                </button>
+                <button
+                  onClick={() => setActiveCategory('settings')}
+                  className={`flex-1 flex flex-col items-center justify-center gap-1 p-2 rounded-md transition-all ${
+                    activeCategory === 'settings'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                  title="Room Settings"
+                >
+                  <Settings className="w-5 h-5" />
+                  <span className="text-[10px] font-medium leading-none text-center">Settings</span>
+                </button>
+              </div>
 
-                    <Button 
-                      variant="destructive" 
-                      size="sm" 
-                      className="w-full"
-                      onClick={() => handleDeleteCabinet(selectedCabinet.id)}
-                    >
-                      Remove Item
-                    </Button>
-                  </div>
+              {/* Header */}
+              <div className="p-4 border-b border-gray-100 flex flex-col gap-3">
+                <div className="text-sm font-semibold text-gray-700 capitalize flex items-center gap-2">
+                  {activeCategory === 'cabinets' && <><Box className="w-4 h-4" /> Cabinet Catalog</>}
+                  {activeCategory === 'appliances' && <><Refrigerator className="w-4 h-4" /> Appliance Catalog</>}
+                  {activeCategory === 'settings' && <><Settings className="w-4 h-4" /> Room Settings</>}
                 </div>
-              )}
-
-              {/* Category Selector */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <h2 className="font-semibold text-lg mb-3">Add Items</h2>
-                
-                {/* Category Tabs */}
-                <div className="flex flex-col gap-2 mb-4">
-                  <button
-                    onClick={() => setActiveCategory('cabinets')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      activeCategory === 'cabinets'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Box className="w-5 h-5" />
-                    <span>Cabinets</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveCategory('appliances')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      activeCategory === 'appliances'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Refrigerator className="w-5 h-5" />
-                    <span>Appliances</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveCategory('settings')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                      activeCategory === 'settings'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Settings className="w-5 h-5" />
-                    <span>Room Settings</span>
-                  </button>
-                </div>
-
-                {/* Search */}
                 {activeCategory !== 'settings' && (
-                  <div className="relative">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                  <div className="relative w-full">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
                     <Input
-                      placeholder="Search..."
+                      placeholder="Search items..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9"
+                      className="pl-8 h-9 text-sm"
                     />
                   </div>
                 )}
               </div>
 
-              {/* Category Content */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                {activeCategory === 'cabinets' && (
-                  <div className="p-4">
-                    <div className="text-sm text-gray-600 mb-2">
-                      {filteredCabinets.length} products
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-gray-300">
+                {selectedCabinet ? (
+                  <div className="flex flex-col gap-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-100 p-2 rounded-md">
+                        <Box className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-gray-900">{selectedCabinet.name}</div>
+                        <div className="text-xs text-gray-500">{selectedCabinet.width}W × {selectedCabinet.height}H × {selectedCabinet.depth}D</div>
+                      </div>
                     </div>
-                    <div className="space-y-3 max-h-[880px] overflow-y-auto pr-2">
-                      {filteredCabinets.map(cabinet => (
-                        <CabinetCard
-                          key={cabinet.id}
-                          cabinet={cabinet}
-                          onAdd={handleAddCabinet}
-                          finish={config.cabinetFinish}
-                        />
-                      ))}
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1 block">Custom 3D Model (OBJ URL)</label>
+                      <Input 
+                        placeholder="https://.../model.obj"
+                        value={selectedCabinet.modelUrl || ''}
+                        onChange={(e) => handleUpdateCabinet(selectedCabinet.id, { modelUrl: e.target.value })}
+                        className="text-xs h-8 bg-white"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 pt-2 border-t border-blue-100/50">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1 text-xs bg-white"
+                        onClick={() => setSelectedCabinet(null)}
+                      >
+                        Deselect
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="flex-1 text-xs"
+                        onClick={() => handleDeleteCabinet(selectedCabinet.id)}
+                      >
+                        Remove
+                      </Button>
                     </div>
                   </div>
-                )}
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {activeCategory === 'cabinets' && (
+                      <div className="flex flex-col gap-3 pb-4">
+                        {filteredCabinets.map(cabinet => (
+                          <CabinetCard
+                            key={cabinet.id}
+                            cabinet={cabinet}
+                            onAdd={handleAddCabinet}
+                            finish={config.cabinetFinish}
+                          />
+                        ))}
+                        {filteredCabinets.length === 0 && (
+                          <div className="text-sm text-gray-500 py-4 text-center">No cabinets found.</div>
+                        )}
+                      </div>
+                    )}
 
-                {activeCategory === 'appliances' && (
-                  <div className="p-4">
-                    <div className="text-sm text-gray-600 mb-2">
-                      {filteredAppliances.length} products
-                    </div>
-                    <div className="space-y-3 max-h-[880px] overflow-y-auto pr-2">
-                      {filteredAppliances.map(appliance => (
-                        <ApplianceCard
-                          key={appliance.id}
-                          appliance={appliance}
-                          onAdd={handleAddAppliance}
-                        />
-                      ))}
-                    </div>
+                    {activeCategory === 'appliances' && (
+                      <div className="flex flex-col gap-3 pb-4">
+                        {filteredAppliances.map(appliance => (
+                          <ApplianceCard
+                            key={appliance.id}
+                            appliance={appliance}
+                            onAdd={handleAddAppliance}
+                          />
+                        ))}
+                        {filteredAppliances.length === 0 && (
+                          <div className="text-sm text-gray-500 py-4 text-center">No appliances found.</div>
+                        )}
+                      </div>
+                    )}
+
+                    {activeCategory === 'settings' && (
+                      <div className="w-full">
+                        <KitchenConfigurator config={config} onChange={handleUpdateConfig} />
+                      </div>
+                    )}
                   </div>
                 )}
-
-                {activeCategory === 'settings' && (
-                  <div className="p-4">
-                    <KitchenConfigurator config={config} onChange={handleUpdateConfig} />
-                  </div>
-                )}
-              </div>
-
-              {/* Price Display */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="text-sm text-gray-600 mb-1">Total Cost</div>
-                <div className="text-2xl font-bold text-blue-600">${totalPrice.toFixed(2)}</div>
               </div>
             </div>
 
-            {/* Right Side - Canvas and Materials */}
-            <div className="lg:col-span-3 space-y-6">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">Kitchen Plan & Elevation</h2>
-                  <div className="flex gap-2">
+            {/* Right Side Content (Canvas & Summary) */}
+            <div className="flex-1 flex flex-col gap-6 min-w-0">
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-lg font-semibold">Kitchen Plan & Elevation</h2>
+                      <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100">
+                        <span className="text-xs text-blue-700 font-medium">Total Cost:</span>
+                        <span className="text-sm font-bold text-blue-900">${totalPrice.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
                     <button
                       onClick={() => setConfig(prev => ({ ...prev, viewMode: '2D' }))}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
@@ -706,7 +706,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                     </button>
                   </div>
                 </div>
-                <div>
+                <div className="h-[600px] border border-gray-200 rounded-lg overflow-hidden">
                   {config.viewMode === '2D' ? (
                     <KitchenCanvas
                       config={config}
@@ -720,7 +720,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                       onUpdateConfig={handleUpdateConfig}
                     />
                   ) : (
-                    <div className="h-[500px]">
+                    <div className="h-full">
                       <Kitchen3DRenderer ref={kitchen3DRendererRef} config={config} />
                     </div>
                   )}
@@ -754,6 +754,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                   </table>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         )}
@@ -885,6 +886,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         )}
       </div>
       </div>
+      </div>
 
       {/* Hidden element for printing */}
       <PrintableKitchenDesign 
@@ -897,6 +899,6 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         designName={loadedDesignInfo.name}
         snapshotUrl={snapshotUrl || undefined}
       />
-    </div>
+    </>
   );
 }
