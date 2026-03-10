@@ -201,6 +201,13 @@ export function KitchenCanvas({
     if (cabinet.finish === 'Cherry') fillColor = '#a0522d';
     if (cabinet.finish === 'Maple') fillColor = '#f5deb3';
 
+    // Make wall cabinets slightly transparent so base cabinets underneath remain visible
+    if (cabinet.type === 'wall' || cabinet.type === 'corner-wall') {
+      ctx.globalAlpha = 0.85;
+      // Lighten the wall cabinet color slightly to distinguish it
+      fillColor = '#e5e7eb';
+    }
+
     // Check if this is a corner cabinet
     const isCornerCabinet = cabinet.type === 'corner-base' || cabinet.type === 'corner-wall';
 
@@ -331,6 +338,7 @@ export function KitchenCanvas({
 
     ctx.save();
     ctx.translate(x, y);
+    ctx.rotate((appliance.rotation * Math.PI) / 180);
 
     // Appliance body
     ctx.fillStyle = '#e5e7eb';

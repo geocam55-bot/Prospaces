@@ -24,16 +24,24 @@ function placeCab(
   let x = visX;
   let y = visY;
   
-  if (rotation === 90 || rotation === -90 || rotation === 270) {
-    x = visX + d / 2 - w / 2;
-    y = visY + w / 2 - d / 2;
+  // The canvas and 3D renderer rotate the cabinet around its top-left corner (x,y).
+  // We want to calculate the correct (x,y) pivot so that the resulting rotated 
+  // bounding box has its visual top-left at exactly (visX, visY).
+  if (rotation === 90) {
+    x = visX + d;
+    y = visY;
+  } else if (rotation === -90 || rotation === 270) {
+    x = visX;
+    y = visY + w;
+  } else if (rotation === 180 || rotation === -180) {
+    x = visX + w;
+    y = visY + d;
   }
   
   let wall: 'north'|'south'|'east'|'west'|'island' = 'north';
   if (rotation === 180 || rotation === -180) wall = 'south';
   else if (rotation === 90) wall = 'east';
   else if (rotation === -90 || rotation === 270) wall = 'west';
-  // If it's an island, maybe it needs 'island' flag, but for templates this is fine.
   
   return {
     ...catItem,
@@ -61,9 +69,15 @@ function placeApp(
   let x = visX;
   let y = visY;
   
-  if (rotation === 90 || rotation === -90 || rotation === 270) {
-    x = visX + depth / 2 - width / 2;
-    y = visY + width / 2 - depth / 2;
+  if (rotation === 90) {
+    x = visX + depth;
+    y = visY;
+  } else if (rotation === -90 || rotation === 270) {
+    x = visX;
+    y = visY + width;
+  } else if (rotation === 180 || rotation === -180) {
+    x = visX + width;
+    y = visY + depth;
   }
   
   return {

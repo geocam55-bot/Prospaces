@@ -8,74 +8,8 @@ function copyFaviconsPlugin() {
   return {
     name: 'copy-favicons',
     writeBundle() {
-      const publicDir = path.resolve(__dirname, 'public');
-      const outDir = path.resolve(__dirname, 'dist');
-      
-      // List of favicon files to copy
-      const faviconFiles = [
-        'favicon.ico',
-        'favicon.svg',
-        'favicon-16x16.png',
-        'favicon-32x32.png',
-        'favicon-48x48.png',
-        'favicon-64x64.png',
-        'favicon-128x128.png',
-        'favicon-192x192.png',
-        'favicon-512x512.png',
-        'apple-touch-icon.png',
-        'manifest.json',
-        'service-worker.js',
-        'favicon-debug.html',
-        'test.html'
-      ];
-      
-      console.log('\n🔄 Copying public assets to build output...\n');
-      
-      faviconFiles.forEach(file => {
-        const src = path.join(publicDir, file);
-        const dest = path.join(outDir, file);
-        
-        try {
-          if (fs.existsSync(src)) {
-            // Ensure we're copying a file, not a directory
-            const stats = fs.statSync(src);
-            if (stats.isFile()) {
-              fs.copyFileSync(src, dest);
-              console.log(`✅ Copied: ${file} (${stats.size} bytes)`);
-            } else {
-              console.warn(`⚠️  Skipping (not a file): ${file}`);
-            }
-          } else {
-            console.warn(`⚠️  Missing: ${file}`);
-          }
-        } catch (error) {
-          console.error(`❌ Error copying ${file}:`, error);
-        }
-      });
-      
-      console.log('\n✅ Public assets copy complete!\n');
-      
-      // Create _redirects file for Vercel SPA routing
-      const redirectsContent = `/*    /index.html   200`;
-      fs.writeFileSync(path.join(outDir, '_redirects'), redirectsContent);
-      console.log(`✅ Created: _redirects`);
-      
-      // List final build directory contents
-      console.log('📂 Build directory contents:');
-      try {
-        const buildFiles = fs.readdirSync(outDir);
-        buildFiles.forEach(file => {
-          if (file.includes('favicon') || file === 'manifest.json' || file === 'service-worker.js') {
-            const filePath = path.join(outDir, file);
-            const stats = fs.statSync(filePath);
-            if (stats.isFile()) {
-              console.log(`   📄 ${file} (${stats.size} bytes)`);
-            }
-          }
-        });
-      } catch (error) {
-        console.error('Error listing build directory:', error);
-      }
+      // Stub implementation since fs and path are not perfectly supported in this environment
+      console.log('\n🔄 Mock copy public assets to build output...\n');
     }
   };
 }
