@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { KitchenConfig } from '../../types/kitchen';
 import { parseOBJ } from '../../utils/OBJLoader';
+import { projectId } from '../../utils/supabase/info';
 import { 
   Scene, 
   Color, 
@@ -317,11 +318,28 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
           cabinetGeometry = modelCache[cabinet.modelUrl];
           isCustomModel = true;
         } else if (modelCache[cabinet.modelUrl] === undefined && !fetchPromises[cabinet.modelUrl]) {
-          fetchPromises[cabinet.modelUrl] = fetch(cabinet.modelUrl)
-            .then(res => {
-              if (!res.ok) throw new Error('Failed to fetch');
-              return res.text();
-            })
+          const fetchModel = async () => {
+            let url = cabinet.modelUrl;
+            if (url && !url.startsWith('http')) {
+              // It's a filename, get signed URL from server
+              const { publicAnonKey } = await import('../../utils/supabase/info');
+              const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/models/signed-url?filename=${url}&bucket=make-8405be07-models`, {
+                headers: {
+                  'Authorization': `Bearer ${publicAnonKey}`
+                }
+              });
+              if (!res.ok) throw new Error('Failed to get signed URL');
+              const data = await res.json();
+              if (data.error) throw new Error(data.error);
+              url = data.url;
+            }
+            
+            const res = await fetch(url as string);
+            if (!res.ok) throw new Error('Failed to fetch');
+            return res.text();
+          };
+
+          fetchPromises[cabinet.modelUrl] = fetchModel()
             .then(text => {
               const geom = parseOBJ(text);
               geom.center(); // Center geometry around its origin to match BoxGeometry alignment

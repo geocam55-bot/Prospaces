@@ -212,58 +212,67 @@ export function KitchenCanvas({
     const isCornerCabinet = cabinet.type === 'corner-base' || cabinet.type === 'corner-wall';
 
     if (isCornerCabinet) {
-      // Draw L-shaped corner cabinet
-      const cornerSize = Math.min(width, depth);
+      // Draw L-shaped corner cabinet correctly aligning with North/West walls when rotation is 0
+      const armDepthInches = cabinet.type === 'corner-wall' ? 12 : 24;
+      const armDepth = armDepthInches * PIXELS_PER_INCH;
       
-      // Fill the L-shape (two rectangles forming an L)
+      // Fill the L-shape (two rectangles forming an L on North and West edges)
       ctx.fillStyle = fillColor;
       
-      // Vertical part of L
-      ctx.fillRect(0, 0, cornerSize * 0.4, depth);
-      // Horizontal part of L
-      ctx.fillRect(0, depth - cornerSize * 0.4, width, cornerSize * 0.4);
+      // Vertical part of L (West arm)
+      ctx.fillRect(0, 0, armDepth, depth);
+      // Horizontal part of L (North arm)
+      ctx.fillRect(armDepth, 0, width - armDepth, armDepth);
       
       // Outline the L-shape
       ctx.strokeStyle = isSelected ? '#3b82f6' : isHovered ? '#60a5fa' : '#6b7280';
       ctx.lineWidth = isSelected ? 3 : isHovered ? 2 : 1;
       
-      ctx.strokeRect(0, 0, cornerSize * 0.4, depth);
-      ctx.strokeRect(0, depth - cornerSize * 0.4, width, cornerSize * 0.4);
-      
-      // Draw corner diagonal line to show the L-shape connection
       ctx.beginPath();
-      ctx.moveTo(cornerSize * 0.4, depth - cornerSize * 0.4);
-      ctx.lineTo(cornerSize * 0.4, depth);
+      ctx.moveTo(0, 0);
+      ctx.lineTo(width, 0);
+      ctx.lineTo(width, armDepth);
+      ctx.lineTo(armDepth, armDepth);
+      ctx.lineTo(armDepth, depth);
+      ctx.lineTo(0, depth);
+      ctx.closePath();
       ctx.stroke();
       
-      // Draw angled doors for corner cabinet
-      const doorWidth = cornerSize * 0.35;
-      const doorHeight = depth * 0.6;
-      const doorOffset = cornerSize * 0.025;
+      // Draw corner diagonal line to show the L-shape inner corner
+      ctx.beginPath();
+      ctx.moveTo(armDepth, armDepth);
+      ctx.lineTo(0, 0);
+      ctx.stroke();
       
-      // Left door (on vertical part)
+      // Draw angled doors for corner cabinet on the inner faces
       ctx.strokeStyle = '#4b5563';
       ctx.lineWidth = 1.5;
-      ctx.strokeRect(doorOffset, depth * 0.2, doorWidth, doorHeight);
       
-      // Right door (angled, on horizontal part)
-      const rightDoorY = depth - cornerSize * 0.35;
-      const rightDoorWidth = width * 0.45;
-      ctx.strokeRect(cornerSize * 0.45, rightDoorY + doorOffset, rightDoorWidth, cornerSize * 0.3);
+      // Left door (on inner vertical face)
+      ctx.beginPath();
+      ctx.moveTo(armDepth, depth - 2);
+      ctx.lineTo(armDepth, armDepth + 2);
+      ctx.stroke();
+      
+      // Right door (on inner horizontal face)
+      ctx.beginPath();
+      ctx.moveTo(armDepth + 2, armDepth);
+      ctx.lineTo(width - 2, armDepth);
+      ctx.stroke();
       
       // Door handles
       ctx.fillStyle = '#374151';
       // Left door handle
-      ctx.fillRect(doorWidth - 8, depth * 0.5 - 8, 3, 16);
+      ctx.fillRect(armDepth - 6, depth - 16, 4, 12);
       // Right door handle  
-      ctx.fillRect(cornerSize * 0.5, rightDoorY + cornerSize * 0.15 - 2, 16, 3);
+      ctx.fillRect(width - 16, armDepth - 6, 12, 4);
       
       // Label
       ctx.fillStyle = '#1f2937';
       ctx.font = '9px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('Corner', width / 2, depth - 10);
+      ctx.fillText('Corner', armDepth / 2, armDepth / 2);
       
     } else {
       // Draw regular cabinet (existing code)
@@ -823,7 +832,6 @@ export function KitchenCanvas({
         toast.success(`${item.name} added to canvas`);
       }
     } catch (error) {
-      console.error('Error adding item:', error);
       toast.error('Failed to add item');
     }
   };

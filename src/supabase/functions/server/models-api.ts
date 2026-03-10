@@ -23,12 +23,11 @@ export function modelsAPI(app: Hono) {
         public: false,
         fileSizeLimit: 50 * 1024 * 1024, // 50MB
       });
-      console.log(`[models] Created private bucket: ${BUCKET_NAME}`);
     }
   };
 
   // Run on startup
-  initBucket().catch(err => console.error('[models] Init bucket error:', err));
+  initBucket().catch(() => {});
 
   app.post(`${PREFIX}/upload`, async (c) => {
     try {
@@ -64,7 +63,6 @@ export function modelsAPI(app: Hono) {
 
       return c.json({ success: true, path: data.path });
     } catch (error: any) {
-      console.error('[models] Upload error:', error);
       return c.json({ error: error.message }, 500);
     }
   });
@@ -100,7 +98,24 @@ export function modelsAPI(app: Hono) {
 
       return c.json({ models });
     } catch (error: any) {
-      console.error('[models] List error:', error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
+  app.get(`${PREFIX}/signed-url`, async (c) => {
+    try {
+      const filename = c.req.query('filename');
+      const bucket = c.req.query('bucket') || BUCKET_NAME;
+      if (!filename) return c.json({ error: 'Filename is required' }, 400);
+
+      const supabase = getSupabase();
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(filename, 60 * 60 * 24);
+
+      if (error) throw error;
+      return c.json({ url: data.signedUrl });
+    } catch (error: any) {
       return c.json({ error: error.message }, 500);
     }
   });
