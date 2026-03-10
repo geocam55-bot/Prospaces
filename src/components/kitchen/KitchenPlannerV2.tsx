@@ -13,6 +13,7 @@ import { ModelLibrary } from './ModelLibrary';
 import { calculateKitchenMaterials } from '../../utils/kitchenCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { KitchenConfig, PlacedCabinet, CABINET_CATALOG, CabinetItem, Appliance } from '../../types/kitchen';
+import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -164,6 +165,17 @@ function CabinetCard({
   };
 
   const getCabinetIcon = () => {
+    if (cabinet.image) {
+      return (
+        <div className="w-full h-full flex items-center justify-center p-2">
+          <ImageWithFallback 
+            src={cabinet.image} 
+            alt={cabinet.name} 
+            className="w-full h-full object-contain mix-blend-multiply" 
+          />
+        </div>
+      );
+    }
     switch (cabinet.type) {
       case 'base': return <BaseCabinetIcon className="w-full h-full" />;
       case 'wall': return <WallCabinetIcon className="w-full h-full" />;

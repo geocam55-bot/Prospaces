@@ -85,7 +85,6 @@ export function SavedKitchenDesigns({
 
     setIsLoading(true);
     setSaveMessage(''); // Clear any previous messages
-    console.log('[SavedKitchenDesigns] Loading designs for org:', user.organizationId);
     
     try {
       // Use kv_store with prefix pattern for kitchen designs
@@ -100,8 +99,6 @@ export function SavedKitchenDesigns({
         console.error('[SavedKitchenDesigns] Error loading designs:', error);
         throw error;
       }
-
-      console.log('[SavedKitchenDesigns] Loaded designs:', data?.length || 0);
 
       // Parse the designs from kv store
       const loadedDesigns = (data || []).map(item => ({
@@ -159,7 +156,6 @@ export function SavedKitchenDesigns({
         throw new Error(`Database error: ${error.message}`);
       }
 
-      console.log('✓ Design saved to kv_store successfully:', designId);
       setSaveName('');
       setSaveDescription('');
       setSelectedCustomer(null);
