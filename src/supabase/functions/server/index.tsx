@@ -618,12 +618,20 @@ app.get(`${PREFIX}/settings/organization`, async (c) => {
     if (auth.error) return c.json({ error: auth.error }, auth.status);
     const orgId = c.req.query('organization_id') || auth.profile.organization_id;
     const { data, error } = await auth.supabase.from('organization_settings').select('*').eq('organization_id', orgId).single();
+    
+    // Fallback/extra data from KV store
+    const kvData = await kv.get(`org_settings_extra:${orgId}`) || {};
+
     if (error) {
-      if (error.code === 'PGRST116') return c.json({ settings: null, source: 'server-not-found' });
-      if (error.code === 'PGRST205' || error.code === '42P01') return c.json({ settings: null, source: 'server-table-missing' });
+      if (error.code === 'PGRST116' || error.code === 'PGRST205' || error.code === '42P01') {
+        return c.json({ settings: kvData, source: 'server-table-missing-or-not-found' });
+      }
       return c.json({ error: error.message }, 500);
     }
-    return c.json({ settings: data, source: 'server' });
+    
+    // Merge DB data with KV data
+    const merged = { ...data, ...kvData };
+    return c.json({ settings: merged, source: 'server' });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
@@ -635,10 +643,27 @@ app.put(`${PREFIX}/settings/organization`, async (c) => {
     const body = await c.req.json();
     const orgId = body.organization_id || auth.profile.organization_id;
     const dbSettings: any = { ...body, organization_id: orgId, updated_at: new Date().toISOString() };
+    
+    // Save these fields in KV since they might not be in the Postgres table schema
+    const kvSettings = {
+      price_tier_labels: body.price_tier_labels,
+      audience_segments: body.audience_segments,
+    };
+    
     delete dbSettings.price_tier_labels;
+    delete dbSettings.audience_segments;
+    
+    await kv.set(`org_settings_extra:${orgId}`, kvSettings);
+
     const { data, error } = await auth.supabase.from('organization_settings').upsert(dbSettings, { onConflict: 'organization_id' }).select().single();
-    if (error) return c.json({ error: error.message }, 500);
-    return c.json({ settings: data, source: 'server' });
+    
+    if (error) {
+       // if DB fails due to some column issue, we at least saved KV
+       return c.json({ error: error.message }, 500);
+    }
+    
+    const merged = { ...data, ...kvSettings };
+    return c.json({ settings: merged, source: 'server' });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 

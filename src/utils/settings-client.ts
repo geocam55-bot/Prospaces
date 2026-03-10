@@ -35,7 +35,7 @@ export interface OrganizationSettings {
 // Fields that may not exist as columns in the organization_settings table.
 // These are stripped before upsert to avoid PGRST204 errors,
 // and are handled via localStorage fallback instead.
-const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels'];
+const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels', 'audience_segments'];
 
 // ─── GET user preferences ──────────────────────────────────────────────────
 

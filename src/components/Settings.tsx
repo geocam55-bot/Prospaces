@@ -672,8 +672,8 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             <TabsTrigger value="profile" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Profile</TabsTrigger>
             <TabsTrigger value="notifications" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Notifications</TabsTrigger>
             {canManageSettings && <TabsTrigger value="organization" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Organization</TabsTrigger>}
+            {canManageSettings && <TabsTrigger value="module-settings" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Module Defaults</TabsTrigger>}
             {canAccessSecurity && <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Permissions</TabsTrigger>}
-            {canManageSettings && <TabsTrigger value="project-wizards" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Project Wizards</TabsTrigger>}
             {canManageSettings && <TabsTrigger value="diagnostics" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Diagnostics</TabsTrigger>}
             <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
             {(userMode === 'single' || canManageSettings) && <TabsTrigger value="billing" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Billing</TabsTrigger>}
@@ -883,16 +883,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                     <Label htmlFor="orgId">Organization ID</Label>
                     <Input id="orgId" defaultValue={user.organizationId} disabled />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Custom Fields</Label>
-                    <p className="text-sm text-gray-500">Add custom fields to your CRM data types</p>
-                    <Button type="button" variant="outline" onClick={() => setShowCustomFieldsDialog(true)}>Manage Custom Fields</Button>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Workflows</Label>
-                    <p className="text-sm text-gray-500">Configure automated workflows and statuses</p>
-                    <Button type="button" variant="outline" onClick={() => setShowWorkflowDialog(true)}>Configure Workflows</Button>
-                  </div>
                   <Button type="submit" disabled={isSavingOrg}>
                     {isSavingOrg ? 'Saving...' : 'Save Organization Settings'}
                   </Button>
@@ -988,245 +978,300 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               </CardContent>
             </Card>
 
-            {/* Global Settings Card */}
+            {/* Global Settings Card (moved to Module Defaults) */}
+          </TabsContent>
+        )}
+
+        {canManageSettings && (
+          <TabsContent value="module-settings" className="space-y-4">
+            <div className="mb-4">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <LayoutGrid className="h-6 w-6" />
+                Module Defaults
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configure default settings and options for specific modules like Deals, Contacts, and Inventory
+              </p>
+            </div>
+
             {(user.role === 'super_admin' || user.role === 'admin') && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
-                    Global Settings
-                  </CardTitle>
-                  <p className="text-sm text-gray-500 mt-2">
-                    <Shield className="h-4 w-4 inline mr-1" />
-                    Restricted to Super Admin and Admin only
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="taxRate">Tax Rate 1 (%)</Label>
-                      <Input
-                        id="taxRate"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={globalSettings.taxRate}
-                        onChange={(e) => setGlobalSettings({ ...globalSettings, taxRate: parseFloat(e.target.value) || 0 })}
-                        placeholder="Enter tax rate (e.g., 8.5 for 8.5%)"
-                      />
-                      <p className="text-xs text-gray-500">
-                        Primary tax rate for bids and quotes
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="taxRate2">Tax Rate 2 (%) - Optional</Label>
-                      <Input
-                        id="taxRate2"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={globalSettings.taxRate2}
-                        onChange={(e) => setGlobalSettings({ ...globalSettings, taxRate2: parseFloat(e.target.value) || 0 })}
-                        placeholder="Enter second tax rate (e.g., 2.0 for 2.0%)"
-                      />
-                      <p className="text-xs text-gray-500">
-                        Secondary tax rate (if applicable)
-                      </p>
-                    </div>
+              <div className="space-y-4">
+                <Tabs defaultValue="deals" className="w-full">
+                  <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 mb-2">
+                    <TabsList className="inline-flex sm:grid sm:w-full sm:grid-cols-5 min-w-max">
+                      <TabsTrigger value="general" className="whitespace-nowrap px-4">General CRM</TabsTrigger>
+                      <TabsTrigger value="deals" className="whitespace-nowrap px-4">Deals & Quotes</TabsTrigger>
+                      <TabsTrigger value="contacts" className="whitespace-nowrap px-4">Contacts</TabsTrigger>
+                      <TabsTrigger value="inventory" className="whitespace-nowrap px-4">Inventory & Pricing</TabsTrigger>
+                      <TabsTrigger value="wizards" className="whitespace-nowrap px-4">Project Wizards</TabsTrigger>
+                    </TabsList>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="defaultPriceLevel">Default Price Level</Label>
-                    <Select
-                      value={globalSettings.defaultPriceLevel}
-                      onValueChange={(value) => setGlobalSettings({ ...globalSettings, defaultPriceLevel: value })}
-                    >
-                      <SelectTrigger id="defaultPriceLevel">
-                        <SelectValue placeholder="Select default price level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[
-                          { key: 't1' as const, tier: 1 },
-                          { key: 't2' as const, tier: 2 },
-                          { key: 't3' as const, tier: 3 },
-                          { key: 't4' as const, tier: 4 },
-                          { key: 't5' as const, tier: 5 },
-                        ]
-                          .filter(({ key }) => {
-                            const label = (globalSettings.priceTierLabels || DEFAULT_PRICE_TIER_LABELS)[key];
-                            return label && label.trim() !== '' && label.trim() !== '0';
-                          })
-                          .map(({ key, tier }) => {
-                            const label = (globalSettings.priceTierLabels || DEFAULT_PRICE_TIER_LABELS)[key];
-                            return (
-                              <SelectItem key={key} value={label}>
-                                T{tier} — {label}
-                              </SelectItem>
-                            );
-                          })}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-gray-500">
-                      This price level will be used as default when creating new bids and quotes
-                    </p>
-                  </div>
-
-                  {/* Price Tier Labels */}
-                  <div className="space-y-3">
-                    <div>
-                      <Label className="text-base font-semibold">Price Tier Labels</Label>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Customize the names shown for each price tier across the entire CRM. Set a tier to "0" or leave blank to disable it.
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-                      {([
-                        { key: 't1' as const, tier: 1 },
-                        { key: 't2' as const, tier: 2 },
-                        { key: 't3' as const, tier: 3 },
-                        { key: 't4' as const, tier: 4 },
-                        { key: 't5' as const, tier: 5 },
-                      ]).map(({ key, tier }) => (
-                        <div key={key} className="space-y-1">
-                          <Label htmlFor={`tierLabel-${key}`} className="text-xs text-gray-600">
-                            Tier {tier} Label
-                          </Label>
-                          <Input
-                            id={`tierLabel-${key}`}
-                            value={(globalSettings.priceTierLabels || DEFAULT_PRICE_TIER_LABELS)[key] || ''}
-                            onChange={(e) => setGlobalSettings(prev => ({
-                              ...prev,
-                              priceTierLabels: {
-                                ...(prev.priceTierLabels || DEFAULT_PRICE_TIER_LABELS),
-                                [key]: e.target.value,
-                              },
-                            }))}
-                            placeholder={DEFAULT_PRICE_TIER_LABELS[key]}
-                            className="text-sm"
-                          />
+                  
+                  <TabsContent value="general" className="mt-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Cross-Module Settings</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label>Custom Fields</Label>
+                          <p className="text-sm text-gray-500">Add custom fields to your CRM data types</p>
+                          <Button type="button" variant="outline" onClick={() => setShowCustomFieldsDialog(true)}>Manage Custom Fields</Button>
                         </div>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setGlobalSettings(prev => ({
-                          ...prev,
-                          priceTierLabels: { ...DEFAULT_PRICE_TIER_LABELS },
-                        }))}
-                      >
-                        Reset to Defaults
-                      </Button>
-                      <span className="text-xs text-gray-400">
-                        Defaults: Retail, VIP, VIP B, VIP A, 0
-                      </span>
-                    </div>
-                  </div>
+                        <div className="space-y-2">
+                          <Label>Workflows</Label>
+                          <p className="text-sm text-gray-500">Configure automated workflows and statuses</p>
+                          <Button type="button" variant="outline" onClick={() => setShowWorkflowDialog(true)}>Configure Workflows</Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="quoteTerms">Default Terms for Quotes</Label>
-                    <Textarea
-                      id="quoteTerms"
-                      value={globalSettings.quoteTerms}
-                      onChange={(e) => setGlobalSettings({ ...globalSettings, quoteTerms: e.target.value })}
-                      placeholder="Enter default terms for quotes"
-                      rows={4}
-                    />
-                    <p className="text-xs text-gray-500">
-                      These terms will be used as default when creating new quotes and bids
-                    </p>
-                  </div>
+                  <TabsContent value="deals" className="mt-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Deals & Quotes Settings</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="taxRate">Tax Rate 1 (%)</Label>
+                            <Input
+                              id="taxRate"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={globalSettings.taxRate}
+                              onChange={(e) => setGlobalSettings({ ...globalSettings, taxRate: parseFloat(e.target.value) || 0 })}
+                              placeholder="Enter tax rate (e.g., 8.5 for 8.5%)"
+                            />
+                            <p className="text-xs text-gray-500">
+                              Primary tax rate for bids and quotes
+                            </p>
+                          </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="audienceSegments">Audience Segments</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="audienceSegments"
-                        value={newSegment}
-                        onChange={(e) => setNewSegment(e.target.value)}
-                        placeholder="Add new segment"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (newSegment.trim()) {
-                            setGlobalSettings(prev => ({
-                              ...prev,
-                              audienceSegments: [...prev.audienceSegments, newSegment.trim()],
-                            }));
-                            setNewSegment('');
-                          }
-                        }}
-                      >
-                        Add
-                      </Button>
-                    </div>
-                    <div className="mt-2">
-                      <Label className="text-sm text-gray-500">Current Segments</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {globalSettings.audienceSegments.map((segment, index) => (
-                          <div key={index} className="bg-gray-100 px-2 py-1 rounded text-sm">
-                            {segment}
-                            <button
+                          <div className="space-y-2">
+                            <Label htmlFor="taxRate2">Tax Rate 2 (%) - Optional</Label>
+                            <Input
+                              id="taxRate2"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={globalSettings.taxRate2}
+                              onChange={(e) => setGlobalSettings({ ...globalSettings, taxRate2: parseFloat(e.target.value) || 0 })}
+                              placeholder="Enter second tax rate (e.g., 2.0 for 2.0%)"
+                            />
+                            <p className="text-xs text-gray-500">
+                              Secondary tax rate (if applicable)
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="quoteTerms">Default Terms for Quotes</Label>
+                          <Textarea
+                            id="quoteTerms"
+                            value={globalSettings.quoteTerms}
+                            onChange={(e) => setGlobalSettings({ ...globalSettings, quoteTerms: e.target.value })}
+                            placeholder="Enter default terms for quotes"
+                            rows={4}
+                          />
+                          <p className="text-xs text-gray-500">
+                            These terms will be used as default when creating new quotes and bids
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="contacts" className="mt-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Contacts & Marketing</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="audienceSegments">Audience Segments</Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              id="audienceSegments"
+                              value={newSegment}
+                              onChange={(e) => setNewSegment(e.target.value)}
+                              placeholder="Add new segment"
+                            />
+                            <Button
                               type="button"
-                              className="ml-2 text-red-500"
+                              variant="outline"
+                              size="sm"
                               onClick={() => {
-                                setGlobalSettings(prev => ({
-                                  ...prev,
-                                  audienceSegments: prev.audienceSegments.filter(s => s !== segment),
-                                }));
+                                if (newSegment.trim()) {
+                                  setGlobalSettings(prev => ({
+                                    ...prev,
+                                    audienceSegments: [...prev.audienceSegments, newSegment.trim()],
+                                  }));
+                                  setNewSegment('');
+                                }
                               }}
                             >
-                              <X className="h-4 w-4" />
-                            </button>
+                              Add
+                            </Button>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+                          <div className="mt-2">
+                            <Label className="text-sm text-gray-500">Current Segments</Label>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {globalSettings.audienceSegments.map((segment, index) => (
+                                <div key={index} className="bg-gray-100 px-2 py-1 rounded text-sm flex items-center">
+                                  {segment}
+                                  <button
+                                    type="button"
+                                    className="ml-2 text-red-500 hover:bg-red-50 rounded p-0.5"
+                                    onClick={() => {
+                                      setGlobalSettings(prev => ({
+                                        ...prev,
+                                        audienceSegments: prev.audienceSegments.filter(s => s !== segment),
+                                      }));
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
 
-                  <Button onClick={handleSaveGlobalSettings} disabled={isSavingGlobal}>
-                    {isSavingGlobal ? 'Saving...' : 'Save Global Settings'}
+                  <TabsContent value="inventory" className="mt-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Inventory & Pricing Defaults</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="defaultPriceLevel">Default Price Level</Label>
+                          <Select
+                            value={globalSettings.defaultPriceLevel}
+                            onValueChange={(value) => setGlobalSettings({ ...globalSettings, defaultPriceLevel: value })}
+                          >
+                            <SelectTrigger id="defaultPriceLevel">
+                              <SelectValue placeholder="Select default price level" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[
+                                { key: 't1' as const, tier: 1 },
+                                { key: 't2' as const, tier: 2 },
+                                { key: 't3' as const, tier: 3 },
+                                { key: 't4' as const, tier: 4 },
+                                { key: 't5' as const, tier: 5 },
+                              ]
+                                .filter(({ key }) => {
+                                  const label = (globalSettings.priceTierLabels || DEFAULT_PRICE_TIER_LABELS)[key];
+                                  return label && label.trim() !== '' && label.trim() !== '0';
+                                })
+                                .map(({ key, tier }) => {
+                                  const label = (globalSettings.priceTierLabels || DEFAULT_PRICE_TIER_LABELS)[key];
+                                  return (
+                                    <SelectItem key={key} value={label}>
+                                      T{tier} — {label}
+                                    </SelectItem>
+                                  );
+                                })}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-gray-500">
+                            This price level will be used as default when creating new bids and quotes
+                          </p>
+                        </div>
+
+                        {/* Price Tier Labels */}
+                        <div className="space-y-3 pt-2">
+                          <div>
+                            <Label className="text-base font-semibold">Price Tier Labels</Label>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Customize the names shown for each price tier across the entire CRM. Set a tier to "0" or leave blank to disable it.
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                            {([
+                              { key: 't1' as const, tier: 1 },
+                              { key: 't2' as const, tier: 2 },
+                              { key: 't3' as const, tier: 3 },
+                              { key: 't4' as const, tier: 4 },
+                              { key: 't5' as const, tier: 5 },
+                            ]).map(({ key, tier }) => (
+                              <div key={key} className="space-y-1">
+                                <Label htmlFor={`tierLabel-${key}`} className="text-xs text-gray-600">
+                                  Tier {tier} Label
+                                </Label>
+                                <Input
+                                  id={`tierLabel-${key}`}
+                                  value={(globalSettings.priceTierLabels || DEFAULT_PRICE_TIER_LABELS)[key] || ''}
+                                  onChange={(e) => setGlobalSettings(prev => ({
+                                    ...prev,
+                                    priceTierLabels: {
+                                      ...(prev.priceTierLabels || DEFAULT_PRICE_TIER_LABELS),
+                                      [key]: e.target.value,
+                                    },
+                                  }))}
+                                  placeholder={DEFAULT_PRICE_TIER_LABELS[key]}
+                                  className="text-sm"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setGlobalSettings(prev => ({
+                                ...prev,
+                                priceTierLabels: { ...DEFAULT_PRICE_TIER_LABELS },
+                              }))}
+                            >
+                              Reset to Defaults
+                            </Button>
+                            <span className="text-xs text-gray-400">
+                              Defaults: Retail, VIP, VIP B, VIP A, 0
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="wizards" className="mt-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Project Wizard Settings</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ProjectWizardSettings 
+                          organizationId={user.organizationId}
+                          onSave={showAlert}
+                        />
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+
+                <div className="flex justify-start mt-6">
+                  <Button onClick={handleSaveGlobalSettings} disabled={isSavingGlobal} className="w-full sm:w-auto">
+                    {isSavingGlobal ? 'Saving...' : 'Save Module Defaults'}
                   </Button>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
-            
-            <ThemeSelector />
           </TabsContent>
         )}
 
         {canAccessSecurity && (
           <TabsContent value="permissions" className="space-y-4">
             <Security user={user} />
-          </TabsContent>
-        )}
-
-        {canManageSettings && (
-          <TabsContent value="project-wizards" className="space-y-4">
-            <div className="mb-4">
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <Hammer className="h-6 w-6" />
-                Project Wizard Settings
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Configure material defaults and settings for project planning tools
-              </p>
-            </div>
-            
-            {(user.role === 'super_admin' || user.role === 'admin') && (
-              <ProjectWizardSettings 
-                organizationId={user.organizationId}
-                onSave={showAlert}
-              />
-            )}
           </TabsContent>
         )}
 

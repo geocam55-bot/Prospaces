@@ -7449,6 +7449,12 @@
   }
 
   @media (width >= 40rem) {
+    .sm\:grid {
+      display: grid;
+    }
+  }
+
+  @media (width >= 40rem) {
     .sm\:hidden {
       display: none;
     }
@@ -7601,6 +7607,12 @@
   @media (width >= 40rem) {
     .sm\:w-auto {
       width: auto;
+    }
+  }
+
+  @media (width >= 40rem) {
+    .sm\:w-full {
+      width: 100%;
     }
   }
 

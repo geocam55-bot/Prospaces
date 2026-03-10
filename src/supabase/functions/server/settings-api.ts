@@ -63,19 +63,21 @@ export function settingsAPI(app: Hono) {
         .select('*')
         .eq('organization_id', orgId)
         .single();
+        
+      const kvData = await kv.get(`org_settings_extra:${orgId}`) || {};
 
       if (dbError) {
         if (dbError.code === 'PGRST116') {
-          return c.json({ settings: null, source: 'server-not-found' });
+          return c.json({ settings: kvData, source: 'server-not-found-fallback-to-kv' });
         }
         if (dbError.code === 'PGRST205' || dbError.code === '42P01') {
-          return c.json({ settings: null, source: 'server-table-missing' });
+          return c.json({ settings: kvData, source: 'server-table-missing-fallback-to-kv' });
         }
         console.error('[settings-api] GET org settings error:', dbError);
         return c.json({ error: dbError.message }, 500);
       }
 
-      return c.json({ settings: data, source: 'server' });
+      return c.json({ settings: { ...data, ...kvData }, source: 'server' });
     } catch (err: any) {
       console.error('[settings-api] GET org settings unexpected error:', err);
       return c.json({ error: err.message }, 500);
@@ -104,14 +106,20 @@ export function settingsAPI(app: Hono) {
 
       console.log(`[settings-api] PUT org settings for org=${orgId} by user=${user!.email}, role=${profile!.role}`);
 
-      // Strip fields that may not exist as DB columns
-      const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels'];
+      // Strip fields that may not exist as DB columns and save to KV instead
+      const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels', 'audience_segments'];
       const dbSettings: any = { ...body, organization_id: orgId, updated_at: new Date().toISOString() };
+      
+      const kvSettings: any = {};
+      
       OPTIONAL_NON_DB_FIELDS.forEach(field => {
         if (field in dbSettings) {
+          kvSettings[field] = dbSettings[field];
           delete dbSettings[field];
         }
       });
+      
+      await kv.set(`org_settings_extra:${orgId}`, kvSettings);
 
       const { data, error: dbError } = await supabase!
         .from('organization_settings')
@@ -125,7 +133,7 @@ export function settingsAPI(app: Hono) {
       }
 
       console.log('[settings-api] Org settings saved successfully');
-      return c.json({ settings: data, source: 'server' });
+      return c.json({ settings: { ...data, ...kvSettings }, source: 'server' });
     } catch (err: any) {
       console.error('[settings-api] PUT org settings unexpected error:', err);
       return c.json({ error: err.message }, 500);
