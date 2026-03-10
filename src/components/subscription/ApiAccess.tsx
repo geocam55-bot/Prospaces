@@ -177,12 +177,37 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
 
   const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        throw new Error('Clipboard API not available');
+      }
       setRawKeyCopied(true);
       setTimeout(() => setRawKeyCopied(false), 2000);
       toast.success('Copied to clipboard');
     } catch {
-      toast.error('Failed to copy');
+      // Fallback
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful) {
+          setRawKeyCopied(true);
+          setTimeout(() => setRawKeyCopied(false), 2000);
+          toast.success('Copied to clipboard');
+        } else {
+          toast.error('Failed to copy');
+        }
+      } catch (err) {
+        toast.error('Failed to copy');
+      }
     }
   };
 

@@ -7,7 +7,7 @@ import { createClient } from '../utils/supabase/client';
 
 interface DiagnosticPanelProps {
   organizationId: string;
-  plannerType: 'deck' | 'garage' | 'shed';
+  plannerType: 'deck' | 'garage' | 'shed' | 'kitchen';
   materialType?: string;
 }
 

@@ -1,5 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { KitchenConfig } from '../../types/kitchen';
+import { parseOBJ } from '../../utils/OBJLoader';
 import { 
   Scene, 
   Color, 
@@ -20,7 +21,8 @@ import {
   LineSegments,
   MeshBasicMaterial,
   CylinderGeometry,
-  CanvasTexture
+  CanvasTexture,
+  Object3D
 } from '../../utils/three';
 import { 
   createWoodTexture,
@@ -32,7 +34,7 @@ interface Kitchen3DRendererProps {
 }
 
 /** Add wireframe edge outlines to a mesh for crisp definition */
-function addEdgeOutline(scene: Scene, geometry: any, mesh: Mesh, color = 0x333333) {
+function addEdgeOutline(parent: Object3D, geometry: any, mesh: Mesh, color = 0x333333) {
   const edges = new EdgesGeometry(geometry);
   const lineMat = new LineBasicMaterial({ color });
   const wireframe = new LineSegments(edges, lineMat);
@@ -40,12 +42,43 @@ function addEdgeOutline(scene: Scene, geometry: any, mesh: Mesh, color = 0x33333
   wireframe.rotation.x = mesh.rotation.x;
   wireframe.rotation.y = mesh.rotation.y;
   wireframe.rotation.z = mesh.rotation.z;
-  scene.add(wireframe);
+  parent.add(wireframe);
 }
 
-export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<{
+// Lightweight cache for 3D cabinet models
+const modelCache: Record<string, any> = {};
+const fetchPromises: Record<string, Promise<any>> = {};
+
+export interface Kitchen3DRendererRef {
+  captureSnapshot: () => void;
+  getSnapshotUrl: () => string | null;
+}
+
+export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3DRendererProps>(
+  ({ config }, ref) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [snapshotUrl, setSnapshotUrl] = React.useState<string | null>(null);
+    const [modelUpdateTick, setModelUpdateTick] = useState(0);
+
+    React.useImperativeHandle(ref, () => ({
+      captureSnapshot: () => {
+        updateSnapshot();
+      },
+      getSnapshotUrl: () => snapshotUrl
+    }));
+
+    // Function to update the snapshot image
+    const updateSnapshot = () => {
+      if (sceneRef.current) {
+        const { renderer, scene, camera } = sceneRef.current;
+        // Need to render once to ensure buffer has the latest image
+        renderer.render(scene, camera);
+        const dataUrl = renderer.domElement.toDataURL('image/jpeg', 0.85);
+        setSnapshotUrl(dataUrl);
+      }
+    };
+
+    const sceneRef = useRef<{
     scene: Scene;
     camera: PerspectiveCamera;
     renderer: WebGLRenderer;
@@ -69,7 +102,10 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
     camera.lookAt(0, 0, 0);
 
     // Create renderer
-    const renderer = new WebGLRenderer({ antialias: true });
+    const renderer = new WebGLRenderer({ 
+      antialias: true,
+      preserveDrawingBuffer: true // Required for printing/screenshots
+    });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
@@ -175,11 +211,17 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
       context.font = 'bold 80px Arial';
       context.textAlign = 'center';
       context.textBaseline = 'middle';
+      
+      // Flip the canvas vertically so WebGL maps it right-side up
+      context.translate(0, canvas.height);
+      context.scale(1, -1);
+      
       context.fillText(text, 256, 64);
       
       const texture = new CanvasTexture(canvas);
       const material = new MeshBasicMaterial({ map: texture, transparent: true });
       const geometry = new PlaneGeometry(1, 0.25);
+      
       const mesh = new Mesh(geometry, material);
       mesh.position.set(x, y, z);
       mesh.rotation.y = rotY;
@@ -213,25 +255,17 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
       const h = (cabinet.height || 34) * scale;
       const d = cabinet.depth * scale;
 
-      // DEBUG: Log the first cabinet's position
-      if (config.cabinets.indexOf(cabinet) === 0) {
-        console.log('First cabinet 2D position:', { x: cabinet.x, y: cabinet.y, width: cabinet.width, depth: cabinet.depth });
-        console.log('Room dimensions (feet):', { width: config.roomWidth, length: config.roomLength });
-        console.log('Calculated 3D position will be:', {
-          x: -roomWidth / 2 + (cabinet.x * scale) + (w / 2),
-          z: -roomLength / 2 + (cabinet.y * scale) + (d / 2)
-        });
-      }
-
-      // Map 2D position to 3D:
-      // In 2D: cabinet.x, cabinet.y represent the top-left corner position
-      // In 3D: We want the back edge at North wall (-roomLength/2) when cabinet.y = 0
-      //        We want the left edge at West wall (-roomWidth/2) when cabinet.x = 0
+      const pivotX = -roomWidth / 2 + (cabinet.x * scale);
+      const pivotZ = -roomLength / 2 + (cabinet.y * scale);
       
-      // Convert 2D corner position to 3D center position:
-      // Add half the cabinet dimensions to get the center position in 3D
-      const x = -roomWidth / 2 + (cabinet.x * scale) + (w / 2);
-      const z = -roomLength / 2 + (cabinet.y * scale) + (d / 2);  // Adding back depth offset
+      const pivot = new Object3D();
+      pivot.position.set(pivotX, 0, pivotZ);
+      pivot.rotation.y = -(cabinet.rotation || 0) * Math.PI / 180;
+      scene.add(pivot);
+
+      // In local pivot space, the center of the cabinet is at w/2 and d/2
+      const localX = w / 2;
+      const localZ = d / 2;
       
       let y = 0;
       if (cabinet.type === 'wall' || cabinet.type === 'corner-wall') {
@@ -243,7 +277,31 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
       }
 
       // Cabinet body
-      const cabinetGeometry = new BoxGeometry(w, h, d);
+      let cabinetGeometry = new BoxGeometry(w, h, d);
+      let isCustomModel = false;
+
+      // Handle custom 3D model injection
+      if (cabinet.modelUrl) {
+        if (modelCache[cabinet.modelUrl]) {
+          cabinetGeometry = modelCache[cabinet.modelUrl];
+          isCustomModel = true;
+        } else if (!fetchPromises[cabinet.modelUrl]) {
+          fetchPromises[cabinet.modelUrl] = fetch(cabinet.modelUrl)
+            .then(res => res.text())
+            .then(text => {
+              const geom = parseOBJ(text);
+              geom.center(); // Center geometry around its origin to match BoxGeometry alignment
+              modelCache[cabinet.modelUrl] = geom;
+              setModelUpdateTick(t => t + 1); // Trigger scene re-render once parsed
+            })
+            .catch(() => {
+              // Ensure we don't infinitely retry on failure, but fail silently for no console logs rule
+              modelCache[cabinet.modelUrl] = new BoxGeometry(w, h, d);
+              setModelUpdateTick(t => t + 1);
+            });
+        }
+      }
+
       let color = 0xd1d5db;
       if (cabinet.type === 'wall') color = 0xf3f4f6;
       if (cabinet.type === 'tall') color = 0xe5e7eb;
@@ -254,16 +312,40 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
         metalness: 0.1
       });
       const cabinetMesh = new Mesh(cabinetGeometry, cabinetMaterial);
-      cabinetMesh.position.set(x, y, z);
+
+      if (isCustomModel) {
+        // Adjust for custom model pivot/scaling based on bounding box
+        if (!cabinetGeometry.boundingBox) {
+          cabinetGeometry.computeBoundingBox();
+        }
+        const bbox = cabinetGeometry.boundingBox;
+        if (bbox) {
+          const sizeX = bbox.max.x - bbox.min.x || 1;
+          const sizeY = bbox.max.y - bbox.min.y || 1;
+          const sizeZ = bbox.max.z - bbox.min.z || 1;
+          
+          // Scale to fit requested dimensions (w, h, d in meters)
+          cabinetMesh.scale.set(w / sizeX, h / sizeY, d / sizeZ);
+          
+          // Position it exactly where the BoxGeometry was
+          cabinetMesh.position.set(localX, y, localZ);
+        } else {
+          cabinetMesh.position.set(localX, y, localZ);
+        }
+      } else {
+        cabinetMesh.position.set(localX, y, localZ);
+      }
+
       cabinetMesh.castShadow = true;
       cabinetMesh.receiveShadow = true;
-      scene.add(cabinetMesh);
+      pivot.add(cabinetMesh);
 
       // Add edge outlines
-      addEdgeOutline(scene, cabinetGeometry, cabinetMesh);
+      addEdgeOutline(pivot, cabinetGeometry, cabinetMesh);
 
-      // Add doors if applicable
-      if (cabinet.hasDoors && cabinet.numberOfDoors) {
+      // Add doors if applicable (only if not a custom model, or adjust depending on requirements, 
+      // but usually custom models include doors. We'll skip procedural doors if it's a custom model)
+      if (cabinet.hasDoors && cabinet.numberOfDoors && !isCustomModel) {
         const doorMaterial = new MeshStandardMaterial({
           color: 0xffffff,
           roughness: 0.2,
@@ -272,13 +354,13 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
 
         for (let i = 0; i < cabinet.numberOfDoors; i++) {
           const doorWidth = w / cabinet.numberOfDoors;
-          const doorX = x - w / 2 + doorWidth / 2 + i * doorWidth;
+          const doorX = localX - w / 2 + doorWidth / 2 + i * doorWidth;
           
           const doorGeometry = new BoxGeometry(doorWidth * 0.95, h * 0.95, 0.005);
           const door = new Mesh(doorGeometry, doorMaterial);
-          door.position.set(doorX, y, z + d / 2 + 0.003);
+          door.position.set(doorX, y, localZ + d / 2 + 0.003);
           door.castShadow = true;
-          scene.add(door);
+          pivot.add(door);
 
           // Door handle
           const handleGeometry = new CylinderGeometry(0.008, 0.008, h * 0.4, 8);
@@ -288,8 +370,8 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
             metalness: 0.8
           });
           const handle = new Mesh(handleGeometry, handleMaterial);
-          handle.position.set(doorX + doorWidth * 0.3, y, z + d / 2 + 0.015);
-          scene.add(handle);
+          handle.position.set(doorX + doorWidth * 0.3, y, localZ + d / 2 + 0.015);
+          pivot.add(handle);
         }
       }
 
@@ -302,10 +384,10 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
           metalness: 0.5
         });
         const countertop = new Mesh(countertopGeometry, countertopMaterial);
-        countertop.position.set(x, y + h / 2 + 0.02, z);
+        countertop.position.set(localX, y + h / 2 + 0.02, localZ);
         countertop.castShadow = true;
         countertop.receiveShadow = true;
-        scene.add(countertop);
+        pivot.add(countertop);
       }
     });
 
@@ -316,9 +398,16 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
       const h = appliance.height * scale;
       const d = appliance.depth * scale;
 
-      // Same mapping as cabinets
-      const x = -roomWidth / 2 + (appliance.x * scale) + (w / 2);
-      const z = -roomLength / 2 + (appliance.y * scale) + (d / 2);
+      const pivotX = -roomWidth / 2 + (appliance.x * scale);
+      const pivotZ = -roomLength / 2 + (appliance.y * scale);
+
+      const pivot = new Object3D();
+      pivot.position.set(pivotX, 0, pivotZ);
+      pivot.rotation.y = -(appliance.rotation || 0) * Math.PI / 180;
+      scene.add(pivot);
+
+      const localX = w / 2;
+      const localZ = d / 2;
       const y = h / 2;
 
       let color = 0xcbd5e1;
@@ -345,13 +434,13 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
         metalness: metalness
       });
       const applianceMesh = new Mesh(applianceGeometry, applianceMaterial);
-      applianceMesh.position.set(x, y, z);
+      applianceMesh.position.set(localX, y, localZ);
       applianceMesh.castShadow = true;
       applianceMesh.receiveShadow = true;
-      scene.add(applianceMesh);
+      pivot.add(applianceMesh);
 
       // Add edge outlines
-      addEdgeOutline(scene, applianceGeometry, applianceMesh);
+      addEdgeOutline(pivot, applianceGeometry, applianceMesh);
 
       // Type-specific details
       if (appliance.type === 'refrigerator') {
@@ -359,8 +448,8 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
         const lineGeometry = new PlaneGeometry(w * 0.9, 0.01);
         const lineMaterial = new MeshBasicMaterial({ color: 0x94a3b8 });
         const line = new Mesh(lineGeometry, lineMaterial);
-        line.position.set(x, y + h * 0.25, z + d / 2 + 0.001);
-        scene.add(line);
+        line.position.set(localX, y + h * 0.25, localZ + d / 2 + 0.001);
+        pivot.add(line);
 
         // Door handles
         const handleGeometry = new BoxGeometry(0.02, h * 0.2, 0.03);
@@ -369,13 +458,13 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
           metalness: 0.9 
         });
         const handle1 = new Mesh(handleGeometry, handleMaterial);
-        handle1.position.set(x + w * 0.4, y + h * 0.15, z + d / 2 + 0.02);
-        scene.add(handle1);
+        handle1.position.set(localX + w * 0.4, y + h * 0.15, localZ + d / 2 + 0.02);
+        pivot.add(handle1);
 
         const handle2Geometry = new BoxGeometry(0.02, h * 0.4, 0.03);
         const handle2 = new Mesh(handle2Geometry, handleMaterial);
-        handle2.position.set(x + w * 0.4, y - h * 0.2, z + d / 2 + 0.02);
-        scene.add(handle2);
+        handle2.position.set(localX + w * 0.4, y - h * 0.2, localZ + d / 2 + 0.02);
+        pivot.add(handle2);
       } else if (appliance.type === 'stove') {
         // Burner grates
         const burnerPositions = [
@@ -390,8 +479,8 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
         
         burnerPositions.forEach(([bx, bz]) => {
           const burner = new Mesh(burnerGeometry, burnerMaterial);
-          burner.position.set(x + bx, y + h / 2 + 0.01, z + bz);
-          scene.add(burner);
+          burner.position.set(localX + bx, y + h / 2 + 0.01, localZ + bz);
+          pivot.add(burner);
         });
 
         // Oven window
@@ -404,8 +493,8 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
           roughness: 0
         });
         const window = new Mesh(windowGeometry, windowMaterial);
-        window.position.set(x, y - h * 0.1, z + d / 2 + 0.001);
-        scene.add(window);
+        window.position.set(localX, y - h * 0.1, localZ + d / 2 + 0.001);
+        pivot.add(window);
       }
     });
 
@@ -490,7 +579,7 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
       }
       renderer.dispose();
     };
-  }, [config]);
+  }, [config, modelUpdateTick]);
 
   return (
     <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg overflow-hidden relative">
@@ -527,4 +616,4 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
       <div ref={containerRef} className="w-full h-full" />
     </div>
   );
-}
+});

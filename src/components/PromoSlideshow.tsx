@@ -6,10 +6,9 @@ import { MetricCard } from './MetricCard';
 import { DealsKanban } from './DealsKanban';
 import { Logo } from './Logo';
 
-// Lazy load 3D renderers to keep the bundle size small
-const LazyKitchen3D = React.lazy(() => import('./kitchen/Kitchen3DRenderer').then(m => ({ default: m.Kitchen3DRenderer })));
-const LazyDeck3D = React.lazy(() => import('./deck/Deck3DRenderer').then(m => ({ default: m.Deck3DRenderer })));
-const LazyGarage3D = React.lazy(() => import('./garage/Garage3DRenderer').then(m => ({ default: m.Garage3DRenderer })));
+import { Kitchen3DRenderer } from './kitchen/Kitchen3DRenderer';
+import { Deck3DRenderer } from './deck/Deck3DRenderer';
+import { Garage3DRenderer } from './garage/Garage3DRenderer';
 
 // --- MOCK DATA FOR SCREENS ---
 const mockQuotes: any[] = [
@@ -1164,7 +1163,7 @@ const KitchenPlannerScreen = () => (
     </div>
     <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-500">Loading 3D Engine...</div>}>
       <div className="w-[150%] h-[150%] scale-[0.66] origin-top-left pointer-events-none">
-        <LazyKitchen3D config={mockKitchenConfig} />
+        <Kitchen3DRenderer config={mockKitchenConfig} />
       </div>
     </Suspense>
   </div>
@@ -1177,7 +1176,7 @@ const GaragePlannerScreen = () => (
     </div>
     <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-500">Loading 3D Engine...</div>}>
       <div className="w-[150%] h-[150%] scale-[0.66] origin-top-left pointer-events-none">
-        <LazyGarage3D config={mockGarageConfig} />
+        <Garage3DRenderer config={mockGarageConfig} />
       </div>
     </Suspense>
   </div>
@@ -1190,7 +1189,7 @@ const DeckPlannerScreen = () => (
     </div>
     <Suspense fallback={<div className="flex items-center justify-center h-full text-slate-500">Loading 3D Engine...</div>}>
       <div className="w-[150%] h-[150%] scale-[0.66] origin-top-left pointer-events-none">
-        <LazyDeck3D config={mockDeckConfig} />
+        <Deck3DRenderer config={mockDeckConfig} />
       </div>
     </Suspense>
   </div>

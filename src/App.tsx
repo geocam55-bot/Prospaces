@@ -31,13 +31,13 @@ import { AITaskSuggestions } from './components/AITaskSuggestions';
 import { ChangePasswordDialog } from './components/ChangePasswordDialog';
 import { AdminFixUsers } from './components/AdminFixUsers';
 import { preloadEmailAccounts, resetEmailPreloader } from './utils/email-preloader';
-// Lazy-load planners that depend on Three.js (heavy + may not resolve in all environments)
-const KitchenPlanner = React.lazy(() => import('./components/planners/KitchenPlanner').then(m => ({ default: m.KitchenPlanner })));
-const DeckPlanner = React.lazy(() => import('./components/planners/DeckPlanner').then(m => ({ default: m.DeckPlanner })));
-const GaragePlanner = React.lazy(() => import('./components/planners/GaragePlanner').then(m => ({ default: m.GaragePlanner })));
-const ShedPlanner = React.lazy(() => import('./components/planners/ShedPlanner').then(m => ({ default: m.ShedPlanner })));
-const RoofPlanner = React.lazy(() => import('./components/planners/RoofPlanner').then(m => ({ default: m.RoofPlanner })));
-const InteriorFinishingPlanner = React.lazy(() => import('./components/planners/InteriorFinishingPlanner').then(m => ({ default: m.InteriorFinishingPlanner })));
+// Planners
+import { KitchenPlanner } from './components/planners/KitchenPlanner';
+import { DeckPlanner } from './components/planners/DeckPlanner';
+import { GaragePlanner } from './components/planners/GaragePlanner';
+import { ShedPlanner } from './components/planners/ShedPlanner';
+import { RoofPlanner } from './components/planners/RoofPlanner';
+import { InteriorFinishingPlanner } from './components/planners/InteriorFinishingPlanner';
 import { ThemeProvider } from './components/ThemeProvider';
 
 import { OfflineIndicator } from './components/OfflineIndicator';

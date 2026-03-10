@@ -27,7 +27,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       return true;
     }
   } catch (err) {
-    console.log('execCommand copy failed, trying Clipboard API');
+    // execCommand copy failed, trying Clipboard API
   }
 
   // Method 2: Try modern Clipboard API (might be blocked by permissions policy)
@@ -38,7 +38,6 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     }
   } catch (err) {
     // Silently fail - this is expected in iframes and certain contexts
-    console.log('Clipboard API blocked (expected in some environments)');
   }
 
   // Method 3: iOS Safari fallback
@@ -68,10 +67,9 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       return true;
     }
   } catch (err) {
-    console.log('iOS fallback failed');
+    // iOS fallback failed
   }
 
   // All methods failed
-  console.error('All clipboard copy methods failed');
   return false;
 }

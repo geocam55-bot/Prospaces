@@ -181,6 +181,7 @@ export class BufferGeometry {
   _uvs: Float32Array | null = null;
   _indices: Uint16Array | null = null;
   _isLines = false;
+  boundingBox: { min: Vector3, max: Vector3 } | null = null;
 
   setAttribute(name: string, attr: BufferAttribute) {
     if (name === 'position') this._positions = attr.array;
@@ -192,6 +193,45 @@ export class BufferGeometry {
   setIndex(indices: number[]) {
     this._indices = new Uint16Array(indices);
     return this;
+  }
+
+  computeBoundingBox() {
+    if (!this._positions) {
+      this.boundingBox = { min: new Vector3(), max: new Vector3() };
+      return;
+    }
+    const pos = this._positions;
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (let i = 0; i < pos.length; i += 3) {
+      const x = pos[i], y = pos[i+1], z = pos[i+2];
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (z < minZ) minZ = z;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+      if (z > maxZ) maxZ = z;
+    }
+    this.boundingBox = {
+      min: new Vector3(minX, minY, minZ),
+      max: new Vector3(maxX, maxY, maxZ)
+    };
+  }
+
+  center() {
+    this.computeBoundingBox();
+    if (!this.boundingBox || !this._positions) return;
+    const offset = new Vector3(
+      -(this.boundingBox.max.x + this.boundingBox.min.x) / 2,
+      -(this.boundingBox.max.y + this.boundingBox.min.y) / 2,
+      -(this.boundingBox.max.z + this.boundingBox.min.z) / 2
+    );
+    for (let i = 0; i < this._positions.length; i += 3) {
+      this._positions[i] += offset.x;
+      this._positions[i+1] += offset.y;
+      this._positions[i+2] += offset.z;
+    }
+    this.computeBoundingBox(); // Recompute
   }
 
   computeVertexNormals() {
@@ -530,11 +570,15 @@ export class Object3D {
   rotation = { x: 0, y: 0, z: 0 };
   scale = new Vector3(1, 1, 1);
   children: Object3D[] = [];
+  parent: Object3D | null = null;
   castShadow = false;
   receiveShadow = false;
   _type = 'Object3D';
 
-  add(child: Object3D) { this.children.push(child); }
+  add(child: Object3D) { 
+    child.parent = this;
+    this.children.push(child); 
+  }
 
   _getModelMatrix(): Mat4 {
     let m = mat4Translate(this.position.x, this.position.y, this.position.z);
@@ -545,6 +589,9 @@ export class Object3D {
       const s = mat4();
       s[0] = this.scale.x; s[5] = this.scale.y; s[10] = this.scale.z;
       m = mat4Multiply(m, s);
+    }
+    if (this.parent) {
+      m = mat4Multiply(this.parent._getModelMatrix(), m);
     }
     return m;
   }
@@ -745,7 +792,7 @@ function compileShader(gl: WebGLRenderingContext, src: string, type: number): We
   gl.shaderSource(shader, src);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+    // console.error('Shader compile error:', gl.getShaderInfoLog(shader));
   }
   return shader;
 }
@@ -756,7 +803,7 @@ function createProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string):
   gl.attachShader(prog, compileShader(gl, fsSrc, gl.FRAGMENT_SHADER));
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    console.error('Program link error:', gl.getProgramInfoLog(prog));
+    // console.error('Program link error:', gl.getProgramInfoLog(prog));
   }
   return prog;
 }

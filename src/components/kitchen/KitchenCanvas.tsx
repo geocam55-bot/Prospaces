@@ -310,7 +310,7 @@ export function KitchenCanvas({
       ctx.font = '10px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(cabinet.name.split(' ').slice(0, 2).join(' '), width / 2, depth / 2);
+      ctx.fillText((cabinet.name || '').split(' ').slice(0, 2).join(' '), width / 2, depth / 2);
     }
 
     // Dimensions

@@ -2,7 +2,7 @@ import * as React from "react";
 
 import { cn } from "./utils";
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({ className, type, onKeyDown, ...props }: React.ComponentProps<"input">) {
   return (
     <input
       type={type}
@@ -14,6 +14,12 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
         className,
       )}
       style={{ color: '#1a202c' }}
+      onKeyDown={(e) => {
+        if ((e.ctrlKey || e.metaKey) && ['c', 'v', 'x', 'a', 'z'].includes(e.key.toLowerCase())) {
+          e.stopPropagation();
+        }
+        onKeyDown?.(e);
+      }}
       {...props}
     />
   );

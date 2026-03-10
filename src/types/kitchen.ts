@@ -18,6 +18,7 @@ export interface CabinetItem {
   numberOfDoors?: number;
   price?: number;
   image?: string; // Preview image
+  modelUrl?: string; // URL to OBJ model file
 }
 
 export interface PlacedCabinet extends CabinetItem {
@@ -133,33 +134,33 @@ export interface KitchenMaterials {
 // Predefined cabinet catalog
 export const CABINET_CATALOG: CabinetItem[] = [
   // Base Cabinets
-  { id: 'base-12', type: 'base', name: 'Base Cabinet 12"', width: 12, height: 34.5, depth: 24, hasDrawers: true, numberOfDrawers: 3 },
-  { id: 'base-15', type: 'base', name: 'Base Cabinet 15"', width: 15, height: 34.5, depth: 24, hasDrawers: true, numberOfDrawers: 3 },
-  { id: 'base-18', type: 'base', name: 'Base Cabinet 18"', width: 18, height: 34.5, depth: 24, hasDoors: true, numberOfDoors: 1 },
-  { id: 'base-21', type: 'base', name: 'Base Cabinet 21"', width: 21, height: 34.5, depth: 24, hasDoors: true, numberOfDoors: 1 },
-  { id: 'base-24', type: 'base', name: 'Base Cabinet 24"', width: 24, height: 34.5, depth: 24, hasDoors: true, numberOfDoors: 2 },
-  { id: 'base-30', type: 'base', name: 'Base Cabinet 30"', width: 30, height: 34.5, depth: 24, hasDoors: true, numberOfDoors: 2 },
-  { id: 'base-36', type: 'base', name: 'Base Cabinet 36"', width: 36, height: 34.5, depth: 24, hasDoors: true, numberOfDoors: 2 },
+  { id: 'base-12', type: 'base', name: 'Base Cabinet 12"', width: 12, height: 34.5, depth: 24, hasDrawers: true, numberOfDrawers: 3, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/base-cabinet.obj' },
+  { id: 'base-15', type: 'base', name: 'Base Cabinet 15"', width: 15, height: 34.5, depth: 24, hasDrawers: true, numberOfDrawers: 3, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/base-cabinet.obj' },
+  { id: 'base-18', type: 'base', name: 'Base Cabinet 18"', width: 18, height: 34.5, depth: 24, hasDoors: true, numberOfDoors: 1, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/base-cabinet.obj' },
+  { id: 'base-21', type: 'base', name: 'Base Cabinet 21"', width: 21, height: 34.5, depth: 24, hasDoors: true, numberOfDoors: 1, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/base-cabinet.obj' },
+  { id: 'base-24', type: 'base', name: 'Base Cabinet 24"', width: 24, height: 34.5, depth: 24, hasDoors: true, numberOfDoors: 2, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/base-cabinet.obj' },
+  { id: 'base-30', type: 'base', name: 'Base Cabinet 30"', width: 30, height: 34.5, depth: 24, hasDoors: true, numberOfDoors: 2, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/base-cabinet.obj' },
+  { id: 'base-36', type: 'base', name: 'Base Cabinet 36"', width: 36, height: 34.5, depth: 24, hasDoors: true, numberOfDoors: 2, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/base-cabinet.obj' },
   
   // Wall Cabinets
-  { id: 'wall-12', type: 'wall', name: 'Wall Cabinet 12"', width: 12, height: 30, depth: 12, hasDoors: true, numberOfDoors: 1 },
-  { id: 'wall-15', type: 'wall', name: 'Wall Cabinet 15"', width: 15, height: 30, depth: 12, hasDoors: true, numberOfDoors: 1 },
-  { id: 'wall-18', type: 'wall', name: 'Wall Cabinet 18"', width: 18, height: 30, depth: 12, hasDoors: true, numberOfDoors: 1 },
-  { id: 'wall-21', type: 'wall', name: 'Wall Cabinet 21"', width: 21, height: 30, depth: 12, hasDoors: true, numberOfDoors: 1 },
-  { id: 'wall-24', type: 'wall', name: 'Wall Cabinet 24"', width: 24, height: 30, depth: 12, hasDoors: true, numberOfDoors: 2 },
-  { id: 'wall-30', type: 'wall', name: 'Wall Cabinet 30"', width: 30, height: 30, depth: 12, hasDoors: true, numberOfDoors: 2 },
-  { id: 'wall-36', type: 'wall', name: 'Wall Cabinet 36"', width: 36, height: 30, depth: 12, hasDoors: true, numberOfDoors: 2 },
+  { id: 'wall-12', type: 'wall', name: 'Wall Cabinet 12"', width: 12, height: 30, depth: 12, hasDoors: true, numberOfDoors: 1, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/wall-cabinet.obj' },
+  { id: 'wall-15', type: 'wall', name: 'Wall Cabinet 15"', width: 15, height: 30, depth: 12, hasDoors: true, numberOfDoors: 1, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/wall-cabinet.obj' },
+  { id: 'wall-18', type: 'wall', name: 'Wall Cabinet 18"', width: 18, height: 30, depth: 12, hasDoors: true, numberOfDoors: 1, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/wall-cabinet.obj' },
+  { id: 'wall-21', type: 'wall', name: 'Wall Cabinet 21"', width: 21, height: 30, depth: 12, hasDoors: true, numberOfDoors: 1, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/wall-cabinet.obj' },
+  { id: 'wall-24', type: 'wall', name: 'Wall Cabinet 24"', width: 24, height: 30, depth: 12, hasDoors: true, numberOfDoors: 2, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/wall-cabinet.obj' },
+  { id: 'wall-30', type: 'wall', name: 'Wall Cabinet 30"', width: 30, height: 30, depth: 12, hasDoors: true, numberOfDoors: 2, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/wall-cabinet.obj' },
+  { id: 'wall-36', type: 'wall', name: 'Wall Cabinet 36"', width: 36, height: 30, depth: 12, hasDoors: true, numberOfDoors: 2, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/wall-cabinet.obj' },
   
   // Tall Cabinets
-  { id: 'tall-18', type: 'tall', name: 'Pantry Cabinet 18"', width: 18, height: 84, depth: 24, hasDoors: true, numberOfDoors: 2 },
-  { id: 'tall-24', type: 'tall', name: 'Pantry Cabinet 24"', width: 24, height: 84, depth: 24, hasDoors: true, numberOfDoors: 2 },
-  { id: 'tall-30', type: 'tall', name: 'Pantry Cabinet 30"', width: 30, height: 84, depth: 24, hasDoors: true, numberOfDoors: 2 },
+  { id: 'tall-18', type: 'tall', name: 'Pantry Cabinet 18"', width: 18, height: 84, depth: 24, hasDoors: true, numberOfDoors: 2, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/tall-cabinet.obj' },
+  { id: 'tall-24', type: 'tall', name: 'Pantry Cabinet 24"', width: 24, height: 84, depth: 24, hasDoors: true, numberOfDoors: 2, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/tall-cabinet.obj' },
+  { id: 'tall-30', type: 'tall', name: 'Pantry Cabinet 30"', width: 30, height: 84, depth: 24, hasDoors: true, numberOfDoors: 2, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/tall-cabinet.obj' },
   
   // Corner Cabinets
-  { id: 'corner-base-36', type: 'corner-base', name: 'Corner Base Cabinet', width: 36, height: 34.5, depth: 36, hasDoors: true, numberOfDoors: 2 },
-  { id: 'corner-wall-24', type: 'corner-wall', name: 'Corner Wall Cabinet', width: 24, height: 30, depth: 24, hasDoors: true, numberOfDoors: 2 },
+  { id: 'corner-base-36', type: 'corner-base', name: 'Corner Base Cabinet', width: 36, height: 34.5, depth: 36, hasDoors: true, numberOfDoors: 2, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/corner-base.obj' },
+  { id: 'corner-wall-24', type: 'corner-wall', name: 'Corner Wall Cabinet', width: 24, height: 30, depth: 24, hasDoors: true, numberOfDoors: 2, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/corner-wall.obj' },
   
   // Island Cabinets
-  { id: 'island-36x36', type: 'island', name: 'Island Base 36"x36"', width: 36, height: 34.5, depth: 36, hasDoors: true, numberOfDoors: 4 },
-  { id: 'island-48x36', type: 'island', name: 'Island Base 48"x36"', width: 48, height: 34.5, depth: 36, hasDoors: true, numberOfDoors: 6 },
+  { id: 'island-36x36', type: 'island', name: 'Island Base 36"x36"', width: 36, height: 34.5, depth: 36, hasDoors: true, numberOfDoors: 4, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/island-cabinet.obj' },
+  { id: 'island-48x36', type: 'island', name: 'Island Base 48"x36"', width: 48, height: 34.5, depth: 36, hasDoors: true, numberOfDoors: 6, modelUrl: 'https://ixkwnjswvbtpuvtcrxqo.supabase.co/storage/v1/object/public/make-8405be07-models/island-cabinet.obj' },
 ];

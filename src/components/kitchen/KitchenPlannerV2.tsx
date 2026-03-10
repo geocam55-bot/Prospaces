@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { KitchenCanvas } from './KitchenCanvas';
-import { Kitchen3DRenderer } from './Kitchen3DRenderer';
+import { Kitchen3DRenderer, Kitchen3DRendererRef } from './Kitchen3DRenderer';
 import { KitchenConfigurator } from './KitchenConfigurator';
 import { SavedKitchenDesigns } from './SavedKitchenDesigns';
+import { KitchenTemplates } from './KitchenTemplates';
+import { DiagnosticPanel } from '../DiagnosticPanel';
+import { PrintableKitchenDesign } from '../project-wizard/PrintableKitchenDesign';
 import { PlannerDefaults } from '../PlannerDefaults';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { SavedProjectDesigns } from '../SavedProjectDesigns';
+import { ModelLibrary } from './ModelLibrary';
 import { calculateKitchenMaterials } from '../../utils/kitchenCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { KitchenConfig, PlacedCabinet, CABINET_CATALOG, CabinetItem, Appliance } from '../../types/kitchen';
@@ -27,7 +31,9 @@ import {
   Maximize2,
   Edit3,
   Save,
-  Printer
+  Printer,
+  LayoutTemplate,
+  FileTerminal
 } from 'lucide-react';
 import type { User } from '../../App';
 import { toast } from 'sonner@2.0.3';
@@ -50,7 +56,7 @@ interface KitchenPlannerV2Props {
 }
 
 type ItemCategory = 'cabinets' | 'appliances' | 'openings' | 'settings';
-type MainTab = 'design' | 'materials' | 'saved-designs' | 'defaults';
+type MainTab = 'design' | 'materials' | 'templates' | 'saved-designs' | 'diagnostics' | 'defaults' | 'model-library';
 
 // Cabinet images by type
 const CABINET_IMAGES: Record<string, string> = {
@@ -151,6 +157,7 @@ function CabinetCard({
       rotation: 0,
       finish: finish,
       price: cabinet.price,
+      modelUrl: cabinet.modelUrl,
     };
     onAdd(newCabinet);
     toast.success(`Added ${cabinet.name}`);
@@ -171,11 +178,14 @@ function CabinetCard({
 
   return (
     <div 
-      className="rounded-lg border border-gray-200 hover:shadow-md transition-shadow cursor-pointer bg-white" 
+      className="rounded-lg border border-slate-200 hover:shadow-md transition-shadow cursor-pointer bg-white group relative overflow-hidden" 
       onClick={handleAdd}
     >
-      <div className="h-32 p-4 border-b border-gray-200">
+      <div className="h-32 p-4 border-b border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         {getCabinetIcon()}
+        <div className="absolute top-0 left-0 right-0 h-32 bg-transparent group-hover:bg-black/5 transition-all flex items-center justify-center">
+          <Plus className="w-8 h-8 text-black opacity-0 group-hover:opacity-50 transition-opacity drop-shadow" />
+        </div>
       </div>
       <div className="p-3 bg-white">
         <h3 className="font-medium text-sm mb-1">{cabinet.name}</h3>
@@ -201,21 +211,21 @@ function ApplianceCard({
 
   const getApplianceIcon = () => {
     switch (appliance.type) {
-      case 'refrigerator': return <RefrigeratorIcon className="w-8 h-8" />;
-      case 'stove': return <StoveIcon className="w-8 h-8" />;
-      case 'dishwasher': return <DishwasherIcon className="w-8 h-8" />;
-      case 'microwave': return <MicrowaveIcon className="w-8 h-8" />;
-      case 'sink': return <SinkIcon className="w-8 h-8" />;
-      default: return <Refrigerator className="w-8 h-8" />;
+      case 'refrigerator': return <RefrigeratorIcon className="w-full h-full" />;
+      case 'stove': return <StoveIcon className="w-full h-full" />;
+      case 'dishwasher': return <DishwasherIcon className="w-full h-full" />;
+      case 'microwave': return <MicrowaveIcon className="w-full h-full" />;
+      case 'sink': return <SinkIcon className="w-full h-full" />;
+      default: return <Refrigerator className="w-full h-full" />;
     }
   };
 
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer group" onClick={handleAdd}>
-      <div className="relative h-32 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+      <div className="relative h-32 bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 p-4 flex items-center justify-center">
         {getApplianceIcon()}
-        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all flex items-center justify-center">
-          <Plus className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="absolute inset-0 bg-transparent group-hover:bg-black/5 transition-all flex items-center justify-center">
+          <Plus className="w-8 h-8 text-black opacity-0 group-hover:opacity-50 transition-opacity drop-shadow" />
         </div>
       </div>
       <div className="p-3">
@@ -228,6 +238,9 @@ function ApplianceCard({
 }
 
 export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
+  const kitchen3DRendererRef = React.useRef<Kitchen3DRendererRef>(null);
+  const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
+
   const [config, setConfig] = useState<KitchenConfig>({
     roomWidth: 12,
     roomLength: 14,
@@ -254,6 +267,26 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
   const [showSidebar, setShowSidebar] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<MainTab>('design');
+  const [loadedDesignInfo, setLoadedDesignInfo] = useState<{
+    name?: string;
+    description?: string;
+    customerName?: string;
+    customerCompany?: string;
+  }>({});
+
+  // Poll for snapshot URL from 3D renderer
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (kitchen3DRendererRef.current && config.viewMode === '3D') {
+        const url = kitchen3DRendererRef.current.getSnapshotUrl();
+        if (url && url !== snapshotUrl) {
+          setSnapshotUrl(url);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [config.viewMode, snapshotUrl]);
 
   const materials = calculateKitchenMaterials(config);
   const flatMaterials = [
@@ -301,6 +334,9 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         cab.id === id ? { ...cab, ...updates } : cab
       ),
     }));
+    if (selectedCabinet?.id === id) {
+      setSelectedCabinet(prev => prev ? { ...prev, ...updates } : null);
+    }
   };
 
   const handleUpdateAppliance = (id: string, updates: Partial<Appliance>) => {
@@ -339,8 +375,9 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
 
   return (
     <div className="bg-white">
-      {/* Main Tab Navigation - Design / Materials / Saved Designs */}
-      <div className="border-b bg-white">
+      <div className="print:hidden">
+        {/* Main Tab Navigation - Design / Materials / Saved Designs */}
+        <div className="border-b bg-white">
         <div className="px-6 py-0 flex items-center justify-between">
           {/* Tab Navigation */}
           <div className="flex gap-1">
@@ -369,6 +406,18 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
             </button>
 
             <button
+              onClick={() => setActiveTab('templates')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                activeTab === 'templates'
+                  ? 'border-red-600 text-red-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <LayoutTemplate className="w-4 h-4" />
+              <span>Templates</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('saved-designs')}
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === 'saved-designs'
@@ -378,6 +427,18 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
             >
               <Save className="w-4 h-4" />
               <span>Saved Designs</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('diagnostics')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                activeTab === 'diagnostics'
+                  ? 'border-red-600 text-red-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <FileTerminal className="w-4 h-4" />
+              <span>Diagnostics</span>
             </button>
 
             <button
@@ -391,13 +452,28 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
               <Settings className="w-4 h-4" />
               <span>Defaults</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('model-library')}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                activeTab === 'model-library'
+                  ? 'border-red-600 text-red-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Box className="w-4 h-4" />
+              <span>3D Models</span>
+            </button>
           </div>
 
           {/* Print Plan Button */}
           <Button 
-            className="bg-red-600 hover:bg-red-700 text-white"
+            className="bg-red-600 hover:bg-red-700 text-white print:hidden"
             onClick={() => {
-              toast.info('Print functionality coming soon!');
+              if (kitchen3DRendererRef.current && config.viewMode === '3D') {
+                kitchen3DRendererRef.current.captureSnapshot();
+              }
+              setTimeout(() => window.print(), 500);
             }}
           >
             <Printer className="w-4 h-4 mr-2" />
@@ -436,6 +512,51 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Left Sidebar - Item Library */}
             <div className="lg:col-span-1 space-y-6">
+              {/* Selected Item Properties */}
+              {selectedCabinet && (
+                <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-4 relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                  <div className="flex justify-between items-center mb-3">
+                    <h2 className="font-semibold text-lg">Selected Item</h2>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 w-6 p-0 rounded-full" 
+                      onClick={() => setSelectedCabinet(null)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{selectedCabinet.name}</div>
+                      <div className="text-xs text-gray-500">{selectedCabinet.width}W × {selectedCabinet.height}H × {selectedCabinet.depth}D</div>
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-gray-700">Custom 3D Model (OBJ URL)</label>
+                      <Input 
+                        placeholder="https://.../model.obj"
+                        value={selectedCabinet.modelUrl || ''}
+                        onChange={(e) => handleUpdateCabinet(selectedCabinet.id, { modelUrl: e.target.value })}
+                        className="text-xs h-8"
+                      />
+                      <p className="text-[10px] text-gray-500 leading-tight">Paste a signed URL from the 3D Models library to replace the default box geometry.</p>
+                    </div>
+
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => handleDeleteCabinet(selectedCabinet.id)}
+                    >
+                      Remove Item
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Category Selector */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                 <h2 className="font-semibold text-lg mb-3">Add Items</h2>
@@ -588,7 +709,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                     />
                   ) : (
                     <div className="h-[500px]">
-                      <Kitchen3DRenderer config={config} />
+                      <Kitchen3DRenderer ref={kitchen3DRendererRef} config={config} />
                     </div>
                   )}
                 </div>
@@ -694,9 +815,38 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                 totalCost={totalPrice}
                 onLoadDesign={(loadedConfig, designInfo) => {
                   setConfig(loadedConfig);
+                  if (designInfo) {
+                    setLoadedDesignInfo(designInfo);
+                  }
                   setActiveTab('design');
                   toast.success('Design loaded successfully!');
                 }}
+              />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'templates' && (
+          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+            <div className="max-w-6xl mx-auto">
+              <KitchenTemplates
+                currentConfig={config}
+                onLoadTemplate={(loadedConfig) => {
+                  setConfig(loadedConfig);
+                  setActiveTab('design');
+                  toast.success('Template loaded successfully!');
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'diagnostics' && (
+          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+            <div className="max-w-6xl mx-auto">
+              <DiagnosticPanel
+                organizationId={user.organizationId}
+                plannerType="kitchen"
               />
             </div>
           </div>
@@ -713,7 +863,28 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
             </div>
           </div>
         )}
+
+        {activeTab === 'model-library' && (
+          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+            <div className="max-w-6xl mx-auto">
+              <ModelLibrary />
+            </div>
+          </div>
+        )}
       </div>
+      </div>
+
+      {/* Hidden element for printing */}
+      <PrintableKitchenDesign 
+        config={config}
+        materials={flatMaterials}
+        totalCost={totalPrice}
+        customerName={loadedDesignInfo.customerName}
+        customerCompany={loadedDesignInfo.customerCompany}
+        description={loadedDesignInfo.description}
+        designName={loadedDesignInfo.name}
+        snapshotUrl={snapshotUrl || undefined}
+      />
     </div>
   );
 }

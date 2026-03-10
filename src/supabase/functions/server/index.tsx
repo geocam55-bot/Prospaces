@@ -15,6 +15,7 @@ import { auditAPI } from './audit-api.ts';
 import { tenantsAPI as tenantsAPIRoutes } from './tenants-api.ts';
 import { debugSubscriptions } from './debug-subscriptions.ts';
 import { backgroundJobs } from './background-jobs.ts';
+import { modelsAPI } from './models-api.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -161,6 +162,9 @@ tenantsAPIRoutes(app);
 
 // ── DEBUG ROUTES ──
 debugSubscriptions(app);
+
+// ── MODELS API (3D OBJs) ──
+modelsAPI(app);
 
 // ── ORG STATS (for Tenants / Organizations module) ─────────────────────
 // Returns user counts and contact counts per organization, bypassing RLS
