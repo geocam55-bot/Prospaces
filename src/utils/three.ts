@@ -307,6 +307,84 @@ export class BufferGeometry {
     g._isLines = this._isLines;
     return g;
   }
+
+  translate(x: number, y: number, z: number) {
+    if (!this._positions) return;
+    for (let i = 0; i < this._positions.length; i += 3) {
+      this._positions[i] += x;
+      this._positions[i + 1] += y;
+      this._positions[i + 2] += z;
+    }
+  }
+
+  rotateX(angle: number) {
+    if (!this._positions) return;
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    for (let i = 0; i < this._positions.length; i += 3) {
+      const y = this._positions[i + 1];
+      const z = this._positions[i + 2];
+      this._positions[i + 1] = y * c - z * s;
+      this._positions[i + 2] = y * s + z * c;
+      
+      if (this._normals && this._normals.length > i + 2) {
+        const ny = this._normals[i + 1];
+        const nz = this._normals[i + 2];
+        this._normals[i + 1] = ny * c - nz * s;
+        this._normals[i + 2] = ny * s + nz * c;
+      }
+    }
+  }
+}
+
+export class Shape {
+  path: {x: number, y: number}[] = [];
+  moveTo(x: number, y: number) { this.path.push({x, y}); }
+  lineTo(x: number, y: number) { this.path.push({x, y}); }
+}
+
+export class ExtrudeGeometry extends BufferGeometry {
+  constructor(shape: Shape, options: any) {
+    super();
+    const depth = options.depth || 1;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    
+    shape.path.forEach(pt => {
+      if (pt.x < minX) minX = pt.x;
+      if (pt.x > maxX) maxX = pt.x;
+      if (pt.y < minY) minY = pt.y;
+      if (pt.y > maxY) maxY = pt.y;
+    });
+    
+    if (minX === Infinity) { minX = 0; maxX = 1; minY = 0; maxY = 1; }
+    
+    const w = Math.max(0.01, maxX - minX);
+    const h = Math.max(0.01, maxY - minY);
+    
+    // Instead of importing BoxGeometry, build standard Box arrays internally:
+    const hw = w/2, hh = h/2, hd = depth/2;
+    const p = new Float32Array(72); const n = new Float32Array(72);
+    const u = new Float32Array(48); const idx = new Uint16Array(36);
+    let vi = 0, ui = 0, ii = 0;
+    const addF = (ax:number,ay:number,az:number, bx:number,by:number,bz:number, cx:number,cy:number,cz:number, dx:number,dy:number,dz:number, nx:number,ny:number,nz:number) => {
+      const b = vi/3; p[vi++]=ax; p[vi++]=ay; p[vi++]=az; p[vi++]=bx; p[vi++]=by; p[vi++]=bz;
+      p[vi++]=cx; p[vi++]=cy; p[vi++]=cz; p[vi++]=dx; p[vi++]=dy; p[vi++]=dz;
+      for(let i=0;i<4;i++){ n[b*3+i*3]=nx; n[b*3+i*3+1]=ny; n[b*3+i*3+2]=nz; }
+      u[ui++]=0; u[ui++]=0; u[ui++]=1; u[ui++]=0; u[ui++]=1; u[ui++]=1; u[ui++]=0; u[ui++]=1;
+      idx[ii++]=b; idx[ii++]=b+1; idx[ii++]=b+2; idx[ii++]=b; idx[ii++]=b+2; idx[ii++]=b+3;
+    };
+    addF(-hw,-hh,hd, hw,-hh,hd, hw,hh,hd, -hw,hh,hd, 0,0,1);
+    addF(hw,-hh,-hd, -hw,-hh,-hd, -hw,hh,-hd, hw,hh,-hd, 0,0,-1);
+    addF(-hw,hh,hd, hw,hh,hd, hw,hh,-hd, -hw,hh,-hd, 0,1,0);
+    addF(-hw,-hh,-hd, hw,-hh,-hd, hw,-hh,hd, -hw,-hh,hd, 0,-1,0);
+    addF(hw,-hh,hd, hw,-hh,-hd, hw,hh,-hd, hw,hh,hd, 1,0,0);
+    addF(-hw,-hh,-hd, -hw,-hh,hd, -hw,hh,hd, -hw,hh,-hd, -1,0,0);
+    
+    this._positions = p; this._normals = n; this._uvs = u; this._indices = idx;
+    
+    // Roughly align to shape bounding box coordinates
+    this.translate(minX + w/2, minY + h/2, depth/2);
+  }
 }
 
 // ─── BoxGeometry ─────────────────────────────────────────────────────────────

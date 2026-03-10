@@ -22,7 +22,10 @@ import {
   MeshBasicMaterial,
   CylinderGeometry,
   CanvasTexture,
-  Object3D
+  Object3D,
+  Shape,
+  ExtrudeGeometry,
+  BufferGeometry
 } from '../../utils/three';
 import { 
   createWoodTexture,
@@ -177,24 +180,26 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
       roughness: 0.9
     });
 
+    const wallOffset = 0.005; // 5mm offset to prevent z-fighting with cabinets
+
     // Back wall
-    const backWallGeometry = new PlaneGeometry(roomWidth, roomHeight);
+    const backWallGeometry = new PlaneGeometry(roomWidth + wallOffset*2, roomHeight);
     const backWall = new Mesh(backWallGeometry, wallMaterial);
-    backWall.position.set(0, roomHeight / 2, -roomLength / 2);
+    backWall.position.set(0, roomHeight / 2, -roomLength / 2 - wallOffset);
     backWall.receiveShadow = true;
     scene.add(backWall);
 
     // Left wall
-    const leftWallGeometry = new PlaneGeometry(roomLength, roomHeight);
+    const leftWallGeometry = new PlaneGeometry(roomLength + wallOffset*2, roomHeight);
     const leftWall = new Mesh(leftWallGeometry, wallMaterial);
-    leftWall.position.set(-roomWidth / 2, roomHeight / 2, 0);
+    leftWall.position.set(-roomWidth / 2 - wallOffset, roomHeight / 2, 0);
     leftWall.rotation.y = Math.PI / 2;
     leftWall.receiveShadow = true;
     scene.add(leftWall);
 
     // Right wall
     const rightWall = new Mesh(leftWallGeometry, wallMaterial);
-    rightWall.position.set(roomWidth / 2, roomHeight / 2, 0);
+    rightWall.position.set(roomWidth / 2 + wallOffset, roomHeight / 2, 0);
     rightWall.rotation.y = -Math.PI / 2;
     rightWall.receiveShadow = true;
     scene.add(rightWall);
@@ -276,18 +281,47 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
         y = (cabinet.height || 34) * scale / 2;
       }
 
-      // Cabinet body
-      let cabinetGeometry = new BoxGeometry(w, h, d);
+      let cabinetGeometry: any = new BoxGeometry(w, h, d);
       let isCustomModel = false;
+      const isCornerCabinet = cabinet.type === 'corner-base' || cabinet.type === 'corner-wall';
+
+      if (isCornerCabinet) {
+        // Procedurally generate an L-shape for corner cabinets
+        const shape = new Shape();
+        const thickness = Math.min(w, d) * 0.45; // Thickness of the L arms
+        
+        // Draw L shape in X-Z plane coordinates
+        shape.moveTo(0, 0);
+        shape.lineTo(w, 0);
+        shape.lineTo(w, thickness);
+        shape.lineTo(thickness, thickness);
+        shape.lineTo(thickness, d);
+        shape.lineTo(0, d);
+        shape.lineTo(0, 0);
+        
+        const extrudeSettings = {
+          depth: h,
+          bevelEnabled: false
+        };
+        const extrudeGeo = new ExtrudeGeometry(shape, extrudeSettings);
+        // ExtrudeGeometry builds along Z. We rotate it to align with X-Z plane.
+        extrudeGeo.rotateX(Math.PI / 2);
+        // Automatically center it exactly like BoxGeometry
+        extrudeGeo.center(); 
+        cabinetGeometry = extrudeGeo;
+      }
 
       // Handle custom 3D model injection
       if (cabinet.modelUrl) {
-        if (modelCache[cabinet.modelUrl]) {
+        if (modelCache[cabinet.modelUrl] && modelCache[cabinet.modelUrl] !== 'failed') {
           cabinetGeometry = modelCache[cabinet.modelUrl];
           isCustomModel = true;
-        } else if (!fetchPromises[cabinet.modelUrl]) {
+        } else if (modelCache[cabinet.modelUrl] === undefined && !fetchPromises[cabinet.modelUrl]) {
           fetchPromises[cabinet.modelUrl] = fetch(cabinet.modelUrl)
-            .then(res => res.text())
+            .then(res => {
+              if (!res.ok) throw new Error('Failed to fetch');
+              return res.text();
+            })
             .then(text => {
               const geom = parseOBJ(text);
               geom.center(); // Center geometry around its origin to match BoxGeometry alignment
@@ -295,8 +329,8 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
               setModelUpdateTick(t => t + 1); // Trigger scene re-render once parsed
             })
             .catch(() => {
-              // Ensure we don't infinitely retry on failure, but fail silently for no console logs rule
-              modelCache[cabinet.modelUrl] = new BoxGeometry(w, h, d);
+              // Mark as failed so we don't infinitely retry, but use procedural fallback
+              modelCache[cabinet.modelUrl] = 'failed';
               setModelUpdateTick(t => t + 1);
             });
         }
@@ -343,9 +377,8 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
       // Add edge outlines
       addEdgeOutline(pivot, cabinetGeometry, cabinetMesh);
 
-      // Add doors if applicable (only if not a custom model, or adjust depending on requirements, 
-      // but usually custom models include doors. We'll skip procedural doors if it's a custom model)
-      if (cabinet.hasDoors && cabinet.numberOfDoors && !isCustomModel) {
+      // Add doors if applicable (only if not a custom model, and skip for procedural corner cabinets)
+      if (cabinet.hasDoors && cabinet.numberOfDoors && !isCustomModel && !isCornerCabinet) {
         const doorMaterial = new MeshStandardMaterial({
           color: 0xffffff,
           roughness: 0.2,
@@ -377,7 +410,29 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
 
       // Add countertop for base cabinets
       if (cabinet.type === 'base' || cabinet.type === 'island' || cabinet.type === 'corner-base') {
-        const countertopGeometry = new BoxGeometry(w + 0.05, 0.04, d + 0.05);
+        let countertopGeometry: BufferGeometry = new BoxGeometry(w + 0.05, 0.04, d + 0.05);
+        
+        if (isCornerCabinet) {
+          // Countertop should also be L-shaped
+          const shape = new Shape();
+          const thickness = Math.min(w, d) * 0.45 + 0.025; // Slightly thicker for overhang
+          const cw = w + 0.05;
+          const cd = d + 0.05;
+          
+          shape.moveTo(0, 0);
+          shape.lineTo(cw, 0);
+          shape.lineTo(cw, thickness);
+          shape.lineTo(thickness, thickness);
+          shape.lineTo(thickness, cd);
+          shape.lineTo(0, cd);
+          shape.lineTo(0, 0);
+          
+          const extrudeGeo = new ExtrudeGeometry(shape, { depth: 0.04, bevelEnabled: false });
+          extrudeGeo.rotateX(Math.PI / 2);
+          extrudeGeo.center();
+          countertopGeometry = extrudeGeo;
+        }
+
         const countertopMaterial = new MeshStandardMaterial({
           color: 0x64748b,
           roughness: 0.1,
