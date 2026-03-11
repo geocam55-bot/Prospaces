@@ -364,8 +364,7 @@ const templates: Array<{ name: string; description: string; imageUrl?: string; c
         // --- Left Wall (West, X=0, Rot=-90) ---
         // Dishwasher at Y=36
         placeCab('base-36', 0, 60, -90), // Sink base
-        placeCab('base-12', 0, 96, -90),
-        placeCab('corner-base-36', 0, 108, -90), // Bottom Left Corner
+        placeCab('corner-base-36', 0, 96, -90), // Bottom Left Corner
         
         // --- Peninsula (Sticking East, Rot=180 facing North) ---
         placeCab('base-24', 36, 108, 180),
