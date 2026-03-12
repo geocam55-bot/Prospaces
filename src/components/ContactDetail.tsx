@@ -289,7 +289,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             setFilteredInventory([]);
           }
         } catch (err) {
-          console.error("Search failed:", err);
+          // Search failed
           setFilteredInventory([]);
         } finally {
           setIsSearchingInventory(false);
@@ -341,7 +341,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       const { projectManagers: pms } = await projectManagersAPI.getByCustomer(contact.id);
       setProjectManagers(pms || []);
     } catch (error: any) {
-      console.error('Failed to load project managers:', error);
+      // Failed to load project managers
       // Check if it's a table not found error
       if (error?.code === 'PGRST205' || error?.code === '42P01' || 
           error?.message?.includes('Could not find the table')) {
@@ -357,7 +357,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       const { documents: docs } = await getAllDocumentsClient(contact.id);
       setDocuments(docs || []);
     } catch (error: any) {
-      console.error('Failed to load documents:', error);
+      // Failed to load documents
     }
   };
 
@@ -375,7 +375,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       }));
       setInventoryItems(mappedItems);
     } catch (error: any) {
-      console.error('Failed to load inventory items:', error);
+      // Failed to load inventory items
     }
   };
 
@@ -392,7 +392,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         });
       }
     } catch (error) {
-      console.error('[ContactDetail] Failed to load org settings, using localStorage fallback:', error);
+      // Failed to load org settings, using localStorage fallback
     }
   };
 
@@ -402,7 +402,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       const { notes } = await notesAPI.getByContact(contact.id);
       setLinkedNotes(notes || []);
     } catch (error) {
-      console.error('[ContactDetail] Failed to load linked notes:', error);
+      // Failed to load linked notes
     } finally {
       setIsLoadingNotes(false);
     }
@@ -415,7 +415,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       const linked = (appointments || []).filter((a: any) => a.contact_id === contact.id);
       setLinkedAppointments(linked);
     } catch (error) {
-      console.error('[ContactDetail] Failed to load linked appointments:', error);
+      // Failed to load linked appointments
     } finally {
       setIsLoadingAppointments(false);
     }
@@ -434,7 +434,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       setNewPM({ name: '', email: '', phone: '', mailingAddress: '' });
       setIsAddPMDialogOpen(false);
     } catch (error) {
-      console.error('Failed to create project manager:', error);
+      // Failed to create project manager
       alert('Failed to create project manager. Please try again.');
     } finally {
       setIsSaving(false);
@@ -457,7 +457,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       setEditingPM(null);
       setIsEditPMDialogOpen(false);
     } catch (error) {
-      console.error('Failed to update project manager:', error);
+      // Failed to update project manager
       alert('Failed to update project manager. Please try again.');
     } finally {
       setIsSaving(false);
@@ -471,7 +471,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       await projectManagersAPI.delete(id);
       setProjectManagers(projectManagers.filter(pm => pm.id !== id));
     } catch (error) {
-      console.error('Failed to delete project manager:', error);
+      // Failed to delete project manager
       alert('Failed to delete project manager. Please try again.');
     }
   };
@@ -490,7 +490,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       // Reset file input
       e.target.value = '';
     } catch (error) {
-      console.error('Failed to upload document:', error);
+      // Failed to upload document
       toast.error('Failed to upload document');
     }
   };
@@ -503,7 +503,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       setDocuments(documents.filter(doc => doc.id !== id));
       toast.success('Document deleted successfully');
     } catch (error) {
-      console.error('Failed to delete document:', error);
+      // Failed to delete document
       toast.error('Failed to delete document');
     }
   };
@@ -521,7 +521,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       window.URL.revokeObjectURL(url);
       toast.success('Document downloaded successfully');
     } catch (error) {
-      console.error('Failed to download document:', error);
+      // Failed to download document
       toast.error('Failed to download document');
     }
   };
@@ -529,7 +529,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
   const loadBids = async () => {
     try {
       setIsLoadingBids(true);
-      console.log('[ContactDetail.loadBids] Loading bids for contact:', contact.id);
+      // Loading bids for contact
       
       // Load both bids and quotes
       const [bidsResult, quotesResult] = await Promise.all([
@@ -543,16 +543,14 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       
       const allQuotes = quotesResult.quotes || [];
       
-      console.log('[loadBids] Raw bid data from API:', bidList);
-      console.log('[loadBids] All quotes from API:', allQuotes.length);
+      // Raw bid data and quotes loaded
       
       // Filter quotes by contact_id matching this contact
       const quotesForContact = allQuotes.filter((q: any) => 
         q.contact_id === contact?.id || q.contactId === contact?.id
       );
       
-      console.log('[loadBids] Quotes for this contact:', quotesForContact.length);
-      console.log('[loadBids] Filtered quotes:', quotesForContact);
+      // Quotes filtered for this contact
       
       // Parse line items for each bid
       const parsedBids = (bidList || []).map((bid: Bid) => {
@@ -579,7 +577,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               total: item.total ?? 0,
             }));
           } catch (error) {
-            console.error('Failed to parse line items for bid:', bid.id, error);
+            // Failed to parse line items for bid
           }
         }
         return {
@@ -615,7 +613,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               total: item.total ?? 0,
             }));
           } catch (error) {
-            console.error('Failed to parse line items for quote:', quote.id, error);
+            // Failed to parse line items for quote
           }
         }
         
@@ -644,10 +642,10 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       
-      console.log('[loadBids] Total merged bids + quotes:', allBids.length);
+      // Total merged bids + quotes loaded
       setBids(allBids);
     } catch (error: any) {
-      console.error('Failed to load bids:', error);
+      // Failed to load bids
     } finally {
       setIsLoadingBids(false);
     }
@@ -742,7 +740,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       setIsAddBidDialogOpen(false);
       await loadBids();
     } catch (error) {
-      console.error('Failed to save deal:', error);
+      // Failed to save deal
       toast.error('Failed to save deal');
     } finally {
       setIsSaving(false);
@@ -864,7 +862,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         }
 
         if (inventoryItem) {
-          console.log(`[Refresh Prices] ✅ Matched line item "${item.itemName}" (SKU: ${item.sku || 'none'}) -> inventory "${inventoryItem.name}" (SKU: ${inventoryItem.sku})`);
+          // Matched line item to inventory for repricing
           // get price for the selected price tier
           const tier = priceLevelToTier(contact.priceLevel || getPriceTierLabel(1));
           
@@ -888,7 +886,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       
       toast.success('Line items repriced successfully');
     } catch (error) {
-      console.error('Error repricing line items:', error);
+      // Error repricing line items
       toast.error('Failed to reprice line items');
     } finally {
       setIsRepricing(false);
@@ -951,22 +949,21 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
   const [isRepricing, setIsRepricing] = useState(false);
 
   const handleRepriceEditBid = async () => {
-    console.log('Reprice button clicked');
-    console.log('editingBidLineItems:', editingBidLineItems);
+    // Reprice button clicked
     
     if (!editingBidLineItems || editingBidLineItems.length === 0) {
-      console.log('No line items to reprice');
+      // No line items to reprice
       toast.error('No line items to reprice');
       return;
     }
     
     setIsRepricing(true);
     try {
-      console.log('Starting repricing process...');
+      // Starting repricing process
       const { inventoryAPI } = await import('../utils/api');
       
       const newItems = await Promise.all(editingBidLineItems.map(async (item) => {
-        console.log('Processing item:', item);
+        // Processing item
         
         // STRATEGY 1: Match by SKU (most reliable - SKUs are unique)
         let inventoryItem = item.sku ? inventoryItems.find(i => i.sku && i.sku.toLowerCase() === item.sku.toLowerCase()) : null;
@@ -976,25 +973,25 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
           inventoryItem = inventoryItems.find(i => i.id === item.itemId);
         }
         
-        console.log('Found in local inventory:', inventoryItem ? inventoryItem.name : 'Not found');
+        // Found in local inventory check
         
         // STRATEGY 3: If not found locally, try API search by SKU
         if (!inventoryItem && item.sku) {
-          console.log('Searching API for SKU:', item.sku);
+          // Searching API for SKU
           const results = await inventoryAPI.search({ search: item.sku });
           if (results && results.items && results.items.length > 0) {
             inventoryItem = results.items.find((i: any) => i.sku && i.sku.toLowerCase() === item.sku.toLowerCase()) || results.items[0];
-            console.log('Found via API:', inventoryItem ? inventoryItem.name : 'Not found');
+            // Found via API check
           }
         }
 
         if (inventoryItem) {
           // get price for the selected price tier
           const tier = priceLevelToTier(contact.priceLevel || getPriceTierLabel(1));
-          console.log('Price tier:', tier, 'for price level:', contact.priceLevel);
+          // Price tier determined
           
           const newUnitPrice = getPriceForTier(inventoryItem, tier);
-          console.log('Old price:', item.unitPrice, 'New price:', newUnitPrice);
+          // Price updated
           
           const subtotal = item.quantity * newUnitPrice;
           const newTotal = subtotal - (subtotal * (item.discount || 0) / 100);
@@ -1007,16 +1004,16 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
           };
         }
 
-        console.log('Could not find inventory item, keeping as is');
+        // Could not find inventory item, keeping as is
         return item; // if couldn't find, keep as is
       }));
 
-      console.log('Repriced items:', newItems);
+      // Repriced items ready
       setEditingBidLineItems(newItems);
       
       toast.success('Line items repriced successfully');
     } catch (error) {
-      console.error('Error repricing line items:', error);
+      // Error repricing line items
       toast.error('Failed to reprice line items');
     } finally {
       setIsRepricing(false);
@@ -1083,7 +1080,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       setIsEditBidDialogOpen(false);
       toast.success('Deal updated successfully');
     } catch (error) {
-      console.error('Failed to update deal:', error);
+      // Failed to update deal
       toast.error('Failed to update deal. Please try again.');
     } finally {
       setIsSaving(false);
@@ -1105,7 +1102,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       await loadBids();
       toast.success('Deal deleted successfully');
     } catch (error) {
-      console.error('Failed to delete deal:', error);
+      // Failed to delete deal
       toast.error('Failed to delete deal. Please try again.');
     }
   };
@@ -1541,7 +1538,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                             });
                             // Ensure line items are typed correctly and normalize field names
                             const items = Array.isArray(bid.line_items) ? bid.line_items : [];
-                            console.log('[ContactDetail] Loading line items for editing:', items);
+                            // Loading line items for editing
                             
                             // Normalize line items to ensure all expected fields are present
                             const normalizedItems = items.map((item: any) => {
@@ -1557,7 +1554,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                                 discount: Number(item.discount || 0),
                                 total: Number(item.total || 0)
                               };
-                              console.log('[ContactDetail] Normalized item:', normalized);
+                              // Normalized item
                               return normalized;
                             });
                             
@@ -2384,9 +2381,6 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('🔵 REPRICE BUTTON CLICKED!');
-                      console.log('isRepricing:', isRepricing);
-                      console.log('editingBidLineItems.length:', editingBidLineItems.length);
                       handleRepriceEditBid();
                     }}
                     disabled={isRepricing || editingBidLineItems.length === 0}
@@ -2459,19 +2453,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                         const tierPrice = inventoryItem ? Number(inventoryItem[tierKey] || inventoryItem[snakeKey] || item.unitPrice || 0) : Number(item.unitPrice || 0);
                         const baseCost = inventoryItem?.cost || item.cost || 0;
                         
-                        console.log('[ContactDetail] Line item display:', {
-                          itemName: item.itemName,
-                          itemId: item.itemId,
-                          itemSku: item.sku,
-                          foundInventory: !!inventoryItem,
-                          inventoryName: inventoryItem?.name,
-                          inventorySku: inventoryItem?.sku,
-                          displaySku,
-                          displayName,
-                          tierPrice,
-                          baseCost,
-                          rawItem: item
-                        });
+                        // Line item display data ready
 
                         return (
                         <tr key={item.id} className="border-t hover:bg-gray-50">

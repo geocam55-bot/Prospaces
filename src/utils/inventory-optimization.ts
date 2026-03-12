@@ -7,8 +7,6 @@ import { createClient } from './supabase/client';
 export async function optimizeInventoryPerformance() {
   const supabase = createClient();
   
-  console.log('🔧 Starting inventory performance optimization...');
-  
   try {
     // Check if we can execute SQL (requires elevated permissions)
     // We'll try to create indexes using Supabase's RPC if available
@@ -41,12 +39,6 @@ export async function optimizeInventoryPerformance() {
       },
     ];
     
-    console.log('📋 Recommended optimizations:');
-    optimizations.forEach(opt => {
-      console.log(`  ✓ ${opt.name}: ${opt.description}`);
-      console.log(`    SQL: ${opt.sql}`);
-    });
-    
     return {
       success: true,
       message: 'Optimizations ready to apply',
@@ -54,7 +46,6 @@ export async function optimizeInventoryPerformance() {
     };
     
   } catch (error) {
-    console.error('❌ Error preparing optimizations:', error);
     return {
       success: false,
       message: 'Failed to prepare optimizations',
@@ -69,8 +60,6 @@ export async function optimizeInventoryPerformance() {
 export async function getInventoryPerformanceMetrics(organizationId: string) {
   const supabase = createClient();
   
-  console.log('📊 Measuring inventory performance...');
-  
   try {
     // Test query performance
     const startTime = performance.now();
@@ -83,8 +72,6 @@ export async function getInventoryPerformanceMetrics(organizationId: string) {
     const duration = performance.now() - startTime;
     
     if (error) throw error;
-    
-    console.log(`⏱️ Count query took ${duration.toFixed(2)}ms for ${count} items`);
     
     // Test first page query
     const startTime2 = performance.now();
@@ -100,8 +87,6 @@ export async function getInventoryPerformanceMetrics(organizationId: string) {
     
     if (error2) throw error2;
     
-    console.log(`⏱️ First page query took ${duration2.toFixed(2)}ms for ${firstPage?.length || 0} items`);
-    
     return {
       totalItems: count || 0,
       countQueryMs: duration,
@@ -111,7 +96,6 @@ export async function getInventoryPerformanceMetrics(organizationId: string) {
     };
     
   } catch (error) {
-    console.error('❌ Error measuring performance:', error);
     throw error;
   }
 }

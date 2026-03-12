@@ -20,7 +20,7 @@ export function AdminFixUsers() {
       const supabase = createClient();
 
       // Step 1: Check if profile exists
-      console.log('🔍 Step 1: Checking for existing profile...');
+      // Step 1: Checking for existing profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -35,10 +35,10 @@ export function AdminFixUsers() {
         throw new Error(`No profile found for email: ${email}`);
       }
 
-      console.log('✅ Profile found:', profile);
+      // Profile found
 
       // Step 2: Try to sign up (this creates auth.users record)
-      console.log('🔧 Step 2: Creating auth user...');
+      // Step 2: Creating auth user
       
       // First, sign out any current user
       await supabase.auth.signOut();
@@ -72,10 +72,10 @@ export function AdminFixUsers() {
         throw new Error('Sign up succeeded but no user returned');
       }
 
-      console.log('✅ Auth user created with ID:', signUpData.user.id);
+      // Auth user created
 
       // Step 3: Update the profile to match the new auth user ID
-      console.log('🔧 Step 3: Updating profile ID to match auth user...');
+      // Step 3: Updating profile ID to match auth user
       
       // We need to delete the old profile and create a new one with the correct ID
       // Or update if possible
@@ -105,7 +105,7 @@ export function AdminFixUsers() {
           .eq('id', newAuthId);
 
         if (updateError) {
-          console.error('⚠️ Warning: Could not update new profile:', updateError);
+          // Warning: Could not update new profile
         }
 
         // Delete the old profile if it's different
@@ -118,7 +118,7 @@ export function AdminFixUsers() {
       }
 
       // Step 4: Update created_by fields in other tables
-      console.log('🔧 Step 4: Updating related records...');
+      // Step 4: Updating related records
       
       if (oldProfileId !== newAuthId) {
         // Update bids
@@ -151,7 +151,7 @@ export function AdminFixUsers() {
           .update({ created_by: newAuthId })
           .eq('created_by', oldProfileId);
 
-        console.log('✅ Updated related records from old ID to new ID');
+        // Updated related records from old ID to new ID
       }
 
       setResult({
@@ -160,7 +160,7 @@ export function AdminFixUsers() {
       });
 
     } catch (error: any) {
-      console.error('❌ Error:', error);
+      // Error occurred
       setResult({
         success: false,
         message: `Error: ${error.message}`

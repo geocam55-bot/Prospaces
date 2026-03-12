@@ -29,7 +29,6 @@ export function LandingPageDebug() {
       setData(result);
     } catch (err: any) {
       setError(err.message);
-      console.error('Debug fetch error:', err);
     } finally {
       setLoading(false);
     }

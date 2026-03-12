@@ -73,7 +73,7 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
           filter: `organization_id=eq.${user.organizationId}`
         },
         (payload) => {
-          console.log('📡 Real-time job update:', payload);
+          // Real-time job update received
           
           const job = payload.new as BackgroundImportJob;
           
@@ -120,7 +120,7 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
       setCompletedJobs(jobs.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status)).slice(0, 10));
       
     } catch (error: any) {
-      console.error('Failed to load jobs:', error);
+      // Failed to load jobs
       toast.error('Failed to load jobs');
     } finally {
       setIsLoading(false);
@@ -192,7 +192,7 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
       toast.success('Job cancelled');
       loadJobs();
     } catch (error: any) {
-      console.error('Failed to cancel job:', error);
+      // Failed to cancel job
       toast.error('Failed to cancel job');
     }
   };
@@ -209,7 +209,7 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
       toast.success('Job deleted');
       loadJobs();
     } catch (error: any) {
-      console.error('Failed to delete job:', error);
+      // Failed to delete job
       toast.error('Failed to delete job');
     }
   };

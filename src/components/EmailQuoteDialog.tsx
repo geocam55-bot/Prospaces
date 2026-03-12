@@ -80,7 +80,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
         setSelectedAccount(match ? match.id : accounts[0].id);
       }
     } catch (error) {
-      console.error('Failed to load email accounts:', error);
+      // Failed to load email accounts - toast shown below
       toast.error('Failed to load email accounts');
     }
   };
@@ -132,7 +132,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
           }
         }
       } catch (err) {
-        console.error('Failed to resolve campaign ID:', err);
+        // Failed to resolve campaign ID – non-critical, continue
       }
 
       // Tracking Setup
@@ -225,14 +225,13 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
             });
           }
         } catch (err) {
-          console.error('Failed to update marketing campaign stats for email quote:', err);
+          // Failed to update marketing campaign stats – non-critical
         }
       }
 
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      console.error('Error sending email:', error);
       toast.error(`Failed to send email: ${error.message}`);
     } finally {
       setLoading(false);

@@ -57,7 +57,7 @@ export function InventoryDuplicateCleaner({ organizationId, onCleanupComplete }:
 
     try {
       const headers = await getAuthHeaders();
-      console.log('Scanning for duplicates (server-side parallel)...');
+      // Scanning for duplicates (server-side parallel)
 
       const response = await fetch(`${baseUrl}/dedup-scan`, {
         method: 'POST',
@@ -71,7 +71,7 @@ export function InventoryDuplicateCleaner({ organizationId, onCleanupComplete }:
       }
 
       const data = await response.json();
-      console.log('Dedup scan result:', data);
+      // Dedup scan result received
 
       setScanResult({
         totalScanned: data.totalScanned,
@@ -86,7 +86,7 @@ export function InventoryDuplicateCleaner({ organizationId, onCleanupComplete }:
         toast.success('No duplicate SKUs found!');
       }
     } catch (err: any) {
-      console.error('Error scanning for duplicates:', err);
+      // Error scanning for duplicates
       setError(err.message || 'Failed to scan for duplicates');
       toast.error('Scan failed: ' + err.message);
     } finally {
@@ -144,10 +144,7 @@ export function InventoryDuplicateCleaner({ organizationId, onCleanupComplete }:
           percent,
         });
 
-        console.log(
-          `Dedup chunk: deleted ${data.deleted}, remaining ~${data.remaining}, ` +
-          `cumulative ${totalDeleted}/${originalTotal} (${percent}%), done=${done}`
-        );
+        // Dedup chunk processed
       }
 
       setCleanupResults(
@@ -166,7 +163,7 @@ export function InventoryDuplicateCleaner({ organizationId, onCleanupComplete }:
       }, 1500);
 
     } catch (err: any) {
-      console.error('Error cleaning duplicates:', err);
+      // Error cleaning duplicates
       setError(err.message || 'Failed to clean duplicates');
       toast.error('Cleanup failed: ' + err.message);
     } finally {

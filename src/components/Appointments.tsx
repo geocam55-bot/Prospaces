@@ -97,10 +97,8 @@ function AppointmentDetailPopover({ appointment, formatTime, onDelete, onEdit, u
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <button className={`w-full text-left px-1.5 py-0.5 rounded text-xs truncate border-l-2 ${color.bg} ${color.border} ${color.text} hover:opacity-80 transition-opacity cursor-pointer`}>
-          <span className="font-medium">{appointment.title}</span>
-        </button>
+      <DropdownMenuTrigger className={`w-full text-left px-1.5 py-0.5 rounded text-xs truncate border-l-2 ${color.bg} ${color.border} ${color.text} hover:opacity-80 transition-opacity cursor-pointer`}>
+        <span className="font-medium">{appointment.title}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72 p-0">
         <div className="p-3 space-y-2">
@@ -486,43 +484,37 @@ export function Appointments({ user }: AppointmentsProps) {
             <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('list')}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                      <List className="h-4 w-4" />
-                      <span className="hidden sm:inline">List</span>
-                    </button>
+                  <TooltipTrigger
+                    type="button"
+                    onClick={() => setViewMode('list')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    <List className="h-4 w-4" />
+                    <span className="hidden sm:inline">List</span>
                   </TooltipTrigger>
                   <TooltipContent>List view</TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('week')}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'week' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                      <CalendarDays className="h-4 w-4" />
-                      <span className="hidden sm:inline">Week</span>
-                    </button>
+                  <TooltipTrigger
+                    type="button"
+                    onClick={() => setViewMode('week')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'week' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    <CalendarDays className="h-4 w-4" />
+                    <span className="hidden sm:inline">Week</span>
                   </TooltipTrigger>
                   <TooltipContent>Week view</TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode('month')}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'month' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                      <LayoutGrid className="h-4 w-4" />
-                      <span className="hidden sm:inline">Month</span>
-                    </button>
+                  <TooltipTrigger
+                    type="button"
+                    onClick={() => setViewMode('month')}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'month' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                    <span className="hidden sm:inline">Month</span>
                   </TooltipTrigger>
                   <TooltipContent>Month view</TooltipContent>
                 </Tooltip>
@@ -877,14 +869,12 @@ export function Appointments({ user }: AppointmentsProps) {
 
                                   return (
                                     <DropdownMenu key={a.id}>
-                                      <DropdownMenuTrigger asChild>
-                                        <button
-                                          className={`absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-[10px] leading-tight border-l-2 overflow-hidden cursor-pointer hover:opacity-90 transition-opacity ${color.bg} ${color.border} ${color.text}`}
-                                          style={{ top: `${topPx}px`, height: `${heightPx}px`, zIndex: 5 }}
-                                        >
-                                          <div className="font-semibold truncate">{a.title}</div>
-                                          <div className="truncate opacity-75">{formatTime(a.start_time)}</div>
-                                        </button>
+                                      <DropdownMenuTrigger
+                                        className={`absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-[10px] leading-tight border-l-2 overflow-hidden cursor-pointer hover:opacity-90 transition-opacity ${color.bg} ${color.border} ${color.text} text-left`}
+                                        style={{ top: `${topPx}px`, height: `${heightPx}px`, zIndex: 5 }}
+                                      >
+                                        <div className="font-semibold truncate">{a.title}</div>
+                                        <div className="truncate opacity-75">{formatTime(a.start_time)}</div>
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="start" className="w-72 p-0">
                                         <div className="p-3 space-y-2">

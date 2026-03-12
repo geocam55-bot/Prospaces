@@ -45,7 +45,7 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
       const data = await listDesigns('roof');
       setSavedDesigns(data);
     } catch (error) {
-      console.error('Error loading saved designs:', error);
+      // Error loading saved designs
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +79,7 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
       setShowSaveDialog(false);
       await loadSavedDesigns();
     } catch (error) {
-      console.error('Error saving design:', error);
+      // Error saving design
       setSaveError('Failed to save design. Please try again.');
     } finally {
       setIsSaving(false);
@@ -93,7 +93,7 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
       await deleteDesignApi('roof', id);
       await loadSavedDesigns();
     } catch (error) {
-      console.error('Error deleting design:', error);
+      // Error deleting design
     }
   };
 

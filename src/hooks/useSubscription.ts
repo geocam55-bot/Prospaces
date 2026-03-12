@@ -64,7 +64,7 @@ export function useSubscription(): SubscriptionState {
       const sub = await getCurrentSubscription();
       setSubscription(sub);
     } catch (err) {
-      console.error('[useSubscription] Failed to load:', err);
+      // Failed silently
     } finally {
       setLoading(false);
     }

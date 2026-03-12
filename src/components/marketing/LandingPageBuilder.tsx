@@ -156,7 +156,7 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
         setInventory(data.items);
       }
     } catch (error) {
-      console.error('Failed to load inventory:', error);
+      // Handle silently
     } finally {
       setLoadingInventory(false);
     }
@@ -169,7 +169,6 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
       const data = await landingPagesAPI.getAll(user.organizationId);
       setLandingPages(data);
     } catch (error) {
-      console.error('Failed to load landing pages:', error);
       toast.error('Failed to load landing pages');
     } finally {
       setIsLoading(false);
@@ -203,7 +202,6 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
       handleSelectPage(created);
       toast.success('Landing page created');
     } catch (error) {
-      console.error('Failed to create landing page:', error);
       toast.error('Failed to create landing page');
     } finally {
       setIsSaving(false);
@@ -229,7 +227,6 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
       setLandingPages(landingPages.map(p => p.id === selectedPage ? updated : p));
       toast.success('Page saved successfully');
     } catch (error) {
-      console.error('Failed to save page:', error);
       toast.error('Failed to save page');
     } finally {
       setIsSaving(false);
@@ -248,7 +245,6 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
       }
       toast.success('Page deleted');
     } catch (error) {
-      console.error('Failed to delete page:', error);
       toast.error('Failed to delete page');
     }
   };
@@ -405,8 +401,8 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
           additionalText: ''
         }
       ]
+      // No logging
     };
-    console.log('Adding product with data:', newElement.products);
     setPageElements([...pageElements, newElement]);
     setShowProductSelector(false);
     toast.success('Product widget added to page');
@@ -517,8 +513,7 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
       // Update element with permanent URL
       handleUpdateProductData(elementId, 'image', url, productIndex);
       toast.success('Image uploaded successfully', { id: loadingToast });
-    } catch (error) {
-      console.error('Failed to upload image:', error);
+    } catch (error: any) {
       toast.error(`Failed to upload image: ${error.message}`, { id: loadingToast });
     }
   };
@@ -581,8 +576,7 @@ export function LandingPageBuilder({ user, accessToken }: LandingPageBuilderProp
       // Update element with permanent URL
       handleUpdateElement(elementId, url);
       toast.success('Image uploaded successfully', { id: loadingToast });
-    } catch (error) {
-      console.error('Failed to upload image:', error);
+    } catch (error: any) {
       toast.error(`Failed to upload image: ${error.message}`, { id: loadingToast });
     }
   };

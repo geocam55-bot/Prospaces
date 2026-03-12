@@ -104,7 +104,6 @@ AND tablename = 'inventory';`;
         setTimeout(() => onComplete(), 2000);
       }
     } catch (err) {
-      console.error('Check failed:', err);
       toast.error('Check failed: ' + (err as Error).message);
     } finally {
       setIsChecking(false);

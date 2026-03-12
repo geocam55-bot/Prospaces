@@ -36,7 +36,7 @@ export function TrackingRedirect() {
             })
           });
         } catch (error) {
-          console.error('Tracking error:', error);
+          // Tracking failed – continue to redirect
           // Continue to redirect even if tracking fails
         }
       }

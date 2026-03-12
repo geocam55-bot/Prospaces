@@ -85,7 +85,6 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
       setOriginalConfig(JSON.parse(JSON.stringify(data)));
       setHasChanges(false);
     } catch (error: any) {
-      console.error('[BillingPlanConfig] Error loading config:', error);
       toast.error(`Failed to load plan configuration: ${error.message}`);
     } finally {
       setIsLoading(false);
@@ -105,7 +104,6 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
         onConfigSaved();
       }
     } catch (error: any) {
-      console.error('[BillingPlanConfig] Error saving config:', error);
       toast.error(`Failed to save plan configuration: ${error.message}`);
     } finally {
       setIsSaving(false);

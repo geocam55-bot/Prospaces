@@ -672,7 +672,25 @@ export const themes: Record<string, Theme> = {
 };
 
 export const getTheme = (themeId: string): Theme => {
-  return themes[themeId] || themes.light;
+  const baseTheme = themes[themeId] || themes.vibrant;
+  try {
+    if (typeof window !== 'undefined') {
+      const customColorsStr = localStorage.getItem(`prospace-theme-custom-${themeId}`);
+      if (customColorsStr) {
+        const customColors = JSON.parse(customColorsStr);
+        return {
+          ...baseTheme,
+          colors: {
+            ...baseTheme.colors,
+            ...customColors
+          }
+        };
+      }
+    }
+  } catch (e) {
+    // Ignore
+  }
+  return baseTheme;
 };
 
 export const saveTheme = (themeId: string): void => {
@@ -709,17 +727,17 @@ export const saveThemeToDatabase = async (themeId: string, userId: string): Prom
       });
       
       if (response.ok) {
-        console.log('✅ Theme saved to database:', themeId);
+        // Theme saved to database
       } else {
         const errorText = await response.text();
-        console.warn('⚠️ Failed to save theme to database:', errorText);
+        // Failed to save theme to database
       }
     } else {
-      console.warn('⚠️ No session available, theme saved to localStorage only');
+      // No session available, theme saved to localStorage only
     }
   } catch (error) {
-    console.error('❌ Error saving theme to database:', error);
-    // Theme is still saved to localStorage, so this is non-fatal
+    // Error saving theme to database - non-fatal since localStorage still has it
+    // Error saving theme to database
   }
 };
 
@@ -747,25 +765,28 @@ export const loadThemeFromDatabase = async (userId: string): Promise<string | nu
           if (data?.theme) {
             // Sync database theme to localStorage
             localStorage.setItem('prospace-theme', data.theme);
-            console.log('Loaded theme from database:', data.theme);
+            // Loaded theme from database
             return data.theme;
           }
         }
       } catch (err) {
-        console.warn('Could not load theme from server, falling back to localStorage:', err);
+        // Could not load theme from server, falling back to localStorage
+        // Could not load theme from server, falling back to localStorage
       }
     }
     
     // Fallback to localStorage if database load fails or no session
     const localTheme = localStorage.getItem('prospace-theme');
     if (localTheme) {
-      console.log('Loaded theme from localStorage:', localTheme);
+      // Loaded theme from localStorage
+      // Loaded theme from localStorage
       return localTheme;
     }
     
     return null;
   } catch (error) {
-    console.error('Error loading theme:', error);
+    // Error loading theme
+    // Error loading theme
     return null;
   }
 };

@@ -32,7 +32,6 @@ export async function listDesigns(type: PlannerType): Promise<SavedDesignRow[]> 
   const res = await fetch(`${BASE_URL}/designs/${type}`, { headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    console.error(`[designs-client] Error listing ${type} designs:`, err);
     throw new Error(err.error || `Failed to list ${type} designs (${res.status})`);
   }
   const data = await res.json();
@@ -57,7 +56,6 @@ export async function saveDesign(type: PlannerType, payload: {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    console.error(`[designs-client] Error saving ${type} design:`, err);
     throw new Error(err.error || `Failed to save ${type} design (${res.status})`);
   }
   const data = await res.json();
@@ -72,7 +70,6 @@ export async function deleteDesign(type: PlannerType, id: string): Promise<void>
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    console.error(`[designs-client] Error deleting ${type} design:`, err);
     throw new Error(err.error || `Failed to delete ${type} design (${res.status})`);
   }
 }
@@ -96,7 +93,6 @@ export async function createDeal(payload: CreateDealPayload): Promise<any> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    console.error('[designs-client] Error creating deal:', err);
     throw new Error(err.error || `Failed to create deal (${res.status})`);
   }
   const data = await res.json();
@@ -125,7 +121,6 @@ export async function createQuote(payload: CreateQuotePayload): Promise<any> {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    console.error('[designs-client] Error creating quote:', err);
     throw new Error(err.error || `Failed to create quote (${res.status})`);
   }
   const data = await res.json();

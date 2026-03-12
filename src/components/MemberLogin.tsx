@@ -88,9 +88,6 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
       if (activeError) {
         if (activeError.message.toLowerCase().includes('email not confirmed') ||
             activeError.message.includes('Invalid login credentials')) {
-          console.log('🔧 MemberLogin: Sign-in failed. Attempting auto-confirm email fix...');
-          console.log('📧 Email:', email);
-          console.log('❌ Error:', activeError.message);
           try {
             const confirmResp = await fetch(
               `${getSupabaseUrl()}/functions/v1/make-server-8405be07/confirm-email`,
@@ -101,23 +98,16 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
               }
             );
             const confirmResult = await confirmResp.json();
-            console.log('🔧 Confirm email response:', confirmResp.status, confirmResult);
             
             if (confirmResp.ok) {
-              console.log('✅ Email confirmed server-side. Retrying sign-in...');
               const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({ email, password });
               if (!retryError && retryData?.session && retryData?.user) {
-                console.log('✅ Retry sign-in successful after email confirmation fix!');
                 activeSignIn = retryData;
                 activeError = null;
-              } else if (retryError) {
-                console.log('❌ Retry sign-in still failed:', retryError.message);
               }
-            } else {
-              console.log('⚠️ Email confirmation endpoint returned error:', confirmResult.error);
             }
           } catch (confirmErr) {
-            console.warn('⚠️ Auto-confirm attempt failed:', confirmErr);
+            // Auto-confirm attempt failed – non-critical
           }
         }
 
@@ -126,17 +116,13 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
             throw new Error('Your email is not confirmed yet. Check your inbox for a confirmation link.');
           }
           if (activeError.message.includes('Invalid login credentials')) {
-            console.log('[MemberLogin] Invalid credentials error:', { email, errorMessage: activeError.message });
             throw new Error('Invalid email or password. Please check your credentials and try again.');
           }
           
           if (activeError.message === 'Failed to fetch') {
-            console.warn('[MemberLogin] Network error (Failed to fetch). Supabase server might be paused or unreachable.');
             throw new Error('Unable to connect to server. Please check your internet connection or verify that the Supabase project is active.');
           }
 
-          // Log unexpected errors for debugging
-          console.warn('[MemberLogin] Unexpected sign-in error:', activeError.message);
           throw new Error(activeError.message);
         }
       }
@@ -150,7 +136,6 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
       let profile: any = null;
 
       try {
-        console.log('📋 Calling /profiles/ensure for profile resolution...');
         const serverResp = await fetch(
           `${getSupabaseUrl()}/functions/v1/make-server-8405be07/profiles/ensure`,
           {
@@ -162,11 +147,9 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
           }
         );
         const serverResult = await serverResp.json();
-        console.log('Server /profiles/ensure response:', serverResp.status, serverResult);
 
         if (serverResp.ok && serverResult.profile) {
           profile = serverResult.profile;
-          console.log('✅ Profile resolved via server:', profile.id, 'org:', profile.organization_id, 'needs_pw:', profile.needs_password_change);
         } else if (serverResp.ok && serverResult.profileId) {
           const { data: refetched } = await supabase
             .from('profiles')
@@ -175,15 +158,14 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
             .maybeSingle();
           if (refetched) profile = refetched;
         } else {
-          console.warn('⚠️ Server /profiles/ensure did not return profile:', serverResult.error);
+          // Server /profiles/ensure did not return profile – will fallback
         }
       } catch (ensureErr) {
-        console.warn('Server-side profile ensure failed, falling back to client-side fetch:', ensureErr);
+        // Server-side profile ensure failed – falling back to client-side fetch
       }
 
       // Fallback: fetch profile client-side by ID, then by email
       if (!profile) {
-        console.log('📋 Falling back to client-side profile fetch...');
         const { data: byId } = await supabase
           .from('profiles')
           .select('*')
@@ -261,12 +243,11 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
           .update({ last_login: new Date().toISOString(), status: 'active' })
           .eq('id', activeSignIn.user.id);
       } catch (lastLoginErr) {
-        console.warn('⚠️ Failed to update last_login (non-critical):', lastLoginErr);
+        // Failed to update last_login – non-critical
       }
 
       onLogin(user, activeSignIn.session.access_token);
     } catch (err: any) {
-      console.error('Member login error:', err);
       setError(err.message || 'Sign in failed. Please try again.');
     } finally {
       setIsLoading(false);

@@ -85,7 +85,7 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
           const userCFMap = extractConversionFactors(userDefs, 'roof', config.shingleType);
           cfMap = { ...cfMap, ...userCFMap };
         } catch (err) {
-          console.warn('[RoofPlanner] Could not load conversion factors:', err);
+          // Could not load conversion factors
         }
 
         const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(

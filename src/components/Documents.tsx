@@ -115,7 +115,7 @@ export function Documents({ user }: DocumentsProps) {
     } catch (error: any) {
       // Only log if it's not a table-not-found error (user hasn't run migration yet)
       if (error.code !== 'PGRST205' && error.code !== '42P01' && !error.message?.includes('Could not find the table')) {
-        console.error('Error loading documents:', error);
+        // Error loading documents
       }
       
       // Check if it's a table not found error
@@ -134,7 +134,8 @@ export function Documents({ user }: DocumentsProps) {
       const response = await contactsAPI.getAll();
       setContacts(response.contacts || []);
     } catch (error) {
-      console.error('Error loading contacts:', error);
+      // Error loading contacts
+      toast.error('Failed to load contacts');
     }
   };
 
@@ -185,7 +186,7 @@ export function Documents({ user }: DocumentsProps) {
       });
       loadDocuments();
     } catch (error: any) {
-      console.error('Error uploading document:', error);
+      // Error uploading document
       toast.error(error.message || 'Failed to upload document');
     } finally {
       setIsUploading(false);
@@ -230,7 +231,7 @@ export function Documents({ user }: DocumentsProps) {
       setEditingDocument(null);
       loadDocuments();
     } catch (error: any) {
-      console.error('Error updating document:', error);
+      // Error updating document
       toast.error('Failed to update document');
     } finally {
       setIsSaving(false);
@@ -250,7 +251,7 @@ export function Documents({ user }: DocumentsProps) {
       document.body.removeChild(a);
       toast.success('Document downloaded');
     } catch (error: any) {
-      console.error('Error downloading document:', error);
+      // Error downloading document
       toast.error('Failed to download document');
     }
   };
@@ -270,7 +271,7 @@ export function Documents({ user }: DocumentsProps) {
       toast.success('Document deleted successfully');
       loadDocuments();
     } catch (error: any) {
-      console.error('Error deleting document:', error);
+      // Error deleting document
       toast.error('Failed to delete document');
     }
   };
@@ -280,7 +281,7 @@ export function Documents({ user }: DocumentsProps) {
       const url = await getDocumentUrlClient(doc.filePath);
       window.open(url, '_blank');
     } catch (error: any) {
-      console.error('Error viewing document:', error);
+      // Error viewing document
       toast.error('Failed to view document');
     }
   };

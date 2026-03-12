@@ -16,10 +16,10 @@ const copyToClipboard = async (text: string) => {
     const success = await clipboardUtil(text);
     if (success) return;
   } catch (error) {
-    console.log('Clipboard copy failed', error);
+    // Clipboard copy failed
   }
   // Final fallback: show alert
-  console.error('All clipboard methods failed');
+  // All clipboard methods failed
 };
 
 const supabase = createClient();
@@ -41,13 +41,13 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
     setSearchResults(null);
 
     try {
-      console.log('🔍 Searching for user:', searchEmail);
+      // Searching for user
 
       // Search in auth.users
       const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
       
       if (authError) {
-        console.log('⚠️ Cannot access auth.users (admin only)');
+        // Cannot access auth.users (admin only)
       }
 
       const authUser = authUsers?.users?.find(u => 
@@ -60,11 +60,7 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
         .select('*')
         .ilike('email', searchEmail);
 
-      console.log('📊 Search results:', {
-        authUser: authUser ? 'Found' : 'Not found',
-        profileData,
-        profileError
-      });
+      // Search results found
 
       // Search across ALL organizations (to see if user is in different org)
       const { data: allProfiles, error: allProfilesError } = await supabase
@@ -72,7 +68,7 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
         .select('*')
         .ilike('email', searchEmail);
 
-      console.log('🌐 All profiles search:', { allProfiles, allProfilesError });
+      // All profiles search complete
 
       setSearchResults({
         email: searchEmail,
@@ -100,7 +96,7 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
       }
 
     } catch (error) {
-      console.error('❌ Error searching user:', error);
+      // Error searching user
       toast.error('Error searching for user');
     } finally {
       setSearching(false);
@@ -116,7 +112,7 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
     setRecovering(true);
 
     try {
-      console.log('🔧 Creating profile for user:', searchResults.authUser);
+      // Creating profile for user
 
       const { data, error } = await supabase
         .from('profiles')
@@ -131,25 +127,25 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
         .select();
 
       if (error) {
-        console.error('❌ Error creating profile:', error);
+        // Error creating profile
         toast.error('Failed to create profile: ' + error.message);
         return;
       }
 
       if (!data || data.length === 0) {
-        console.error('❌ No rows inserted');
+        // No rows inserted
         toast.error('Failed to create profile: No data returned');
         return;
       }
 
-      console.log('✅ Profile created:', data[0]);
+      // Profile created
       toast.success('Profile created successfully');
       
       // Re-search to show updated results
       await searchUser();
 
     } catch (error) {
-      console.error('❌ Error:', error);
+      // Error creating profile
       toast.error('Error creating profile');
     } finally {
       setRecovering(false);
@@ -165,9 +161,7 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
     setRecovering(true);
 
     try {
-      console.log('🔧 Moving user to organization:', searchResults.profile.email);
-      console.log('🔧 Target organization:', currentOrganizationId);
-      console.log('🔧 Current user role:', currentUserRole);
+      // Moving user to organization
 
       // Use the server-side function that bypasses RLS
       const { data, error } = await supabase.rpc('assign_user_to_organization', {
@@ -176,15 +170,12 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
       });
 
       if (error) {
-        console.error('❌ Error calling function:', error);
+        // Error calling function
         
         // Check if function doesn't exist
         if (error.message.includes('function') && error.message.includes('does not exist')) {
-          toast.error('⚠️ Database functions not installed. Please run the SQL setup script first. See /SQL_FIX_USER_ORGANIZATION.sql');
-          console.log('\n💡 SETUP REQUIRED:');
-          console.log('   1. Open Supabase SQL Editor');
-          console.log('   2. Run the SQL from /SQL_FIX_USER_ORGANIZATION.sql');
-          console.log('   3. Try again');
+          toast.error('Database functions not installed. Please run the SQL setup script first. See /SQL_FIX_USER_ORGANIZATION.sql');
+          // Setup required: Run SQL from /SQL_FIX_USER_ORGANIZATION.sql
         } else {
           toast.error('Failed to update organization: ' + error.message);
         }
@@ -193,23 +184,19 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
 
       // Check the result from the function
       if (!data || !data.success) {
-        console.error('❌ Function returned error:', data?.error);
-        toast.error('⚠️ ' + (data?.error || 'Failed to assign user to organization'));
+        // Function returned error
+        toast.error((data?.error || 'Failed to assign user to organization'));
         return;
       }
 
-      console.log('✅ Organization updated successfully!');
-      console.log('   User ID:', data.user_id);
-      console.log('   Email:', data.email);
-      console.log('   Organization:', data.organization_id);
-      
+      // Organization updated successfully
       toast.success('User moved to your organization successfully!');
       
       // Re-search to show updated results
       await searchUser();
 
     } catch (error: any) {
-      console.error('❌ Unexpected error:', error);
+      // Unexpected error
       toast.error('Error updating organization: ' + error.message);
     } finally {
       setRecovering(false);
@@ -229,7 +216,7 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
     setRecovering(true);
 
     try {
-      console.log('🔧 Attempting to delete profile:', searchResults.profile.id);
+      // Attempting to delete profile
       
       // Delete existing profile
       const { data: deleteData, error: deleteError } = await supabase
@@ -239,11 +226,11 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
         .select();
 
       if (deleteError) {
-        console.error('❌ Error deleting profile:', deleteError);
+        // Error deleting profile
         
         // Check if it's an RLS error
         if (deleteError.code === '42501' || deleteError.message.includes('policy')) {
-          toast.error('⚠️ RLS Policy Error: Cannot delete profile in other organization. Use the SQL script below instead.', {
+          toast.error('RLS Policy Error: Cannot delete profile in other organization. Use the SQL script below instead.', {
             duration: 5000
           });
         } else {
@@ -253,19 +240,19 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
       }
 
       if (!deleteData || deleteData.length === 0) {
-        console.error('❌ No rows deleted - RLS policy blocking');
-        toast.error('⚠️ Cannot delete profile - RLS policies are blocking this operation. Use the SQL script below instead.', {
+        // No rows deleted - RLS policy blocking
+        toast.error('Cannot delete profile - RLS policies are blocking this operation. Use the SQL script below instead.', {
           duration: 5000
         });
         return;
       }
 
-      console.log('✅ Profile deleted, creating new one...');
+      // Profile deleted, creating new one
       // Create new profile
       await createProfile();
 
     } catch (error) {
-      console.error('❌ Error:', error);
+      // Error during delete and recreate
       toast.error('Error during delete and recreate - Use SQL script below instead');
     } finally {
       setRecovering(false);

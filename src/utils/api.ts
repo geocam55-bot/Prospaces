@@ -77,7 +77,6 @@ export const authAPI = {
         .single();
       
       if (profileError) {
-        console.error('Error fetching profile:', profileError);
         // Return session without profile data if profile fetch fails
         return { session, user: null };
       }
@@ -172,7 +171,6 @@ export const tenantsAPI = {
           .from('profiles')
           .select('id', { count: 'exact', head: true })
           .eq('organization_id', org.id);
-        if (ue) console.error('[tenantsAPI] Error counting users for org', org.id, ue);
         userCount = count ?? 0;
       }
       if (contactsCount == null) {
@@ -180,7 +178,6 @@ export const tenantsAPI = {
           .from('contacts')
           .select('id', { count: 'exact', head: true })
           .eq('organization_id', org.id);
-        if (ce) console.error('[tenantsAPI] Error counting contacts for org', org.id, ce);
         contactsCount = count ?? 0;
       }
 
@@ -225,11 +222,13 @@ export const tenantsAPI = {
         address: kvDetails.address || org.address || '',
         notes: kvDetails.notes || org.notes || '',
         features: kvDetails.features || (org.features ? (typeof org.features === 'string' ? JSON.parse(org.features) : org.features) : []),
-        ai_suggestions_enabled: org.ai_suggestions_enabled || false,
-        marketing_enabled: org.marketing_enabled ?? true,
-        inventory_enabled: org.inventory_enabled ?? true,
-        import_export_enabled: org.import_export_enabled ?? true,
-        documents_enabled: org.documents_enabled ?? true,
+        ai_suggestions_enabled: kvDetails.ai_suggestions_enabled ?? org.ai_suggestions_enabled ?? false,
+        marketing_enabled: kvDetails.marketing_enabled ?? org.marketing_enabled ?? true,
+        inventory_enabled: kvDetails.inventory_enabled ?? org.inventory_enabled ?? true,
+        import_export_enabled: kvDetails.import_export_enabled ?? org.import_export_enabled ?? true,
+        documents_enabled: kvDetails.documents_enabled ?? org.documents_enabled ?? true,
+        project_wizards_enabled: kvDetails.project_wizards_enabled ?? org.project_wizards_enabled ?? true,
+        appointments_enabled: kvDetails.appointments_enabled ?? org.appointments_enabled ?? true,
         createdAt: org.created_at,
         updatedAt: org.updated_at,
         userCount: userCount || 0,
@@ -237,7 +236,6 @@ export const tenantsAPI = {
       };
     }));
     
-    console.log('[tenantsAPI] Returning tenants with counts:', tenantsWithCounts.length);
     return { tenants: tenantsWithCounts };
   },
   getById: async (id: string) => {
@@ -270,7 +268,6 @@ export const tenantsAPI = {
     return { tenant: data };
   },
   create: async (data: any) => {
-    console.log('[tenantsAPI] Creating organization via server...');
     const hdrs = await getServerHeaders();
     const resp = await fetch(`${BASE}/tenants`, {
       method: 'POST',
@@ -279,15 +276,12 @@ export const tenantsAPI = {
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ error: resp.statusText }));
-      console.error('[tenantsAPI] Failed to create tenant:', err);
       throw new Error(err.error || 'Failed to create organization');
     }
     const result = await resp.json();
-    console.log('[tenantsAPI] Organization created via server:', result.tenant?.id);
     return result;
   },
   update: async (id: string, data: any) => {
-    console.log('[tenantsAPI] Updating organization via server:', id);
     const hdrs = await getServerHeaders();
     const resp = await fetch(`${BASE}/tenants/${id}`, {
       method: 'PUT',
@@ -296,15 +290,12 @@ export const tenantsAPI = {
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ error: resp.statusText }));
-      console.error('[tenantsAPI] Failed to update tenant:', err);
       throw new Error(err.error || 'Failed to update organization');
     }
     const result = await resp.json();
-    console.log('[tenantsAPI] Organization updated via server:', id);
     return result;
   },
-  updateFeatures: async (id: string, features: { ai_suggestions_enabled?: boolean }) => {
-    console.log('[tenantsAPI] Updating features via server:', id, features);
+  updateFeatures: async (id: string, features: Record<string, any>) => {
     const hdrs = await getServerHeaders();
     const resp = await fetch(`${BASE}/tenants/${id}/features`, {
       method: 'PATCH',
@@ -313,13 +304,11 @@ export const tenantsAPI = {
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ error: resp.statusText }));
-      console.error('[tenantsAPI] Failed to update features:', err);
       throw new Error(err.error || 'Failed to update features');
     }
     return await resp.json();
   },
   delete: async (id: string) => {
-    console.log(`[tenantsAPI] Deleting organization via server: ${id}`);
     const hdrs = await getServerHeaders();
     const resp = await fetch(`${BASE}/tenants/${id}`, {
       method: 'DELETE',
@@ -327,11 +316,9 @@ export const tenantsAPI = {
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ error: resp.statusText }));
-      console.error('[tenantsAPI] Failed to delete tenant:', err);
       throw new Error(err.error || 'Failed to delete organization');
     }
     const result = await resp.json();
-    console.log('[tenantsAPI] Organization deleted via server:', id);
     return result;
   },
 };
@@ -353,7 +340,7 @@ export const subscriptionAgreementAPI = {
       try {
         parsedAgreement = JSON.parse(parsedAgreement);
       } catch (e) {
-        console.error('Failed to parse agreement data', e);
+        // parse error, use raw value
       }
     }
     return { agreement: parsedAgreement || null };
@@ -370,7 +357,6 @@ export const subscriptionAgreementAPI = {
     });
     if (!resp.ok) {
       const errText = await resp.text();
-      console.error('Failed to save subscription agreement:', errText);
       throw new Error(`Failed to save subscription agreement: ${resp.status}`);
     }
     return await resp.json();
@@ -399,13 +385,11 @@ export const emailAPI = {
         { headers }
       );
       if (!res.ok) {
-        console.error('[emailAPI.getAccounts] Server error:', res.status);
         return { accounts: [] };
       }
       const json = await res.json();
       return { accounts: json.accounts || [] };
     } catch (error) {
-      console.error('[emailAPI.getAccounts] Failed:', error);
       return { accounts: [] };
     }
   },
@@ -438,7 +422,7 @@ export const emailAPI = {
       if (!res.ok) throw new Error('Sync failed');
       return await res.json();
     } catch (error: any) {
-      console.error('[emailAPI.syncAccount] Failed:', error);
+      // emailAPI.syncAccount failed
       return { success: false, error: error.message };
     }
   },

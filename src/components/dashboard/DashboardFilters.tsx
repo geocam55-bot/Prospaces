@@ -50,7 +50,7 @@ export function DashboardFilters() {
         setUsers(fetchedUsers || []);
       } catch (error: any) {
         if (error?.message !== 'Failed to fetch') {
-          console.error("Failed to fetch users for filter:", error);
+          // Failed to fetch users for filter – non-critical
         }
       }
     };

@@ -41,7 +41,6 @@ export function DataDiagnostic() {
       setResult(data.report);
 
     } catch (err: any) {
-      console.error('Diagnostic error:', err);
       setError(err.message);
     } finally {
       setIsFixing(false);

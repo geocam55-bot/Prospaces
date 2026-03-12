@@ -49,7 +49,6 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
       const data = await journeysAPI.getAll(user.organizationId);
       setJourneys(data);
     } catch (error) {
-      console.error('Failed to load journeys:', error);
       toast.error('Failed to load journeys');
     } finally {
       setIsLoading(false);
@@ -73,7 +72,6 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
       setSelectedJourney(created.id);
       toast.success('Journey created');
     } catch (error) {
-      console.error('Failed to create journey:', error);
       toast.error('Failed to create journey');
     } finally {
       setIsCreating(false);
@@ -88,7 +86,6 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
       if (selectedJourney === id) setSelectedJourney(null);
       toast.success('Journey deleted');
     } catch (error) {
-      console.error('Failed to delete journey:', error);
       toast.error('Failed to delete journey');
     }
   };

@@ -36,7 +36,7 @@ export function CustomFieldsRenderer({
           const allFields = JSON.parse(stored) as CustomField[];
           setFields(allFields.filter(f => f.entityType === entityType));
         } catch (e) {
-          console.error('Failed to parse custom fields', e);
+          // Failed to parse custom fields – non-critical
         }
       }
     }

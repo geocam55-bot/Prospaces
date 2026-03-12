@@ -70,10 +70,10 @@ export function BidsTableMigration() {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } else {
-        console.error('Failed to copy to clipboard');
+        // Failed to copy to clipboard
       }
     } catch (err) {
-      console.error('Failed to copy:', err);
+      // Failed to copy
     }
   };
 

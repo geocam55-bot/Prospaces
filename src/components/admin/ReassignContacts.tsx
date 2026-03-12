@@ -38,7 +38,7 @@ export function ReassignContacts() {
           organizationId = profile.organization_id;
         }
       } catch (e) {
-        console.warn('Could not read profile, falling back to JWT metadata');
+        // Could not read profile, falling back to JWT metadata
       }
 
       if (!organizationId) {
@@ -46,7 +46,7 @@ export function ReassignContacts() {
         return;
       }
 
-      console.log('🔄 Reassigning contacts...', { fromEmail, toEmail, organizationId });
+      // Reassigning contacts
 
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/reassign-by-email`,
@@ -70,13 +70,13 @@ export function ReassignContacts() {
         throw new Error(data.error || 'Failed to reassign contacts');
       }
 
-      console.log('✅ Success:', data);
+      // Reassignment success
       setResult({ 
         success: true, 
         message: data.message || `Successfully reassigned ${data.count} contacts` 
       });
     } catch (error: any) {
-      console.error('❌ Error reassigning contacts:', error);
+      // Error reassigning contacts
       setResult({ 
         success: false, 
         message: error.message || 'Failed to reassign contacts' 

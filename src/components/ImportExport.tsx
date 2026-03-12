@@ -229,7 +229,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       });
 
       if (mappedDataRaw.length !== mappedData.length) {
-        console.log(`Filtered out ${mappedDataRaw.length - mappedData.length} empty rows after mapping`);
+        // Filtered out empty rows after mapping
       }
 
       const supabase = createClient();
@@ -241,9 +241,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         throw new Error('You must be logged in to create background imports');
       }
 
-      console.log('Authenticated user:', authUser.id);
-      console.log('App user org:', user.organizationId);
-      console.log('Total records to import:', mappedData.length);
+      // Authenticated user and org verified
 
       // Chunk large datasets to stay under DB/edge-function payload limits
       const CHUNK_SIZE = 2000;
@@ -252,7 +250,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         chunks.push(mappedData.slice(i, i + CHUNK_SIZE));
       }
 
-      console.log(`Splitting ${mappedData.length} records into ${chunks.length} job(s) of up to ${CHUNK_SIZE} each`);
+      // Splitting records into chunked jobs
 
       // Get session once before the loop
       const { data: { session } } = await supabase.auth.getSession();
@@ -282,7 +280,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           // and the server ensures scheduled_time > created_at
         };
 
-        console.log(`Creating job${chunkLabel}: ${chunk.length} records`);
+        // Creating job for chunk
         
         const response = await fetch(url, {
           method: 'POST',
@@ -295,25 +293,25 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
         if (!response.ok) {
           const errBody = await response.text();
-          console.error(`Job creation failed${chunkLabel}:`, response.status, errBody);
+          // Job creation failed
           let errMsg = `Server error ${response.status}`;
           try { errMsg = JSON.parse(errBody).error || errMsg; } catch {}
           throw new Error(`Failed to create job${chunkLabel}: ${errMsg}`);
         }
 
         const result = await response.json();
-        console.log(`Job response${chunkLabel}:`, result);
+        // Job response received
         
         if (result.error) {
           throw new Error(result.error);
         }
         
         if (!result.success || !result.job) {
-          console.error('Invalid response:', result);
+          // Invalid response
           throw new Error(`Invalid server response${chunkLabel}`);
         }
         
-        console.log(`Job created successfully${chunkLabel}:`, result.job.id);
+        // Job created successfully
 
         totalCreated += chunk.length;
 
@@ -340,7 +338,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       // Clear mapping state
       clearMapping();
     } catch (error: any) {
-      console.error('Failed to create background import job:', error);
+      // Failed to create background import job
       toast.error('Failed to start background import: ' + error.message);
     }
   };
@@ -446,7 +444,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const values = parseCSVLine(line);
       // Be forgiving with column count — pad short rows with empty strings, ignore extra columns
       if (values.length < headers.length) {
-        console.warn(`Row ${i + 1}: Expected ${headers.length} columns, got ${values.length}. Padding with empty values.`);
+        // Row padding - expected more columns
         while (values.length < headers.length) {
           values.push('');
         }
@@ -454,7 +452,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
       // Skip rows where every value is blank (trailing empty lines, rows of commas, etc.)
       if (values.every(v => !v || v.trim() === '')) {
-        console.log(`Row ${i + 1}: Skipping empty row`);
+        // Skipping empty row
         continue;
       }
 
@@ -544,13 +542,13 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
       if (match) {
         mapping[fileCol] = match.value;
-        console.log(`Auto-mapped "${fileCol}" -> "${match.value}" (${match.label})`);
+        // Auto-mapped column
       } else {
-        console.log(`No match found for column "${fileCol}"`);
+        // No match found for column
       }
     });
 
-    console.log('Final mapping:', mapping);
+    // Final mapping ready
     return mapping;
   };
 
@@ -658,7 +656,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const executeImport = async () => {
     if (!mappingState) return;
 
-    console.log('Starting import...', mappingState);
+    // Starting import
 
     const { type, data, mapping } = mappingState;
     setIsImporting(true);
@@ -666,7 +664,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     setImportProgress({ current: 0, total: data.length });
 
     try {
-      console.log(`Importing ${data.length} ${type} records...`);
+      // Importing records
       let success = 0;
       let failed = 0;
       const errors: string[] = [];
@@ -678,12 +676,11 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const requiredFields = dbFields.filter(f => f.required);
       const mappedDbFields = Object.values(mapping);
 
-      console.log('Required fields:', requiredFields.map(f => f.value));
-      console.log('Mapped fields:', mappedDbFields);
+      // Required and mapped fields verified
 
       for (const reqField of requiredFields) {
         if (!mappedDbFields.includes(reqField.value)) {
-          console.error('Missing required field:', reqField.label);
+          // Missing required field
           toast.error(`Required field "${reqField.label}" is not mapped`);
           setIsImporting(false);
           return;
@@ -708,7 +705,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       });
 
       if (mappedDataRaw.length !== mappedData.length) {
-        console.log(`Filtered out ${mappedDataRaw.length - mappedData.length} empty rows after mapping`);
+        // Filtered out empty rows after mapping
       }
 
       // Use bulk processing for inventory
@@ -716,13 +713,13 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         const BATCH_SIZE = 50;
         const totalBatches = Math.ceil(mappedData.length / BATCH_SIZE);
         
-        console.log(`Processing ${mappedData.length} items in ${totalBatches} batches of ${BATCH_SIZE}`);
+        // Processing items in batches
 
         for (let i = 0; i < mappedData.length; i += BATCH_SIZE) {
           const batch = mappedData.slice(i, i + BATCH_SIZE);
           const batchNum = Math.floor(i / BATCH_SIZE) + 1;
           
-          console.log(`Processing batch ${batchNum}/${totalBatches} (${batch.length} items)`);
+          // Processing batch
           
           try {
             const result = await inventoryAPI.bulkUpsertBySKU(batch);
@@ -744,7 +741,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               await new Promise(resolve => setTimeout(resolve, 100));
             }
           } catch (error: any) {
-            console.error(`Batch ${batchNum} failed:`, error);
+            // Batch failed
             errors.push(`Batch ${batchNum}: ${error.message}`);
             failed += batch.length;
           }
@@ -762,7 +759,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         const authProfile = await ensureUserProfile(authUser.id);
         const preloadedAuth = { userId: authUser.id, profile: authProfile };
         
-        console.log(`Pre-loaded auth for import: user=${authUser.id}, org=${authProfile.organization_id}`);
+        // Pre-loaded auth for import
 
         // Log unique account owners found in CSV for debugging ownership resolution
         const uniqueOwners = new Set(
@@ -771,22 +768,22 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
             .filter((v: string) => v !== '')
         );
         if (uniqueOwners.size > 0) {
-          console.log(`📋 Import will resolve ${uniqueOwners.size} unique account owner(s):`, [...uniqueOwners]);
+          // Import will resolve unique account owners
         } else {
-          console.log('📋 No accountOwnerNumber mapped — all contacts will be owned by the importing user');
+          // No accountOwnerNumber mapped — all contacts will be owned by the importing user
         }
 
         // Use batch processing for contacts
         const BATCH_SIZE = 25; // Slightly smaller batches for contacts
         const totalBatches = Math.ceil(mappedData.length / BATCH_SIZE);
         
-        console.log(`Processing ${mappedData.length} contacts in ${totalBatches} batches of ${BATCH_SIZE}`);
+        // Processing contacts in batches
 
         for (let i = 0; i < mappedData.length; i += BATCH_SIZE) {
           const batch = mappedData.slice(i, i + BATCH_SIZE);
           const batchNum = Math.floor(i / BATCH_SIZE) + 1;
           
-          console.log(`Processing batch ${batchNum}/${totalBatches} (${batch.length} contacts)`);
+          // Processing contact batch
           
           // Process contacts in parallel within the batch, passing pre-loaded auth
           const batchPromises = batch.map(async (contact, idx) => {
@@ -799,7 +796,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               const errMsg = error.message || 'Unknown error';
               const errDetail = error.details || error.code || '';
               errors.push(`Row ${rowNum} (${contact.name || 'unnamed'}): ${errMsg}${errDetail ? ` [${errDetail}]` : ''}`);
-              console.error(`Row ${rowNum} failed:`, error);
+              // Row failed
               return { success: false, error };
             }
           });

@@ -73,7 +73,7 @@ export function SimpleSyncButton({ onSuccess }: SimpleSyncButtonProps) {
       const { data, error } = result;
 
       if (error) {
-        console.error('Sync error:', error);
+        
         
         // If the function doesn't exist, show setup dialog
         if (error.code === 'PGRST202' || error.message?.includes('function') || error.code === '42883') {
@@ -88,7 +88,6 @@ export function SimpleSyncButton({ onSuccess }: SimpleSyncButtonProps) {
         return;
       }
 
-      console.log('Sync result:', data);
       toast.success(`✅ Successfully synced ${data || 0} users!`);
       setSyncStatus('success');
       
@@ -98,7 +97,7 @@ export function SimpleSyncButton({ onSuccess }: SimpleSyncButtonProps) {
       }, 1000);
 
     } catch (err: any) {
-      console.error('Unexpected sync error:', err);
+      
       toast.error(`Sync failed: ${err.message}`);
       setSyncStatus('error');
     } finally {

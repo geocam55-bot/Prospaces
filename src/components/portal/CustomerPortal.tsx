@@ -77,12 +77,10 @@ export function CustomerPortal() {
     setDashboardError(null);
     try {
       const data = await getPortalDashboard();
-      console.log('[portal] Dashboard data received:', JSON.stringify(data).slice(0, 500));
       setDashboardData(data);
       setQuotes(data.quotes || []);
       setMessages(data.messages || []);
     } catch (err: any) {
-      console.error('[portal] Dashboard load error:', err);
       if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
         clearPortalSession();
         setIsLoggedIn(false);
@@ -99,7 +97,7 @@ export function CustomerPortal() {
       const data = await getPortalQuotes();
       setQuotes(data.quotes || []);
     } catch (err: any) {
-      console.error('[portal] Quotes load error:', err);
+      // Quotes load error – non-critical
     }
   };
 
@@ -108,7 +106,7 @@ export function CustomerPortal() {
       const data = await getPortalProjects();
       setProjects(data.projects || []);
     } catch (err: any) {
-      console.error('[portal] Projects load error:', err);
+      // Projects load error – non-critical
     }
   };
 
@@ -117,7 +115,7 @@ export function CustomerPortal() {
       const data = await getPortalDocuments();
       setDocuments(data.documents || []);
     } catch (err: any) {
-      console.error('[portal] Documents load error:', err);
+      // Documents load error – non-critical
     }
   };
 
@@ -126,7 +124,7 @@ export function CustomerPortal() {
       const data = await getPortalMessages();
       setMessages(data.messages || []);
     } catch (err: any) {
-      console.error('[portal] Messages load error:', err);
+      // Messages load error – non-critical
     }
   };
 

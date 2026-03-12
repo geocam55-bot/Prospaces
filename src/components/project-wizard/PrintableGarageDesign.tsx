@@ -23,8 +23,8 @@ export function PrintableGarageDesign({
   description,
   designName,
 }: PrintableGarageDesignProps) {
-  // Debug: Log materials to help troubleshoot printing issues
-  console.log('[PrintableGarageDesign] Materials for print:', {
+  // Materials tracked for print rendering
+  const _debugCounts = {
     foundation: materials.foundation?.length || 0,
     framing: materials.framing?.length || 0,
     roofing: materials.roofing?.length || 0,
@@ -35,7 +35,7 @@ export function PrintableGarageDesign({
     electrical: materials.electrical?.length || 0,
     insulation: materials.insulation?.length || 0,
     totalCost,
-  });
+  };
 
   return (
     <div className="hidden print:block print:pt-8">

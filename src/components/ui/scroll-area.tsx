@@ -3,7 +3,7 @@
 import * as React from "react";
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 
-import { cn } from "./utils";
+import { cn, filterFigmaProps } from "./utils";
 
 function ScrollArea({
   className,
@@ -14,7 +14,7 @@ function ScrollArea({
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
       className={cn("relative", className)}
-      {...props}
+      {...filterFigmaProps(props)}
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
@@ -45,7 +45,7 @@ function ScrollBar({
           "h-2.5 flex-col border-t border-t-transparent",
         className,
       )}
-      {...props}
+      {...filterFigmaProps(props)}
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
         data-slot="scroll-area-thumb"

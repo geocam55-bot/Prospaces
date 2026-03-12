@@ -51,14 +51,13 @@ export async function logAuditEvent(params: AuditEventParams): Promise<void> {
       body: JSON.stringify(body),
     }).then(async (res) => {
       if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        console.warn(`[audit] Failed to log event (${res.status}): ${errText}`);
+        await res.text().catch(() => '');
       }
     }).catch((err) => {
-      console.warn(`[audit] Network error logging event: ${err.message}`);
+      // Ignore network errors logging events
     });
   } catch (err: any) {
-    console.warn(`[audit] Exception in logAuditEvent: ${err.message}`);
+    // Ignore exceptions
   }
 }
 

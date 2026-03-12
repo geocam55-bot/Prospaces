@@ -51,17 +51,7 @@ export function ProjectQuoteGenerator({
 
   // 🔍 DEBUG: Log materials when they change
   useEffect(() => {
-    console.log('[ProjectQuoteGenerator] 🔍 Materials received:', {
-      count: materials.length,
-      sample: materials.slice(0, 3).map(m => ({
-        description: m.description || m.name || 'unknown',
-        itemId: m.itemId || '(none)',
-        sku: m.sku || '(none)',
-        unitPrice: m.unitPrice || 0,
-        cost: m.cost || 0
-      })),
-      allFields: materials.length > 0 ? Object.keys(materials[0]) : []
-    });
+    // Materials received - tracked for debugging
   }, [materials]);
 
   // Load organization settings on mount
@@ -77,7 +67,7 @@ export function ProjectQuoteGenerator({
   // Reload contacts when dialog opens
   useEffect(() => {
     if (isOpen) {
-      console.log('[ProjectQuoteGenerator] Dialog opened - reloading contacts to get latest price levels...');
+      // Dialog opened - reloading contacts to get latest price levels
       loadContacts();
     }
   }, [isOpen]);
@@ -88,14 +78,10 @@ export function ProjectQuoteGenerator({
       // Find selected contact and get their price level
       const contact = contacts.find(c => c.id === selectedContact);
       if (contact) {
-        console.log('[ProjectQuoteGenerator] Selected contact:', {
-          name: contact.name,
-          priceLevel: contact.priceLevel,
-          allFields: Object.keys(contact)
-        });
+        // Selected contact found
         const priceLevel = contact.priceLevel || getPriceTierLabel(1);
         setCustomerPriceLevel(priceLevel);
-        console.log('[ProjectQuoteGenerator] ✅ Set customer price level to:', priceLevel);
+        // Set customer price level
       }
     } else {
       setCustomerPriceLevel(getPriceTierLabel(1)); // Reset to default
@@ -108,17 +94,17 @@ export function ProjectQuoteGenerator({
       if (orgSettings) {
         setOrgTaxRate(orgSettings.tax_rate || 0);
         setOrgTaxRate2(orgSettings.tax_rate_2 || 0);
-        console.log('[ProjectQuoteGenerator] Loaded tax rates:', orgSettings.tax_rate, orgSettings.tax_rate_2);
+        // Loaded tax rates from org settings
       } else {
         // Fallback to localStorage if no settings in database
         const fallbackRate = getGlobalTaxRate();
         const fallbackRate2 = getGlobalTaxRate2();
         setOrgTaxRate(fallbackRate);
         setOrgTaxRate2(fallbackRate2);
-        console.log('[ProjectQuoteGenerator] Using fallback tax rates:', fallbackRate, fallbackRate2);
+        // Using fallback tax rates
       }
     } catch (error) {
-      console.error('[ProjectQuoteGenerator] Error loading organization settings:', error);
+      // Error loading organization settings
       // Fallback to localStorage on error
       const fallbackRate = getGlobalTaxRate();
       const fallbackRate2 = getGlobalTaxRate2();
@@ -130,13 +116,13 @@ export function ProjectQuoteGenerator({
   const loadContacts = async () => {
     try {
       setIsLoading(true);
-      console.log('[ProjectQuoteGenerator] Loading contacts...');
+      // Loading contacts
       const scope = 'personal';
       const { contacts: data } = await contactsAPI.getAll(scope);
-      console.log('[ProjectQuoteGenerator] Loaded contacts:', data?.length || 0, data);
+      // Contacts loaded
       setContacts(data || []);
     } catch (error) {
-      console.error('[ProjectQuoteGenerator] Error loading contacts:', error);
+      // Error loading contacts
       showAlert('error', 'Failed to load contacts');
     } finally {
       setIsLoading(false);
@@ -172,12 +158,7 @@ export function ProjectQuoteGenerator({
     // ✅ VALIDATION: Check if materials are enriched (have SKUs and pricing)
     const unenrichedMaterials = materials.filter(m => !m.sku || !m.itemId || m.unitPrice === 0 || m.cost === 0);
     if (unenrichedMaterials.length > 0) {
-      console.error('[ProjectQuoteGenerator] ❌ ERROR: Materials not enriched!', {
-        totalMaterials: materials.length,
-        unenrichedCount: unenrichedMaterials.length,
-        sampleUnenriched: unenrichedMaterials.slice(0, 3),
-        sampleEnriched: materials.filter(m => m.sku && m.itemId).slice(0, 3)
-      });
+      // Materials not enriched - cannot create quote
       showAlert('error', 'Please wait for pricing to load before creating a quote. If pricing does not appear, check that Project Wizard Defaults are configured in Admin Settings.');
       return;
     }
@@ -202,13 +183,7 @@ export function ProjectQuoteGenerator({
         total: material.totalCost || (material.quantity * (material.unitPrice || material.costPerUnit || material.price || material.cost || 0)),
       }));
 
-      console.log('[ProjectQuoteGenerator] ✅ Line items created with SKUs:', lineItems.map(item => ({
-        itemName: item.itemName,
-        itemId: item.itemId || '(none)',
-        sku: item.sku || '(none)',
-        unitPrice: item.unitPrice,
-        cost: item.cost
-      })));
+      // Line items created with SKUs
 
       // Build enhanced notes with project and pricing information
       const enhancedNotes = [
@@ -251,7 +226,7 @@ export function ProjectQuoteGenerator({
         line_items: lineItems,
       };
 
-      console.log('[ProjectQuoteGenerator] Creating quote:', quoteData);
+      // Creating quote
 
       await quotesAPI.create(quoteData);
 
@@ -266,7 +241,7 @@ export function ProjectQuoteGenerator({
       }, 2000);
 
     } catch (error: any) {
-      console.error('Error creating quote:', error);
+      // Error creating quote
       showAlert('error', error.message || 'Failed to create quote');
     } finally {
       setIsSaving(false);

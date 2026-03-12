@@ -408,13 +408,13 @@ export async function getAllContactsClient(filterByAccountOwner?: string, scope:
       
       // On 401, try refreshing the session and retry once before falling back
       if (response.status === 401) {
-        console.log('[contacts-client] Got 401 unauthorized, attempting session refresh...');
+        // Got 401 unauthorized, attempting session refresh
         try {
           const { createClient: createSupabaseClient } = await import('./supabase/client');
           const sb = createSupabaseClient();
           const { data: { session: refreshed }, error: refreshError } = await sb.auth.refreshSession();
           if (!refreshError && refreshed?.access_token) {
-            console.log('[contacts-client] Session refreshed, retrying request...');
+            // Session refreshed, retrying request
             const retryHeaders = await getServerHeaders();
             const retryResponse = await fetch(
               `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts?scope=${scope}`,
@@ -422,26 +422,25 @@ export async function getAllContactsClient(filterByAccountOwner?: string, scope:
             );
             if (retryResponse.ok) {
               const retryResult = await retryResponse.json();
-              console.log(`[contacts-client] ✅ Retry succeeded — ${retryResult.meta?.count || 0} contacts`);
+              // Retry succeeded
               const transformedData = (retryResult.contacts || []).map(transformFromDbFormat);
               return { contacts: transformedData };
             }
-            console.log('[contacts-client] Retry failed with status:', retryResponse.status);
+            // Retry failed
           } else {
-            console.log('[contacts-client] Session refresh failed, falling back to direct query');
+            // Session refresh failed, falling back to direct query
           }
         } catch (retryErr: any) {
-          console.log('[contacts-client] Refresh exception, falling back to direct query');
+          // Refresh exception, falling back to direct query
         }
         
         // Fallback to direct Supabase query (this is expected for 401s)
-        console.log('[contacts-client] Using direct Supabase query as fallback');
+        // Using direct Supabase query as fallback
         return await getAllContactsClientDirect(scope);
       }
       
-      // For non-401 errors, log and fall back
-      console.error('[contacts-client] Server error:', response.status, errorBody);
-      console.warn('[contacts-client] Falling back to direct Supabase query...');
+      // For non-401 errors, fall back
+      // Server error encountered, falling back to direct query
       return await getAllContactsClientDirect(scope);
     }
 
@@ -452,7 +451,7 @@ export async function getAllContactsClient(filterByAccountOwner?: string, scope:
     
     return { contacts: transformedData };
   } catch (error: any) {
-    console.error('[contacts-client] Error fetching via server, falling back to direct query:', error);
+    // Error fetching via server, falling back to direct query
     return await getAllContactsClientDirect(scope);
   }
 }
@@ -476,7 +475,7 @@ async function getAllContactsClientDirect(scope: 'personal' | 'team' = 'personal
     try {
       profile = await ensureUserProfile(user.id);
     } catch (profileError) {
-      console.error('Failed to get user profile:', profileError);
+      // Failed to get user profile
       return { contacts: [] };
     }
 
@@ -484,7 +483,7 @@ async function getAllContactsClientDirect(scope: 'personal' | 'team' = 'personal
     const userOrgId = profile.organization_id;
     const userEmail = profile.email;
 
-    console.log('[contacts-client-direct] User:', userEmail, 'Role:', userRole, 'Org:', userOrgId, 'Scope:', scope);
+    // Direct query with role-based filtering
 
     const existingCols = await getExistingContactColumns(supabase);
     const hasAccountOwnerCol = existingCols.has('account_owner_number');
@@ -525,7 +524,7 @@ async function getAllContactsClientDirect(scope: 'personal' | 'team' = 'personal
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
-      console.error('[contacts-client-direct] Query error:', error);
+      // Query error
       if (error.code === '42703' && hasAccountOwnerCol) {
         _existingColumns = null;
         const retryQuery = supabase
@@ -545,7 +544,7 @@ async function getAllContactsClientDirect(scope: 'personal' | 'team' = 'personal
     const transformedData = (data || []).map(transformFromDbFormat);
     return { contacts: transformedData };
   } catch (error: any) {
-    console.error('[contacts-client-direct] Error:', error);
+    // Error in getAllContactsClientDirect
     return { contacts: [] };
   }
 }
@@ -560,7 +559,7 @@ export async function createContactClient(contactData: any) {
     // Try server endpoint first (bypasses RLS, uses profile org_id)
     try {
       const headers = await getServerHeaders();
-      console.log('[contacts-client] Creating contact via server endpoint (bypasses RLS)...');
+      // Creating contact via server endpoint
       
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts`,
@@ -573,20 +572,20 @@ export async function createContactClient(contactData: any) {
       
       if (response.ok) {
         const result = await response.json();
-        console.log(`[contacts-client] Server create successful: ${result.contact?.id}`);
+        // Server create successful
         const transformedContact = transformFromDbFormat(result.contact);
         return { contact: transformedContact };
       } else {
         const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-        console.error('[contacts-client] Server create error:', response.status, errorBody);
+        // Server create error
         // Fall through to direct Supabase insert
       }
     } catch (serverError: any) {
-      console.warn('[contacts-client] Server create failed, falling back to direct:', serverError.message);
+      // Server create failed, falling back to direct
     }
 
     // Fallback: direct Supabase insert (subject to RLS)
-    console.log('[contacts-client] Falling back to direct Supabase insert...');
+    // Falling back to direct Supabase insert
 
     // Get current user's profile for correct organization_id
     const { data: { user } } = await supabase.auth.getUser();
@@ -597,7 +596,7 @@ export async function createContactClient(contactData: any) {
         dbData.organization_id = profile.organization_id;
       } catch (profileError) {
         // Last-resort fallback to JWT metadata
-        console.warn('[contacts-client] Could not get profile, falling back to JWT metadata:', profileError);
+        // Could not get profile, falling back to JWT metadata
         dbData.organization_id = user.user_metadata?.organizationId;
       }
       dbData.owner_id = user.id;
@@ -618,7 +617,7 @@ export async function createContactClient(contactData: any) {
     // Transform back to application format and wrap in { contact: ... }
     return { contact: transformFromDbFormat(data) };
   } catch (error: any) {
-    console.error('Error creating contact:', error);
+    // Error creating contact
     throw error;
   }
 }
@@ -667,7 +666,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
     }
     const hasFinancialExtras = Object.keys(financialExtras).length > 0;
     if (hasFinancialExtras) {
-      console.log(`[upsert] Captured extras before filtering:`, Object.keys(financialExtras));
+      // Captured extras before filtering
     }
 
     // ── Helper: persist financial extras to KV directly ────────
@@ -694,12 +693,12 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
           .upsert({ key: `contact_extras:${contactId}`, value: merged });
 
         if (kvError) {
-          console.warn(`[upsert] Failed to persist financial extras to KV:`, kvError.message);
+          // Failed to persist financial extras to KV (non-fatal)
         } else {
-          console.log(`[upsert] Financial extras persisted to KV for contact ${contactId}:`, Object.keys(financialExtras));
+          // Financial extras persisted to KV
         }
       } catch (e: any) {
-        console.warn(`[upsert] Financial extras persistence error (non-fatal):`, e.message);
+        // Financial extras persistence error (non-fatal)
       }
     };
 
@@ -720,7 +719,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
       if (ownerProfileId) {
         resolvedOwnerId = ownerProfileId;
       } else {
-        console.log(`[upsert] account_owner_number "${accountOwnerEmail}" not found in profiles — using importer as owner`);
+        // account_owner_number not found in profiles — using importer as owner
       }
     }
     
@@ -754,7 +753,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
         .limit(1);
 
       if (fetchError) {
-        console.error('Error looking up contact by legacy number:', fetchError);
+        // Error looking up contact by legacy number
         throw fetchError;
       }
 
@@ -772,7 +771,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
 
         if (error) throw error;
 
-        console.log('✅ Contact updated (by legacy number):', data?.name || data?.email);
+        // Contact updated (by legacy number)
         await persistFinancialExtras(data.id);
         return { contact: transformFromDbFormat(data), action: 'updated' as const };
       }
@@ -801,7 +800,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
 
         if (error) throw error;
 
-        console.log('✅ Contact updated (by email):', data?.name || data?.email);
+        // Contact updated (by email)
         await persistFinancialExtras(data.id);
         return { contact: transformFromDbFormat(data), action: 'updated' as const };
       }
@@ -832,7 +831,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
 
         if (error) throw error;
 
-        console.log('✅ Contact updated (by account_owner_number + name):', data?.name || data?.email);
+        // Contact updated (by account_owner_number + name)
         await persistFinancialExtras(data.id);
         return { contact: transformFromDbFormat(data), action: 'updated' as const };
       }
@@ -862,7 +861,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
 
         if (error) throw error;
 
-        console.log('✅ Contact updated (by name+company):', data?.name || data?.email);
+        // Contact updated (by name+company)
         await persistFinancialExtras(data.id);
         return { contact: transformFromDbFormat(data), action: 'updated' as const };
       }
@@ -894,7 +893,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
 
     if (error) throw error;
 
-    console.log('✅ Contact created (via import):', data?.name || data?.email, '| owner:', resolvedOwnerId);
+    // Contact created (via import)
     
     // Default price_level for new contacts if not provided
     if (!financialExtras.price_level) {
@@ -910,7 +909,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
     
     return { contact: transformFromDbFormat(data), action: 'created' as const };
   } catch (error: any) {
-    console.error('Error upserting contact:', error.message, error.code, error.details);
+    // Error upserting contact
     throw error;
   }
 }
@@ -931,14 +930,14 @@ export async function updateContactClient(id: string, contactData: any) {
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-      console.error('[contacts-client] Update error:', response.status, errorBody);
+      // Update error
       throw new Error(errorBody.error || `Failed to update contact (${response.status})`);
     }
 
     const result = await response.json();
     return { contact: transformFromDbFormat(result.contact) };
   } catch (error: any) {
-    console.error('Error updating contact:', error);
+    // Error updating contact
     throw error;
   }
 }
@@ -957,13 +956,13 @@ export async function deleteContactClient(id: string) {
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-      console.error('[contacts-client] Delete error:', response.status, errorBody);
+      // Delete error
       throw new Error(errorBody.error || `Failed to delete contact (${response.status})`);
     }
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error deleting contact:', error);
+    // Error deleting contact
     throw error;
   }
 }
@@ -987,10 +986,10 @@ export async function claimUnassignedContactsClient() {
 
     if (error) throw error;
 
-    console.log(`[contacts-client] Claimed ${data?.length || 0} unassigned contacts`);
+    // Claimed unassigned contacts
     return { claimed: (data || []).map(transformFromDbFormat) };
   } catch (error: any) {
-    console.error('Error claiming unassigned contacts:', error);
+    // Error claiming unassigned contacts
     throw error;
   }
 }
@@ -1032,7 +1031,7 @@ export async function getSegmentsClient() {
 
     return { segments: [...tagSet].sort() };
   } catch (error: any) {
-    console.error('Error fetching segments:', error);
+    // Error fetching segments
     throw error;
   }
 }

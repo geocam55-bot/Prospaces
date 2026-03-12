@@ -35,7 +35,7 @@ export function ManagerMigrationHelper() {
         return;
       }
     } catch (error) {
-      console.log('Clipboard copy failed, using fallback...');
+      // fallback below
     }
 
     try {
@@ -58,7 +58,6 @@ export function ManagerMigrationHelper() {
         setShowSQL(true);
       }
     } catch (error) {
-      console.error('Copy failed:', error);
       setShowSQL(true);
     }
   };
@@ -72,7 +71,6 @@ export function ManagerMigrationHelper() {
       });
 
       if (error) {
-        console.error('Migration error:', error);
         toast.error('Cannot run migration automatically. Please use the SQL Editor in Supabase dashboard.');
         setShowSQL(true);
       } else {
@@ -81,7 +79,6 @@ export function ManagerMigrationHelper() {
         setTimeout(() => window.location.reload(), 1500);
       }
     } catch (error) {
-      console.error('Migration error:', error);
       toast.error('Cannot run migration automatically. Please use the SQL Editor in Supabase dashboard.');
       setShowSQL(true);
     } finally {

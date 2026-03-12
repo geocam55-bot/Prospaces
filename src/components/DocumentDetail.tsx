@@ -51,7 +51,7 @@ export function DocumentDetail({ document, user, onBack, onEdit, onDelete }: Doc
       document.body.removeChild(a);
       toast.success('Document downloaded');
     } catch (error: any) {
-      console.error('Error downloading document:', error);
+      // Error downloading document
       toast.error('Failed to download document');
     } finally {
       setIsDownloading(false);
@@ -64,7 +64,7 @@ export function DocumentDetail({ document, user, onBack, onEdit, onDelete }: Doc
       const url = await getDocumentUrlClient(document.filePath);
       window.open(url, '_blank');
     } catch (error: any) {
-      console.error('Error viewing document:', error);
+      // Error viewing document
       toast.error('Failed to view document');
     } finally {
       setIsViewing(false);

@@ -34,7 +34,7 @@ export function FindLarryContacts() {
       }
       
       const larry = profiles[0];
-      console.log('Found Larry:', larry);
+      // Found Larry
       
       // Step 2: Find ALL contacts that might belong to Larry
       // Check multiple possible scenarios
@@ -78,10 +78,10 @@ export function FindLarryContacts() {
         contactsWithoutOrg: searches[3].data || [],
       };
       
-      console.log('Search Results:', results);
+      // Search results
       setResults(results);
     } catch (error: any) {
-      console.error('Error finding Larry contacts:', error);
+      // Error finding Larry contacts
       setResults({
         error: error.message,
       });
@@ -108,7 +108,7 @@ export function FindLarryContacts() {
         new Map(contactsToFix.map((c: any) => [c.id, c])).values()
       );
       
-      console.log('Fixing contacts:', uniqueContactsToFix);
+      // Fixing contacts
       
       // Update each contact's organization_id
       for (const contact of uniqueContactsToFix) {
@@ -120,7 +120,7 @@ export function FindLarryContacts() {
           .eq('id', contact.id);
         
         if (error) {
-          console.error('Error updating contact:', contact.id, error);
+          // Error updating contact
         }
       }
       
@@ -129,7 +129,7 @@ export function FindLarryContacts() {
       // Re-run the search to show updated results
       await findLarryContacts();
     } catch (error: any) {
-      console.error('Error fixing contacts:', error);
+      // Error fixing contacts
       alert('Error fixing contacts: ' + error.message);
     }
   };

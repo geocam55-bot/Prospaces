@@ -80,7 +80,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
           const userCFMap = extractConversionFactors(userDefs, 'deck', config.deckingType);
           cfMap = { ...cfMap, ...userCFMap };
         } catch (err) {
-          console.warn('[DeckPlanner] Could not load conversion factors:', err);
+          // Could not load conversion factors
         }
 
         const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(

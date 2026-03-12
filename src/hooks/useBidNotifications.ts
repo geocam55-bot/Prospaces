@@ -53,7 +53,6 @@ export function useBidNotifications(user: User) {
         .order('updated_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching bid notifications:', error);
         return;
       }
 
@@ -76,7 +75,7 @@ export function useBidNotifications(user: User) {
         setUnreadCount(0);
       }
     } catch (err) {
-      console.error('Failed to check bid updates:', err);
+      // Failed silently
     }
   };
 

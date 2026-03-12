@@ -47,7 +47,7 @@ export function WorkflowSettingsDialog({ open, onOpenChange, organizationId }: W
         try {
           setWorkflows(JSON.parse(stored));
         } catch (e) {
-          console.error('Failed to parse workflows', e);
+          // Failed to parse workflows – using defaults
         }
       }
     }

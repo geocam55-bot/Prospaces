@@ -161,7 +161,7 @@ export function PlannerMigrationValidator({ userId, organizationId }: PlannerMig
       setOverallSummary(summary);
 
     } catch (error) {
-      console.error('[validation] Error during validation:', error);
+      // Error during validation
     }
 
     setValidating(false);

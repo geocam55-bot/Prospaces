@@ -4,6 +4,7 @@ import { Command as CommandPrimitive } from "cmdk"
 import { Search } from "lucide-react"
 
 import { Dialog, DialogContent } from "./dialog"
+import { filterFigmaProps } from "./utils"
 
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
@@ -11,8 +12,8 @@ const Command = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive
     ref={ref}
-    className={`flex h-full w-full flex-col overflow-hidden rounded-md bg-white text-gray-950 ${className || ''}`}
-    {...props}
+    className={`flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground ${className || ''}`}
+    {...filterFigmaProps(props)}
   />
 ))
 Command.displayName = CommandPrimitive.displayName
@@ -21,7 +22,7 @@ interface CommandDialogProps extends DialogProps {}
 
 const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
   return (
-    <Dialog {...props}>
+    <Dialog {...filterFigmaProps(props)}>
       <DialogContent className="overflow-hidden p-0 shadow-lg">
         <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-gray-500 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
           {children}
@@ -40,7 +41,7 @@ const CommandInput = React.forwardRef<
     <CommandPrimitive.Input
       ref={ref}
       className={`flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-50 ${className || ''}`}
-      {...props}
+      {...filterFigmaProps(props)}
     />
   </div>
 ))
@@ -54,7 +55,7 @@ const CommandList = React.forwardRef<
   <CommandPrimitive.List
     ref={ref}
     className={`max-h-[300px] overflow-y-auto overflow-x-hidden ${className || ''}`}
-    {...props}
+    {...filterFigmaProps(props)}
   />
 ))
 
@@ -67,7 +68,7 @@ const CommandEmpty = React.forwardRef<
   <CommandPrimitive.Empty
     ref={ref}
     className="py-6 text-center text-sm"
-    {...props}
+    {...filterFigmaProps(props)}
   />
 ))
 
@@ -80,7 +81,7 @@ const CommandGroup = React.forwardRef<
   <CommandPrimitive.Group
     ref={ref}
     className={`overflow-hidden p-1 text-gray-950 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-gray-500 ${className || ''}`}
-    {...props}
+    {...filterFigmaProps(props)}
   />
 ))
 
@@ -93,7 +94,7 @@ const CommandSeparator = React.forwardRef<
   <CommandPrimitive.Separator
     ref={ref}
     className={`-mx-1 h-px bg-gray-200 ${className || ''}`}
-    {...props}
+    {...filterFigmaProps(props)}
   />
 ))
 CommandSeparator.displayName = CommandPrimitive.Separator.displayName
@@ -104,8 +105,8 @@ const CommandItem = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.Item
     ref={ref}
-    className={`relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-gray-100 aria-selected:text-gray-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 ${className || ''}`}
-    {...props}
+    className={`relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 ${className || ''}`}
+    {...filterFigmaProps(props)}
   />
 ))
 
@@ -118,7 +119,7 @@ const CommandShortcut = ({
   return (
     <span
       className={`ml-auto text-xs tracking-widest text-gray-500 ${className || ''}`}
-      {...props}
+      {...filterFigmaProps(props)}
     />
   )
 }

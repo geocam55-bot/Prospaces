@@ -107,7 +107,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
           const userCFMap = extractConversionFactors(userDefs, 'shed');
           cfMap = { ...cfMap, ...userCFMap };
         } catch (err) {
-          console.warn('[ShedPlanner] Could not load conversion factors:', err);
+          // Could not load conversion factors
         }
 
         const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(

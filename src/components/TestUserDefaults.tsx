@@ -32,7 +32,6 @@ export function TestUserDefaults({ userId, organizationId }: TestUserDefaultsPro
 
     try {
       // Test 1: Get defaults (should be empty initially)
-      console.log('Test 1: Getting defaults...');
       const emptyDefaults = await getUserDefaults(userId, organizationId);
       testResults.push({
         test: 'Get Empty Defaults',
@@ -42,7 +41,6 @@ export function TestUserDefaults({ userId, organizationId }: TestUserDefaultsPro
       });
 
       // Test 2: Save defaults
-      console.log('Test 2: Saving defaults...');
       const testData = {
         'deck-spruce-Joists': 'test-item-id-1',
         'deck-treated-Posts': 'test-item-id-2',
@@ -57,7 +55,6 @@ export function TestUserDefaults({ userId, organizationId }: TestUserDefaultsPro
       });
 
       // Test 3: Get defaults (should have data now)
-      console.log('Test 3: Getting saved defaults...');
       const savedDefaults = await getUserDefaults(userId, organizationId);
       const itemsMatch = Object.keys(savedDefaults).length === 3 &&
         savedDefaults['deck-spruce-Joists'] === 'test-item-id-1' &&
@@ -73,7 +70,6 @@ export function TestUserDefaults({ userId, organizationId }: TestUserDefaultsPro
       });
 
       // Test 4: Update defaults
-      console.log('Test 4: Updating defaults...');
       const updatedData = {
         ...testData,
         'shed-default-Framing': 'test-item-id-4',
@@ -87,7 +83,6 @@ export function TestUserDefaults({ userId, organizationId }: TestUserDefaultsPro
       });
 
       // Test 5: Verify update
-      console.log('Test 5: Verifying update...');
       const updatedDefaults = await getUserDefaults(userId, organizationId);
       const updateVerified = Object.keys(updatedDefaults).length === 4 &&
         updatedDefaults['shed-default-Framing'] === 'test-item-id-4';
@@ -101,7 +96,6 @@ export function TestUserDefaults({ userId, organizationId }: TestUserDefaultsPro
       });
 
       // Test 6: Delete defaults
-      console.log('Test 6: Deleting defaults...');
       const deleteSuccess = await deleteUserDefaults(userId, organizationId);
       testResults.push({
         test: 'Delete Defaults',
@@ -110,7 +104,6 @@ export function TestUserDefaults({ userId, organizationId }: TestUserDefaultsPro
       });
 
       // Test 7: Verify deletion
-      console.log('Test 7: Verifying deletion...');
       const deletedDefaults = await getUserDefaults(userId, organizationId);
       const deletionVerified = Object.keys(deletedDefaults).length === 0;
       testResults.push({
@@ -123,7 +116,6 @@ export function TestUserDefaults({ userId, organizationId }: TestUserDefaultsPro
       });
 
       // Test 8: Test localStorage migration
-      console.log('Test 8: Testing migration...');
       // Create test data in localStorage
       const localStorageKey = `planner_defaults_${organizationId}_${userId}`;
       const migrationTestData = {
@@ -153,7 +145,7 @@ export function TestUserDefaults({ userId, organizationId }: TestUserDefaultsPro
       // Clean up after migration test
       await deleteUserDefaults(userId, organizationId);
 
-    } catch (error) {
+    } catch (error: any) {
       testResults.push({
         test: 'Test Suite',
         success: false,

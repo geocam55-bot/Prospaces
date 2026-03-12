@@ -85,13 +85,12 @@ export function useTaskNotifications(user: User) {
         .neq('status', 'completed');
 
       if (error) {
-        console.error('Error counting tasks:', error);
         return;
       }
 
       setTaskCount(count || 0);
     } catch (error) {
-      console.error('Failed to load task count:', error);
+      // Failed silently
     } finally {
       setIsLoading(false);
     }

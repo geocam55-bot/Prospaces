@@ -21,9 +21,7 @@ export function ChangePasswordDialog({ open, onClose, userId }: ChangePasswordDi
   const [isChanging, setIsChanging] = useState(false);
   const [error, setError] = useState('');
 
-  console.log('🔐 ChangePasswordDialog rendered!');
-  console.log('  - open:', open);
-  console.log('  - userId:', userId);
+  // ChangePasswordDialog rendered
 
   const validatePassword = (pwd: string): string | null => {
     if (pwd.length < 8) {
@@ -88,8 +86,7 @@ export function ChangePasswordDialog({ open, onClose, userId }: ChangePasswordDi
         .eq('id', userId);
 
       if (profileError) {
-        console.error('Failed to update profile flag:', profileError);
-        // Don't throw - password was changed successfully
+        // Failed to update profile flag - password was changed successfully
       }
 
       toast.success('Password changed successfully!');
@@ -97,7 +94,7 @@ export function ChangePasswordDialog({ open, onClose, userId }: ChangePasswordDi
       setConfirmPassword('');
       onClose();
     } catch (err: any) {
-      console.error('Password change error:', err);
+      // Password change error
       setError(err.message || 'Failed to change password');
       toast.error('Failed to change password');
     } finally {

@@ -120,7 +120,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
           setInviteMethod(settings.user_invite_method as 'email' | 'manual');
         }
       }).catch(err => {
-        console.error('Failed to load user settings:', err);
+        // Handle silently
       });
     }
   }, []);

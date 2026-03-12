@@ -44,4 +44,22 @@ app.get('/health', (c) => {
 // Password reset endpoint
 app.post('/reset-password', handleResetPassword);
 
-Deno.serve(app.fetch);
+// Catch Deno HTTP connection closed errors gracefully to prevent unhandled rejection crashes
+globalThis.addEventListener("unhandledrejection", (e) => {
+  if (e.reason?.name === "Http" || e.reason?.message?.includes("connection closed")) {
+    e.preventDefault();
+  }
+});
+
+Deno.serve(async (req, info) => {
+  try {
+    return await app.fetch(req, info);
+  } catch (error: any) {
+    if (error?.name === 'Http' || error?.message?.includes('connection closed before message completed')) {
+      console.warn('Client disconnected before response could be sent:', error.message);
+      return new Response(null, { status: 499 });
+    }
+    console.error('Unhandled server error:', error);
+    return new Response('Internal Server Error', { status: 500 });
+  }
+});

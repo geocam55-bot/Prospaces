@@ -41,10 +41,10 @@ const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels', 'audience_segments', 'user_
 // ─── GET user preferences ──────────────────────────────────────────────────
 
 export async function getUserPreferencesClient(userId: string, organizationId: string): Promise<UserPreferences | null> {
-  console.log('[settings-client] 📊 Fetching user preferences for user:', userId);
+  // Fetching user preferences
 
   if (!userId || !organizationId) {
-    console.warn('[settings-client] ⚠️ Missing userId or organizationId', { userId, organizationId });
+    // Missing userId or organizationId
     return null;
   }
 
@@ -53,7 +53,7 @@ export async function getUserPreferencesClient(userId: string, organizationId: s
     const headers = await getServerHeaders();
     // Skip server call if no user token — it will 401 anyway
     if (!headers['X-User-Token']) {
-      console.log('[settings-client] No user token yet, skipping server endpoint for user preferences');
+      // No user token yet, skipping server endpoint for user preferences
       throw new Error('No user token');
     }
     const res = await fetch(
@@ -62,12 +62,12 @@ export async function getUserPreferencesClient(userId: string, organizationId: s
     );
     if (res.ok) {
       const json = await res.json();
-      console.log('[settings-client] ✅ User preferences fetched via server');
+      // User preferences fetched via server
       return json.preferences || null;
     }
-    console.warn('[settings-client] ⚠️ Server returned', res.status, '- falling back to direct Supabase');
+    // Server returned non-ok status, falling back to direct Supabase
   } catch (err) {
-    console.warn('[settings-client] ⚠️ Server endpoint failed, falling back:', err);
+    // Server endpoint failed, falling back
   }
 
   // Fallback: direct Supabase query
@@ -81,21 +81,21 @@ export async function getUserPreferencesClient(userId: string, organizationId: s
 
     if (error) {
       if (error.code === 'PGRST116') {
-        console.log('[settings-client] ℹ️ No preferences found for user:', userId);
+        // No preferences found for user
         return null;
       }
       if (error.code === 'PGRST205' || error.code === '42P01') {
-        console.warn('[settings-client] ⚠️ user_preferences table does not exist yet.');
+        // user_preferences table does not exist yet
         return null;
       }
-      console.error('[settings-client] ❌ Error fetching user preferences:', error);
+      // Error fetching user preferences
       return null;
     }
 
-    console.log('[settings-client] ✅ User preferences fetched via direct Supabase');
+    // User preferences fetched via direct Supabase
     return data;
   } catch (error) {
-    console.error('[settings-client] ❌ Unexpected error fetching user preferences:', error);
+    // Unexpected error fetching user preferences
     return null;
   }
 }
@@ -103,7 +103,7 @@ export async function getUserPreferencesClient(userId: string, organizationId: s
 // ─── UPSERT user preferences ──────────────────────────────────────────────
 
 export async function upsertUserPreferencesClient(preferences: Partial<UserPreferences>): Promise<UserPreferences | null> {
-  console.log('[settings-client] 💾 Upserting user preferences');
+  // Upserting user preferences
 
   // Try server endpoint first (bypasses RLS)
   try {
@@ -115,13 +115,13 @@ export async function upsertUserPreferencesClient(preferences: Partial<UserPrefe
     });
     if (res.ok) {
       const json = await res.json();
-      console.log('[settings-client] ✅ User preferences saved via server');
+      // User preferences saved via server
       return json.preferences || null;
     }
     const errBody = await res.text();
-    console.warn('[settings-client] ⚠️ Server upsert user prefs returned', res.status, errBody, '- falling back');
+    // Server upsert user prefs returned non-ok status, falling back
   } catch (err) {
-    console.warn('[settings-client] ⚠️ Server endpoint failed for user prefs upsert, falling back:', err);
+    // Server endpoint failed for user prefs upsert, falling back
   }
 
   // Fallback: direct Supabase
@@ -139,22 +139,22 @@ export async function upsertUserPreferencesClient(preferences: Partial<UserPrefe
 
     if (error) {
       if (error.code === 'PGRST205' || error.code === '42P01') {
-        console.warn('[settings-client] ⚠️ user_preferences table does not exist.');
+        // user_preferences table does not exist
         return null;
       }
       if (error.code === '42501') {
         // RLS policy violation - silently fall back to localStorage (expected behavior)
-        console.warn('[settings-client] ⚠️ RLS blocked user prefs upsert (both server & direct failed)');
+        // RLS blocked user prefs upsert (both server & direct failed)
         return null;
       }
-      console.error('[settings-client] ❌ Error upserting user preferences:', error);
+      // Error upserting user preferences
       return null;
     }
 
-    console.log('[settings-client] ✅ User preferences saved via direct Supabase');
+    // User preferences saved via direct Supabase
     return data;
   } catch (error) {
-    console.error('[settings-client] ❌ Unexpected error upserting user preferences:', error);
+    // Unexpected error upserting user preferences
     return null;
   }
 }
@@ -162,14 +162,14 @@ export async function upsertUserPreferencesClient(preferences: Partial<UserPrefe
 // ─── GET organization settings ─────────────────────────────────────────────
 
 export async function getOrganizationSettingsClient(organizationId: string): Promise<OrganizationSettings | null> {
-  console.log('[settings-client] 📊 Fetching organization settings for org:', organizationId);
+  // Fetching organization settings
 
   // Try server endpoint first (bypasses RLS)
   try {
     const headers = await getServerHeaders();
     // Skip server call if no user token — it will 401 anyway
     if (!headers['X-User-Token']) {
-      console.log('[settings-client] No user token yet, skipping server endpoint for org settings');
+      // No user token yet, skipping server endpoint for org settings
       throw new Error('No user token');
     }
     const res = await fetch(
@@ -178,12 +178,12 @@ export async function getOrganizationSettingsClient(organizationId: string): Pro
     );
     if (res.ok) {
       const json = await res.json();
-      console.log('[settings-client] ✅ Organization settings fetched via server');
+      // Organization settings fetched via server
       return json.settings || null;
     }
-    console.warn('[settings-client] ⚠️ Server returned', res.status, '- falling back to direct Supabase');
+    // Server returned non-ok status, falling back to direct Supabase
   } catch (err) {
-    console.warn('[settings-client] ⚠️ Server endpoint failed, falling back:', err);
+    // Server endpoint failed, falling back
   }
 
   // Fallback: direct Supabase query
@@ -196,21 +196,21 @@ export async function getOrganizationSettingsClient(organizationId: string): Pro
 
     if (error) {
       if (error.code === 'PGRST116') {
-        console.log('[settings-client] ℹ️ No settings found for organization:', organizationId);
+        // No settings found for organization
         return null;
       }
       if (error.code === 'PGRST205' || error.code === '42P01') {
-        console.warn('[settings-client] ⚠️ organization_settings table does not exist yet.');
+        // organization_settings table does not exist yet
         return null;
       }
-      console.error('[settings-client] ❌ Error fetching organization settings:', error);
+      // Error fetching organization settings
       return null;
     }
 
-    console.log('[settings-client] ✅ Organization settings fetched via direct Supabase');
+    // Organization settings fetched via direct Supabase
     return data;
   } catch (error) {
-    console.error('[settings-client] ❌ Unexpected error fetching organization settings:', error);
+    // Unexpected error fetching organization settings
     return null;
   }
 }
@@ -218,7 +218,7 @@ export async function getOrganizationSettingsClient(organizationId: string): Pro
 // ─── UPSERT organization settings ──────────────────────────────────────────
 
 export async function upsertOrganizationSettingsClient(settings: Partial<OrganizationSettings>): Promise<OrganizationSettings | null> {
-  console.log('[settings-client] 💾 Upserting organization settings:', settings);
+  // Upserting organization settings
 
   // Try server endpoint first (bypasses RLS) — this is the primary path
   try {
@@ -231,12 +231,12 @@ export async function upsertOrganizationSettingsClient(settings: Partial<Organiz
 
     if (res.ok) {
       const json = await res.json();
-      console.log('[settings-client] ✅ Organization settings saved via server');
+      // Organization settings saved via server
       return json.settings || null;
     }
 
     const errBody = await res.json().catch(() => ({ error: 'Unknown server error' }));
-    console.warn('[settings-client] ⚠️ Server upsert org settings returned', res.status, errBody);
+    // Server upsert org settings returned non-ok status
 
     // If server returned 403 (permission), surface it clearly
     if (res.status === 403) {
@@ -248,7 +248,7 @@ export async function upsertOrganizationSettingsClient(settings: Partial<Organiz
     if (err?.message?.includes('Permission denied') || err?.message?.includes('admin')) {
       throw err;
     }
-    console.warn('[settings-client] ⚠️ Server endpoint failed for org settings upsert, falling back:', err);
+    // Server endpoint failed for org settings upsert, falling back
   }
 
   // Fallback: direct Supabase (may hit RLS — that's expected in some environments)
@@ -278,10 +278,7 @@ export async function upsertOrganizationSettingsClient(settings: Partial<Organiz
       .single();
 
     if (error) {
-      console.error('[settings-client] ❌ Direct Supabase upsert error:', {
-        code: error.code,
-        message: error.message,
-      });
+      // Direct Supabase upsert error
 
       if (error.code === '42501') {
         throw new Error('Permission denied. The server endpoint also failed. Settings could not be saved to the database.');
@@ -289,10 +286,10 @@ export async function upsertOrganizationSettingsClient(settings: Partial<Organiz
       throw new Error(error.message || 'Failed to save organization settings');
     }
 
-    console.log('[settings-client] ✅ Organization settings saved via direct Supabase');
+    // Organization settings saved via direct Supabase
     return data;
   } catch (error: any) {
-    console.error('[settings-client] ❌ Error in upsertOrganizationSettingsClient:', error);
+    // Error in upsertOrganizationSettingsClient
     throw error;
   }
 }
@@ -300,7 +297,7 @@ export async function upsertOrganizationSettingsClient(settings: Partial<Organiz
 // ─── Update organization name ──────────────────────────────────────────────
 
 export async function updateOrganizationNameClient(organizationId: string, name: string): Promise<void> {
-  console.log('[settings-client] 💾 Updating organization name');
+  // Updating organization name
 
   // Try server endpoint first
   try {
@@ -312,12 +309,12 @@ export async function updateOrganizationNameClient(organizationId: string, name:
     });
 
     if (res.ok) {
-      console.log('[settings-client] ✅ Organization name updated via server');
+      // Organization name updated via server
       return;
     }
-    console.warn('[settings-client] ⚠️ Server returned', res.status, 'for org name update - falling back');
+    // Server returned non-ok status for org name update, falling back
   } catch (err) {
-    console.warn('[settings-client] ⚠️ Server endpoint failed for org name update, falling back:', err);
+    // Server endpoint failed for org name update, falling back
   }
 
   // Fallback: direct Supabase
@@ -327,17 +324,17 @@ export async function updateOrganizationNameClient(organizationId: string, name:
     .eq('id', organizationId);
 
   if (error) {
-    console.error('[settings-client] ❌ Error updating organization name:', error);
+    // Error updating organization name
     throw error;
   }
 
-  console.log('[settings-client] ✅ Organization name updated via direct Supabase');
+  // Organization name updated via direct Supabase
 }
 
 // ─── Update user profile ──────────────────────────────────────────────────
 
 export async function updateUserProfileClient(userId: string, updates: { name?: string; avatar_url?: string }): Promise<void> {
-  console.log('[settings-client] 💾 Updating user profile', { userId, updates });
+  // Updating user profile
 
   // Try server endpoint first
   try {
@@ -349,12 +346,12 @@ export async function updateUserProfileClient(userId: string, updates: { name?: 
     });
 
     if (res.ok) {
-      console.log('[settings-client] ✅ User profile updated via server');
+      // User profile updated via server
       return;
     }
-    console.warn('[settings-client] ⚠️ Server returned', res.status, 'for profile update - falling back');
+    // Server returned non-ok status for profile update, falling back
   } catch (err) {
-    console.warn('[settings-client] ⚠️ Server endpoint failed for profile update, falling back:', err);
+    // Server endpoint failed for profile update, falling back
   }
 
   // Fallback: direct Supabase
@@ -363,7 +360,7 @@ export async function updateUserProfileClient(userId: string, updates: { name?: 
     if (updates.name) updateData.name = updates.name;
 
     if (Object.keys(updateData).length === 0) {
-      console.log('[settings-client] ℹ️ No updates to apply');
+      // No updates to apply
       return;
     }
 
@@ -375,13 +372,7 @@ export async function updateUserProfileClient(userId: string, updates: { name?: 
       .single();
 
     if (error) {
-      console.error('[settings-client] ❌ Error updating user profile:', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        updateData
-      });
+      // Error updating user profile
 
       if (error.code === '42703') {
         throw new Error('Database column not found. The profiles table may need to be updated.');
@@ -394,9 +385,9 @@ export async function updateUserProfileClient(userId: string, updates: { name?: 
       }
     }
 
-    console.log('[settings-client] ✅ User profile updated via direct Supabase:', data);
+    // User profile updated via direct Supabase
   } catch (error: any) {
-    console.error('[settings-client] ❌ Unexpected error updating user profile:', error);
+    // Unexpected error updating user profile
     throw error;
   }
 }
@@ -413,7 +404,7 @@ export interface OrgModeSettings {
 }
 
 export async function getOrgMode(organizationId: string): Promise<OrgModeSettings> {
-  console.log('[settings-client] Fetching org user mode for org:', organizationId);
+  // Fetching org user mode
 
   try {
     const headers = await getServerHeaders();
@@ -423,12 +414,12 @@ export async function getOrgMode(organizationId: string): Promise<OrgModeSetting
     );
     if (res.ok) {
       const json = await res.json();
-      console.log('[settings-client] Org mode fetched:', json.orgMode?.user_mode, 'source:', json.source);
+      // Org mode fetched from server
       return json.orgMode || { user_mode: 'single' };
     }
-    console.warn('[settings-client] Server returned', res.status, 'for org-mode GET');
+    // Server returned non-ok status for org-mode GET
   } catch (err) {
-    console.warn('[settings-client] Server endpoint failed for org-mode GET:', err);
+    // Server endpoint failed for org-mode GET
   }
 
   // Fallback to localStorage
@@ -436,7 +427,7 @@ export async function getOrgMode(organizationId: string): Promise<OrgModeSetting
     const stored = localStorage.getItem(`org_mode_${organizationId}`);
     if (stored) {
       const parsed = JSON.parse(stored);
-      console.log('[settings-client] Org mode loaded from localStorage:', parsed.user_mode);
+      // Org mode loaded from localStorage
       return parsed;
     }
   } catch (_) { /* ignore */ }
@@ -445,7 +436,7 @@ export async function getOrgMode(organizationId: string): Promise<OrgModeSetting
 }
 
 export async function setOrgMode(organizationId: string, userMode: OrgUserMode): Promise<OrgModeSettings> {
-  console.log('[settings-client] Setting org user mode:', userMode, 'for org:', organizationId);
+  // Setting org user mode
 
   // Always save to localStorage as backup
   const localData: OrgModeSettings = { user_mode: userMode, organization_id: organizationId, updated_at: new Date().toISOString() };
@@ -463,12 +454,12 @@ export async function setOrgMode(organizationId: string, userMode: OrgUserMode):
 
     if (res.ok) {
       const json = await res.json();
-      console.log('[settings-client] Org mode saved to server:', json.orgMode?.user_mode);
+      // Org mode saved to server
       return json.orgMode;
     }
 
     const errBody = await res.json().catch(() => ({ error: 'Unknown server error' }));
-    console.warn('[settings-client] Server returned', res.status, 'for org-mode PUT:', errBody);
+    // Server returned non-ok status for org-mode PUT
 
     if (res.status === 403) {
       throw new Error(errBody.error || 'Permission denied');
@@ -477,7 +468,7 @@ export async function setOrgMode(organizationId: string, userMode: OrgUserMode):
     if (err?.message?.includes('Permission denied') || err?.message?.includes('admin')) {
       throw err;
     }
-    console.warn('[settings-client] Server endpoint failed for org-mode PUT:', err);
+    // Server endpoint failed for org-mode PUT
   }
 
   return localData;

@@ -70,7 +70,6 @@ export function SavedProjectDesigns({
         .order('key', { ascending: false }); // Poor man's sort by date since we embed timestamp in key
 
       if (error) {
-        console.error(`[SavedProjectDesigns] Error loading designs for ${projectType}:`, error);
         setSaveMessage('Failed to load saved designs.');
         return;
       }
@@ -95,7 +94,6 @@ export function SavedProjectDesigns({
         setDesigns(parsedDesigns);
       }
     } catch (err: any) {
-      console.error(`[SavedProjectDesigns] Exception loading designs for ${projectType}:`, err);
       setSaveMessage('An unexpected error occurred while loading.');
     } finally {
       setIsLoading(false);
@@ -146,7 +144,6 @@ export function SavedProjectDesigns({
       
       setTimeout(() => setSaveMessage(''), 3000);
     } catch (error: any) {
-      console.error(`[SavedProjectDesigns] Error saving ${projectType} design:`, error);
       setSaveMessage(error.message || 'Failed to save design');
     } finally {
       setIsSaving(false);
@@ -165,7 +162,6 @@ export function SavedProjectDesigns({
       if (error) throw error;
       loadDesigns();
     } catch (error) {
-      console.error(`[SavedProjectDesigns] Error deleting ${projectType} design:`, error);
       alert('Failed to delete design');
     }
   };

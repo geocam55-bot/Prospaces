@@ -297,7 +297,6 @@ ORDER BY table_name, column_name;`;
         toast.error('Copy failed. Please manually select and copy the SQL script.');
       }
     } catch (err) {
-      console.error('Fallback copy failed:', err);
       toast.error('Copy failed. Please manually select and copy the SQL script.');
     }
   };

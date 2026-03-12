@@ -34,14 +34,14 @@ WHERE table_name = 'profiles' AND column_name = 'theme';`;
       const { error } = await supabase.rpc('exec_sql', { sql: sqlScript });
       
       if (error) {
-        console.error('Migration error:', error);
+        // Migration error
         toast.error('Migration failed. Please run the SQL manually in Supabase SQL Editor.');
       } else {
         setSuccess(true);
         toast.success('Theme column added successfully!');
       }
     } catch (error) {
-      console.error('Error:', error);
+      // Migration error
       toast.error('Migration failed. Please run the SQL manually in Supabase SQL Editor.');
     } finally {
       setRunning(false);

@@ -3,7 +3,7 @@
 import * as React from "react";
 import * as AvatarPrimitive from "@radix-ui/react-avatar";
 
-import { cn } from "./utils";
+import { cn, filterFigmaProps } from "./utils";
 
 function Avatar({
   className,
@@ -16,7 +16,7 @@ function Avatar({
         "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full",
         className,
       )}
-      {...props}
+      {...filterFigmaProps(props)}
     />
   );
 }
@@ -29,7 +29,7 @@ function AvatarImage({
     <AvatarPrimitive.Image
       data-slot="avatar-image"
       className={cn("aspect-square h-full w-full", className)}
-      {...props}
+      {...filterFigmaProps(props)}
     />
   );
 }
@@ -45,7 +45,7 @@ function AvatarFallback({
         "bg-muted flex h-full w-full items-center justify-center rounded-full",
         className,
       )}
-      {...props}
+      {...filterFigmaProps(props)}
     />
   );
 }

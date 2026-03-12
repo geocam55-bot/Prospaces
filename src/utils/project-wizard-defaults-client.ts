@@ -27,7 +27,7 @@ export interface InventoryItem {
  * @param organizationId - The organization ID
  */
 export async function getProjectWizardDefaults(organizationId: string): Promise<ProjectWizardDefault[]> {
-  console.log('[project-wizard-defaults] 📊 Fetching org defaults via server for:', organizationId);
+  // Fetching org defaults via server
   
   try {
     const response = await fetch(
@@ -40,15 +40,15 @@ export async function getProjectWizardDefaults(organizationId: string): Promise<
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: response.statusText }));
-      console.error('[project-wizard-defaults] ❌ Server error fetching defaults:', errorData);
+      // Server error fetching defaults
       return [];
     }
 
     const result = await response.json();
-    console.log('[project-wizard-defaults] ✅ Defaults fetched successfully:', result.defaults?.length || 0, 'records');
+    // Defaults fetched successfully
     return result.defaults || [];
   } catch (error) {
-    console.error('[project-wizard-defaults] ❌ Unexpected error fetching defaults:', error);
+    // Unexpected error fetching defaults
     return [];
   }
 }
@@ -57,14 +57,14 @@ export async function getProjectWizardDefaults(organizationId: string): Promise<
  * Get user-specific defaults from database
  */
 export async function getUserDefaults(userId: string, organizationId: string): Promise<Record<string, string>> {
-  console.log('[project-wizard-defaults] 📊 Fetching user defaults for:', { userId, organizationId });
+  // Fetching user defaults
   
   try {
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      console.warn('[project-wizard-defaults] ⚠️ No session, returning empty user defaults');
+      // No session, returning empty user defaults
       return {};
     }
 
@@ -79,18 +79,17 @@ export async function getUserDefaults(userId: string, organizationId: string): P
     if (!response.ok) {
       if (response.status === 404 || response.status === 500) {
         // No defaults found, return empty object
-        console.log('[project-wizard-defaults] ℹ️ No user defaults found (or error), returning empty object');
         return {};
       }
-      console.error('[project-wizard-defaults] ❌ Error fetching user defaults:', response.statusText);
+      // Error fetching user defaults
       return {};
     }
 
     const data = await response.json();
-    console.log('[project-wizard-defaults] ✅ User defaults fetched successfully:', Object.keys(data.defaults || {}).length, 'items');
+    // User defaults fetched successfully
     return data.defaults || {};
   } catch (error) {
-    console.error('[project-wizard-defaults] ❌ Unexpected error loading user defaults:', error);
+    // Unexpected error loading user defaults
     return {};
   }
 }
@@ -99,14 +98,14 @@ export async function getUserDefaults(userId: string, organizationId: string): P
  * Save user-specific defaults to database
  */
 export async function saveUserDefaults(userId: string, organizationId: string, defaults: Record<string, string>): Promise<boolean> {
-  console.log('[project-wizard-defaults] 💾 Saving user defaults:', { userId, organizationId, defaultsCount: Object.keys(defaults).length });
+  // Saving user defaults
   
   try {
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      console.warn('[project-wizard-defaults] ⚠️ No session, cannot save user defaults');
+      // No session, cannot save user defaults
       return false;
     }
 
@@ -121,14 +120,14 @@ export async function saveUserDefaults(userId: string, organizationId: string, d
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('[project-wizard-defaults] ❌ Error saving user defaults:', errorData);
+      // Error saving user defaults
       return false;
     }
 
-    console.log('[project-wizard-defaults] ✅ User defaults saved successfully');
+    // User defaults saved successfully
     return true;
   } catch (error) {
-    console.error('[project-wizard-defaults] ❌ Unexpected error saving user defaults:', error);
+    // Unexpected error saving user defaults
     return false;
   }
 }
@@ -137,14 +136,14 @@ export async function saveUserDefaults(userId: string, organizationId: string, d
  * Delete user-specific defaults from database (restore to org defaults)
  */
 export async function deleteUserDefaults(userId: string, organizationId: string): Promise<boolean> {
-  console.log('[project-wizard-defaults] 🗑️ Deleting user defaults:', { userId, organizationId });
+  // Deleting user defaults
   
   try {
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      console.warn('[project-wizard-defaults] ⚠️ No session, cannot delete user defaults');
+      // No session, cannot delete user defaults
       return false;
     }
 
@@ -158,14 +157,14 @@ export async function deleteUserDefaults(userId: string, organizationId: string)
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('[project-wizard-defaults] ❌ Error deleting user defaults:', errorData);
+      // Error deleting user defaults
       return false;
     }
 
-    console.log('[project-wizard-defaults] ✅ User defaults deleted successfully');
+    // User defaults deleted successfully
     return true;
   } catch (error) {
-    console.error('[project-wizard-defaults] ❌ Unexpected error deleting user defaults:', error);
+    // Unexpected error deleting user defaults
     return false;
   }
 }
@@ -175,7 +174,7 @@ export async function deleteUserDefaults(userId: string, organizationId: string)
  * This should be called once to migrate existing localStorage data
  */
 export async function migrateUserDefaultsFromLocalStorage(userId: string, organizationId: string): Promise<boolean> {
-  console.log('[project-wizard-defaults] 🔄 Starting migration from localStorage to database');
+  // Starting migration from localStorage to database
   
   try {
     // Check if there's data in localStorage
@@ -183,7 +182,7 @@ export async function migrateUserDefaultsFromLocalStorage(userId: string, organi
     const stored = localStorage.getItem(key);
     
     if (!stored) {
-      console.log('[project-wizard-defaults] ℹ️ No localStorage data to migrate');
+      // No localStorage data to migrate
       return true; // Nothing to migrate, but not an error
     }
     
@@ -191,19 +190,19 @@ export async function migrateUserDefaultsFromLocalStorage(userId: string, organi
     const itemCount = Object.keys(localDefaults).length;
     
     if (itemCount === 0) {
-      console.log('[project-wizard-defaults] ℹ️ localStorage data is empty, nothing to migrate');
+      // localStorage data is empty, nothing to migrate
       // Clean up empty localStorage entry
       localStorage.removeItem(key);
       return true;
     }
     
-    console.log('[project-wizard-defaults] 📦 Found', itemCount, 'items in localStorage to migrate');
+    // Found items in localStorage to migrate
     
     // Check if database already has data
     const existingDefaults = await getUserDefaults(userId, organizationId);
     
     if (Object.keys(existingDefaults).length > 0) {
-      console.log('[project-wizard-defaults] ℹ️ Database already has user defaults, skipping migration');
+      // Database already has user defaults, skipping migration
       // Optionally clean up localStorage since data is already in DB
       localStorage.removeItem(key);
       return true;
@@ -213,16 +212,15 @@ export async function migrateUserDefaultsFromLocalStorage(userId: string, organi
     const success = await saveUserDefaults(userId, organizationId, localDefaults);
     
     if (success) {
-      console.log('[project-wizard-defaults] ✅ Migration successful, cleaning up localStorage');
-      // Clean up localStorage after successful migration
+      // Migration successful, cleaning up localStorage
       localStorage.removeItem(key);
       return true;
     } else {
-      console.error('[project-wizard-defaults] ❌ Migration failed, keeping localStorage data');
+      // Migration failed, keeping localStorage data
       return false;
     }
   } catch (error) {
-    console.error('[project-wizard-defaults] ❌ Error during migration:', error);
+    // Error during migration
     return false;
   }
 }
@@ -231,7 +229,7 @@ export async function migrateUserDefaultsFromLocalStorage(userId: string, organi
  * Upsert a project wizard default via the server (bypasses RLS)
  */
 export async function upsertProjectWizardDefault(defaultConfig: ProjectWizardDefault): Promise<ProjectWizardDefault | null> {
-  console.log('[project-wizard-defaults] 💾 Upserting default via server:', defaultConfig);
+  // Upserting default via server
   
   try {
     const response = await fetch(
@@ -245,15 +243,15 @@ export async function upsertProjectWizardDefault(defaultConfig: ProjectWizardDef
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: response.statusText }));
-      console.error('[project-wizard-defaults] ❌ Server error upserting default:', errorData);
+      // Server error upserting default
       return null;
     }
 
     const result = await response.json();
-    console.log('[project-wizard-defaults] ✅ Default saved successfully via server');
+    // Default saved successfully via server
     return result.default || null;
   } catch (error) {
-    console.error('[project-wizard-defaults] ❌ Unexpected error upserting default:', error);
+    // Unexpected error upserting default
     return null;
   }
 }
@@ -263,7 +261,7 @@ export async function upsertProjectWizardDefault(defaultConfig: ProjectWizardDef
  * More efficient than calling upsertProjectWizardDefault individually.
  */
 export async function batchUpsertProjectWizardDefaults(defaults: ProjectWizardDefault[]): Promise<{ savedCount: number; success: boolean }> {
-  console.log('[project-wizard-defaults] 💾 Batch upserting', defaults.length, 'defaults via server');
+  // Batch upserting defaults via server
   
   try {
     const response = await fetch(
@@ -277,15 +275,15 @@ export async function batchUpsertProjectWizardDefaults(defaults: ProjectWizardDe
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: response.statusText }));
-      console.error('[project-wizard-defaults] ❌ Server error in batch upsert:', errorData);
+      // Server error in batch upsert
       return { savedCount: 0, success: false };
     }
 
     const result = await response.json();
-    console.log('[project-wizard-defaults] ✅ Batch saved', result.savedCount, 'defaults via server');
+    // Batch saved defaults via server
     return { savedCount: result.savedCount || 0, success: true };
   } catch (error) {
-    console.error('[project-wizard-defaults] ❌ Unexpected error in batch upsert:', error);
+    // Unexpected error in batch upsert
     return { savedCount: 0, success: false };
   }
 }
@@ -294,7 +292,7 @@ export async function batchUpsertProjectWizardDefaults(defaults: ProjectWizardDe
  * Delete a project wizard default via the server (bypasses RLS)
  */
 export async function deleteProjectWizardDefault(id: string): Promise<boolean> {
-  console.log('[project-wizard-defaults] 🗑️ Deleting default via server:', id);
+  // Deleting default via server
   
   try {
     const response = await fetch(
@@ -307,14 +305,14 @@ export async function deleteProjectWizardDefault(id: string): Promise<boolean> {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: response.statusText }));
-      console.error('[project-wizard-defaults] ❌ Server error deleting default:', errorData);
+      // Server error deleting default
       return false;
     }
 
-    console.log('[project-wizard-defaults] ✅ Default deleted successfully via server');
+    // Default deleted successfully via server
     return true;
   } catch (error) {
-    console.error('[project-wizard-defaults] ❌ Unexpected error deleting default:', error);
+    // Unexpected error deleting default
     return false;
   }
 }
@@ -324,7 +322,7 @@ export async function deleteProjectWizardDefault(id: string): Promise<boolean> {
  * If itemIds is provided, only fetch those specific items
  */
 export async function getInventoryItemsForDropdown(organizationId: string, itemIds?: string[]): Promise<InventoryItem[]> {
-  console.log('[project-wizard-defaults] 📊 Fetching inventory items for org:', organizationId, itemIds ? `(${itemIds.length} specific items)` : '(all items)');
+  // Fetching inventory items for organization
   
   try {
     const supabase = createClient();
@@ -338,9 +336,9 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         authUser = session.user;
-        console.log('[project-wizard-defaults] ✅ Using session user for inventory (getUser failed)');
+        // Using session user for inventory (getUser failed)
       } else {
-        console.warn('[project-wizard-defaults] ⚠️ User not authenticated, returning empty inventory');
+        // User not authenticated, returning empty inventory
         return [];
       }
     } else {
@@ -349,7 +347,7 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
 
     // If specific item IDs are provided, fetch only those items
     if (itemIds && itemIds.length > 0) {
-      console.log('[project-wizard-defaults] 🎯 Fetching specific items:', itemIds.length);
+      // Fetching specific items
       
       const { data, error } = await supabase
         .from('inventory')
@@ -359,19 +357,19 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
 
       if (error) {
         if (error.code === 'PGRST205' || error.code === '42P01') {
-          console.warn('[project-wizard-defaults] ⚠️ inventory table does not exist.');
+          // inventory table does not exist
           return [];
         }
-        console.error('[project-wizard-defaults] ❌ Error fetching inventory items:', error);
+        // Error fetching inventory items
         return [];
       }
 
-      console.log('[project-wizard-defaults] ✅ Fetched', data?.length || 0, 'specific items');
+      // Fetched specific items
       return data || [];
     }
 
     // Otherwise, fetch ALL items using pagination
-    console.log('[project-wizard-defaults] 🔄 Fetching all inventory items (may take a moment)...');
+    // Fetching all inventory items
     
     let allItems: InventoryItem[] = [];
     let page = 0;
@@ -388,16 +386,16 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
 
       if (error) {
         if (error.code === 'PGRST205' || error.code === '42P01') {
-          console.warn('[project-wizard-defaults] ⚠️ inventory table does not exist.');
+          // inventory table does not exist
           return [];
         }
-        console.error('[project-wizard-defaults] ❌ Error fetching inventory items:', error);
+        // Error fetching inventory items
         return allItems; // Return what we have so far
       }
 
       if (data && data.length > 0) {
         allItems = [...allItems, ...data];
-        console.log('[project-wizard-defaults] 📦 Fetched page', page + 1, '- Total items:', allItems.length);
+        // Fetched page of items
         
         // If we got less than pageSize, we've reached the end
         if (data.length < pageSize) {
@@ -410,10 +408,10 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
       }
     }
 
-    console.log('[project-wizard-defaults] ✅ Fetched all', allItems.length, 'items');
+    // Fetched all items
     return allItems;
   } catch (error) {
-    console.error('[project-wizard-defaults] ❌ Unexpected error fetching inventory items:', error);
+    // Unexpected error fetching inventory items
     return [];
   }
 }
@@ -443,7 +441,7 @@ export function extractConversionFactors(
     }
   });
 
-  console.log('[project-wizard-defaults] 📐 Extracted conversion factors:', cfMap);
+  // Extracted conversion factors
   return cfMap;
 }
 
@@ -451,7 +449,7 @@ export function extractConversionFactors(
  * Get org-level conversion factors from the server (KV-backed).
  */
 export async function getOrgConversionFactors(organizationId: string): Promise<Record<string, string>> {
-  console.log('[project-wizard-defaults] 📐 Fetching org conversion factors for:', organizationId);
+  // Fetching org conversion factors
 
   try {
     const response = await fetch(
@@ -463,15 +461,15 @@ export async function getOrgConversionFactors(organizationId: string): Promise<R
     );
 
     if (!response.ok) {
-      console.error('[project-wizard-defaults] ❌ Error fetching org CFs:', response.statusText);
+      // Error fetching org CFs
       return {};
     }
 
     const data = await response.json();
-    console.log('[project-wizard-defaults] ✅ Org CFs fetched:', Object.keys(data.conversionFactors || {}).length, 'entries');
+    // Org CFs fetched
     return data.conversionFactors || {};
   } catch (error) {
-    console.error('[project-wizard-defaults] ❌ Unexpected error fetching org CFs:', error);
+    // Unexpected error fetching org CFs
     return {};
   }
 }
@@ -480,7 +478,7 @@ export async function getOrgConversionFactors(organizationId: string): Promise<R
  * Save org-level conversion factors to the server (KV-backed).
  */
 export async function saveOrgConversionFactors(organizationId: string, conversionFactors: Record<string, string>): Promise<boolean> {
-  console.log('[project-wizard-defaults] 💾 Saving org conversion factors:', Object.keys(conversionFactors).length, 'entries');
+  // Saving org conversion factors
 
   try {
     const response = await fetch(
@@ -494,14 +492,14 @@ export async function saveOrgConversionFactors(organizationId: string, conversio
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: response.statusText }));
-      console.error('[project-wizard-defaults] ❌ Error saving org CFs:', errorData);
+      // Error saving org CFs
       return false;
     }
 
-    console.log('[project-wizard-defaults] ✅ Org CFs saved successfully');
+    // Org CFs saved successfully
     return true;
   } catch (error) {
-    console.error('[project-wizard-defaults] ❌ Unexpected error saving org CFs:', error);
+    // Unexpected error saving org CFs
     return false;
   }
 }

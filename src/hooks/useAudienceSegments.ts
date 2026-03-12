@@ -26,8 +26,6 @@ export function useAudienceSegments(organizationId: string) {
           }
         }
       } catch (error) {
-        console.error('Error fetching audience segments:', error);
-        
         // Fallback to localStorage
         try {
           const localSettings = localStorage.getItem(`global_settings_${organizationId}`);
@@ -38,7 +36,7 @@ export function useAudienceSegments(organizationId: string) {
             }
           }
         } catch (localError) {
-          console.error('Error loading from localStorage:', localError);
+          // Failed silently
         }
       } finally {
         setLoading(false);

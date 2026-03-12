@@ -199,7 +199,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
         setStreakData(data);
       }
     } catch (e) {
-      console.error('Failed to load AI suggestions state:', e);
+      // Failed to load AI suggestions state
     }
   }, []);
 
@@ -422,7 +422,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
         handleDismissSuggestion(selectedSuggestion.id);
       }
     } catch (error) {
-      console.error('Failed to copy email:', error);
+      // Failed to copy email
       toast.error('Failed to copy email template');
     }
   };
@@ -451,7 +451,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
         .single();
       
       if (error) {
-        console.error('Error creating task:', error);
+        // Error creating task
         toast.error('Failed to create task');
         return;
       }
@@ -466,7 +466,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       
       refresh();
     } catch (error) {
-      console.error('Failed to create task:', error);
+      // Failed to create task
       toast.error('Failed to create task');
     }
   };
@@ -519,7 +519,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       await copyToClipboard(emailContent);
       toast.success('Email template copied to clipboard!');
     } catch (error) {
-      console.error('Failed to copy email:', error);
+      // Failed to copy email
       toast.error('Failed to copy to clipboard');
     }
   };

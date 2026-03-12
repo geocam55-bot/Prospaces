@@ -71,13 +71,13 @@ export function SavedShedDesigns({
     if (user.organizationId) {
       loadDesigns();
     } else {
-      console.warn('[SavedShedDesigns] Skipping load - organizationId is undefined');
+      // Skipping load - organizationId is undefined
     }
   }, [user.organizationId]);
 
   const loadDesigns = async () => {
     if (!user.organizationId) {
-      console.error('[SavedShedDesigns] Cannot load designs - organizationId is undefined');
+      // Cannot load designs - organizationId is undefined
       setSaveMessage('Unable to load designs. Please refresh the page.');
       setIsLoading(false);
       return;
@@ -85,14 +85,14 @@ export function SavedShedDesigns({
 
     setIsLoading(true);
     setSaveMessage('');
-    console.log('[SavedShedDesigns] Loading designs for org:', user.organizationId);
+    // Loading designs for organization
     
     try {
       const data = await listDesigns('shed');
-      console.log('[SavedShedDesigns] Loaded designs:', data.length);
+      // Loaded designs
       setDesigns(data as SavedDesign[]);
     } catch (error) {
-      console.error('Error loading saved designs:', error);
+      // Error loading saved designs
       setSaveMessage('Error loading designs. Please try again.');
     } finally {
       setIsLoading(false);
@@ -118,7 +118,7 @@ export function SavedShedDesigns({
         materials: materials,
       });
 
-      console.log('✓ Design saved via server successfully:', data);
+      // Design saved via server successfully
       setSaveName('');
       setSaveDescription('');
       setSelectedCustomer(null);
@@ -128,7 +128,7 @@ export function SavedShedDesigns({
       
       await loadDesigns();
     } catch (error: any) {
-      console.error('Error saving design:', error);
+      // Error saving design
       setSaveMessage(`Error saving design: ${error.message || 'Please check console for details'}`);
       setTimeout(() => setSaveMessage(''), 5000);
     } finally {
@@ -143,7 +143,7 @@ export function SavedShedDesigns({
       await deleteDesignApi('shed', id);
       await loadDesigns();
     } catch (error) {
-      console.error('Error deleting design:', error);
+      // Error deleting design
       setSaveMessage('Error deleting design. Please try again.');
     }
   };

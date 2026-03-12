@@ -95,7 +95,7 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
         // Update the image source
         snapshotImgRef.current.src = dataUrl;
       } catch (error) {
-        console.error('Failed to capture 3D canvas:', error);
+        // Failed to capture 3D canvas
       }
     }
   };

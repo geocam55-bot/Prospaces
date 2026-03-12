@@ -125,7 +125,7 @@ export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSel
         }, 0) / merged.filter((p) => p.price > 0).length;
         setAnnualSavingsPercent(Math.round(avgSave * 100));
       } catch (err) {
-        console.warn('[PricingPlans] Could not fetch dynamic plans, using fallbacks:', err);
+        // Could not fetch dynamic plans – using fallbacks
       }
     })();
     return () => { cancelled = true; };

@@ -38,7 +38,7 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
         const { campaigns: data } = await campaignsAPI.getAll();
         setCampaigns(data || []);
       } catch (error) {
-        console.error('Error loading campaigns for analytics:', error);
+        // Handle silently
       } finally {
         setLoading(false);
       }

@@ -118,7 +118,7 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
 
     try {
       const headers = await getAuthHeaders();
-      console.log('Running server-side inventory diagnostic...');
+      // Running server-side inventory diagnostic
 
       const response = await fetch(`${baseUrl}/run`, {
         method: 'POST',
@@ -143,14 +143,12 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
       }
 
       const data = await response.json();
-      console.log('Diagnostic result:', data);
       setResult(data);
 
       if (data.queryErrors && Object.keys(data.queryErrors).length > 0) {
         setShowDebug(true);
       }
     } catch (err: any) {
-      console.error('Diagnostic error:', err);
       setError(err.message);
       toast.error('Diagnostic failed: ' + err.message);
     } finally {
@@ -169,7 +167,6 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
       });
       if (!response.ok) throw new Error(`Server error: ${response.status}`);
       const data = await response.json();
-      console.log('Table check result:', data);
       setTableCheckResult(data);
       setShowDebug(true);
       toast.success('Table check complete');
@@ -191,7 +188,6 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
       });
       if (!response.ok) throw new Error(`Server error: ${response.status}`);
       const data = await response.json();
-      console.log('Raw count result:', data);
       setRawCountResult(data);
       setShowDebug(true);
       toast.success('Raw count complete');
@@ -213,7 +209,6 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
       });
       if (!response.ok) throw new Error(`Server error: ${response.status}`);
       const data = await response.json();
-      console.log('Pending jobs result:', data);
       setPendingJobs(data);
 
       if (data.pendingCount > 0) {
@@ -243,7 +238,7 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
 
     try {
       const headers = await getAuthHeaders();
-      console.log(`Processing job ${jobId} -> org ${targetOrg} (chunked)`);
+      // Processing job -> target org (chunked)
 
       let batchOffset = 0;
       let totalInserted = 0;
@@ -265,7 +260,6 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
         }
 
         const data = await response.json();
-        console.log(`Chunk result: offset=${batchOffset}, inserted=${data.batchInserted}, updated=${data.batchUpdated || 0}, errors=${data.batchErrors}, done=${data.done}`);
         lastData = data;
 
         totalInserted += data.batchInserted || 0;
@@ -302,7 +296,6 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
         findPendingJobs();
       }, 2000);
     } catch (err: any) {
-      console.error('Process job error:', err);
       toast.error('Process job failed: ' + err.message);
     } finally {
       setIsProcessingJob(false);
@@ -325,7 +318,7 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
 
     try {
       const headers = await getAuthHeaders();
-      console.log(`Processing ALL pending jobs -> org ${targetOrg} (chunked polling)`);
+      // Processing ALL pending jobs (chunked polling)
 
       let grandTotalInserted = 0;
       let grandTotalUpdated = 0;
@@ -357,8 +350,6 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
 
         const data = await response.json();
         lastData = data;
-        console.log(`All-pending chunk: job=${data.currentJobId?.slice(0,8)}, inserted=${data.batchInserted}, jobDone=${data.currentJobDone}, remaining=${data.remainingJobs}, allDone=${data.done}`);
-
         grandTotalInserted += data.batchInserted || 0;
         grandTotalUpdated += data.batchUpdated || 0;
         grandTotalErrors += data.batchErrors || 0;
@@ -410,7 +401,6 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
         findPendingJobs();
       }, 2000);
     } catch (err: any) {
-      console.error('Process all error:', err);
       toast.error('Process all failed: ' + err.message);
     } finally {
       setIsProcessingAll(false);
@@ -440,7 +430,6 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
       toast.success('Job deleted successfully');
       await findPendingJobs();
     } catch (err: any) {
-      console.error('Delete job error:', err);
       toast.error('Delete failed: ' + err.message);
     } finally {
       setIsDeletingJob(false);
@@ -470,7 +459,6 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
       toast.success(`Deleted ${data.deletedCount} pending job(s)`);
       await findPendingJobs();
     } catch (err: any) {
-      console.error('Delete all error:', err);
       toast.error('Delete all failed: ' + err.message);
     } finally {
       setIsDeletingAll(false);

@@ -19,7 +19,7 @@ export async function getAllInventoryClient() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         authUser = session.user;
-        console.log('✅ Using session user for inventory (getUser failed)');
+        // Using session user for inventory (getUser failed)
       } else {
         // Silently return empty during initial load
         return { items: [] };
@@ -28,32 +28,29 @@ export async function getAllInventoryClient() {
       authUser = user;
     }
 
-    console.log('🔍 getAllInventoryClient - User ID:', authUser.id);
-    console.log('🔍 getAllInventoryClient - User metadata:', authUser.user_metadata);
-
     // Get user's profile to check their role
     let profile;
     try {
       profile = await ensureUserProfile(authUser.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
+      // Failed to get user profile
       return { items: [] };
     }
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('🔐 Inventory - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
+    // Inventory scope filtering based on role and organization
 
     if (!userOrgId) {
-      console.error('❌ No organization_id found for user!');
+      // No organization_id found for user
       return { items: [] };
     }
 
     // ✅ CRITICAL FIX: Limit the initial load to 1000 items to prevent "Failed to fetch"
     // network errors on the Deals page. A full sync of 14,000+ items inside Promise.all
     // causes the browser to abort the request.
-    console.log('🔄 Fetching inventory...');
+    // Fetching inventory
     
     const { data: allData, error: batchError } = await supabase
       .from('inventory')
@@ -63,43 +60,29 @@ export async function getAllInventoryClient() {
       .limit(1000);
       
     if (batchError) {
-      console.error('❌ Database error loading inventory:', batchError);
-      console.error('❌ Error code:', batchError.code);
-      console.error('❌ Error message:', batchError.message);
+      // Database error loading inventory
       
       // Handle specific error cases gracefully
       if (batchError.code === '42703') {
-        console.error('❌ Column missing - database migration may be needed');
+        // Column missing - database migration may be needed
         return { items: [] };
       } else if (batchError.code === 'PGRST205' || batchError.code === '42P01') {
-        console.error('❌ Table missing - database setup may be needed');
+        // Table missing - database setup may be needed
         return { items: [] };
       }
       
       throw batchError;
     }
     
-    console.log('📊 Inventory filtered data - Total rows returned:', allData.length);
-    console.log('📦 Sample inventory data (first 3):', allData.slice(0, 3));
+    // Inventory data loaded
 
     // Convert snake_case to camelCase and map to expected format
     const items = allData ? allData.map(mapInventoryItem) : [];
-    console.log('✅ Mapped inventory items count:', items.length);
-    console.log('✅ Sample mapped items (first 2):', items.slice(0, 2));
-    
-    // DEBUG: Check if any items have images
-    const itemsWithImages = items.filter((item: any) => item.imageUrl);
-    console.log('🖼️ Items with images:', itemsWithImages.length);
-    if (itemsWithImages.length > 0) {
-      console.log('🖼️ First item with image:', itemsWithImages[0]);
-    }
+    // Mapped inventory items
     
     return { items };
   } catch (error: any) {
-    console.error('❌ Error loading inventory:', error?.message || error);
-    if (error?.code) {
-      console.error('❌ Error code:', error.code);
-    }
+    // Error loading inventory
     // Return empty array instead of throwing to prevent "Error" in dashboard
     return { items: [] };
   }
@@ -117,7 +100,7 @@ export async function searchInventoryClient(filters?: {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.warn('⚠️ User not authenticated, returning empty inventory');
+      // User not authenticated, returning empty inventory
       return { items: [] };
     }
 
@@ -126,14 +109,14 @@ export async function searchInventoryClient(filters?: {
     try {
       profile = await ensureUserProfile(user.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
+      // Failed to get user profile
       return { items: [] };
     }
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('🔍 Search Inventory - User:', profile.email, 'Role:', userRole, 'Org:', userOrgId);
+    // Search inventory filtering
 
     let query = supabase
       .from('inventory')
@@ -142,7 +125,7 @@ export async function searchInventoryClient(filters?: {
     // Apply organization filter based on user's role
     // ALL roles should only see inventory from their own organization
     query = query.eq('organization_id', userOrgId);
-    console.log('🔒 Filtering inventory for organization:', userOrgId);
+    // Filtering inventory for organization
 
     // Apply category filter
     if (filters?.category && filters.category !== 'all') {
@@ -166,13 +149,13 @@ export async function searchInventoryClient(filters?: {
 
     if (error) throw error;
 
-    console.log('📊 Search results - Total rows:', data?.length || 0);
+    // Search results loaded
 
     // Convert snake_case to camelCase and map to expected format
     const items = data ? data.map(mapInventoryItem) : [];
     return { items };
   } catch (error: any) {
-    console.error('Error searching inventory:', error);
+    // Error searching inventory
     // Return empty array instead of throwing to prevent "Error" in dashboard
     return { items: [] };
   }
@@ -192,18 +175,18 @@ export async function createInventoryClient(itemData: any) {
     try {
       profile = await ensureUserProfile(user.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
+      // Failed to get user profile
       throw new Error('Failed to get user profile');
     }
 
     const organizationId = profile.organization_id;
 
     if (!organizationId) {
-      console.error('❌ No organization_id found for user!');
+      // No organization_id found for user
       throw new Error('No organization_id found for user');
     }
 
-    console.log('➕ Creating inventory item for organization:', organizationId);
+    // Creating inventory item for organization
 
     // Clean the data - only include fields that exist in the database
     const cleanData: any = {
@@ -268,7 +251,7 @@ export async function createInventoryClient(itemData: any) {
     if (itemData.department_code !== undefined) cleanData.department_code = itemData.department_code;
     if (itemData.unit_of_measure !== undefined) cleanData.unit_of_measure = itemData.unit_of_measure;
 
-    console.log('➕ Creating inventory item with clean data:', cleanData);
+    // Creating inventory item with clean data
 
     const { data, error } = await supabase
       .from('inventory')
@@ -282,7 +265,7 @@ export async function createInventoryClient(itemData: any) {
     const item = data ? mapInventoryItem(data) : null;
     return { item };
   } catch (error: any) {
-    console.error('Error creating inventory item:', error);
+    // Error creating inventory item
     throw error;
   }
 }
@@ -353,9 +336,7 @@ export async function updateInventoryClient(id: string, itemData: any) {
     // Note: Cost field temporarily removed from update to avoid PGRST204 error
     // Will be re-enabled after database migration
 
-    console.log('🔄 Updating inventory item with clean data:', cleanData);
-    console.log('🔍 Fields being updated:', Object.keys(cleanData));
-    console.log('🔍 image_url value:', cleanData.image_url);
+    // Updating inventory item with clean data
 
     const { data, error } = await supabase
       .from('inventory')
@@ -366,18 +347,15 @@ export async function updateInventoryClient(id: string, itemData: any) {
 
     if (error) throw error;
     
-    // DEBUG: Verify the data was actually saved
-    console.log('🔍 Raw data returned from update:', data);
-    console.log('🔍 Does it have image_url?', 'image_url' in data, data.image_url);
+    // Data returned from update verified
 
     // Convert snake_case to camelCase and map to expected format
     const item = data ? mapInventoryItem(data) : null;
-    console.log('🔍 Mapped item:', item);
-    console.log('🔍 Does mapped item have imageUrl?', item?.imageUrl);
+    // Mapped item ready
     
     return { item };
   } catch (error: any) {
-    console.error('Error updating inventory item:', error);
+    // Error updating inventory item
     throw error;
   }
 }
@@ -394,7 +372,7 @@ export async function deleteInventoryClient(id: string) {
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error deleting inventory item:', error);
+    // Error deleting inventory item
     throw error;
   }
 }
@@ -412,18 +390,17 @@ export async function upsertInventoryBySKUClient(itemData: any) {
     try {
       profile = await ensureUserProfile(user.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
+      // Failed to get user profile
       throw new Error('Failed to get user profile');
     }
 
     const organizationId = profile.organization_id;
     if (!organizationId) {
-      console.error('❌ No organization_id in profile:', profile);
+      // No organization_id in profile
       throw new Error('No organization ID found in user profile');
     }
 
-    console.log('📦 Upsert inventory - User:', profile.email, 'Org ID:', organizationId);
-    console.log('📦 Upsert inventory - Raw itemData:', itemData);
+    // Upsert inventory processing
 
     // Clean the data - only include fields that exist in the database
     const cleanData: any = {
@@ -490,7 +467,7 @@ export async function upsertInventoryBySKUClient(itemData: any) {
     // Note: Cost field temporarily removed from upsert to avoid PGRST204 error
     // Will be re-enabled after database migration
 
-    console.log('✅ Clean data to send to database:', cleanData);
+    // Clean data prepared for database
 
     // Check if item with this SKU already exists in this organization
     // If there are duplicates, we'll find ALL of them and update them all
@@ -504,17 +481,14 @@ export async function upsertInventoryBySKUClient(itemData: any) {
         .order('created_at', { ascending: true }); // Oldest first
       
       if (error) {
-        console.error('Error checking for existing inventory item:', error);
+        // Error checking for existing inventory item
         throw error;
       }
       
       if (data && data.length > 0) {
         existingItems = data;
         
-        // Warn if there are duplicates
-        if (data.length > 1) {
-          console.warn(`⚠️ Found ${data.length} duplicate records for SKU "${itemData.sku}". Will update all of them.`);
-        }
+        // Duplicates detected if more than 1 - will update all
       }
     }
 
@@ -523,7 +497,7 @@ export async function upsertInventoryBySKUClient(itemData: any) {
       const updateData = { ...cleanData };
       delete updateData.organization_id;
       
-      console.log(`🔄 Updating ${existingItems.length} existing item(s) with data:`, updateData);
+      // Updating existing item(s)
       
       // Update all records with this SKU
       const { data: updatedItems, error: updateError } = await supabase
@@ -534,7 +508,7 @@ export async function upsertInventoryBySKUClient(itemData: any) {
         .select();
       
       if (updateError) {
-        console.error('Error updating inventory items:', updateError);
+        // Error updating inventory items
         throw updateError;
       }
       
@@ -547,7 +521,7 @@ export async function upsertInventoryBySKUClient(itemData: any) {
       };
     } else {
       // Create new item
-      console.log('➕ Creating new item with data:', cleanData);
+      // Creating new item
       
       const { data: createdItem, error: createError } = await supabase
         .from('inventory')
@@ -556,7 +530,7 @@ export async function upsertInventoryBySKUClient(itemData: any) {
         .single();
       
       if (createError) {
-        console.error('Error creating inventory item:', createError);
+        // Error creating inventory item
         throw createError;
       }
       
@@ -564,7 +538,7 @@ export async function upsertInventoryBySKUClient(itemData: any) {
       return { item, action: 'created' };
     }
   } catch (error: any) {
-    console.error('Error upserting inventory item:', error);
+    // Error upserting inventory item
     throw error;
   }
 }
@@ -582,13 +556,13 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
     try {
       profile = await ensureUserProfile(user.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
+      // Failed to get user profile
       throw new Error('Failed to get user profile');
     }
 
     const organizationId = profile.organization_id;
     if (!organizationId) {
-      console.error('❌ No organization_id in profile:', profile);
+      // No organization_id in profile
       throw new Error('No organization ID found in user profile');
     }
 
@@ -596,7 +570,7 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
       return { created: 0, updated: 0, failed: 0, errors: [] };
     }
 
-    console.log(`📦 Bulk upsert ${itemsData.length} inventory items for org: ${organizationId}`);
+    // Bulk upsert inventory items for organization
 
     // Clean all items data
     const cleanItems = itemsData.map(itemData => {
@@ -665,8 +639,7 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
       return cleanData;
     });
 
-    console.log('🧹 Sample cleaned item (first record):', cleanItems[0]);
-    console.log('🔍 All fields being sent:', cleanItems.length > 0 ? Object.keys(cleanItems[0]) : []);
+    // Sample cleaned item ready
 
     // Get all SKUs from the batch
     const skus = cleanItems.map(item => item.sku).filter(Boolean);
@@ -680,7 +653,7 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
       .in('sku', skus);
 
     if (queryError) {
-      console.error('Error querying existing inventory:', queryError);
+      // Error querying existing inventory
       throw queryError;
     }
 
@@ -701,9 +674,7 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
       });
     }
     
-    if (duplicatesFound > 0) {
-      console.warn(`⚠️ Found ${duplicatesFound} SKUs with duplicate records. Will update all duplicates.`);
-    }
+    // Duplicates tracked if any found
 
     // Separate items into updates and creates
     const itemsToUpdate: { ids: string[]; data: any; sku: string }[] = [];
@@ -722,7 +693,7 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
       }
     });
 
-    console.log(`📊 Batch breakdown: ${itemsToCreate.length} to create, ${itemsToUpdate.length} to update`);
+    // Batch breakdown calculated
 
     let created = 0;
     let updated = 0;
@@ -732,7 +703,7 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
     // Bulk insert new items
     if (itemsToCreate.length > 0) {
       try {
-        console.log('📝 Creating items without RPC - using direct insert...');
+        // Creating items using direct insert
         
         // Direct insert without RPC to avoid schema cache issues
         const { data: createdData, error: createError } = await supabase
@@ -741,15 +712,15 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
           .select();
 
         if (createError) {
-          console.error('Error bulk creating inventory:', createError);
+          // Error bulk creating inventory
           errors.push(`Bulk create error: ${createError.message}`);
           failed += itemsToCreate.length;
         } else {
           created = createdData?.length || 0;
-          console.log(`✅ Successfully created ${created} items`);
+          // Successfully created items
         }
       } catch (error: any) {
-        console.error('Error in bulk create:', error);
+        // Error in bulk create
         errors.push(`Bulk create exception: ${error.message}`);
         failed += itemsToCreate.length;
       }
@@ -777,11 +748,11 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
       }
     }
 
-    console.log(`✅ Bulk upsert complete: ${created} created, ${updated} updated, ${failed} failed`);
+    // Bulk upsert complete
 
     return { created, updated, failed, errors };
   } catch (error: any) {
-    console.error('Error bulk upserting inventory:', error);
+    // Error bulk upserting inventory
     throw error;
   }
 }

@@ -209,7 +209,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
     setLoading(true);
     try {
       // First, attempt migration from localStorage to database
-      console.log('[PlannerDefaults] 🔄 Attempting migration from localStorage...');
+      // Attempting migration from localStorage
       await migrateUserDefaultsFromLocalStorage(userId, organizationId);
 
       // Load organization defaults from database
@@ -217,7 +217,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
       const orgDefaultsMap: Record<string, string> = {};
       const itemIdsToFetch: string[] = [];
 
-      console.log('[PlannerDefaults] 📊 Organization defaults loaded:', orgDefaultsData.length);
+      // Organization defaults loaded
       orgDefaultsData.forEach((def) => {
         const key = `${def.planner_type}-${def.material_type || 'default'}-${def.material_category}`;
         if (def.inventory_item_id) {
@@ -226,12 +226,12 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
         }
       });
       setOrgDefaults(orgDefaultsMap);
-      console.log('[PlannerDefaults] 🏢 Org defaults map:', orgDefaultsMap);
+      // Org defaults map set
 
       // Load user-specific defaults from database
       const userDefaultsMap = await getUserDefaults(userId, organizationId);
       setUserDefaults(userDefaultsMap);
-      console.log('[PlannerDefaults] 👤 User defaults map:', userDefaultsMap);
+      // User defaults map set
 
       // Add user default item IDs to fetch list
       Object.values(userDefaultsMap).forEach((itemId) => {
@@ -242,16 +242,16 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
 
       // Load inventory items
       if (itemIdsToFetch.length > 0) {
-        console.log('[PlannerDefaults] 📦 Loading', itemIdsToFetch.length, 'inventory items');
+        // Loading inventory items
         const items = await getInventoryItemsForDropdown(organizationId, itemIdsToFetch);
-        console.log('[PlannerDefaults] ✅ Loaded', items.length, 'inventory items');
+        // Inventory items loaded
         setInventoryItems(items);
       }
 
       // Load full inventory list in background
       setTimeout(async () => {
         const allItems = await getInventoryItemsForDropdown(organizationId);
-        console.log('[PlannerDefaults] 🔄 Background: loaded all', allItems.length, 'inventory items');
+        // Background: loaded all inventory items
         setInventoryItems(allItems);
       }, 100);
 
@@ -259,13 +259,13 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
       try {
         const orgCFData = await getOrgConversionFactors(organizationId);
         setOrgCFs(orgCFData);
-        console.log('[PlannerDefaults] 📐 Org CFs loaded:', Object.keys(orgCFData).length, 'entries', orgCFData);
+        // Org CFs loaded
       } catch (cfErr) {
-        console.warn('[PlannerDefaults] Could not load org CFs:', cfErr);
+        // Could not load org CFs
       }
 
     } catch (error) {
-      console.error('[PlannerDefaults] Error loading defaults:', error);
+      // Error loading defaults
       toast.error('Failed to load defaults');
     } finally {
       setLoading(false);
@@ -299,7 +299,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
         toast.error('Failed to save defaults');
       }
     } catch (error) {
-      console.error('[PlannerDefaults] Error saving defaults:', error);
+      // Error saving defaults
       toast.error('Failed to save defaults');
     } finally {
       setSaving(false);
@@ -326,7 +326,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
         toast.error('Failed to restore defaults');
       }
     } catch (error) {
-      console.error('[PlannerDefaults] Error restoring defaults:', error);
+      // Error restoring defaults
       toast.error('Failed to restore defaults');
     } finally {
       setSaving(false);

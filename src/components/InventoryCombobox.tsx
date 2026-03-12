@@ -43,19 +43,14 @@ export function InventoryCombobox({
 
   // AI-Powered search with advanced-search.ts engine
   const filteredItems = useMemo(() => {
-    console.log('[InventoryCombobox] 🔍 Total items available:', items.length);
-    console.log('[InventoryCombobox] 🔍 Search query:', debouncedSearch);
-    console.log('[InventoryCombobox] 🔍 Advanced search:', useAdvancedSearch);
     
     if (!debouncedSearch.trim()) {
       // Show first 100 items when search is empty (prevents rendering thousands of items)
-      console.log('[InventoryCombobox] 📋 No search query, showing first 100 of', items.length, 'items');
       return items.slice(0, 100);
     }
 
     if (useAdvancedSearch) {
       // Use AI-powered advanced search engine
-      console.log('[InventoryCombobox] 🤖 Using AI-Powered search');
       
       const results = advancedSearch(items, debouncedSearch, {
         fuzzyThreshold: 0.7,  // Match Inventory Module settings
@@ -64,12 +59,11 @@ export function InventoryCombobox({
         sortBy: 'relevance',
       });
       
-      console.log('[InventoryCombobox] ✅ Advanced search found', results.length, 'matches');
+      // Advanced search found matches
       
       return results.map(r => r.item);
     } else {
       // Fallback: Simple multi-word search
-      console.log('[InventoryCombobox] 🔍 Using basic search');
       const searchLower = debouncedSearch.toLowerCase().trim();
       const searchWords = searchLower.split(/\s+/).filter(word => word.length > 0);
       
@@ -84,7 +78,7 @@ export function InventoryCombobox({
         return searchWords.every(word => searchableText.includes(word));
       });
 
-      console.log('[InventoryCombobox] ✅ Basic search found', matches.length, 'matches');
+      // Basic search found matches
       
       // Sort by relevance score
       const scoredMatches = matches.map(item => {

@@ -6,7 +6,7 @@ import useEmblaCarousel, {
 } from "embla-carousel-react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
-import { cn } from "./utils";
+import { cn, filterFigmaProps } from "./utils";
 import { Button } from "./button";
 
 type CarouselApi = UseEmblaCarouselType[1];
@@ -124,7 +124,7 @@ function Carousel({
         role="region"
         aria-roledescription="carousel"
         data-slot="carousel"
-        {...props}
+        {...filterFigmaProps(props)}
       >
         {children}
       </div>
@@ -147,7 +147,7 @@ function CarouselContent({ className, ...props }: React.ComponentProps<"div">) {
           orientation === "horizontal" ? "-ml-4" : "-mt-4 flex-col",
           className,
         )}
-        {...props}
+        {...filterFigmaProps(props)}
       />
     </div>
   );
@@ -166,7 +166,7 @@ function CarouselItem({ className, ...props }: React.ComponentProps<"div">) {
         orientation === "horizontal" ? "pl-4" : "pt-4",
         className,
       )}
-      {...props}
+      {...filterFigmaProps(props)}
     />
   );
 }
@@ -193,7 +193,7 @@ function CarouselPrevious({
       )}
       disabled={!canScrollPrev}
       onClick={scrollPrev}
-      {...props}
+      {...filterFigmaProps(props)}
     >
       <ArrowLeft />
       <span className="sr-only">Previous slide</span>
@@ -223,7 +223,7 @@ function CarouselNext({
       )}
       disabled={!canScrollNext}
       onClick={scrollNext}
-      {...props}
+      {...filterFigmaProps(props)}
     >
       <ArrowRight />
       <span className="sr-only">Next slide</span>

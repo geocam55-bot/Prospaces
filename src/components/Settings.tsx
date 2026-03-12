@@ -43,7 +43,7 @@ import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { canView } from '../utils/permissions';
 import { tenantsAPI, settingsAPI } from '../utils/api';
-import { DEFAULT_PRICE_TIER_LABELS, type PriceTierLabels, getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings';
+import { DEFAULT_PRICE_TIER_LABELS, type PriceTierLabels, getPriceTierLabel, getActivePriceLevels, AVAILABLE_MODULES } from '../lib/global-settings';
 
 // Utility: wrap a promise with a timeout to prevent infinite hangs
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {

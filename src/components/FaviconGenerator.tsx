@@ -56,7 +56,7 @@ export function FaviconGenerator() {
           const canvas = await imgToCanvas(config.size);
           newCanvases.set(config.name, canvas);
         } catch (error) {
-          console.error(`Failed to generate favicon for ${config.size}:`, error);
+          // Failed to generate favicon for this size
         }
       }
       
@@ -102,7 +102,7 @@ export function FaviconGenerator() {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 5000);
     } catch (error) {
-      console.error('Error generating favicons:', error);
+      // Error generating favicons
       alert('Error generating favicons. Please try again.');
     } finally {
       setIsGenerating(false);

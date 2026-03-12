@@ -870,7 +870,7 @@ function compileShader(gl: WebGLRenderingContext, src: string, type: number): We
   gl.shaderSource(shader, src);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    // console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+    // console statement removed
   }
   return shader;
 }
@@ -881,7 +881,7 @@ function createProgram(gl: WebGLRenderingContext, vsSrc: string, fsSrc: string):
   gl.attachShader(prog, compileShader(gl, fsSrc, gl.FRAGMENT_SHADER));
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    // console.error('Program link error:', gl.getProgramInfoLog(prog));
+    // console statement removed
   }
   return prog;
 }

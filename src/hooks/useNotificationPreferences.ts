@@ -38,9 +38,6 @@ export function useNotificationPreferences(user: User) {
           .single();
 
         if (error) {
-          // No preferences saved yet — use defaults (all enabled)
-          console.debug('No notification preferences found, using defaults');
-          setPreferences(DEFAULT_PREFERENCES);
         } else if (data) {
           setPreferences({
             email: data.notifications_email ?? true,
@@ -51,7 +48,6 @@ export function useNotificationPreferences(user: User) {
           });
         }
       } catch (err) {
-        console.error('Failed to load notification preferences:', err);
         setPreferences(DEFAULT_PREFERENCES);
       } finally {
         setIsLoading(false);

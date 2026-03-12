@@ -131,7 +131,6 @@ export function CampaignManager({ user }: CampaignManagerProps) {
             { duration: 5000 }
           );
         } catch (sendError: any) {
-          console.error('Error sending campaign immediately:', sendError);
           toast.warning('Campaign created but failed to send immediately. Please try sending manually.');
         }
       } else {
@@ -153,7 +152,6 @@ export function CampaignManager({ user }: CampaignManagerProps) {
       // Reload campaigns
       await loadCampaigns();
     } catch (error: any) {
-      console.error('Error creating campaign:', error);
       toast.error(error.message || 'Failed to create campaign');
     } finally {
       setIsCreating(false);
@@ -205,7 +203,6 @@ export function CampaignManager({ user }: CampaignManagerProps) {
       // Reload campaigns
       await loadCampaigns();
     } catch (error: any) {
-      console.error('Error updating campaign:', error);
       toast.error(error.message || 'Failed to update campaign');
     } finally {
       setIsCreating(false);
@@ -219,7 +216,6 @@ export function CampaignManager({ user }: CampaignManagerProps) {
       toast.success(`Campaign ${newStatus === 'Active' ? 'activated' : 'paused'} successfully!`);
       await loadCampaigns();
     } catch (error: any) {
-      console.error('Error toggling campaign status:', error);
       toast.error(error.message || 'Failed to update campaign status');
     }
   };
@@ -237,7 +233,6 @@ export function CampaignManager({ user }: CampaignManagerProps) {
       toast.success('Campaign duplicated successfully!');
       await loadCampaigns();
     } catch (error: any) {
-      console.error('Error duplicating campaign:', error);
       toast.error(error.message || 'Failed to duplicate campaign');
     }
   };
@@ -252,7 +247,6 @@ export function CampaignManager({ user }: CampaignManagerProps) {
       toast.success('Campaign deleted successfully!');
       await loadCampaigns();
     } catch (error: any) {
-      console.error('Error deleting campaign:', error);
       toast.error(error.message || 'Failed to delete campaign');
     }
   };
@@ -281,12 +275,10 @@ export function CampaignManager({ user }: CampaignManagerProps) {
           `${result.failed} emails failed to send. Check console for details.`,
           { duration: 5000 }
         );
-        console.warn('Failed contacts:', result.failedContacts);
       }
       
       await loadCampaigns();
     } catch (error: any) {
-      console.error('Error sending campaign:', error);
       toast.error(error.message || 'Failed to send campaign');
     }
   };

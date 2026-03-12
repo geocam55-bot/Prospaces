@@ -8,7 +8,7 @@
  */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   // TEMPORARY: Disable service worker until deployment is fixed
-  console.log('[PWA] Service worker registration temporarily disabled');
+  // Service worker registration temporarily disabled
   return null;
   
   // Don't even try in non-HTTPS or preview environments
@@ -37,7 +37,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
       scope: '/',
     });
 
-    console.log('[PWA] Service Worker registered:', registration.scope);
+    // Service Worker registered
 
     // Check for updates periodically
     setInterval(() => {
@@ -51,8 +51,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
       newWorker.addEventListener('statechange', () => {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          // New service worker available
-          console.log('[PWA] New version available! Please refresh.');
+          // New service worker available - new version ready
           
           // Notify user about update
           if (confirm('A new version of ProSpaces CRM is available. Reload to update?')) {
@@ -80,7 +79,7 @@ export async function unregisterServiceWorker(): Promise<void> {
   for (const registration of registrations) {
     await registration.unregister();
   }
-  console.log('[PWA] All service workers unregistered');
+  // All service workers unregistered
 }
 
 /**
@@ -188,7 +187,7 @@ export function getInstallInstructions(): string {
  */
 export async function showInstallPrompt(): Promise<boolean> {
   if (!deferredPrompt) {
-    console.warn('[PWA] Install prompt not available');
+    // Install prompt not available
     return false;
   }
 
@@ -198,7 +197,7 @@ export async function showInstallPrompt(): Promise<boolean> {
   // Wait for the user to respond to the prompt
   const { outcome } = await deferredPrompt.userChoice;
   
-  console.log(`[PWA] User response to install prompt: ${outcome}`);
+  // User responded to install prompt
 
   // Clear the deferredPrompt
   deferredPrompt = null;
@@ -246,7 +245,7 @@ export async function clearAllCaches(): Promise<void> {
     cacheNames.map(name => caches.delete(name))
   );
   
-  console.log('[PWA] All caches cleared');
+  // All caches cleared
 }
 
 /**
@@ -328,12 +327,12 @@ export async function showNotification(
   options?: NotificationOptions
 ): Promise<void> {
   if (!('Notification' in window)) {
-    console.warn('[PWA] Notifications not supported');
+    // Notifications not supported
     return;
   }
 
   if (Notification.permission !== 'granted') {
-    console.warn('[PWA] Notification permission denied');
+    // Notification permission denied
     return;
   }
 
@@ -355,13 +354,13 @@ export async function showNotification(
  */
 export async function registerBackgroundSync(tag: string): Promise<void> {
   if (!('serviceWorker' in navigator) || !('sync' in ServiceWorkerRegistration.prototype)) {
-    console.warn('[PWA] Background sync not supported');
+    // Background sync not supported
     return;
   }
 
   const registration = await navigator.serviceWorker.ready;
   await (registration as any).sync.register(tag);
-  console.log(`[PWA] Background sync registered: ${tag}`);
+  // Background sync registered
 }
 
 /**

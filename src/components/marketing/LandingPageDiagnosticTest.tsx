@@ -1,5 +1,4 @@
 export function LandingPageDiagnosticTest() {
-  console.log('TEST: LandingPageDiagnosticTest component rendered!');
   
   return (
     <div style={{ padding: '20px', backgroundColor: 'white', minHeight: '100vh' }}>

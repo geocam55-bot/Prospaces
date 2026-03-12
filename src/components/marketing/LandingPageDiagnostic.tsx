@@ -9,36 +9,26 @@ export function LandingPageDiagnostic() {
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<any>(null);
 
-  console.log('=== LandingPageDiagnostic RENDERED ===');
-  console.log('State:', { loading, hasResult: !!result, result });
-
   const runDiagnostic = async () => {
-    console.log('=== Running diagnostic ===');
     setLoading(true);
     
     try {
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/debug/landing-pages`;
-      console.log('Fetching from:', url);
-      console.log('Using auth token:', publicAnonKey.substring(0, 20) + '...');
       
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${publicAnonKey}`
         }
       });
-      console.log('Response:', { status: response.status, ok: response.ok });
       
       if (!response.ok) {
         const text = await response.text();
-        console.error('Error response:', text);
         throw new Error(`Server error ${response.status}: ${text}`);
       }
       
       const data = await response.json();
-      console.log('Diagnostic data received:', data);
       setResult(data);
     } catch (error: any) {
-      console.error('Diagnostic error:', error);
       setResult({ error: error.message || String(error) });
     } finally {
       setLoading(false);
@@ -46,11 +36,8 @@ export function LandingPageDiagnostic() {
   };
 
   useEffect(() => {
-    console.log('=== useEffect triggered ===');
     runDiagnostic();
   }, []);
-
-  console.log('About to render. State:', { loading, result });
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

@@ -128,7 +128,7 @@ export function Security({ user }: SecurityProps) {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) return session.access_token;
     } catch (e) {
-      console.warn('[Security] Failed to get session, using anon key:', e);
+    
     }
     return publicAnonKey;
   };
@@ -150,7 +150,7 @@ export function Security({ user }: SecurityProps) {
       if (res.ok) {
         const json = await res.json();
         if (json.permissions && Array.isArray(json.permissions) && json.permissions.length > 0) {
-          console.log(`[Security] Loaded ${json.permissions.length} permissions from server (KV store)`);
+          
 
           // Sync server data back to localStorage for offline/fast use
           localStorage.setItem(`permissions_${orgId}`, JSON.stringify(json.permissions));
@@ -158,14 +158,14 @@ export function Security({ user }: SecurityProps) {
           setIsLoading(false);
           return;
         } else {
-          console.log('[Security] Server returned no permissions, checking localStorage');
+          
         }
       } else {
         const errText = await res.text().catch(() => '');
-        console.warn(`[Security] Server returned ${res.status}: ${errText}`);
+        
       }
     } catch (err) {
-      console.warn('[Security] Failed to load permissions from server, falling back to localStorage:', err);
+      
     }
 
     // Fallback: load from localStorage
@@ -179,7 +179,7 @@ export function Security({ user }: SecurityProps) {
         const hasAISuggestions = permsArray.some((p: ModulePermission) => p.module === 'ai-suggestions');
 
         if (!hasAISuggestions) {
-          console.log('[Security] Migrating permissions: Adding AI Suggestions module');
+          
           roles.forEach(role => {
             if (role === 'super_admin' || role === 'admin') {
               permsArray.push({ module: 'ai-suggestions', role, visible: true, add: true, change: true, delete: true });
@@ -192,7 +192,7 @@ export function Security({ user }: SecurityProps) {
             }
           });
           localStorage.setItem(`permissions_${orgId}`, JSON.stringify(permsArray));
-          console.log('[Security] AI Suggestions permissions added and saved');
+          
         }
 
         setPermissions(permsArray);
@@ -200,7 +200,7 @@ export function Security({ user }: SecurityProps) {
         initializeDefaultPermissions();
       }
     } catch (error) {
-      console.error('[Security] Failed to load permissions from localStorage:', error);
+      
       initializeDefaultPermissions();
     }
 
@@ -223,7 +223,7 @@ export function Security({ user }: SecurityProps) {
       if (res.ok) {
         const json = await res.json();
         if (json.logs && Array.isArray(json.logs)) {
-          console.log(`[Security] Loaded ${json.logs.length} audit logs from server`);
+          
           // Sync to localStorage
           localStorage.setItem(`audit_logs_${orgId}`, JSON.stringify(json.logs));
           setLegacyAuditLogs(json.logs);
@@ -231,7 +231,7 @@ export function Security({ user }: SecurityProps) {
         }
       }
     } catch (err) {
-      console.warn('[Security] Failed to load audit logs from server:', err);
+      
     }
 
     // Fallback: load from localStorage
@@ -243,7 +243,7 @@ export function Security({ user }: SecurityProps) {
         setLegacyAuditLogs([]);
       }
     } catch (error) {
-      console.error('[Security] Failed to load audit logs from localStorage:', error);
+      
       setLegacyAuditLogs([]);
     }
   };
@@ -350,14 +350,14 @@ export function Security({ user }: SecurityProps) {
 
       if (res.ok) {
         const json = await res.json();
-        console.log(`[Security] Permissions saved to server (KV store): ${json.count} entries`);
+        
         serverSaved = true;
       } else {
         const errBody = await res.text().catch(() => '');
-        console.error(`[Security] Server save failed (${res.status}): ${errBody}`);
+        
       }
     } catch (err) {
-      console.error('[Security] Failed to save permissions to server:', err);
+      
     }
 
     if (serverSaved) {

@@ -161,7 +161,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
       // Use the function name with sub-path so supabase.functions.invoke()
       // hits  /functions/v1/make-server-8405be07/<subPath>
       const functionPath = `make-server-8405be07/${subPath}`;
-      console.log(`[Calendar OAuth] Invoking function: ${functionPath}`);
+      // Invoking OAuth function
 
       const { data, error: invokeError } = await supabase.functions.invoke(functionPath, {
         method: 'POST',
@@ -172,12 +172,12 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
       });
 
       if (invokeError) {
-        console.error('[Calendar] Invoke error:', invokeError);
+        // Invoke error
         throw new Error(invokeError.message || 'Failed to initialize OAuth.');
       }
 
       if (!data?.success || !data?.authUrl) {
-        console.error('[Calendar] Unexpected response:', data);
+        // Unexpected response
         throw new Error(data?.error || 'Failed to get authorization URL from server.');
       }
 
@@ -210,7 +210,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
       popupRef.current = popup;
 
       const pollId = data.pollId;
-      console.log('[CalendarAccountSetup] Popup opened, polling oauth-poll for pollId:', pollId);
+      // Popup opened, polling for OAuth completion
 
       const startTime = Date.now();
       const maxWaitTime = 5 * 60 * 1000;
@@ -281,7 +281,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
             }
             clearInterval(pollIntervalRef.current!);
             pollIntervalRef.current = null;
-            console.log('[CalendarAccountSetup] Popup closed without completion — showing reopen option');
+            // Popup closed without completion — showing reopen option
             setPopupClosed(true);
             setIsConnecting(false);
             return;
@@ -295,7 +295,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
       setTimeout(pollForAccount, 1000);
 
     } catch (error: any) {
-      console.error('[Calendar] Connection error:', error);
+      // Connection error
       setError(error.message || 'Failed to connect calendar. Please try again.');
       toast.error('Failed to connect calendar', {
         description: error.message
@@ -425,7 +425,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
       onAccountAdded();
 
     } catch (error: any) {
-      console.error('[Calendar] Delete error:', error);
+      // Delete error
       toast.error('Failed to disconnect calendar');
     } finally {
       setIsDeleting(null);

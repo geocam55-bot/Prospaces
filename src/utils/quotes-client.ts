@@ -15,7 +15,7 @@ export async function getQuoteTrackingStatusClient() {
     if (!response.ok) {
       // Don't log 404s (function not deployed yet) or 503s (booting) as critical errors
       if (response.status !== 404 && response.status !== 503) {
-        console.warn('Failed to fetch tracking status:', response.statusText);
+        // Failed to fetch tracking status
       }
       return { trackingStatus: {} };
     }
@@ -24,7 +24,7 @@ export async function getQuoteTrackingStatusClient() {
   } catch (error: any) {
     // Only log actual errors, not "Failed to fetch" network glitches
     if (error?.message !== 'Failed to fetch' && error?.message !== 'Load failed') {
-      console.warn('Failed to get tracking status:', error);
+      // Failed to get tracking status
     }
     return { trackingStatus: {} };
   }
@@ -41,13 +41,13 @@ export async function getAllQuotesClient(scope: 'personal' | 'team' = 'personal'
 
     if (response.ok) {
       const data = await response.json();
-      console.log(`[quotes-client] Server endpoint returned ${data.quotes?.length || 0} quotes (role=${data.meta?.role})`);
+      // Server endpoint returned quotes
       return { quotes: data.quotes || [] };
     }
 
-    console.warn('[quotes-client] Server endpoint failed, falling back to direct query:', response.status, response.statusText);
+    // Server endpoint failed, falling back to direct query
   } catch (err: any) {
-    console.warn('[quotes-client] Server endpoint error, falling back to direct query:', err.message);
+    // Server endpoint error, falling back to direct query
   }
 
   // ── Attempt 2: Direct Supabase query (may be blocked by RLS) ──
@@ -61,7 +61,7 @@ export async function getAllQuotesClient(scope: 'personal' | 'team' = 'personal'
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         authUser = session.user;
-        console.log('✅ Using session user for quotes (getUser failed)');
+        // Using session user for quotes (getUser failed)
       } else {
         // Silently return empty during initial load
         return { quotes: [] };
@@ -75,14 +75,14 @@ export async function getAllQuotesClient(scope: 'personal' | 'team' = 'personal'
     try {
       profile = await ensureUserProfile(authUser.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
+      // Failed to get user profile
       return { quotes: [] };
     }
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('🔐 Quotes (fallback) - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId, 'Scope:', scope);
+    // Quotes fallback - applying role-based filtering
     
     let query = supabase
       .from('quotes')
@@ -93,7 +93,7 @@ export async function getAllQuotesClient(scope: 'personal' | 'team' = 'personal'
       if (userRole === 'super_admin') {
         // no filter
       } else {
-        console.log('👤 Personal View - Loading only own quotes for user:', authUser.id);
+        // Personal View - Loading only own quotes
         if (userOrgId) {
           query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
         }
@@ -102,12 +102,12 @@ export async function getAllQuotesClient(scope: 'personal' | 'team' = 'personal'
     } else {
       // Team scope: role-based filtering
       if (['super_admin', 'admin', 'manager', 'director', 'marketing'].includes(userRole)) {
-        console.log('🔓 Team View - Loading all quotes for organization:', userOrgId);
+        // Team View - Loading all quotes for organization
         if (userOrgId) {
           query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
         }
       } else {
-        console.log('👤 Standard User (team scope) - Loading only own quotes for user:', authUser.id);
+        // Standard User (team scope) - Loading only own quotes
         if (userOrgId) {
           query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
         }
@@ -119,17 +119,17 @@ export async function getAllQuotesClient(scope: 'personal' | 'team' = 'personal'
     
     if (error) {
       if (error.code === '42P01' || error.code === 'PGRST204' || error.code === '42501') {
-        console.log('[quotes-client] Quotes table not found or access denied, returning empty array');
+        // Quotes table not found or access denied, returning empty array
         return { quotes: [] };
       }
       throw error;
     }
     
-    console.log('📊 Quotes filtered data - Total rows:', quotes?.length || 0);
+    // Quotes filtered data loaded
     
     return { quotes: quotes || [] };
   } catch (error: any) {
-    console.error('[quotes-client] Error:', error.message);
+    // Error loading quotes
     return { quotes: [] };
   }
 }
@@ -148,12 +148,12 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
   // DO NOT try to "improve" access control by querying the contacts table!
   
   if (!opportunityId) {
-    console.error('[getQuotesByOpportunityClient] No opportunity ID provided');
+    // No opportunity ID provided
     return { quotes: [] };
   }
   
   if (typeof opportunityId !== 'string') {
-    console.error('[getQuotesByOpportunityClient] Opportunity ID is not a string:', typeof opportunityId);
+    // Opportunity ID is not a string
     return { quotes: [] };
   }
   
@@ -161,7 +161,7 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.error('[getQuotesByOpportunityClient] Not authenticated');
+      // Not authenticated
       throw new Error('Not authenticated');
     }
 
@@ -182,12 +182,12 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
       .maybeSingle();
     
     if (oppError || !opportunity) {
-      console.log('[getQuotesByOpportunityClient] Opportunity not found or access denied');
+      // Opportunity not found or access denied
       return { quotes: [] };
     }
     
     if (!opportunity.customer_id) {
-      console.log('[getQuotesByOpportunityClient] Opportunity has no customer_id');
+      // Opportunity has no customer_id
       return { quotes: [] };
     }
     
@@ -213,13 +213,13 @@ export async function getQuotesByOpportunityClient(opportunityId: string) {
     const { data: quotes, error } = await query;
     
     if (error) {
-      console.error('[getQuotesByOpportunityClient] Error loading quotes:', error);
+      // Error loading quotes for opportunity
       return { quotes: [] };
     }
     
     return { quotes: quotes || [] };
   } catch (error: any) {
-    console.error('[getQuotesByOpportunityClient] Error:', error.message);
+    // Error in getQuotesByOpportunityClient
     return { quotes: [] };
   }
 }
@@ -239,14 +239,14 @@ export async function createQuoteClient(data: any) {
 
     if (response.ok) {
       const result = await response.json();
-      console.log('[quotes-client] Quote created via server endpoint:', result.quote?.id);
+      // Quote created via server endpoint
       return { quote: result.quote };
     }
 
     const errBody = await response.text();
-    console.warn('[quotes-client] Server create failed, falling back to direct insert:', response.status, errBody);
+    // Server create failed, falling back to direct insert
   } catch (err: any) {
-    console.warn('[quotes-client] Server create error, falling back to direct insert:', err.message);
+    // Server create error, falling back to direct insert
   }
 
   // ── Attempt 2: Direct Supabase insert (fallback) ──
@@ -264,9 +264,9 @@ export async function createQuoteClient(data: any) {
     try {
       const profile = await ensureUserProfile(user.id);
       organizationId = profile.organization_id;
-      console.log('[quotes-client] Retrieved organization_id from profile:', organizationId);
+      // Retrieved organization_id from profile
     } catch (profileError) {
-      console.warn('[quotes-client] Failed to fetch profile, falling back to metadata:', profileError);
+      // Failed to fetch profile, falling back to metadata
       organizationId = user.user_metadata?.organizationId || null;
     }
     
@@ -289,7 +289,7 @@ export async function createQuoteClient(data: any) {
       updated_at: new Date().toISOString(),
     };
     
-    console.log('[quotes-client] Creating quote (fallback) with org:', organizationId);
+    // Creating quote (fallback)
     
     const { data: quote, error } = await supabase
       .from('quotes')
@@ -298,13 +298,13 @@ export async function createQuoteClient(data: any) {
       .single();
     
     if (error) {
-      console.error('[quotes-client] Error creating quote:', error.message);
+      // Error creating quote
       throw error;
     }
     
     return { quote };
   } catch (error: any) {
-    console.error('[quotes-client] Error creating quote:', error.message);
+    // Error creating quote (outer)
     throw error;
   }
 }
@@ -376,7 +376,7 @@ export async function updateQuoteClient(id: string, data: any) {
       updated_at: new Date().toISOString(),
     };
     
-    console.log('[quotes-client] Updating quote with sanitized data:', updateData);
+    // Updating quote with sanitized data
     
     const { data: quote, error } = await supabase
       .from('quotes')
@@ -386,18 +386,18 @@ export async function updateQuoteClient(id: string, data: any) {
       .maybeSingle();
     
     if (error) {
-      console.error('[quotes-client] Error updating quote:', error.message);
+      // Error updating quote
       throw error;
     }
 
     if (!quote) {
-      console.error('[quotes-client] Error updating quote: Quote not found or permission denied');
+      // Quote not found or permission denied
       throw new Error('Quote not found or permission denied');
     }
     
     return { quote };
   } catch (error: any) {
-    console.error('[quotes-client] Error updating quote:', error.message);
+    // Error updating quote
     throw error;
   }
 }
@@ -410,13 +410,13 @@ export async function deleteQuoteClient(id: string) {
       .eq('id', id);
     
     if (error) {
-      console.error('[quotes-client] Error deleting quote:', error.message);
+      // Error deleting quote
       throw error;
     }
     
     return { success: true };
   } catch (error: any) {
-    console.error('[quotes-client] Error deleting quote:', error.message);
+    // Error deleting quote
     throw error;
   }
 }
@@ -424,7 +424,7 @@ export async function deleteQuoteClient(id: string) {
 // Fix organization IDs for quotes that have NULL organization_id
 export async function fixQuoteOrganizationIds() {
   try {
-    console.log('[fixQuoteOrganizationIds] Calling server to fix NULL organization IDs...');
+    // Calling server to fix NULL organization IDs
     const headers = await getServerHeaders();
     const response = await fetch(
       `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/recover-deals`,
@@ -433,14 +433,14 @@ export async function fixQuoteOrganizationIds() {
 
     if (response.ok) {
       const result = await response.json();
-      console.log('[fixQuoteOrganizationIds] Server recovered:', result);
+      // Server recovered
       return { count: result.fixedQuotes || 0, quotes: [] };
     }
 
-    console.warn('[fixQuoteOrganizationIds] Server recover failed:', response.status);
+    // Server recover failed
     throw new Error('Server recover failed');
   } catch (error: any) {
-    console.error('[fixQuoteOrganizationIds] Error:', error.message);
+    // Error fixing quote organization IDs
     throw error;
   }
 }

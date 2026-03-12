@@ -44,14 +44,14 @@ export async function enrichMaterialsWithT1Pricing(
   materialType?: string,
   conversionFactors?: Record<string, number>
 ): Promise<{ materials: MaterialItem[]; totalT1Price: number }> {
-  console.log(`[enrichMaterials] Enriching ${materials.length} materials for '${plannerType}' planner${materialType ? ` (${materialType})` : ''}`);
+  // Enriching materials with pricing
 
   try {
     const supabase = createClient();
     
     // Get project wizard defaults
     const defaults = await getProjectWizardDefaults(organizationId);
-    console.log(`[enrichMaterials] Found ${defaults.length} default mappings`);
+
 
     // Build a lookup map: material_category -> inventory_item_id
     const defaultsMap = new Map<string, string>();
@@ -70,13 +70,10 @@ export async function enrichMaterialsWithT1Pricing(
       }
     });
 
-    console.log(`[enrichMaterials] Mapped ${defaultsMap.size} categories to inventory items`);
-
     // Get unique inventory item IDs
     const inventoryItemIds = Array.from(new Set(defaultsMap.values()));
     
     if (inventoryItemIds.length === 0) {
-      console.log(`[enrichMaterials] ℹ️ No inventory defaults configured for '${plannerType}' planner type. Returning materials without pricing enrichment.`);
       return { materials, totalT1Price: 0 };
     }
 
@@ -88,11 +85,8 @@ export async function enrichMaterialsWithT1Pricing(
       .eq('organization_id', organizationId);
 
     if (error) {
-      console.error('[enrichMaterials] ❌ Error fetching inventory items:', error);
       return { materials, totalT1Price: 0 };
     }
-
-    console.log('[enrichMaterials] Fetched inventory items:', inventoryItems?.length || 0);
 
     // Build inventory lookup by ID and SKU
     const inventoryMapById = new Map<string, InventoryItemWithPricing>();
@@ -110,8 +104,6 @@ export async function enrichMaterialsWithT1Pricing(
         inventoryMapBySku.set(item.sku.toLowerCase(), inventoryItem);
       }
     });
-
-    console.log(`[enrichMaterials] Built lookup maps: ${inventoryMapById.size} by ID, ${inventoryMapBySku.size} by SKU`);
 
     // Enrich materials
     let totalT1Price = 0;
@@ -148,7 +140,6 @@ export async function enrichMaterialsWithT1Pricing(
               const lengthKey = `${baseKey} (${material.lumberLength}')`;
               const lengthMatch = defaultsMap.get(lengthKey);
               if (lengthMatch) {
-                console.log(`[enrichMaterials] 📏 Length-specific match: "${lengthKey}" -> ${lengthMatch}`);
                 matchedDefaultKey = lengthKey;
                 return lengthMatch;
               }
@@ -358,17 +349,10 @@ export async function enrichMaterialsWithT1Pricing(
               inventoryItemId = tryMatch('windows');
             }
           }
-
-          if (inventoryItemId) {
-            console.log(`[enrichMaterials] 🔍 Smart matched "${material.description}" -> inventory item ${inventoryItemId} (key: ${matchedDefaultKey})`);
-          }
         }
         
         if (inventoryItemId) {
           inventoryItem = inventoryMapById.get(inventoryItemId);
-          if (inventoryItem) {
-            matchMethod = `Category match: "${matchedDefaultKey || categoryKey}"`;
-          }
         }
       }
       
@@ -392,8 +376,6 @@ export async function enrichMaterialsWithT1Pricing(
         
         totalT1Price += total;
         
-        console.log(`[enrichMaterials] ✅ ${matchMethod} \"${material.description}\" -> \"${inventoryItem.name}\" (SKU: ${inventoryItem.sku || 'none'}) T1: $${t1Price.toFixed(2)} × ${material.quantity}${hasCF ? ` (CF: ${cf}, converted: ${convertedQty.toFixed(4)}, order: ${orderQty})` : ''} = $${total.toFixed(2)}`);
-        
         return {
           ...material,
           itemId: inventoryItem.id, // Use the inventory item's ID
@@ -411,18 +393,14 @@ export async function enrichMaterialsWithT1Pricing(
         };
       }
       
-      console.log(`[enrichMaterials] ⚠️ No pricing found for "${material.description}" (category: ${material.category})`);
       return material;
     });
 
-    console.log('[enrichMaterials] ✅ Total T1 price:', totalT1Price.toFixed(2));
-    
     return {
       materials: enrichedMaterials,
       totalT1Price,
     };
   } catch (error) {
-    console.error('[enrichMaterials] ❌ Unexpected error:', error);
     return { materials, totalT1Price: 0 };
   }
 }

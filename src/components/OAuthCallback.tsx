@@ -35,7 +35,6 @@ export function OAuthCallback() {
           return;
         }
 
-        console.log('[OAuthCallback] code received, state =', state);
         setMessage('Exchanging authorization code...');
 
         // Call the universal exchange endpoint — it looks up the provider from KV
@@ -50,7 +49,6 @@ export function OAuthCallback() {
         });
 
         const data = await res.json();
-        console.log('[OAuthCallback] Exchange response:', data);
 
         if (!res.ok || !data.success) {
           throw new Error(data.error || 'Token exchange failed');
@@ -69,7 +67,6 @@ export function OAuthCallback() {
 
         setTimeout(() => window.close(), 2000);
       } catch (err: any) {
-        console.error('[OAuthCallback] Error:', err);
         setStatus('error');
         setMessage(err.message || 'Authentication failed');
         notify({ type: 'oauth-error', error: err.message });
@@ -85,7 +82,7 @@ export function OAuthCallback() {
         window.opener.postMessage(msg, '*');
       }
     } catch (e) {
-      console.warn('[OAuthCallback] postMessage failed:', e);
+      // postMessage failed – non-critical
     }
   }
 

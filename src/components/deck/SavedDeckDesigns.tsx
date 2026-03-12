@@ -89,14 +89,14 @@ export function SavedDeckDesigns({
     if (user.organizationId) {
       loadDesigns();
     } else {
-      console.warn('[SavedDeckDesigns] Skipping load - organizationId is undefined');
+      // Skipping load - organizationId is undefined
     }
   }, [user.organizationId]);
 
   const loadDesigns = async () => {
     // Guard against undefined organizationId
     if (!user.organizationId) {
-      console.error('[SavedDeckDesigns] Cannot load designs - organizationId is undefined');
+      // Cannot load designs - organizationId is undefined
       setSaveMessage('Unable to load designs. Please refresh the page.');
       setIsLoading(false);
       return;
@@ -104,14 +104,14 @@ export function SavedDeckDesigns({
 
     setIsLoading(true);
     setSaveMessage(''); // Clear any previous messages
-    console.log('[SavedDeckDesigns] Loading designs for org:', user.organizationId);
+    // Loading designs for organization
     
     try {
       const data = await listDesigns('deck');
-      console.log('[SavedDeckDesigns] Loaded designs:', data.length);
+      // Loaded designs
       setDesigns(data as SavedDesign[]);
     } catch (error) {
-      console.error('Error loading saved designs:', error);
+      // Error loading saved designs
       setSaveMessage('Error loading designs. Please try again.');
     } finally {
       setIsLoading(false);
@@ -147,7 +147,7 @@ export function SavedDeckDesigns({
         materials: materials,
       });
 
-      console.log('✓ Design saved via server successfully:', savedDesign);
+      // Design saved via server successfully
       
       let successParts: string[] = ['Design saved'];
 
@@ -162,10 +162,10 @@ export function SavedDeckDesigns({
             status: 'open',
           });
 
-          console.log('✓ Deal created successfully:', dealData);
+          // Deal created successfully
           successParts.push('deal created');
         } catch (dealErr: any) {
-          console.error('Error creating deal:', dealErr);
+          // Error creating deal
           setSaveMessage(`Design saved, but error creating deal: ${dealErr.message}`);
           setTimeout(() => setSaveMessage(''), 5000);
         }
@@ -189,7 +189,7 @@ export function SavedDeckDesigns({
       
       await loadDesigns();
     } catch (error: any) {
-      console.error('Error saving design:', error);
+      // Error saving design
       setSaveMessage(`Error saving design: ${error.message || 'Please check console for details'}`);
       setTimeout(() => setSaveMessage(''), 5000);
     } finally {
@@ -204,7 +204,7 @@ export function SavedDeckDesigns({
       await deleteDesignApi('deck', id);
       await loadDesigns();
     } catch (error) {
-      console.error('Error deleting design:', error);
+      // Error deleting design
       setSaveMessage('Error deleting design. Please try again.');
     }
   };

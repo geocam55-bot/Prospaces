@@ -59,7 +59,6 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
       setBillingEvents(events);
       setPaymentMethod(pm);
     } catch (err: any) {
-      console.error('Error loading subscription data:', err);
       toast.error('Failed to load subscription data');
     } finally {
       setLoading(false);
@@ -99,7 +98,6 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
       setCheckoutOpen(false);
       await loadData();
     } catch (err: any) {
-      console.error('Checkout error:', err);
       toast.error(err.message || 'Checkout failed');
     } finally {
       setActionLoading(false);

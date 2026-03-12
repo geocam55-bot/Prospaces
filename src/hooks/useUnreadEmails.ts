@@ -85,7 +85,6 @@ export function useUnreadEmails(user: User) {
         .eq('user_id', user.id);
 
       if (accountsError) {
-        console.error('Error loading email accounts for badge:', accountsError);
         return;
       }
 
@@ -112,7 +111,6 @@ export function useUnreadEmails(user: User) {
         .limit(100);
 
       if (error) {
-        console.error('Error loading unread emails:', error);
         return;
       }
 
@@ -132,12 +130,11 @@ export function useUnreadEmails(user: User) {
           return isUnread && isInbox;
         }).length;
         
-        console.log(`Unread emails (Global Top 100 filtered for Account ${primaryAccountId.slice(0,4)}...):`, count);
         setUnreadCount(count);
       }
 
     } catch (error) {
-      console.error('Failed to load unread emails count:', error);
+      // Failed silently
     } finally {
       setIsLoading(false);
     }

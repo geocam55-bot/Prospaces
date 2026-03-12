@@ -9,7 +9,7 @@ export async function getAllProjectManagersClient() {
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error loading project managers:', error);
+    // Error loading project managers
     // Throw error if table not found so UI can detect it
     if (error.code === 'PGRST205' || error.code === '42P01') {
       throw error;
@@ -24,7 +24,7 @@ export async function getProjectManagersByCustomerClient(customerId: string) {
   const supabase = createClient();
   
   if (!customerId) {
-    console.warn('No customer ID provided');
+    // No customer ID provided
     return { projectManagers: [] };
   }
   
@@ -35,7 +35,7 @@ export async function getProjectManagersByCustomerClient(customerId: string) {
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error loading project managers for customer:', error);
+    // Error loading project managers for customer
     // Throw error if table not found so UI can detect it
     if (error.code === 'PGRST205' || error.code === '42P01') {
       throw error;
@@ -80,7 +80,7 @@ export async function createProjectManagerClient(data: any) {
     .single();
 
   if (error) {
-    console.error('Error creating project manager:', error);
+    // Error creating project manager
     throw new Error(error.message);
   }
 
@@ -114,7 +114,7 @@ export async function updateProjectManagerClient(id: string, data: any) {
     .single();
 
   if (error) {
-    console.error('Error updating project manager:', error);
+    // Error updating project manager
     throw new Error(error.message);
   }
 
@@ -138,7 +138,7 @@ export async function deleteProjectManagerClient(id: string) {
     .eq('id', id);
 
   if (error) {
-    console.error('Error deleting project manager:', error);
+    // Error deleting project manager
     throw new Error(error.message);
   }
 

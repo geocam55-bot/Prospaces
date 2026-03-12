@@ -45,7 +45,7 @@ export async function getAllCampaignsClient() {
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
-      console.warn('⚠️ User not authenticated, returning empty campaigns');
+      // User not authenticated, returning empty campaigns
       return { campaigns: [] };
     }
 
@@ -54,14 +54,14 @@ export async function getAllCampaignsClient() {
     try {
       profile = await ensureUserProfile(user.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
+      // Failed to get user profile
       return { campaigns: [] };
     }
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('🔐 Campaigns - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
+    // Applying role-based campaign filtering
 
     let query = supabase
       .from('campaigns')
@@ -70,22 +70,17 @@ export async function getAllCampaignsClient() {
     // Apply role-based filtering
     if (userRole === 'super_admin') {
       // Super Admin: Can see all campaigns
-      console.log('🔓 Super Admin - Loading all campaigns');
     } else if (userRole === 'admin' || userRole === 'marketing') {
       // Admin & Marketing: Can see all campaigns within their organization
-      console.log('🔒 Admin/Marketing - Loading campaigns for organization:', userOrgId);
       query = query.eq('organization_id', userOrgId);
     } else if (userRole === 'manager') {
       // Manager: Can see campaigns within their organization
-      console.log('👔 Manager - Loading campaigns for organization:', userOrgId);
       query = query.eq('organization_id', userOrgId);
     } else if (userRole === 'director') {
       // Director: Same as Manager - sees campaigns within their organization
-      console.log('🎯 Director - Loading campaigns for organization:', userOrgId);
       query = query.eq('organization_id', userOrgId);
     } else {
       // Standard User: Can see campaigns within their organization (read-only for most)
-      console.log('👤 Standard User - Loading campaigns for organization:', userOrgId);
       query = query.eq('organization_id', userOrgId);
     }
 
@@ -93,13 +88,13 @@ export async function getAllCampaignsClient() {
 
     if (error) throw error;
 
-    console.log('📊 Campaigns filtered data - Total rows:', data?.length || 0);
+    // Campaigns filtered data loaded
 
     const unpackedCampaigns = (data || []).map(unpackCampaign);
 
     return { campaigns: unpackedCampaigns };
   } catch (error: any) {
-    console.error('Error loading campaigns:', error);
+    // Error loading campaigns
     return { campaigns: [] };
   }
 }
@@ -131,10 +126,10 @@ export async function createCampaignClient(campaignData: any) {
 
     if (error) throw error;
 
-    console.log('✅ Campaign created:', data);
+    // Campaign created
     return { campaign: unpackCampaign(data) };
   } catch (error: any) {
-    console.error('Error creating campaign:', error);
+    // Error creating campaign
     throw error;
   }
 }
@@ -166,10 +161,10 @@ export async function updateCampaignClient(id: string, campaignData: any) {
 
     if (error) throw error;
 
-    console.log('✅ Campaign updated:', data);
+    // Campaign updated
     return { campaign: unpackCampaign(data) };
   } catch (error: any) {
-    console.error('Error updating campaign:', error);
+    // Error updating campaign
     throw error;
   }
 }
@@ -190,10 +185,10 @@ export async function deleteCampaignClient(id: string) {
 
     if (error) throw error;
 
-    console.log('✅ Campaign deleted:', id);
+    // Campaign deleted
     return { success: true };
   } catch (error: any) {
-    console.error('Error deleting campaign:', error);
+    // Error deleting campaign
     throw error;
   }
 }
@@ -221,10 +216,10 @@ export async function sendCampaignClient(id: string) {
       throw new Error(result.error || 'Failed to send campaign');
     }
 
-    console.log('✅ Campaign sent:', result);
+    // Campaign sent
     return result;
   } catch (error: any) {
-    console.error('Error sending campaign:', error);
+    // Error sending campaign
     throw error;
   }
 }

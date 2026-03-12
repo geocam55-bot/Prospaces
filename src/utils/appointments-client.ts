@@ -14,14 +14,14 @@ export async function getAllAppointmentsClient(scope: 'personal' | 'team' = 'per
     try {
       profile = await ensureUserProfile(user.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
+      // Failed to get user profile
       return { appointments: [] };
     }
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('🔐 Appointments - Current user:', profile.email, 'Role:', userRole, 'Scope:', scope);
+    // Appointments scope: user role and scope determine filtering
 
     let query = supabase
       .from('appointments')
@@ -30,21 +30,21 @@ export async function getAllAppointmentsClient(scope: 'personal' | 'team' = 'per
     if (scope === 'personal') {
       // Personal scope: ALL roles see only their own appointments
       if (userRole === 'super_admin') {
-        console.log('🔓 Super Admin - Loading all appointments');
+        // Super Admin - Loading all appointments
       } else {
-        console.log('👤 Personal scope - Loading only own appointments');
+        // Personal scope - Loading only own appointments
         query = query.eq('organization_id', userOrgId);
         query = query.eq('owner_id', user.id);
       }
     } else {
       // Team scope: role-based filtering
       if (userRole === 'super_admin') {
-        console.log('🔓 Super Admin - Loading all appointments');
+        // Super Admin - Loading all appointments
       } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
-        console.log('📢 Team scope - Loading all org appointments');
+        // Team scope - Loading all org appointments
         query = query.eq('organization_id', userOrgId);
       } else {
-        console.log('👤 Standard User - Loading only own appointments');
+        // Standard User - Loading only own appointments
         query = query.eq('organization_id', userOrgId);
         query = query.eq('owner_id', user.id);
       }
@@ -54,15 +54,11 @@ export async function getAllAppointmentsClient(scope: 'personal' | 'team' = 'per
 
     if (error) throw error;
 
-    console.log('📊 Appointments filtered data - Total rows:', data?.length || 0);
-    if (data && data.length > 0) {
-      console.log('📊 First appointment:', data[0]);
-      console.log('📊 All appointment IDs:', data.map((a: any) => ({ id: a.id, title: a.title, start: a.start_time, owner: a.owner_id })));
-    }
+    // Appointments filtered and loaded
 
     return { appointments: data || [] };
   } catch (error: any) {
-    console.error('Error loading appointments:', error);
+    // Error loading appointments
     // Return empty array instead of throwing to prevent "Error" in dashboard
     return { appointments: [] };
   }
@@ -85,7 +81,7 @@ export async function createAppointmentClient(appointmentData: any) {
       created_at: new Date().toISOString(),
     };
 
-    console.log('✅ Creating appointment with data:', newAppointment);
+    // Creating appointment
 
     const { data, error } = await supabase
       .from('appointments')
@@ -95,11 +91,11 @@ export async function createAppointmentClient(appointmentData: any) {
 
     if (error) throw error;
 
-    console.log('✅ Appointment created successfully:', data);
+    // Appointment created successfully
 
     return { appointment: data };
   } catch (error: any) {
-    console.error('Error creating appointment:', error);
+    // Error creating appointment
     throw error;
   }
 }
@@ -114,7 +110,7 @@ export async function updateAppointmentClient(id: string, appointmentData: any) 
     // Strip fields that shouldn't be updated directly
     const { id: _id, created_at, organization_id, owner_id, created_by, ...updateFields } = appointmentData;
 
-    console.log('✏️ Updating appointment', id, 'with data:', updateFields);
+    // Updating appointment
 
     const { data, error } = await supabase
       .from('appointments')
@@ -125,11 +121,11 @@ export async function updateAppointmentClient(id: string, appointmentData: any) 
 
     if (error) throw error;
 
-    console.log('✅ Appointment updated successfully:', data);
+    // Appointment updated successfully
 
     return { appointment: data };
   } catch (error: any) {
-    console.error('Error updating appointment:', error);
+    // Error updating appointment
     throw error;
   }
 }
@@ -146,7 +142,7 @@ export async function deleteAppointmentClient(id: string) {
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error deleting appointment:', error);
+    // Error deleting appointment
     throw error;
   }
 }

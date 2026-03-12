@@ -718,7 +718,7 @@ ON CONFLICT (role, module) DO UPDATE SET
         toast.error('Copy failed. Please manually select and copy the SQL script.');
       }
     } catch (err) {
-      console.error('Fallback copy failed:', err);
+      // Fallback copy failed
       toast.error('Copy failed. Please manually select and copy the SQL script.');
     }
   };
@@ -740,7 +740,7 @@ ON CONFLICT (role, module) DO UPDATE SET
       URL.revokeObjectURL(url);
       toast.success('SQL file downloaded!');
     } catch (err) {
-      console.error('Download failed:', err);
+      // Download failed
       toast.error('Download failed. Please use Copy SQL instead.');
     }
   };

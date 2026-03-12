@@ -122,7 +122,7 @@ export function TestDataGenerator() {
         text: `Current data: ${currentStats.contacts} contacts, ${currentStats.bids} bids, ${currentStats.projectManagers} project managers` 
       });
     } catch (error: any) {
-      console.error('Error checking data:', error);
+      // Error checking data
       setMessage({ type: 'error', text: `Error: ${error.message}` });
     } finally {
       setIsChecking(false);
@@ -166,7 +166,7 @@ export function TestDataGenerator() {
       for (const contact of testContacts) {
         const result = await contactsAPI.create(contact);
         generated.contacts.push(result.contact);
-        console.log('Created contact:', result.contact);
+        // Created contact
       }
 
       // Step 2: Create project managers for each contact
@@ -182,7 +182,7 @@ export function TestDataGenerator() {
           phone: `555-020${i + 1}`,
         });
         generated.projectManagers.push(pmResult.projectManager);
-        console.log('Created project manager:', pmResult.projectManager);
+        // Created project manager
       }
 
       // Step 3: Create bids for each contact
@@ -243,7 +243,7 @@ export function TestDataGenerator() {
           
           const bidResult = await bidsAPI.create(bidData);
           generated.bids.push(bidResult.bid);
-          console.log('Created bid:', bidResult.bid);
+          // Created bid
         }
       }
 
@@ -256,7 +256,7 @@ export function TestDataGenerator() {
       // Refresh stats
       await checkCurrentData();
     } catch (error: any) {
-      console.error('Error generating test data:', error);
+      // Error generating test data
       setMessage({ type: 'error', text: `Error: ${error.message}` });
     } finally {
       setIsGenerating(false);
@@ -306,7 +306,7 @@ export function TestDataGenerator() {
       // Refresh stats
       await checkCurrentData();
     } catch (error: any) {
-      console.error('Error deleting test data:', error);
+      // Error deleting test data
       setMessage({ type: 'error', text: `Error: ${error.message}` });
     } finally {
       setIsDeleting(false);

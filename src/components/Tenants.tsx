@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, type ChangeEvent } from 'react';
 import { tenantsAPI } from '../utils/api';
 import type { User, Organization } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { canView, canAdd, canChange, canDelete } from '../utils/permissions';
 import { CleanupUnusedOrganizations } from './CleanupUnusedOrganizations';
 import { SubscriptionAgreement } from './SubscriptionAgreement';
+import { OrganizationModuleManager } from './OrganizationModuleManager';
 import { getOrgMode, setOrgMode } from '../utils/settings-client';
+import { AVAILABLE_MODULES } from '../lib/global-settings';
 import type { OrgUserMode } from '../utils/settings-client';
 import { 
   Building2, 
@@ -94,23 +96,35 @@ export function Tenants({ user, organization }: TenantsProps) {
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [viewingAgreement, setViewingAgreement] = useState<Tenant | null>(null);
 
-  const [formData, setFormData] = useState({
+  // Compute all available modules dynamically based on all tenants and defaults
+  const availableModules = useMemo(() => {
+    const modules = new Set<string>();
+    // Add default known modules
+    AVAILABLE_MODULES.forEach(m => modules.add(m.id));
+    
+    // Add any dynamic modules from database records
+    tenants.forEach(tenant => {
+      Object.keys(tenant).forEach(key => {
+        if (key.endsWith('_enabled')) {
+          modules.add(key);
+        }
+      });
+    });
+    return Array.from(modules);
+  }, [tenants]);
+
+  const [formData, setFormData] = useState<Record<string, any>>({
     name: '',
     domain: '',
-    status: 'active' as const,
-    plan: 'starter' as const,
+    status: 'active',
+    plan: 'starter',
     customPlanPrice: '',
     billingEmail: '',
     phone: '',
     address: '',
     notes: '',
     logo: '',
-    ai_suggestions_enabled: false,
-    marketing_enabled: false,
-    inventory_enabled: false,
-    import_export_enabled: false,
-    documents_enabled: false,
-    user_mode: 'multi' as OrgUserMode,
+    user_mode: 'multi',
   });
 
   // Only super_admin can access this module
@@ -125,14 +139,9 @@ export function Tenants({ user, organization }: TenantsProps) {
   const loadTenants = async () => {
     try {
       setIsLoading(true);
-      console.log('[Tenants] 🔄 Loading tenants...');
       const data = await tenantsAPI.getAll();
-      console.log('[Tenants] ✅ Received data:', data);
-      console.log('[Tenants] 📊 Tenants count:', data.tenants?.length);
-      console.log('[Tenants] 📋 First tenant:', data.tenants?.[0]);
       setTenants(data.tenants || []);
     } catch (error) {
-      console.error('[Tenants] ❌ Failed to load tenants:', error);
       showAlert('error', 'Failed to load tenants');
     } finally {
       setIsLoading(false);
@@ -154,8 +163,14 @@ export function Tenants({ user, organization }: TenantsProps) {
         const modeData = await getOrgMode(tenant.id);
         currentMode = modeData?.user_mode || 'multi';
       } catch (err) {
-        console.warn('[Tenants] Failed to load org mode for', tenant.id, err);
+        
       }
+
+      // Extract existing module flags from tenant
+      const moduleFlags: Record<string, boolean> = {};
+      availableModules.forEach(key => {
+        moduleFlags[key] = Boolean((tenant as any)[key]);
+      });
 
       setFormData({
         name: tenant.name,
@@ -168,15 +183,17 @@ export function Tenants({ user, organization }: TenantsProps) {
         address: tenant.address || '',
         notes: tenant.notes || '',
         logo: tenant.logo || '',
-        ai_suggestions_enabled: tenant.ai_suggestions_enabled || false,
-        marketing_enabled: tenant.marketing_enabled || false,
-        inventory_enabled: tenant.inventory_enabled || false,
-        import_export_enabled: tenant.import_export_enabled || false,
-        documents_enabled: tenant.documents_enabled || false,
         user_mode: currentMode,
+        ...moduleFlags,
       });
     } else {
       setEditingTenant(null);
+      
+      const defaultModules: Record<string, boolean> = {};
+      availableModules.forEach(key => {
+        defaultModules[key] = false;
+      });
+
       setFormData({
         name: '',
         domain: '',
@@ -188,12 +205,8 @@ export function Tenants({ user, organization }: TenantsProps) {
         address: '',
         notes: '',
         logo: '',
-        ai_suggestions_enabled: false,
-        marketing_enabled: false,
-        inventory_enabled: false,
-        import_export_enabled: false,
-        documents_enabled: false,
         user_mode: 'multi',
+        ...defaultModules,
       });
     }
     setShowDialog(true);
@@ -208,6 +221,11 @@ export function Tenants({ user, organization }: TenantsProps) {
     try {
       setIsSaving(true);
 
+      const dynamicFlags: Record<string, boolean> = {};
+      availableModules.forEach(key => {
+        dynamicFlags[key] = Boolean(formData[key]);
+      });
+
       const tenantData = {
         name: formData.name,
         domain: formData.domain,
@@ -220,11 +238,7 @@ export function Tenants({ user, organization }: TenantsProps) {
         notes: formData.notes,
         features: getPlanFeatures(formData.plan),
         logo: formData.logo,
-        ai_suggestions_enabled: formData.ai_suggestions_enabled,
-        marketing_enabled: formData.marketing_enabled,
-        inventory_enabled: formData.inventory_enabled,
-        import_export_enabled: formData.import_export_enabled,
-        documents_enabled: formData.documents_enabled,
+        ...dynamicFlags,
       };
 
       if (editingTenant) {
@@ -232,9 +246,8 @@ export function Tenants({ user, organization }: TenantsProps) {
         // Save user mode to KV
         try {
           await setOrgMode(editingTenant.id, formData.user_mode);
-          console.log('[Tenants] Org mode saved:', formData.user_mode, 'for', editingTenant.id);
         } catch (modeErr) {
-          console.warn('[Tenants] Failed to save org mode (non-critical):', modeErr);
+          
         }
         showAlert('success', 'Organization updated successfully');
       } else {
@@ -243,9 +256,8 @@ export function Tenants({ user, organization }: TenantsProps) {
         if (result?.tenant?.id && formData.user_mode !== 'multi') {
           try {
             await setOrgMode(result.tenant.id, formData.user_mode);
-            console.log('[Tenants] Org mode overridden to:', formData.user_mode, 'for new org', result.tenant.id);
           } catch (modeErr) {
-            console.warn('[Tenants] Failed to save org mode for new org (non-critical):', modeErr);
+            
           }
         }
         showAlert('success', 'Organization created successfully');
@@ -254,7 +266,6 @@ export function Tenants({ user, organization }: TenantsProps) {
       setShowDialog(false);
       loadTenants();
     } catch (error) {
-      console.error('Failed to save tenant:', error);
       showAlert('error', 'Failed to save organization');
     } finally {
       setIsSaving(false);
@@ -266,33 +277,19 @@ export function Tenants({ user, organization }: TenantsProps) {
       return;
     }
 
-    console.log('[Tenants] 🗑️ Starting deletion for organization:', id);
-    
     try {
       setIsDeleting(id);
-      console.log('[Tenants] 📞 Calling tenantsAPI.delete()...');
       const result = await tenantsAPI.delete(id);
-      console.log('[Tenants] ✅ Delete result:', result);
       showAlert('success', 'Organization deleted successfully');
-      console.log('[Tenants] 🔄 Reloading tenants list...');
       await loadTenants();
-      console.log('[Tenants] ✅ Tenants list reloaded');
     } catch (error: any) {
-      console.error('[Tenants] ❌ Failed to delete tenant:', error);
-      console.error('[Tenants] ❌ Error details:', {
-        message: error?.message,
-        code: error?.code,
-        details: error?.details,
-        hint: error?.hint,
-        fullError: error
-      });
       showAlert('error', `Failed to delete organization: ${error?.message || 'Unknown error'}`);
     } finally {
       setIsDeleting(null);
     }
   };
 
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -369,9 +366,6 @@ export function Tenants({ user, organization }: TenantsProps) {
     totalUsers: tenants.reduce((sum, t) => sum + t.userCount, 0),
     totalContacts: tenants.reduce((sum, t) => sum + (t.contactsCount || 0), 0),
   };
-
-  console.log('[Tenants] 📊 Stats calculated:', stats);
-  console.log('[Tenants] 📋 Tenants array:', tenants);
 
   if (!canAccessTenants) {
     return (
@@ -484,6 +478,8 @@ export function Tenants({ user, organization }: TenantsProps) {
         </Card>
       </div>
 
+
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -581,17 +577,15 @@ export function Tenants({ user, organization }: TenantsProps) {
                         </div>
                       </div>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button 
-                            className="inline-flex items-center justify-center rounded-md text-sm ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 w-9"
-                            disabled={isDeleting === tenant.id}
-                          >
-                            {isDeleting === tenant.id ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                            ) : (
-                              <MoreVertical className="h-4 w-4" />
-                            )}
-                          </button>
+                        <DropdownMenuTrigger
+                          className="inline-flex items-center justify-center rounded-md text-sm ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 w-9"
+                          disabled={isDeleting === tenant.id}
+                        >
+                          {isDeleting === tenant.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                          ) : (
+                            <MoreVertical className="h-4 w-4" />
+                          )}
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {user?.role === 'SUPERADMIN' && (
@@ -850,41 +844,28 @@ export function Tenants({ user, organization }: TenantsProps) {
                     Override the default plan price for this customer (per month)
                   </p>
                 </div>
-                <div>
-                  <Label>AI Suggestions Enabled</Label>
-                  <AIToggleSwitch
-                    checked={formData.ai_suggestions_enabled}
-                    onCheckedChange={(checked) => setFormData({ ...formData, ai_suggestions_enabled: checked })}
-                  />
-                </div>
-                <div>
-                  <Label>Marketing Module Enabled</Label>
-                  <AIToggleSwitch
-                    checked={formData.marketing_enabled}
-                    onCheckedChange={(checked) => setFormData({ ...formData, marketing_enabled: checked })}
-                  />
-                </div>
-                <div>
-                  <Label>Inventory Module Enabled</Label>
-                  <AIToggleSwitch
-                    checked={formData.inventory_enabled}
-                    onCheckedChange={(checked) => setFormData({ ...formData, inventory_enabled: checked })}
-                  />
-                </div>
-                <div>
-                  <Label>Import/Export Module Enabled</Label>
-                  <AIToggleSwitch
-                    checked={formData.import_export_enabled}
-                    onCheckedChange={(checked) => setFormData({ ...formData, import_export_enabled: checked })}
-                  />
-                </div>
-                <div>
-                  <Label>Documents Module Enabled</Label>
-                  <AIToggleSwitch
-                    checked={formData.documents_enabled}
-                    onCheckedChange={(checked) => setFormData({ ...formData, documents_enabled: checked })}
-                  />
-                </div>
+              </div>
+            </div>
+
+            {/* Dynamic Modules Access */}
+            <div className="space-y-4">
+              <h3 className="text-sm text-gray-900">Modules Access</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {availableModules.map(key => {
+                  const moduleDef = AVAILABLE_MODULES.find(m => m.id === key);
+                  const label = moduleDef ? moduleDef.label : key.replace('_enabled', '').replace(/_/g, ' ');
+                  return (
+                  <div key={key}>
+                    <Label className="capitalize">{label} Module</Label>
+                    <div className="mt-2">
+                      <Switch
+                        checked={!!formData[key]}
+                        onCheckedChange={(checked) => setFormData({ ...formData, [key]: checked })}
+                      />
+                    </div>
+                  </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -952,6 +933,11 @@ export function Tenants({ user, organization }: TenantsProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Module Manager */}
+      {user.role === 'super_admin' && (
+        <OrganizationModuleManager user={user} />
+      )}
 
       {/* Cleanup Unused Organizations */}
       <CleanupUnusedOrganizations />

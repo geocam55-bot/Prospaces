@@ -187,6 +187,35 @@ function getPublicRoute(): React.ReactElement | null {
   return null;
 }
 
+// Wrapper to enforce desktop-only view for planners
+function DesktopOnlyPlanner({ children }: { children: React.ReactNode }) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  if (isMobile) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-6 text-center bg-slate-50">
+        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
+          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Desktop Only</h2>
+        <p className="text-slate-600 max-w-md">
+          The 3D Planners require a larger screen for the best experience. Please switch to a desktop or laptop computer to use this feature.
+        </p>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 export function AppContent() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -503,12 +532,12 @@ export function AppContent() {
               {currentView === 'import-export' && <ImportExport user={user} onNavigate={setCurrentView} />}
               {currentView === 'scheduled-jobs' && <ScheduledJobs user={user} onNavigate={setCurrentView} />}
               {currentView === 'background-imports' && <BackgroundImportManager user={user} onNavigate={setCurrentView} />}
-              {currentView === 'kitchen-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="kitchen-planner"><Suspense fallback={<PlannerLoading />}><KitchenPlanner user={user} /></Suspense></PlannerErrorBoundary>}
-              {currentView === 'deck-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="deck-planner"><Suspense fallback={<PlannerLoading />}><DeckPlanner user={user} /></Suspense></PlannerErrorBoundary>}
-              {currentView === 'garage-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="garage-planner"><Suspense fallback={<PlannerLoading />}><GaragePlanner user={user} /></Suspense></PlannerErrorBoundary>}
-              {currentView === 'shed-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="shed-planner"><Suspense fallback={<PlannerLoading />}><ShedPlanner user={user} /></Suspense></PlannerErrorBoundary>}
-              {currentView === 'roof-planner' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="roof-planner"><Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense></PlannerErrorBoundary>}
-              {currentView === 'interior-finishing' && <PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="interior-finishing"><Suspense fallback={<PlannerLoading />}><InteriorFinishingPlanner user={user} /></Suspense></PlannerErrorBoundary>}
+              {currentView === 'kitchen-planner' && <DesktopOnlyPlanner><PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="kitchen-planner"><Suspense fallback={<PlannerLoading />}><KitchenPlanner user={user} /></Suspense></PlannerErrorBoundary></DesktopOnlyPlanner>}
+              {currentView === 'deck-planner' && <DesktopOnlyPlanner><PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="deck-planner"><Suspense fallback={<PlannerLoading />}><DeckPlanner user={user} /></Suspense></PlannerErrorBoundary></DesktopOnlyPlanner>}
+              {currentView === 'garage-planner' && <DesktopOnlyPlanner><PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="garage-planner"><Suspense fallback={<PlannerLoading />}><GaragePlanner user={user} /></Suspense></PlannerErrorBoundary></DesktopOnlyPlanner>}
+              {currentView === 'shed-planner' && <DesktopOnlyPlanner><PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="shed-planner"><Suspense fallback={<PlannerLoading />}><ShedPlanner user={user} /></Suspense></PlannerErrorBoundary></DesktopOnlyPlanner>}
+              {currentView === 'roof-planner' && <DesktopOnlyPlanner><PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="roof-planner"><Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense></PlannerErrorBoundary></DesktopOnlyPlanner>}
+              {currentView === 'interior-finishing' && <DesktopOnlyPlanner><PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="interior-finishing"><Suspense fallback={<PlannerLoading />}><InteriorFinishingPlanner user={user} /></Suspense></PlannerErrorBoundary></DesktopOnlyPlanner>}
               {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
               {currentView === 'subscription-billing' && <SubscriptionBilling user={user} />}
               {currentView === 'subscription-agreement' && <SubscriptionAgreement organization={organization} />}

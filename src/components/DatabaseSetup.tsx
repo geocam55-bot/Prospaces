@@ -121,8 +121,6 @@ ON CONFLICT (id) DO NOTHING;
       setIsSetupRunning(true);
       setError(null);
 
-      console.log('[DatabaseSetup] 🔧 Attempting to create profile for user:', currentUser.email);
-
       // Use the currentUser prop instead of fetching from Supabase auth
       // We need to get the Supabase auth user ID to match with profiles table
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
@@ -152,8 +150,6 @@ ON CONFLICT (id) DO NOTHING;
         .select();
 
       if (insertError) {
-        console.error('[DatabaseSetup] ❌ Failed to create profile:', insertError);
-        
         // If table doesn't exist, show SQL script
         if (insertError.code === '42P01') {
           setError('The profiles table does not exist. Please run the SQL setup script below.');
@@ -171,7 +167,6 @@ ON CONFLICT (id) DO NOTHING;
         throw new Error(`Database error: ${insertError.message}`);
       }
 
-      console.log('[DatabaseSetup] ✅ Profile created successfully:', data);
       toast.success('✅ Database setup complete! Your profile has been created.');
       setSetupComplete(true);
       
@@ -181,7 +176,6 @@ ON CONFLICT (id) DO NOTHING;
       }, 1500);
 
     } catch (err: any) {
-      console.error('[DatabaseSetup] ❌ Setup failed:', err);
       setError(err.message);
       // Don't show error toast if it's expected (table doesn't exist)
       if (!err.message.includes('Please run the SQL setup script')) {
@@ -205,7 +199,6 @@ ON CONFLICT (id) DO NOTHING;
       document.execCommand('copy');
       toast.success('✅ SQL script copied to clipboard!');
     } catch (err) {
-      console.error('Failed to copy:', err);
       toast.error('Failed to copy. Please select and copy the text manually.');
     } finally {
       document.body.removeChild(textarea);

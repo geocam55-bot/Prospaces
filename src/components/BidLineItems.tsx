@@ -89,7 +89,7 @@ export function BidLineItems({ isOpen, onClose, inventoryItems: propsInventoryIt
             setInventoryItems(apiItems);
           }
         } catch (err) {
-          console.error("Search failed:", err);
+          // Search failed
         } finally {
           setIsSearching(false);
         }

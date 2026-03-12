@@ -14,14 +14,14 @@ export async function getAllTasksClient(scope: 'personal' | 'team' = 'personal')
     try {
       profile = await ensureUserProfile(user.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
+      // Failed to get user profile
       return { tasks: [] };
     }
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('🔐 Tasks - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId, 'Scope:', scope);
+    // Tasks scope filtering based on role
 
     let query = supabase
       .from('tasks')
@@ -30,20 +30,20 @@ export async function getAllTasksClient(scope: 'personal' | 'team' = 'personal')
     if (scope === 'personal') {
       // Personal scope: ALL roles see only their own tasks
       if (userRole === 'super_admin') {
-        console.log('🔓 Super Admin - Loading all tasks');
+        // Super Admin - Loading all tasks
       } else {
-        console.log('👤 Personal scope - Loading only own tasks');
+        // Personal scope - Loading only own tasks
         query = query.eq('organization_id', userOrgId).or(`owner_id.eq.${user.id},assigned_to.eq.${user.id}`);
       }
     } else {
       // Team scope: role-based filtering
       if (userRole === 'super_admin') {
-        console.log('🔓 Super Admin - Loading all tasks');
+        // Super Admin - Loading all tasks
       } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
-        console.log('📢 Team scope - Loading all org tasks');
+        // Team scope - Loading all org tasks
         query = query.eq('organization_id', userOrgId);
       } else {
-        console.log('👤 Standard User (team scope) - Loading only own tasks');
+        // Standard User (team scope) - Loading only own tasks
         query = query.eq('organization_id', userOrgId).or(`owner_id.eq.${user.id},assigned_to.eq.${user.id}`);
       }
     }
@@ -52,11 +52,11 @@ export async function getAllTasksClient(scope: 'personal' | 'team' = 'personal')
 
     if (error) throw error;
 
-    console.log('📊 Tasks filtered data - Total rows:', data?.length || 0);
+    // Tasks filtered and loaded
 
     return { tasks: data || [] };
   } catch (error: any) {
-    console.error('Error loading tasks:', error);
+    // Error loading tasks
     // Return empty array instead of throwing to prevent "Error" in dashboard
     return { tasks: [] };
   }
@@ -96,7 +96,7 @@ export async function createTaskClient(taskData: any) {
 
     return { task: data };
   } catch (error: any) {
-    console.error('Error creating task:', error);
+    // Error creating task
     throw error;
   }
 }
@@ -115,7 +115,7 @@ export async function updateTaskClient(id: string, taskData: any) {
 
     return { task: data };
   } catch (error: any) {
-    console.error('Error updating task:', error);
+    // Error updating task
     throw error;
   }
 }
@@ -132,7 +132,7 @@ export async function deleteTaskClient(id: string) {
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error deleting task:', error);
+    // Error deleting task
     throw error;
   }
 }

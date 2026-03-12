@@ -26,7 +26,7 @@ async function getCurrentUser() {
     const { data: { user }, error } = await supabase.auth.getUser();
     
     if (error || !user) {
-      console.error('[users-client] User error:', error);
+      // User auth error
       return null;
     }
     
@@ -34,7 +34,7 @@ async function getCurrentUser() {
   } catch (error: any) {
     // Only log actual errors, not "Failed to fetch" network glitches which are common
     if (error?.message !== 'Failed to fetch' && error?.message !== 'Load failed') {
-      console.error('[users-client] Exception in getCurrentUser:', error);
+      // Exception in getCurrentUser
     }
     return null;
   }
@@ -67,16 +67,16 @@ async function fetchProfilesFromServer(accessToken: string): Promise<any[] | nul
 
     if (!response.ok) {
       const body = await response.text();
-      console.error(`[users-client] Server profiles API error ${response.status}:`, body);
+      // Server profiles API error
       return null;
     }
 
     const result = await response.json();
-    console.log(`[users-client] Server returned ${result.profiles?.length || 0} profiles (source: ${result.source})`);
+    // Server returned profiles
     return result.profiles || null;
   } catch (error: any) {
     if (error?.message !== 'Failed to fetch' && error?.message !== 'Load failed') {
-      console.error('[users-client] Error calling server profiles API:', error);
+      // Error calling server profiles API
     }
     return null;
   }
@@ -98,13 +98,13 @@ async function ensureCurrentUserProfile(accessToken: string): Promise<void> {
     if (response.ok) {
       const result = await response.json();
       if (result.created) {
-        console.log('[users-client] Auto-created missing profile for current user');
+        // Auto-created missing profile for current user
       }
     }
   } catch (error: any) {
     // Non-critical — don't block the flow
     if (error?.message !== 'Failed to fetch' && error?.message !== 'Load failed') {
-      console.warn('[users-client] Could not ensure profile:', error);
+      // Could not ensure profile
     }
   }
 }
@@ -141,13 +141,13 @@ async function checkProfilesTableExists(): Promise<boolean> {
  */
 export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
   try {
-    console.log('[users-client] Starting getAllUsersClient...');
+    // Starting getAllUsersClient
     
     // Get current user
     const user = await getCurrentUser();
     
     if (!user) {
-      console.error('[users-client] Not authenticated');
+      // Not authenticated
       // Return empty array instead of throwing to prevent dashboard crashes
       return { users: [] };
     }
@@ -155,7 +155,7 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
     const currentUserRole = user.user_metadata?.role || 'standard_user';
     const currentUserOrgId = user.user_metadata?.organizationId;
     
-    console.log(`[users-client] Current user: ${user.email}, Role: ${currentUserRole}, Org: ${currentUserOrgId}`);
+    // Current user info available for debugging if needed
 
     // Always include current user as fallback data
     const currentUserData: ClientUser = {
@@ -172,7 +172,7 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
 
     // Check permissions
     if (currentUserRole !== 'super_admin' && currentUserRole !== 'admin' && currentUserRole !== 'director' && currentUserRole !== 'manager') {
-      console.log('[users-client] Insufficient permissions — returning current user only');
+      // Insufficient permissions — returning current user only
       return { users: [currentUserData] };
     }
 
@@ -201,18 +201,18 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
             avatar_url: profile.avatar_url,
           });
         });
-        console.log(`[users-client] Returning ${usersMap.size} users (via server API)`);
+        // Returning users via server API
         return { users: Array.from(usersMap.values()) };
       }
-      console.log('[users-client] Server API returned no profiles — falling back to direct query');
+      // Server API returned no profiles — falling back to direct query
     }
 
     // ── Strategy 2: Direct Supabase query (may be blocked by RLS) ──
-    console.log('[users-client] Trying direct profiles query...');
+    // Trying direct profiles query
 
     const profilesTableExists = await checkProfilesTableExists();
     if (!profilesTableExists) {
-      console.log('[users-client] Profiles table not set up — returning current user only');
+      // Profiles table not set up — returning current user only
       return { users: [currentUserData] };
     }
 
@@ -227,12 +227,12 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
       const { data: profiles, error } = await query;
       
       if (error) {
-        console.error('[users-client] Error querying profiles:', error);
+        // Error querying profiles
         return { users: [currentUserData] };
       }
       
       if (!profiles || profiles.length === 0) {
-        console.warn('[users-client] Direct query returned 0 profiles (likely RLS blocking). Returning current user.');
+        // Direct query returned 0 profiles (likely RLS blocking)
         return { users: [currentUserData] };
       }
 
@@ -254,16 +254,16 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
         });
       });
       
-      console.log(`[users-client] Returning ${usersMap.size} users (via direct query)`);
+      // Returning users via direct query
       return { users: Array.from(usersMap.values()) };
     } catch (error: any) {
-      console.error('[users-client] Failed to query profiles:', error);
+      // Failed to query profiles
       return { users: [currentUserData] };
     }
   } catch (error: any) {
     // Only log actual errors, not "Failed to fetch" network glitches
     if (error?.message !== 'Failed to fetch' && error?.message !== 'Load failed') {
-      console.error('[users-client] Error in getAllUsersClient:', error);
+      // Error in getAllUsersClient
     }
     // Return empty array instead of throwing to be safe
     return { users: [] };
@@ -287,7 +287,7 @@ export async function inviteUserClient(data: { email: string; name: string; role
 
     // FALLBACK: If metadata has invalid org ID, fetch from profiles table
     if (!currentUserOrgId || currentUserOrgId.match(/^org-[0-9]+$/)) {
-      console.log('[users-client] Fetching org ID from profiles table...');
+      // Fetching org ID from profiles table
       const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id')
@@ -296,7 +296,7 @@ export async function inviteUserClient(data: { email: string; name: string; role
       
       if (profile?.organization_id) {
         currentUserOrgId = profile.organization_id;
-        console.log('[users-client] Using org ID from profiles table:', currentUserOrgId);
+        // Using org ID from profiles table
       }
     }
 
@@ -313,7 +313,7 @@ export async function inviteUserClient(data: { email: string; name: string; role
     // Generate a temporary password
     const tempPassword = generateTempPassword();
 
-    console.log('[users-client] Calling server to create auth account for:', data.email);
+    // Calling server to create auth account
 
     // Call the server endpoint to create a real Supabase Auth account
     const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/create-user`;
@@ -336,12 +336,11 @@ export async function inviteUserClient(data: { email: string; name: string; role
     const result = await response.json();
 
     if (!response.ok || !result.success) {
-      console.error('[users-client] Server error creating user:', result);
+      // Server error creating user
       throw new Error(result.error || 'Failed to create user account');
     }
 
-    console.log('[users-client] User account created successfully:', result);
-
+    // User account created successfully
     return {
       user: {
         id: result.userId,
@@ -354,7 +353,7 @@ export async function inviteUserClient(data: { email: string; name: string; role
       tempPassword: data.inviteMethod === 'email' ? undefined : tempPassword,
     };
   } catch (error: any) {
-    console.error('[users-client] Error in inviteUserClient:', error);
+    // Error in inviteUserClient
     throw error;
   }
 }
@@ -414,13 +413,13 @@ export async function updateUserClient(id: string, updates: Partial<ClientUser>)
       .single();
 
     if (error) {
-      console.error('[users-client] Error updating user:', error);
+      // Error updating user
       throw new Error('Failed to update user: ' + error.message);
     }
 
     return { user: profile };
   } catch (error: any) {
-    console.error('[users-client] Error in updateUserClient:', error);
+    // Error in updateUserClient
     throw error;
   }
 }
@@ -454,13 +453,13 @@ export async function deleteUserClient(id: string) {
       .eq('id', id);
 
     if (error) {
-      console.error('[users-client] Error deleting user:', error);
+      // Error deleting user
       throw new Error('Failed to delete user: ' + error.message);
     }
 
     return { success: true };
   } catch (error: any) {
-    console.error('[users-client] Error in deleteUserClient:', error);
+    // Error in deleteUserClient
     throw error;
   }
 }
@@ -516,15 +515,14 @@ export async function resetPasswordClient(userId: string, newPassword: string) {
       .single();
 
     if (error) {
-      console.error('[users-client] Error storing temporary password:', error);
+      // Error storing temporary password
       throw new Error('Failed to reset password: ' + error.message);
     }
 
-    console.log('[users-client] Temporary password stored for user:', userId);
-    console.log('[users-client] User must use this password to sign in, then will be prompted to change it');
+    // Temporary password stored — user must use it to sign in
     return { success: true, password: newPassword, email: targetProfile.email };
   } catch (error: any) {
-    console.error('[users-client] Error in resetPasswordClient:', error);
+    // Error in resetPasswordClient
     throw error;
   }
 }

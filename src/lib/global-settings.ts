@@ -27,6 +27,16 @@ export interface GlobalSettings {
   priceTierLabels?: PriceTierLabels;
 }
 
+export const AVAILABLE_MODULES = [
+  { id: 'ai_suggestions_enabled', label: 'AI Suggestions' },
+  { id: 'marketing_enabled', label: 'Marketing' },
+  { id: 'inventory_enabled', label: 'Inventory' },
+  { id: 'import_export_enabled', label: 'Import/Export' },
+  { id: 'documents_enabled', label: 'Documents' },
+  { id: 'project_wizards_enabled', label: 'Project Wizards' },
+  { id: 'appointments_enabled', label: 'Appointments' }
+];
+
 // Price level mapping constants
 // Tier labels are now configurable via Admin Settings > Organization
 // Defaults: T1=Retail, T2=VIP, T3=VIP B, T4=VIP A, T5=0

@@ -106,7 +106,7 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
       if (error) {
         // Check if it's a table not found error
         if (error.code === 'PGRST205' || error.code === '42P01') {
-          console.error('Permissions table not found:', error);
+          // Permissions table not found
           setTableNotFound(true);
           setIsLoading(false);
           return;
@@ -148,7 +148,7 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
       setOriginalPermissions(JSON.parse(JSON.stringify(permsMap))); // Deep copy
       setTableNotFound(false);
     } catch (err) {
-      console.error('Error loading permissions:', err);
+      // Error loading permissions
       toast.error('Failed to load permissions');
     } finally {
       setIsLoading(false);
@@ -216,7 +216,7 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
       
       toast.success(`Permissions saved for ${ROLES.find(r => r.value === selectedRole)?.label}!`);
     } catch (err) {
-      console.error('Error saving permissions:', err);
+      // Error saving permissions
       toast.error('Failed to save permissions');
     } finally {
       setIsSaving(false);

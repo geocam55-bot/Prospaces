@@ -144,7 +144,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
           const userCFMap = extractConversionFactors(userDefs, 'garage');
           cfMap = { ...cfMap, ...userCFMap };
         } catch (err) {
-          console.warn('[GaragePlanner] Could not load conversion factors:', err);
+          // Could not load conversion factors
         }
 
         const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(

@@ -43,10 +43,10 @@ export function OrganizationFeatureMigration() {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } else {
-        console.error('Failed to copy SQL');
+        // Failed to copy SQL
       }
     } catch (error) {
-      console.error('Failed to copy SQL:', error);
+      // Failed to copy SQL
     }
   };
 

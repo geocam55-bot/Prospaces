@@ -1,10 +1,12 @@
 import { useTheme } from './ThemeProvider';
-import { themes, type Theme } from '../utils/themes';
+import { themes, type Theme, getTheme } from '../utils/themes';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Check, Loader2, Moon, Sun } from 'lucide-react';
-import { useState } from 'react';
+import { Check, Loader2, Moon, Sun, Edit2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { ThemeEditor } from './ThemeEditor';
+import { filterFigmaProps } from './ui/utils';
 
 function ThemePreviewSwatch({ theme }: { theme: Theme }) {
   const c = theme.colors;
@@ -60,8 +62,9 @@ function ThemePreviewSwatch({ theme }: { theme: Theme }) {
 }
 
 export function ThemeSelector() {
-  const { themeId, setTheme } = useTheme();
+  const { themeId, setTheme, theme: activeTheme } = useTheme();
   const [savingTheme, setSavingTheme] = useState<string | null>(null);
+  const [editingTheme, setEditingTheme] = useState<string | null>(null);
 
   const handleThemeChange = async (newThemeId: string) => {
     setSavingTheme(newThemeId);
@@ -82,14 +85,17 @@ export function ThemeSelector() {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.values(themes).map((theme) => {
-            const isActive = themeId === theme.id;
-            const isSaving = savingTheme === theme.id;
+          {Object.values(themes).map((baseTheme) => {
+            const isActive = themeId === baseTheme.id;
+            const isSaving = savingTheme === baseTheme.id;
+            
+            // Use active theme from context if it's the current one, else get fresh (with any customizations)
+            const displayTheme = isActive ? activeTheme : getTheme(baseTheme.id);
             
             return (
               <button
-                key={theme.id}
-                onClick={() => handleThemeChange(theme.id)}
+                key={displayTheme.id}
+                onClick={() => handleThemeChange(displayTheme.id)}
                 disabled={isSaving}
                 className={`relative p-4 rounded-lg border-2 transition-all text-left hover:shadow-md ${
                   isActive
@@ -99,61 +105,72 @@ export function ThemeSelector() {
               >
                 {isActive && !isSaving && (
                   <div className="absolute top-2 right-2 h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center animate-in zoom-in duration-200">
-                    <Check className="h-4 w-4 text-white" />
+                    {React.createElement(Check, filterFigmaProps({ className: "h-4 w-4 text-white" }))}
                   </div>
                 )}
                 
                 {isSaving && (
                   <div className="absolute top-2 right-2 h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center">
-                    <Loader2 className="h-4 w-4 text-white animate-spin" />
+                    {React.createElement(Loader2, filterFigmaProps({ className: "h-4 w-4 text-white animate-spin" }))}
                   </div>
                 )}
                 
                 {/* Theme Preview */}
-                <ThemePreviewSwatch theme={theme} />
+                <ThemePreviewSwatch theme={displayTheme} />
                 
                 {/* Theme Info */}
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-2 mt-3">
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1 flex items-center gap-1.5">
-                      {theme.name}
-                      {theme.isDark && <Moon className="h-3.5 w-3.5 text-gray-400" />}
-                      {!theme.isDark && <Sun className="h-3.5 w-3.5 text-amber-400" />}
+                      {displayTheme.name}
+                      {displayTheme.isDark && React.createElement(Moon, filterFigmaProps({ className: "h-3.5 w-3.5 text-gray-400" }))}
+                      {!displayTheme.isDark && React.createElement(Sun, filterFigmaProps({ className: "h-3.5 w-3.5 text-amber-400" }))}
                     </h3>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{theme.description}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">{displayTheme.description}</p>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground shrink-0 z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingTheme(displayTheme.id);
+                    }}
+                  >
+                    {React.createElement(Edit2, filterFigmaProps({ className: "h-3.5 w-3.5" }))}
+                  </Button>
                 </div>
                 
                 {/* Color Palette Preview */}
                 <div className="flex gap-1.5 mt-3">
                   <div 
                     className="h-5 w-5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm" 
-                    style={{ background: theme.colors.primary }}
+                    style={{ background: displayTheme.colors.primary }}
                     title="Primary"
                   />
                   <div 
                     className="h-5 w-5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm" 
-                    style={{ background: theme.colors.accent }}
+                    style={{ background: displayTheme.colors.accent }}
                     title="Accent"
                   />
                   <div 
                     className="h-5 w-5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm" 
-                    style={{ background: theme.colors.success }}
+                    style={{ background: displayTheme.colors.success }}
                     title="Success"
                   />
                   <div 
                     className="h-5 w-5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm" 
-                    style={{ background: theme.colors.warning }}
+                    style={{ background: displayTheme.colors.warning }}
                     title="Warning"
                   />
                   <div 
                     className="h-5 w-5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm" 
-                    style={{ background: theme.colors.error }}
+                    style={{ background: displayTheme.colors.error }}
                     title="Error"
                   />
                   <div 
                     className="h-5 w-5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm" 
-                    style={{ background: theme.colors.background }}
+                    style={{ background: displayTheme.colors.background }}
                     title="Background"
                   />
                 </div>
@@ -162,6 +179,11 @@ export function ThemeSelector() {
           })}
         </div>
       </CardContent>
+      <ThemeEditor 
+        themeId={editingTheme} 
+        open={!!editingTheme} 
+        onOpenChange={(open) => !open && setEditingTheme(null)} 
+      />
     </Card>
   );
 }

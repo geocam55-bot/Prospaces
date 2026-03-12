@@ -75,7 +75,6 @@ export function EmailDebug() {
       }
 
     } catch (err: any) {
-      console.error('Diagnostic error:', err);
       setResults({
         connected: false,
         error: err.message,

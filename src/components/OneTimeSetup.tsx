@@ -107,7 +107,6 @@ FROM public.profiles;`;
     try {
       // Check if user is authenticated
       const { data: { user } } = await supabase.auth.getUser();
-      console.log('[OneTimeSetup] Current user:', user);
 
       if (!user) {
         toast.error('❌ You are not logged in! Please refresh and log in again.', { autoClose: 5000 });
@@ -120,23 +119,17 @@ FROM public.profiles;`;
         .from('profiles')
         .select('*', { count: 'exact' });
 
-      console.log('[OneTimeSetup] Check results:', { data, error, count, userId: user.id });
-
       if (error) {
-        console.error('[OneTimeSetup] Error querying profiles:', error);
         toast.error(`❌ RLS Policy Error: ${error.message}. Run the BYPASS SQL below!`, { autoClose: 6000 });
         setShowSQL(true); // Show the SQL fix
       } else if (!data || data.length === 0) {
         toast.error('⚠️ RLS policies are blocking data! Run the BYPASS SQL below to fix it.', { autoClose: 6000 });
-        console.warn('[OneTimeSetup] Profiles exist but RLS is blocking access');
         setShowSQL(true);
       } else {
-        console.log('[OneTimeSetup] Success! Found', data.length, 'profiles');
         toast.success(`🎉 Fixed! Found ${data.length} user(s). Loading...`, { autoClose: 2000 });
         setTimeout(() => onComplete(), 2000);
       }
     } catch (err) {
-      console.error('[OneTimeSetup] Exception during check:', err);
       toast.error('Check failed: ' + (err as Error).message, { autoClose: 3000 });
     } finally {
       setIsChecking(false);

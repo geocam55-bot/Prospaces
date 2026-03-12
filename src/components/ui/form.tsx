@@ -13,7 +13,7 @@ import {
   type FieldValues,
 } from "react-hook-form@7.55.0";
 
-import { cn } from "./utils";
+import { cn, filterFigmaProps } from "./utils";
 import { Label } from "./label";
 
 const Form = FormProvider;
@@ -37,7 +37,7 @@ const FormField = <
 }: ControllerProps<TFieldValues, TName>) => {
   return (
     <FormFieldContext.Provider value={{ name: props.name }}>
-      <Controller {...props} />
+      <Controller {...filterFigmaProps(props) as any} />
     </FormFieldContext.Provider>
   );
 };
@@ -81,7 +81,7 @@ function FormItem({ className, ...props }: React.ComponentProps<"div">) {
       <div
         data-slot="form-item"
         className={cn("grid gap-2", className)}
-        {...props}
+        {...filterFigmaProps(props)}
       />
     </FormItemContext.Provider>
   );
@@ -99,7 +99,7 @@ function FormLabel({
       data-error={!!error}
       className={cn("data-[error=true]:text-destructive", className)}
       htmlFor={formItemId}
-      {...props}
+      {...filterFigmaProps(props)}
     />
   );
 }
@@ -118,7 +118,7 @@ function FormControl({ ...props }: React.ComponentProps<typeof Slot>) {
           : `${formDescriptionId} ${formMessageId}`
       }
       aria-invalid={!!error}
-      {...props}
+      {...filterFigmaProps(props)}
     />
   );
 }
@@ -131,7 +131,7 @@ function FormDescription({ className, ...props }: React.ComponentProps<"p">) {
       data-slot="form-description"
       id={formDescriptionId}
       className={cn("text-muted-foreground text-sm", className)}
-      {...props}
+      {...filterFigmaProps(props)}
     />
   );
 }
@@ -149,7 +149,7 @@ function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
       data-slot="form-message"
       id={formMessageId}
       className={cn("text-destructive text-sm", className)}
-      {...props}
+      {...filterFigmaProps(props)}
     >
       {body}
     </p>

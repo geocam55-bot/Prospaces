@@ -105,11 +105,8 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
-          console.error('No session found');
           return;
         }
-
-        console.log(`[CampaignAnalytics] Fetching analytics for campaign: ${campaign.id}`);
 
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/analytics/campaign/${campaign.id}/landing-page`,
@@ -133,13 +130,11 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
               conversions: data.stats.conversions || 0,
             }));
           }
-          
-          console.log('[CampaignAnalytics] Landing page analytics loaded:', data);
         } else {
-          console.error('[CampaignAnalytics] Failed to fetch landing page analytics:', response.statusText);
+          // Silent error
         }
       } catch (error) {
-        console.error('[CampaignAnalytics] Error fetching landing page analytics:', error);
+        // Silent error
       } finally {
         setLoadingAnalytics(false);
       }

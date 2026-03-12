@@ -51,21 +51,17 @@ async function _doPreload(): Promise<void> {
   try {
     const headers = await getServerHeaders();
     if (!headers['X-User-Token']) {
-      console.log('[email-preloader] No session, skipping');
       return;
     }
 
-    console.log('[email-preloader] Fetching email accounts...');
     const res = await fetch(`${SERVER}/email-accounts`, { headers });
     if (!res.ok) {
-      console.warn('[email-preloader] Account fetch failed:', res.status);
       return;
     }
 
     const json = await res.json();
     const accounts: PreloadedAccount[] = json.accounts || [];
     _cachedAccounts = accounts;
-    console.log(`[email-preloader] Cached ${accounts.length} account(s)`);
 
     // If there's at least one connected account, trigger a background sync
     const active = accounts.find(a => a.connected);
@@ -74,14 +70,13 @@ async function _doPreload(): Promise<void> {
       _backgroundSync(active.id, headers);
     }
   } catch (err: any) {
-    console.warn('[email-preloader] Preload failed (non-fatal):', err.message);
+    // Non-fatal exception ignored
   }
 }
 
 /** Fire-and-forget sync for the active account */
 async function _backgroundSync(accountId: string, headers: Record<string, string>): Promise<void> {
   try {
-    console.log(`[email-preloader] Background sync for account ${accountId}...`);
     const res = await fetch(`${SERVER}/email-sync`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
@@ -89,13 +84,12 @@ async function _backgroundSync(accountId: string, headers: Record<string, string
     });
     const data = await res.json();
     if (data.success) {
-      console.log(`[email-preloader] Background sync done: ${data.syncedCount || 0} new emails`);
+      // Sync completed
     } else {
       // Non-fatal: account may not have tokens stored yet (e.g. DB-only account without OAuth grant)
-      console.log('[email-preloader] Background sync skipped:', data.error);
     }
   } catch (err: any) {
-    console.log('[email-preloader] Background sync skipped (non-fatal):', err.message);
+    // Sync exception ignored
   }
 }
 

@@ -146,7 +146,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
         setStreakData(data);
       }
     } catch (e) {
-      console.error('Failed to load streak data:', e);
+      // Failed to load streak data – non-critical
     }
   }, []);
 

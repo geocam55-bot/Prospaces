@@ -75,7 +75,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
             setServiceOverrides(agreement.serviceOverrides || {});
           }
         } catch (error) {
-          console.error('Failed to load subscription agreement:', error);
+          // Failed to load subscription agreement – non-critical
         } finally {
           setIsLoading(false);
         }
@@ -92,7 +92,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
           }
         }
       } catch (err) {
-        console.error('Failed to load global tax settings:', err);
+        // Failed to load global tax settings – non-critical
       }
     };
     loadData();
@@ -163,7 +163,6 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
       });
       toast.success('Subscription agreement saved successfully');
     } catch (error) {
-      console.error('Failed to save subscription agreement:', error);
       toast.error('Failed to save subscription agreement');
     } finally {
       setIsSaving(false);

@@ -3,7 +3,7 @@
 import * as React from "react";
 import * as ProgressPrimitive from "@radix-ui/react-progress";
 
-import { cn } from "./utils";
+import { cn, filterFigmaProps } from "./utils";
 
 function Progress({
   className,
@@ -17,7 +17,7 @@ function Progress({
         "bg-primary/20 relative h-2 w-full overflow-hidden rounded-full",
         className,
       )}
-      {...props}
+      {...filterFigmaProps(props)}
     >
       <ProgressPrimitive.Indicator
         data-slot="progress-indicator"

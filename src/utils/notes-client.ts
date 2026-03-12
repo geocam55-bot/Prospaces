@@ -27,14 +27,14 @@ export async function getAllNotesClient(scope: 'personal' | 'team' = 'personal')
     try {
       profile = await ensureUserProfile(authUser.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
+      // Failed to get user profile
       return { notes: [] };
     }
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('📝 Notes - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId, 'Scope:', scope);
+    // Notes scope filtering based on role
 
     let query = supabase
       .from('notes')
@@ -43,7 +43,7 @@ export async function getAllNotesClient(scope: 'personal' | 'team' = 'personal')
     // Apply scope-based filtering
     if (scope === 'personal') {
       // Personal scope: filter by owner_id only — your own notes regardless of org
-      console.log('👤 Personal View - Loading only own notes for user:', authUser.id);
+      // Personal View - Loading only own notes
       query = query.eq('owner_id', authUser.id);
     } else {
       // Team scope: role-based filtering
@@ -52,12 +52,12 @@ export async function getAllNotesClient(scope: 'personal' | 'team' = 'personal')
           query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
         }
       } else if (['admin', 'manager', 'director', 'marketing'].includes(userRole)) {
-        console.log('📢 Team View - Loading all notes for organization:', userOrgId);
+        // Team View - Loading all notes for organization
         if (userOrgId) {
           query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
         }
       } else {
-        console.log('👤 Standard User - Loading only own notes for user:', authUser.id);
+        // Standard User - Loading only own notes
         query = query.eq('owner_id', authUser.id);
       }
     }
@@ -67,18 +67,18 @@ export async function getAllNotesClient(scope: 'personal' | 'team' = 'personal')
     if (error) {
       // If table doesn't exist, return empty array
       if (error.code === '42P01' || error.code === 'PGRST204') {
-        console.log('[notes-client] Notes table not found, returning empty array');
+        // Notes table not found, returning empty array
         return { notes: [] };
       }
-      console.error('[notes-client] Error loading notes:', error.message, error.code, error.details, error.hint);
+      // Error loading notes
       throw error;
     }
 
-    console.log(`[notes-client] Query returned ${notes?.length ?? 0} note(s)`);
+    // Notes query complete
 
     return { notes: notes || [] };
   } catch (error: any) {
-    console.error('[notes-client] Error:', error.message, error.code || '', error.details || '');
+    // Error in notes client
     return { notes: [] };
   }
 }
@@ -116,7 +116,7 @@ export async function createNoteClient(noteData: any) {
       }
     }
 
-    console.log('[notes-client] Resolved organization_id:', organizationId, '| user.id:', user.id);
+    // Resolved organization_id for note creation
 
     const newNote = {
       title: noteData.title,
@@ -128,7 +128,7 @@ export async function createNoteClient(noteData: any) {
       updated_at: new Date().toISOString(),
     };
 
-    console.log('[notes-client] Creating note:', newNote);
+    // Creating note
 
     const { data: note, error } = await supabase
       .from('notes')
@@ -137,13 +137,13 @@ export async function createNoteClient(noteData: any) {
       .single();
 
     if (error) {
-      console.error('[notes-client] Error creating note:', error);
+      // Error creating note
       throw error;
     }
 
     return { note };
   } catch (error: any) {
-    console.error('[notes-client] Error creating note:', error.message);
+    // Error creating note
     throw error;
   }
 }
@@ -156,13 +156,13 @@ export async function deleteNoteClient(id: string) {
       .eq('id', id);
 
     if (error) {
-      console.error('[notes-client] Error deleting note:', error);
+      // Error deleting note
       throw error;
     }
 
     return { success: true };
   } catch (error: any) {
-    console.error('[notes-client] Error deleting note:', error.message);
+    // Error deleting note
     throw error;
   }
 }
@@ -179,13 +179,13 @@ export async function getNotesByContactClient(contactId: string) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('[notes-client] Error loading notes by contact:', error.message);
+      // Error loading notes by contact
       return { notes: [] };
     }
 
     return { notes: notes || [] };
   } catch (error: any) {
-    console.error('[notes-client] Error loading notes by contact:', error.message);
+    // Error loading notes by contact
     return { notes: [] };
   }
 }

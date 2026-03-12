@@ -86,7 +86,6 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
       const data = await listApiKeys();
       setKeys(data);
     } catch (err: any) {
-      console.error('[ApiAccess] Failed to load keys:', err);
       toast.error(err.message || 'Failed to load API keys');
     } finally {
       setLoading(false);
@@ -140,7 +139,6 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
       await loadKeys();
       toast.success('API key created successfully');
     } catch (err: any) {
-      console.error('[ApiAccess] Failed to create key:', err);
       toast.error(err.message || 'Failed to create API key');
     } finally {
       setActionLoading(false);

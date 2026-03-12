@@ -7,22 +7,11 @@ export const azureOAuthInit = (app: Hono) => {
   // Initiate Microsoft/Outlook OAuth flow
   app.post('/make-server-8405be07/microsoft-oauth-init', async (c) => {
     try {
-      console.log('[Azure OAuth] Initiating OAuth flow');
-      console.log('[Azure OAuth] Headers debug:', {
-        hasAuthorization: !!c.req.header('Authorization'),
-        hasXUserToken: !!c.req.header('X-User-Token'),
-        authPrefix: c.req.header('Authorization')?.substring(0, 15) + '...',
-        xUserTokenPrefix: c.req.header('X-User-Token')?.substring(0, 20) + '...',
-      });
-
       // Use dual-header auth pattern: X-User-Token preferred, Authorization fallback
       const token = extractUserToken(c);
       if (!token) {
-        console.error('[Azure OAuth] No user token found in either X-User-Token or Authorization headers');
         return c.json({ error: 'Authorization required. Send X-User-Token or Authorization header.' }, 401);
       }
-
-      console.log('[Azure OAuth] Token extracted, source:', c.req.header('X-User-Token') ? 'X-User-Token' : 'Authorization fallback');
 
       // Verify user is authenticated
       const supabase = createClient(
@@ -33,33 +22,15 @@ export const azureOAuthInit = (app: Hono) => {
       const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
       if (userError || !user) {
-        console.error('[Azure OAuth] User authentication failed:', {
-          error: userError?.message,
-          tokenLength: token?.length,
-          tokenPrefix: token?.substring(0, 20) + '...',
-          hasServiceRoleKey: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
-        });
         return c.json({ 
           error: 'User authentication failed in server/azure-oauth-init: ' + (userError?.message || 'No user found for token')
         }, 401);
       }
 
-      console.log('[Azure OAuth] User authenticated:', user.id, user.email);
-
       const AZURE_CLIENT_ID = Deno.env.get('AZURE_CLIENT_ID');
       const AZURE_REDIRECT_URI = Deno.env.get('AZURE_REDIRECT_URI');
 
-      console.log('[Azure OAuth] Config check:', {
-        hasClientId: !!AZURE_CLIENT_ID,
-        hasRedirectUri: !!AZURE_REDIRECT_URI,
-        redirectUri: AZURE_REDIRECT_URI
-      });
-
       if (!AZURE_CLIENT_ID || !AZURE_REDIRECT_URI) {
-        console.error('[Azure OAuth] Missing configuration:', {
-          AZURE_CLIENT_ID: !!AZURE_CLIENT_ID,
-          AZURE_REDIRECT_URI: !!AZURE_REDIRECT_URI
-        });
         return c.json({ 
           error: 'Azure OAuth not configured. Set AZURE_CLIENT_ID and AZURE_REDIRECT_URI in Supabase secrets.' 
         }, 500);
@@ -94,8 +65,6 @@ export const azureOAuthInit = (app: Hono) => {
       authUrl.searchParams.set('state', state);
       authUrl.searchParams.set('prompt', 'consent');
 
-      console.log('[Azure OAuth] Generated auth URL successfully');
-
       return c.json({
         success: true,
         authUrl: authUrl.toString(),
@@ -103,7 +72,6 @@ export const azureOAuthInit = (app: Hono) => {
       });
 
     } catch (error: any) {
-      console.error('[Azure OAuth] Init error:', error);
       return c.json({
         success: false,
         error: error.message,

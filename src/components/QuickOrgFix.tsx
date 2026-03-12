@@ -49,7 +49,6 @@ export function QuickOrgFix({ currentUser, onComplete }: QuickOrgFixProps) {
         setTimeout(() => onComplete(), 1500);
       }
     } catch (err) {
-      console.error('Check failed:', err);
       toast.error('Failed to check organizations');
     } finally {
       setIsChecking(false);
@@ -59,8 +58,6 @@ export function QuickOrgFix({ currentUser, onComplete }: QuickOrgFixProps) {
   const fixOrganizations = async () => {
     setIsFixing(true);
     try {
-      console.log('[QuickOrgFix] Updating all users to organization:', currentUser.organizationId);
-      
       // Update ALL profiles to use the current user's organization_id
       const { data, error } = await supabase
         .from('profiles')
@@ -69,12 +66,10 @@ export function QuickOrgFix({ currentUser, onComplete }: QuickOrgFixProps) {
         .select();
 
       if (error) {
-        console.error('[QuickOrgFix] Error updating organizations:', error);
         toast.error('Failed to fix organizations: ' + error.message);
         return;
       }
 
-      console.log('[QuickOrgFix] Successfully updated', data?.length || 0, 'users');
       toast.success(`✅ Success! Updated ${data?.length || 0} users to ${currentUser.organizationName || 'your organization'}`);
       
       // Wait a moment then complete
@@ -82,7 +77,6 @@ export function QuickOrgFix({ currentUser, onComplete }: QuickOrgFixProps) {
         onComplete();
       }, 2000);
     } catch (err) {
-      console.error('[QuickOrgFix] Exception:', err);
       toast.error('Failed to fix: ' + (err as Error).message);
     } finally {
       setIsFixing(false);

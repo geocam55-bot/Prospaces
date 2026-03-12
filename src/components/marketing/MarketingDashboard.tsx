@@ -67,7 +67,7 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
         setDealActivities(activitiesData.slice(0, 20));
 
       } catch (error) {
-        console.error('Error loading marketing dashboard data:', error);
+        // Handle silently
       } finally {
         setLoading(false);
       }

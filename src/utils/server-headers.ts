@@ -56,17 +56,14 @@ export async function getUserAccessToken(): Promise<string | null> {
     
     // If there's a session error, try refreshing immediately
     if (sessionError) {
-      console.warn('[server-headers] Session error, attempting refresh:', sessionError.message);
       try {
         const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
         if (!refreshError && refreshed?.access_token) {
           _cachedToken = refreshed.access_token;
-          console.log('[server-headers] ✅ Session refreshed successfully after error');
           return refreshed.access_token;
         }
-        console.warn('[server-headers] ⚠️ Refresh after error failed, user needs to re-login');
       } catch (refreshErr) {
-        console.warn('[server-headers] ⚠️ Session refresh exception:', refreshErr);
+        // Ignored
       }
       // Fall through to check cached token
     }
@@ -80,17 +77,13 @@ export async function getUserAccessToken(): Promise<string | null> {
 
       if (isExpiredOrStale) {
         try {
-          console.log('[server-headers] Token expired or about to expire — refreshing session...');
           const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
           if (!refreshError && refreshed?.access_token) {
             _cachedToken = refreshed.access_token;
-            console.log('[server-headers] ✅ Session refreshed successfully');
             return refreshed.access_token;
           }
-          console.warn('[server-headers] ⚠️ Session refresh returned no session — user may need to re-login');
         } catch (refreshErr) {
           // Refresh failed — fall through; the old token might still work for a few seconds
-          console.warn('[server-headers] ⚠️ Session refresh failed — using existing token');
         }
       }
 
@@ -98,17 +91,14 @@ export async function getUserAccessToken(): Promise<string | null> {
       return session.access_token;
     }
   } catch (err) {
-    console.warn('[server-headers] ⚠️ getSession exception:', err);
     // getSession failed — fall through to cached token
   }
 
   // Fallback: return cached token if getSession() failed (e.g. network hiccup)
   if (_cachedToken) {
-    console.log('[server-headers] Using cached token as fallback');
     return _cachedToken;
   }
 
-  console.log('[server-headers] No valid session or cached token available');
   return null; // user truly isn't logged in
 }
 
@@ -127,8 +117,6 @@ export async function getServerHeaders(extraHeaders?: Record<string, string>): P
   const userToken = await getUserAccessToken();
   if (userToken) {
     headers['X-User-Token'] = userToken;
-  } else {
-    console.warn('[server-headers] No user token available — X-User-Token will be missing');
   }
 
   return headers;

@@ -166,7 +166,6 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
         setAvailableResourceTypes(json.filters.resourceTypes || []);
       }
     } catch (err: any) {
-      console.error('[AuditLog] Fetch error:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -182,7 +181,7 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
         setStats(json.stats);
       }
     } catch (err: any) {
-      console.warn('[AuditLog] Stats fetch error:', err.message);
+      // Stats fetch error – non-critical
     }
   }, []);
 
@@ -222,7 +221,6 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err: any) {
-      console.error('[AuditLog] Export error:', err);
       setError('Failed to export audit logs');
     } finally {
       setIsExporting(false);

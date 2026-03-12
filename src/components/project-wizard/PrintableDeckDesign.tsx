@@ -25,14 +25,7 @@ export function PrintableDeckDesign({
   designName,
   snapshotUrl,
 }: PrintableDeckDesignProps) {
-  // Debug: Log materials to help troubleshoot printing issues
-  console.log('[PrintableDeckDesign] Materials for print:', {
-    framing: materials.framing?.length || 0,
-    decking: materials.decking?.length || 0,
-    railing: materials.railing?.length || 0,
-    hardware: materials.hardware?.length || 0,
-    totalCost,
-  });
+  // Materials tracked for print rendering
 
   return (
     <div className="hidden print:block print:pt-8">

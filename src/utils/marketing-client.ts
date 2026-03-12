@@ -102,13 +102,13 @@ export async function getCampaigns(organizationId: string): Promise<Campaign[]> 
     const response = await fetch(`${BASE_URL}/marketing/campaigns`, { headers });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      console.error('Error fetching campaigns:', err);
+      // Error fetching campaigns
       return [];
     }
     const data = await response.json();
     return data.campaigns || [];
   } catch (error) {
-    console.error('Error fetching campaigns:', error);
+    // Error fetching campaigns
     return [];
   }
 }
@@ -177,13 +177,13 @@ export async function getScoringRules(organizationId: string): Promise<ScoringRu
     const response = await fetch(`${BASE_URL}/marketing/scoring-rules`, { headers });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      console.error('Error fetching scoring rules:', err);
+      // Error fetching scoring rules
       return [];
     }
     const data = await response.json();
     return data.rules || [];
   } catch (error: any) {
-    console.error('Error fetching scoring rules:', error);
+    // Error fetching scoring rules
     return [];
   }
 }
@@ -246,7 +246,7 @@ export async function getLeadScores(organizationId: string): Promise<LeadScore[]
     const data = await response.json();
     return data.scores || [];
   } catch (error) {
-    console.error('Error fetching lead scores:', error);
+    // Error fetching lead scores
     return [];
   }
 }
@@ -284,7 +284,7 @@ export async function getJourneys(organizationId: string): Promise<Journey[]> {
     const data = await response.json();
     return data.journeys || [];
   } catch (error) {
-    console.error('Error fetching journeys:', error);
+    // Error fetching journeys
     return [];
   }
 }
@@ -342,7 +342,7 @@ export async function getLandingPages(organizationId: string): Promise<LandingPa
     const data = await response.json();
     return data.pages || [];
   } catch (error) {
-    console.error('Error fetching landing pages:', error);
+    // Error fetching landing pages
     return [];
   }
 }
@@ -405,10 +405,10 @@ export async function trackMarketingEvent(
     });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      console.error('Error tracking marketing event:', err);
+      // Error tracking marketing event
     }
   } catch (error) {
-    console.error('Error tracking marketing event:', error);
+    // Error tracking marketing event
   }
 }
 
@@ -441,7 +441,7 @@ async function refreshAndRetryHeaders(): Promise<Record<string, string> | null> 
       return await getServerHeaders();
     }
   } catch (err) {
-    console.warn('[marketing-client] Session refresh failed:', err);
+    // Session refresh failed
   }
   return null;
 }
@@ -453,7 +453,7 @@ export async function getDealActivities(): Promise<DealActivity[]> {
 
     // 401 retry: refresh session and try once more
     if (response.status === 401) {
-      console.warn('[marketing-client] getDealActivities got 401 — refreshing session...');
+      // getDealActivities got 401 — refreshing session
       const retryHeaders = await refreshAndRetryHeaders();
       if (retryHeaders) {
         const retryResponse = await fetch(`${BASE_URL}/marketing/deal-activities`, { headers: retryHeaders });
@@ -466,13 +466,13 @@ export async function getDealActivities(): Promise<DealActivity[]> {
     }
 
     if (!response.ok) {
-      console.warn('Failed to fetch deal activities:', response.statusText);
+      // Failed to fetch deal activities
       return [];
     }
     const data = await response.json();
     return data.activities || [];
   } catch (error) {
-    console.error('Error fetching deal activities:', error);
+    // Error fetching deal activities
     return [];
   }
 }
@@ -498,7 +498,7 @@ export async function recordDealActivity(activity: {
 
     // 401 retry: refresh session and try once more
     if (response.status === 401) {
-      console.warn('[marketing-client] recordDealActivity got 401 — refreshing session...');
+      // recordDealActivity got 401 — refreshing session
       const retryHeaders = await refreshAndRetryHeaders();
       if (retryHeaders) {
         const retryResponse = await fetch(`${BASE_URL}/marketing/deal-activities`, {
@@ -508,7 +508,7 @@ export async function recordDealActivity(activity: {
         });
         if (!retryResponse.ok) {
           const err = await retryResponse.json().catch(() => ({}));
-          console.error('Error recording deal activity (retry):', err);
+          // Error recording deal activity (retry)
         }
       }
       return;
@@ -516,10 +516,10 @@ export async function recordDealActivity(activity: {
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      console.error('Error recording deal activity:', err);
+      // Error recording deal activity
     }
   } catch (error) {
-    console.error('Error recording deal activity:', error);
+    // Error recording deal activity
   }
 }
 
@@ -528,12 +528,12 @@ export async function getCampaignStats(organizationId: string) {
     const headers = await getAuthHeaders();
     const response = await fetch(`${BASE_URL}/marketing/campaign-stats`, { headers });
     if (!response.ok) {
-      console.error('Error fetching campaign stats, using defaults');
+      // Error fetching campaign stats, using defaults
       return defaultCampaignStats();
     }
     return await response.json();
   } catch (error) {
-    console.error('Error fetching campaign stats:', error);
+    // Error fetching campaign stats
     return defaultCampaignStats();
   }
 }

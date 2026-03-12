@@ -540,7 +540,6 @@ export function Bids({ user }: BidsProps) {
       await loadData();
       toast.success('Deleted successfully');
     } catch (err: any) {
-      console.error('Failed to delete:', err);
       toast.error('Failed to delete: ' + err.message);
     }
   };
@@ -1035,21 +1034,6 @@ export function Bids({ user }: BidsProps) {
                         const snakeKey = `price_tier_${tier}` as keyof typeof inventoryItem;
                         const tierPrice = inventoryItem ? Number(inventoryItem[tierKey] || inventoryItem[snakeKey] || item.unitPrice || 0) : Number(item.unitPrice || 0);
                         const baseCost = inventoryItem?.cost || item.cost || 0;
-                        
-                        console.log('[Bids] Line item display:', {
-                          itemName: item.itemName,
-                          itemId: item.itemId,
-                          itemSku: item.sku,
-                          foundInventory: !!inventoryItem,
-                          inventoryName: inventoryItem?.name,
-                          inventorySku: inventoryItem?.sku,
-                          displaySku,
-                          displayName,
-                          tierPrice,
-                          baseCost,
-                          rawItem: item,
-                          matchStrategy: item.sku ? (inventoryItem ? 'SKU-matched' : 'SKU-not-found') : (inventoryItem ? 'ID-matched' : 'no-match')
-                        });
 
                         return (
                         <tr key={item.id} className="border-t hover:bg-gray-50">

@@ -39,7 +39,7 @@ export function DiagnosticPanel({ organizationId, plannerType, materialType }: D
         setInventory(inventoryData || []);
       }
     } catch (error) {
-      console.error('Error loading diagnostic data:', error);
+      // Error loading diagnostic data
     } finally {
       setIsLoading(false);
     }

@@ -65,15 +65,13 @@ export function SubscriptionBadge({ onClick, compact = false }: SubscriptionBadg
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={onClick}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-colors cursor-pointer"
-            >
-              <Sparkles className="h-3 w-3" />
-              {!compact && 'Free'}
-            </button>
+          <TooltipTrigger
+            type="button"
+            onClick={onClick}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-colors cursor-pointer"
+          >
+            <Sparkles className="h-3 w-3" />
+            {!compact && 'Free'}
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p className="text-xs">Free tier — click to view plans</p>
@@ -102,23 +100,21 @@ export function SubscriptionBadge({ onClick, compact = false }: SubscriptionBadg
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={onClick}
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${badgeClass}`}
-          >
-            {isCanceling ? (
-              <AlertTriangle className="h-3 w-3" />
-            ) : (
-              <Icon className="h-3 w-3" />
-            )}
-            {!compact && (
-              <span>
-                {isTrialing ? 'Trial' : isExpired ? 'Expired' : config.name}
-              </span>
-            )}
-          </button>
+        <TooltipTrigger
+          type="button"
+          onClick={onClick}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border transition-colors cursor-pointer ${badgeClass}`}
+        >
+          {isCanceling ? (
+            <AlertTriangle className="h-3 w-3" />
+          ) : (
+            <Icon className="h-3 w-3" />
+          )}
+          {!compact && (
+            <span>
+              {isTrialing ? 'Trial' : isExpired ? 'Expired' : config.name}
+            </span>
+          )}
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <p className="text-xs">{tooltipText}</p>

@@ -53,7 +53,6 @@ async function authenticateUser(c: any) {
     // Log headers for debugging (redacted)
     const hasXUT = !!c.req.header('X-User-Token');
     const authLen = c.req.header('Authorization')?.length || 0;
-    console.log(`[auth] 401: X-User-Token present=${hasXUT}, Authorization length=${authLen}, path=${c.req.path}`);
     return { error: 'Missing auth token (send X-User-Token header)', status: 401, supabase, user: null as any, profile: null as any };
   }
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -67,7 +66,7 @@ async function authenticateUser(c: any) {
 const app = new Hono();
 
 // ── MIDDLEWARE (applied directly — single-app architecture) ──────────────
-app.use('*', logger(console.log));
+app.use('*', logger(() => {}));
 app.use('*', cors({
   origin: '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -102,12 +101,12 @@ app.get(`${PREFIX}/appointments/count`, async (c) => {
       .eq('owner_id', auth.user.id)
       .gt('start_time', now);
     if (error) {
-      console.log(`[appointments/count] Query error for user ${auth.user.id}: ${error.message}`);
+      // appointments/count query error
       return c.json({ count: 0 });
     }
     return c.json({ count: count || 0 });
   } catch (err: any) {
-    console.log(`[appointments/count] Unexpected error: ${err.message}`);
+    // appointments/count unexpected error
     return c.json({ count: 0 });
   }
 });
@@ -200,8 +199,7 @@ app.get(`${PREFIX}/org-stats`, async (c) => {
           .eq('organization_id', orgId),
       ]);
 
-      if (usersResult.error) console.log(`[org-stats] Error counting users for ${orgId}:`, usersResult.error.message);
-      if (contactsResult.error) console.log(`[org-stats] Error counting contacts for ${orgId}:`, contactsResult.error.message);
+      // org-stats errors are non-fatal
 
       return [orgId, {
         userCount: usersResult.count ?? 0,
@@ -212,7 +210,7 @@ app.get(`${PREFIX}/org-stats`, async (c) => {
     const stats = Object.fromEntries(statsEntries);
     return c.json({ stats });
   } catch (err: any) {
-    console.log('[org-stats] Error:', err.message);
+    // org-stats error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -355,7 +353,7 @@ app.post(`${PREFIX}/recover-deals`, async (c) => {
       .is('organization_id', null)
       .select();
 
-    if (qError) console.error('[recover-deals] Quotes error:', qError);
+    // recover-deals quotes error handled
 
     // 2. Fix Bids created by this user
     const { data: fixedBids, error: bError } = await supabase
@@ -365,7 +363,7 @@ app.post(`${PREFIX}/recover-deals`, async (c) => {
       .is('organization_id', null)
       .select();
 
-    if (bError) console.error('[recover-deals] Bids error:', bError);
+    // recover-deals bids error handled
 
     // 3. Admin Power: If admin, also fix any orphan records that belong to contacts in this org
     // (This handles imported deals where created_by might be generic but contact is linked)
@@ -414,7 +412,7 @@ app.get(`${PREFIX}/profiles`, async (c) => {
     }
     const { data, error } = await query;
     if (error) return c.json({ error: error.message }, 500);
-    console.log(`[profiles] Returning ${data?.length || 0} profiles for role=${auth.profile.role}, org=${auth.profile.organization_id}`);
+    // profiles returned
     return c.json({ profiles: data || [], source: 'server' });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
@@ -439,12 +437,12 @@ app.get(`${PREFIX}/profiles/ensure`, async (c) => {
           const { data: orgCheck } = await auth.supabase.from('organizations').select('id').eq('id', metaOrg).maybeSingle();
           if (orgCheck) {
             updates.organization_id = metaOrg;
-            console.log(`[profiles/ensure] Fixing org mismatch: ${existing.organization_id} -> ${metaOrg}`);
+            // profiles/ensure fixing org mismatch
           }
         }
         if (pwMissing) {
           updates.needs_password_change = true;
-          console.log(`[profiles/ensure] Setting needs_password_change=true from metadata`);
+          // profiles/ensure setting needs_password_change
         }
         const { data: updated } = await auth.supabase.from('profiles')
           .update(updates).eq('id', auth.user.id).select().single();
@@ -482,7 +480,7 @@ app.get(`${PREFIX}/profiles/ensure`, async (c) => {
     if (orgId) {
       const { data: orgCheck } = await auth.supabase.from('organizations').select('id').eq('id', orgId).maybeSingle();
       if (!orgCheck) {
-        console.log(`[profiles/ensure] Org ${orgId} from metadata doesn't exist, will find/create one`);
+        // profiles/ensure org from metadata doesn't exist
         orgId = null;
       }
     }
@@ -490,7 +488,7 @@ app.get(`${PREFIX}/profiles/ensure`, async (c) => {
       const { data: anyOrg } = await auth.supabase.from('organizations').select('id').limit(1).maybeSingle();
       if (anyOrg) {
         orgId = anyOrg.id;
-        console.log(`[profiles/ensure] Using existing org: ${orgId}`);
+        // profiles/ensure using existing org
       } else {
         const newOrgId = crypto.randomUUID();
         const { data: createdOrg, error: orgErr } = await auth.supabase.from('organizations').insert({
@@ -498,9 +496,9 @@ app.get(`${PREFIX}/profiles/ensure`, async (c) => {
         }).select().single();
         if (createdOrg && !orgErr) {
           orgId = createdOrg.id;
-          console.log(`[profiles/ensure] Created new org: ${orgId}`);
+          // profiles/ensure created new org
         } else {
-          console.error(`[profiles/ensure] Failed to create org: ${orgErr?.message}`);
+          // profiles/ensure failed to create org
           return c.json({ error: `Cannot create organization: ${orgErr?.message}` }, 500);
         }
       }
@@ -516,12 +514,12 @@ app.get(`${PREFIX}/profiles/ensure`, async (c) => {
       status: 'active', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }]).select().single();
     if (error) {
-      console.error(`[profiles/ensure] Profile insert error: ${error.code} ${error.message}`);
+      // profiles/ensure profile insert error
       return c.json({ error: error.message, code: error.code }, 500);
     }
     return c.json({ created: true, profileId: np?.id, profile: np });
   } catch (err: any) {
-    console.error(`[profiles/ensure] Exception: ${err.message}`);
+    // profiles/ensure exception
     return c.json({ error: err.message }, 500);
   }
 });
@@ -566,7 +564,7 @@ app.get(`${PREFIX}/profiles/find-missing`, async (c) => {
 
     return c.json({ missing, wrongOrg, orgId: targetOrg });
   } catch (err: any) {
-    console.error('[profiles/find-missing] Error:', err);
+    // profiles/find-missing error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -610,7 +608,7 @@ app.post(`${PREFIX}/profiles/fix-missing`, async (c) => {
 
     return c.json({ results, fixed: results.filter(r => r.success).length });
   } catch (err: any) {
-    console.error('[profiles/fix-missing] Error:', err);
+    // profiles/fix-missing error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -717,7 +715,7 @@ app.get(`${PREFIX}/settings/user-preferences`, async (c) => {
     const kvData = await kv.get(`user_prefs:${orgId}:${userId}`);
     return c.json({ preferences: kvData || null, source: kvData ? 'server-kv' : 'server-not-found' });
   } catch (err: any) {
-    console.error('[settings] Error fetching user preferences:', err);
+    // settings fetch error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -745,11 +743,11 @@ app.put(`${PREFIX}/settings/user-preferences`, async (c) => {
     }
 
     // Table missing or RLS issue → fall back to KV
-    console.warn('[settings] user_preferences upsert failed, using KV:', error?.message);
+    // user_preferences upsert failed, using KV
     await kv.set(`user_prefs:${orgId}:${userId}`, prefs);
     return c.json({ preferences: prefs, source: 'server-kv' });
   } catch (err: any) {
-    console.error('[settings] Error upserting user preferences:', err);
+    // settings upsert error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -837,9 +835,9 @@ app.post(`${P}/register`, async (c) => {
     const tok = genToken();
     await kv.set(`portal_session:${tok}`, { email: invite.email, contactId: invite.contactId, orgId: invite.orgId, expiresAt: new Date(Date.now() + 86400000).toISOString() });
     await kv.del(`portal_invite:${inviteCode}`);
-    console.log(`[portal] Registered: ${invite.email}, contactId=${invite.contactId}`);
+    // portal registered
     return c.json({ success: true, token: tok, user: { email: invite.email, name: contactName, contactId: invite.contactId } });
-  } catch (err: any) { console.error('[portal] Register error:', err); return c.json({ error: err.message }, 500); }
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
 app.post(`${P}/login`, async (c) => {
@@ -851,9 +849,9 @@ app.post(`${P}/login`, async (c) => {
     if (await hashPassword(password) !== pu.passwordHash) return c.json({ error: 'Invalid email or password' }, 401);
     const tok = genToken();
     await kv.set(`portal_session:${tok}`, { email: pu.email, contactId: pu.contactId, orgId: pu.orgId, expiresAt: new Date(Date.now() + 86400000).toISOString() });
-    console.log(`[portal] Login: ${pu.email}`);
+    // portal login
     return c.json({ success: true, token: tok, user: { email: pu.email, name: pu.name || pu.email, contactId: pu.contactId } });
-  } catch (err: any) { console.error('[portal] Login error:', err); return c.json({ error: err.message }, 500); }
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
 app.get(`${P}/session`, async (c) => {
@@ -954,14 +952,14 @@ app.get(`${P}/dashboard`, async (c) => {
     try {
       const { data } = await supabase.from('contacts').select('*').eq('id', s.contactId).single();
       contact = data;
-    } catch (e: any) { console.warn('[portal] Contact query error:', e.message); }
+    } catch (e: any) { /* portal contact query error */ }
 
     // Fetch quotes
     let quotes: any[] = [];
     try {
       const { data } = await supabase.from('quotes').select('*').eq('contact_id', s.contactId).order('created_at', { ascending: false }).limit(20);
       quotes = data || [];
-    } catch (e: any) { console.warn('[portal] Quotes query error:', e.message); }
+    } catch (e: any) { /* portal quotes query error */ }
 
     // Fetch bids/projects linked to this contact's opportunities
     let bids: any[] = [];
@@ -973,29 +971,29 @@ app.get(`${P}/dashboard`, async (c) => {
         const { data: bidsData } = await supabase.from('bids').select('*').in('opportunity_id', oppIds).order('created_at', { ascending: false }).limit(10);
         bids = bidsData || [];
       }
-    } catch (e: any) { console.warn('[portal] Bids query error:', e.message); }
+    } catch (e: any) { /* portal bids query error */ }
 
     // Fetch upcoming appointments
     let appointments: any[] = [];
     try {
       const { data } = await supabase.from('appointments').select('*').eq('contact_id', s.contactId).gte('start_time', new Date().toISOString()).order('start_time', { ascending: true }).limit(5);
       appointments = data || [];
-    } catch (e: any) { console.warn('[portal] Appointments query error:', e.message); }
+    } catch (e: any) { /* portal appointments query error */ }
 
     // Fetch portal messages
     let messages: any[] = [];
     try {
       messages = await kv.getByPrefix(`portal_message:${s.orgId}:${s.contactId}:`) || [];
-    } catch (e: any) { console.warn('[portal] Messages query error:', e.message); }
+    } catch (e: any) { /* portal messages query error */ }
 
     // Fetch organization
     let org = null;
     try {
       const { data } = await supabase.from('organizations').select('id, name').eq('id', s.orgId).single();
       org = data;
-    } catch (e: any) { console.warn('[portal] Org query error:', e.message); }
+    } catch (e: any) { /* portal org query error */ }
 
-    console.log(`[portal] Dashboard for ${s.email}: ${quotes.length} quotes, ${bids.length} bids, ${appointments.length} appts`);
+    // portal dashboard summary
 
     return c.json({
       contact,
@@ -1006,7 +1004,7 @@ app.get(`${P}/dashboard`, async (c) => {
       organization: org,
       unreadMessages: messages.filter((m: any) => m.customerUnread === true).length,
     });
-  } catch (err: any) { console.error('[portal] Dashboard error:', err); return c.json({ error: 'Dashboard failed: ' + err.message }, 500); }
+  } catch (err: any) { return c.json({ error: 'Dashboard failed: ' + err.message }, 500); }
 });
 
 // ── GET /portal/quotes — all quotes for the customer ──
@@ -1016,7 +1014,7 @@ app.get(`${P}/quotes`, async (c) => {
     if (!s) return c.json({ error: 'Unauthorized' }, 401);
     const supabase = getSupabase();
     const { data, error } = await supabase.from('quotes').select('*').eq('contact_id', s.contactId).order('created_at', { ascending: false });
-    if (error) { console.error('[portal] Quotes error:', error); return c.json({ quotes: [] }); }
+    if (error) { return c.json({ quotes: [] }); }
     return c.json({ quotes: data || [] });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
@@ -1034,7 +1032,7 @@ app.get(`${P}/projects`, async (c) => {
         const { data } = await supabase.from('bids').select('*').in('opportunity_id', opps.map((o: any) => o.id)).order('created_at', { ascending: false });
         projects = data || [];
       }
-    } catch (e: any) { console.warn('[portal] Projects query:', e.message); }
+    } catch (e: any) { /* portal projects query error */ }
     return c.json({ projects });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
@@ -1049,7 +1047,7 @@ app.get(`${P}/documents`, async (c) => {
     try {
       const { data } = await supabase.from('documents').select('*').eq('contact_id', s.contactId).order('created_at', { ascending: false });
       documents = data || [];
-    } catch (e: any) { console.warn('[portal] Documents query:', e.message); }
+    } catch (e: any) { /* portal documents query error */ }
     return c.json({ documents });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
@@ -1081,7 +1079,7 @@ app.post(`${P}/quotes/:id/accept`, async (c) => {
     const qid = c.req.param('id');
     const { data, error } = await supabase.from('quotes').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', qid).eq('contact_id', s.contactId).select().single();
     if (error) return c.json({ error: 'Accept failed: ' + error.message }, 500);
-    console.log(`[portal] Quote ${qid} accepted by ${s.email}`);
+    // portal quote accepted
 
     // Create Task for the owner
     const ownerId = data.created_by || data.owner_id || data.project_manager_id;
@@ -1099,7 +1097,7 @@ app.post(`${P}/quotes/:id/accept`, async (c) => {
           updated_at: new Date().toISOString(),
         }]);
       } catch (taskErr) {
-        console.error('[portal] Task creation error:', taskErr);
+        // portal task creation error
       }
     }
 
@@ -1129,11 +1127,11 @@ app.post(`${P}/quotes/:id/accept`, async (c) => {
           latestCampaign.revenue = (latestCampaign.revenue || 0) + Number(quoteValue);
           latestCampaign.updated_at = new Date().toISOString();
           await kv.set(`campaign:${orgId}:${latestCampaign.id}`, latestCampaign);
-          console.log(`[portal] Incremented converted_count for campaign ${latestCampaign.id}`);
+          // portal incremented converted_count
         }
       }
     } catch (campErr) {
-      console.error('[portal] Campaign update error:', campErr);
+      // portal campaign update error
     }
 
     return c.json({ success: true, quote: data });
@@ -1149,7 +1147,7 @@ app.post(`${P}/quotes/:id/reject`, async (c) => {
     const qid = c.req.param('id');
     const { data, error } = await supabase.from('quotes').update({ status: 'rejected', updated_at: new Date().toISOString() }).eq('id', qid).eq('contact_id', s.contactId).select().single();
     if (error) return c.json({ error: 'Reject failed: ' + error.message }, 500);
-    console.log(`[portal] Quote ${qid} rejected by ${s.email}`);
+    // portal quote rejected
     return c.json({ success: true, quote: data });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
@@ -1195,7 +1193,7 @@ app.post(`${PREFIX}/microsoft-oauth-init`, async (c) => {
       : (Deno.env.get('AZURE_REDIRECT_URI') ?? '');
 
     if (!redirectUri) return c.json({ error: 'No redirect URI available (send frontendOrigin or set AZURE_REDIRECT_URI)' }, 500);
-    console.log(`[Azure OAuth] redirect_uri = ${redirectUri}`);
+    // Azure OAuth redirect_uri set
 
     const state = crypto.randomUUID();
     const purpose = body.purpose || 'email'; // 'email' | 'calendar' | 'both'
@@ -1226,7 +1224,7 @@ app.post(`${PREFIX}/oauth-exchange`, async (c) => {
     const purpose = sd.purpose || 'email'; // 'email' | 'calendar' | 'both'
     const calendarEnabled = purpose === 'calendar' || purpose === 'both';
     const emailEnabled = purpose === 'email' || purpose === 'both';
-    console.log(`[OAuth Exchange] provider=${provider}, userId=${sd.userId}, purpose=${purpose}`);
+    // OAuth exchange initiated
 
     if (provider === 'microsoft' || provider === 'outlook') {
       const redirectUri = sd.redirectUri || Deno.env.get('AZURE_REDIRECT_URI') || '';
@@ -1390,7 +1388,7 @@ app.post(`${PREFIX}/google-oauth-init`, async (c) => {
       : (Deno.env.get('GOOGLE_REDIRECT_URI') ?? '');
 
     if (!redirectUri) return c.json({ error: 'No redirect URI available (send frontendOrigin or set GOOGLE_REDIRECT_URI)' }, 500);
-    console.log(`[Google OAuth] redirect_uri = ${redirectUri}`);
+    // Google OAuth redirect_uri set
 
     const state = crypto.randomUUID();
     const purpose = body.purpose || 'email'; // 'email' | 'calendar' | 'both'
@@ -1486,7 +1484,7 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
         .eq('user_id', auth.user.id)
         .single();
       if (dbAccount) {
-        console.log(`[email-sync] Account found in DB (not KV): ${dbAccount.email}`);
+        // email-sync account found in DB
         kvAccount = {
           id: dbAccount.id,
           provider: dbAccount.provider,
@@ -1498,7 +1496,7 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
       }
     }
     if (!kvAccount) return c.json({ error: 'Email account not found in KV store or database' }, 404);
-    console.log(`[email-sync] provider=${kvAccount.provider}, email=${kvAccount.email}`);
+    // email-sync provider info
 
     const orgId = auth.profile?.organization_id;
     if (!orgId) return c.json({ error: 'No organization found for user' }, 400);
@@ -1508,7 +1506,7 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
       let accessToken = kvAccount.access_token;
       const expiresAt = new Date(kvAccount.token_expires_at || 0);
       if (expiresAt <= new Date() && kvAccount.refresh_token) {
-        console.log('[email-sync] Outlook token expired, refreshing...');
+        // email-sync Outlook token expired, refreshing
         const newTokens = await refreshAzureTokenFn(kvAccount.refresh_token);
         accessToken = newTokens.access_token;
         const kvKey = kvAccount.kvKey || `outlook_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
@@ -1523,7 +1521,7 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
       });
       if (!graphRes.ok) return c.json({ error: `Microsoft Graph error: ${await graphRes.text()}` }, 502);
       const messages = (await graphRes.json()).value || [];
-      console.log(`[email-sync] Fetched ${messages.length} Outlook emails`);
+      // email-sync fetched Outlook emails
       
       // Load synced message IDs from KV store to prevent re-syncing deleted emails
       const syncedMsgKey = `email_synced_msgs:${auth.user.id}:${accountId}`;
@@ -1553,7 +1551,7 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
             syncedCount++;
             newlySyncedIds.add(msg.id);
           } else {
-            console.log(`[email-sync] insert err: ${insErr.message}`);
+            // email-sync insert error
           }
         } else {
           // Email exists, mark as synced
@@ -1634,7 +1632,7 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
     await auth.supabase.from('email_accounts').update({ last_sync: new Date().toISOString() }).eq('id', accountId);
     return c.json({ success: true, syncedCount, lastSync: new Date().toISOString() });
   } catch (err: any) {
-    console.log(`[email-sync] exception: ${err.message}`);
+    // email-sync exception
     return c.json({ error: err.message }, 500);
   }
 });
@@ -1696,7 +1694,7 @@ app.post(`${PREFIX}/campaigns/:id/send`, async (c) => {
     // Mock sending loop
     for (const contact of validContacts) {
       try {
-        console.log(`[Campaign Send] Mock email to ${contact.email} for campaign ${campaign.name}`);
+        // Campaign Send mock email
         
         // Ensure to run the metric logging silently without blocking the request
         const logPromise = fetch(`https://${Deno.env.get('SUPABASE_PROJECT_REF') || projectId}.supabase.co/functions/v1/make-server-8405be07/public/events`, {
@@ -1710,7 +1708,7 @@ app.post(`${PREFIX}/campaigns/:id/send`, async (c) => {
              url: '',
              userAgent: 'Server-Side-Send'
            })
-        }).catch(e => console.error("Event logging failed", e));
+        }).catch(e => { /* event logging failed */ });
         
         sentCount++;
         sentTo.push(contact.email);
@@ -1741,7 +1739,7 @@ app.post(`${PREFIX}/campaigns/:id/send`, async (c) => {
     });
 
   } catch (err: any) {
-    console.error('[Campaign Send Endpoint] Error:', err);
+    // Campaign Send Endpoint error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -1785,7 +1783,7 @@ app.post(`${PREFIX}/email-send`, async (c) => {
       const gRes = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message }) });
       if (!gRes.ok) {
         const errText = await gRes.text();
-        console.log(`[email-send] Graph API error (${gRes.status}): ${errText}`);
+        // email-send Graph API error
         try {
           const errJson = JSON.parse(errText);
           const code = errJson?.error?.code || '';
@@ -1842,7 +1840,7 @@ app.post(`${PREFIX}/email-send`, async (c) => {
       return c.json({ error: `Sending not supported for provider: ${kvAccount.provider}` }, 400);
     }
   } catch (err: any) {
-    console.log(`[email-send] exception: ${err.message}`);
+    // email-send exception
     return c.json({ error: err.message }, 500);
   }
 });
@@ -1985,12 +1983,12 @@ app.post(`${PREFIX}/email-accounts`, async (c) => {
       .select('*')
       .single();
     if (error) {
-      console.log(`[email-accounts] upsert error: ${error.message}, code: ${error.code}, details: ${JSON.stringify(error)}`);
+      // email-accounts upsert error
       return c.json({ error: error.message }, 500);
     }
     return c.json({ success: true, account: data });
   } catch (err: any) {
-    console.log(`[email-accounts] POST exception: ${err.message}`);
+    // email-accounts POST exception
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2009,7 +2007,7 @@ app.get(`${PREFIX}/email-accounts`, async (c) => {
       .select('*')
       .eq('user_id', auth.user.id);
     if (dbError) {
-      console.log(`[email-accounts] DB read error (may not have table): ${dbError.message}`);
+      // email-accounts DB read error
     }
     if (dbData) {
       for (const a of dbData) {
@@ -2038,10 +2036,10 @@ app.get(`${PREFIX}/email-accounts`, async (c) => {
     }
     
     const mergedAccounts = Array.from(accountsMap.values());
-    console.log(`[email-accounts] GET returning ${mergedAccounts.length} accounts (${dbData?.length || 0} DB + ${kvAccounts?.length || 0} KV) for user ${auth.user.id}`);
+    // email-accounts GET returning merged accounts
     return c.json({ accounts: mergedAccounts });
   } catch (err: any) {
-    console.log(`[email-accounts] GET exception: ${err.message}`);
+    // email-accounts GET exception
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2060,10 +2058,10 @@ app.get(`${PREFIX}/calendar-accounts`, async (c) => {
         last_sync: a.last_sync, connectedAt: a.connectedAt,
         calendar_enabled: true,
       }));
-    console.log(`[calendar-accounts] Returning ${calAccounts.length} calendar-enabled accounts for user ${auth.user.id}`);
+    // calendar-accounts returning accounts
     return c.json({ accounts: calAccounts });
   } catch (err: any) {
-    console.error('[calendar-accounts] GET error:', err.message);
+    // calendar-accounts GET error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2083,10 +2081,10 @@ app.post(`${PREFIX}/calendar-accounts/toggle`, async (c) => {
       ...account,
       calendar_enabled: enabled !== false,
     });
-    console.log(`[calendar-accounts] Toggled calendar_enabled=${enabled !== false} for account ${accountId}`);
+    // calendar-accounts toggled
     return c.json({ success: true });
   } catch (err: any) {
-    console.error('[calendar-accounts] toggle error:', err.message);
+    // calendar-accounts toggle error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2096,7 +2094,7 @@ app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
     const accountId = c.req.param('id');
-    console.log(`[email-accounts] DELETE request for accountId=${accountId}, userId=${auth.user.id}`);
+    // email-accounts DELETE request
     
     let deletedFromDb = false;
     let deletedFromKv = false;
@@ -2120,7 +2118,7 @@ app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
       .like('key', `email_account:${auth.user.id}:%`);
     
     if (kvQueryError) {
-      console.warn(`[email-accounts] KV query error: ${kvQueryError.message}`);
+      // email-accounts KV query error
     }
     
     // Find target email from KV if not found in DB
@@ -2134,7 +2132,7 @@ app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
       }
     }
     
-    console.log(`[email-accounts] DELETE target: email=${targetEmail}, accountId=${accountId}, userId=${auth.user.id}`);
+    // email-accounts DELETE target
     
     // Step 3: Delete ALL DB entries by ID and by email (catches duplicates)
     const { error: dbDelById } = await supabaseAdmin
@@ -2142,10 +2140,10 @@ app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
       .delete()
       .eq('id', accountId);
     if (dbDelById) {
-      console.warn(`[email-accounts] DB delete by ID error: ${dbDelById.message}`);
+      // email-accounts DB delete by ID error
     } else {
       deletedFromDb = true;
-      console.log(`[email-accounts] DB delete by ID done for ${accountId}`);
+      // email-accounts DB delete by ID done
     }
     
     if (targetEmail) {
@@ -2155,17 +2153,17 @@ app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
         .eq('email', targetEmail)
         .eq('user_id', auth.user.id);
       if (dbDelByEmail) {
-        console.warn(`[email-accounts] DB delete by email error: ${dbDelByEmail.message}`);
+        // email-accounts DB delete by email error
       } else {
         deletedFromDb = true;
-        console.log(`[email-accounts] DB delete by email done for ${targetEmail}`);
+        // email-accounts DB delete by email done
       }
     }
     
     // Step 4: Delete ALL KV entries matching by ID, key suffix, OR email
     const keysToDelete: string[] = [];
     if (kvRows && kvRows.length > 0) {
-      console.log(`[email-accounts] Found ${kvRows.length} KV rows for user ${auth.user.id}`);
+      // email-accounts found KV rows
       for (const row of kvRows) {
         const val = row.value;
         const matchById = val && val.id === accountId;
@@ -2173,7 +2171,7 @@ app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
         const matchByEmail = !!(targetEmail && val && val.email === targetEmail);
         if (matchById || matchByKey || matchByEmail) {
           keysToDelete.push(row.key);
-          console.log(`[email-accounts] Matched KV key: ${row.key} (byId=${matchById}, byKey=${matchByKey}, byEmail=${matchByEmail})`);
+          // email-accounts matched KV key
         }
       }
     }
@@ -2188,9 +2186,9 @@ app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
       try {
         await kv.del(key);
         deletedFromKv = true;
-        console.log(`[email-accounts] Deleted KV key: ${key}`);
+        // email-accounts deleted KV key
       } catch (delErr: any) {
-        console.warn(`[email-accounts] Failed to delete KV key ${key}: ${delErr.message}`);
+        // email-accounts failed to delete KV key
       }
     }
     
@@ -2198,18 +2196,18 @@ app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
     if (targetEmail) {
       try {
         await kv.del(`email_account:by_email:${targetEmail}`);
-        console.log(`[email-accounts] Deleted by_email index for: ${targetEmail}`);
+        // email-accounts deleted by_email index
       } catch {}
     }
     
     if (!deletedFromDb && !deletedFromKv) {
-      console.warn(`[email-accounts] Account ${accountId} (${targetEmail}) not found in DB or KV`);
+      // email-accounts not found in DB or KV
     }
     
-    console.log(`[email-accounts] DELETE complete: accountId=${accountId}, deletedFromDb=${deletedFromDb}, deletedFromKv=${deletedFromKv}`);
+    // email-accounts DELETE complete
     return c.json({ success: true, deletedFromDb, deletedFromKv });
   } catch (err: any) {
-    console.error(`[email-accounts] DELETE exception: ${err.message}`);
+    // email-accounts DELETE exception
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2225,7 +2223,7 @@ app.post(`${PREFIX}/create-user`, async (c) => {
     if (organizationId) {
       const { data: orgCheck } = await supabase.from('organizations').select('id').eq('id', organizationId).maybeSingle();
       if (!orgCheck) {
-        console.log(`[create-user] Organization ${organizationId} not in table – auto-creating row`);
+        // create-user organization not in table, auto-creating
         const { error: orgErr } = await supabase.from('organizations').insert({
           id: organizationId,
           name: organizationName || organizationId || 'Organization',
@@ -2234,7 +2232,7 @@ app.post(`${PREFIX}/create-user`, async (c) => {
         if (orgErr) {
           // Ignore duplicate-key (23505) – another request may have created it concurrently
           if (orgErr.code !== '23505') {
-            console.error(`[create-user] Failed to auto-create org: ${orgErr.code} ${orgErr.message}`);
+            // create-user failed to auto-create org
             return c.json({ error: `Failed to initialize organization: ${orgErr.message}` }, 500);
           }
         }
@@ -2270,7 +2268,7 @@ app.post(`${PREFIX}/create-user`, async (c) => {
     // Fix ID mismatch: if a profile exists for this email with a different ID, update it
     const { data: existingProfile } = await supabase.from('profiles').select('id, email').eq('email', email.toLowerCase()).maybeSingle();
     if (existingProfile && existingProfile.id !== uid) {
-      console.log(`[create-user] Existing profile ID ${existingProfile.id} differs from auth ID ${uid}. Updating...`);
+      // create-user existing profile ID differs, updating
       await supabase.from('profiles').update({ id: uid, name, role, organization_id: organizationId, needs_password_change: true, updated_at: new Date().toISOString() }).eq('email', email.toLowerCase());
       return c.json({ success: true, userId: uid });
     }
@@ -2280,7 +2278,7 @@ app.post(`${PREFIX}/create-user`, async (c) => {
       status: 'active', needs_password_change: true, updated_at: new Date().toISOString(),
     }, { onConflict: 'id' });
     if (upsertError) {
-      console.error(`[create-user] Profile upsert error: ${upsertError.code} ${upsertError.message}`);
+      // create-user profile upsert error
       return c.json({ error: `User auth created but profile failed: ${upsertError.message}`, userId: uid }, 500);
     }
     return c.json({ success: true, userId: uid });
@@ -2303,7 +2301,7 @@ app.post(`${PREFIX}/confirm-email`, async (c) => {
     // Confirm their email
     const { error } = await supabase.auth.admin.updateUserById(authUser.id, { email_confirm: true });
     if (error) return c.json({ error: error.message }, 500);
-    console.log(`[confirm-email] Confirmed email for ${email}`);
+    // confirm-email confirmed
     return c.json({ success: true });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
@@ -2357,12 +2355,12 @@ app.get(`${PREFIX}/public/view`, async (c) => {
       .single();
 
     if (error || !data) {
-      console.log(`[public/view] Not found: table=${table}, id=${id}, orgId=${orgId}, error=${error?.message}`);
+      // public/view not found
       return c.json({ error: `Document not found in ${table}. Error: ${error?.message || 'No data returned'}` }, 404);
     }
 
     if (data.organization_id && data.organization_id !== orgId) {
-       console.log(`[public/view] Organization mismatch: DB=${data.organization_id}, URL=${orgId}`);
+       // public/view organization mismatch
        return c.json({ error: 'Document belongs to a different organization' }, 404);
     }
 
@@ -2387,10 +2385,10 @@ app.get(`${PREFIX}/public/view`, async (c) => {
           .from(table)
           .update({ status: 'viewed' })
           .eq('id', id);
-        console.log(`[public/view] Updated ${type} ${id} status: sent → viewed`);
+        // public/view updated status to viewed
         (data as any).status = 'viewed';
       } catch (updateErr: any) {
-        console.log(`[public/view] Failed to update status to viewed: ${updateErr.message}`);
+        // public/view failed to update status
       }
       // Store read_at timestamp in KV (column may not exist on DB table)
       try {
@@ -2435,7 +2433,7 @@ app.get(`${PREFIX}/public/view`, async (c) => {
 
     return c.json({ data: safeData, orgSettings });
   } catch (err: any) {
-    console.log(`[public/view] Error: ${err.message}`);
+    // public/view error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2504,7 +2502,7 @@ app.post(`${PREFIX}/public/events`, async (c) => {
           }
             
           await updateQuery;
-          console.log(`Updated ${table} ${entityId} status to viewed`);
+          // updated status to viewed
         } else if (!(dealData as any).read_at) {
            // Just update read_at if not set
            let updateQuery = supabase
@@ -2554,9 +2552,9 @@ app.post(`${PREFIX}/public/events`, async (c) => {
             };
             
             await kv.set(kvKey, leadScore);
-            console.log(`Updated lead score for ${contactEmail || contactId}: +5 for viewing deal`);
+            // updated lead score
           } catch (e) {
-            console.log(`Failed to update lead score:`, e);
+            // failed to update lead score
           }
         }
       }
@@ -2609,14 +2607,14 @@ app.post(`${PREFIX}/public/events`, async (c) => {
           }
           
           await getSupabase().from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
-          console.log(`[public/events] Incremented ${isOpen ? 'open' : 'click'} on latest Postgres email campaign ${pgCamp.id}`);
+          // public/events incremented campaign metric
         }
       }
     } catch (_) { /* ignore activity errors */ }
 
     return c.json({ success: true });
   } catch (err: any) {
-    console.log(`[public/events] Error: ${err.message}`);
+    // public/events error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2657,7 +2655,7 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
           updated_at: new Date().toISOString(),
         }]);
       } catch (taskErr) {
-        console.error('[public/accept] Failed to create task:', taskErr);
+        // public/accept failed to create task
       }
     }
 
@@ -2685,7 +2683,7 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
           campaign.revenue = (campaign.revenue || 0) + Number(quoteValue);
           campaign.updated_at = new Date().toISOString();
           await kv.set(`campaign:${orgId}:${campaignId}`, campaign);
-          console.log(`[public/accept] Incremented converted_count for explicitly passed campaign ${campaignId}`);
+          // public/accept incremented converted_count for explicit campaign
         }
       } else {
         // Fallback to updating latest KV campaign
@@ -2697,7 +2695,7 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
           latestCampaign.revenue = (latestCampaign.revenue || 0) + Number(quoteValue);
           latestCampaign.updated_at = new Date().toISOString();
           await kv.set(`campaign:${orgId}:${latestCampaign.id}`, latestCampaign);
-          console.log(`[public/accept] Incremented converted_count for latest KV campaign ${latestCampaign.id}`);
+          // public/accept incremented converted_count for latest KV campaign
           
           // Also try to update latest Postgres campaign
           const { data: pgCamps } = await supabase.from('campaigns').select('id, description').eq('organization_id', orgId).eq('type', 'email').order('created_at', { ascending: false }).limit(1);
@@ -2710,12 +2708,12 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
             meta.converted_count = (meta.converted_count || 0) + 1;
             meta.revenue = (meta.revenue || 0) + Number(quoteValue);
             await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
-            console.log(`[public/accept] Incremented converted_count for latest Postgres email campaign ${pgCamp.id}`);
+            // public/accept incremented converted_count for latest Postgres campaign
           }
         }
       }
     } catch (campErr) {
-      console.error('[public/accept] Failed to update campaign conversions:', campErr);
+      // public/accept failed to update campaign conversions
     }
 
     return c.json({ success: true, data });
@@ -2743,11 +2741,11 @@ app.get(`${PREFIX}/settings/org-mode`, async (c) => {
     if (auth.error) return c.json({ error: auth.error }, auth.status);
     const orgId = c.req.query('organization_id') || auth.profile.organization_id;
     if (!orgId) return c.json({ error: 'Missing organization_id' }, 400);
-    console.log(`[org-mode] GET org_mode for org=${orgId}`);
+    // org-mode GET
     const data = await kv.get(`org_mode:${orgId}`);
     return c.json({ orgMode: data || { user_mode: 'single' }, source: data ? 'kv' : 'default' });
   } catch (err: any) {
-    console.error('[org-mode] GET error:', err);
+    // org-mode GET error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2780,10 +2778,10 @@ app.put(`${PREFIX}/settings/org-mode`, async (c) => {
     };
 
     await kv.set(`org_mode:${orgId}`, data);
-    console.log(`[org-mode] PUT org_mode for org=${orgId}: ${userMode} by ${auth.user.email}`);
+    // org-mode PUT
     return c.json({ orgMode: data, source: 'kv' });
   } catch (err: any) {
-    console.error('[org-mode] PUT error:', err);
+    // org-mode PUT error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2795,11 +2793,11 @@ app.get(`${PREFIX}/settings/org-details/:orgId`, async (c) => {
     if (auth.error) return c.json({ error: auth.error }, auth.status);
     const orgId = c.req.param('orgId');
     if (!orgId) return c.json({ error: 'Missing orgId' }, 400);
-    console.log(`[org-details] GET for org=${orgId}`);
+    // org-details GET
     const data = await kv.get(`org_details:${orgId}`);
     return c.json({ details: data || {}, source: data ? 'kv' : 'default' });
   } catch (err: any) {
-    console.error('[org-details] GET error:', err);
+    // org-details GET error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2820,10 +2818,10 @@ app.put(`${PREFIX}/settings/org-details/:orgId`, async (c) => {
       updated_by: auth.user.email || auth.user.id,
     };
     await kv.set(`org_details:${orgId}`, data);
-    console.log(`[org-details] PUT for org=${orgId} by ${auth.user.email}`);
+    // org-details PUT
     return c.json({ details: data, source: 'kv' });
   } catch (err: any) {
-    console.error('[org-details] PUT error:', err);
+    // org-details PUT error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2838,7 +2836,7 @@ app.get(`${PREFIX}/project-wizard-defaults`, async (c) => {
     if (auth.error) return c.json({ error: auth.error }, auth.status);
     const orgId = c.req.query('organization_id') || auth.profile.organization_id;
     if (!orgId) return c.json({ error: 'Missing organization_id' }, 400);
-    console.log(`[project-wizard-defaults] GET defaults for org=${orgId}`);
+    // project-wizard-defaults GET
 
     const supabase = getSupabase(); // service role — bypasses RLS
     const { data, error } = await supabase
@@ -2848,16 +2846,16 @@ app.get(`${PREFIX}/project-wizard-defaults`, async (c) => {
 
     if (error) {
       if (error.code === 'PGRST205' || error.code === '42P01') {
-        console.warn('[project-wizard-defaults] Table does not exist');
+        // project-wizard-defaults table does not exist
         return c.json({ defaults: [], source: 'server-table-missing' });
       }
-      console.error('[project-wizard-defaults] GET error:', error);
+      // project-wizard-defaults GET error
       return c.json({ error: error.message, code: error.code }, 500);
     }
 
     return c.json({ defaults: data || [], source: 'server' });
   } catch (err: any) {
-    console.error('[project-wizard-defaults] GET exception:', err);
+    // project-wizard-defaults GET exception
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2878,7 +2876,7 @@ app.post(`${PREFIX}/project-wizard-defaults`, async (c) => {
       return c.json({ error: 'Cannot update defaults for a different organization' }, 403);
     }
 
-    console.log(`[project-wizard-defaults] POST upsert for org=${orgId}, planner=${body.planner_type}, category=${body.material_category}`);
+    // project-wizard-defaults POST upsert
 
     const supabase = getSupabase(); // service role — bypasses RLS
     const record = {
@@ -2897,13 +2895,13 @@ app.post(`${PREFIX}/project-wizard-defaults`, async (c) => {
       .single();
 
     if (error) {
-      console.error('[project-wizard-defaults] POST upsert error:', error);
+      // project-wizard-defaults POST upsert error
       return c.json({ error: error.message, code: error.code }, 500);
     }
 
     return c.json({ default: data, source: 'server' });
   } catch (err: any) {
-    console.error('[project-wizard-defaults] POST exception:', err);
+    // project-wizard-defaults POST exception
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2928,7 +2926,7 @@ app.post(`${PREFIX}/project-wizard-defaults/batch`, async (c) => {
       return c.json({ error: 'Cannot update defaults for a different organization' }, 403);
     }
 
-    console.log(`[project-wizard-defaults] BATCH upsert ${items.length} defaults for org=${orgId}`);
+    // project-wizard-defaults BATCH upsert
 
     const supabase = getSupabase(); // service role — bypasses RLS
     const records = items.map((item: any) => ({
@@ -2946,14 +2944,14 @@ app.post(`${PREFIX}/project-wizard-defaults/batch`, async (c) => {
       .select();
 
     if (error) {
-      console.error('[project-wizard-defaults] BATCH error:', error);
+      // project-wizard-defaults BATCH error
       return c.json({ error: error.message, code: error.code }, 500);
     }
 
-    console.log(`[project-wizard-defaults] BATCH saved ${data?.length || 0} defaults`);
+    // project-wizard-defaults BATCH saved
     return c.json({ defaults: data || [], savedCount: data?.length || 0, source: 'server' });
   } catch (err: any) {
-    console.error('[project-wizard-defaults] BATCH exception:', err);
+    // project-wizard-defaults BATCH exception
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2967,7 +2965,7 @@ app.delete(`${PREFIX}/project-wizard-defaults/:id`, async (c) => {
     }
 
     const id = c.req.param('id');
-    console.log(`[project-wizard-defaults] DELETE id=${id}`);
+    // project-wizard-defaults DELETE
 
     const supabase = getSupabase(); // service role — bypasses RLS
     const { error } = await supabase
@@ -2976,13 +2974,13 @@ app.delete(`${PREFIX}/project-wizard-defaults/:id`, async (c) => {
       .eq('id', id);
 
     if (error) {
-      console.error('[project-wizard-defaults] DELETE error:', error);
+      // project-wizard-defaults DELETE error
       return c.json({ error: error.message, code: error.code }, 500);
     }
 
     return c.json({ success: true });
   } catch (err: any) {
-    console.error('[project-wizard-defaults] DELETE exception:', err);
+    // project-wizard-defaults DELETE exception
     return c.json({ error: err.message }, 500);
   }
 });
@@ -2995,12 +2993,12 @@ app.get(`${PREFIX}/org-conversion-factors/:organizationId`, async (c) => {
     if (auth.error) return c.json({ error: auth.error }, auth.status);
 
     const orgId = c.req.param('organizationId');
-    console.log(`[org-cf] GET conversion factors for org=${orgId}`);
+    // org-cf GET
 
     const data = await kv.get(`org_cf:${orgId}`);
     return c.json({ conversionFactors: data || {} });
   } catch (err: any) {
-    console.error('[org-cf] GET error:', err);
+    // org-cf GET error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -3022,11 +3020,11 @@ app.post(`${PREFIX}/org-conversion-factors/:organizationId`, async (c) => {
       return c.json({ error: 'conversionFactors must be an object' }, 400);
     }
 
-    console.log(`[org-cf] POST saving ${Object.keys(cf).length} conversion factors for org=${orgId}`);
+    // org-cf POST saving
     await kv.set(`org_cf:${orgId}`, cf);
     return c.json({ success: true, count: Object.keys(cf).length });
   } catch (err: any) {
-    console.error('[org-cf] POST error:', err);
+    // org-cf POST error
     return c.json({ error: err.message }, 500);
   }
 });
@@ -3050,7 +3048,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
     const { accountId } = await c.req.json();
     if (!accountId) return c.json({ error: 'Missing accountId' }, 400);
 
-    console.log('[calendar-sync] Request for account:', accountId);
+    // calendar-sync request
 
     const orgId = profile.organization_id;
     if (!orgId) return c.json({ success: false, error: 'User organization not found' }, 400);
@@ -3070,11 +3068,11 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
     }
     if (!kvAccount) return c.json({ success: false, error: `Email account not found. Account ID: ${accountId}` }, 404);
 
-    console.log(`[calendar-sync] provider=${kvAccount.provider}, email=${kvAccount.email}, calendar_enabled=${kvAccount.calendar_enabled}`);
+    // calendar-sync provider info
 
     // Skip accounts that were not connected for calendar access
     if (!kvAccount.calendar_enabled) {
-      console.log(`[calendar-sync] Skipping account ${kvAccount.email} — calendar_enabled is not set. Account was likely connected for email only.`);
+      // calendar-sync skipping non-calendar account
       return c.json({
         success: true, syncedCount: 0, skipped: true,
         skipReason: 'Account not enabled for calendar sync. Please reconnect via Calendar setup.',
@@ -3091,7 +3089,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
       // ── Google Calendar API ──
       let accessToken = kvAccount.access_token;
       if (new Date(kvAccount.token_expires_at || 0) <= now && kvAccount.refresh_token) {
-        console.log('[calendar-sync] Google token expired, refreshing...');
+        // calendar-sync Google token expired, refreshing
         try {
           const nt = await refreshGoogleTokenFn(kvAccount.refresh_token);
           accessToken = nt.access_token;
@@ -3101,7 +3099,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
             token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString(),
           });
         } catch (refreshErr: any) {
-          console.error('[calendar-sync] Google token refresh failed:', refreshErr.message);
+          // calendar-sync Google token refresh failed
           return c.json({
             success: false,
             error: `Google token refresh failed. Please disconnect and reconnect your Gmail account to restore calendar access.`,
@@ -3116,7 +3114,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
       const calRes = await fetch(calUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!calRes.ok) {
         const errText = await calRes.text();
-        console.error(`[calendar-sync] Google Calendar API error (${calRes.status}):`, errText);
+        // calendar-sync Google Calendar API error
         if (calRes.status === 401 || calRes.status === 403) {
           return c.json({
             success: false,
@@ -3128,7 +3126,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
       }
       const calData = await calRes.json();
       const events = calData.items || [];
-      console.log(`[calendar-sync] Google Calendar: ${events.length} events`);
+      // calendar-sync Google Calendar events fetched
 
       for (const event of events) {
         try {
@@ -3139,7 +3137,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
 
           const evStart = event.start?.dateTime || event.start?.date;
           const evEnd = event.end?.dateTime || event.end?.date;
-          if (!evStart) { console.warn('[calendar-sync] Skipping event with no start:', event.id); continue; }
+          if (!evStart) { continue; }
 
           const appointmentData: Record<string, any> = {
             organization_id: orgId, owner_id: user.id,
@@ -3157,7 +3155,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
             const { data: insertResult, error: insertError } = await supabase
               .from('appointments').insert(appointmentData).select('id').single();
             if (insertError) {
-              console.error('[calendar-sync] Insert error:', { eventId: event.id, error: insertError });
+              // calendar-sync Google insert error
             } else {
               await supabase.from('kv_store_8405be07')
                 .upsert({ key: calEventKey, value: JSON.stringify(insertResult.id) });
@@ -3165,7 +3163,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
             }
           }
         } catch (evErr) {
-          console.error('[calendar-sync] Exception for event:', event.id, evErr);
+          // calendar-sync exception for Google event
         }
       }
 
@@ -3173,7 +3171,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
       // ── Microsoft Graph Calendar API ──
       let accessToken = kvAccount.access_token;
       if (new Date(kvAccount.token_expires_at || 0) <= now && kvAccount.refresh_token) {
-        console.log('[calendar-sync] Outlook token expired, refreshing...');
+        // calendar-sync Outlook token expired, refreshing
         try {
           const nt = await refreshAzureTokenFn(kvAccount.refresh_token);
           accessToken = nt.access_token;
@@ -3184,7 +3182,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
             token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString(),
           });
         } catch (refreshErr: any) {
-          console.error('[calendar-sync] Outlook token refresh failed:', refreshErr.message);
+          // calendar-sync Outlook token refresh failed
           return c.json({
             success: false,
             error: `Outlook token refresh failed. Please disconnect and reconnect your Outlook account.`,
@@ -3199,7 +3197,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
       const graphRes = await fetch(graphUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!graphRes.ok) {
         const errText = await graphRes.text();
-        console.error(`[calendar-sync] Microsoft Graph Calendar error (${graphRes.status}):`, errText);
+        // calendar-sync Microsoft Graph Calendar error
         if (graphRes.status === 401 || graphRes.status === 403) {
           return c.json({
             success: false,
@@ -3211,7 +3209,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
       }
       const graphData = await graphRes.json();
       const events = graphData.value || [];
-      console.log(`[calendar-sync] Outlook Calendar: ${events.length} events`);
+      // calendar-sync Outlook Calendar events fetched
 
       for (const event of events) {
         try {
@@ -3222,7 +3220,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
 
           const evStart = event.start?.dateTime ? new Date(event.start.dateTime + 'Z').toISOString() : null;
           const evEnd = event.end?.dateTime ? new Date(event.end.dateTime + 'Z').toISOString() : null;
-          if (!evStart) { console.warn('[calendar-sync] Skipping event with no start:', event.id); continue; }
+          if (!evStart) { continue; }
 
           const appointmentData: Record<string, any> = {
             organization_id: orgId, owner_id: user.id,
@@ -3240,7 +3238,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
             const { data: insertResult, error: insertError } = await supabase
               .from('appointments').insert(appointmentData).select('id').single();
             if (insertError) {
-              console.error('[calendar-sync] Insert error:', { eventId: event.id, error: insertError });
+              // calendar-sync Outlook insert error
             } else {
               await supabase.from('kv_store_8405be07')
                 .upsert({ key: calEventKey, value: JSON.stringify(insertResult.id) });
@@ -3248,7 +3246,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
             }
           }
         } catch (evErr) {
-          console.error('[calendar-sync] Exception for event:', event.id, evErr);
+          // calendar-sync exception for Outlook event
         }
       }
 
@@ -3265,7 +3263,7 @@ app.post(`${PREFIX}/calendar-sync`, async (c) => {
       lastSync: new Date().toISOString(),
     });
   } catch (err: any) {
-    console.error('[calendar-sync] Error:', err);
+    // calendar-sync error
     return c.json({ success: false, error: err.message || 'Calendar sync failed' }, 500);
   }
 });
@@ -3304,11 +3302,29 @@ app.post(`${PREFIX}/kv/set`, async (c) => {
 // Return 200 with diagnostic info so platform health checks always succeed.
 // The `matched: false` flag lets callers distinguish real routes from the fallback.
 app.all('*', (c) => {
-  console.log(`[catch-all] Unmatched route: ${c.req.method} ${c.req.path}`);
+  // catch-all unmatched route
   return c.json({ status: 'ok', matched: false, method: c.req.method, path: c.req.path, version: 'v5', timestamp: new Date().toISOString() });
 });
 
 // ── Mount with prefix stripping for both deployment targets ─────────────
-console.log('[v5] ProSpaces CRM server starting — single-app architecture');
+// v5 ProSpaces CRM server starting
 
-Deno.serve(app.fetch);
+// Catch Deno HTTP connection closed errors gracefully to prevent unhandled rejection crashes
+globalThis.addEventListener("unhandledrejection", (e) => {
+  if (e.reason?.name === "Http" || e.reason?.message?.includes("connection closed")) {
+    e.preventDefault();
+  }
+});
+
+Deno.serve(async (req, info) => {
+  try {
+    return await app.fetch(req, info);
+  } catch (error: any) {
+    if (error?.name === 'Http' || error?.message?.includes('connection closed before message completed')) {
+      console.warn('Client disconnected before response could be sent:', error.message);
+      return new Response(null, { status: 499 }); // 499 Client Closed Request
+    }
+    console.error('Unhandled server error:', error);
+    return new Response('Internal Server Error', { status: 500 });
+  }
+});

@@ -83,7 +83,7 @@ export function FixInvalidOrgIds() {
       }
 
     } catch (error: any) {
-      console.error('Scan error:', error);
+      // Scan error
       toast.error('Scan failed: ' + error.message);
     } finally {
       setScanning(false);
@@ -113,7 +113,7 @@ export function FixInvalidOrgIds() {
           return;
         }
       } catch (rpcError) {
-        console.log('RPC function not available, using fallback method');
+        // RPC function not available, using fallback method
       }
 
       // Fallback: Fix each user individually
@@ -132,7 +132,7 @@ export function FixInvalidOrgIds() {
           }
 
           if (!correctOrgId) {
-            console.warn(`No organization found for ${user.email}`);
+            // No organization found for user
             failedCount++;
             continue;
           }
@@ -148,14 +148,14 @@ export function FixInvalidOrgIds() {
             .eq('email', user.email);
 
           if (updateError) {
-            console.error(`Failed to fix ${user.email}:`, updateError);
+            // Failed to fix user
             failedCount++;
           } else {
             fixedCount++;
           }
 
         } catch (error: any) {
-          console.error(`Error fixing ${user.email}:`, error);
+          // Error fixing user
           failedCount++;
         }
       }
@@ -171,7 +171,7 @@ export function FixInvalidOrgIds() {
       await scanForInvalidOrgs();
 
     } catch (error: any) {
-      console.error('Fix error:', error);
+      // Fix error
       toast.error('Fix failed: ' + error.message);
     } finally {
       setFixing(false);

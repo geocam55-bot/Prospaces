@@ -70,14 +70,14 @@ export function SavedKitchenDesigns({
     if (user.organizationId) {
       loadDesigns();
     } else {
-      console.warn('[SavedKitchenDesigns] Skipping load - organizationId is undefined');
+      // Skipping load - organizationId is undefined
     }
   }, [user.organizationId]);
 
   const loadDesigns = async () => {
     // Guard against undefined organizationId
     if (!user.organizationId) {
-      console.error('[SavedKitchenDesigns] Cannot load designs - organizationId is undefined');
+      // Cannot load designs - organizationId is undefined
       setSaveMessage('Unable to load designs. Please refresh the page.');
       setIsLoading(false);
       return;
@@ -96,7 +96,7 @@ export function SavedKitchenDesigns({
         .order('value->created_at', { ascending: false });
 
       if (error) {
-        console.error('[SavedKitchenDesigns] Error loading designs:', error);
+        // Error loading designs
         throw error;
       }
 
@@ -108,7 +108,7 @@ export function SavedKitchenDesigns({
 
       setDesigns(loadedDesigns);
     } catch (error) {
-      console.error('Error loading saved designs:', error);
+      // Error loading saved designs
       setSaveMessage('Error loading designs. Please try again.');
     } finally {
       setIsLoading(false);
@@ -152,7 +152,7 @@ export function SavedKitchenDesigns({
         });
 
       if (error) {
-        console.error('Supabase error details:', error);
+        // Supabase error details
         throw new Error(`Database error: ${error.message}`);
       }
 
@@ -165,7 +165,7 @@ export function SavedKitchenDesigns({
       
       await loadDesigns();
     } catch (error: any) {
-      console.error('Error saving design:', error);
+      // Error saving design
       setSaveMessage(`Error saving design: ${error.message || 'Please check console for details'}`);
       setTimeout(() => setSaveMessage(''), 5000);
     } finally {
@@ -187,7 +187,7 @@ export function SavedKitchenDesigns({
 
       await loadDesigns();
     } catch (error) {
-      console.error('Error deleting design:', error);
+      // Error deleting design
       setSaveMessage('Error deleting design. Please try again.');
     }
   };

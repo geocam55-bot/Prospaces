@@ -74,13 +74,13 @@ ORDER BY indexname;`;
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         } catch (e) {
-          console.error('Failed to copy:', e);
+          // Failed to copy via execCommand
           alert('Copy failed. Please manually select and copy the SQL below.');
         }
         document.body.removeChild(textarea);
       }
     } catch (err) {
-      console.error('Failed to copy:', err);
+      // Failed to copy
       alert('Copy failed. Please manually select and copy the SQL below.');
     }
   };

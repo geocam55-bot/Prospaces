@@ -63,14 +63,15 @@ export function tenantsAPI(app: Hono) {
         name: data.name,
         status: data.status || 'active',
         logo: data.logo || null,
-        ai_suggestions_enabled: data.ai_suggestions_enabled ?? false,
-        marketing_enabled: data.marketing_enabled ?? true,
-        inventory_enabled: data.inventory_enabled ?? true,
-        import_export_enabled: data.import_export_enabled ?? true,
-        documents_enabled: data.documents_enabled ?? true,
       };
 
-      console.log('[tenants-api] Creating organization:', orgId);
+      // Dynamically include all properties ending in _enabled
+      Object.keys(data).forEach(key => {
+        if (key.endsWith('_enabled')) {
+          dbData[key] = data[key];
+        }
+      });
+
       const { data: org, error } = await auth.supabase
         .from('organizations')
         .insert([dbData])
@@ -78,7 +79,6 @@ export function tenantsAPI(app: Hono) {
         .single();
 
       if (error) {
-        console.log('[tenants-api] Create error:', error.message);
         return c.json({ error: error.message }, 500);
       }
 
@@ -95,22 +95,17 @@ export function tenantsAPI(app: Hono) {
           features: data.features || [],
         };
         await kv.set(`org_details:${orgId}`, extraFields);
-        console.log('[tenants-api] Extra org details saved to KV for', orgId);
       } catch (kvErr: any) {
-        console.log('[tenants-api] KV save failed (non-critical):', kvErr.message);
       }
 
       // Set default org mode
       try {
         await kv.set(`org_mode:${orgId}`, { user_mode: data.user_mode || 'multi' });
-        console.log('[tenants-api] Org mode set for', orgId);
       } catch (modeErr: any) {
-        console.log('[tenants-api] Mode save failed (non-critical):', modeErr.message);
       }
 
       return c.json({ tenant: org }, 201);
     } catch (err: any) {
-      console.log('[tenants-api] Create error:', err.message);
       return c.json({ error: err.message }, 500);
     }
   });
@@ -128,14 +123,15 @@ export function tenantsAPI(app: Hono) {
         name: data.name,
         status: data.status,
         logo: data.logo || null,
-        ai_suggestions_enabled: data.ai_suggestions_enabled,
-        marketing_enabled: data.marketing_enabled,
-        inventory_enabled: data.inventory_enabled,
-        import_export_enabled: data.import_export_enabled,
-        documents_enabled: data.documents_enabled,
       };
 
-      console.log('[tenants-api] Updating organization:', id);
+      // Dynamically include all properties ending in _enabled
+      Object.keys(data).forEach(key => {
+        if (key.endsWith('_enabled')) {
+          dbData[key] = data[key];
+        }
+      });
+
       const { data: org, error } = await auth.supabase
         .from('organizations')
         .update(dbData)
@@ -144,7 +140,6 @@ export function tenantsAPI(app: Hono) {
         .single();
 
       if (error) {
-        console.log('[tenants-api] Update error:', error.message, error.code, error.details);
         return c.json({ error: error.message, code: error.code }, 500);
       }
 
@@ -162,7 +157,6 @@ export function tenantsAPI(app: Hono) {
         };
         await kv.set(`org_details:${id}`, extraFields);
       } catch (kvErr: any) {
-        console.log('[tenants-api] KV save failed (non-critical):', kvErr.message);
       }
 
       // Sync plan to subscription KV so Billing page stays in sync
@@ -173,16 +167,13 @@ export function tenantsAPI(app: Hono) {
             sub.plan_id = data.plan;
             sub.updated_at = new Date().toISOString();
             await kv.set(`subscription:${id}`, sub);
-            console.log(`[tenants-api] Synced plan '${data.plan}' to subscription for org ${id}`);
           }
         } catch (syncErr: any) {
-          console.log('[tenants-api] Subscription sync failed (non-critical):', syncErr.message);
         }
       }
 
       return c.json({ tenant: org });
     } catch (err: any) {
-      console.log('[tenants-api] Update error:', err.message);
       return c.json({ error: err.message }, 500);
     }
   });
@@ -196,8 +187,10 @@ export function tenantsAPI(app: Hono) {
       const id = c.req.param('id');
       const features = await c.req.json();
 
-      console.log('[tenants-api] Updating features for:', id, features);
-      const { data: org, error } = await auth.supabase
+      let org = null;
+
+      // 1. Try to update DB columns (might fail if columns like project_wizards_enabled don't exist)
+      const { data, error } = await auth.supabase
         .from('organizations')
         .update(features)
         .eq('id', id)
@@ -205,13 +198,34 @@ export function tenantsAPI(app: Hono) {
         .single();
 
       if (error) {
-        console.log('[tenants-api] Feature update error:', error.message);
-        return c.json({ error: error.message }, 500);
+        if (error.code === '42703') {
+          // 'undefined_column' - Don't fail, some modules are KV-only!
+          const { data: fallbackOrg } = await auth.supabase
+            .from('organizations')
+            .select()
+            .eq('id', id)
+            .single();
+          org = fallbackOrg;
+        } else {
+          return c.json({ error: error.message }, 500);
+        }
+      } else {
+        org = data;
+      }
+
+      // 2. Also save ALL features into KV so they persist even if not in DB
+      try {
+        const existingDetails = (await kv.get(`org_details:${id}`)) || {};
+        for (const [k, v] of Object.entries(features)) {
+          existingDetails[k] = v;
+        }
+        await kv.set(`org_details:${id}`, existingDetails);
+      } catch (kvErr) {
+        // Ignore KV errors
       }
 
       return c.json({ tenant: org });
     } catch (err: any) {
-      console.log('[tenants-api] Feature update error:', err.message);
       return c.json({ error: err.message }, 500);
     }
   });
@@ -223,7 +237,6 @@ export function tenantsAPI(app: Hono) {
       if (auth.error) return c.json({ error: auth.error }, auth.status as any);
 
       const id = c.req.param('id');
-      console.log('[tenants-api] Starting comprehensive deletion of organization:', id);
 
       const tables = [
         'bids', 'opportunities', 'project_managers', 'contacts',
@@ -232,14 +245,11 @@ export function tenantsAPI(app: Hono) {
       ];
 
       for (const table of tables) {
-        console.log(`[tenants-api] Deleting from ${table}...`);
         const { data: deleted, error } = await auth.supabase
           .from(table)
           .delete()
           .eq('organization_id', id)
           .select('id');
-        if (error) console.log(`[tenants-api] Error deleting ${table}:`, error.message);
-        else console.log(`[tenants-api] Deleted ${deleted?.length || 0} ${table}`);
       }
 
       // Delete storage files
@@ -248,10 +258,8 @@ export function tenantsAPI(app: Hono) {
         if (files && files.length > 0) {
           const filePaths = files.map((file: any) => `${id}/${file.name}`);
           await auth.supabase.storage.from('documents').remove(filePaths);
-          console.log(`[tenants-api] Deleted ${files.length} storage files`);
         }
       } catch (storageErr: any) {
-        console.log('[tenants-api] Storage cleanup error (non-critical):', storageErr.message);
       }
 
       // Delete profiles
@@ -260,8 +268,6 @@ export function tenantsAPI(app: Hono) {
         .delete()
         .eq('organization_id', id)
         .select('id');
-      if (profilesError) console.log('[tenants-api] Error deleting profiles:', profilesError.message);
-      else console.log(`[tenants-api] Deleted ${profilesDeleted?.length || 0} profiles`);
 
       // Delete the organization
       const { data: orgData, error: orgError } = await auth.supabase
@@ -271,7 +277,6 @@ export function tenantsAPI(app: Hono) {
         .select();
 
       if (orgError) {
-        console.log('[tenants-api] Error deleting organization:', orgError.message);
         return c.json({ error: orgError.message }, 500);
       }
 
@@ -281,10 +286,8 @@ export function tenantsAPI(app: Hono) {
         await kv.del(`org_mode:${id}`);
       } catch {}
 
-      console.log('[tenants-api] Successfully deleted organization:', id);
       return c.json({ success: true });
     } catch (err: any) {
-      console.log('[tenants-api] Delete error:', err.message);
       return c.json({ error: err.message }, 500);
     }
   });

@@ -32,7 +32,7 @@ export function InventoryOptimizationBanner({ organizationId, itemCount, loadTim
       // Load performance metrics
       getInventoryPerformanceMetrics(organizationId)
         .then(m => setMetrics(m))
-        .catch(err => console.error('Failed to load metrics:', err));
+        .catch(_err => { /* Failed to load metrics */ });
     }
   }, [loadTimeMs, itemCount, organizationId]);
 

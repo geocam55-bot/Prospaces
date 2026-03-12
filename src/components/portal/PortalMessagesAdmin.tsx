@@ -49,12 +49,10 @@ export function PortalMessagesAdmin({ user }: PortalMessagesAdminProps) {
       if (!session?.access_token) return;
 
       const [messagesData, usersData] = await Promise.all([
-        getCrmPortalMessages(session.access_token).catch((err: any) => {
-          console.error('[portal-admin] Messages load error:', err);
+        getCrmPortalMessages(session.access_token).catch((_err: any) => {
           return { messages: [] };
         }),
-        getPortalUsers(session.access_token).catch((err: any) => {
-          console.error('[portal-admin] Users load error:', err);
+        getPortalUsers(session.access_token).catch((_err: any) => {
           return { portalUsers: [] };
         }),
       ]);
@@ -62,7 +60,7 @@ export function PortalMessagesAdmin({ user }: PortalMessagesAdminProps) {
       setMessages(messagesData.messages || []);
       setPortalUsers(usersData.portalUsers || []);
     } catch (err: any) {
-      console.error('[portal-admin] Load data error:', err);
+      // Load data error – non-critical
     } finally {
       setLoading(false);
     }
@@ -117,7 +115,7 @@ export function PortalMessagesAdmin({ user }: PortalMessagesAdminProps) {
           });
         }
       } catch (err) {
-        console.error('Failed to update marketing campaign stats for portal message:', err);
+        // Failed to update marketing campaign stats – non-critical
       }
 
       // Refresh messages to get updated reply

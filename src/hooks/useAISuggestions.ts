@@ -42,12 +42,10 @@ async function safeQuery(supabase: any, table: string, orgId: string, filterCol:
       .eq('organization_id', orgId)
       .eq(filterCol, userId);
     if (error) {
-      console.warn(`[ai-suggestions] Query "${table}" failed:`, error.message);
       return [];
     }
     return data || [];
   } catch (err: any) {
-    console.warn(`[ai-suggestions] Query "${table}" threw:`, err.message);
     return [];
   }
 }
@@ -75,8 +73,6 @@ export function useAISuggestions(user: User) {
       setIsLoading(true);
       const supabase = createClient();
       
-      console.log('[ai-suggestions] Starting scan for user', user.id, 'org', user.organizationId);
-
       // Fetch all relevant data INDEPENDENTLY — each query is self-contained
       const [bids, contacts, tasks, opportunities, appointments] = await Promise.all([
         safeQuery(supabase, 'bids', user.organizationId, 'created_by', user.id),
@@ -85,8 +81,6 @@ export function useAISuggestions(user: User) {
         safeQuery(supabase, 'opportunities', user.organizationId, 'owner_id', user.id),
         safeQuery(supabase, 'appointments', user.organizationId, 'owner_id', user.id),
       ]);
-
-      console.log(`[ai-suggestions] Data loaded — bids:${bids.length} contacts:${contacts.length} tasks:${tasks.length} opportunities:${opportunities.length} appointments:${appointments.length}`);
 
       // Also try quotes table (may not exist — that's fine)
       const quotes = await safeQuery(supabase, 'quotes', user.organizationId, 'created_by', user.id);
@@ -100,7 +94,7 @@ export function useAISuggestions(user: User) {
           portalMessages = pmData.messages || [];
         }
       } catch (pmErr) {
-        console.debug('[ai-suggestions] Portal messages fetch skipped:', pmErr);
+        // console statement removed
       }
 
       const generatedSuggestions: Suggestion[] = [];
@@ -598,10 +592,8 @@ export function useAISuggestions(user: User) {
       });
 
       setSuggestions(generatedSuggestions);
-      console.log(`[ai-suggestions] Generated ${generatedSuggestions.length} suggestions (${criticalCount} critical)`);
 
     } catch (error) {
-      console.error('[ai-suggestions] Failed to generate suggestions:', error);
       setSuggestions([]);
       setMetrics(null);
     } finally {

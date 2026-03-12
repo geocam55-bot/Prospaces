@@ -65,7 +65,7 @@ async function findActiveFunctionName(supabaseUrl: string, accessToken?: string)
       return 'server';
     }
   } catch (e) {
-    console.warn('[EmailSetup] Health check failed:', e);
+    // Silently handle
   }
 
   return 'server'; // Default - function is always named "server"
@@ -206,8 +206,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       // Use the function name with sub-path so supabase.functions.invoke()
       // hits  /functions/v1/make-server-8405be07/<subPath>
       const functionPath = `make-server-8405be07/${subPath}`;
-      console.log(`[OAuth] Invoking function: ${functionPath}`);
-      console.log(`[OAuth] Session token length: ${session.access_token?.length || 0}`);
 
       // supabase.functions.invoke() automatically sets the Authorization
       // header using the session JWT (or anon key), which the gateway requires.
@@ -220,12 +218,10 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       });
 
       if (invokeError) {
-        console.error(`[OAuth] Invoke error:`, invokeError);
         throw new Error(`OAuth init failed: ${invokeError.message}`);
       }
 
       if (!data?.success || !data?.authUrl) {
-        console.error(`[OAuth] Unexpected response:`, data);
         throw new Error(data?.error || 'Failed to generate authorization URL.');
       }
 
@@ -267,7 +263,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         if (popupCheckIntervalRef.current) clearInterval(popupCheckIntervalRef.current);
 
         if (resultData.type === 'gmail-oauth-success' || resultData.type === 'outlook-oauth-success') {
-          console.log('[EmailAccountSetup] OAuth success:', resultData.type);
           setIsConnecting(false);
           setStep('success');
           
@@ -288,7 +283,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
             toast.success(`${providerName} account connected successfully!`);
           }, 1500);
         } else if (resultData.type === 'gmail-oauth-error' || resultData.type === 'outlook-oauth-error') {
-          console.log('[EmailAccountSetup] OAuth error:', resultData.error);
           setIsConnecting(false);
           setError(resultData.error || `Failed to connect ${providerName} account`);
         }
@@ -340,7 +334,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
             if (pollResponse.ok) {
               const pollResult = await pollResponse.json();
               if (pollResult && pollResult.status === 'complete' && pollResult.result) {
-                console.log('[EmailAccountSetup] OAuth poll result received:', pollResult);
                 const r = pollResult.result;
                 const messageType = r.success 
                   ? (selectedProvider === 'gmail' ? 'gmail-oauth-success' : 'outlook-oauth-success')
@@ -353,7 +346,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
               }
             }
           } catch (pollErr) {
-            console.warn('[EmailAccountSetup] Poll error (will retry):', pollErr);
+            // will retry
           }
         }, 1000);
       }
@@ -365,7 +358,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
           if (popupRef.current?.closed) {
             if (popupCheckIntervalRef.current) clearInterval(popupCheckIntervalRef.current);
             if (!oauthHandledRef.current) {
-              console.log('[EmailAccountSetup] Popup closed without completion — showing reopen option');
               setPopupClosed(true);
               // Keep polling alive for another 30s in case the auth completed
               // just before the popup closed (e.g. redirect happened)
@@ -384,7 +376,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
     } catch (err: any) {
       setIsConnecting(false);
       setError(err.message || 'Failed to initiate OAuth flow');
-      console.error('OAuth error:', err);
     }
   };
 
@@ -498,7 +489,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       }
       
       setError(errorMessage);
-      console.error('IMAP connection error:', err);
     }
   };
 
@@ -568,7 +558,6 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         if (popupRef.current?.closed) {
           if (popupCheckIntervalRef.current) clearInterval(popupCheckIntervalRef.current);
           if (!oauthHandledRef.current) {
-            console.log('[EmailAccountSetup] Reopened popup closed — showing reopen option again');
             setPopupClosed(true);
           }
         }

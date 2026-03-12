@@ -200,7 +200,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
           setInventoryItems(result.items);
         }
       } catch (err) {
-        console.error("Failed to load inventory", err);
+        // Failed to load inventory
       } finally {
         setLoading(false);
       }
@@ -293,7 +293,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
       }
 
     } catch (err) {
-      console.error('Save failed', err);
+      // Save failed
       toast.error('Failed to save project.');
     } finally {
       setLoading(false);
@@ -348,7 +348,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
         toast.info('No saved draft found.');
       }
     } catch (err) {
-      console.error('Load failed', err);
+      // Load failed
       toast.error('Failed to load draft.');
     } finally {
       setLoading(false);
@@ -488,7 +488,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
           setShowPdfModal(true);
         }
       } catch (error) {
-        console.error("PDF processing error:", error);
+        // PDF processing error
         toast.error("Failed to process the PDF. Please try a different file.");
       } finally {
         setLoading(false);
@@ -554,7 +554,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
         toast.success(`Loaded ${extractedPages.length} page(s) from PDF! Please set the scale first.`);
       }
     } catch (error) {
-      console.error("Extraction error:", error);
+      // Extraction error
       toast.error("Failed to extract the selected pages.");
     } finally {
       setLoading(false);

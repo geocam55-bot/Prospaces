@@ -24,7 +24,6 @@ export function useAppointmentNotifications(user: User) {
       
       // If no valid session/token, silently skip (user might be logging out or session expired)
       if (!token || sessionError) {
-        console.log('[Appointments] No valid session, skipping appointment count fetch');
         setAppointmentCount(0);
         setIsLoading(false);
         return;
@@ -38,12 +37,6 @@ export function useAppointmentNotifications(user: User) {
 
       const res = await fetch(`${API_BASE}/appointments/count`, { headers });
       if (!res.ok) {
-        // 401 is expected if session expired - don't spam console
-        if (res.status === 401) {
-          console.log('[Appointments] Session expired, clearing count');
-        } else {
-          console.warn('[Appointments] Non-OK response', res.status);
-        }
         setAppointmentCount(0);
         return;
       }
@@ -51,7 +44,6 @@ export function useAppointmentNotifications(user: User) {
       setAppointmentCount(data.count ?? 0);
     } catch (error: any) {
       // Network errors are non-fatal — just zero out
-      console.warn('[Appointments] Fetch failed (non-fatal):', error?.message || error);
       setAppointmentCount(0);
     } finally {
       setIsLoading(false);

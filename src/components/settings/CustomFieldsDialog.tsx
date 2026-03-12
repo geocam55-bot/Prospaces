@@ -48,7 +48,7 @@ export function CustomFieldsDialog({ open, onOpenChange, organizationId }: Custo
         try {
           setCustomFields(JSON.parse(stored));
         } catch (e) {
-          console.error('Failed to parse custom fields', e);
+          // Failed to parse custom fields – using defaults
         }
       } else {
         // Default example fields if none exist

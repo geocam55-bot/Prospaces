@@ -2,10 +2,12 @@
 
 import * as CollapsiblePrimitive from "@radix-ui/react-collapsible";
 
+import { filterFigmaProps } from "./utils";
+
 function Collapsible({
   ...props
 }: React.ComponentProps<typeof CollapsiblePrimitive.Root>) {
-  return <CollapsiblePrimitive.Root data-slot="collapsible" {...props} />;
+  return <CollapsiblePrimitive.Root data-slot="collapsible" {...filterFigmaProps(props)} />;
 }
 
 function CollapsibleTrigger({
@@ -14,7 +16,7 @@ function CollapsibleTrigger({
   return (
     <CollapsiblePrimitive.CollapsibleTrigger
       data-slot="collapsible-trigger"
-      {...props}
+      {...filterFigmaProps(props)}
     />
   );
 }
@@ -25,7 +27,7 @@ function CollapsibleContent({
   return (
     <CollapsiblePrimitive.CollapsibleContent
       data-slot="collapsible-content"
-      {...props}
+      {...filterFigmaProps(props)}
     />
   );
 }

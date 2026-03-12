@@ -268,7 +268,6 @@ export function Inventory({ user }: InventoryProps) {
   const loadRemainingItems = async (userOrgId: string, totalCount: number) => {
     // Prevent duplicate loading
     if (loadingRef.current) {
-      console.log('⏭️ Background loading already in progress, skipping...');
       return;
     }
     
@@ -289,12 +288,10 @@ export function Inventory({ user }: InventoryProps) {
         const { data: batchData, error: batchError } = await batchQuery;
         
         if (batchError) {
-          console.error('❌ Error loading batch:', batchError);
           break;
         }
         
         if (batchData && batchData.length > 0) {
-          console.log(`📦 Background: Loaded ${batchData.length} items (${offset + batchData.length}/${totalCount})`);
           
           // Update items progressively (non-blocking) with deduplication
           setItems(prevItems => {
@@ -315,7 +312,6 @@ export function Inventory({ user }: InventoryProps) {
             
             // Convert back to array
             const uniqueItems = Array.from(itemMap.values());
-            console.log(`📊 [Background] Total unique items: ${uniqueItems.length} (was ${prevItems.length}, added ${newItems.length})`);
             return uniqueItems;
           });
           
@@ -328,9 +324,7 @@ export function Inventory({ user }: InventoryProps) {
         }
       }
       
-      console.log(`✅ [Inventory] Background loading complete!`);
     } catch (error) {
-      console.error('❌ Error in background loading:', error);
     } finally {
       loadingRef.current = false;
     }
@@ -344,11 +338,9 @@ export function Inventory({ user }: InventoryProps) {
     
     try {
       setIsLoading(true);
-      console.log(`🔄 [Inventory] Loading page ${currentPage} with ${itemsPerPage} items per page...`);
       
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       if (authError || !authUser) {
-        console.error('❌ User not authenticated:', authError?.message || 'No user found');
         setIsLoading(false);
         setTableExists(false);
         showAlert('error', 'Please log in to access inventory');
@@ -359,8 +351,6 @@ export function Inventory({ user }: InventoryProps) {
       const userOrgId = profile.organization_id;
       
       if (!userOrgId) {
-        console.error('❌ No organization_id found for user!');
-        console.error('ℹ️ User profile:', profile);
         setIsLoading(false);
         setTableExists(false);
         showAlert('error', 'Your account is not assigned to an organization. Please contact your administrator.');
@@ -383,7 +373,6 @@ export function Inventory({ user }: InventoryProps) {
       // Map the loaded items
       const mappedItems = loadedItems.map(mapInventoryItem);
       
-      console.log(`📊 [Inventory] Loaded ${mappedItems.length} items (page ${currentPage}/${Math.ceil(count / itemsPerPage)}, total: ${count})`);
       setItems(mappedItems);
       setTotalCount(count);
       setServerLowStockCount(serverLowStock || 0); // 📊 Store server-calculated low stock count
@@ -393,32 +382,22 @@ export function Inventory({ user }: InventoryProps) {
       // Track load time
       setLoadTimeMs(loadTime);
       
-      console.log(`✅ [Inventory] Loaded page ${currentPage} in ${loadTime.toFixed(0)}ms`);
-      
       // Show optimization instructions if critically slow (not for 1-2s loads)
       if (loadTime > 5000 && count > 1000 && currentPage === 1) {
-        console.warn(`⚠️ Slow inventory performance detected: ${(loadTime / 1000).toFixed(1)}s for first page`);
         showOptimizationInstructions();
       }
       
       // Log performance metrics for monitoring
       if (currentPage === 1) {
-        if (loadTime < 2000) {
-          console.log(`✅ [Inventory] Excellent performance: ${loadTime.toFixed(0)}ms for ${count} items`);
-        } else if (loadTime < 5000) {
-          console.info(`ℹ️ [Inventory] Acceptable performance: ${(loadTime / 1000).toFixed(1)}s for ${count} items - Consider adding indexes for faster loads`);
-        }
       }
       
       // ⚡ Log pagination info on first page
       if (currentPage === 1 && count > 0) {
-        console.log(`✅ [Inventory] Server-side pagination active - showing page 1 of ${Math.ceil(count / itemsPerPage)}`);
       }
       
       // 🕵️‍♂️ Auto-detect lost inventory if list is empty
       if (count === 0 && currentPage === 1) {
         try {
-          console.log('🔍 Auto-scanning for lost inventory...');
           const headers = await getServerHeaders();
           // Use the CORRECT endpoint: /inventory-diagnostic/run
           const diagRes = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/inventory-diagnostic/run`, { 
@@ -429,13 +408,11 @@ export function Inventory({ user }: InventoryProps) {
           
           if (diagRes.ok) {
             const diagData = await diagRes.json();
-            console.log('📊 Diagnostic result:', diagData.counts);
             
             const nullCount = diagData.counts?.withNullOrg || 0;
             const otherCount = diagData.counts?.inOtherOrgs || 0;
             
             if (nullCount > 0 || otherCount > 0) {
-              console.warn(`⚠️ Found lost inventory: ${nullCount} orphaned, ${otherCount} in other orgs`);
               setLostInventory({
                 total: nullCount + otherCount,
                 nullOrg: nullCount,
@@ -443,20 +420,15 @@ export function Inventory({ user }: InventoryProps) {
                 found: true
               });
             } else {
-              console.log('✅ No lost inventory found.');
             }
           } else {
-            console.error('Diagnostic endpoint failed:', await diagRes.text());
           }
         } catch (err) {
-          console.error('Failed to run auto-diagnostic:', err);
         }
       }
       
     } catch (error: any) {
-      console.error('❌ [Inventory] Failed to load inventory:', error?.message || error);
       if (error?.code) {
-        console.error('❌ Error code:', error.code);
       }
       
       if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table') || error?.message?.includes('relation "inventory" does not exist')) {
@@ -596,7 +568,6 @@ export function Inventory({ user }: InventoryProps) {
       setFormData(prev => ({ ...prev, imageUrl: url }));
       toast.success('Image uploaded successfully', { id: loadingToast });
     } catch (error) {
-      console.error('Failed to upload image:', error);
       toast.error(`Failed to upload image: ${error.message}`, { id: loadingToast });
     }
   };
@@ -620,10 +591,6 @@ export function Inventory({ user }: InventoryProps) {
 
   const handleSave = async () => {
     try {
-      console.log('💾 [Inventory] handleSave - Starting save...');
-      console.log('💾 [Inventory] Form data:', formData);
-      console.log('💾 [Inventory] Editing item:', editingItem);
-      
       // ✅ Validate required fields
       if (!formData.name || formData.name.trim() === '') {
         showAlert('error', 'Missing required field: Item Name');
@@ -655,17 +622,11 @@ export function Inventory({ user }: InventoryProps) {
         image_url: formData.imageUrl || '',
       };
 
-      console.log('💾 [Inventory] Item data to save:', itemData);
-
       if (editingItem) {
-        console.log('🔄 [Inventory] Updating item:', editingItem.id);
         const result = await inventoryAPI.update(editingItem.id, itemData);
-        console.log('✅ [Inventory] Update result:', result);
         showAlert('success', 'Item updated successfully');
       } else {
-        console.log('➕ [Inventory] Creating new item...');
         const result = await inventoryAPI.create(itemData);
-        console.log('✅ [Inventory] Create result:', result);
         showAlert('success', 'Item created successfully');
       }
 
@@ -674,11 +635,8 @@ export function Inventory({ user }: InventoryProps) {
       setSearchQuery(''); // ✅ Clear search to show all items
       setCategoryFilter('all'); // ✅ Clear category filter
       setStatusFilter('all'); // ✅ Clear status filter
-      console.log('🔄 [Inventory] Reloading inventory...');
       await loadInventory(); // ✅ Reload all items
-      console.log('✅ [Inventory] Save complete!');
     } catch (error) {
-      console.error('❌ [Inventory] Failed to save item:', error);
       showAlert('error', 'Failed to save item');
     }
   };
@@ -691,7 +649,6 @@ export function Inventory({ user }: InventoryProps) {
       showAlert('success', 'Item deleted successfully');
       loadInventory();
     } catch (error) {
-      console.error('Failed to delete item:', error);
       showAlert('error', 'Failed to delete item');
     }
   };
@@ -736,7 +693,6 @@ export function Inventory({ user }: InventoryProps) {
       }, 1000);
       
     } catch (err: any) {
-      console.error(err);
       showAlert('error', 'Recovery failed: ' + err.message);
     } finally {
       setIsRecovering(false);
@@ -780,14 +736,13 @@ export function Inventory({ user }: InventoryProps) {
         currentJobId = data.currentJobId;
         totalInserted = data.cumulativeInserted || (totalInserted + data.batchInserted);
         
-        console.log(`📦 Processed batch: ${data.batchInserted} items inserted (${totalInserted} total)`);
+        
       }
       
       showAlert('success', `Successfully processed pending jobs! Added ${totalInserted} items.`);
       loadInventory();
       
     } catch (err: any) {
-      console.error(err);
       showAlert('error', 'Processing failed: ' + err.message);
     } finally {
       setIsRecovering(false);
@@ -869,7 +824,6 @@ export function Inventory({ user }: InventoryProps) {
       
       if (diagRes.ok) {
         const diagData = await diagRes.json();
-        console.log('📊 Diagnostic result:', diagData);
         
         const nullCount = diagData.counts?.withNullOrg || 0;
         const otherCount = diagData.counts?.inOtherOrgs || 0;
@@ -934,7 +888,6 @@ export function Inventory({ user }: InventoryProps) {
         } else {
           // If DB is clean but empty, check for pending jobs
           if (totalInDb === 0) {
-             console.log('🔍 DB empty, checking for pending jobs...');
              const jobsRes = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/inventory-diagnostic/find-pending-jobs`, { headers, method: 'POST' });
              if (jobsRes.ok) {
                 const jobsData = await jobsRes.json();
@@ -1010,7 +963,6 @@ export function Inventory({ user }: InventoryProps) {
         throw new Error('Scan failed: ' + diagRes.statusText);
       }
     } catch (e: any) {
-      console.error(e);
       showAlert('error', 'Scan failed: ' + e.message);
     } finally {
       setIsRecovering(false);

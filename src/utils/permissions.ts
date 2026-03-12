@@ -184,7 +184,7 @@ export async function initializePermissions(role: UserRole) {
 
     // If there's no user token, skip the server fetch — it will 401 anyway
     if (!headers['X-User-Token']) {
-      console.log('[permissions] No user token available yet, using defaults + localStorage (skipping server fetch)');
+      // No user token available yet, using defaults + localStorage (skipping server fetch)
       return;
     }
 
@@ -203,7 +203,7 @@ export async function initializePermissions(role: UserRole) {
       if (res.ok) {
         const json = await res.json();
         if (json.permissions && Array.isArray(json.permissions) && json.permissions.length > 0) {
-          console.log(`[permissions] Loaded ${json.permissions.length} permissions from server (KV store)`);
+          // Loaded permissions from server (KV store)
 
           // Apply server permissions as overrides
           let count = 0;
@@ -222,14 +222,13 @@ export async function initializePermissions(role: UserRole) {
 
           // Sync server data back to localStorage for offline use
           localStorage.setItem(`permissions_${orgId}`, JSON.stringify(json.permissions));
-          console.log(`[permissions] Applied ${count} permissions from server, synced to localStorage`);
+          // Applied permissions from server, synced to localStorage
           notifyPermissionsChanged();
         } else {
-          console.log('[permissions] No permissions found in server KV store, using defaults + localStorage');
+          // No permissions found in server KV store, using defaults + localStorage
         }
       } else if (res.status === 401) {
         // Token may be stale — refresh session and retry once
-        console.log('[permissions] Got 401 — refreshing session and retrying...');
         try {
           const { createClient: createSB } = await import('./supabase/client');
           const sb = createSB();
@@ -257,28 +256,28 @@ export async function initializePermissions(role: UserRole) {
                   }
                 });
                 localStorage.setItem(`permissions_${orgId}`, JSON.stringify(retryJson.permissions));
-                console.log(`[permissions] Retry succeeded — applied ${count} permissions from server`);
+                // Retry succeeded — applied permissions from server
                 notifyPermissionsChanged();
               } else {
-                console.log('[permissions] Retry succeeded but no permissions in KV, using defaults + localStorage');
+                // Retry succeeded but no permissions in KV, using defaults + localStorage
               }
             } else {
-              console.log(`[permissions] Retry also returned ${retryRes.status}, using defaults + localStorage`);
+              // Retry also returned non-200, using defaults + localStorage
             }
           } else {
-            console.log('[permissions] Session refresh returned no token, using defaults + localStorage');
+            // Session refresh returned no token, using defaults + localStorage
           }
         } catch (retryErr: any) {
-          console.log('[permissions] Session refresh/retry failed, using defaults + localStorage');
+          // Session refresh/retry failed, using defaults + localStorage
         }
       } else {
-        console.log(`[permissions] Server returned ${res.status}, using defaults + localStorage`);
+        // Server returned non-200, using defaults + localStorage
       }
     } catch (timeoutError) {
-      console.log('[permissions] Server fetch timed out, using defaults + localStorage');
+      // Server fetch timed out, using defaults + localStorage
     }
   } catch (err) {
-    console.error('Error initializing permissions:', err);
+    // Error initializing permissions
   }
 }
 
@@ -292,7 +291,7 @@ function loadFromLocalStorage() {
     const storedPerms = localStorage.getItem(`permissions_${orgId}`);
 
     if (!storedPerms) {
-      console.log('No localStorage permissions found, using hardcoded defaults');
+      // No localStorage permissions found, using hardcoded defaults
       return;
     }
 
@@ -315,10 +314,10 @@ function loadFromLocalStorage() {
       }
     });
 
-    console.log(`✅ Applied ${count} permission overrides from Security Settings (localStorage)`);
+    // Applied permission overrides from Security Settings (localStorage)
     notifyPermissionsChanged();
   } catch (err) {
-    console.warn('Failed to load permissions from localStorage:', err);
+    // Failed to load permissions from localStorage
   }
 }
 
@@ -387,17 +386,8 @@ export function getPermissions(module: string, role: UserRole): Permission {
  * Debug function to dump all permissions for a role
  */
 export function debugPermissions(role: UserRole) {
-  console.log(`\n🔍 DEBUG: All permissions for ${role}:`);
-  ALL_MODULES.forEach(module => {
-    const key = `${module}:${role}`;
-    const perm = permissionsCache.get(key);
-    if (perm) {
-      console.log(`  ${module}:`, perm);
-    } else {
-      console.log(`  ${module}: NOT FOUND IN CACHE`);
-    }
-  });
-  console.log(`Total cache size: ${permissionsCache.size}\n`);
+  // Debug function — no-op in production (console statements removed)
+  return;
 }
 
 /**

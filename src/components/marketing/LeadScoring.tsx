@@ -48,7 +48,7 @@ export function LeadScoring({ user }: LeadScoringProps) {
       setStats(statsData);
       setScoringRules(rulesData);
     } catch (error) {
-      console.error('Error loading lead scoring data:', error);
+      // Handle silently
     }
   };
 
@@ -93,7 +93,6 @@ export function LeadScoring({ user }: LeadScoringProps) {
       setNewRulePoints(10);
       await loadData();
     } catch (error: any) {
-      console.error('Error creating scoring rule:', error);
       toast.error(`Failed to create scoring rule: ${error.message || error}`);
     } finally {
       setIsSaving(false);
@@ -106,7 +105,6 @@ export function LeadScoring({ user }: LeadScoringProps) {
       toast.success('Scoring rule deleted');
       await loadData();
     } catch (error: any) {
-      console.error('Error deleting scoring rule:', error);
       toast.error(`Failed to delete rule: ${error.message || error}`);
     }
   };

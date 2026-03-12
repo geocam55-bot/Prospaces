@@ -51,7 +51,7 @@ export function AIToggleSwitch({
         `Users will need to refresh their browser to see the change.`
       );
     } catch (error) {
-      console.error('Failed to toggle AI Suggestions:', error);
+      // Failed to toggle AI Suggestions
       toast.error('Failed to update feature setting');
     } finally {
       setIsUpdating(false);

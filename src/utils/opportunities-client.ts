@@ -16,15 +16,13 @@ export async function getAllOpportunitiesClient() {
     try {
       profile = await ensureUserProfile(user.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
+      // Failed to get user profile
       // Return empty array instead of throwing - this prevents "Error" in dashboard
       return { opportunities: [] };
     }
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
-
-    console.log('🔐 Opportunities - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
 
     // Get opportunities without joins (to avoid foreign key errors)
     let query = supabase
@@ -34,37 +32,29 @@ export async function getAllOpportunitiesClient() {
     // Apply role-based filtering
     if (userRole === 'super_admin') {
       // Super Admin: Can see all opportunities
-      console.log('🔓 Super Admin - Loading all opportunities');
     } else if (userRole === 'admin') {
       // Admin: Can see ALL opportunities in their organization (for Team Dashboard)
-      console.log('🔒 Admin - Loading all organization opportunities');
       query = query.eq('organization_id', userOrgId);
     } else if (userRole === 'manager') {
       // Manager: Can see ALL opportunities in their organization (for Team Dashboard)
-      console.log('👔 Manager - Loading all organization opportunities');
       query = query.eq('organization_id', userOrgId);
     } else if (userRole === 'director') {
       // Director: Same data access as Manager - sees all organization opportunities
-      console.log('🎯 Director - Loading all organization opportunities');
       query = query.eq('organization_id', userOrgId);
     } else if (userRole === 'marketing') {
       // Marketing: Can see all opportunities within their organization (for campaigns)
-      console.log('📢 Marketing - Loading opportunities for organization:', userOrgId);
       query = query.eq('organization_id', userOrgId);
     } else {
       // Standard User: Only show their own opportunities
-      console.log('👤 Standard User - Loading only own opportunities');
       query = query.eq('organization_id', userOrgId).eq('owner_id', user.id);
     }
 
     let { data: opportunities, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error loading opportunities:', error);
+      // Error loading opportunities
       return { opportunities: [] };
     }
-
-    console.log('📊 Opportunities filtered data - Total rows:', opportunities?.length || 0);
 
     // Fetch customer names separately to avoid foreign key relationship issues
     const formatted = await Promise.all((opportunities || []).map(async (opp: any) => {
@@ -102,7 +92,7 @@ export async function getAllOpportunitiesClient() {
 
     return { opportunities: formatted };
   } catch (error) {
-    console.error('Unexpected error in getAllOpportunitiesClient:', error);
+    // Unexpected error in getAllOpportunitiesClient
     return { opportunities: [] };
   }
 }
@@ -121,8 +111,6 @@ export async function getOpportunitiesByCustomerClient(customerId: string) {
   const userRole = profile.role;
   const userOrgId = profile.organization_id;
 
-  console.log('🔐 Opportunities (by customer) - Current user:', profile.email, 'Role:', userRole);
-  
   // IMPORTANT: When viewing a specific contact's opportunities, we need to check
   // if the user has access to the contact first, THEN show ALL opportunities for that contact
   
@@ -134,21 +122,14 @@ export async function getOpportunitiesByCustomerClient(customerId: string) {
     .maybeSingle();
   
   if (contactError) {
-    console.error('❌ Error fetching contact:', contactError);
+    // Error fetching contact
     return { opportunities: [] };
   }
   
   if (!contact) {
-    console.log('❌ Contact not found for ID:', customerId);
+    // Contact not found
     return { opportunities: [] };
   }
-  
-  console.log('📋 Contact details:', {
-    contactId: contact.id,
-    contactName: contact.name,
-    ownerId: contact.owner_id,
-    orgId: contact.organization_id
-  });
   
   // Check if user has access to this contact
   const hasContactAccess = 
@@ -159,21 +140,10 @@ export async function getOpportunitiesByCustomerClient(customerId: string) {
     (userRole === 'director' && contact.organization_id === userOrgId) || // Director sees org contacts
     (userRole === 'standard_user' && contact.organization_id === userOrgId); // Standard user sees org contacts (legacy data scenario)
   
-  console.log('🔑 Access check:', {
-    hasAccess: hasContactAccess,
-    userRole,
-    userOrgId,
-    contactOrgId: contact.organization_id,
-    contactOwnerId: contact.owner_id,
-    userId: user.id
-  });
-  
   if (!hasContactAccess) {
-    console.log('❌ User does not have access to this contact');
+    // User does not have access to this contact
     return { opportunities: [] };
   }
-  
-  console.log('✅ User has access to contact - loading ALL opportunities for this contact');
   
   // Get ALL opportunities for this customer (no ownership filtering)
   // Since we've already verified contact access, show all opportunities for that contact
@@ -190,11 +160,9 @@ export async function getOpportunitiesByCustomerClient(customerId: string) {
   let { data: opportunities, error } = await query.order('created_at', { ascending: false });
 
   if (error) {
-    console.error('Error loading opportunities by customer:', error);
+    // Error loading opportunities by customer
     return { opportunities: [] };
   }
-
-  console.log('📊 Opportunities (by customer) filtered data - Total rows:', opportunities?.length || 0);
 
   // Fetch customer name
   let customerName = 'Unknown';
@@ -285,7 +253,7 @@ export async function createOpportunityClient(data: any) {
     .single();
 
   if (error) {
-    console.error('Error creating opportunity:', error);
+    // Error creating opportunity
     
     // Provide helpful error messages
     if (error.message.includes('owner_id') || error.message.includes('status')) {
@@ -368,7 +336,7 @@ export async function updateOpportunityClient(id: string, data: any) {
     .single();
 
   if (error) {
-    console.error('Error updating opportunity:', error);
+    // Error updating opportunity
     throw new Error(error.message);
   }
 
@@ -413,7 +381,7 @@ export async function deleteOpportunityClient(id: string) {
     .eq('id', id);
 
   if (error) {
-    console.error('Error deleting opportunity:', error);
+    // Error deleting opportunity
     throw new Error(error.message);
   }
 

@@ -97,7 +97,7 @@ export function FindMissingUser() {
       }
 
     } catch (error: any) {
-      console.error('Search error:', error);
+      // Search error
       toast.error('Search failed: ' + error.message);
     } finally {
       setSearching(false);
@@ -123,7 +123,7 @@ export function FindMissingUser() {
       });
 
       if (error) {
-        console.error('RPC error:', error);
+        // RPC error
         
         // Fallback: Try direct update if user exists
         if (result?.details?.user_id) {
@@ -147,7 +147,8 @@ export function FindMissingUser() {
           return;
         }
 
-        toast.error('Recovery failed: ' + error.message);
+        // RPC error
+        toast.error('RPC call failed: ' + error.message);
         return;
       }
 
@@ -156,7 +157,7 @@ export function FindMissingUser() {
       setTimeout(() => handleSearch(), 500);
 
     } catch (error: any) {
-      console.error('Recovery error:', error);
+      // Recovery error
       toast.error('Recovery failed: ' + error.message);
     } finally {
       setRecovering(false);

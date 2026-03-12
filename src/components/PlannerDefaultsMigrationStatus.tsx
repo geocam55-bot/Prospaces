@@ -52,7 +52,7 @@ export function PlannerDefaultsMigrationStatus({ userId, organizationId }: Plann
       setHasDatabaseData(dbCount > 0);
       setDatabaseItemCount(dbCount);
     } catch (error) {
-      console.error('Error checking migration status:', error);
+      // Error checking migration status
     } finally {
       setLoading(false);
     }
@@ -70,7 +70,7 @@ export function PlannerDefaultsMigrationStatus({ userId, organizationId }: Plann
         toast.error('Migration failed - please try again');
       }
     } catch (error) {
-      console.error('Migration error:', error);
+      // Migration error
       toast.error('Migration failed - please try again');
     } finally {
       setMigrating(false);

@@ -54,7 +54,6 @@ export function PublicQuoteView() {
             setOrgSettings(result.orgSettings);
         }
       } catch (err: any) {
-        console.error('Error loading public view:', err);
         setError(err.message || 'Failed to load document');
       } finally {
         setLoading(false);

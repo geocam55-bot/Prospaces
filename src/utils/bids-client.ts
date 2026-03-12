@@ -16,13 +16,13 @@ export async function getAllBidsClient(scope: 'personal' | 'team' = 'personal') 
 
     if (response.ok) {
       const data = await response.json();
-      console.log(`[bids-client] Server endpoint returned ${data.bids?.length || 0} bids (role=${data.meta?.role})`);
+      // Server endpoint returned bids
       return { bids: data.bids || [] };
     }
 
-    console.warn('[bids-client] Server endpoint failed, falling back to direct query:', response.status, response.statusText);
+    // Server endpoint failed, falling back to direct query
   } catch (err: any) {
-    console.warn('[bids-client] Server endpoint error, falling back to direct query:', err.message);
+    // Server endpoint error, falling back to direct query
   }
 
   // ── Attempt 2: Direct Supabase query (may be blocked by RLS) ──
@@ -34,7 +34,7 @@ export async function getAllBidsClient(scope: 'personal' | 'team' = 'personal') 
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         authUser = session.user;
-        console.log('✅ Using session user for bids (getUser failed)');
+        // Using session user for bids (getUser failed)
       } else {
         return { bids: [] };
       }
@@ -46,14 +46,14 @@ export async function getAllBidsClient(scope: 'personal' | 'team' = 'personal') 
     try {
       profile = await ensureUserProfile(authUser.id);
     } catch (profileError) {
-      console.error('❌ Failed to get user profile:', profileError);
+      // Failed to get user profile
       return { bids: [] };
     }
 
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('🔐 Bids (fallback) - Current user:', profile.email, 'Role:', userRole, 'Organization:', userOrgId, 'Scope:', scope);
+    // Bids fallback - using direct query with role-based filtering
     
     let query = supabase
       .from('bids')
@@ -87,7 +87,7 @@ export async function getAllBidsClient(scope: 'personal' | 'team' = 'personal') 
     
     if (error) {
       if (error.code === '42P01' || error.code === 'PGRST204' || error.code === '42501') {
-        console.log('[bids-client] Bids table not found, returning empty array');
+        // Bids table not found, returning empty array
         return { bids: [] };
       }
       throw error;
@@ -95,14 +95,14 @@ export async function getAllBidsClient(scope: 'personal' | 'team' = 'personal') 
     
     return { bids: bids || [] };
   } catch (error: any) {
-    console.error('[bids-client] Error:', error.message);
+    // Error in getAllBidsClient fallback
     return { bids: [] };
   }
 }
 
 export async function getBidsByOpportunityClient(opportunityId: string) {
   try {
-    console.log('[getBidsByOpportunityClient] Starting query for opportunity:', opportunityId);
+    // Starting query for opportunity
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -114,7 +114,7 @@ export async function getBidsByOpportunityClient(opportunityId: string) {
     const userRole = profile.role;
     const userOrgId = profile.organization_id;
 
-    console.log('[getBidsByOpportunityClient] User:', profile.email, 'Role:', userRole, 'Organization:', userOrgId);
+    // User info available for debugging if needed
     
     const { data: opportunity, error: oppError } = await supabase
       .from('opportunities')
@@ -123,7 +123,7 @@ export async function getBidsByOpportunityClient(opportunityId: string) {
       .maybeSingle();
     
     if (oppError || !opportunity) {
-      console.log('[getBidsByOpportunityClient] ❌ Opportunity not found or access denied');
+      // Opportunity not found or access denied
       return { bids: [] };
     }
     
@@ -140,7 +140,7 @@ export async function getBidsByOpportunityClient(opportunityId: string) {
           (['admin', 'marketing', 'director', 'manager', 'standard_user'].includes(userRole) && contact.organization_id === userOrgId);
         
         if (!hasContactAccess) {
-          console.log('[getBidsByOpportunityClient] ❌ User does not have access to this contact');
+          // User does not have access to this contact
           return { bids: [] };
         }
       }
@@ -160,14 +160,14 @@ export async function getBidsByOpportunityClient(opportunityId: string) {
     const { data: bids, error } = await query;
     
     if (error) {
-      console.error('[getBidsByOpportunityClient] Error loading bids for opportunity:', error);
+      // Error loading bids for opportunity
       return { bids: [] };
     }
     
-    console.log('[getBidsByOpportunityClient] Successfully loaded', bids?.length || 0, 'bids');
+    // Successfully loaded bids
     return { bids: bids || [] };
   } catch (error: any) {
-    console.error('[getBidsByOpportunityClient] Error:', error.message);
+    // Error in getBidsByOpportunityClient
     return { bids: [] };
   }
 }
@@ -187,14 +187,14 @@ export async function createBidClient(data: any) {
 
     if (response.ok) {
       const result = await response.json();
-      console.log('[bids-client] Bid created via server endpoint:', result.bid?.id);
+      // Bid created via server endpoint
       return { bid: result.bid };
     }
 
     const errBody = await response.text();
-    console.warn('[bids-client] Server create failed, falling back to direct insert:', response.status, errBody);
+    // Server create failed, falling back to direct insert
   } catch (err: any) {
-    console.warn('[bids-client] Server create error, falling back to direct insert:', err.message);
+    // Server create error, falling back to direct insert
   }
 
   // ── Attempt 2: Direct Supabase insert (fallback) ──
@@ -212,9 +212,9 @@ export async function createBidClient(data: any) {
     try {
       const profile = await ensureUserProfile(user.id);
       organizationId = profile.organization_id;
-      console.log('[bids-client] Retrieved organization_id from profile:', organizationId);
+      // Retrieved organization_id from profile
     } catch (profileError) {
-      console.warn('[bids-client] Failed to fetch profile, falling back to metadata:', profileError);
+      // Failed to fetch profile, falling back to metadata
       organizationId = user.user_metadata?.organizationId || null;
     }
     
@@ -264,7 +264,7 @@ export async function createBidClient(data: any) {
       if (ALLOWED_BID_COLUMNS.has(key)) {
         bidData[key] = value;
       } else {
-        console.log(`[bids-client] createBidClient — Dropping unknown field: ${key}`);
+        // Dropping unknown field from bid data
       }
     }
 
@@ -298,7 +298,7 @@ export async function createBidClient(data: any) {
     // NOTE: line_items / items are NOT inserted into bids table — that column does not exist.
     // Line items are only stored on the quotes table.
     
-    console.log('[bids-client] Creating bid (fallback) with org:', organizationId);
+    // Creating bid (fallback) with resolved org
     
     const { data: bid, error } = await supabase
       .from('bids')
@@ -307,14 +307,14 @@ export async function createBidClient(data: any) {
       .single();
     
     if (error) {
-      console.error('[bids-client] ❌ Error creating bid:', error);
+      // Error creating bid
       throw error;
     }
     
-    console.log('[bids-client] ✅ Bid created successfully:', bid);
+    // Bid created successfully
     return { bid };
   } catch (error: any) {
-    console.error('[bids-client] Error creating bid:', error.message);
+    // Error creating bid
     throw error;
   }
 }
@@ -374,7 +374,7 @@ export async function updateBidClient(id: string, data: any) {
       // Drop unknown fields (e.g., _source, contactId, etc.)
     }
     
-    console.log('[bids-client] Updating bid with data:', updateData);
+    // Updating bid with filtered data
     
     const { data: bid, error } = await supabase
       .from('bids')
@@ -387,7 +387,7 @@ export async function updateBidClient(id: string, data: any) {
     
     return { bid };
   } catch (error: any) {
-    console.error('[bids-client] Error updating bid:', error.message);
+    // Error updating bid
     throw error;
   }
 }
@@ -403,7 +403,7 @@ export async function deleteBidClient(id: string) {
     
     return { success: true };
   } catch (error: any) {
-    console.error('[bids-client] Error deleting bid:', error.message);
+    // Error deleting bid
     throw error;
   }
 }
@@ -411,7 +411,7 @@ export async function deleteBidClient(id: string) {
 // Fix organization IDs for bids that have NULL organization_id
 export async function fixBidOrganizationIds() {
   try {
-    console.log('[fixBidOrganizationIds] Calling server to fix NULL organization IDs...');
+    // Calling server to fix NULL organization IDs
     const headers = await getServerHeaders();
     const response = await fetch(
       `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/recover-deals`,
@@ -420,14 +420,14 @@ export async function fixBidOrganizationIds() {
 
     if (response.ok) {
       const result = await response.json();
-      console.log('[fixBidOrganizationIds] Server recovered:', result);
+      // Server recovered bids
       return { count: result.fixedBids || 0, bids: [] };
     }
 
-    console.warn('[fixBidOrganizationIds] Server recover failed:', response.status);
+    // Server recover failed
     throw new Error('Server recover failed');
   } catch (error: any) {
-    console.error('[fixBidOrganizationIds] Error:', error.message);
+    // Error in fixBidOrganizationIds
     throw error;
   }
 }

@@ -169,7 +169,7 @@ export async function getAllDocumentsClient(contactId?: string, scope: 'personal
     if (error) {
       // Only log if it's not a table-not-found error (user hasn't run migration yet)
       if (error.code !== 'PGRST205' && error.code !== '42P01' && !error.message?.includes('Could not find the table')) {
-        console.error('❌ Database error:', error);
+        // Database error
       }
       throw error;
     }
@@ -179,7 +179,7 @@ export async function getAllDocumentsClient(contactId?: string, scope: 'personal
   } catch (error: any) {
     // Only log if it's not a table-not-found error (user hasn't run migration yet)
     if (error.code !== 'PGRST205' && error.code !== '42P01' && !error.message?.includes('Could not find the table')) {
-      console.error('Error loading documents:', error);
+      // Error loading documents
     }
     throw error;
   }
@@ -249,7 +249,7 @@ export async function uploadDocumentClient(file: File, metadata: {
 
     return { document: transformFromDbFormat(data) };
   } catch (error: any) {
-    console.error('Error uploading document:', error);
+    // Error uploading document
     throw error;
   }
 }
@@ -276,7 +276,7 @@ export async function updateDocumentClient(id: string, updates: {
 
     return { document: transformFromDbFormat(data) };
   } catch (error: any) {
-    console.error('Error updating document:', error);
+    // Error updating document
     throw error;
   }
 }
@@ -298,7 +298,7 @@ export async function deleteDocumentClient(id: string) {
       .remove([document.file_path]);
 
     if (storageError) {
-      console.error('Error deleting file from storage:', storageError);
+      // Error deleting file from storage
       // Continue with database deletion even if storage deletion fails
     }
 
@@ -312,7 +312,7 @@ export async function deleteDocumentClient(id: string) {
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error deleting document:', error);
+    // Error deleting document
     throw error;
   }
 }
@@ -327,7 +327,7 @@ export async function downloadDocumentClient(filePath: string) {
 
     return data;
   } catch (error: any) {
-    console.error('Error downloading document:', error);
+    // Error downloading document
     throw error;
   }
 }
@@ -342,7 +342,7 @@ export async function getDocumentUrlClient(filePath: string, expiresIn: number =
 
     return data.signedUrl;
   } catch (error: any) {
-    console.error('Error getting document URL:', error);
+    // Error getting document URL
     throw error;
   }
 }
@@ -360,7 +360,7 @@ export async function getDocumentVersionsClient(parentDocumentId: string) {
     const transformedData = (data || []).map(transformFromDbFormat);
     return { versions: transformedData };
   } catch (error: any) {
-    console.error('Error getting document versions:', error);
+    // Error getting document versions
     throw error;
   }
 }

@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { Toaster as Sonner, ToasterProps } from "sonner@2.0.3";
+import { filterFigmaProps } from "./utils";
 
 const Toaster = ({ ...props }: ToasterProps) => {
   // Detect theme from the <html> element's class list (set by ThemeProvider)
@@ -28,7 +29,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-border": "var(--border)",
         } as React.CSSProperties
       }
-      {...props}
+      {...filterFigmaProps(props)}
     />
   );
 };

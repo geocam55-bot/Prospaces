@@ -73,7 +73,7 @@ export function CustomerSelector({
       // Default price_level to 't1' for every customer
       setCustomers((data || []).map((c: any) => ({ ...c, price_level: c.price_level || 't1' })));
     } catch (error) {
-      console.error('Error loading customers:', error);
+      // Error loading customers
     } finally {
       setIsLoading(false);
     }

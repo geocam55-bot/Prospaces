@@ -93,7 +93,7 @@ export function OpportunitySelector({
 
       setOpportunities(oppsWithCustomers);
     } catch (error) {
-      console.error('Error loading opportunities:', error);
+      // Error loading opportunities
     } finally {
       setIsLoading(false);
     }
@@ -151,7 +151,7 @@ export function OpportunitySelector({
       setNewOppValue('');
       setIsCreateDialogOpen(false);
     } catch (error) {
-      console.error('Error creating opportunity:', error);
+      // Error creating opportunity
     } finally {
       setIsCreating(false);
     }

@@ -224,27 +224,24 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     if (organizationId) {
       loadData();
     } else {
-      console.warn('[ProjectWizardSettings] Skipping load - organizationId is undefined');
+      // Skipping load - organizationId is undefined
     }
   }, [organizationId]);
 
   const loadData = async () => {
     // Guard against undefined organizationId
     if (!organizationId) {
-      console.error('[ProjectWizardSettings] Cannot load data - organizationId is undefined');
+      // Cannot load data - organizationId is undefined
       onSave('error', 'Unable to load settings. Please refresh the page.');
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    console.log('[ProjectWizardSettings] ⚡ Loading data for org:', organizationId);
     
     try {
-      // First, load just the wizard defaults (fast!)
-      console.log('[ProjectWizardSettings] 📋 Step 1: Loading wizard defaults...');
+      // Step 1: Load wizard defaults
       const wizardDefaults = await getProjectWizardDefaults(organizationId);
-      console.log('[ProjectWizardSettings] ✅ Loaded wizard defaults:', wizardDefaults.length);
 
       // Convert defaults array to lookup object
       const defaultsMap: Record<string, string> = {};
@@ -258,36 +255,29 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
         }
       });
       
-      console.log('[ProjectWizardSettings] 📊 Defaults map size:', Object.keys(defaultsMap).length);
       setDefaults(defaultsMap);
 
-      // Now load only the inventory items that are currently set as defaults (fast!)
-      console.log('[ProjectWizardSettings] 📦 Step 2: Loading', itemIdsToFetch.length, 'inventory items that are set as defaults...');
+      // Step 2: Load only the inventory items that are currently set as defaults
       let items: InventoryItem[] = [];
       
       if (itemIdsToFetch.length > 0) {
         items = await getInventoryItemsForDropdown(organizationId, itemIdsToFetch);
-        console.log('[ProjectWizardSettings] ✅ Loaded', items.length, 'inventory items');
       }
 
       setInventoryItems(items);
       
-      // Load the full inventory list in the background (lazy load)
-      console.log('[ProjectWizardSettings] 🔄 Step 3: Loading full inventory list in background...');
+      // Step 3: Load the full inventory list in the background (lazy load)
       setTimeout(async () => {
         const allItems = await getInventoryItemsForDropdown(organizationId);
-        console.log('[ProjectWizardSettings] ✅ Background load complete:', allItems.length, 'total items');
         setInventoryItems(allItems);
       }, 100); // Small delay to let UI render first
       
-      // Load organization conversion factors from KV
-      console.log('[ProjectWizardSettings] 📐 Step 4: Loading org conversion factors...');
+      // Step 4: Load organization conversion factors from KV
       const cfData = await getOrgConversionFactors(organizationId);
-      console.log('[ProjectWizardSettings] ✅ Loaded org CFs:', Object.keys(cfData).length, 'entries');
       setOrgCFs(cfData);
       
     } catch (error) {
-      console.error('[ProjectWizardSettings] ❌ Error loading project wizard settings:', error);
+      // Error loading project wizard settings
       // Only show error if it's not an authentication issue
       if (error && typeof error === 'object' && 'message' in error && !String(error.message).includes('auth')) {
         onSave('error', 'Failed to load project wizard settings');
@@ -330,25 +320,22 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
         };
       });
 
-      console.log(`💾 Batch saving ${defaultConfigs.length} defaults to database via server...`);
       const result = await batchUpsertProjectWizardDefaults(defaultConfigs);
       
       // Also save org conversion factors to KV
-      console.log(`💾 Saving ${Object.keys(orgCFs).length} org conversion factors...`);
       const cfResult = await saveOrgConversionFactors(organizationId, orgCFs);
       
       if (!result.success) {
-        console.error('❌ Batch save failed');
-        onSave('error', 'Failed to save project wizard defaults. Check console for details.');
+        // Batch save failed
+        onSave('error', 'Failed to save project wizard defaults.');
       } else if (!cfResult) {
-        console.error('❌ CF save failed');
+        // CF save failed
         onSave('error', 'Defaults saved but conversion factors failed to save.');
       } else {
-        console.log(`✅ All ${result.savedCount} defaults + ${Object.keys(orgCFs).length} CFs saved successfully!`);
         onSave('success', 'Project Wizard defaults and conversion factors saved successfully!');
       }
     } catch (error) {
-      console.error('❌ Error saving project wizard settings:', error);
+      // Error saving project wizard settings
       onSave('error', 'Failed to save project wizard settings');
     } finally {
       setSaving(false);

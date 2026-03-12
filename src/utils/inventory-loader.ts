@@ -102,21 +102,10 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
     if (searchQuery && searchQuery.trim()) {
       const { searchTerms, priceFilter } = parseSearchQuery(searchQuery);
       
-      console.log('🔍 [Inventory Search]', {
-        originalQuery: searchQuery,
-        searchTerms,
-        priceFilter,
-      });
-      
       // Apply text search if there are search terms
       if (searchTerms) {
         // Handle both singular and plural forms by searching for stemmed version
         const stemmedSearch = stem(searchTerms);
-        
-        console.log('🔍 [Inventory Search] Stemming:', {
-          original: searchTerms,
-          stemmed: stemmedSearch,
-        });
         
         // Search for both original and stemmed versions
         if (stemmedSearch !== searchTerms) {
@@ -133,7 +122,6 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
       // ✅ FIX: Convert dollar value to cents since unit_price is stored in cents
       if (priceFilter) {
         const priceInCents = Math.round(priceFilter.value * 100);
-        console.log('💰 [Inventory Search] Applying price filter:', priceFilter, '→ cents:', priceInCents);
         
         if (priceFilter.operator === 'lt') {
           query = query.lt('unit_price', priceInCents);
@@ -160,14 +148,6 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
     const { data, error, count } = await query;
     
     if (error) {
-      console.error('❌ Database error loading inventory:', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint
-      });
-      console.error('❌ Error code:', error.code);
-      console.error('❌ Error message:', error.message);
       throw new Error(`Database error: ${error.message} (Code: ${error.code || 'unknown'})`);
     }
     
@@ -220,7 +200,6 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
 
         const { data: aggData, error: aggError } = await aggQuery;
         if (aggError) {
-          console.error('❌ Aggregate query error at offset', aggOffset, ':', aggError.message);
           break;
         }
         if (!aggData || aggData.length === 0) break;
@@ -236,7 +215,6 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
             const sorted = [...sampleValues].sort((a: number, b: number) => a - b);
             const median = sorted[Math.floor(sorted.length / 2)];
             const max = sorted[sorted.length - 1];
-            const avg = sampleValues.reduce((a: number, b: number) => a + b, 0) / sampleValues.length;
 
             // Heuristic: if median cost < 200, values are almost certainly in dollars
             // (a $2 item in cents = 200; typical products cost $5-$500)
@@ -249,28 +227,7 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
               costDivisor = 100;
               detectedFormat = 'cents';
             }
-
-            console.log(`🔍 [Inventory Loader] Cost format auto-detection:`, {
-              sampleSize: sampleValues.length,
-              median,
-              avg: avg.toFixed(2),
-              max,
-              min: sorted[0],
-              detectedFormat,
-              costDivisor,
-            });
-          } else {
-            console.log(`⚠️ [Inventory Loader] Only ${sampleValues.length} non-null cost values found. Using default divisor ${costDivisor}`);
           }
-
-          // Log sample values for debugging
-          const samples = aggData.slice(0, 5).map((item: any) => ({
-            qty: item.quantity,
-            costRaw: item.cost,
-            unitPriceRaw: item.unit_price,
-            effectiveValue: item.cost ?? item.unit_price ?? 0,
-          }));
-          console.log('🔍 [Inventory Loader] Sample values (first 5 items):', JSON.stringify(samples));
         }
 
         totalAggRows += aggData.length;
@@ -285,8 +242,6 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
         if (aggData.length < AGG_BATCH) break;
         aggOffset += aggData.length;
       }
-
-      console.log(`💰 [Inventory Loader] Total value from ${totalAggRows} items: $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })} (format: ${detectedFormat}, divisor: ${costDivisor}, ${totalAggRows} rows aggregated)`);
     }
 
     // 📊 Get low stock count (quantity <= 0) using count-only query (very fast, no data returned)
@@ -327,10 +282,6 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
     const endTime = performance.now();
     const loadTime = endTime - startTime;
     
-    console.log(`✅ [Inventory Loader] Loaded ${data?.length || 0} items (page ${currentPage}, total: ${count}) in ${loadTime.toFixed(0)}ms`);
-    console.log(`📊 [Inventory Loader] Low stock (qty ≤ 0): ${lowStockCount}`);
-    console.log(`💰 [Inventory Loader] Total value of filtered results: $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`);
-    
     return {
       items: data || [],
       totalCount: count || 0,
@@ -364,7 +315,6 @@ export async function checkForDuplicates(organizationId: string): Promise<number
         .range(offset, offset + PAGE - 1);
 
       if (error) {
-        console.error('❌ Duplicate check fetch error:', error.message);
         break;
       }
       if (!data || data.length === 0) break;
@@ -389,10 +339,8 @@ export async function checkForDuplicates(organizationId: string): Promise<number
       if (count > 1) dupCount++;
     }
 
-    console.log(`🔍 Duplicate check: ${allSkus.length} total SKUs, ${skuMap.size} unique, ${dupCount} with duplicates`);
     return dupCount;
   } catch (error) {
-    console.error('❌ Error checking for duplicates:', error);
     return 0;
   }
 }

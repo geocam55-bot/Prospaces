@@ -286,6 +286,13 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
     customerName?: string;
     customerCompany?: string;
   }>({});
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Poll for snapshot URL from 3D renderer
   useEffect(() => {
@@ -385,6 +392,18 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
   const filteredAppliances = APPLIANCE_CATALOG.filter(app =>
     app.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (!isDesktop) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center bg-gray-50 rounded-lg m-4 border border-gray-200">
+        <Maximize2 className="w-16 h-16 text-blue-500 mb-4" />
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Desktop View Required</h2>
+        <p className="text-gray-600 max-w-md">
+          The 3D Kitchen Planner requires a larger screen to ensure the best design experience. Please access this feature on a desktop or laptop computer.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -521,13 +540,14 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
       </div>
 
       {/* Main Content Area */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
         {activeTab === 'design' && (
-          <div className="flex gap-6">
+          <div className="flex gap-6 h-[calc(100vh-12rem)] min-h-[700px]">
             {/* Left Catalog Panel */}
-            <div className="w-64 flex-shrink-0 flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 h-[calc(100vh-14rem)] min-h-[600px]">
-              {/* Category Tabs */}
-              <div className="flex p-2 gap-1 border-b border-gray-100 bg-gray-50/50">
+            {showSidebar && (
+              <div className="w-72 flex-shrink-0 flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 h-full">
+                {/* Category Tabs */}
+                <div className="flex p-2 gap-1 border-b border-gray-100 bg-gray-50/50">
                 <button
                   onClick={() => setActiveCategory('cabinets')}
                   className={`flex-1 flex flex-col items-center justify-center gap-1 p-2 rounded-md transition-all ${
@@ -669,20 +689,27 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                 )}
               </div>
             </div>
+            )}
 
             {/* Right Side Content (Canvas & Summary) */}
-            <div className="flex-1 flex flex-col gap-6 min-w-0">
-              <div className="space-y-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-                    <div className="flex items-center gap-4">
-                      <h2 className="text-lg font-semibold">Kitchen Plan & Elevation</h2>
-                      <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100">
-                        <span className="text-xs text-blue-700 font-medium">Total Cost:</span>
-                        <span className="text-sm font-bold text-blue-900">${totalPrice.toFixed(2)}</span>
-                      </div>
+            <div className="flex-1 flex flex-col gap-6 min-w-0 h-full">
+              <div className="flex-1 flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-4 p-4 border-b border-gray-200 bg-gray-50/50">
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setShowSidebar(!showSidebar)}
+                      className="p-2 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors text-gray-600"
+                      title={showSidebar ? "Hide Catalog (Maximize Canvas)" : "Show Catalog"}
+                    >
+                      {showSidebar ? <ChevronLeft className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                    </button>
+                    <h2 className="text-lg font-semibold">Kitchen Plan & Elevation</h2>
+                    <div className="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-md border border-blue-100">
+                      <span className="text-xs text-blue-700 font-medium">Total Cost:</span>
+                      <span className="text-sm font-bold text-blue-900">${totalPrice.toFixed(2)}</span>
                     </div>
-                    <div className="flex gap-2">
+                  </div>
+                  <div className="flex gap-2">
                     <button
                       onClick={() => setConfig(prev => ({ ...prev, viewMode: '2D' }))}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
@@ -706,7 +733,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                     </button>
                   </div>
                 </div>
-                <div className="h-[600px] border border-gray-200 rounded-lg overflow-hidden">
+                <div className="flex-1 min-h-[600px] border border-gray-200 rounded-lg overflow-hidden relative">
                   {config.viewMode === '2D' ? (
                     <KitchenCanvas
                       config={config}
@@ -754,7 +781,6 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                   </table>
                 </div>
               </div>
-            </div>
             </div>
           </div>
         )}

@@ -69,7 +69,7 @@ export function CleanupUnusedOrganizations() {
 
       setOrganizations(orgsWithCounts);
     } catch (error: any) {
-      console.error('Error loading organizations:', error);
+      // Error loading organizations
       toast.error('Failed to load organizations: ' + error.message);
     } finally {
       setLoading(false);
@@ -99,7 +99,6 @@ export function CleanupUnusedOrganizations() {
       setDeleting(orgId);
 
       // Delete in order: dependent records first, then organization
-      console.log(`Deleting organization: ${orgId}`);
 
       // Delete contacts
       const { error: contactsError } = await supabase
@@ -108,7 +107,7 @@ export function CleanupUnusedOrganizations() {
         .eq('organization_id', orgId);
 
       if (contactsError) {
-        console.log('Contacts delete result:', contactsError);
+        // Contacts delete error - non-fatal
       }
 
       // Delete bids
@@ -118,7 +117,7 @@ export function CleanupUnusedOrganizations() {
         .eq('organization_id', orgId);
 
       if (bidsError) {
-        console.log('Bids delete result:', bidsError);
+        // Bids delete error - non-fatal
       }
 
       // Delete tasks
@@ -128,7 +127,7 @@ export function CleanupUnusedOrganizations() {
         .eq('organization_id', orgId);
 
       if (tasksError) {
-        console.log('Tasks delete result:', tasksError);
+        // Tasks delete error - non-fatal
       }
 
       // Delete notes
@@ -138,7 +137,7 @@ export function CleanupUnusedOrganizations() {
         .eq('organization_id', orgId);
 
       if (notesError) {
-        console.log('Notes delete result:', notesError);
+        // Notes delete error - non-fatal
       }
 
       // Delete opportunities
@@ -148,7 +147,7 @@ export function CleanupUnusedOrganizations() {
         .eq('organization_id', orgId);
 
       if (oppsError) {
-        console.log('Opportunities delete result:', oppsError);
+        // Opportunities delete error - non-fatal
       }
 
       // Delete quotes
@@ -158,7 +157,7 @@ export function CleanupUnusedOrganizations() {
         .eq('organization_id', orgId);
 
       if (quotesError) {
-        console.log('Quotes delete result:', quotesError);
+        // Quotes delete error - non-fatal
       }
 
       // Delete appointments
@@ -168,7 +167,7 @@ export function CleanupUnusedOrganizations() {
         .eq('organization_id', orgId);
 
       if (appointmentsError) {
-        console.log('Appointments delete result:', appointmentsError);
+        // Appointments delete error - non-fatal
       }
 
       // Finally, delete the organization
@@ -182,7 +181,7 @@ export function CleanupUnusedOrganizations() {
       toast.success('Organization deleted successfully');
       loadOrganizations();
     } catch (error: any) {
-      console.error('Error deleting organization:', error);
+      // Error deleting organization
       toast.error('Failed to delete organization: ' + error.message);
     } finally {
       setDeleting(null);

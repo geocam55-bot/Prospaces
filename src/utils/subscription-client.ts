@@ -265,8 +265,6 @@ export async function adjustSeats(): Promise<Subscription | null> {
     body: JSON.stringify({}),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    console.warn('[subscription] adjust-seats failed:', err.error || res.statusText);
     return null;
   }
   const data = await res.json();

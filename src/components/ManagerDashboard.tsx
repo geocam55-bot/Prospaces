@@ -80,11 +80,7 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
       
       const users = usersData.users || [];
       
-      console.log('🔍 [Team Dashboard] Data fetched:', {
-        bidsAndQuotes: allBids.length,
-        normalizedDeals: normalizedDeals.length,
-        users: users.length
-      });
+      // Data fetched for team dashboard
       
       setOpportunities(normalizedDeals);
       setUserProfiles(users);
@@ -126,7 +122,7 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
       
       const avgDaysToClose = wonDeals.length > 0 ? totalDaysToClose / wonDeals.length : 0;
       
-      console.log('📊 [Team] Avg Days to Close - Won deals:', wonDeals.length, 'Avg days:', avgDaysToClose.toFixed(1));
+      // Avg Days to Close calculated
 
       // 6. Weighted Value (Pipeline Value * Probability - using rough stage probabilities)
       const weightedValue = openOpps.reduce((sum: number, o: any) => {
@@ -162,7 +158,7 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
       }).length;
       const avgOpenDealAge = validDealsCount > 0 ? totalAge / validDealsCount : 0;
       
-      console.log('📊 [Team] Avg Open Deal Age - Open opps:', openOpps.length, 'Valid:', validDealsCount, 'Avg days:', avgOpenDealAge.toFixed(1));
+      // Avg Open Deal Age calculated
 
       setMetrics({
         totalSales,
@@ -175,14 +171,7 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
         avgOpenDealAge
       });
       
-      console.log('📊 [Team Dashboard] Metrics calculated:', {
-        totalSales: `$${(totalSales / 1000).toFixed(1)}k`,
-        winRate: `${winRate.toFixed(1)}%`,
-        avgDaysToClose: avgDaysToClose.toFixed(1),
-        pipelineValue: `$${(pipelineValue / 1000).toFixed(1)}k`,
-        openDeals: openDealsCount,
-        avgOpenDealAge: avgOpenDealAge.toFixed(1)
-      });
+      // Metrics calculated
 
       // --- Prepare Chart Data ---
 
@@ -265,7 +254,7 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
       });
 
     } catch (error) {
-      console.error('Error loading dashboard:', error);
+      // Error loading dashboard
       toast.error('Failed to load dashboard data');
     } finally {
       setIsLoading(false);

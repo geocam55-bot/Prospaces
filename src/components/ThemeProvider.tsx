@@ -8,12 +8,14 @@ const fallbackContext: ThemeContextType = {
   theme: fallbackTheme,
   themeId: 'vibrant',
   setTheme: () => {},
+  updateThemeColors: () => {},
 };
 
 interface ThemeContextType {
   theme: Theme;
   themeId: string;
   setTheme: (themeId: string) => void;
+  updateThemeColors: (themeId: string, colors: Partial<Theme['colors']>) => void;
   userId?: string;
 }
 
@@ -54,26 +56,40 @@ function hexToHSL(hex: string): string {
 export function ThemeProvider({ children, userId }: { children: ReactNode; userId?: string }) {
   const [themeId, setThemeId] = useState<string>(loadTheme());
   const [theme, setThemeState] = useState<Theme>(getTheme(themeId));
+  const [customColorsVersion, setCustomColorsVersion] = useState(0);
+
+  const updateThemeColors = (id: string, colors: Partial<Theme['colors']>) => {
+    try {
+      const existing = localStorage.getItem(`prospace-theme-custom-${id}`);
+      const parsed = existing ? JSON.parse(existing) : {};
+      const newCustomColors = { ...parsed, ...colors };
+      localStorage.setItem(`prospace-theme-custom-${id}`, JSON.stringify(newCustomColors));
+      if (id === themeId) {
+        setThemeState(getTheme(themeId));
+      }
+      setCustomColorsVersion(v => v + 1);
+    } catch (e) {
+      // Ignored
+    }
+  };
 
   // Load theme from database on mount if user is logged in
   useEffect(() => {
     const loadUserTheme = async () => {
       if (userId) {
-        console.log('Loading theme for user:', userId);
+        // Loading theme for user
         const dbTheme = await loadThemeFromDatabase(userId);
         if (dbTheme) {
-          console.log('Loaded theme from database:', dbTheme);
+          // Loaded theme from database
           setThemeId(dbTheme);
           saveTheme(dbTheme); // Also save to localStorage
         } else {
-          console.log('No theme found in database, using localStorage or default');
-          // Use localStorage theme if no database theme exists
+          // No theme found in database, using localStorage or default
           const localTheme = loadTheme();
           setThemeId(localTheme);
         }
       } else {
-        console.log('No user ID, loading theme from localStorage');
-        // If no user, load from localStorage
+        // No user ID, loading theme from localStorage
         const localTheme = loadTheme();
         setThemeId(localTheme);
       }
@@ -86,7 +102,7 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
     const newTheme = getTheme(themeId);
     setThemeState(newTheme);
     saveTheme(themeId);
-    console.log('Applying theme:', themeId);
+    // Applying theme
     
     // Apply theme colors to CSS variables
     const root = document.documentElement;
@@ -169,21 +185,21 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
     
     // Ring
     root.style.setProperty('--ring', hexToHSL(newTheme.colors.primary));
-  }, [themeId]);
+  }, [themeId, customColorsVersion]);
 
   const handleSetTheme = async (newThemeId: string) => {
-    console.log('Setting theme to:', newThemeId);
+    // Setting theme
     setThemeId(newThemeId);
     saveTheme(newThemeId); // Save to localStorage immediately
     
     if (userId) {
-      console.log('Saving theme to database for user:', userId);
+      // Saving theme to database for user
       await saveThemeToDatabase(newThemeId, userId);
     }
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, themeId, setTheme: handleSetTheme, userId }}>
+    <ThemeContext.Provider value={{ theme, themeId, setTheme: handleSetTheme, updateThemeColors, userId }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -196,7 +212,7 @@ export function useTheme() {
     // component-tree race conditions don't crash the app.
     // Only warn in development mode to avoid console spam
     if (process.env.NODE_ENV === 'development') {
-      console.debug('useTheme called outside ThemeProvider – using fallback theme');
+      // useTheme called outside ThemeProvider – using fallback theme
     }
     return fallbackContext;
   }
