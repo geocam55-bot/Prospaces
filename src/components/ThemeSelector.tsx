@@ -93,10 +93,17 @@ export function ThemeSelector() {
             const displayTheme = isActive ? activeTheme : getTheme(baseTheme.id);
             
             return (
-              <button
+              <div
                 key={displayTheme.id}
-                onClick={() => handleThemeChange(displayTheme.id)}
-                disabled={isSaving}
+                role="button"
+                tabIndex={0}
+                onClick={() => !isSaving && handleThemeChange(displayTheme.id)}
+                onKeyDown={(e) => {
+                  if (!isSaving && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    handleThemeChange(displayTheme.id);
+                  }
+                }}
                 className={`relative p-4 rounded-lg border-2 transition-all text-left hover:shadow-md ${
                   isActive
                     ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50 dark:bg-blue-950 dark:ring-blue-800'
@@ -174,7 +181,7 @@ export function ThemeSelector() {
                     title="Background"
                   />
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
