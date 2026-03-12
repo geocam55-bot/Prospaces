@@ -20,6 +20,7 @@ import { contactsAPI } from '../../utils/api';
 import { CampaignAnalytics } from './CampaignAnalytics';
 import { useAudienceSegments } from '../../hooks/useAudienceSegments';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { sendSystemNotification } from '../../utils/notifications';
 
 interface CampaignManagerProps {
   user: User;
@@ -126,15 +127,15 @@ export function CampaignManager({ user }: CampaignManagerProps) {
         toast.info('Initiating campaign send...');
         try {
           const result = await campaignsAPI.send(campaign.id);
-          toast.success(
-            `Campaign created and sent! ${result.sent} emails sent.`,
-            { duration: 5000 }
-          );
+          const successMsg = `Campaign created and sent! ${result.sent} emails sent.`;
+          toast.success(successMsg, { duration: 5000 });
+          sendSystemNotification("Campaign Sent", { body: successMsg });
         } catch (sendError: any) {
           toast.warning('Campaign created but failed to send immediately. Please try sending manually.');
         }
       } else {
         toast.success('Campaign created successfully!');
+        sendSystemNotification("Campaign Created", { body: `${campaignName} has been created and scheduled.` });
       }
 
       setIsCreateDialogOpen(false);

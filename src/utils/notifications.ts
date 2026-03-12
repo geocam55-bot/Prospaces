@@ -1,0 +1,79 @@
+export interface NotificationOptions {
+  body?: string;
+  icon?: string;
+  badge?: string;
+  tag?: string;
+  requireInteraction?: boolean;
+  data?: any;
+}
+
+/**
+ * Requests notification permission from the user if not already granted.
+ * @returns A promise that resolves to the current permission state.
+ */
+export async function requestNotificationPermission(): Promise<NotificationPermission> {
+  if (!('Notification' in window)) {
+    return 'denied';
+  }
+
+  if (Notification.permission === 'granted') {
+    return 'granted';
+  }
+
+  if (Notification.permission !== 'denied') {
+    const permission = await Notification.requestPermission();
+    return permission;
+  }
+
+  return 'denied';
+}
+
+/**
+ * Sends a system-level desktop or mobile notification if permission is granted.
+ * Automatically requests permission if it hasn't been requested yet.
+ * 
+ * @param title The title of the notification
+ * @param options Additional options like body, icon, etc.
+ * @returns A promise that resolves to a boolean indicating whether the notification was sent.
+ */
+export async function sendSystemNotification(
+  title: string, 
+  options?: NotificationOptions
+): Promise<boolean> {
+  if (!('Notification' in window)) {
+    return false;
+  }
+
+  let permission = Notification.permission;
+  if (permission === 'default') {
+    permission = await requestNotificationPermission();
+  }
+
+  if (permission === 'granted') {
+    try {
+      // Create and show the native notification
+      const notification = new Notification(title, {
+        icon: '/favicon.ico', // Default icon, can be overridden via options
+        ...options,
+      });
+
+      // Optional: close after a few seconds if requireInteraction is not set
+      if (!options?.requireInteraction) {
+        setTimeout(() => notification.close(), 5000);
+      }
+
+      // Optional: focus the window when clicked
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+
+      return true;
+    } catch (error) {
+      // Note: Do not use frontend console.* statements as per architecture rules
+      return false;
+    }
+  }
+
+  return false;
+}

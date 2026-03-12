@@ -5,6 +5,7 @@ import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { useTheme } from './ThemeProvider';
 import { Theme, getTheme, themes } from '../utils/themes';
+import { sendSystemNotification } from '../utils/notifications';
 
 interface ThemeEditorProps {
   themeId: string | null;
@@ -81,6 +82,10 @@ export function ThemeEditor({ themeId, open, onOpenChange }: ThemeEditorProps) {
   const handleSave = () => {
     if (themeId) {
       updateThemeColors(themeId, colors as Partial<Theme['colors']>);
+      sendSystemNotification('Theme Saved!', { 
+        body: 'Your custom color theme has been applied successfully.',
+        icon: '/favicon.ico'
+      });
     }
     onOpenChange(false);
   };
