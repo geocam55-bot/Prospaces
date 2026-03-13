@@ -3305,8 +3305,8 @@ globalThis.addEventListener("unhandledrejection", (e) => {
   }
 });
 
-// ── INVENTORY IMAGE BULK UPLOAD ────────────────────────────────────────
-app.post(`${PREFIX}/inventory-image-upload`, async (c) => {
+// ══ REMOVED: inventory-image-upload route (dead code — path never matches) ══
+app.all('/__removed_inventory_upload__', async (c) => {
   try {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
@@ -3443,6 +3443,313 @@ app.post(`${PREFIX}/inventory-image-upload`, async (c) => {
     return c.json({ 
       success: false, 
       error: `Server error: ${err.message}` 
+    }, 500);
+  }
+});
+
+// ══ REMOVED: rona-image-lookup route (dead code — path never matches) ══
+app.get('/__removed_rona_lookup__', async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+
+    const sku = c.req.query('sku');
+    if (!sku) {
+      return c.json({ success: false, error: 'Missing required query param: sku' }, 400);
+    }
+
+    console.log(`[rona-lookup] Starting lookup for SKU: ${sku}`);
+
+    const imageUrls: string[] = [];
+    const productData: any = {};
+    let htmlSnippet = '';
+    let htmlLength = 0;
+    let ronaProductUrl = '';
+    let strategyUsed = 'none';
+    const strategyLog: string[] = [];
+    const ronaSearchUrl = `https://www.rona.ca/en/search?q=${encodeURIComponent(sku)}`;
+
+    // XHR-style headers — WAFs treat AJAX API calls differently from page loads
+    const xhrHeaders: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'en-CA,en-US;q=0.9,en;q=0.8',
+      'X-Requested-With': 'XMLHttpRequest',
+      'Origin': 'https://www.rona.ca',
+      'Referer': ronaSearchUrl,
+      'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+      'Sec-Ch-Ua-Mobile': '?0',
+      'Sec-Ch-Ua-Platform': '"Windows"',
+      'Sec-Fetch-Dest': 'empty',
+      'Sec-Fetch-Mode': 'cors',
+      'Sec-Fetch-Site': 'same-origin',
+    };
+
+    const browserHeaders: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-CA,en-US;q=0.9,en;q=0.8',
+    };
+
+    // Helper: extract images from Rona HTML
+    function extractFromHtml(html: string, source: string) {
+      const ogImg = html.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i);
+      if (ogImg?.[1]) {
+        const u = ogImg[1].startsWith('http') ? ogImg[1] : `https://www.rona.ca${ogImg[1]}`;
+        if (!imageUrls.includes(u)) { imageUrls.push(u); strategyLog.push(`${source} og:image: ${u.substring(0, 120)}`); }
+      }
+      const ldMatches = html.matchAll(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+      for (const m of ldMatches) {
+        try {
+          const d = JSON.parse(m[1]);
+          for (const item of (Array.isArray(d) ? d : [d])) {
+            if (item['@type'] === 'Product') {
+              if (item.name) productData.name = item.name;
+              if (item.brand?.name) productData.brand = item.brand.name;
+              if (item.sku) productData.sku = item.sku;
+              if (item.image) {
+                for (const img of (Array.isArray(item.image) ? item.image : [item.image])) {
+                  const u = typeof img === 'string' ? img : img?.url;
+                  if (u) { const fu = u.startsWith('http') ? u : `https://www.rona.ca${u}`; if (!imageUrls.includes(fu)) imageUrls.push(fu); }
+                }
+              }
+            }
+          }
+        } catch { /* skip */ }
+      }
+      const ogTitle = html.match(/<meta[^>]*property="og:title"[^>]*content="([^"]+)"/i);
+      if (ogTitle?.[1] && !productData.title) productData.title = ogTitle[1];
+      for (const pat of [
+        /<img[^>]*src="(https?:\/\/[^"]*(?:medias|media|product|rfrk|scene7|images\.lowes)[^"]*)"/gi,
+        /data-src="(https?:\/\/[^"]*(?:medias|media|product|rfrk|scene7|images\.lowes)[^"]*)"/gi,
+      ]) {
+        let m2; while ((m2 = pat.exec(html)) !== null) {
+          const u = m2[1];
+          if (u && !u.includes('logo') && !u.includes('icon') && !u.includes('.svg') && !u.includes('pixel') && !imageUrls.includes(u)) imageUrls.push(u);
+        }
+      }
+    }
+
+    // Helper: extract images/data from JSON API responses
+    function extractFromApiJson(data: any, source: string) {
+      try {
+        const products = data?.products || data?.results || data?.productSearchResult?.products || (Array.isArray(data) ? data : []);
+        const items = Array.isArray(products) ? products : [data];
+        for (const p of items) {
+          if (!p || typeof p !== 'object') continue;
+          if (p.name && !productData.name) productData.name = p.name;
+          if (p.manufacturer && !productData.brand) productData.brand = p.manufacturer;
+          if (p.code) productData.sku = p.code;
+          const imgs = p.images || p.galleryImages || [];
+          for (const img of (Array.isArray(imgs) ? imgs : [])) {
+            const u = img?.url || img?.src || (typeof img === 'string' ? img : null);
+            if (u) { const fu = u.startsWith('http') ? u : `https://www.rona.ca${u}`; if (!imageUrls.includes(fu)) { imageUrls.push(fu); strategyLog.push(`${source} img: ${fu.substring(0, 100)}`); } }
+          }
+          for (const key of ['imageUrl', 'thumbnailUrl', 'image']) {
+            if (p[key] && typeof p[key] === 'string') {
+              const fu = p[key].startsWith('http') ? p[key] : `https://www.rona.ca${p[key]}`;
+              if (!imageUrls.includes(fu)) { imageUrls.push(fu); strategyLog.push(`${source} ${key}: ${fu.substring(0, 100)}`); }
+            }
+          }
+          if (p.primaryImage?.url || p.defaultImage?.url) {
+            const u = p.primaryImage?.url || p.defaultImage?.url;
+            const fu = u.startsWith('http') ? u : `https://www.rona.ca${u}`;
+            if (!imageUrls.includes(fu)) { imageUrls.push(fu); strategyLog.push(`${source} primary: ${fu.substring(0, 100)}`); }
+          }
+        }
+      } catch (e: any) { strategyLog.push(`${source} JSON parse issue: ${e.message}`); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Step 1: Try Rona's internal search/product APIs (XHR-style)
+    // WAFs treat AJAX calls differently — these endpoints serve the SPA
+    // ══════════════════════════════════════════════════════════════════════
+    const apiEndpoints = [
+      `https://www.rona.ca/api/rest/search/products?query=${encodeURIComponent(sku)}&lang=en&pageSize=5`,
+      `https://www.rona.ca/api/search?q=${encodeURIComponent(sku)}&lang=en`,
+      `https://www.rona.ca/api/product/search?q=${encodeURIComponent(sku)}`,
+      `https://www.rona.ca/api/search/suggest?q=${encodeURIComponent(sku)}&lang=en`,
+      `https://www.rona.ca/api/search/autocomplete?query=${encodeURIComponent(sku)}&lang=en`,
+      `https://www.rona.ca/api/product/${encodeURIComponent(sku)}`,
+    ];
+
+    for (const apiUrl of apiEndpoints) {
+      if (imageUrls.length > 0) break;
+      try {
+        console.log(`[rona-lookup] Step 1: Trying API: ${apiUrl}`);
+        const resp = await fetch(apiUrl, { headers: xhrHeaders, redirect: 'follow' });
+        strategyLog.push(`API ${apiUrl.split('?')[0].split('/').slice(-2).join('/')}: HTTP ${resp.status}`);
+        if (resp.ok) {
+          const ct = resp.headers.get('content-type') || '';
+          if (ct.includes('json')) {
+            const json = await resp.json();
+            console.log(`[rona-lookup] Step 1: Got JSON from ${apiUrl.substring(0, 60)}`);
+            htmlSnippet = JSON.stringify(json, null, 2).substring(0, 5000).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            htmlLength = htmlSnippet.length;
+            extractFromApiJson(json, 'API');
+            if (imageUrls.length > 0) { strategyUsed = 'rona-api'; break; }
+          } else {
+            const html = await resp.text();
+            if (html.includes('"@type"') || html.includes('og:image')) {
+              extractFromHtml(html, 'API-HTML');
+              if (imageUrls.length > 0) { strategyUsed = 'rona-api-html'; htmlSnippet = html.substring(0, 5000).replace(/</g, '&lt;').replace(/>/g, '&gt;'); htmlLength = html.length; break; }
+            }
+          }
+        }
+      } catch (e: any) { strategyLog.push(`API error: ${e.message?.substring(0, 60)}`); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Step 2: Try Rona HTML page with browser headers (may 403)
+    // ══════════════════════════════════════════════════════════════════════
+    if (imageUrls.length === 0) {
+      try {
+        console.log(`[rona-lookup] Step 2: Rona search page: ${ronaSearchUrl}`);
+        const resp = await fetch(ronaSearchUrl, {
+          headers: { ...browserHeaders, 'Referer': 'https://www.rona.ca/en' },
+          redirect: 'follow',
+        });
+        const finalUrl = resp.url || ronaSearchUrl;
+        strategyLog.push(`Rona HTML: HTTP ${resp.status} → ${finalUrl.substring(0, 80)}`);
+        if (resp.ok) {
+          const html = await resp.text();
+          htmlLength = html.length;
+          extractFromHtml(html, 'Page');
+          if (imageUrls.length > 0) strategyUsed = 'rona-page';
+          if (finalUrl.includes('/product/')) ronaProductUrl = finalUrl;
+          if (!ronaProductUrl) { const m = html.match(/href="(\/(?:en|fr)\/[^"]*\d{5,}[^"]*)"/); if (m) ronaProductUrl = `https://www.rona.ca${m[1]}`; }
+          htmlSnippet = html.substring(0, 5000).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        } else {
+          const body = await resp.text().catch(() => '');
+          strategyLog.push(`Rona HTML failed: ${resp.status}`);
+          if (!htmlSnippet) { htmlSnippet = `HTTP ${resp.status}:\n${body.substring(0, 3000)}`.replace(/</g, '&lt;').replace(/>/g, '&gt;'); htmlLength = body.length; }
+        }
+      } catch (e: any) { strategyLog.push(`Rona page error: ${e.message}`); console.log(`[rona-lookup] Step 2 error: ${e.message}`); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Step 3: Metadata extraction via microlink.io (headless browser service)
+    // These services bypass WAFs since they run real browsers
+    // ══════════════════════════════════════════════════════════════════════
+    if (imageUrls.length === 0) {
+      try {
+        const targetUrl = ronaProductUrl || ronaSearchUrl;
+        const microlinkUrl = `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}`;
+        console.log(`[rona-lookup] Step 3: Microlink: ${microlinkUrl}`);
+        const mlResp = await fetch(microlinkUrl, { headers: { 'Accept': 'application/json' } });
+        strategyLog.push(`Microlink: HTTP ${mlResp.status}`);
+        if (mlResp.ok) {
+          const mlData = await mlResp.json();
+          console.log(`[rona-lookup] Step 3: Microlink status=${mlData.status}`);
+          if (mlData.status === 'success' && mlData.data) {
+            const d = mlData.data;
+            if (d.image?.url && !imageUrls.includes(d.image.url)) { imageUrls.push(d.image.url); strategyLog.push(`Microlink image: ${d.image.url.substring(0, 100)}`); }
+            if (d.logo?.url && !imageUrls.includes(d.logo.url) && !d.logo.url.includes('favicon')) imageUrls.push(d.logo.url);
+            if (d.title) productData.title = d.title;
+            if (d.description) productData.description = d.description;
+            if (d.url && d.url.includes('rona.ca') && d.url.includes('/product')) ronaProductUrl = d.url;
+            if (imageUrls.length > 0) strategyUsed = 'microlink';
+          }
+          if (!htmlSnippet) { htmlSnippet = JSON.stringify(mlData, null, 2).substring(0, 5000).replace(/</g, '&lt;').replace(/>/g, '&gt;'); htmlLength = htmlSnippet.length; }
+        }
+      } catch (e: any) { strategyLog.push(`Microlink error: ${e.message}`); console.log(`[rona-lookup] Step 3 error: ${e.message}`); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Step 4: Google Images "RONA {SKU}" fallback
+    // ══════════════════════════════════════════════════════════════════════
+    if (imageUrls.length === 0) {
+      try {
+        const gQuery = `RONA ${sku} site:rona.ca`;
+        const gUrl = `https://www.google.com/search?q=${encodeURIComponent(gQuery)}&udm=2`;
+        console.log(`[rona-lookup] Step 4: Google Images: ${gUrl}`);
+        const gResp = await fetch(gUrl, { headers: browserHeaders, redirect: 'follow' });
+        strategyLog.push(`Google Images: HTTP ${gResp.status}`);
+        if (gResp.ok) {
+          const gHtml = await gResp.text();
+          console.log(`[rona-lookup] Step 4: Got ${gHtml.length} bytes`);
+          const fsPattern = /\["(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)(?:\?[^"]*)?)",(\d+),(\d+)\]/gi;
+          let m;
+          const cands: { url: string; area: number }[] = [];
+          while ((m = fsPattern.exec(gHtml)) !== null) {
+            const url = m[1]; const w = parseInt(m[2]); const h = parseInt(m[3]);
+            if (w >= 100 && h >= 100 && !url.includes('google.com') && !url.includes('gstatic.com')) {
+              const isRona = url.includes('rona.ca') || url.includes('rfrk.com') || url.includes('lowes.ca');
+              cands.push({ url, area: (w * h) + (isRona ? 99999999 : 0) });
+            }
+          }
+          cands.sort((a, b) => b.area - a.area);
+          for (const c2 of cands.slice(0, 5)) { if (!imageUrls.includes(c2.url)) { imageUrls.push(c2.url); strategyLog.push(`GImg: ${c2.url.substring(0, 80)}`); } }
+          if (!ronaProductUrl) { const rm = gHtml.match(/https?:\/\/(?:www\.)?rona\.ca\/(?:en|fr)\/[^"&\s<>\\]+/i); if (rm) ronaProductUrl = rm[0].replace(/\\u0026/g, '&'); }
+          if (imageUrls.length > 0) strategyUsed = 'google-images';
+          if (!htmlSnippet) { htmlSnippet = gHtml.substring(0, 5000).replace(/</g, '&lt;').replace(/>/g, '&gt;'); htmlLength = gHtml.length; }
+        }
+      } catch (e: any) { strategyLog.push(`Google Images error: ${e.message}`); console.log(`[rona-lookup] Step 4 error: ${e.message}`); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Step 5: Bing Images fallback (less aggressive bot blocking)
+    // ══════════════════════════════════════════════════════════════════════
+    if (imageUrls.length === 0) {
+      try {
+        const bQuery = `RONA ${sku}`;
+        const bUrl = `https://www.bing.com/images/search?q=${encodeURIComponent(bQuery)}&form=HDRSC2`;
+        console.log(`[rona-lookup] Step 5: Bing Images: ${bUrl}`);
+        const bResp = await fetch(bUrl, { headers: browserHeaders, redirect: 'follow' });
+        strategyLog.push(`Bing Images: HTTP ${bResp.status}`);
+        if (bResp.ok) {
+          const bHtml = await bResp.text();
+          console.log(`[rona-lookup] Step 5: Got ${bHtml.length} bytes from Bing`);
+          // Bing embeds image URLs in "murl" (media URL) params
+          const murlPattern = /murl[&"]:\s*"(https?:\/\/[^"]+)"/gi;
+          let bm;
+          while ((bm = murlPattern.exec(bHtml)) !== null) {
+            const url = bm[1].replace(/\\u002f/gi, '/').replace(/\\u0026/gi, '&');
+            if (!url.includes('bing.com') && !url.includes('microsoft.com') && !imageUrls.includes(url)) {
+              imageUrls.push(url); strategyLog.push(`Bing img: ${url.substring(0, 80)}`);
+            }
+            if (imageUrls.length >= 5) break;
+          }
+          if (imageUrls.length === 0) {
+            const imgSrcPat = /src2?="(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/gi;
+            let bm2;
+            while ((bm2 = imgSrcPat.exec(bHtml)) !== null) {
+              const url = bm2[1];
+              if (!url.includes('bing.com') && !url.includes('microsoft.com') && !url.includes('gstatic') && !imageUrls.includes(url)) { imageUrls.push(url); if (imageUrls.length >= 5) break; }
+            }
+          }
+          if (imageUrls.length > 0) strategyUsed = 'bing-images';
+          if (!htmlSnippet) { htmlSnippet = bHtml.substring(0, 5000).replace(/</g, '&lt;').replace(/>/g, '&gt;'); htmlLength = bHtml.length; }
+        }
+      } catch (e: any) { strategyLog.push(`Bing Images error: ${e.message}`); console.log(`[rona-lookup] Step 5 error: ${e.message}`); }
+    }
+
+    const searchUrl = ronaProductUrl || ronaSearchUrl;
+
+    console.log(`[rona-lookup] Final: ${imageUrls.length} images via ${strategyUsed} for SKU: ${sku}`);
+    console.log(`[rona-lookup] Strategy log: ${strategyLog.join(' | ')}`);
+
+    return c.json({
+      success: imageUrls.length > 0,
+      sku,
+      searchUrl,
+      ronaSearchUrl,
+      imageUrls: imageUrls.slice(0, 10),
+      primaryImage: imageUrls[0] || null,
+      productData,
+      isProductPage: !!ronaProductUrl,
+      isSearchResults: !ronaProductUrl,
+      htmlLength,
+      htmlSnippet: htmlSnippet || 'No HTML captured',
+      strategyUsed,
+      strategyLog,
+    });
+
+  } catch (err: any) {
+    console.log(`[rona-lookup] Error: ${err.message}`);
+    return c.json({
+      success: false,
+      error: `Server error during Rona lookup: ${err.message}`,
     }, 500);
   }
 });

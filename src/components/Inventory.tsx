@@ -45,13 +45,12 @@ import { useDebounce } from '../utils/useDebounce';
 import { createClient } from '../utils/supabase/client';
 import { ensureUserProfile } from '../utils/ensure-profile';
 import { InventoryOptimizationBanner } from './InventoryOptimizationBanner';
-import { InventoryDuplicateCleaner } from './InventoryDuplicateCleaner';
 import { InventoryIndexFixer } from './InventoryIndexFixer';
 import { loadInventoryPage } from '../utils/inventory-loader';
 import { showOptimizationInstructions } from '../utils/show-optimization-instructions';
 import { getPriceTierLabel, isTierActive, getActiveTierNumbers } from '../lib/global-settings';
 import { InventoryDiagnostic } from './InventoryDiagnostic';
-import { InventoryImageBulkUpload } from './InventoryImageBulkUpload';
+
 
 interface InventoryProps {
   user: User;
@@ -1047,9 +1046,7 @@ export function Inventory({ user }: InventoryProps) {
                 <Badge className="ml-2 bg-red-100 text-red-700">{displayLowStockCount.toLocaleString()}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="bulk-upload" className="whitespace-nowrap">
-              Bulk Image Upload
-            </TabsTrigger>
+
             {(user.role === 'admin' || user.role === 'super_admin') && (
               <TabsTrigger value="diagnostic" className="whitespace-nowrap">
                 Diagnostic
@@ -1086,7 +1083,7 @@ export function Inventory({ user }: InventoryProps) {
                     </Button>
                     <Button
                       size="sm"
-                      onClick={handleDeepScan}
+                      onClick={handleRecoverInventory}
                       disabled={isRecovering}
                       className="bg-orange-600 hover:bg-orange-700"
                     >
@@ -1122,15 +1119,7 @@ export function Inventory({ user }: InventoryProps) {
             />
           )}
           
-          {/* Duplicate Cleaner — only shown for admin/super_admin; self-hides if no duplicates */}
-          {organizationId && (user.role === 'admin' || user.role === 'super_admin') && (
-            <InventoryDuplicateCleaner
-              organizationId={organizationId}
-              onCleanupComplete={() => {
-                loadInventory();
-              }}
-            />
-          )}
+
           
           {/* Filters */}
           <Card>
@@ -1720,17 +1709,7 @@ export function Inventory({ user }: InventoryProps) {
           </div>
         </TabsContent>
 
-        <TabsContent value="bulk-upload" className="space-y-4 mt-6">
-          {organizationId && (
-            <InventoryImageBulkUpload 
-              organizationId={organizationId} 
-              onComplete={() => {
-                loadInventory();
-                setActiveTab('items');
-              }}
-            />
-          )}
-        </TabsContent>
+
 
         {(user.role === 'admin' || user.role === 'super_admin') && (
           <TabsContent value="diagnostic" className="space-y-4 mt-6">
