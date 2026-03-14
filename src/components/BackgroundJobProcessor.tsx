@@ -214,12 +214,12 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
           : undefined,
       });
 
-      // Browser notification
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(`${dataType.charAt(0).toUpperCase() + dataType.slice(1)} Import Complete`, {
+      // Browser notification using unified utility
+      import('../utils/notifications').then(({ sendSystemNotification }) => {
+        sendSystemNotification(`${dataType.charAt(0).toUpperCase() + dataType.slice(1)} Import Complete`, {
           body: `Successfully imported ${successCount} ${dataTypeLabel}`,
         });
-      }
+      }).catch(() => {});
     } catch (error: any) {
       await supabase
         .from('scheduled_jobs')

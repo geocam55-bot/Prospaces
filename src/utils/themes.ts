@@ -743,7 +743,7 @@ export const saveThemeToDatabase = async (themeId: string, userId: string): Prom
 
 // Load theme from database for current user
 // NOTE: Uses localStorage as primary source; KV store as optional fallback
-export const loadThemeFromDatabase = async (userId: string): Promise<string | null> => {
+export const loadThemeFromDatabase = async (userId: string): Promise<{ theme: string | null, themeMode: string | null }> => {
   try {
     // When user is logged in, prioritize database over localStorage
     // This ensures theme persists across logout/login cycles
@@ -765,28 +765,29 @@ export const loadThemeFromDatabase = async (userId: string): Promise<string | nu
           if (data?.theme) {
             // Sync database theme to localStorage
             localStorage.setItem('prospace-theme', data.theme);
-            // Loaded theme from database
-            return data.theme;
+          }
+          if (data?.themeMode) {
+            localStorage.setItem('prospace-theme-mode', data.themeMode);
+          }
+          if (data?.theme || data?.themeMode) {
+            return { theme: data.theme || null, themeMode: data.themeMode || null };
           }
         }
       } catch (err) {
-        // Could not load theme from server, falling back to localStorage
         // Could not load theme from server, falling back to localStorage
       }
     }
     
     // Fallback to localStorage if database load fails or no session
     const localTheme = localStorage.getItem('prospace-theme');
-    if (localTheme) {
-      // Loaded theme from localStorage
-      // Loaded theme from localStorage
-      return localTheme;
+    const localMode = localStorage.getItem('prospace-theme-mode');
+    
+    if (localTheme || localMode) {
+      return { theme: localTheme, themeMode: localMode };
     }
     
-    return null;
+    return { theme: null, themeMode: null };
   } catch (error) {
-    // Error loading theme
-    // Error loading theme
-    return null;
+    return { theme: null, themeMode: null };
   }
 };

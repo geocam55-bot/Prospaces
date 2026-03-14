@@ -7,24 +7,20 @@
  * Register the service worker
  */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  // TEMPORARY: Disable service worker until deployment is fixed
-  // Service worker registration temporarily disabled
-  return null;
-  
-  // Don't even try in non-HTTPS or preview environments
+  // Don't even try in non-HTTPS or preview environments unless localhost
   const isHTTPS = window.location.protocol === 'https:';
   const isLocalhost = window.location.hostname === 'localhost' || 
                       window.location.hostname === '127.0.0.1';
-  const isFigmaPreview = window.location.hostname.includes('figma.site') ||
-                        window.location.hostname.includes('figmaiframepreview') ||
-                        window.location !== window.parent.location;
+  // Only block if we are actually running inside an iframe (like the Figma Make canvas)
+  // We want to allow service workers on the actual published site
+  const isIframe = window.location !== window.parent.location;
   
   // Service workers only work on HTTPS or localhost, and not in iframes
   if (!isHTTPS && !isLocalhost) {
     return null;
   }
   
-  if (isFigmaPreview) {
+  if (isIframe) {
     return null;
   }
 

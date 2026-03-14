@@ -676,7 +676,8 @@ app.get(`${PREFIX}/settings/theme`, async (c) => {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
     const theme = await kv.get(`user_theme:${auth.user.id}`);
-    return c.json({ theme: theme || null });
+    const themeMode = await kv.get(`user_theme_mode:${auth.user.id}`);
+    return c.json({ theme: theme || null, themeMode: themeMode || null });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
@@ -684,8 +685,9 @@ app.put(`${PREFIX}/settings/theme`, async (c) => {
   try {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
-    const { theme } = await c.req.json();
-    await kv.set(`user_theme:${auth.user.id}`, theme);
+    const body = await c.req.json();
+    if (body.theme) await kv.set(`user_theme:${auth.user.id}`, body.theme);
+    if (body.themeMode) await kv.set(`user_theme_mode:${auth.user.id}`, body.themeMode);
     return c.json({ success: true });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });

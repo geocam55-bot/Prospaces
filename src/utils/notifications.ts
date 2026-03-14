@@ -51,7 +51,19 @@ export async function sendSystemNotification(
 
   if (permission === 'granted') {
     try {
-      // Create and show the native notification
+      // 1. Try to use Service Worker to show notification (REQUIRED for iOS)
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration && 'showNotification' in registration) {
+          await registration.showNotification(title, {
+            icon: '/favicon.ico',
+            ...options,
+          });
+          return true;
+        }
+      }
+
+      // 2. Fallback to standard Notification constructor (Desktop / Android Chrome)
       const notification = new Notification(title, {
         icon: '/favicon.ico', // Default icon, can be overridden via options
         ...options,

@@ -145,13 +145,14 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
       );
 
       // Browser notification (if permitted)
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(`${dataTypeCapitalized} Import Complete`, {
+      // Attempt to send native notification using our shared utility
+      import('../utils/notifications').then(({ sendSystemNotification }) => {
+        sendSystemNotification(`${dataTypeCapitalized} Import Complete`, {
           body: `Successfully imported ${job.record_count || 0} ${dataTypeLabel}`,
           icon: '/favicon.svg',
           badge: '/favicon.svg'
         });
-      }
+      }).catch(() => {});
     } else if (job.status === 'failed') {
       toast.error(
         `❌ Import Failed`,

@@ -144,11 +144,48 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
   // Load theme from database on mount if user is logged in
   useEffect(() => {
     const loadUserTheme = async () => {
+      let activeMode = loadThemeMode();
+
       if (userId) {
         // Loading theme for user
-        const dbTheme = await loadThemeFromDatabase(userId);
-        if (dbTheme) {
-          // Loaded theme from database
+        const dbResult = await loadThemeFromDatabase(userId);
+        const dbTheme = dbResult.theme;
+        const dbMode = dbResult.themeMode as ThemeMode | null;
+        
+        if (dbMode && (dbMode === 'light' || dbMode === 'dark' || dbMode === 'system')) {
+          setThemeModeState(dbMode);
+          saveThemeModeToStorage(dbMode);
+          activeMode = dbMode;
+        }
+
+        // If the mode is system, we must respect the current device's system preference
+        // rather than blindly applying the last saved exact theme from DB.
+        if (activeMode === 'system') {
+          const systemPrefersDark = getSystemPrefersDark();
+          
+          // If the DB provided a theme and its light/dark nature matches the system preference, use it!
+          // This ensures cross-device sync of the specific theme works even in system mode.
+          let resolvedId = systemPrefersDark 
+            ? getPreferredThemeForMode('dark') 
+            : getPreferredThemeForMode('light');
+
+          if (dbTheme) {
+            const isDbThemeDark = getTheme(dbTheme).isDark;
+            if (isDbThemeDark === systemPrefersDark) {
+              resolvedId = dbTheme;
+            }
+          }
+          
+          setThemeId(resolvedId);
+          saveTheme(resolvedId);
+          
+          if (systemPrefersDark) {
+            savePreferredThemeForMode('dark', resolvedId);
+          } else {
+            savePreferredThemeForMode('light', resolvedId);
+          }
+        } else if (dbTheme) {
+          // Mode is 'light' or 'dark', and we have a specific theme from DB
           setThemeId(dbTheme);
           saveTheme(dbTheme); // Also save to localStorage
           // Track the preferred theme for current mode
@@ -166,7 +203,16 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
       } else {
         // No user ID, loading theme from localStorage
         const localTheme = loadTheme();
-        setThemeId(localTheme);
+        
+        if (activeMode === 'system') {
+          const systemPrefersDark = getSystemPrefersDark();
+          const resolvedId = systemPrefersDark 
+            ? getPreferredThemeForMode('dark') 
+            : getPreferredThemeForMode('light');
+          setThemeId(resolvedId);
+        } else {
+          setThemeId(localTheme);
+        }
       }
     };
     
