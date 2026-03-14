@@ -1111,7 +1111,7 @@ export function Inventory({ user }: InventoryProps) {
 
               <div className="space-y-4">
                 {/* Search Mode Toggle */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-medium text-gray-700">Search</h3>
                     {useAdvancedSearch && (
@@ -1121,7 +1121,7 @@ export function Inventory({ user }: InventoryProps) {
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
                     {useAdvancedSearch && (
                       <InventorySearchHelp onExampleClick={(query) => setSearchQuery(query)} />
                     )}
@@ -1143,8 +1143,8 @@ export function Inventory({ user }: InventoryProps) {
                   </div>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1 relative">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                  <div className="flex-1 relative min-w-0">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       placeholder={useAdvancedSearch 
@@ -1158,7 +1158,7 @@ export function Inventory({ user }: InventoryProps) {
                       }}
                       onFocus={() => setShowSuggestions(true)}
                       onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                      className="pl-10"
+                      className="pl-10 w-full min-w-0"
                     />
                     
                     {/* Search Suggestions */}
@@ -1173,16 +1173,16 @@ export function Inventory({ user }: InventoryProps) {
                               setShowSuggestions(false);
                             }}
                           >
-                            <Search className="h-3 w-3 inline mr-2 text-gray-400" />
-                            {suggestion}
+                            <Search className="h-3 w-3 inline mr-2 text-gray-400 shrink-0" />
+                            <span className="truncate">{suggestion}</span>
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
-                <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
+                <div className="flex flex-col xs:flex-row sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="flex-1 sm:w-48">
+                    <SelectTrigger className="w-full sm:w-48">
                       <SelectValue placeholder="Categories" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1193,7 +1193,7 @@ export function Inventory({ user }: InventoryProps) {
                     </SelectContent>
                   </Select>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="flex-1 sm:w-40">
+                    <SelectTrigger className="w-full sm:w-40">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1208,12 +1208,12 @@ export function Inventory({ user }: InventoryProps) {
               
               {/* Search Info */}
               {useAdvancedSearch && searchQuery && (
-                <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-md">
-                  <p className="text-sm text-purple-900">
-                    <Sparkles className="h-4 w-4 inline mr-1" />
+                <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-md overflow-hidden">
+                  <p className="text-sm text-purple-900 break-words">
+                    <Sparkles className="h-4 w-4 inline mr-1 shrink-0 align-text-bottom" />
                     <strong>AI Search Active:</strong> Using fuzzy matching, semantic understanding, and natural language processing
                   </p>
-                  <p className="text-xs text-purple-700 mt-1">
+                  <p className="text-xs text-purple-700 mt-1 break-words">
                     Try: "tools under $50" • "red paint" • "low stock items" • "screws or bolts" • "cheap materials"
                   </p>
                 </div>

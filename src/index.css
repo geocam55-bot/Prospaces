@@ -4888,6 +4888,10 @@
     vertical-align: middle;
   }
 
+  .align-text-bottom {
+    vertical-align: text-bottom;
+  }
+
   .font-mono {
     font-family: var(--font-mono);
   }
@@ -7970,6 +7974,12 @@
       --tw-space-x-reverse: 0;
       margin-inline-start: calc(calc(var(--spacing) * 4) * var(--tw-space-x-reverse));
       margin-inline-end: calc(calc(var(--spacing) * 4) * calc(1 - var(--tw-space-x-reverse)));
+    }
+  }
+
+  @media (width >= 40rem) {
+    .sm\:self-auto {
+      align-self: auto;
     }
   }
 
