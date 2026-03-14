@@ -915,15 +915,18 @@ export function Inventory({ user }: InventoryProps) {
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center justify-end gap-3">
-          <Button variant="outline" onClick={handleExportCSV}>
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 hidden sm:block">Inventory Management</h2>
+        <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto">
+          <Button variant="outline" onClick={handleExportCSV} className="flex-1 sm:flex-none">
+            <Download className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Export CSV</span>
+            <span className="sm:hidden ml-2">Export</span>
           </Button>
           {canAdd('inventory', user.role) && (
-          <Button onClick={() => handleOpenDialog()}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Item
+          <Button onClick={() => handleOpenDialog()} className="flex-1 sm:flex-none">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Add Item</span>
+            <span className="sm:hidden ml-2">Add</span>
           </Button>
           )}
         </div>
@@ -943,7 +946,7 @@ export function Inventory({ user }: InventoryProps) {
 
       {/* Scan Result Dialog */}
       <Dialog open={!!scanResult} onOpenChange={(open) => !open && setScanResult(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[80vh] flex flex-col p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {scanResult?.type === 'error' ? <AlertTriangle className="h-5 w-5 text-red-500" /> : <Sparkles className="h-5 w-5 text-blue-500" />}
@@ -958,13 +961,13 @@ export function Inventory({ user }: InventoryProps) {
               {scanResult?.message}
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setScanResult(null)}>Close</Button>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setScanResult(null)} className="w-full sm:w-auto">Close</Button>
             {scanResult?.action && (
               <Button onClick={() => {
                 scanResult.action?.();
                 setScanResult(null);
-              }}>
+              }} className="w-full sm:w-auto">
                 Proceed
               </Button>
             )}
@@ -1008,12 +1011,12 @@ export function Inventory({ user }: InventoryProps) {
                       Click the button to recover these items.
                     </p>
                   </div>
-                  <div className="flex gap-2 sm:flex-shrink-0">
+                  <div className="flex flex-col sm:flex-row gap-2 sm:flex-shrink-0 w-full sm:w-auto">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setActiveTab('diagnostic')}
-                      className="border-orange-400 text-orange-700 hover:bg-orange-100"
+                      className="border-orange-400 text-orange-700 hover:bg-orange-100 w-full sm:w-auto"
                     >
                       View Details
                     </Button>
@@ -1021,7 +1024,7 @@ export function Inventory({ user }: InventoryProps) {
                       size="sm"
                       onClick={handleRecoverInventory}
                       disabled={isRecovering}
-                      className="bg-orange-600 hover:bg-orange-700"
+                      className="bg-orange-600 hover:bg-orange-700 w-full sm:w-auto"
                     >
                       {isRecovering ? (
                         <>
@@ -1077,7 +1080,7 @@ export function Inventory({ user }: InventoryProps) {
                         onClick={handleRecoverInventory} 
                         disabled={isRecovering}
                         variant="default"
-                        className="bg-orange-600 hover:bg-orange-700 text-white shrink-0"
+                        className="bg-orange-600 hover:bg-orange-700 text-white shrink-0 w-full sm:w-auto"
                       >
                         {isRecovering ? (
                           <>
@@ -1099,7 +1102,7 @@ export function Inventory({ user }: InventoryProps) {
               {/* Manual Scan Button (only visible if list is empty and no banner) */}
               {!lostInventory?.found && items.length === 0 && (
                 <div className="mb-6 flex justify-end">
-                   <Button variant="outline" size="sm" onClick={handleManualScan} disabled={isRecovering}>
+                   <Button variant="outline" size="sm" onClick={handleManualScan} disabled={isRecovering} className="w-full sm:w-auto">
                       {isRecovering ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Search className="mr-2 h-3 w-3" />}
                       Deep Scan for Lost Items
                    </Button>
@@ -1145,7 +1148,7 @@ export function Inventory({ user }: InventoryProps) {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       placeholder={useAdvancedSearch 
-                        ? "Try: 'tools under $50', 'red paint in stock', 'screws or bolts'..." 
+                        ? "Try: 'tools under $50', 'red paint in stock'..." 
                         : "Search by name, SKU, or description..."
                       }
                       value={searchQuery}
@@ -1177,28 +1180,30 @@ export function Inventory({ user }: InventoryProps) {
                       </div>
                     )}
                   </div>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-full sm:w-48">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {categories.map(cat => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-48">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="discontinued">Discontinued</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="flex-1 sm:w-48">
+                      <SelectValue placeholder="Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categories.map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="flex-1 sm:w-40">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="discontinued">Discontinued</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
               {/* Search Info */}
@@ -1276,10 +1281,62 @@ export function Inventory({ user }: InventoryProps) {
                     ? 'border-red-300' 
                     : (item._searchScore && item._searchScore > 0.8 ? 'border-purple-200' : '')
                 }>
-                  <CardContent className="pt-6">
+                  <CardContent className="pt-4 sm:pt-6">
                     <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-                      {/* Product Image */}
-                      <div className="w-full lg:w-32 h-32 flex-shrink-0">
+                      {/* Product Header & Image Mobile Row */}
+                      <div className="flex gap-4 lg:hidden">
+                        {/* Mobile Image */}
+                        <div className="w-20 h-20 sm:w-32 sm:h-32 flex-shrink-0">
+                          {item.imageUrl ? (
+                            <img 
+                              src={item.imageUrl} 
+                              alt={item.name} 
+                              className="w-full h-full object-contain rounded border bg-gray-50" 
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center rounded border bg-gray-100">
+                              <ImageIcon className="h-8 w-8 sm:h-12 sm:w-12 text-gray-300" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Mobile Title & Basics */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="text-base sm:text-lg text-gray-900 font-medium truncate">{item.name}</h3>
+                            <div className="flex gap-1 shrink-0">
+                              {canChange('inventory', user.role) && (
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500" onClick={() => handleOpenDialog(item)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              )}
+                              {canDelete('inventory', user.role) && (
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(item.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-xs sm:text-sm text-gray-600 truncate mt-1">SKU: {item.sku}</p>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
+                              item.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
+                              item.status === 'inactive' ? 'bg-gray-50 text-gray-700 border-gray-200' :
+                              'bg-red-50 text-red-700 border-red-200'
+                            }`}>
+                              {item.status}
+                            </Badge>
+                            {item.quantityOnHand <= 0 && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-red-50 text-red-700 border-red-200">
+                                Out of Stock
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Desktop Image */}
+                      <div className="hidden lg:block w-32 h-32 flex-shrink-0">
                         {item.imageUrl ? (
                           <img 
                             src={item.imageUrl} 
@@ -1295,7 +1352,7 @@ export function Inventory({ user }: InventoryProps) {
                       
                       {/* Left Section - Item Info */}
                       <div className="flex-1">
-                        <div className="flex items-start justify-between">
+                        <div className="hidden lg:flex items-start justify-between">
                           <div>
                             <div className="flex items-center gap-2">
                               <h3 className="text-lg text-gray-900">{item.name}</h3>
@@ -1358,58 +1415,88 @@ export function Inventory({ user }: InventoryProps) {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+                        {/* Mobile Description & Matches */}
+                        <div className="lg:hidden mt-2">
+                          {item.description && (
+                            <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">{item.description}</p>
+                          )}
+                          {/* Search Match Indicators */}
+                          {useAdvancedSearch && item._matchType && searchQuery && (
+                            <Badge variant="outline" className={`mt-2 text-[10px] px-1.5 py-0 ${
+                              item._matchType === 'exact' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                              item._matchType === 'fuzzy' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                              item._matchType === 'semantic' ? 'bg-green-100 text-green-800 border-green-300' :
+                              'bg-gray-100 text-gray-800 border-gray-300'
+                            }`}>
+                              {item._matchType === 'exact' && '🎯 Exact'}
+                              {item._matchType === 'fuzzy' && '✨ Fuzzy'}
+                              {item._matchType === 'semantic' && '🧠 Smart'}
+                              {item._matchType === 'partial' && '📝 Match'}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-4 bg-gray-50 lg:bg-transparent p-3 lg:p-0 rounded-md">
                           <div>
-                            <p className="text-xs text-gray-500">Category</p>
-                            <p className="text-sm text-gray-900 mt-1">{item.category || 'N/A'}</p>
+                            <p className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Category</p>
+                            <p className="text-xs sm:text-sm text-gray-900 mt-0.5 truncate">{item.category || 'N/A'}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500">Quantity On Hand</p>
-                            <p className="text-sm text-gray-900 mt-1">
-                              {item.quantityOnHand} {item.unitOfMeasure}
+                            <p className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Qty On Hand</p>
+                            <p className="text-xs sm:text-sm text-gray-900 mt-0.5">
+                              <span className={item.quantityOnHand <= 0 ? "text-red-600 font-medium" : ""}>
+                                {item.quantityOnHand}
+                              </span> <span className="text-gray-500">{item.unitOfMeasure}</span>
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500">Reorder Level</p>
-                            <p className="text-sm text-gray-900 mt-1">{item.reorderLevel}</p>
+                            <p className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Reorder Lvl</p>
+                            <p className="text-xs sm:text-sm text-gray-900 mt-0.5">{item.reorderLevel}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500">Cost</p>
-                            <p className="text-sm text-gray-900 mt-1">${item.cost.toFixed(2)}</p>
+                            <p className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Cost</p>
+                            <p className="text-xs sm:text-sm text-gray-900 mt-0.5 font-medium">${item.cost.toFixed(2)}</p>
                           </div>
                         </div>
 
                         {/* Additional Details */}
-                        <div className="flex flex-wrap gap-4 mt-3">
+                        <div className="flex flex-wrap gap-2 sm:gap-4 mt-3">
                           {item.supplier && (
-                            <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
                               <Tag className="h-3 w-3" />
-                              Supplier: {item.supplier}
+                              <span className="truncate max-w-[100px] sm:max-w-none">{item.supplier}</span>
                             </div>
                           )}
                           {item.location && (
-                            <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
                               <MapPin className="h-3 w-3" />
-                              {item.location}
+                              <span className="truncate max-w-[100px] sm:max-w-none">{item.location}</span>
                             </div>
                           )}
                           {item.barcode && (
-                            <div className="flex items-center gap-1 text-xs text-gray-600">
+                            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
                               <Barcode className="h-3 w-3" />
-                              {item.barcode}
+                              <span className="truncate max-w-[100px] sm:max-w-none">{item.barcode}</span>
                             </div>
                           )}
                         </div>
                       </div>
 
                       {/* Right Section - Pricing Tiers */}
-                      <div className="lg:w-80 border-l-0 lg:border-l lg:pl-4">
-                        <p className="text-sm text-gray-700 mb-2">Price Tiers</p>
+                      <div className="lg:w-80 border-t lg:border-t-0 lg:border-l pt-4 lg:pt-0 lg:pl-4 mt-2 lg:mt-0">
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="text-xs sm:text-sm text-gray-700 font-medium lg:font-normal">Price Tiers</p>
+                          <div className="lg:hidden p-1 px-2 bg-blue-50 rounded text-[10px] sm:text-xs text-blue-700 font-medium">
+                            Margin: {item.cost > 0 ? ((item.priceTier1 - item.cost) / item.cost * 100).toFixed(1) : 0}%
+                          </div>
+                        </div>
                         {(() => {
                           const activeTiers = getActiveTierNumbers();
-                          const gridCols = activeTiers.length <= 2 ? 'grid-cols-2' : activeTiers.length === 3 ? 'grid-cols-3' : activeTiers.length === 4 ? 'grid-cols-4' : 'grid-cols-5';
+                          // Adjust grid columns based on screen size and number of tiers
+                          const gridCols = `grid-cols-${Math.min(activeTiers.length, 3)} sm:grid-cols-${Math.min(activeTiers.length, 5)}`;
+                          
                           return (
-                        <div className={`grid ${gridCols} gap-2`}>
+                        <div className={`grid ${gridCols} gap-1.5 sm:gap-2`}>
                           {activeTiers.map((tier) => {
                             const label = getPriceTierLabel(tier);
                             const tierValue = item[`priceTier${tier}` as keyof InventoryItem] as number;
@@ -1448,7 +1535,7 @@ export function Inventory({ user }: InventoryProps) {
           {/* Pagination */}
           {totalCount > itemsPerPage && (
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full sm:w-auto text-center sm:text-left">
                 <div className="text-sm text-gray-600">
                   Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} items
                 </div>
@@ -1456,7 +1543,7 @@ export function Inventory({ user }: InventoryProps) {
                   setItemsPerPage(Number(value));
                   setCurrentPage(1); // Reset to first page when changing items per page
                 }}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-[120px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1467,7 +1554,7 @@ export function Inventory({ user }: InventoryProps) {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-end">
                 <Button
                   variant="outline"
                   size="sm"
@@ -1610,25 +1697,25 @@ export function Inventory({ user }: InventoryProps) {
             ) : (
               lowStockItems.map(item => (
                 <Card key={item.id} className="border-red-300">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
+                  <CardContent className="pt-4 sm:pt-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <AlertTriangle className="h-5 w-5 text-red-600" />
-                          <h3 className="text-lg text-gray-900">{item.name}</h3>
-                          <Badge variant="outline" className="bg-red-50 text-red-700">
+                          <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+                          <h3 className="text-base sm:text-lg text-gray-900 truncate">{item.name}</h3>
+                          <Badge variant="outline" className="bg-red-50 text-red-700 shrink-0">
                             Out of Stock
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-600 mt-1">SKU: {item.sku}</p>
-                        <div className="flex gap-6 mt-3">
+                        <p className="text-sm text-gray-600 mt-1 truncate">SKU: {item.sku}</p>
+                        <div className="flex flex-wrap gap-4 sm:gap-6 mt-3">
                           <div>
                             <p className="text-xs text-gray-500">Current Stock</p>
                             <p className="text-sm text-red-600 font-medium mt-1">{item.quantityOnHand} {item.unitOfMeasure}</p>
                           </div>
                           <div>
                             <p className="text-xs text-gray-500">Category</p>
-                            <p className="text-sm text-gray-900 mt-1">{item.category || 'N/A'}</p>
+                            <p className="text-sm text-gray-900 mt-1 truncate max-w-[150px]">{item.category || 'N/A'}</p>
                           </div>
                           <div>
                             <p className="text-xs text-gray-500">Cost</p>
@@ -1636,7 +1723,7 @@ export function Inventory({ user }: InventoryProps) {
                           </div>
                         </div>
                       </div>
-                      <Button onClick={() => handleOpenDialog(item)}>Update Stock</Button>
+                      <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog(item)}>Update Stock</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -1656,7 +1743,7 @@ export function Inventory({ user }: InventoryProps) {
 
       {/* Add/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white" onPaste={handleImagePaste}>
+        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto bg-white p-4 sm:p-6" onPaste={handleImagePaste}>
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
             <DialogDescription>
@@ -1777,7 +1864,7 @@ export function Inventory({ user }: InventoryProps) {
             <div className="space-y-4">
               <h3 className="text-sm text-gray-900">Pricing (Multi-Tier)</h3>
               <p className="text-xs text-gray-500">Tier 1 is also used as the base Unit Price. Set each tier independently for tiered pricing.</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 <div>
                   <label className="text-sm text-gray-700">Cost (Base)</label>
                   <Input
@@ -1809,7 +1896,7 @@ export function Inventory({ user }: InventoryProps) {
             {/* Supplier Information */}
             <div className="space-y-4">
               <h3 className="text-sm text-gray-900">Supplier Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm text-gray-700">Supplier</label>
                   <Input
@@ -1840,7 +1927,7 @@ export function Inventory({ user }: InventoryProps) {
             {/* Additional Details */}
             <div className="space-y-4">
               <h3 className="text-sm text-gray-900">Additional Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm text-gray-700">Barcode/UPC</label>
                   <Input
@@ -1886,7 +1973,7 @@ export function Inventory({ user }: InventoryProps) {
                     placeholder="Enter department code"
                   />
                 </div>
-                <div className="md:col-span-3">
+                <div className="sm:col-span-2 md:col-span-3">
                   <label className="text-sm text-gray-700">Tags (comma-separated)</label>
                   <Input
                     value={formData.tags}
@@ -1894,7 +1981,7 @@ export function Inventory({ user }: InventoryProps) {
                     placeholder="e.g., electronics, featured, on-sale"
                   />
                 </div>
-                <div className="md:col-span-3">
+                <div className="sm:col-span-2 md:col-span-3">
                   <label className="text-sm text-gray-700">Notes</label>
                   <Textarea
                     value={formData.notes}
@@ -1969,11 +2056,11 @@ export function Inventory({ user }: InventoryProps) {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 mt-6 pt-6 border-t">
+            <Button variant="outline" onClick={() => setShowDialog(false)} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} className="w-full sm:w-auto">
               {editingItem ? 'Update Item' : 'Create Item'}
             </Button>
           </div>
