@@ -5950,6 +5950,14 @@
     user-select: none;
   }
 
+  .\[-ms-overflow-style\:none\] {
+    -ms-overflow-style: none;
+  }
+
+  .\[scrollbar-width\:none\] {
+    scrollbar-width: none;
+  }
+
   .fade-in, .fade-in-0 {
     --tw-enter-opacity: 0;
   }
@@ -7808,6 +7816,12 @@
   }
 
   @media (width >= 40rem) {
+    .sm\:w-fit {
+      width: fit-content;
+    }
+  }
+
+  @media (width >= 40rem) {
     .sm\:w-full {
       width: 100%;
     }
@@ -9407,6 +9421,10 @@
   .\[\&_tr\:last-child\]\:border-0 tr:last-child {
     border-style: var(--tw-border-style);
     border-width: 0;
+  }
+
+  .\[\&\:\:-webkit-scrollbar\]\:hidden::-webkit-scrollbar {
+    display: none;
   }
 
   .\[\&\:has\(\[aria-selected\]\)\]\:bg-accent:has([aria-selected]) {

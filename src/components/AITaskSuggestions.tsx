@@ -87,14 +87,14 @@ const MOTIVATIONAL_QUOTES = [
   { quote: "Opportunities don't happen. You create them.", author: "Chris Grosser" },
 ];
 
-// ─── Storage Keys ───
-const STORAGE_KEYS = {
-  dismissed: 'prospaces_ai_dismissed',
-  snoozed: 'prospaces_ai_snoozed',
-  completed: 'prospaces_ai_completed',
-  streak: 'prospaces_ai_streak',
-  lastActiveDate: 'prospaces_ai_last_active',
-};
+// ─── Storage Keys Helper ───
+const getStorageKeys = (userId: string) => ({
+  dismissed: `prospaces_ai_dismissed_${userId}`,
+  snoozed: `prospaces_ai_snoozed_${userId}`,
+  completed: `prospaces_ai_completed_${userId}`,
+  streak: `prospaces_ai_streak_${userId}`,
+  lastActiveDate: `prospaces_ai_last_active_${userId}`,
+});
 
 interface CompletedAction {
   id: string;
@@ -570,7 +570,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-full sm:w-fit overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <button
           onClick={() => setActiveTab('briefing')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
@@ -904,8 +904,8 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
           {/* Filter Tabs */}
           <Card>
             <CardContent className="pt-6">
-              <div className="overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0">
-                <div className="flex gap-2 min-w-max sm:min-w-0">
+              <div className="overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <div className="flex gap-2 min-w-max sm:min-w-0 pb-1">
                   <Button
                     variant={selectedFilter === 'all' ? 'default' : 'outline'}
                     size="sm"
@@ -1074,7 +1074,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                             </div>
                           </div>
                         </div>
-                        <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
+                        <div className="grid grid-cols-2 sm:flex sm:flex-col gap-2 w-full sm:w-auto">
                           <Button size="sm" className="flex-1 sm:flex-none whitespace-nowrap text-xs sm:text-sm" onClick={() => handleTakeAction(suggestion)}>
                             {getActionIcon(suggestion.actionType)}
                             <span className="ml-1 sm:ml-2">Take Action</span>
