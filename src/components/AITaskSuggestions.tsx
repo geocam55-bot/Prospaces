@@ -161,22 +161,23 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
   // ─── Load persisted state ───
   useEffect(() => {
     try {
-      const dismissed = localStorage.getItem(STORAGE_KEYS.dismissed);
+      const storageKeys = getStorageKeys(user.id);
+      const dismissed = localStorage.getItem(storageKeys.dismissed);
       if (dismissed) setDismissedIds(JSON.parse(dismissed));
 
-      const snoozed = localStorage.getItem(STORAGE_KEYS.snoozed);
+      const snoozed = localStorage.getItem(storageKeys.snoozed);
       if (snoozed) {
         const items: SnoozedItem[] = JSON.parse(snoozed);
         // Filter out expired snoozes
         const active = items.filter(s => new Date(s.snoozeUntil) > new Date());
         setSnoozedItems(active);
-        localStorage.setItem(STORAGE_KEYS.snoozed, JSON.stringify(active));
+        localStorage.setItem(storageKeys.snoozed, JSON.stringify(active));
       }
 
-      const completed = localStorage.getItem(STORAGE_KEYS.completed);
+      const completed = localStorage.getItem(storageKeys.completed);
       if (completed) setCompletedActions(JSON.parse(completed));
 
-      const streak = localStorage.getItem(STORAGE_KEYS.streak);
+      const streak = localStorage.getItem(storageKeys.streak);
       if (streak) {
         const data: StreakData = JSON.parse(streak);
         // Check if streak is still active (last active was yesterday or today)
@@ -201,7 +202,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
     } catch (e) {
       // Failed to load AI suggestions state
     }
-  }, []);
+  }, [user.id]);
 
   // ─── Time-based greeting ───
   const greeting = useMemo(() => {
@@ -278,6 +279,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
 
   // ─── Streak management ───
   const updateStreak = useCallback((actionTitle: string, actionType: string) => {
+    const storageKeys = getStorageKeys(user.id);
     setStreakData(prev => {
       const today = new Date().toDateString();
       const lastActive = prev.lastActiveDate ? new Date(prev.lastActiveDate).toDateString() : '';
@@ -304,7 +306,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
         lastActiveDate: new Date().toISOString(),
       };
 
-      localStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(updated));
+      localStorage.setItem(storageKeys.streak, JSON.stringify(updated));
       return updated;
     });
 
@@ -318,10 +320,10 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
     };
     setCompletedActions(prev => {
       const updated = [newCompleted, ...prev].slice(0, 50); // Keep last 50
-      localStorage.setItem(STORAGE_KEYS.completed, JSON.stringify(updated));
+      localStorage.setItem(storageKeys.completed, JSON.stringify(updated));
       return updated;
     });
-  }, []);
+  }, [user.id]);
 
   // ─── Handlers ───
   const getPriorityIcon = (priority: string) => {
@@ -472,9 +474,10 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
   };
 
   const handleDismissSuggestion = (suggestionId: string) => {
+    const storageKeys = getStorageKeys(user.id);
     setDismissedIds(prev => {
       const updated = [...prev, suggestionId];
-      localStorage.setItem(STORAGE_KEYS.dismissed, JSON.stringify(updated));
+      localStorage.setItem(storageKeys.dismissed, JSON.stringify(updated));
       return updated;
     });
     toast.success('Suggestion dismissed');
@@ -488,6 +491,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
   const confirmSnooze = () => {
     if (!selectedSuggestion) return;
     
+    const storageKeys = getStorageKeys(user.id);
     const snoozeUntil = new Date();
     snoozeUntil.setHours(snoozeUntil.getHours() + parseInt(snoozeHours));
     
@@ -499,7 +503,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
 
     setSnoozedItems(prev => {
       const updated = [...prev, newSnoozed];
-      localStorage.setItem(STORAGE_KEYS.snoozed, JSON.stringify(updated));
+      localStorage.setItem(storageKeys.snoozed, JSON.stringify(updated));
       return updated;
     });
 
@@ -525,8 +529,9 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
   };
 
   const handleClearHistory = () => {
+    const storageKeys = getStorageKeys(user.id);
     setCompletedActions([]);
-    localStorage.setItem(STORAGE_KEYS.completed, JSON.stringify([]));
+    localStorage.setItem(storageKeys.completed, JSON.stringify([]));
     toast.success('Action history cleared');
   };
 
@@ -993,8 +998,9 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                         variant="outline" 
                         size="sm" 
                         onClick={() => {
+                          const storageKeys = getStorageKeys(user.id);
                           setDismissedIds([]);
-                          localStorage.setItem(STORAGE_KEYS.dismissed, JSON.stringify([]));
+                          localStorage.setItem(storageKeys.dismissed, JSON.stringify([]));
                           toast.success('All dismissed suggestions restored');
                         }}
                       >

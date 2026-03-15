@@ -107,7 +107,8 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
   useEffect(() => {
     if (!aiEnabled) return;
 
-    const lastShown = localStorage.getItem(STORAGE_KEY_SHOWN);
+    const storageKeyShown = `${STORAGE_KEY_SHOWN}_${user.id}`;
+    const lastShown = localStorage.getItem(storageKeyShown);
     const today = new Date().toDateString();
 
     if (lastShown !== today) {
@@ -115,17 +116,18 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
       const timer = setTimeout(() => {
         if (!isLoading) {
           setIsVisible(true);
-          localStorage.setItem(STORAGE_KEY_SHOWN, today);
+          localStorage.setItem(storageKeyShown, today);
         }
       }, 1500); // Brief delay so dashboard loads first
       return () => clearTimeout(timer);
     }
-  }, [isLoading, aiEnabled]);
+  }, [isLoading, aiEnabled, user.id]);
 
   // Load streak data
   useEffect(() => {
     try {
-      const streak = localStorage.getItem(STORAGE_KEY_STREAK);
+      const storageKeyStreak = `${STORAGE_KEY_STREAK}_${user.id}`;
+      const streak = localStorage.getItem(storageKeyStreak);
       if (streak) {
         const data: StreakData = JSON.parse(streak);
         const lastActive = new Date(data.lastActiveDate);
@@ -148,18 +150,19 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
     } catch (e) {
       // Failed to load streak data – non-critical
     }
-  }, []);
+  }, [user.id]);
 
   // Filter out dismissed suggestions
   const activeSuggestions = useMemo(() => {
     try {
-      const dismissed = localStorage.getItem(STORAGE_KEY_DISMISSED);
+      const storageKeyDismissed = `${STORAGE_KEY_DISMISSED}_${user.id}`;
+      const dismissed = localStorage.getItem(storageKeyDismissed);
       const dismissedIds: string[] = dismissed ? JSON.parse(dismissed) : [];
       return suggestions.filter(s => !dismissedIds.includes(s.id));
     } catch {
       return suggestions;
     }
-  }, [suggestions]);
+  }, [suggestions, user.id]);
 
   // Time-based greeting
   const greeting = useMemo(() => {
