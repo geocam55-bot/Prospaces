@@ -171,6 +171,11 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     const lShapeLength = isLShape ? config.lShapeLength * scale : 0;
     const lShapePosition = config.lShapePosition || 'top-left';
     
+    const isUShape = config.shape === 'u-shape';
+    const uLeftWidth = isUShape ? (config.uShapeLeftWidth || 6) * scale : 0;
+    const uRightWidth = isUShape ? (config.uShapeRightWidth || 6) * scale : 0;
+    const uDepth = isUShape ? (config.uShapeDepth || 8) * scale : 0;
+    
     // Procedural textures
     const grassTex = createGrassTexture();
     const sidingTex = createSidingTexture();
@@ -378,6 +383,48 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
       const lDeckLines = new LineSegments(lDeckEdges, edgesMaterial);
       lDeckLines.position.copy(lDeck.position);
       scene.add(lDeckLines);
+    } else if (isUShape) {
+      // Main deck section
+      const mainDeckGeometry = new BoxGeometry(deckWidth, 0.15, deckLength);
+      const mainDeck = new Mesh(mainDeckGeometry, deckMaterial);
+      mainDeck.position.set(0, 0.075, 0);
+      mainDeck.castShadow = true;
+      mainDeck.receiveShadow = true;
+      scene.add(mainDeck);
+
+      // Left arm
+      const leftArmGeo = new BoxGeometry(uLeftWidth, 0.15, uDepth);
+      const leftArm = new Mesh(leftArmGeo, deckMaterial);
+      leftArm.position.set(-deckWidth/2 + uLeftWidth/2, 0.075, deckLength/2 + uDepth/2);
+      leftArm.castShadow = true;
+      leftArm.receiveShadow = true;
+      scene.add(leftArm);
+
+      // Right arm
+      const rightArmGeo = new BoxGeometry(uRightWidth, 0.15, uDepth);
+      const rightArm = new Mesh(rightArmGeo, deckMaterial);
+      rightArm.position.set(deckWidth/2 - uRightWidth/2, 0.075, deckLength/2 + uDepth/2);
+      rightArm.castShadow = true;
+      rightArm.receiveShadow = true;
+      scene.add(rightArm);
+
+      // Add edges
+      const edgesMaterial = new LineBasicMaterial({ color: 0x5a4a3a, linewidth: 2 });
+      
+      const mainDeckEdges = new EdgesGeometry(mainDeckGeometry);
+      const mainDeckLines = new LineSegments(mainDeckEdges, edgesMaterial);
+      mainDeckLines.position.copy(mainDeck.position);
+      scene.add(mainDeckLines);
+
+      const lArmEdges = new EdgesGeometry(leftArmGeo);
+      const lArmLines = new LineSegments(lArmEdges, edgesMaterial);
+      lArmLines.position.copy(leftArm.position);
+      scene.add(lArmLines);
+
+      const rArmEdges = new EdgesGeometry(rightArmGeo);
+      const rArmLines = new LineSegments(rArmEdges, edgesMaterial);
+      rArmLines.position.copy(rightArm.position);
+      scene.add(rArmLines);
     } else {
       // Regular rectangular deck
       const deckGeometry = new BoxGeometry(deckWidth, 0.15, deckLength);
@@ -445,6 +492,32 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
         }
         
         board.position.set(boardX, 0.165, boardZ);
+        scene.add(board);
+      }
+    } else if (isUShape) {
+      // Left arm boards
+      const numLeftBoards = Math.floor(uDepth / (deckBoardWidth + deckingSpacing));
+      for (let i = 0; i < numLeftBoards; i++) {
+        const boardGeometry = new BoxGeometry(uLeftWidth * 0.98, 0.03, deckBoardWidth - deckingSpacing);
+        const board = new Mesh(boardGeometry, boardMaterial);
+        board.position.set(
+          -deckWidth/2 + uLeftWidth/2,
+          0.165,
+          deckLength/2 + i * (deckBoardWidth + deckingSpacing) + deckBoardWidth/2
+        );
+        scene.add(board);
+      }
+      
+      // Right arm boards
+      const numRightBoards = Math.floor(uDepth / (deckBoardWidth + deckingSpacing));
+      for (let i = 0; i < numRightBoards; i++) {
+        const boardGeometry = new BoxGeometry(uRightWidth * 0.98, 0.03, deckBoardWidth - deckingSpacing);
+        const board = new Mesh(boardGeometry, boardMaterial);
+        board.position.set(
+          deckWidth/2 - uRightWidth/2,
+          0.165,
+          deckLength/2 + i * (deckBoardWidth + deckingSpacing) + deckBoardWidth/2
+        );
         scene.add(board);
       }
     }
@@ -519,6 +592,17 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
           );
           break;
       }
+    } else if (isUShape) {
+      postPositions = [
+        [-deckWidth/2 + 0.3, 0, -deckLength/2 + 0.3], // main top left
+        [deckWidth/2 - 0.3, 0, -deckLength/2 + 0.3],  // main top right
+        [-deckWidth/2 + 0.3, 0, deckLength/2 - 0.3],  // main bottom left inner
+        [deckWidth/2 - 0.3, 0, deckLength/2 - 0.3],   // main bottom right inner
+        [-deckWidth/2 + 0.3, 0, deckLength/2 + uDepth - 0.3], // left arm bottom left
+        [-deckWidth/2 + uLeftWidth - 0.3, 0, deckLength/2 + uDepth - 0.3], // left arm bottom right
+        [deckWidth/2 - 0.3, 0, deckLength/2 + uDepth - 0.3], // right arm bottom right
+        [deckWidth/2 - uRightWidth + 0.3, 0, deckLength/2 + uDepth - 0.3], // right arm bottom left
+      ];
     } else {
       // Regular rectangular deck
       postPositions = [
@@ -558,14 +642,14 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
         switch (lShapePosition) {
           case 'top-right':
             segments.push({ x1: deckWidth/2 + lShapeWidth, z1: -deckLength/2, x2: deckWidth/2 + lShapeWidth, z2: -deckLength/2 + lShapeLength, side: 'right', part: 'l-shape' });
-            segments.push({ x1: deckWidth/2 + lShapeWidth, z1: -deckLength/2 + lShapeLength, x2: deckWidth/2, z2: -deckLength/2 + lShapeLength, side: 'right', part: 'l-shape', isConnection: true });
+            segments.push({ x1: deckWidth/2 + lShapeWidth, z1: -deckLength/2 + lShapeLength, x2: deckWidth/2, z2: -deckLength/2 + lShapeLength, side: 'front', part: 'l-shape' });
             segments.push({ x1: deckWidth/2, z1: -deckLength/2 + lShapeLength, x2: deckWidth/2, z2: deckLength/2, side: 'right', part: 'main' });
             segments.push({ x1: deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: deckLength/2, side: 'front', part: 'main' });
             segments.push({ x1: -deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: -deckLength/2, side: 'left', part: 'main' });
             break;
           case 'bottom-right':
             segments.push({ x1: deckWidth/2, z1: -deckLength/2, x2: deckWidth/2, z2: deckLength/2 - lShapeLength, side: 'right', part: 'main' });
-            segments.push({ x1: deckWidth/2, z1: deckLength/2 - lShapeLength, x2: deckWidth/2 + lShapeWidth, z2: deckLength/2 - lShapeLength, side: 'right', part: 'main', isConnection: true });
+            segments.push({ x1: deckWidth/2, z1: deckLength/2 - lShapeLength, x2: deckWidth/2 + lShapeWidth, z2: deckLength/2 - lShapeLength, side: 'back', part: 'l-shape' });
             segments.push({ x1: deckWidth/2 + lShapeWidth, z1: deckLength/2 - lShapeLength, x2: deckWidth/2 + lShapeWidth, z2: deckLength/2, side: 'right', part: 'l-shape' });
             segments.push({ x1: deckWidth/2 + lShapeWidth, z1: deckLength/2, x2: deckWidth/2, z2: deckLength/2, side: 'front', part: 'l-shape' });
             segments.push({ x1: deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: deckLength/2, side: 'front', part: 'main' });
@@ -576,7 +660,7 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
             segments.push({ x1: deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: deckLength/2, side: 'front', part: 'main' });
             segments.push({ x1: -deckWidth/2, z1: deckLength/2, x2: -deckWidth/2 - lShapeWidth, z2: deckLength/2, side: 'front', part: 'l-shape' });
             segments.push({ x1: -deckWidth/2 - lShapeWidth, z1: deckLength/2, x2: -deckWidth/2 - lShapeWidth, z2: deckLength/2 - lShapeLength, side: 'left', part: 'l-shape' });
-            segments.push({ x1: -deckWidth/2 - lShapeWidth, z1: deckLength/2 - lShapeLength, x2: -deckWidth/2, z2: deckLength/2 - lShapeLength, side: 'left', part: 'main', isConnection: true });
+            segments.push({ x1: -deckWidth/2 - lShapeWidth, z1: deckLength/2 - lShapeLength, x2: -deckWidth/2, z2: deckLength/2 - lShapeLength, side: 'back', part: 'l-shape' });
             segments.push({ x1: -deckWidth/2, z1: deckLength/2 - lShapeLength, x2: -deckWidth/2, z2: -deckLength/2, side: 'left', part: 'main' });
             break;
           case 'top-left':
@@ -584,11 +668,22 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
             segments.push({ x1: deckWidth/2, z1: -deckLength/2, x2: deckWidth/2, z2: deckLength/2, side: 'right', part: 'main' });
             segments.push({ x1: deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: deckLength/2, side: 'front', part: 'main' });
             segments.push({ x1: -deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: -deckLength/2 + lShapeLength, side: 'left', part: 'main' });
-            segments.push({ x1: -deckWidth/2, z1: -deckLength/2 + lShapeLength, x2: -deckWidth/2 - lShapeWidth, z2: -deckLength/2 + lShapeLength, side: 'left', part: 'l-shape', isConnection: true });
+            segments.push({ x1: -deckWidth/2, z1: -deckLength/2 + lShapeLength, x2: -deckWidth/2 - lShapeWidth, z2: -deckLength/2 + lShapeLength, side: 'front', part: 'l-shape' });
             segments.push({ x1: -deckWidth/2 - lShapeWidth, z1: -deckLength/2 + lShapeLength, x2: -deckWidth/2 - lShapeWidth, z2: -deckLength/2, side: 'left', part: 'l-shape' });
             break;
         }
-        // Exclude back (house side) for L-shapes which isn't explicitly drawn above anyway
+      } else if (isUShape) {
+        // u-shape: arms extend forward (+z) from the main deck
+        // Right arm
+        segments.push({ x1: deckWidth/2, z1: -deckLength/2, x2: deckWidth/2, z2: deckLength/2 + uDepth, side: 'right', part: 'u-right' });
+        segments.push({ x1: deckWidth/2, z1: deckLength/2 + uDepth, x2: deckWidth/2 - uRightWidth, z2: deckLength/2 + uDepth, side: 'front', part: 'u-right' });
+        segments.push({ x1: deckWidth/2 - uRightWidth, z1: deckLength/2 + uDepth, x2: deckWidth/2 - uRightWidth, z2: deckLength/2, side: 'left', part: 'u-right' });
+        // Main deck front gap between arms
+        segments.push({ x1: deckWidth/2 - uRightWidth, z1: deckLength/2, x2: -deckWidth/2 + uLeftWidth, z2: deckLength/2, side: 'front', part: 'main' });
+        // Left arm
+        segments.push({ x1: -deckWidth/2 + uLeftWidth, z1: deckLength/2, x2: -deckWidth/2 + uLeftWidth, z2: deckLength/2 + uDepth, side: 'right', part: 'u-left' });
+        segments.push({ x1: -deckWidth/2 + uLeftWidth, z1: deckLength/2 + uDepth, x2: -deckWidth/2, z2: deckLength/2 + uDepth, side: 'front', part: 'u-left' });
+        segments.push({ x1: -deckWidth/2, z1: deckLength/2 + uDepth, x2: -deckWidth/2, z2: -deckLength/2, side: 'left', part: 'u-left' });
       } else {
         // Main rectangle
         segments.push({ x1: deckWidth/2, z1: -deckLength/2, x2: deckWidth/2, z2: deckLength/2, side: 'right', part: 'main' });
@@ -600,8 +695,8 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     };
 
     // Railings - Complete perimeter excluding house side (back) and stairs
-    if (isLShape) {
-      // For L-shaped decks, calculate complete outer perimeter
+    // Draw railings using outer perimeter segments for all deck shapes
+    {
       const railingHeight = (config.railingHeight || 42) / 12 * scale;
       
       const deckSurfaceY = 0.15;
@@ -824,232 +919,6 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
           }
         }
       });
-    } else {
-      // Rectangular deck - Complete perimeter excluding house side (back) and stairs
-      const railingHeight = (config.railingHeight || 42) / 12 * scale;
-      
-      const deckSurfaceY = 0.15;
-      const bottomGap = (2 / 12) * scale;
-      const railThickness = 0.05;
-      
-      const topRailY = deckSurfaceY + railingHeight - railThickness/2;
-      const bottomRailY = deckSurfaceY + bottomGap + railThickness/2;
-      
-      const balusterTopY = topRailY - railThickness/2;
-      const balusterBottomY = bottomRailY + railThickness/2;
-      const balusterLength = balusterTopY - balusterBottomY;
-      const balusterCenterY = (balusterTopY + balusterBottomY) / 2;
-      
-      const postExtraHeight = (2 / 12) * scale;
-      const postHeight = railingHeight + postExtraHeight;
-      const postY = postHeight / 2 + deckSurfaceY;
-
-      const railingMaterial = new MeshStandardMaterial({ 
-        color: 0xffffff,
-        roughness: 0.3,
-        metalness: 0.2
-      });
-
-      const postGeometry = new BoxGeometry(postSize, postHeight, postSize);
-      const postMaterial = new MeshStandardMaterial({ 
-        color: 0xe8e8e8,
-        roughness: 0.4,
-        metalness: 0.1
-      });
-
-      // Define perimeter segments excluding back (house side)
-      const sides = [
-        { name: 'right', x1: deckWidth/2, z1: -deckLength/2, x2: deckWidth/2, z2: deckLength/2 },
-        { name: 'front', x1: deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: deckLength/2 },
-        { name: 'left', x1: -deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: -deckLength/2 }
-        // 'back' excluded (house side)
-      ];
-
-      sides.forEach(side => {
-        const segLength = Math.sqrt((side.x2 - side.x1) ** 2 + (side.z2 - side.z1) ** 2);
-        const centerX = (side.x1 + side.x2) / 2;
-        const centerZ = (side.z1 + side.z2) / 2;
-        const angle = Math.atan2(side.z2 - side.z1, side.x2 - side.x1);
-        
-        const stairWidth = (config.stairWidth || 4) * scale;
-        const activeStairPart = config.stairPart || 'main';
-        const hasStairsOnThisSide = config.hasStairs && config.stairSide === side.name && activeStairPart === 'main';
-        
-        if (segLength > 0.1) {
-          if (hasStairsOnThisSide) {
-            // Split railing into two sections around stairs
-            const gapHalfWidth = stairWidth / 2;
-            const segmentVector = { x: side.x2 - side.x1, z: side.z2 - side.z1 };
-            const segmentLength = Math.sqrt(segmentVector.x ** 2 + segmentVector.z ** 2);
-            const unitVector = { x: segmentVector.x / segmentLength, z: segmentVector.z / segmentLength };
-            
-            // Calculate center of segment for stair placement based on offset
-            const defaultOffsetMeters = (segmentLength - stairWidth) / 2;
-            const userOffsetMeters = config.stairOffset !== undefined ? config.stairOffset * scale : defaultOffsetMeters;
-            
-            // Clamp the offset to ensure stairs don't hang off the edge
-            const clampedOffset = Math.max(0, Math.min(userOffsetMeters, segmentLength - stairWidth));
-            const stairCenterDist = clampedOffset + stairWidth / 2;
-
-            const centerPt = { 
-              x: side.x1 + unitVector.x * stairCenterDist, 
-              z: side.z1 + unitVector.z * stairCenterDist 
-            };
-            
-            // Left section (from side.x1,z1 to center - gap)
-            const leftEndPt = { 
-              x: centerPt.x - unitVector.x * gapHalfWidth, 
-              z: centerPt.z - unitVector.z * gapHalfWidth 
-            };
-            const leftLength = Math.sqrt((leftEndPt.x - side.x1) ** 2 + (leftEndPt.z - side.z1) ** 2);
-            
-            // Right section (from center + gap to side.x2,z2)
-            const rightStartPt = { 
-              x: centerPt.x + unitVector.x * gapHalfWidth, 
-              z: centerPt.z + unitVector.z * gapHalfWidth 
-            };
-            const rightLength = Math.sqrt((side.x2 - rightStartPt.x) ** 2 + (side.z2 - rightStartPt.z) ** 2);
-            
-            // Draw left section
-            if (leftLength > 0.2) {
-              const leftCenterX = (side.x1 + leftEndPt.x) / 2;
-              const leftCenterZ = (side.z1 + leftEndPt.z) / 2;
-              
-              const topRailGeometry = new BoxGeometry(leftLength, 0.05, 0.05);
-              const topRail = new Mesh(topRailGeometry, railingMaterial);
-              topRail.position.set(leftCenterX, topRailY, leftCenterZ);
-              topRail.rotation.y = angle;
-              topRail.castShadow = true;
-              scene.add(topRail);
-              
-              const bottomRail = new Mesh(topRailGeometry.clone(), railingMaterial);
-              bottomRail.position.set(leftCenterX, bottomRailY, leftCenterZ);
-              bottomRail.rotation.y = angle;
-              scene.add(bottomRail);
-
-              // Balusters for left section
-              const balusterSpacing = 0.15;
-              const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
-              const numBalusters = Math.floor(leftLength / balusterSpacing);
-
-              for (let i = 0; i < numBalusters; i++) {
-                const t = i / (numBalusters - 1 || 1);
-                const balX = side.x1 + (leftEndPt.x - side.x1) * t;
-                const balZ = side.z1 + (leftEndPt.z - side.z1) * t;
-                const baluster = new Mesh(balusterGeometry, railingMaterial);
-                baluster.position.set(balX, balusterCenterY, balZ);
-                scene.add(baluster);
-              }
-
-              // Posts for left section (including end post at gap)
-              const maxPostSpacing = 8 * scale;
-              const numSpaces = Math.ceil(leftLength / maxPostSpacing);
-              const numPosts = numSpaces + 1;
-
-              for (let i = 0; i < numPosts; i++) {
-                const t = i / numSpaces;
-                const postX = side.x1 + (leftEndPt.x - side.x1) * t;
-                const postZ = side.z1 + (leftEndPt.z - side.z1) * t;
-                const post = new Mesh(postGeometry, postMaterial);
-                post.position.set(postX, postY, postZ);
-                post.castShadow = true;
-                scene.add(post);
-              }
-            }
-            
-            // Draw right section
-            if (rightLength > 0.2) {
-              const rightCenterX = (rightStartPt.x + side.x2) / 2;
-              const rightCenterZ = (rightStartPt.z + side.z2) / 2;
-              
-              const topRailGeometry = new BoxGeometry(rightLength, 0.05, 0.05);
-              const topRail = new Mesh(topRailGeometry, railingMaterial);
-              topRail.position.set(rightCenterX, topRailY, rightCenterZ);
-              topRail.rotation.y = angle;
-              topRail.castShadow = true;
-              scene.add(topRail);
-              
-              const bottomRail = new Mesh(topRailGeometry.clone(), railingMaterial);
-              bottomRail.position.set(rightCenterX, bottomRailY, rightCenterZ);
-              bottomRail.rotation.y = angle;
-              scene.add(bottomRail);
-
-              // Balusters for right section
-              const balusterSpacing = 0.15;
-              const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
-              const numBalusters = Math.floor(rightLength / balusterSpacing);
-
-              for (let i = 0; i < numBalusters; i++) {
-                const t = i / (numBalusters - 1 || 1);
-                const balX = rightStartPt.x + (side.x2 - rightStartPt.x) * t;
-                const balZ = rightStartPt.z + (side.z2 - rightStartPt.z) * t;
-                const baluster = new Mesh(balusterGeometry, railingMaterial);
-                baluster.position.set(balX, balusterCenterY, balZ);
-                scene.add(baluster);
-              }
-
-              // Posts for right section (including start post at gap)
-              const maxPostSpacing = 8 * scale;
-              const numSpaces = Math.ceil(rightLength / maxPostSpacing);
-              const numPosts = numSpaces + 1;
-
-              for (let i = 0; i < numPosts; i++) {
-                const t = i / numSpaces;
-                const postX = rightStartPt.x + (side.x2 - rightStartPt.x) * t;
-                const postZ = rightStartPt.z + (side.z2 - rightStartPt.z) * t;
-                const post = new Mesh(postGeometry, postMaterial);
-                post.position.set(postX, postY, postZ);
-                post.castShadow = true;
-                scene.add(post);
-              }
-            }
-          } else {
-            // No stairs on this side - full length railing
-            // Top rail
-            const topRailGeometry = new BoxGeometry(segLength, 0.05, 0.05);
-            const topRail = new Mesh(topRailGeometry, railingMaterial);
-            topRail.position.set(centerX, topRailY, centerZ);
-            topRail.rotation.y = angle;
-            topRail.castShadow = true;
-            scene.add(topRail);
-            
-            // Bottom rail
-            const bottomRail = new Mesh(topRailGeometry.clone(), railingMaterial);
-            bottomRail.position.set(centerX, bottomRailY, centerZ);
-            bottomRail.rotation.y = angle;
-            scene.add(bottomRail);
-
-            // Balusters
-            const balusterSpacing = 0.15;
-            const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
-            const numBalusters = Math.floor(segLength / balusterSpacing);
-
-            for (let i = 0; i < numBalusters; i++) {
-              const t = i / (numBalusters - 1 || 1);
-              const balX = side.x1 + (side.x2 - side.x1) * t;
-              const balZ = side.z1 + (side.z2 - side.z1) * t;
-              const baluster = new Mesh(balusterGeometry, railingMaterial);
-              baluster.position.set(balX, balusterCenterY, balZ);
-              scene.add(baluster);
-            }
-
-            // Posts along segment
-            const maxPostSpacing = 8 * scale;
-            const numSpaces = Math.ceil(segLength / maxPostSpacing);
-            const numPosts = numSpaces + 1;
-
-            for (let i = 0; i < numPosts; i++) {
-              const t = i / numSpaces;
-              const postX = side.x1 + (side.x2 - side.x1) * t;
-              const postZ = side.z1 + (side.z2 - side.z1) * t;
-              const post = new Mesh(postGeometry, postMaterial);
-              post.position.set(postX, postY, postZ);
-              post.castShadow = true;
-              scene.add(post);
-            }
-          }
-        }
-      });
     }
 
     // Stairs (if configured)
@@ -1085,9 +954,13 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
         stairBaseX = stairSegment.x1 + unitVector.x * stairCenterDist;
         stairBaseZ = stairSegment.z1 + unitVector.z * stairCenterDist;
         
-        // Calculate rotation based on normal vector facing OUTWARD
-        const angle = Math.atan2(stairSegment.z2 - stairSegment.z1, stairSegment.x2 - stairSegment.x1);
-        stairRotation = angle - Math.PI / 2; // Perpendicular facing out
+        // Calculate outward normal and exact rotation
+        const dx = stairSegment.x2 - stairSegment.x1;
+        const dz = stairSegment.z2 - stairSegment.z1;
+        const len = Math.sqrt(dx*dx + dz*dz);
+        const nx = dz / len;
+        const nz = -dx / len;
+        stairRotation = Math.atan2(nx, nz);
       } else {
         // Fallback if segment not found
         stairBaseZ = deckLength/2;
