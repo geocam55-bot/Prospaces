@@ -449,17 +449,7 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
       }
     }
 
-    // Concrete walkway / driveway (contextual element)
-    const drivewayGeom = new BoxGeometry(deckWidth * 0.35, 0.04, deckLength * 0.3 + 2);
-    const drivewayMat = new MeshStandardMaterial({ 
-      color: 0xb5ad9e, 
-      roughness: 0.95, 
-      map: concreteTex 
-    });
-    const driveway = new Mesh(drivewayGeom, drivewayMat);
-    driveway.position.set(0, -deckHeight - foundationAboveGrade + 0.02, deckLength / 2 + deckLength * 0.15 + 1);
-    driveway.receiveShadow = true;
-    scene.add(driveway);
+    // Default concrete walkway (removed, will be drawn dynamically with stairs if they exist)
 
     // Concrete foundations (piers) - 152mm (6") above grade per BC Building Code
     const foundationGeometry = new BoxGeometry(0.3, foundationAboveGrade, 0.3);
@@ -560,6 +550,55 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
       scene.add(post);
     });
 
+    // Get outer perimeter segments
+    const getOuterPerimeterSegments = () => {
+      const segments: Array<{x1: number, z1: number, x2: number, z2: number, side: string, part: 'main'|'l-shape'|'u-left'|'u-right', isConnection?: boolean}> = [];
+      
+      if (isLShape) {
+        switch (lShapePosition) {
+          case 'top-right':
+            segments.push({ x1: deckWidth/2 + lShapeWidth, z1: -deckLength/2, x2: deckWidth/2 + lShapeWidth, z2: -deckLength/2 + lShapeLength, side: 'right', part: 'l-shape' });
+            segments.push({ x1: deckWidth/2 + lShapeWidth, z1: -deckLength/2 + lShapeLength, x2: deckWidth/2, z2: -deckLength/2 + lShapeLength, side: 'right', part: 'l-shape', isConnection: true });
+            segments.push({ x1: deckWidth/2, z1: -deckLength/2 + lShapeLength, x2: deckWidth/2, z2: deckLength/2, side: 'right', part: 'main' });
+            segments.push({ x1: deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: deckLength/2, side: 'front', part: 'main' });
+            segments.push({ x1: -deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: -deckLength/2, side: 'left', part: 'main' });
+            break;
+          case 'bottom-right':
+            segments.push({ x1: deckWidth/2, z1: -deckLength/2, x2: deckWidth/2, z2: deckLength/2 - lShapeLength, side: 'right', part: 'main' });
+            segments.push({ x1: deckWidth/2, z1: deckLength/2 - lShapeLength, x2: deckWidth/2 + lShapeWidth, z2: deckLength/2 - lShapeLength, side: 'right', part: 'main', isConnection: true });
+            segments.push({ x1: deckWidth/2 + lShapeWidth, z1: deckLength/2 - lShapeLength, x2: deckWidth/2 + lShapeWidth, z2: deckLength/2, side: 'right', part: 'l-shape' });
+            segments.push({ x1: deckWidth/2 + lShapeWidth, z1: deckLength/2, x2: deckWidth/2, z2: deckLength/2, side: 'front', part: 'l-shape' });
+            segments.push({ x1: deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: deckLength/2, side: 'front', part: 'main' });
+            segments.push({ x1: -deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: -deckLength/2, side: 'left', part: 'main' });
+            break;
+          case 'bottom-left':
+            segments.push({ x1: deckWidth/2, z1: -deckLength/2, x2: deckWidth/2, z2: deckLength/2, side: 'right', part: 'main' });
+            segments.push({ x1: deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: deckLength/2, side: 'front', part: 'main' });
+            segments.push({ x1: -deckWidth/2, z1: deckLength/2, x2: -deckWidth/2 - lShapeWidth, z2: deckLength/2, side: 'front', part: 'l-shape' });
+            segments.push({ x1: -deckWidth/2 - lShapeWidth, z1: deckLength/2, x2: -deckWidth/2 - lShapeWidth, z2: deckLength/2 - lShapeLength, side: 'left', part: 'l-shape' });
+            segments.push({ x1: -deckWidth/2 - lShapeWidth, z1: deckLength/2 - lShapeLength, x2: -deckWidth/2, z2: deckLength/2 - lShapeLength, side: 'left', part: 'main', isConnection: true });
+            segments.push({ x1: -deckWidth/2, z1: deckLength/2 - lShapeLength, x2: -deckWidth/2, z2: -deckLength/2, side: 'left', part: 'main' });
+            break;
+          case 'top-left':
+          default:
+            segments.push({ x1: deckWidth/2, z1: -deckLength/2, x2: deckWidth/2, z2: deckLength/2, side: 'right', part: 'main' });
+            segments.push({ x1: deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: deckLength/2, side: 'front', part: 'main' });
+            segments.push({ x1: -deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: -deckLength/2 + lShapeLength, side: 'left', part: 'main' });
+            segments.push({ x1: -deckWidth/2, z1: -deckLength/2 + lShapeLength, x2: -deckWidth/2 - lShapeWidth, z2: -deckLength/2 + lShapeLength, side: 'left', part: 'l-shape', isConnection: true });
+            segments.push({ x1: -deckWidth/2 - lShapeWidth, z1: -deckLength/2 + lShapeLength, x2: -deckWidth/2 - lShapeWidth, z2: -deckLength/2, side: 'left', part: 'l-shape' });
+            break;
+        }
+        // Exclude back (house side) for L-shapes which isn't explicitly drawn above anyway
+      } else {
+        // Main rectangle
+        segments.push({ x1: deckWidth/2, z1: -deckLength/2, x2: deckWidth/2, z2: deckLength/2, side: 'right', part: 'main' });
+        segments.push({ x1: deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: deckLength/2, side: 'front', part: 'main' });
+        segments.push({ x1: -deckWidth/2, z1: deckLength/2, x2: -deckWidth/2, z2: -deckLength/2, side: 'left', part: 'main' });
+        // Back edge excluded
+      }
+      return segments;
+    };
+
     // Railings - Complete perimeter excluding house side (back) and stairs
     if (isLShape) {
       // For L-shaped decks, calculate complete outer perimeter
@@ -594,171 +633,8 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
         metalness: 0.1
       });
 
-      // Define complete outer perimeter segments (clockwise from top-right)
-      // Exclude segments on the back/house side (z = -deckLength/2)
-      const railingSegments: Array<{x1: number, z1: number, x2: number, z2: number, side?: string, isConnection?: boolean, isLShape?: boolean}> = [];
-      
-      switch (lShapePosition) {
-        case 'top-right':
-          // Complete outer perimeter for top-right L-shape
-          // 1. L-shape right outer edge (from back corner down to where it meets main deck)
-          railingSegments.push({ 
-            x1: deckWidth/2 + lShapeWidth, z1: -deckLength/2, 
-            x2: deckWidth/2 + lShapeWidth, z2: -deckLength/2 + lShapeLength, 
-            side: 'right',
-            isLShape: true 
-          });
-          // 2. L-shape bottom edge (connecting L to main deck) - INTERIOR CONNECTION
-          railingSegments.push({ 
-            x1: deckWidth/2 + lShapeWidth, z1: -deckLength/2 + lShapeLength, 
-            x2: deckWidth/2, z2: -deckLength/2 + lShapeLength, 
-            side: 'right',
-            isConnection: true 
-          });
-          // 3. Main right edge (from L connection down to bottom)
-          railingSegments.push({ 
-            x1: deckWidth/2, z1: -deckLength/2 + lShapeLength, 
-            x2: deckWidth/2, z2: deckLength/2, 
-            side: 'right' 
-          });
-          // 4. Main front edge
-          railingSegments.push({ 
-            x1: deckWidth/2, z1: deckLength/2, 
-            x2: -deckWidth/2, z2: deckLength/2, 
-            side: 'front' 
-          });
-          // 5. Main left edge (full height)
-          railingSegments.push({ 
-            x1: -deckWidth/2, z1: deckLength/2, 
-            x2: -deckWidth/2, z2: -deckLength/2, 
-            side: 'left' 
-          });
-          break;
-          
-        case 'bottom-right':
-          // Complete outer perimeter for bottom-right L-shape
-          // 1. Main right edge (from back down to where L starts)
-          railingSegments.push({ 
-            x1: deckWidth/2, z1: -deckLength/2, 
-            x2: deckWidth/2, z2: deckLength/2 - lShapeLength, 
-            side: 'right' 
-          });
-          // 2. Connection from main to L - INTERIOR CONNECTION
-          railingSegments.push({ 
-            x1: deckWidth/2, z1: deckLength/2 - lShapeLength, 
-            x2: deckWidth/2 + lShapeWidth, z2: deckLength/2 - lShapeLength, 
-            side: 'right',
-            isConnection: true 
-          });
-          // 3. L right outer edge (from connection down to bottom)
-          railingSegments.push({ 
-            x1: deckWidth/2 + lShapeWidth, z1: deckLength/2 - lShapeLength, 
-            x2: deckWidth/2 + lShapeWidth, z2: deckLength/2, 
-            side: 'right',
-            isLShape: true 
-          });
-          // 4. L bottom edge
-          railingSegments.push({ 
-            x1: deckWidth/2 + lShapeWidth, z1: deckLength/2, 
-            x2: deckWidth/2, z2: deckLength/2, 
-            side: 'front',
-            isLShape: true 
-          });
-          // 5. Main front edge
-          railingSegments.push({ 
-            x1: deckWidth/2, z1: deckLength/2, 
-            x2: -deckWidth/2, z2: deckLength/2, 
-            side: 'front' 
-          });
-          // 6. Main left edge
-          railingSegments.push({ 
-            x1: -deckWidth/2, z1: deckLength/2, 
-            x2: -deckWidth/2, z2: -deckLength/2, 
-            side: 'left' 
-          });
-          break;
-          
-        case 'bottom-left':
-          // Complete outer perimeter for bottom-left L-shape
-          // 1. Main right edge
-          railingSegments.push({ 
-            x1: deckWidth/2, z1: -deckLength/2, 
-            x2: deckWidth/2, z2: deckLength/2, 
-            side: 'right' 
-          });
-          // 2. Main front edge
-          railingSegments.push({ 
-            x1: deckWidth/2, z1: deckLength/2, 
-            x2: -deckWidth/2, z2: deckLength/2, 
-            side: 'front' 
-          });
-          // 3. L bottom edge
-          railingSegments.push({ 
-            x1: -deckWidth/2, z1: deckLength/2, 
-            x2: -deckWidth/2 - lShapeWidth, z2: deckLength/2, 
-            side: 'front',
-            isLShape: true 
-          });
-          // 4. L left outer edge (from bottom up)
-          railingSegments.push({ 
-            x1: -deckWidth/2 - lShapeWidth, z1: deckLength/2, 
-            x2: -deckWidth/2 - lShapeWidth, z2: deckLength/2 - lShapeLength, 
-            side: 'left',
-            isLShape: true 
-          });
-          // 5. Connection from L to main - INTERIOR CONNECTION
-          railingSegments.push({ 
-            x1: -deckWidth/2 - lShapeWidth, z1: deckLength/2 - lShapeLength, 
-            x2: -deckWidth/2, z2: deckLength/2 - lShapeLength, 
-            side: 'left',
-            isConnection: true 
-          });
-          // 6. Main left edge (partial, from L connection to back)
-          railingSegments.push({ 
-            x1: -deckWidth/2, z1: deckLength/2 - lShapeLength, 
-            x2: -deckWidth/2, z2: -deckLength/2, 
-            side: 'left' 
-          });
-          break;
-          
-        case 'top-left':
-        default:
-          // Complete outer perimeter for top-left L-shape
-          // 1. Main right edge (full height)
-          railingSegments.push({ 
-            x1: deckWidth/2, z1: -deckLength/2, 
-            x2: deckWidth/2, z2: deckLength/2, 
-            side: 'right' 
-          });
-          // 2. Main front edge
-          railingSegments.push({ 
-            x1: deckWidth/2, z1: deckLength/2, 
-            x2: -deckWidth/2, z2: deckLength/2, 
-            side: 'front' 
-          });
-          // 3. Main left edge (from bottom up to where L starts)
-          railingSegments.push({ 
-            x1: -deckWidth/2, z1: deckLength/2, 
-            x2: -deckWidth/2, z2: -deckLength/2 + lShapeLength, 
-            side: 'left' 
-          });
-          // 4. Connection from main to L (horizontal) - INTERIOR CONNECTION
-          railingSegments.push({ 
-            x1: -deckWidth/2, z1: -deckLength/2 + lShapeLength, 
-            x2: -deckWidth/2 - lShapeWidth, z2: -deckLength/2 + lShapeLength, 
-            side: 'left',
-            isConnection: true 
-          });
-          // 5. L left outer edge (from connection up to back/house wall)
-          railingSegments.push({ 
-            x1: -deckWidth/2 - lShapeWidth, z1: -deckLength/2 + lShapeLength, 
-            x2: -deckWidth/2 - lShapeWidth, z2: -deckLength/2, 
-            side: 'left',
-            isLShape: true 
-          });
-          // Back edge excluded (house side)
-          break;
-      }
+      // Define complete outer perimeter segments
+      const railingSegments = getOuterPerimeterSegments();
 
       // Draw railings for each segment
       railingSegments.forEach(seg => {
@@ -768,8 +644,10 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
         const angle = Math.atan2(seg.z2 - seg.z1, seg.x2 - seg.x1);
         
         const stairWidth = (config.stairWidth || 4) * scale;
-        // Only apply stair gaps to main deck outer perimeter edges, not interior connections or L-shape segments
-        const hasStairsOnSegment = !seg.isConnection && !seg.isLShape && config.hasStairs && config.stairSide === seg.side;
+        // Apply stair gaps to matching perimeter segments
+        const activeStairPart = config.stairPart || 'main';
+        const activeStairSide = config.stairSide || 'front';
+        const hasStairsOnSegment = !seg.isConnection && config.hasStairs && activeStairSide === seg.side && activeStairPart === seg.part;
         
         if (segLength > 0.1) {
           if (hasStairsOnSegment) {
@@ -779,8 +657,18 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
             const segmentLength = Math.sqrt(segmentVector.x ** 2 + segmentVector.z ** 2);
             const unitVector = { x: segmentVector.x / segmentLength, z: segmentVector.z / segmentLength };
             
-            // Calculate center of segment for stair placement
-            const centerPt = { x: (seg.x1 + seg.x2) / 2, z: (seg.z1 + seg.z2) / 2 };
+            // Calculate center of segment for stair placement based on offset
+            const defaultOffsetMeters = (segmentLength - stairWidth) / 2;
+            const userOffsetMeters = config.stairOffset !== undefined ? config.stairOffset * scale : defaultOffsetMeters;
+            
+            // Clamp the offset to ensure stairs don't hang off the edge
+            const clampedOffset = Math.max(0, Math.min(userOffsetMeters, segmentLength - stairWidth));
+            const stairCenterDist = clampedOffset + stairWidth / 2;
+
+            const centerPt = { 
+              x: seg.x1 + unitVector.x * stairCenterDist, 
+              z: seg.z1 + unitVector.z * stairCenterDist 
+            };
             
             // Left section (from seg.x1,z1 to center - gap)
             const leftEndPt = { 
@@ -984,7 +872,8 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
         const angle = Math.atan2(side.z2 - side.z1, side.x2 - side.x1);
         
         const stairWidth = (config.stairWidth || 4) * scale;
-        const hasStairsOnThisSide = config.hasStairs && config.stairSide === side.name;
+        const activeStairPart = config.stairPart || 'main';
+        const hasStairsOnThisSide = config.hasStairs && config.stairSide === side.name && activeStairPart === 'main';
         
         if (segLength > 0.1) {
           if (hasStairsOnThisSide) {
@@ -994,8 +883,18 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
             const segmentLength = Math.sqrt(segmentVector.x ** 2 + segmentVector.z ** 2);
             const unitVector = { x: segmentVector.x / segmentLength, z: segmentVector.z / segmentLength };
             
-            // Calculate center of segment for stair placement
-            const centerPt = { x: (side.x1 + side.x2) / 2, z: (side.z1 + side.z2) / 2 };
+            // Calculate center of segment for stair placement based on offset
+            const defaultOffsetMeters = (segmentLength - stairWidth) / 2;
+            const userOffsetMeters = config.stairOffset !== undefined ? config.stairOffset * scale : defaultOffsetMeters;
+            
+            // Clamp the offset to ensure stairs don't hang off the edge
+            const clampedOffset = Math.max(0, Math.min(userOffsetMeters, segmentLength - stairWidth));
+            const stairCenterDist = clampedOffset + stairWidth / 2;
+
+            const centerPt = { 
+              x: side.x1 + unitVector.x * stairCenterDist, 
+              z: side.z1 + unitVector.z * stairCenterDist 
+            };
             
             // Left section (from side.x1,z1 to center - gap)
             const leftEndPt = { 
@@ -1154,6 +1053,10 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     }
 
     // Stairs (if configured)
+    let stairBaseX = 0;
+    let stairBaseZ = 0;
+    let stairRotation = 0;
+
     if (config.hasStairs && config.stairSide) {
       const stairWidth = (config.stairWidth || 4) * scale;
       const numSteps = Math.ceil(deckHeight / 0.18);
@@ -1161,37 +1064,69 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
       const stepDepth = 0.28;
       const totalRun = numSteps * stepDepth;
 
+      const activeStairPart = config.stairPart || 'main';
+      const activeStairSide = config.stairSide || 'front';
+      
+      const allSegments = getOuterPerimeterSegments();
+      const stairSegment = allSegments.find(s => s.side === activeStairSide && s.part === activeStairPart && !s.isConnection);
+
+      if (stairSegment) {
+        const segLength = Math.sqrt((stairSegment.x2 - stairSegment.x1) ** 2 + (stairSegment.z2 - stairSegment.z1) ** 2);
+        const segmentVector = { x: stairSegment.x2 - stairSegment.x1, z: stairSegment.z2 - stairSegment.z1 };
+        const segmentLength = Math.sqrt(segmentVector.x ** 2 + segmentVector.z ** 2);
+        const unitVector = { x: segmentVector.x / segmentLength, z: segmentVector.z / segmentLength };
+        
+        const defaultOffsetMeters = (segmentLength - stairWidth) / 2;
+        const userOffsetMeters = config.stairOffset !== undefined ? config.stairOffset * scale : defaultOffsetMeters;
+        const clampedOffset = Math.max(0, Math.min(userOffsetMeters, segmentLength - stairWidth));
+        
+        const stairCenterDist = clampedOffset + stairWidth / 2;
+
+        stairBaseX = stairSegment.x1 + unitVector.x * stairCenterDist;
+        stairBaseZ = stairSegment.z1 + unitVector.z * stairCenterDist;
+        
+        // Calculate rotation based on normal vector facing OUTWARD
+        const angle = Math.atan2(stairSegment.z2 - stairSegment.z1, stairSegment.x2 - stairSegment.x1);
+        stairRotation = angle - Math.PI / 2; // Perpendicular facing out
+      } else {
+        // Fallback if segment not found
+        stairBaseZ = deckLength/2;
+      }
+
       for (let i = 0; i < numSteps; i++) {
         const stepGeometry = new BoxGeometry(stairWidth, 0.05, stepDepth);
         const step = new Mesh(stepGeometry, deckMaterial);
         
-        let x = 0, z = 0, rotation = 0;
+        // Advance outward from the edge along the normal vector
+        const stepCenterDist = stepDepth * (i + 0.5);
+        const stepX = stairBaseX + Math.sin(stairRotation) * stepCenterDist;
+        const stepZ = stairBaseZ + Math.cos(stairRotation) * stepCenterDist;
         
-        // Position stairs based on stair side
-        if (config.stairSide === 'front') {
-          x = 0;
-          z = deckLength/2 + stepDepth * (i + 0.5);
-          rotation = 0;
-        } else if (config.stairSide === 'back') {
-          x = 0;
-          z = -deckLength/2 - stepDepth * (i + 0.5);
-          rotation = 0;
-        } else if (config.stairSide === 'left') {
-          x = -deckWidth/2 - stepDepth * (i + 0.5);
-          z = 0;
-          rotation = Math.PI / 2;
-        } else if (config.stairSide === 'right') {
-          x = deckWidth/2 + stepDepth * (i + 0.5);
-          z = 0;
-          rotation = Math.PI / 2;
-        }
-        
-        step.position.set(x, 0.15 - stepHeight * (i + 1), z);
-        step.rotation.y = rotation;
+        step.position.set(stepX, 0.15 - stepHeight * (i + 1), stepZ);
+        step.rotation.y = stairRotation;
         step.castShadow = true;
         step.receiveShadow = true;
         scene.add(step);
       }
+
+      // Walkway: position dynamically at bottom of stairs!
+      const drivewayGeom = new BoxGeometry(stairWidth + 1.5, 0.04, deckLength * 0.3 + 2);
+      const drivewayMat = new MeshStandardMaterial({ 
+        color: 0xb5ad9e, 
+        roughness: 0.95, 
+        map: concreteTex 
+      });
+      const driveway = new Mesh(drivewayGeom, drivewayMat);
+      
+      const walkwayCenterDist = totalRun + (deckLength * 0.3 + 2) / 2;
+      driveway.position.set(
+        stairBaseX + Math.sin(stairRotation) * walkwayCenterDist, 
+        -deckHeight - foundationAboveGrade + 0.02, 
+        stairBaseZ + Math.cos(stairRotation) * walkwayCenterDist
+      );
+      driveway.rotation.y = stairRotation;
+      driveway.receiveShadow = true;
+      scene.add(driveway);
 
       // STAIR RAILING
       if (config.stairRailing !== false) {
@@ -1215,22 +1150,32 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
          const bottomGap = (2 / 12) * scale;
          const railThickness = 0.05;
 
-         // Define rail paths
+         // Define rail paths based on exact stair position
          const railPaths: {x1: number, z1: number, x2: number, z2: number}[] = [];
           
-         if (config.stairSide === 'front') {
-            railPaths.push({ x1: -w, z1: deckLength/2, x2: -w, z2: deckLength/2 + totalRun });
-            railPaths.push({ x1: w, z1: deckLength/2, x2: w, z2: deckLength/2 + totalRun });
-         } else if (config.stairSide === 'back') {
-            railPaths.push({ x1: -w, z1: -deckLength/2, x2: -w, z2: -deckLength/2 - totalRun });
-            railPaths.push({ x1: w, z1: -deckLength/2, x2: w, z2: -deckLength/2 - totalRun });
-         } else if (config.stairSide === 'left') {
-            railPaths.push({ x1: -deckWidth/2, z1: -w, x2: -deckWidth/2 - totalRun, z2: -w });
-            railPaths.push({ x1: -deckWidth/2, z1: w, x2: -deckWidth/2 - totalRun, z2: w });
-         } else if (config.stairSide === 'right') {
-            railPaths.push({ x1: deckWidth/2, z1: -w, x2: deckWidth/2 + totalRun, z2: -w });
-            railPaths.push({ x1: deckWidth/2, z1: w, x2: deckWidth/2 + totalRun, z2: w });
-         }
+         // We use the normal vector we found earlier to shoot outward
+         const normalX = Math.sin(stairRotation);
+         const normalZ = Math.cos(stairRotation);
+         
+         // Left rail path
+         const leftBaseX = stairBaseX - Math.cos(stairRotation) * w;
+         const leftBaseZ = stairBaseZ + Math.sin(stairRotation) * w;
+         railPaths.push({ 
+            x1: leftBaseX, 
+            z1: leftBaseZ, 
+            x2: leftBaseX + normalX * totalRun, 
+            z2: leftBaseZ + normalZ * totalRun 
+         });
+
+         // Right rail path
+         const rightBaseX = stairBaseX + Math.cos(stairRotation) * w;
+         const rightBaseZ = stairBaseZ - Math.sin(stairRotation) * w;
+         railPaths.push({ 
+            x1: rightBaseX, 
+            z1: rightBaseZ, 
+            x2: rightBaseX + normalX * totalRun, 
+            z2: rightBaseZ + normalZ * totalRun 
+         });
          
          railPaths.forEach(path => {
             const dx = path.x2 - path.x1;

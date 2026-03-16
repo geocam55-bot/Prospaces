@@ -14,7 +14,7 @@ import { calculateMaterials } from '../../utils/deckCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { getUserDefaults, extractConversionFactors, getOrgConversionFactors, extractOrgConversionFactors } from '../../utils/project-wizard-defaults-client';
 import { DeckConfig } from '../../types/deck';
-import { Ruler, Package, Printer, FileText, Box, Layers, Hammer, Settings } from 'lucide-react';
+import { Ruler, Package, Printer, FileText, Box, Layers, Hammer, Settings, LayoutTemplate, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Button } from '../ui/button';
 import { toast } from 'sonner@2.0.3';
 import type { User } from '../../App';
@@ -43,8 +43,9 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     unit: 'feet',
   });
 
-  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved' | 'defaults'>('design');
+  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'templates' | 'saved' | 'defaults'>('design');
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
   const [loadedDesignInfo, setLoadedDesignInfo] = useState<{
@@ -140,6 +141,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     setConfig(templateConfig);
     setLoadedDesignInfo({}); // Clear loaded design info when loading a template
     setActiveTab('design');
+    toast.success('Template loaded successfully!');
   };
 
   const handleLoadDesign = (loadedConfig: DeckConfig, designInfo?: {
@@ -206,6 +208,17 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
                 Materials
               </button>
               <button
+                onClick={() => setActiveTab('templates')}
+                className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+                  activeTab === 'templates'
+                    ? 'border-purple-600 text-purple-600'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <LayoutTemplate className="w-4 h-4" />
+                Templates
+              </button>
+              <button
                 onClick={() => setActiveTab('saved')}
                 className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                   activeTab === 'saved'
@@ -240,18 +253,28 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className={`mx-auto px-4 sm:px-6 lg:px-8 py-8 ${isSidebarOpen ? 'max-w-7xl' : 'max-w-[1600px] transition-all duration-300'}`}>
         {activeTab === 'design' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 space-y-6 print:hidden">
-              <DeckTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
-              <DeckConfigurator config={config} onChange={setConfig} />
-            </div>
+          <div className="flex flex-col lg:flex-row gap-6">
+            {isSidebarOpen && (
+              <div className="w-full lg:w-1/3 shrink-0 space-y-6 print:hidden">
+                <DeckConfigurator config={config} onChange={setConfig} />
+              </div>
+            )}
 
-            <div className="lg:col-span-2 space-y-6 print:hidden">
+            <div className="flex-1 min-w-0 space-y-6 print:hidden">
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-slate-900 print:hidden">Deck Plan & Elevation</h2>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                      className="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition-colors print:hidden"
+                      title={isSidebarOpen ? "Collapse configurator" : "Expand configurator"}
+                    >
+                      {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+                    </button>
+                    <h2 className="text-slate-900 print:hidden m-0">Deck Plan & Elevation</h2>
+                  </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setViewMode('2d')}
@@ -279,7 +302,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
                 </div>
                 <div>
                   {viewMode === '2d' ? (
-                    <DeckCanvas config={config} />
+                    <DeckCanvas config={config} onChange={setConfig} />
                   ) : (
                     <div className="h-[500px]">
                       <Deck3DRenderer 
@@ -347,6 +370,12 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
               plannerType="deck"
               materialType={config.deckingType}
             />
+          </div>
+        )}
+
+        {activeTab === 'templates' && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <DeckTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
           </div>
         )}
 

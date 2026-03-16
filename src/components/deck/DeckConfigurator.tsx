@@ -56,20 +56,39 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
           </div>
         </div>
 
-        {/* Height */}
-        <div>
-          <label className="block text-slate-700 text-sm mb-1">
-            Deck Height Above Ground (ft)
-          </label>
-          <input
-            type="number"
-            min="0.5"
-            max="12"
-            step="0.5"
-            value={config.height}
-            onChange={(e) => updateConfig({ height: parseFloat(e.target.value) || 2 })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
-          />
+        {/* Height and Attachment */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-slate-700 text-sm mb-1">
+              Deck Height Above Ground (ft)
+            </label>
+            <input
+              type="number"
+              min="0.5"
+              max="12"
+              step="0.5"
+              value={config.height}
+              onChange={(e) => updateConfig({ height: parseFloat(e.target.value) || 2 })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+            />
+          </div>
+          <div>
+            <label className="block text-slate-700 text-sm mb-1">
+              Attachment
+            </label>
+            <div className="flex h-[42px] items-center">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={!!config.isDetached}
+                  onChange={(e) => updateConfig({ isDetached: e.target.checked })}
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                <span className="ml-3 text-sm font-medium text-slate-700">Detached (Freestanding)</span>
+              </label>
+            </div>
+          </div>
         </div>
 
         {/* Shape */}
@@ -77,7 +96,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
           <label className="block text-slate-700 text-sm mb-2">
             Deck Shape
           </label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => updateConfig({ shape: 'rectangle' })}
               className={`px-4 py-2 rounded-lg border-2 transition-colors ${
@@ -102,6 +121,21 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
               }`}
             >
               L-Shape
+            </button>
+            <button
+              onClick={() => updateConfig({ 
+                shape: 'u-shape',
+                uShapeLeftWidth: config.uShapeLeftWidth || 6,
+                uShapeRightWidth: config.uShapeRightWidth || 6,
+                uShapeDepth: config.uShapeDepth || 8
+              })}
+              className={`px-4 py-2 rounded-lg border-2 transition-colors ${
+                config.shape === 'u-shape'
+                  ? 'border-purple-600 bg-purple-50 text-purple-700'
+                  : 'border-slate-300 text-slate-700 hover:border-slate-400'
+              }`}
+            >
+              U-Shape
             </button>
           </div>
         </div>
@@ -158,6 +192,61 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                 <option value="bottom-left">Bottom Left</option>
                 <option value="bottom-right">Bottom Right</option>
               </select>
+            </div>
+          </div>
+        )}
+
+        {/* U-Shape Configuration */}
+        {config.shape === 'u-shape' && (
+          <div className="space-y-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
+            <div className="text-sm text-purple-900 font-medium mb-2">
+              U-Shape Extension Settings
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-700 text-sm mb-1">
+                  Left Arm Width (ft)
+                </label>
+                <input
+                  type="number"
+                  min="4"
+                  max="50"
+                  step="1"
+                  value={config.uShapeLeftWidth || 6}
+                  onChange={(e) => updateConfig({ uShapeLeftWidth: parseFloat(e.target.value) || 6 })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 text-sm mb-1">
+                  Right Arm Width (ft)
+                </label>
+                <input
+                  type="number"
+                  min="4"
+                  max="50"
+                  step="1"
+                  value={config.uShapeRightWidth || 6}
+                  onChange={(e) => updateConfig({ uShapeRightWidth: parseFloat(e.target.value) || 6 })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-700 text-sm mb-1">
+                Arms Depth (ft)
+              </label>
+              <input
+                type="number"
+                min="4"
+                max="50"
+                step="1"
+                value={config.uShapeDepth || 8}
+                onChange={(e) => updateConfig({ uShapeDepth: parseFloat(e.target.value) || 8 })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+              />
             </div>
           </div>
         )}

@@ -1,4 +1,4 @@
-export type DeckShape = 'rectangle' | 'l-shape';
+export type DeckShape = 'rectangle' | 'l-shape' | 'u-shape';
 export type DeckingSide = 'front' | 'back' | 'left' | 'right';
 export type DeckingPattern = 'perpendicular' | 'parallel' | 'diagonal';
 export type Unit = 'feet' | 'meters';
@@ -11,16 +11,25 @@ export interface DeckConfig {
   length: number;
   shape: DeckShape;
   height: number; // deck height above ground
+  isDetached?: boolean;
   
   // L-shape specific (if shape is 'l-shape')
   lShapeWidth?: number;
   lShapeLength?: number;
   lShapePosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+  // U-shape specific
+  uShapeLeftWidth?: number;
+  uShapeRightWidth?: number;
+  uShapeDepth?: number;
+
   
   // Stairs
   hasStairs: boolean;
   stairSide?: DeckingSide;
+  stairPart?: 'main' | 'l-shape' | 'u-left' | 'u-right';
   stairWidth?: number; // defaults to 4 feet
+  stairOffset?: number; // Distance from the start of the side (in feet)
   stairRailing?: boolean; // defaults to true if hasStairs is true
   
   // Railings
