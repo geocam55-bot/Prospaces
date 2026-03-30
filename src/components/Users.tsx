@@ -571,10 +571,8 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
         }
 
         toast.warning('User updated, but manager assignment requires database migration. See instructions above.');
-        await loadUsers();
-        setIsEditDialogOpen(false);
-        setSelectedUser(null);
-        return;
+        // Still save the plan even on manager_id fallback — fall through to plan logic below
+        error = null;
       }
 
       if (error) {
