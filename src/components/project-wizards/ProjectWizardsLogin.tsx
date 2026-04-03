@@ -3,6 +3,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import {
+  ArrowLeft,
   Eye,
   EyeOff,
   Loader2,
@@ -341,7 +342,15 @@ export function ProjectWizardsLogin({ onLogin }: ProjectWizardsLoginProps) {
       </div>
 
       {/* ── Right Panel — Login form ── */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12 sm:px-12 bg-white">
+      <div className="flex-1 flex items-center justify-center px-6 py-12 sm:px-12 bg-white relative">
+        <a
+          href="/"
+          className="absolute top-6 left-6 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors group"
+        >
+          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+          Back to home
+        </a>
+
         <div className="w-full max-w-md space-y-8">
           {/* Mobile branding */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-4">

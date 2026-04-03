@@ -787,7 +787,13 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     if (!id || id === 'none') return null;
     const item = inventoryItems.find(i => i.id === id || i.sku === id);
     if (item) {
-      return { id: item.id, sku: item.sku, description: item.name, price: item.unit_price || fallbackPrice };
+      const resolvedPrice = Number(item.unitPrice ?? item.unit_price ?? fallbackPrice);
+      return {
+        id: item.id,
+        sku: item.sku,
+        description: item.name || fallbackDesc,
+        price: Number.isFinite(resolvedPrice) ? resolvedPrice : fallbackPrice,
+      };
     }
     return { description: fallbackDesc, price: fallbackPrice };
   };
@@ -863,13 +869,70 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     }
   }
 
-  const totalCost = materials.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+  const totalCost = materials.reduce(
+    (sum, item) => sum + (Number(item.quantity) * Number(item.price ?? 0)),
+    0,
+  );
 
   // Filter inventory items for dropdowns
   const baseboardItems = inventoryItems.filter(i => i.name?.toLowerCase().includes('base') || i.category?.toLowerCase() === 'trim');
   const casingItems = inventoryItems.filter(i => i.name?.toLowerCase().includes('casing') || i.category?.toLowerCase() === 'trim');
   const crownItems = inventoryItems.filter(i => i.name?.toLowerCase().includes('crown') || i.category?.toLowerCase() === 'trim');
   const wainscottingItems = inventoryItems.filter(i => i.name?.toLowerCase().includes('wainscot') || i.category?.toLowerCase() === 'panel');
+
+  const currentConfig = {
+    bgImage,
+    pdfPages,
+    activePageIndex,
+    pagesData,
+    imageDims,
+    scaleData,
+    perimeter,
+    walls,
+    doors,
+    windows,
+    sqFt,
+    exteriorLF,
+    interiorLF,
+    allDoors,
+    allWindows,
+    baseboardId,
+    casingId,
+    crownId,
+    wainscottingId,
+    jambStockSize,
+    bipassTrackSize,
+    hingeSize,
+    doorKnobType,
+  };
+
+  const handleLoadSavedDesign = (savedConfig: any) => {
+    if (!savedConfig) return;
+
+    setPdfPages(savedConfig.pdfPages || (savedConfig.bgImage ? [savedConfig.bgImage] : []));
+    setActivePageIndex(savedConfig.activePageIndex || 0);
+    setPagesData(savedConfig.pagesData || {});
+
+    setBgImage(savedConfig.bgImage || null);
+    setImageDims(savedConfig.imageDims || null);
+    setScaleData(savedConfig.scaleData || { p1: null, p2: null, distance: 0 });
+    setPerimeter(savedConfig.perimeter || []);
+    setWalls(savedConfig.walls || []);
+    setDoors(savedConfig.doors || []);
+    setWindows(savedConfig.windows || []);
+
+    if (savedConfig.baseboardId !== undefined) setBaseboardId(savedConfig.baseboardId);
+    if (savedConfig.casingId !== undefined) setCasingId(savedConfig.casingId);
+    if (savedConfig.crownId !== undefined) setCrownId(savedConfig.crownId);
+    if (savedConfig.wainscottingId !== undefined) setWainscottingId(savedConfig.wainscottingId);
+    if (savedConfig.jambStockSize !== undefined) setJambStockSize(savedConfig.jambStockSize);
+    if (savedConfig.bipassTrackSize !== undefined) setBipassTrackSize(savedConfig.bipassTrackSize);
+    if (savedConfig.hingeSize !== undefined) setHingeSize(savedConfig.hingeSize);
+    if (savedConfig.doorKnobType !== undefined) setDoorKnobType(savedConfig.doorKnobType);
+
+    setMode('idle');
+    toast.success('Saved design loaded successfully!');
+  };
 
   return (
     <PermissionGate user={user} module="project-wizards" action="view">
@@ -1405,7 +1468,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                       projectType="interior"
                       materials={materials}
                       totalCost={totalCost}
-                      projectData={{ sqFt, exteriorLF, interiorLF, doors: allDoors.length, windows: allWindows.length, baseboardId, casingId, crownId, wainscottingId }}
+                      projectData={currentConfig}
                     />
                   </div>
 
@@ -1413,25 +1476,10 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                     <SavedProjectDesigns
                       user={user}
                       projectType="interior"
-                      currentConfig={{
-                        sqFt, exteriorLF, interiorLF, 
-                        allDoors, allWindows, 
-                        baseboardId, casingId, crownId, wainscottingId, ceilingHeight
-                      }}
+                      currentConfig={currentConfig}
                       materials={materials}
                       totalCost={totalCost}
-                      onLoadDesign={(savedConfig) => {
-                        if (savedConfig.sqFt) setSqFt(savedConfig.sqFt);
-                        if (savedConfig.exteriorLF) setExteriorLF(savedConfig.exteriorLF);
-                        if (savedConfig.interiorLF) setInteriorLF(savedConfig.interiorLF);
-                        if (savedConfig.allDoors) setAllDoors(savedConfig.allDoors);
-                        if (savedConfig.allWindows) setAllWindows(savedConfig.allWindows);
-                        if (savedConfig.baseboardId !== undefined) setBaseboardId(savedConfig.baseboardId);
-                        if (savedConfig.casingId !== undefined) setCasingId(savedConfig.casingId);
-                        if (savedConfig.crownId !== undefined) setCrownId(savedConfig.crownId);
-                        if (savedConfig.wainscottingId !== undefined) setWainscottingId(savedConfig.wainscottingId);
-                        if (savedConfig.ceilingHeight !== undefined) setCeilingHeight(savedConfig.ceilingHeight);
-                      }}
+                      onLoadDesign={handleLoadSavedDesign}
                     />
                   </div>
 
@@ -1454,15 +1502,20 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {materials.map((item, index) => (
-                            <tr key={index} className="hover:bg-muted transition-colors">
-                              <td className="px-4 py-3 font-medium text-foreground">{item.description}</td>
-                              <td className="px-4 py-3 text-right">{item.quantity}</td>
-                              <td className="px-4 py-3">{item.unit}</td>
-                              <td className="px-4 py-3 text-right">${item.price.toFixed(2)}</td>
-                              <td className="px-4 py-3 text-right font-medium text-foreground">${(item.quantity * item.price).toFixed(2)}</td>
-                            </tr>
-                          ))}
+                          {materials.map((item, index) => {
+                            const unitPrice = Number(item.price ?? 0);
+                            const quantity = Number(item.quantity ?? 0);
+
+                            return (
+                              <tr key={index} className="hover:bg-muted transition-colors">
+                                <td className="px-4 py-3 font-medium text-foreground">{item.description}</td>
+                                <td className="px-4 py-3 text-right">{quantity}</td>
+                                <td className="px-4 py-3">{item.unit}</td>
+                                <td className="px-4 py-3 text-right">${unitPrice.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right font-medium text-foreground">${(quantity * unitPrice).toFixed(2)}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

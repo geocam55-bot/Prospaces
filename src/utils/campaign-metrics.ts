@@ -9,25 +9,62 @@ export function toFiniteNumber(value: any): number | null {
   return null;
 }
 
-export function parseCampaignMeta(campaign: any): Record<string, any> {
-  if (!campaign?.description) return {};
+function parseMetaSource(source: any): Record<string, any> {
+  if (!source) return {};
 
-  if (typeof campaign.description === 'object') {
-    return campaign.description;
+  if (typeof source === 'object') {
+    return source;
   }
 
-  if (typeof campaign.description === 'string') {
-    const text = campaign.description.trim();
+  if (typeof source === 'string') {
+    const text = source.trim();
     if (!text.startsWith('{')) return {};
 
     try {
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      return parsed && typeof parsed === 'object' ? parsed : {};
     } catch {
       return {};
     }
   }
 
   return {};
+}
+
+function mergeMetaObjects(...sources: any[]): Record<string, any> {
+  const result: Record<string, any> = {};
+
+  for (const source of sources) {
+    const parsed = parseMetaSource(source);
+
+    for (const [key, value] of Object.entries(parsed)) {
+      if (
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        result[key] &&
+        typeof result[key] === 'object' &&
+        !Array.isArray(result[key])
+      ) {
+        result[key] = mergeMetaObjects(result[key], value);
+      } else {
+        result[key] = value;
+      }
+    }
+  }
+
+  return result;
+}
+
+export function parseCampaignMeta(campaign: any): Record<string, any> {
+  return mergeMetaObjects(
+    campaign?.description,
+    campaign?.metadata,
+    campaign?.meta,
+    campaign?.metrics,
+    campaign?.stats,
+    campaign?.analytics,
+  );
 }
 
 function findMetricValue(source: any, keys: string[]): number | null {

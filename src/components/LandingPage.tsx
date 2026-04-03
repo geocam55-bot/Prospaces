@@ -78,13 +78,6 @@ const AUDIENCES = [
   { icon: iconMultiLocation, label: 'Multi-Location Businesses' },
 ];
 
-const STATS = [
-  { value: '10K+',  label: 'Active Users' },
-  { value: '$50M+', label: 'Deals Closed' },
-  { value: '40%',   label: 'Time Saved' },
-  { value: '98%',   label: 'Satisfaction' },
-];
-
 /* ═══════════════════════════════════════════════════════════════
    COMPONENTS
    ═══════════════════════════════════════════════════════════════ */
@@ -433,33 +426,6 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
                 <span style={{ fontSize: 12, color: '#334155', textAlign: 'center', lineHeight: 1.3, fontWeight: 500 }}>
                   {label}
                 </span>
-              </div>
-            ))}
-          </div>
-        </motion.section>
-
-        {/* ── STATS / PROOF BAR ── */}
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.8 }}
-          className="mt-8 sm:mt-10"
-        >
-          <div
-            className="grid grid-cols-4 divide-x divide-slate-200"
-            style={{
-              borderRadius: 12,
-              border: '1px solid rgba(255,255,255,0.5)',
-              background: 'rgba(255,255,255,0.65)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-            }}
-          >
-            {STATS.map((stat, i) => (
-              <div key={i} className="py-5 px-3 text-center">
-                <p style={{ fontSize: 28, fontWeight: 700, color: '#1E293B' }}>{stat.value}</p>
-                <p style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{stat.label}</p>
               </div>
             ))}
           </div>

@@ -9,19 +9,56 @@ const PG_COLUMNS = [
   'owner_id', 'organization_id', 'created_at', 'updated_at'
 ];
 
+function parseMetaSource(source: any) {
+  if (!source) return {};
+
+  if (typeof source === 'object') {
+    return source;
+  }
+
+  if (typeof source === 'string') {
+    const text = source.trim();
+    if (!text.startsWith('{')) return {};
+
+    try {
+      const parsed = JSON.parse(text);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  return {};
+}
+
+function mergeMetaObjects(...sources: any[]) {
+  const result: Record<string, any> = {};
+
+  for (const source of sources) {
+    const parsed = parseMetaSource(source);
+
+    for (const [key, value] of Object.entries(parsed)) {
+      if (
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        result[key] &&
+        typeof result[key] === 'object' &&
+        !Array.isArray(result[key])
+      ) {
+        result[key] = mergeMetaObjects(result[key], value);
+      } else {
+        result[key] = value;
+      }
+    }
+  }
+
+  return result;
+}
+
 function unpackCampaign(c: any) {
   if (!c) return c;
-  let meta: Record<string, any> = {};
-  if (typeof c.description === 'string') {
-    const description = c.description.trim();
-    if (description.startsWith('{')) {
-      try {
-        meta = JSON.parse(description);
-      } catch(e) {}
-    }
-  } else if (c.description && typeof c.description === 'object') {
-    meta = c.description;
-  }
+  const meta = mergeMetaObjects(c.description, c.metadata, c.meta, c.metrics, c.stats, c.analytics);
 
   // Prefer concrete Postgres values, but keep non-zero metadata metrics when
   // top-level fields are null/undefined or stale zeros.
@@ -59,8 +96,14 @@ function unpackCampaign(c: any) {
 
 function packCampaignData(newData: any, existingData: any = {}) {
   const pgData: any = {};
-  const meta: any = existingData.description && existingData.description.startsWith('{') 
-    ? JSON.parse(existingData.description) : {};
+  const meta: any = mergeMetaObjects(
+    existingData.description,
+    existingData.metadata,
+    existingData.meta,
+    existingData.metrics,
+    existingData.stats,
+    existingData.analytics,
+  );
   
   for (const key of Object.keys(newData)) {
     if (PG_COLUMNS.includes(key)) {
