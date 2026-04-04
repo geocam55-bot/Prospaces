@@ -438,7 +438,7 @@ export function AppContent() {
           if (savedView) {
             setCurrentView(savedView);
           } else {
-            setCurrentView(profile.role === 'super_admin' ? 'tenants' : 'main-panels');
+            setCurrentView('space-chooser');
           }
         }
 
@@ -502,36 +502,43 @@ export function AppContent() {
     }
     
     setUser(user);
-    setCurrentView('main-panels');
+    setCurrentView('space-chooser');
   };
 
   if (!session || !user) {
     return (
       <ErrorBoundary>
         <Toaster />
-        {currentView === 'member-login' ? (
+        {currentView === 'member-login' || currentView === 'space-chooser' ? (
           <MemberLogin
             onLogin={handleMemberLogin}
-            onBack={() => setCurrentView('space-chooser')}
+            onBack={() => setCurrentView('landing')}
           />
         ) : currentView === 'login' ? (
           <Login 
-            onBack={() => setCurrentView('space-chooser')} 
+            onBack={() => setCurrentView('landing')} 
             onLogin={handleMemberLogin} 
           />
-        ) : currentView === 'space-chooser' ? (
-          <SpaceChooser
-            onSelectSalesSpace={() => setCurrentView('member-login')}
-            onSelectDesignSpace={() => { window.location.href = '/project-wizards.html'; }}
-            onSelectMarketingSpace={() => { window.location.href = '/marketing.html'; }}
-            onSelectInsightsSpace={() => { window.location.href = '/insights.html'; }}
-            onSelectInventorySpace={() => { window.location.href = '/inventory.html'; }}
-            onSelectITSpace={() => { window.location.href = '/it.html'; }}
-            onBack={() => setCurrentView('landing')}
-          />
         ) : (
-          <LandingPage onGetStarted={() => setCurrentView('space-chooser')} onMemberLogin={() => setCurrentView('member-login')} />
+          <LandingPage onGetStarted={() => setCurrentView('member-login')} onMemberLogin={() => setCurrentView('member-login')} />
         )}
+      </ErrorBoundary>
+    );
+  }
+
+  if (currentView === 'space-chooser') {
+    return (
+      <ErrorBoundary>
+        <Toaster />
+        <SpaceChooser
+          onSelectSalesSpace={() => setCurrentView('main-panels')}
+          onSelectDesignSpace={() => { window.location.href = '/project-wizards.html'; }}
+          onSelectMarketingSpace={() => { window.location.href = '/marketing.html'; }}
+          onSelectInsightsSpace={() => { window.location.href = '/insights.html'; }}
+          onSelectInventorySpace={() => { window.location.href = '/inventory.html'; }}
+          onSelectITSpace={() => { window.location.href = '/it.html'; }}
+          onBack={() => setCurrentView('main-panels')}
+        />
       </ErrorBoundary>
     );
   }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ITLogin } from './components/it-app/ITLogin';
 import { ITShell } from './components/it-app/ITShell';
+import { SpaceAccessNotice } from './components/SpaceAccessNotice';
 import { ThemeProvider } from './components/ThemeProvider';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -15,6 +15,7 @@ function ITApp() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | undefined>();
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
@@ -36,6 +37,7 @@ function ITApp() {
       if (event === 'SIGNED_OUT') {
         setSession(null);
         setUser(null);
+        setAccessDeniedMessage(null);
         setAccessToken(undefined);
         setLoading(false);
         return;
@@ -72,9 +74,8 @@ function ITApp() {
           'admin',
         ];
         if (!allowedRoles.includes(profile.role as UserRole)) {
-          await supabase.auth.signOut();
           setUser(null);
-          setSession(null);
+          setAccessDeniedMessage('You are signed in, but your role does not currently have access to IT Space. Please choose another space or contact your administrator if you need access.');
           setLoading(false);
           return;
         }
@@ -84,6 +85,7 @@ function ITApp() {
         }
 
         await initializePermissions(profile.role);
+        setAccessDeniedMessage(null);
 
         setUser({
           id: profile.id,
@@ -133,7 +135,12 @@ function ITApp() {
     return (
       <ErrorBoundary>
         <Toaster />
-        <ITLogin onLogin={handleLogin} />
+        <SpaceAccessNotice
+          spaceName="IT Space"
+          accentColorClass="bg-violet-600"
+          mode={accessDeniedMessage ? 'access-denied' : 'login-required'}
+          message={accessDeniedMessage || undefined}
+        />
       </ErrorBoundary>
     );
   }

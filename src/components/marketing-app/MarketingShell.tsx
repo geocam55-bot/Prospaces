@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy, useCallback } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import {
   TrendingUp,
   BarChart3,
@@ -14,6 +14,7 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import { createClient } from '../../utils/supabase/client';
+import { canView, onPermissionsChanged } from '../../utils/permissions';
 import type { User } from '../../App';
 
 // ── Lazy-load marketing sub-components ──
@@ -49,6 +50,7 @@ const MarketingAnalytics = lazyNamed(
   () => import('../marketing/MarketingAnalytics'),
   'MarketingAnalytics'
 );
+const Contacts = lazyNamed(() => import('../Contacts'), 'Contacts');
 const ReferralsTab = lazyNamed(
   () => import('../marketing/referrals/ReferralsTab'),
   'ReferralsTab'
@@ -57,6 +59,7 @@ const ReferralsTab = lazyNamed(
 type MarketingView =
   | 'home'
   | 'dashboard'
+  | 'contacts'
   | 'campaigns'
   | 'leads'
   | 'journeys'
@@ -70,10 +73,12 @@ interface NavItem {
   icon: React.ComponentType<any>;
   color: string;
   bgColor: string;
+  module?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3, color: 'text-rose-600', bgColor: 'bg-rose-50' },
+  { id: 'contacts', label: 'Contacts', icon: Users, color: 'text-sky-600', bgColor: 'bg-sky-50', module: 'contacts' },
   { id: 'campaigns', label: 'Campaigns', icon: Mail, color: 'text-blue-600', bgColor: 'bg-blue-50' },
   { id: 'leads', label: 'Lead Scoring', icon: Target, color: 'text-amber-600', bgColor: 'bg-amber-50' },
   { id: 'journeys', label: 'Journeys', icon: Zap, color: 'text-cyan-600', bgColor: 'bg-cyan-50' },
@@ -102,6 +107,11 @@ interface MarketingShellProps {
 export function MarketingShell({ user, accessToken, onLogout }: MarketingShellProps) {
   const [currentView, setCurrentView] = useState<MarketingView>('home');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [, setPermissionVersion] = useState(0);
+
+  useEffect(() => onPermissionsChanged(() => setPermissionVersion((version) => version + 1)), []);
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => !item.module || canView(item.module, user.role));
 
   const handleNavigate = useCallback((view: MarketingView) => {
     setCurrentView(view);
@@ -154,7 +164,7 @@ export function MarketingShell({ user, accessToken, onLogout }: MarketingShellPr
 
         {/* Nav items */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
             return (
@@ -240,6 +250,7 @@ export function MarketingShell({ user, accessToken, onLogout }: MarketingShellPr
 
         <Suspense fallback={<ModuleLoading />}>
           {currentView === 'dashboard' && <MarketingDashboard user={user} />}
+          {currentView === 'contacts' && <Contacts user={user} />}
           {currentView === 'campaigns' && <CampaignManager user={user} />}
           {currentView === 'leads' && <LeadScoring user={user} />}
           {currentView === 'journeys' && <JourneyBuilder user={user} />}
@@ -267,6 +278,7 @@ function HomeView({
     icon: React.ComponentType<any>;
     gradient: string;
     shadow: string;
+    module?: string;
   }[] = [
     {
       id: 'dashboard',
@@ -275,6 +287,15 @@ function HomeView({
       icon: BarChart3,
       gradient: 'from-rose-500 to-pink-600',
       shadow: 'shadow-rose-500/20',
+    },
+    {
+      id: 'contacts',
+      label: 'Contacts',
+      description: 'Open your CRM contacts directly inside Marketing Space for outreach, segmentation, and follow-up.',
+      icon: Users,
+      gradient: 'from-sky-500 to-cyan-600',
+      shadow: 'shadow-sky-500/20',
+      module: 'contacts',
     },
     {
       id: 'campaigns',
@@ -326,6 +347,8 @@ function HomeView({
     },
   ];
 
+  const visibleCards = cards.filter((card) => !card.module || canView(card.module, user.role));
+
   return (
     <div className="p-8 lg:p-12 max-w-7xl mx-auto">
       <div className="mb-10">
@@ -338,7 +361,7 @@ function HomeView({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {cards.map((card) => {
+        {visibleCards.map((card) => {
           const Icon = card.icon;
           return (
             <button
@@ -372,7 +395,7 @@ function HomeView({
       <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <p className="text-sm text-slate-400 font-medium">Modules</p>
-          <p className="text-3xl font-bold text-slate-900 mt-1">7</p>
+          <p className="text-3xl font-bold text-slate-900 mt-1">{visibleCards.length}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
           <p className="text-sm text-slate-400 font-medium">Your Role</p>

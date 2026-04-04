@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ProjectWizardsLogin } from './components/project-wizards/ProjectWizardsLogin';
 import { ProjectWizardsShell } from './components/project-wizards/ProjectWizardsShell';
+import { SpaceAccessNotice } from './components/SpaceAccessNotice';
 import { ThemeProvider } from './components/ThemeProvider';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -16,6 +16,7 @@ function ProjectWizardsApp() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
@@ -44,6 +45,7 @@ function ProjectWizardsApp() {
       if (event === 'SIGNED_OUT') {
         setSession(null);
         setUser(null);
+        setAccessDeniedMessage(null);
         setLoading(false);
         return;
       }
@@ -81,10 +83,8 @@ function ProjectWizardsApp() {
           'designer',
         ];
         if (!allowedRoles.includes(profile.role as UserRole)) {
-          // User does not have access — sign them out of this app
-          await supabase.auth.signOut();
           setUser(null);
-          setSession(null);
+          setAccessDeniedMessage('You are signed in, but your role does not currently have access to Design Space. Please choose another space or contact your administrator if you need access.');
           setLoading(false);
           return;
         }
@@ -94,6 +94,7 @@ function ProjectWizardsApp() {
         }
 
         await initializePermissions(profile.role);
+        setAccessDeniedMessage(null);
 
         setUser({
           id: profile.id,
@@ -145,7 +146,12 @@ function ProjectWizardsApp() {
     return (
       <ErrorBoundary>
         <Toaster />
-        <ProjectWizardsLogin onLogin={handleLogin} />
+        <SpaceAccessNotice
+          spaceName="Design Space"
+          accentColorClass="bg-indigo-600"
+          mode={accessDeniedMessage ? 'access-denied' : 'login-required'}
+          message={accessDeniedMessage || undefined}
+        />
       </ErrorBoundary>
     );
   }

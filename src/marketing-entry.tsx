@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MarketingLogin } from './components/marketing-app/MarketingLogin';
 import { MarketingShell } from './components/marketing-app/MarketingShell';
+import { SpaceAccessNotice } from './components/SpaceAccessNotice';
 import { ThemeProvider } from './components/ThemeProvider';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -17,6 +17,7 @@ function MarketingApp() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | undefined>();
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
@@ -44,6 +45,7 @@ function MarketingApp() {
       if (event === 'SIGNED_OUT') {
         setSession(null);
         setUser(null);
+        setAccessDeniedMessage(null);
         setAccessToken(undefined);
         setLoading(false);
         return;
@@ -83,9 +85,8 @@ function MarketingApp() {
           'marketing',
         ];
         if (!allowedRoles.includes(profile.role as UserRole)) {
-          await supabase.auth.signOut();
           setUser(null);
-          setSession(null);
+          setAccessDeniedMessage('You are signed in, but your role does not currently have access to Marketing Space. Please choose another space or contact your administrator if you need access.');
           setLoading(false);
           return;
         }
@@ -95,6 +96,7 @@ function MarketingApp() {
         }
 
         await initializePermissions(profile.role);
+        setAccessDeniedMessage(null);
 
         setUser({
           id: profile.id,
@@ -148,7 +150,12 @@ function MarketingApp() {
     return (
       <ErrorBoundary>
         <Toaster />
-        <MarketingLogin onLogin={handleLogin} />
+        <SpaceAccessNotice
+          spaceName="Marketing Space"
+          accentColorClass="bg-rose-600"
+          mode={accessDeniedMessage ? 'access-denied' : 'login-required'}
+          message={accessDeniedMessage || undefined}
+        />
       </ErrorBoundary>
     );
   }

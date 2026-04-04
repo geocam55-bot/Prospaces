@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { createClient } from '../../utils/supabase/client';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Search, User, X } from 'lucide-react';
+import { contactsAPI } from '../../utils/api';
 
 interface Customer {
   id: string;
@@ -16,64 +16,69 @@ interface CustomerSelectorProps {
   selectedCustomer: Customer | null;
   onCustomerSelect: (customer: Customer | null) => void;
   userId?: string;
+  showLabel?: boolean;
+  label?: string;
 }
 
 export function CustomerSelector({ 
   organizationId, 
   selectedCustomer, 
   onCustomerSelect,
-  userId
+  userId: _userId,
+  showLabel = true,
+  label = 'Customer (Optional)'
 }: CustomerSelectorProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load customers on mount and when search changes
+  // Load customers using the same shared contacts API as the main CRM
   useEffect(() => {
     if (organizationId) {
-      loadCustomers();
+      void loadCustomers();
+    } else {
+      setCustomers([]);
     }
   }, [organizationId]);
 
-  // Reload when search query changes (with debounce effect)
-  useEffect(() => {
-    if (!organizationId) return;
-    
-    const timer = setTimeout(() => {
-      loadCustomers();
-    }, 300); // 300ms debounce
+  const filteredCustomers = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
 
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+    return customers
+      .filter((customer) => {
+        if (!normalizedSearch) return true;
+
+        return [customer.name, customer.email, customer.company]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(normalizedSearch));
+      })
+      .slice(0, 50);
+  }, [customers, searchQuery]);
 
   const loadCustomers = async () => {
     setIsLoading(true);
     try {
-      // Query contacts without price_level (column may not exist)
-      // and always default it to 't1'
-      let q = createClient()
-        .from('contacts')
-        .select('id, name, email, phone, company')
-        .eq('organization_id', organizationId)
-        .order('name');
+      const { contacts } = await contactsAPI.getAll('personal');
 
-      // If userId is provided, only show contacts owned by this user
-      if (userId) {
-        q = q.eq('owner_id', userId);
-      }
+      const normalizedCustomers = (contacts || [])
+        .filter((contact: any) => {
+          const contactOrgId = contact.organizationId || contact.organization_id;
+          return !organizationId || !contactOrgId || contactOrgId === organizationId;
+        })
+        .map((contact: any) => ({
+          id: contact.id,
+          name: contact.name || '',
+          email: contact.email || '',
+          phone: contact.phone || '',
+          company: contact.company || '',
+          price_level: contact.priceLevel || contact.price_level || 't1',
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
-      if (searchQuery) {
-        q = q.or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,company.ilike.%${searchQuery}%`);
-      }
-
-      const { data, error } = await q.limit(50);
-
-      if (error) throw error;
-      // Default price_level to 't1' for every customer
-      setCustomers((data || []).map((c: any) => ({ ...c, price_level: c.price_level || 't1' })));
+      setCustomers(normalizedCustomers);
     } catch (error) {
-      // Error loading customers
+      setCustomers([]);
     } finally {
       setIsLoading(false);
     }
@@ -92,9 +97,11 @@ export function CustomerSelector({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm text-foreground">
-        Customer (Optional)
-      </label>
+      {showLabel && (
+        <label className="block text-sm text-foreground">
+          {label}
+        </label>
+      )}
       
       {selectedCustomer ? (
         <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -148,13 +155,13 @@ export function CustomerSelector({
                   <div className="p-4 text-center text-muted-foreground">
                     Loading customers...
                   </div>
-                ) : customers.length === 0 ? (
+                ) : filteredCustomers.length === 0 ? (
                   <div className="p-4 text-center text-muted-foreground">
                     No customers found
                   </div>
                 ) : (
                   <div className="py-1">
-                    {customers.map((customer) => (
+                    {filteredCustomers.map((customer) => (
                       <button
                         key={customer.id}
                         onClick={() => handleSelectCustomer(customer)}

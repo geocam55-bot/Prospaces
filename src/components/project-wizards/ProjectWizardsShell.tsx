@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy, useCallback } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import {
   Wand2,
   Hammer,
@@ -14,10 +14,12 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   User as UserIcon,
+  Users,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ChangePasswordDialog } from '../ChangePasswordDialog';
 import { createClient } from '../../utils/supabase/client';
+import { canView, onPermissionsChanged } from '../../utils/permissions';
 import type { User } from '../../App';
 
 // ── Lazy-load planners (same chunks as main CRM) ──
@@ -53,9 +55,11 @@ const InteriorFinishingPlanner = lazyNamed(
   () => import('../planners/InteriorFinishingPlanner'),
   'InteriorFinishingPlanner'
 );
+const Contacts = lazyNamed(() => import('../Contacts'), 'Contacts');
 
 type PlannerView =
   | 'home'
+  | 'contacts'
   | 'kitchen-planner'
   | 'deck-planner'
   | 'garage-planner'
@@ -70,10 +74,12 @@ interface NavItem {
   color: string;
   bgColor: string;
   adminOnly?: boolean;
+  module?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Home', icon: LayoutDashboard, color: 'text-slate-600', bgColor: 'bg-slate-100' },
+  { id: 'contacts', label: 'Contacts', icon: Users, color: 'text-sky-600', bgColor: 'bg-sky-50', module: 'contacts' },
   { id: 'deck-planner', label: 'Deck Planner', icon: Hammer, color: 'text-amber-600', bgColor: 'bg-amber-50' },
   { id: 'garage-planner', label: 'Garage Planner', icon: Warehouse, color: 'text-blue-600', bgColor: 'bg-blue-50' },
   { id: 'shed-planner', label: 'Shed Planner', icon: Home, color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
@@ -170,10 +176,15 @@ interface ProjectWizardsShellProps {
 export function ProjectWizardsShell({ user, onLogout }: ProjectWizardsShellProps) {
   const [currentView, setCurrentView] = useState<PlannerView>('home');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [, setPermissionVersion] = useState(0);
+
+  useEffect(() => onPermissionsChanged(() => setPermissionVersion((version) => version + 1)), []);
 
   const isAdmin = user.role === 'super_admin' || user.role === 'admin';
 
-  const visibleNav = NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin);
+  const visibleNav = NAV_ITEMS.filter(
+    (item) => (!item.adminOnly || isAdmin) && (!item.module || canView(item.module, user.role))
+  );
 
   const handleNavigate = useCallback((view: PlannerView) => {
     setCurrentView(view);
@@ -311,6 +322,7 @@ export function ProjectWizardsShell({ user, onLogout }: ProjectWizardsShellProps
         )}
 
         <Suspense fallback={<PlannerLoading />}>
+          {currentView === 'contacts' && <Contacts user={user} />}
           {currentView === 'kitchen-planner' && (
             <PlannerErrorBoundary onNavigate={handleNavigate} plannerKey="kitchen-planner">
               <KitchenPlanner user={user} />
@@ -365,7 +377,17 @@ function HomeView({
     gradient: string;
     shadow: string;
     adminOnly?: boolean;
+    module?: string;
   }[] = [
+    {
+      id: 'contacts',
+      label: 'Contacts',
+      description: 'Open customer records while planning projects, pricing materials, and preparing design quotes.',
+      icon: Users,
+      gradient: 'from-sky-500 to-cyan-600',
+      shadow: 'shadow-sky-500/20',
+      module: 'contacts',
+    },
     {
       id: 'deck-planner',
       label: 'Deck Planner',
@@ -417,7 +439,9 @@ function HomeView({
     },
   ];
 
-  const visibleCards = plannerCards.filter((c) => !c.adminOnly || isAdmin);
+  const visibleCards = plannerCards.filter(
+    (card) => (!card.adminOnly || isAdmin) && (!card.module || canView(card.module, user.role))
+  );
 
   return (
     <div className="p-8 lg:p-12 max-w-7xl mx-auto">
@@ -427,7 +451,7 @@ function HomeView({
           Welcome back, {user.full_name?.split(' ')[0] || 'Designer'}
         </h1>
         <p className="mt-2 text-slate-500 text-lg">
-          Choose a planner to start designing.
+          Choose a planner or open contacts to start your next project.
         </p>
       </div>
 
@@ -471,7 +495,7 @@ function HomeView({
       {/* Quick stats / recent designs placeholder */}
       <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <p className="text-sm text-slate-400 font-medium">Available Planners</p>
+          <p className="text-sm text-slate-400 font-medium">Available Tools</p>
           <p className="text-3xl font-bold text-slate-900 mt-1">{visibleCards.length}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-6">

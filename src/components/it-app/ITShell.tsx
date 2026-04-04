@@ -17,8 +17,10 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   User as UserIcon,
+  Users as UsersIcon,
 } from 'lucide-react';
 import { createClient } from '../../utils/supabase/client';
+import { canView, onPermissionsChanged } from '../../utils/permissions';
 import type { User } from '../../App';
 import { useTheme } from '../ThemeProvider';
 
@@ -42,9 +44,11 @@ const SubscriptionBilling = lazyNamed(() => import('../subscription/Subscription
 const SubscriptionAgreement = lazyNamed(() => import('../SubscriptionAgreement'), 'SubscriptionAgreement');
 const PortalMessagesAdmin = lazyNamed(() => import('../portal/PortalMessagesAdmin'), 'PortalMessagesAdmin');
 const AdminFixUsers = lazyNamed(() => import('../AdminFixUsers'), 'AdminFixUsers');
+const Contacts = lazyNamed(() => import('../Contacts'), 'Contacts');
 
 type ITView =
   | 'home'
+  | 'contacts'
   | 'users'
   | 'tenants'
   | 'security'
@@ -64,9 +68,11 @@ interface NavItem {
   color: string;
   bgColor: string;
   superAdminOnly?: boolean;
+  module?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { id: 'contacts',       label: 'Contacts',             icon: UsersIcon,  color: 'text-sky-600',     bgColor: 'bg-sky-50',     module: 'contacts' },
   { id: 'users',          label: 'Users',                icon: UserCog,    color: 'text-violet-600',  bgColor: 'bg-violet-50' },
   { id: 'tenants',        label: 'Organizations',        icon: Building2,  color: 'text-indigo-600',  bgColor: 'bg-indigo-50',  superAdminOnly: true },
   { id: 'security',       label: 'Security',             icon: Shield,     color: 'text-purple-600',  bgColor: 'bg-purple-50' },
@@ -103,10 +109,13 @@ export function ITShell({ user, accessToken, onLogout }: ITShellProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [organization, setOrganization] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<User>(user);
+  const [, setPermissionVersion] = useState(0);
+
+  useEffect(() => onPermissionsChanged(() => setPermissionVersion((version) => version + 1)), []);
 
   const isSuperAdmin = currentUser.role === 'super_admin';
   const visibleNavItems = NAV_ITEMS.filter(
-    (item) => !item.superAdminOnly || isSuperAdmin
+    (item) => (!item.superAdminOnly || isSuperAdmin) && (!item.module || canView(item.module, currentUser.role))
   );
 
   // Load organization on mount
@@ -304,6 +313,7 @@ export function ITShell({ user, accessToken, onLogout }: ITShellProps) {
         )}
 
         <Suspense fallback={<ModuleLoading />}>
+          {currentView === 'contacts' && <Contacts user={currentUser} />}
           {currentView === 'users' && <Users user={currentUser} organization={organization} onOrganizationUpdate={setOrganization} />}
           {currentView === 'tenants' && <Tenants user={currentUser} organization={organization} />}
           {currentView === 'security' && <Security user={currentUser} />}
@@ -333,6 +343,7 @@ function HomeView({
 }) {
   const { theme } = useTheme();
   const cardMeta: Record<string, { description: string; gradient: string; shadow: string }> = {
+    contacts:        { description: 'View and manage shared CRM contacts inside IT Space while following the current role permissions.', gradient: 'from-sky-500 to-cyan-600',       shadow: 'shadow-sky-500/20' },
     users:           { description: 'Manage user accounts, roles, permissions, and team member access across the platform.',         gradient: 'from-violet-500 to-indigo-600',  shadow: 'shadow-violet-500/20' },
     tenants:         { description: 'Create and manage organizations, configure org-level settings, and control tenant access.',    gradient: 'from-indigo-500 to-blue-600',    shadow: 'shadow-indigo-500/20' },
     security:        { description: 'Configure security policies, two-factor authentication, session controls, and IP whitelists.', gradient: 'from-purple-500 to-violet-600',  shadow: 'shadow-purple-500/20' },

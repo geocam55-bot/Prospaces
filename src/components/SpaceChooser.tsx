@@ -106,7 +106,7 @@ export function SpaceChooser({ onSelectSalesSpace, onSelectDesignSpace, onSelect
             Choose your Space
           </h1>
           <p style={{ fontSize: 16, color: '#64748B', marginTop: 8 }}>
-            Select where you'd like to sign in.
+            You’re signed in — choose the space you want to enter.
           </p>
 
           {mobileNotice && (
@@ -178,7 +178,7 @@ export function SpaceChooser({ onSelectSalesSpace, onSelectDesignSpace, onSelect
 
               {/* Arrow link */}
               <div className="flex items-center gap-1.5 transition-all duration-200 group-hover:gap-3" style={{ color: '#1E6FD9', fontWeight: 600, fontSize: 14 }}>
-                Open CRM Login
+                Enter Sales Space
                 <ChevronRight className="h-4 w-4" />
               </div>
             </div>
