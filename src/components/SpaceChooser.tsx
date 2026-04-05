@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, Wand2, Building2, ChevronRight, TrendingUp, BarChart3, Package, Monitor } from 'lucide-react';
+import { ArrowLeft, Wand2, Building2, ChevronRight, TrendingUp, BarChart3, Package, Monitor, MessageSquare } from 'lucide-react';
 import { Logo } from './Logo';
 
 /* ── Asset imports (shared with LandingPage) ── */
@@ -19,11 +19,12 @@ interface SpaceChooserProps {
   onSelectInsightsSpace: () => void;
   onSelectInventorySpace: () => void;
   onSelectITSpace: () => void;
+  onSelectMessagingSpace: () => void;
   onBack: () => void;
 }
 
-export function SpaceChooser({ onSelectSalesSpace, onSelectDesignSpace, onSelectMarketingSpace, onSelectInsightsSpace, onSelectInventorySpace, onSelectITSpace, onBack }: SpaceChooserProps) {
-  const [hoveredCard, setHoveredCard] = useState<'sales' | 'design' | 'marketing' | 'insights' | 'inventory' | 'it' | null>(null);
+export function SpaceChooser({ onSelectSalesSpace, onSelectDesignSpace, onSelectMarketingSpace, onSelectInsightsSpace, onSelectInventorySpace, onSelectITSpace, onSelectMessagingSpace, onBack }: SpaceChooserProps) {
+  const [hoveredCard, setHoveredCard] = useState<'sales' | 'design' | 'marketing' | 'insights' | 'inventory' | 'it' | 'messaging' | null>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [mobileNotice, setMobileNotice] = useState<string | null>(null);
 
@@ -509,6 +510,72 @@ export function SpaceChooser({ onSelectSalesSpace, onSelectDesignSpace, onSelect
               {/* Arrow link */}
               <div className="flex items-center gap-1.5 transition-all duration-200 group-hover:gap-3" style={{ color: '#8B5CF6', fontWeight: 600, fontSize: 14 }}>
                 Open IT Space
+                <ChevronRight className="h-4 w-4" />
+              </div>
+            </div>
+          </motion.button>
+
+          {/* Messaging Space */}
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.75 }}
+            onClick={onSelectMessagingSpace}
+            onMouseEnter={() => setHoveredCard('messaging')}
+            onMouseLeave={() => setHoveredCard(null)}
+            className="group text-left"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+          >
+            <div
+              className="relative overflow-hidden transition-all duration-300"
+              style={{
+                borderRadius: 20,
+                padding: '36px 28px',
+                background: hoveredCard === 'messaging'
+                  ? 'rgba(255,255,255,0.92)'
+                  : 'rgba(255,255,255,0.75)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                border: hoveredCard === 'messaging'
+                  ? '1.5px solid rgba(6,182,212,0.35)'
+                  : '1.5px solid rgba(255,255,255,0.6)',
+                boxShadow: hoveredCard === 'messaging'
+                  ? '0 20px 50px rgba(6,182,212,0.15), 0 8px 24px rgba(0,0,0,0.06)'
+                  : '0 8px 32px rgba(0,0,0,0.06)',
+                transform: hoveredCard === 'messaging' ? 'translateY(-4px)' : 'translateY(0)',
+              }}
+            >
+              {/* Top gradient bar */}
+              <div
+                className="absolute top-0 left-0 right-0 h-1.5"
+                style={{ background: 'linear-gradient(90deg, #06B6D4, #0EA5E9)' }}
+              />
+
+              {/* Icon */}
+              <div
+                className="flex items-center justify-center mb-5 transition-transform duration-300 group-hover:scale-110"
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 16,
+                  background: 'linear-gradient(135deg, #06B6D4 0%, #0EA5E9 100%)',
+                  boxShadow: '0 8px 24px rgba(6,182,212,0.3)',
+                }}
+              >
+                <MessageSquare className="h-7 w-7 text-white" />
+              </div>
+
+              {/* Text */}
+              <h3 style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>
+                Messaging Space
+              </h3>
+              <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6, marginBottom: 20 }}>
+                Team chats, direct messages, customer portal conversations, and internal notes — all in one place.
+              </p>
+
+              {/* Arrow link */}
+              <div className="flex items-center gap-1.5 transition-all duration-200 group-hover:gap-3" style={{ color: '#06B6D4', fontWeight: 600, fontSize: 14 }}>
+                Open Messaging Space
                 <ChevronRight className="h-4 w-4" />
               </div>
             </div>

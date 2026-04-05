@@ -1,4 +1,4 @@
-import { ChevronRight, Users, FileText, CheckCircle2, Calendar, StickyNote, Folder, LayoutDashboard } from 'lucide-react';
+import { ChevronRight, Users, FileText, CheckCircle2, Calendar, StickyNote, Folder, LayoutDashboard, MessageSquare } from 'lucide-react';
 import type { User, Organization } from '../App';
 import { canView } from '../utils/permissions';
 
@@ -80,6 +80,16 @@ export function MainPanels({ user, organization, onNavigate }: MainPanelsProps) 
       accent: 'bg-slate-500',
       show: organization?.documents_enabled !== false && canView('documents', user.role),
     },
+    {
+      id: 'messages',
+      label: 'Message Space',
+      description: 'Team chats, direct messages, customer portal conversations, and internal notes — all in one place.',
+      icon: MessageSquare,
+      gradient: 'from-cyan-400 to-sky-600',
+      shadow: 'shadow-cyan-500/20',
+      accent: 'bg-cyan-400',
+      show: true,
+    },
   ].filter((panel) => panel.show);
 
   return (
@@ -99,17 +109,17 @@ export function MainPanels({ user, organization, onNavigate }: MainPanelsProps) 
               <button
                 key={panel.id}
                 onClick={() => onNavigate?.(panel.id)}
-                className={`group relative min-h-[260px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-8 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg ${panel.shadow}`}
+                className={`group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 text-left transition-all duration-200 hover:border-slate-300 hover:shadow-lg ${panel.shadow}`}
               >
-                <div className={`absolute top-0 left-0 right-0 h-1.5 ${panel.accent}`} />
-                <div className={`mb-7 inline-flex h-[64px] w-[64px] items-center justify-center rounded-2xl bg-gradient-to-br ${panel.gradient} shadow-lg ${panel.shadow} sm:h-[72px] sm:w-[72px]`}>
-                  <Icon className="h-8 w-8 text-white" />
+                <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${panel.gradient}`} />
+                <div className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${panel.gradient} shadow-lg ${panel.shadow}`}>
+                  <Icon className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="mb-2 text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">{panel.label}</h3>
-                <p className="text-base leading-relaxed text-slate-500 sm:text-xl">{panel.description}</p>
-                <div className="mt-6 flex items-center gap-1.5 text-base font-medium text-indigo-600 transition-all group-hover:gap-3 sm:text-xl">
+                <h3 className="mb-1.5 text-lg font-semibold text-slate-900">{panel.label}</h3>
+                <p className="text-sm leading-relaxed text-slate-500">{panel.description}</p>
+                <div className="mt-4 flex items-center gap-1.5 text-sm font-medium text-indigo-600 transition-all group-hover:gap-3">
                   Open module
-                  <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
+                  <ChevronRight className="h-4 w-4" />
                 </div>
               </button>
             );

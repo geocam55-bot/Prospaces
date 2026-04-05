@@ -4,6 +4,7 @@ import {
   BarChart3,
   AlertTriangle,
   Search,
+  LayoutDashboard,
   MessageSquare,
   Tag,
   LogOut,
@@ -56,6 +57,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { id: 'home', label: 'Home', icon: LayoutDashboard, color: 'text-slate-600', bgColor: 'bg-slate-100' },
   { id: 'catalog', label: 'Inventory Catalog', icon: Package, color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
   { id: 'messages', label: 'Message Space', icon: MessageSquare, color: 'text-violet-600', bgColor: 'bg-violet-50' },
 ];

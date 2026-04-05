@@ -561,6 +561,7 @@ export function AppContent() {
           onSelectInsightsSpace={() => { window.location.href = '/insights.html'; }}
           onSelectInventorySpace={() => { window.location.href = '/inventory.html'; }}
           onSelectITSpace={() => { window.location.href = '/it.html'; }}
+          onSelectMessagingSpace={() => { setCurrentView('messages'); }}
           onBack={() => setCurrentView('main-panels')}
         />
       </ErrorBoundary>

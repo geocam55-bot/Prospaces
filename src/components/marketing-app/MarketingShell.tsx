@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import {
   TrendingUp,
   BarChart3,
+  LayoutDashboard,
   Mail,
   MessageSquare,
   Target,
@@ -95,6 +96,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { id: 'home', label: 'Home', icon: LayoutDashboard, color: 'text-slate-600', bgColor: 'bg-slate-100' },
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3, color: 'text-rose-600', bgColor: 'bg-rose-50' },
   { id: 'contacts', label: 'Contacts', icon: Users, color: 'text-sky-600', bgColor: 'bg-sky-50', module: 'contacts' },
   { id: 'messages', label: 'Message Space', icon: MessageSquare, color: 'text-violet-600', bgColor: 'bg-violet-50', module: 'messages' },

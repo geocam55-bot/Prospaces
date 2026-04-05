@@ -22,6 +22,7 @@ import {
   FileText,
   Search,
   Smile,
+  ChevronLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
@@ -62,6 +63,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
   const [newChatMembers, setNewChatMembers] = useState<string[]>([]);
   const [pendingDirectTarget, setPendingDirectTarget] = useState<any>(null);
   const [pendingMessage, setPendingMessage] = useState('');
+  const [mobileView, setMobileView] = useState<'sidebar' | 'chat'>('sidebar');
 
   const selectedMessage = useMemo(
     () => messages.find((message) => message.id === selectedMessageId) || null,
@@ -520,10 +522,10 @@ export function MessagingHub({ user }: MessagingHubProps) {
   }, [internalChats, messages, activePortalUsers]);
 
   return (
-    <div className="flex h-[calc(100vh-80px)] min-h-[600px] overflow-hidden rounded-2xl border bg-background shadow-md mx-4 mb-4">
+    <div className="flex h-[calc(100vh-80px)] min-h-0 overflow-hidden border bg-background shadow-md md:rounded-2xl md:mx-4 md:mb-4">
 
       {/* ── LEFT SIDEBAR ── */}
-      <div className="relative flex w-[300px] shrink-0 flex-col border-r bg-background">
+      <div className={`relative flex w-full md:w-[300px] shrink-0 flex-col border-r bg-background ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
 
         {/* Sidebar header */}
         <div className="flex items-center justify-between border-b px-4 py-3.5">
@@ -593,6 +595,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                     setSelectedChatId(conv.id);
                     setSelectedConversationType('internal');
                   }
+                  setMobileView('chat');
                 }}
                 className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60 ${
                   isSelected ? 'bg-muted/80' : ''
@@ -634,7 +637,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
               {chatTargets.map((target) => (
                 <button
                   key={getTargetKey(target)}
-                  onClick={() => handleStartDirectChat(target)}
+                  onClick={() => { handleStartDirectChat(target); setMobileView('chat'); }}
                   className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60"
                 >
                   <div className="relative shrink-0">
@@ -665,7 +668,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
         </div>
 
         {/* New Group button — pinned at bottom of left pane */}
-        <div className="absolute bottom-0 left-0 w-[300px] border-t bg-background px-3 py-2.5">
+        <div className="absolute bottom-0 left-0 right-0 border-t bg-background px-3 py-2.5">
           <Button
             variant="outline"
             className="w-full gap-2 rounded-full"
@@ -678,12 +681,20 @@ export function MessagingHub({ user }: MessagingHubProps) {
       </div>
 
       {/* ── RIGHT CHAT AREA ── */}
-      <div className="flex min-w-0 flex-1 flex-col bg-background">
+      <div className={`min-w-0 flex-1 flex-col bg-background ${mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'}`}>
 
         {/* Pending new DM — person selected but no existing chat */}
         {pendingDirectTarget && !selectedConversation ? (
           <>
             <div className="flex shrink-0 items-center gap-3 border-b bg-background px-4 py-3">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="md:hidden h-8 w-8 shrink-0 rounded-full"
+                onClick={() => setMobileView('sidebar')}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
               <Avatar className="h-8 w-8 shrink-0">
                 <AvatarImage src={pendingDirectTarget.avatar_url || undefined} alt={pendingDirectTarget.name} />
                 <AvatarFallback>{getAvatarFallback(pendingDirectTarget.name, pendingDirectTarget.email)}</AvatarFallback>
@@ -740,6 +751,14 @@ export function MessagingHub({ user }: MessagingHubProps) {
           <>
             {/* Chat header */}
             <div className="flex shrink-0 items-center gap-3 border-b bg-background px-4 py-3">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="md:hidden h-8 w-8 shrink-0 rounded-full"
+                onClick={() => setMobileView('sidebar')}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
               <Avatar className="h-8 w-8 shrink-0">
                 <AvatarFallback>
                   {selectedConversationType === 'customer' && selectedMessage
@@ -771,25 +790,27 @@ export function MessagingHub({ user }: MessagingHubProps) {
               </div>
               {/* Customer message actions */}
               {selectedConversationType === 'customer' && selectedMessage && (
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-1.5">
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={handleCreateFollowUpTask}
-                    className="gap-1.5 rounded-full text-xs"
+                    className="gap-1.5 rounded-full text-xs px-2 sm:px-3"
+                    title="Create follow-up task"
                   >
                     <FileText className="h-3.5 w-3.5" />
-                    Task
+                    <span className="hidden sm:inline">Task</span>
                   </Button>
                   <Button
                     size="sm"
                     variant={selectedMessage.status === 'resolved' ? 'default' : 'outline'}
                     onClick={handleToggleResolved}
                     disabled={sending}
-                    className="gap-1.5 rounded-full text-xs"
+                    className="gap-1.5 rounded-full text-xs px-2 sm:px-3"
+                    title={selectedMessage.status === 'resolved' ? 'Resolved' : 'Resolve'}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    {selectedMessage.status === 'resolved' ? 'Resolved' : 'Resolve'}
+                    <span className="hidden sm:inline">{selectedMessage.status === 'resolved' ? 'Resolved' : 'Resolve'}</span>
                   </Button>
                 </div>
               )}

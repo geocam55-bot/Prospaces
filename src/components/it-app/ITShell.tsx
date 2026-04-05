@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Clock,
   Wrench,
+  LayoutDashboard,
   LogOut,
   ChevronRight,
   ChevronDown,
@@ -83,6 +84,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { id: 'home', label: 'Home', icon: LayoutDashboard, color: 'text-slate-600', bgColor: 'bg-slate-100' },
   { id: 'contacts',       label: 'Contacts',             icon: UsersIcon,  color: 'text-sky-600',     bgColor: 'bg-sky-50',     module: 'contacts' },
   { id: 'users',          label: 'Users',                icon: UserCog,    color: 'text-violet-600',  bgColor: 'bg-violet-50' },
   { id: 'tenants',        label: 'Organizations',        icon: Building2,  color: 'text-indigo-600',  bgColor: 'bg-indigo-50',  superAdminOnly: true },

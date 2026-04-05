@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import {
   LayoutDashboard,
+  Gauge,
   Users,
   CheckSquare,
   Calendar,
@@ -22,7 +23,6 @@ import {
   Upload,
   Target,
   Folder,
-  Layers,
   UsersRound,
   BarChart3,
   Sparkles,
@@ -118,8 +118,8 @@ export function Navigation({
 
   // Base navigation items with submenu structure
   const baseNavItems = user.role !== 'super_admin' ? [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'main-panels', label: 'Main Panels', icon: Layers },
+    { id: 'main-panels', label: 'Home', icon: LayoutDashboard },
+    { id: 'dashboard', label: 'Dashboard', icon: Gauge },
     // Only show AI Suggestions if enabled for the organization
     ...(organization?.ai_suggestions_enabled ? [{ id: 'ai-suggestions', label: 'AI Suggestions', icon: Sparkles }] : []),
     { id: 'contacts', label: 'Contacts', icon: Users },
@@ -420,22 +420,17 @@ export function Navigation({
   return (
     <>
       {/* Mobile header */}
-      <div 
-        className="lg:hidden fixed top-0 left-0 right-0 border-b z-50"
-        style={{
-          background: theme.colors.navBackground,
-          color: theme.colors.navText,
-          borderColor: theme.colors.border
-        }}
-      >
+      <div className="lg:hidden fixed top-0 left-0 right-0 border-b border-slate-200 bg-white z-50">
         <div className="flex items-center justify-between gap-2 px-3 py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <Logo size="sm" />
+            <Logo size="sm" className="h-9 w-9 shrink-0" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">Sales Space</p>
-              <p className="truncate text-[10px] uppercase tracking-wide" style={{ opacity: 0.7 }}>
-                {getPageTitle(currentView)}
-              </p>
+              <span className="text-base font-bold text-slate-900 tracking-tight block truncate">
+                Sales Space
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider block">
+                CRM Workspace
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-0.5">
@@ -444,7 +439,7 @@ export function Navigation({
               <Button
                 variant="ghost"
                 size="sm"
-                className="relative p-1.5 rounded-full hover:bg-background/10 transition-colors"
+                className="relative p-1.5 rounded-full hover:bg-slate-100 transition-colors"
                 onClick={() => handleNavClick('ai-suggestions')}
                 title={`${suggestions.length} AI Suggestions`}
               >
@@ -460,7 +455,7 @@ export function Navigation({
               <Button
                 variant="ghost"
                 size="sm"
-                className="relative hidden rounded-full p-1.5 transition-colors hover:bg-background/10 sm:inline-flex"
+                className="relative hidden rounded-full p-1.5 transition-colors hover:bg-slate-100 sm:inline-flex"
                 onClick={() => handleNavClick('bids')}
                 title={`${unreadBidsCount} Deal Updates`}
               >
@@ -476,7 +471,7 @@ export function Navigation({
               <Button
                 variant="ghost"
                 size="sm"
-                className="relative hidden rounded-full p-1.5 transition-colors hover:bg-background/10 sm:inline-flex"
+                className="relative hidden rounded-full p-1.5 transition-colors hover:bg-slate-100 sm:inline-flex"
                 onClick={() => handleNavClick('tasks')}
                 title={`${taskCount} Pending Tasks`}
               >
@@ -492,7 +487,7 @@ export function Navigation({
               <Button
                 variant="ghost"
                 size="sm"
-                className="relative hidden rounded-full p-1.5 transition-colors hover:bg-background/10 sm:inline-flex"
+                className="relative hidden rounded-full p-1.5 transition-colors hover:bg-slate-100 sm:inline-flex"
                 onClick={() => handleNavClick('appointments')}
                 title={`${appointmentCount} Upcoming Appointments`}
               >
@@ -508,7 +503,7 @@ export function Navigation({
               <Button
                 variant="ghost"
                 size="sm"
-                className="relative p-1.5 rounded-full hover:bg-background/10 transition-colors"
+                className="relative p-1.5 rounded-full hover:bg-slate-100 transition-colors"
                 onClick={() => handleNavClick('email')}
                 title={`${unreadCount} Unread Emails`}
               >
@@ -574,7 +569,7 @@ export function Navigation({
             <Button
               variant="ghost"
               size="sm"
-              className="rounded-full p-1.5"
+              className="rounded-full p-1.5 hover:bg-slate-100 text-slate-600"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -625,28 +620,6 @@ export function Navigation({
               {isSidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             </button>
           )}
-        </div>
-
-        <div className="px-3 pt-4">
-          <div
-            className={`flex items-center gap-3 rounded-xl ${isSidebarCollapsed ? 'justify-center px-2 py-3' : 'px-4 py-3'}`}
-            style={{ backgroundColor: theme.colors.navActive }}
-          >
-            {(() => {
-              const Icon = getPageIcon(currentView);
-              return <Icon className="h-5 w-5 shrink-0" style={{ color: theme.colors.primary }} />;
-            })()}
-            {!isSidebarCollapsed && (
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wide" style={{ color: theme.colors.textMuted }}>
-                  Current Page
-                </p>
-                <p className="truncate text-sm font-semibold" style={{ color: theme.colors.navText }}>
-                  {getPageTitle(currentView)}
-                </p>
-              </div>
-            )}
-          </div>
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
@@ -760,37 +733,92 @@ export function Navigation({
       {/* Mobile menu */}
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-40 bg-gray-900 bg-opacity-50" onClick={() => setIsMobileMenuOpen(false)}>
-          <div 
-            className="fixed inset-y-0 left-0 w-[88vw] max-w-72"
-            style={{
-              background: theme.colors.navBackground,
-              color: theme.colors.navText
-            }}
+          <div
+            className="fixed inset-y-0 left-0 w-[88vw] max-w-72 bg-white"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex h-full flex-col overflow-y-auto pb-4 pt-16">
-              <nav className="mt-4 flex-1 space-y-1 px-2">
-                {navItems.map((item) => renderNavItem(item))}
+            <div className="flex h-full flex-col overflow-y-auto pb-4">
+              {/* Drawer header */}
+              <div className="flex items-center gap-3 px-5 h-16 border-b border-slate-100 shrink-0">
+                <Logo size="sm" className="h-9 w-9 shrink-0" />
+                <div className="overflow-hidden flex-1 min-w-0">
+                  <span className="text-base font-bold text-slate-900 tracking-tight block truncate">Sales Space</span>
+                  <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider block">CRM Workspace</span>
+                </div>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="ml-auto text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <nav className="mt-3 flex-1 space-y-1 px-3">
+                {navItems.map((item) => {
+                  const NavIcon = item.icon;
+                  const isActive = currentView === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => { handleNavClick(item.id); setIsMobileMenuOpen(false); }}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all ${
+                        isActive
+                          ? 'bg-blue-50 text-blue-700 font-semibold'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
+                      }`}
+                    >
+                      <NavIcon className="h-5 w-5 flex-shrink-0" />
+                      {item.label}
+                    </button>
+                  );
+                })}
               </nav>
 
-              {/* Mobile Footer - Legal Links */}
-              <div className="px-3 pt-3 mt-2 border-t" style={{ borderColor: theme.colors.border }}>
-                <div className="flex items-center justify-center gap-3 pb-2">
-                  <a
-                    href="?view=privacy-policy"
-                    className="text-xs transition-colors"
-                    style={{ color: theme.colors.navText, opacity: 0.5 }}
-                  >
-                    Privacy
-                  </a>
-                  <span className="text-xs" style={{ color: theme.colors.navText, opacity: 0.3 }}>·</span>
-                  <a
-                    href="?view=terms-of-service"
-                    className="text-xs transition-colors"
-                    style={{ color: theme.colors.navText, opacity: 0.5 }}
-                  >
-                    Terms
-                  </a>
+              {/* Mobile footer account block */}
+              <div className="border-t border-slate-100 p-3 mt-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="w-full focus:outline-none">
+                    <div className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 bg-slate-50 text-left transition-all hover:bg-slate-100">
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarImage src={user.avatar_url} alt={user.full_name || user.email || 'User'} />
+                        <AvatarFallback className="bg-blue-600 text-white text-sm">
+                          {getInitials(user.full_name || user.email || '')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="overflow-hidden flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">{user.full_name || user.email || 'User'}</p>
+                        <p className="text-[11px] text-slate-400 truncate">Account menu</p>
+                      </div>
+                      <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" side="top" className="w-56">
+                    <DropdownMenuLabel>
+                      <div>
+                        <p className="font-medium">{user.full_name || user.email || 'User'}</p>
+                        <p className="text-xs text-muted-foreground font-normal mt-1">{user.email || 'No email'}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { handleNavClick('settings'); setIsMobileMenuOpen(false); }}>
+                      <User className="mr-2 h-4 w-4" />
+                      Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { handleBackToSpaces(); setIsMobileMenuOpen(false); }}>
+                      <Home className="mr-2 h-4 w-4" />
+                      Spaces Main Page
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onLogout} className="text-red-600">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Log Off
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <a href="?view=privacy-policy" className="text-xs text-slate-400 hover:text-slate-600 transition-colors">Privacy</a>
+                  <span className="text-xs text-slate-300">·</span>
+                  <a href="?view=terms-of-service" className="text-xs text-slate-400 hover:text-slate-600 transition-colors">Terms</a>
                 </div>
               </div>
             </div>
