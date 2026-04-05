@@ -1,6 +1,7 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "build",
+  "framework": "vite",
   "headers": [
     {
       "source": "/favicon.(ico|svg|png)",
