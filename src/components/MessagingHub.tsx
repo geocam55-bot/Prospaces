@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Input } from './ui/input';
@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
 import {
   addPortalInternalNote,
+  createCrmPortalMessage,
   createInternalChat,
   getCrmPortalMessages,
   getInternalChats,
@@ -64,6 +65,13 @@ export function MessagingHub({ user }: MessagingHubProps) {
   const [pendingDirectTarget, setPendingDirectTarget] = useState<any>(null);
   const [pendingMessage, setPendingMessage] = useState('');
   const [mobileView, setMobileView] = useState<'sidebar' | 'chat'>('sidebar');
+
+  // Tracks whether the very first load has run yet — used in loadData to decide
+  // whether to auto-select the first conversation or just refresh data silently.
+  const initializedRef = useRef(false);
+
+  // Ref used to scroll the message history to the bottom on new messages
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const selectedMessage = useMemo(
     () => messages.find((message) => message.id === selectedMessageId) || null,
@@ -113,7 +121,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
       const nextMessages = messagesData.messages || [];
       const nextUsers = usersData.portalUsers || [];
-      const nextChats = internalData.chats || [];
+      const nextChats = (internalData.chats || []).filter((chat: any) => canAccessInternalChat(chat));
       const nextStaff = Array.isArray((staffData as any)?.users)
         ? (staffData as any).users
         : Array.isArray(staffData)
@@ -123,23 +131,49 @@ export function MessagingHub({ user }: MessagingHubProps) {
       setMessages(nextMessages);
       setPortalUsers(nextUsers);
       setStaffUsers(nextStaff);
-      setInternalChats(nextChats);
 
-      if (!selectedMessageId && nextMessages.length > 0) {
-        setSelectedMessageId(nextMessages[0].id);
-      } else if (selectedMessageId && !nextMessages.some((message: any) => message.id === selectedMessageId)) {
-        setSelectedMessageId(nextMessages[0]?.id || null);
-      }
+      // Merge server chats with local state so any optimistically-added chats
+      // (created between now and the last server flush) are not wiped out by a
+      // full replace.  If the server returned nothing, keep local state intact
+      // to avoid clearing a just-created chat during the race window.
+      setInternalChats(prev => {
+        if (nextChats.length === 0) return prev;
+        const serverMap = new Map(nextChats.map((c: any) => [c.id, c]));
+        // Update existing chats and keep any local-only ones that haven't synced yet
+        const merged = prev.map((c: any) => serverMap.has(c.id) ? serverMap.get(c.id) : c);
+        const brandNew = nextChats.filter((c: any) => !prev.some((pc: any) => pc.id === c.id));
+        return [...merged, ...brandNew];
+      });
 
-      if (!selectedChatId && nextChats.length > 0) {
-        setSelectedChatId(nextChats[0].id);
-        setSelectedConversationType('internal');
-      } else if (selectedChatId && !nextChats.some((chat: any) => chat.id === selectedChatId)) {
-        setSelectedChatId(nextChats[0]?.id || null);
-      }
-
-      if (nextChats.length === 0 && nextMessages.length > 0) {
-        setSelectedConversationType('customer');
+      const isFirstLoad = !initializedRef.current;
+      if (isFirstLoad) {
+        initializedRef.current = true;
+        // On first load: auto-select the most recent conversation
+        if (nextChats.length > 0) {
+          setSelectedChatId(nextChats[0].id);
+          setSelectedConversationType('internal');
+        } else if (nextMessages.length > 0) {
+          setSelectedMessageId(nextMessages[0].id);
+          setSelectedConversationType('customer');
+        }
+      } else {
+        // On background polls: use functional setters so we always read the
+        // LIVE selection state, not the stale closure value.  Only change
+        // selection if the currently-selected item has been deleted server-side.
+        setSelectedChatId(currentId => {
+          if (!currentId) return currentId;
+          if (nextChats.length > 0 && !nextChats.some((c: any) => c.id === currentId)) {
+            return nextChats[0]?.id || null;
+          }
+          return currentId;
+        });
+        setSelectedMessageId(currentId => {
+          if (!currentId) return currentId;
+          if (nextMessages.length > 0 && !nextMessages.some((m: any) => m.id === currentId)) {
+            return nextMessages[0]?.id || null;
+          }
+          return currentId;
+        });
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to load messaging hub');
@@ -155,10 +189,61 @@ export function MessagingHub({ user }: MessagingHubProps) {
     };
 
     refreshPresence();
-    const interval = window.setInterval(refreshPresence, 30000);
+    const interval = window.setInterval(refreshPresence, 10000);
 
     return () => window.clearInterval(interval);
   }, []);
+
+  // Real-time subscription — instantly deliver messages from other users without waiting for the
+  // next poll.  Listens to INSERT/UPDATE events on the kv_store table and patches local state for
+  // any row whose key belongs to this org's internal-chat namespace.
+  useEffect(() => {
+    const orgId = user.organization_id || user.organizationId;
+    if (!orgId) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`internal-chats-rt-${orgId}`)
+      .on(
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table: 'kv_store_8405be07' },
+        (payload: any) => {
+          const key: string = payload.new?.key || payload.old?.key || '';
+          if (!key.startsWith(`internal_chat:${orgId}:`)) return;
+
+          if (payload.eventType === 'DELETE' || !payload.new?.value) {
+            const chatId = key.split(':')[2];
+            if (chatId) setInternalChats(prev => prev.filter(c => c.id !== chatId));
+          } else {
+            const chat = payload.new.value;
+            if (!canAccessInternalChat(chat)) return;
+            setInternalChats(prev => {
+              const exists = prev.some(c => c.id === chat.id);
+              return exists
+                ? prev.map(c => (c.id === chat.id ? chat : c))
+                : [...prev, chat];
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user.organization_id, user.organizationId]);
+
+  // Auto-scroll the history to the bottom whenever the active conversation or its
+  // message count changes (new messages arriving, switching to a different chat, etc.)
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [
+    selectedChatId,
+    selectedMessageId,
+    selectedChat?.messages?.length,
+    // customerTimeline length is driven by replies array length
+    selectedMessage?.replies?.length,
+  ]);
 
   const formatDate = (date?: string) => {
     if (!date) return '';
@@ -197,7 +282,34 @@ export function MessagingHub({ user }: MessagingHubProps) {
     return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase();
   };
 
+  const getAvatarToneClass = (name?: string, email?: string) => {
+    const seed = `${name || ''}${email || ''}` || 'user';
+    const palettes = [
+      'bg-violet-100 text-violet-700',
+      'bg-sky-100 text-sky-700',
+      'bg-emerald-100 text-emerald-700',
+      'bg-amber-100 text-amber-700',
+      'bg-rose-100 text-rose-700',
+      'bg-indigo-100 text-indigo-700',
+    ];
+    const total = seed.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    return palettes[total % palettes.length];
+  };
+
   const getTargetKey = (target: any) => `${target.kind}:${target.id || target.email || target.name}`;
+
+  const canAccessInternalChat = (chat: any) => {
+    const participants = Array.isArray(chat?.participants) ? chat.participants : [];
+    if (chat?.createdBy === user.id) return true;
+    if (participants.length === 0) return true;
+
+    const normalizedEmail = (user.email || '').toLowerCase().trim();
+    return participants.some((participant: any) => {
+      if (participant?.kind === 'portal') return false;
+      const participantEmail = (participant?.email || '').toLowerCase().trim();
+      return participant?.id === user.id || (!!normalizedEmail && participantEmail === normalizedEmail);
+    });
+  };
 
   const handleSendReply = async () => {
     if (!selectedMessage || !replyText.trim()) return;
@@ -264,16 +376,14 @@ export function MessagingHub({ user }: MessagingHubProps) {
   };
 
   const handleCreateInternalChat = async () => {
-    const selectedMembers = [...staffUsers, ...activePortalUsers]
-      .map((member: any) => {
-        const isPortal = activePortalUsers.some((portalUser: any) => (portalUser.contactId || portalUser.email) === (member.contactId || member.email));
-        return {
-          id: member.contactId || member.id || member.email,
-          name: member.name || member.email || 'Member',
-          email: member.email || '',
-          kind: (isPortal ? 'portal' : 'staff') as 'portal' | 'staff',
-        };
-      })
+    const selectedMembers = staffUsers
+      .filter((member: any) => member?.id)
+      .map((member: any) => ({
+        id: member.id,
+        name: member.name || member.email || 'Member',
+        email: member.email || '',
+        kind: 'staff' as const,
+      }))
       .filter((member: any) => newChatMembers.includes(`${member.kind}:${member.id}`));
 
     const derivedChatType = selectedMembers.length > 1 ? 'group' : selectedMembers.length === 1 ? 'direct' : 'general';
@@ -320,7 +430,15 @@ export function MessagingHub({ user }: MessagingHubProps) {
       setNewChatTitle('');
       setNewChatMessage('');
       setNewChatMembers([]);
-      await loadData();
+      // Show the new chat immediately without waiting for a full reload
+      if (result?.chat) {
+        setInternalChats(prev => {
+          const exists = prev.some(c => c.id === result.chat.id);
+          return exists
+            ? prev.map(c => (c.id === result.chat.id ? result.chat : c))
+            : [...prev, result.chat];
+        });
+      }
       if (result?.chat?.id) {
         setSelectedChatId(result.chat.id);
         setSelectedConversationType('internal');
@@ -333,6 +451,29 @@ export function MessagingHub({ user }: MessagingHubProps) {
   };
 
   const handleStartDirectChat = (target: any) => {
+    if (target.kind === 'portal') {
+      const existingThread = messages.find((message: any) => {
+        return (
+          (target.contactId && message.contactId === target.contactId) ||
+          (target.email && (message.contactEmail === target.email || message.senderEmail === target.email))
+        );
+      });
+
+      if (existingThread?.id) {
+        setSelectedMessageId(existingThread.id);
+        setSelectedConversationType('customer');
+        setPendingDirectTarget(null);
+        return;
+      }
+
+      setSelectedConversationType('customer');
+      setPendingDirectTarget(target);
+      setPendingMessage('');
+      setSelectedChatId(null);
+      setSelectedMessageId(null);
+      return;
+    }
+
     const targetKey = getTargetKey(target);
     const existingChat = internalChats.find((chat: any) => {
       return (
@@ -348,7 +489,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
       return;
     }
 
-    // Show compose area instantly — no API call until first message is sent
+    setSelectedConversationType('internal');
     setPendingDirectTarget(target);
     setPendingMessage('');
     setSelectedChatId(null);
@@ -357,28 +498,128 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
   const handleSendToPendingTarget = async () => {
     if (!pendingDirectTarget || !pendingMessage.trim()) return;
+
+    const target = pendingDirectTarget;
+    const messageText = pendingMessage.trim();
+    const now = new Date().toISOString();
     setSending(true);
+
+    if (target.kind === 'portal') {
+      if (!target.contactId) {
+        toast.error('This portal user is not linked to a contact yet');
+        setSending(false);
+        return;
+      }
+
+      const optimisticMessageId = `pending-portal-${Date.now()}`;
+      const subject = `Message from ${user.full_name || user.email || 'Team'}`;
+      const optimisticThread = {
+        id: optimisticMessageId,
+        type: 'customer',
+        contactId: target.contactId,
+        contactName: target.name,
+        contactEmail: target.email || '',
+        from: 'team',
+        senderEmail: user.email || '',
+        subject,
+        body: messageText,
+        status: 'open',
+        createdAt: now,
+        updatedAt: now,
+        replies: [],
+        internalNotes: [],
+        customerUnread: true,
+      };
+
+      setMessages(prev => [optimisticThread, ...prev.filter((message: any) => message.id !== optimisticMessageId)]);
+      setSelectedMessageId(optimisticMessageId);
+      setSelectedConversationType('customer');
+      setSelectedChatId(null);
+      setPendingDirectTarget(null);
+      setPendingMessage('');
+
+      try {
+        const accessToken = await getAccessToken();
+        const result = await createCrmPortalMessage(target.contactId, messageText, subject, accessToken);
+        if (result?.message?.id) {
+          setMessages(prev => [
+            result.message,
+            ...prev.filter((message: any) => message.id !== optimisticMessageId && message.id !== result.message.id),
+          ]);
+          setSelectedMessageId(result.message.id);
+          setSelectedConversationType('customer');
+        } else {
+          await loadData();
+        }
+      } catch (err: any) {
+        setMessages(prev => prev.filter((message: any) => message.id !== optimisticMessageId));
+        setPendingDirectTarget(target);
+        setPendingMessage(messageText);
+        setSelectedMessageId(null);
+        toast.error(err.message || 'Failed to send portal message');
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
+    const optimisticChatId = `pending-${Date.now()}`;
+    const optimisticChat = {
+      id: optimisticChatId,
+      title: target.name,
+      chatType: 'direct',
+      contextType: `direct-${target.kind}`,
+      contextLabel: getTargetKey(target),
+      participants: [{ id: target.id, name: target.name, email: target.email, kind: target.kind }],
+      updatedAt: now,
+      createdAt: now,
+      messages: [
+        {
+          id: `pending-message-${Date.now()}`,
+          senderId: user.id,
+          senderName: user.full_name || user.email || 'Staff',
+          body: messageText,
+          createdAt: now,
+        },
+      ],
+    };
+
+    setSelectedConversationType('internal');
+    setInternalChats(prev => [optimisticChat, ...prev.filter((chat: any) => chat.id !== optimisticChatId)]);
+    setSelectedChatId(optimisticChatId);
+    setSelectedMessageId(null);
+    setPendingDirectTarget(null);
+    setPendingMessage('');
+
     try {
       const accessToken = await getAccessToken();
       const result = await createInternalChat(
         {
-          title: pendingDirectTarget.name,
-          contextType: `direct-${pendingDirectTarget.kind}`,
-          contextLabel: getTargetKey(pendingDirectTarget),
+          title: target.name,
+          contextType: `direct-${target.kind}`,
+          contextLabel: getTargetKey(target),
           chatType: 'direct',
-          participants: [{ id: pendingDirectTarget.id, name: pendingDirectTarget.name, email: pendingDirectTarget.email, kind: pendingDirectTarget.kind }],
-          initialMessage: pendingMessage.trim(),
+          participants: [{ id: target.id, name: target.name, email: target.email, kind: target.kind }],
+          initialMessage: messageText,
         },
         accessToken
       );
-      setPendingDirectTarget(null);
-      setPendingMessage('');
-      await loadData();
+
       if (result?.chat?.id) {
+        setInternalChats(prev => [
+          result.chat,
+          ...prev.filter((chat: any) => chat.id !== optimisticChatId && chat.id !== result.chat.id),
+        ]);
         setSelectedChatId(result.chat.id);
         setSelectedConversationType('internal');
+      } else {
+        await loadData();
       }
     } catch (err: any) {
+      setInternalChats(prev => prev.filter((chat: any) => chat.id !== optimisticChatId));
+      setPendingDirectTarget(target);
+      setPendingMessage(messageText);
+      setSelectedChatId(null);
       toast.error(err.message || 'Failed to start chat');
     } finally {
       setSending(false);
@@ -387,15 +628,52 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
   const handleSendInternalChatMessage = async () => {
     if (!selectedChat || !internalChatMessage.trim()) return;
+    const messageText = internalChatMessage.trim();
+    const chatId = selectedChat.id;
     setSending(true);
+    setInternalChatMessage(''); // Clear input immediately
+
+    // Optimistic update — message appears in the bubble area right away
+    const optimisticId = `opt-${Date.now()}`;
+    setInternalChats(prev =>
+      prev.map(c =>
+        c.id === chatId
+          ? {
+              ...c,
+              messages: [
+                ...(c.messages || []),
+                {
+                  id: optimisticId,
+                  senderId: user.id,
+                  senderName: user.full_name || user.email || 'Staff',
+                  body: messageText,
+                  createdAt: new Date().toISOString(),
+                },
+              ],
+              updatedAt: new Date().toISOString(),
+            }
+          : c
+      )
+    );
+
     try {
       const accessToken = await getAccessToken();
-      await sendInternalChatMessage(selectedChat.id, internalChatMessage.trim(), accessToken);
-      toast.success('Internal message sent');
-      setInternalChatMessage('');
-      await loadData();
+      const result = await sendInternalChatMessage(chatId, messageText, accessToken);
+      // Replace the optimistic entry with the authoritative server response
+      if (result?.chat) {
+        setInternalChats(prev => prev.map(c => (c.id === result.chat.id ? result.chat : c)));
+      }
     } catch (err: any) {
-      toast.error(err.message || 'Failed to send internal chat message');
+      // Roll back the optimistic message and restore the text so the user can retry
+      setInternalChats(prev =>
+        prev.map(c =>
+          c.id === chatId
+            ? { ...c, messages: (c.messages || []).filter((m: any) => m.id !== optimisticId) }
+            : c
+        )
+      );
+      setInternalChatMessage(messageText);
+      toast.error(err.message || 'Failed to send message');
     } finally {
       setSending(false);
     }
@@ -450,6 +728,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
     const portalTargets = activePortalUsers.map((portalUser: any) => ({
       id: portalUser.contactId || portalUser.email,
+      contactId: portalUser.contactId || null,
       name: portalUser.name || portalUser.email || 'Portal User',
       email: portalUser.email || '',
       subtitle: portalUser.company || 'Customer Portal',
@@ -474,6 +753,11 @@ export function MessagingHub({ user }: MessagingHubProps) {
       return `${chat.title} ${chat.contextLabel || ''} ${chat.chatType || ''}`.toLowerCase().includes(query);
     });
   }, [internalChats, chatSearch]);
+
+  const groupChatTargets = useMemo(
+    () => chatTargets.filter((target) => target.kind === 'staff'),
+    [chatTargets]
+  );
 
   const unifiedChats = useMemo(() => {
     const customerItems = messages.map((message: any) => {
@@ -522,19 +806,19 @@ export function MessagingHub({ user }: MessagingHubProps) {
   }, [internalChats, messages, activePortalUsers]);
 
   return (
-    <div className="flex h-[calc(100vh-80px)] min-h-0 overflow-hidden border bg-background shadow-md md:rounded-2xl md:mx-4 md:mb-4">
+    <div className="flex h-[calc(100vh-80px)] min-h-0 overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl md:rounded-[28px] md:mx-4 md:mb-4">
 
       {/* ── LEFT SIDEBAR ── */}
-      <div className={`relative flex w-full md:w-[300px] shrink-0 flex-col border-r bg-background ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`relative flex w-full md:w-[340px] shrink-0 flex-col border-r border-slate-200 bg-white ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
 
         {/* Sidebar header */}
-        <div className="flex items-center justify-between border-b px-4 py-3.5">
-          <h1 className="text-lg font-bold text-foreground">Message Space</h1>
-          <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <h1 className="text-[17px] font-bold text-slate-900">Message Space</h1>
+          <div className="flex items-center gap-1.5">
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8 rounded-full"
+              className="h-9 w-9 rounded-full text-slate-700 hover:bg-slate-100"
               onClick={loadData}
               disabled={loading}
               title="Refresh"
@@ -544,7 +828,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8 rounded-full"
+              className="h-9 w-9 rounded-full text-slate-700 hover:bg-slate-100"
               onClick={() => { setChatSearch(''); setShowNewChat(true); }}
               title="New chat or group"
             >
@@ -561,7 +845,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
               value={chatSearch}
               onChange={(e) => setChatSearch(e.target.value)}
               placeholder="Search"
-              className="rounded-full border-transparent bg-muted/60 pl-9 focus-visible:ring-0 focus-visible:border-blue-400"
+              className="rounded-full border-0 bg-[#eef2f7] pl-9 text-slate-700 shadow-none focus-visible:ring-1 focus-visible:ring-violet-300"
             />
           </div>
         </div>
@@ -597,16 +881,16 @@ export function MessagingHub({ user }: MessagingHubProps) {
                   }
                   setMobileView('chat');
                 }}
-                className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60 ${
-                  isSelected ? 'bg-muted/80' : ''
+                className={`mx-2 flex w-[calc(100%-16px)] items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-slate-100 ${
+                  isSelected ? 'bg-violet-50 ring-1 ring-violet-100' : ''
                 }`}
               >
                 <div className="relative shrink-0">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>{getAvatarFallback(conv.title, conv.subtitle)}</AvatarFallback>
+                  <Avatar className="h-11 w-11 ring-2 ring-white shadow-sm">
+                    <AvatarFallback className={getAvatarToneClass(conv.title, conv.subtitle)}>{getAvatarFallback(conv.title, conv.subtitle)}</AvatarFallback>
                   </Avatar>
                   {conv.online && (
-                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-emerald-500" />
+                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-emerald-500" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -638,15 +922,15 @@ export function MessagingHub({ user }: MessagingHubProps) {
                 <button
                   key={getTargetKey(target)}
                   onClick={() => { handleStartDirectChat(target); setMobileView('chat'); }}
-                  className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60"
+                  className="mx-2 flex w-[calc(100%-16px)] items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-colors hover:bg-slate-100"
                 >
                   <div className="relative shrink-0">
-                    <Avatar className="h-8 w-8">
+                    <Avatar className="h-12 w-12 ring-2 ring-white shadow-sm">
                       <AvatarImage src={target.avatar_url || undefined} alt={target.name} />
-                      <AvatarFallback>{getAvatarFallback(target.name, target.email)}</AvatarFallback>
+                      <AvatarFallback className={getAvatarToneClass(target.name, target.email)}>{getAvatarFallback(target.name, target.email)}</AvatarFallback>
                     </Avatar>
                     {target.online && (
-                      <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-emerald-500" />
+                      <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-emerald-500" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -668,10 +952,10 @@ export function MessagingHub({ user }: MessagingHubProps) {
         </div>
 
         {/* New Group button — pinned at bottom of left pane */}
-        <div className="absolute bottom-0 left-0 right-0 border-t bg-background px-3 py-2.5">
+        <div className="absolute bottom-0 left-0 right-0 border-t border-slate-200 bg-white px-3 py-3">
           <Button
             variant="outline"
-            className="w-full gap-2 rounded-full"
+            className="w-full gap-2 rounded-full border-violet-100 bg-white text-slate-900 hover:bg-violet-50"
             onClick={() => { setNewChatMembers([]); setNewChatTitle(''); setNewChatMessage(''); setShowNewChat(true); }}
           >
             <Users className="h-4 w-4" />
@@ -681,7 +965,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
       </div>
 
       {/* ── RIGHT CHAT AREA ── */}
-      <div className={`min-w-0 flex-1 flex-col bg-background ${mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`min-w-0 flex-1 flex-col bg-[#f5f7fb] ${mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'}`}>
 
         {/* Pending new DM — person selected but no existing chat */}
         {pendingDirectTarget && !selectedConversation ? (
@@ -695,7 +979,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
               >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
-              <Avatar className="h-8 w-8 shrink-0">
+              <Avatar className="h-10 w-10 shrink-0">
                 <AvatarImage src={pendingDirectTarget.avatar_url || undefined} alt={pendingDirectTarget.name} />
                 <AvatarFallback>{getAvatarFallback(pendingDirectTarget.name, pendingDirectTarget.email)}</AvatarFallback>
               </Avatar>
@@ -738,13 +1022,13 @@ export function MessagingHub({ user }: MessagingHubProps) {
             </div>
           </>
         ) : !selectedConversation ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-muted/10">
-            <div className="rounded-full bg-muted p-6">
-              <MessageSquare className="h-12 w-12 text-muted-foreground" />
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-[#f5f7fb] px-6 text-center">
+            <div className="rounded-full bg-slate-200/70 p-8 shadow-inner">
+              <MessageSquare className="h-14 w-14 text-slate-500" />
             </div>
-            <p className="text-base font-semibold text-foreground">Your Messages</p>
-            <p className="max-w-xs text-center text-sm text-muted-foreground">
-              Select a person or group from the left to start chatting.
+            <p className="text-2xl font-bold text-slate-900">Your Messages</p>
+            <p className="max-w-sm text-base text-slate-500">
+              Pick a person or saved group on the left to start chatting in Messenger Space.
             </p>
           </div>
         ) : (
@@ -759,7 +1043,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
               >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
-              <Avatar className="h-8 w-8 shrink-0">
+              <Avatar className="h-10 w-10 shrink-0">
                 <AvatarFallback>
                   {selectedConversationType === 'customer' && selectedMessage
                     ? getAvatarFallback(selectedMessage.contactName, selectedMessage.contactEmail)
@@ -816,62 +1100,176 @@ export function MessagingHub({ user }: MessagingHubProps) {
               )}
             </div>
 
-            {/* Message bubbles */}
-            <div className="flex-1 overflow-y-auto bg-muted/10 px-4 py-4 space-y-3">
+            {/* ── Message history ── */}
+            <div className="flex-1 overflow-y-auto bg-muted/10 px-4 py-4">
               {selectedConversationType === 'customer' && selectedMessage ? (
                 customerTimeline.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground py-12">No messages yet.</p>
-                ) : (
-                  customerTimeline.map((post: any, index: number) => {
-                    const isCustomer = post.from === 'customer';
-                    return (
-                      <div key={`${post.createdAt}-${index}`} className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
-                        <div
-                          className={`max-w-[75%] rounded-[20px] px-4 py-2.5 shadow-sm ${
-                            isCustomer
-                              ? 'rounded-tl-sm border bg-background text-foreground'
-                              : 'rounded-tr-sm bg-blue-600 text-white'
-                          }`}
-                        >
-                          <p className={`mb-0.5 text-[11px] font-medium ${isCustomer ? 'text-muted-foreground' : 'text-blue-200'}`}>
-                            {isCustomer ? post.senderName || 'Customer' : post.senderName || 'Team'}
-                          </p>
-                          <p className="whitespace-pre-wrap text-sm leading-5">{post.body}</p>
-                          <p className={`mt-1 text-right text-[11px] ${isCustomer ? 'text-muted-foreground' : 'text-blue-200'}`}>
-                            {formatDate(post.createdAt)}
-                          </p>
+                ) : (() => {
+                  // Build grouped customer timeline so consecutive bubbles from the same sender
+                  // share a visual cluster — only the first shows the name, only the last shows the time.
+                  type CustomerPost = { from: string; body: string; createdAt: string; senderName?: string };
+                  const groups: { sender: string; isCustomer: boolean; posts: CustomerPost[] }[] = [];
+                  for (const post of customerTimeline as CustomerPost[]) {
+                    const last = groups[groups.length - 1];
+                    const sameWindow = last &&
+                      last.sender === post.from &&
+                      Math.abs(new Date(post.createdAt).getTime() - new Date(last.posts[last.posts.length - 1].createdAt).getTime()) < 3 * 60_000;
+                    if (sameWindow) {
+                      last.posts.push(post);
+                    } else {
+                      groups.push({ sender: post.from, isCustomer: post.from === 'customer', posts: [post] });
+                    }
+                  }
+                  return (
+                    <div className="space-y-3">
+                      {groups.map((group, gi) => (
+                        <div key={gi} className={`flex items-end gap-2 ${group.isCustomer ? 'justify-start' : 'justify-end'}`}>
+                          {/* Avatar for incoming (customer) */}
+                          {group.isCustomer && (
+                            <div className="shrink-0 self-end mb-0.5">
+                              <Avatar className="h-7 w-7">
+                                <AvatarFallback className="text-[10px]">
+                                  {getAvatarFallback(group.posts[0].senderName, undefined)}
+                                </AvatarFallback>
+                              </Avatar>
+                            </div>
+                          )}
+                          <div className={`flex min-w-0 flex-col gap-0.5 max-w-[72%] ${group.isCustomer ? 'items-start' : 'items-end'}`}>
+                            {/* Sender label — shown once per group, for incoming only */}
+                            {group.isCustomer && (
+                              <p className="pl-1 text-[11px] font-semibold text-muted-foreground">
+                                {group.posts[0].senderName || 'Customer'}
+                              </p>
+                            )}
+                            {group.posts.map((post, pi) => {
+                              const isFirst = pi === 0;
+                              const isLast = pi === group.posts.length - 1;
+                              return (
+                                <div key={pi} className="flex flex-col">
+                                  <div
+                                    className={[
+                                      'px-4 py-2 text-sm leading-5 shadow-sm',
+                                      group.isCustomer
+                                        ? 'bg-background border text-foreground'
+                                        : 'bg-violet-600 text-white',
+                                      // Messenger-style corner rounding:
+                                      // top bubble: full top corners + outer bottom corner rounded
+                                      // middle: nearly straight on the "thread" side
+                                      // last: full bottom corners
+                                      group.isCustomer
+                                        ? isFirst && isLast ? 'rounded-[18px] rounded-tl-sm'
+                                          : isFirst ? 'rounded-[18px] rounded-tl-sm rounded-bl-sm'
+                                          : isLast ? 'rounded-[18px] rounded-tl-sm'
+                                          : 'rounded-[18px] rounded-l-sm'
+                                        : isFirst && isLast ? 'rounded-[18px] rounded-tr-sm'
+                                          : isFirst ? 'rounded-[18px] rounded-tr-sm rounded-br-sm'
+                                          : isLast ? 'rounded-[18px] rounded-tr-sm'
+                                          : 'rounded-[18px] rounded-r-sm',
+                                    ].join(' ')}
+                                  >
+                                    <p className="whitespace-pre-wrap">{post.body}</p>
+                                  </div>
+                                  {/* Timestamp — only under the last bubble in a group */}
+                                  {isLast && (
+                                    <p className={`mt-0.5 text-[11px] text-muted-foreground ${group.isCustomer ? 'pl-1' : 'text-right'}`}>
+                                      {formatDate(post.createdAt)}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {/* Avatar placeholder for outgoing — keeps spacing symmetric on mobile */}
+                          {!group.isCustomer && <div className="w-7 shrink-0" />}
                         </div>
-                      </div>
-                    );
-                  })
-                )
+                      ))}
+                      <div ref={messagesEndRef} />
+                    </div>
+                  );
+                })()
               ) : selectedChat ? (
                 (selectedChat.messages || []).length === 0 ? (
                   <p className="py-12 text-center text-sm text-muted-foreground">No messages yet. Start the conversation.</p>
-                ) : (
-                  (selectedChat.messages || []).map((message: any) => {
-                    const ownMessage = message.senderId === user.id;
-                    return (
-                      <div key={message.id} className={`flex ${ownMessage ? 'justify-end' : 'justify-start'}`}>
-                        <div
-                          className={`max-w-[75%] rounded-[20px] px-4 py-2.5 shadow-sm ${
-                            ownMessage
-                              ? 'rounded-tr-sm bg-slate-800 text-white'
-                              : 'rounded-tl-sm border bg-background text-foreground'
-                          }`}
-                        >
-                          <p className={`mb-0.5 text-[11px] font-medium ${ownMessage ? 'text-slate-300' : 'text-muted-foreground'}`}>
-                            {message.senderName || 'Staff'}
-                          </p>
-                          <p className="whitespace-pre-wrap text-sm leading-5">{message.body}</p>
-                          <p className={`mt-1 text-right text-[11px] ${ownMessage ? 'text-slate-300' : 'text-muted-foreground'}`}>
-                            {formatDate(message.createdAt)}
-                          </p>
+                ) : (() => {
+                  // Group consecutive messages from the same sender within a 3-minute window
+                  type ChatMsg = { id: string; senderId: string; senderName?: string; body: string; createdAt: string };
+                  const msgs: ChatMsg[] = selectedChat.messages || [];
+                  const groups: { senderId: string; own: boolean; senderName: string; msgs: ChatMsg[] }[] = [];
+                  for (const m of msgs) {
+                    const last = groups[groups.length - 1];
+                    const sameWindow = last &&
+                      last.senderId === m.senderId &&
+                      Math.abs(new Date(m.createdAt).getTime() - new Date(last.msgs[last.msgs.length - 1].createdAt).getTime()) < 3 * 60_000;
+                    if (sameWindow) {
+                      last.msgs.push(m);
+                    } else {
+                      groups.push({ senderId: m.senderId, own: m.senderId === user.id, senderName: m.senderName || 'Staff', msgs: [m] });
+                    }
+                  }
+                  return (
+                    <div className="space-y-3">
+                      {groups.map((group, gi) => (
+                        <div key={gi} className={`flex items-end gap-2 ${group.own ? 'justify-end' : 'justify-start'}`}>
+                          {/* Avatar for incoming messages */}
+                          {!group.own && (
+                            <div className="shrink-0 self-end mb-0.5">
+                              <Avatar className="h-7 w-7">
+                                <AvatarFallback className="text-[10px]">
+                                  {getAvatarFallback(group.senderName)}
+                                </AvatarFallback>
+                              </Avatar>
+                            </div>
+                          )}
+                          <div className={`flex min-w-0 flex-col gap-0.5 max-w-[72%] ${group.own ? 'items-end' : 'items-start'}`}>
+                            {/* Sender name — once per incoming group */}
+                            {!group.own && (
+                              <p className="pl-1 text-[11px] font-semibold text-muted-foreground">
+                                {group.senderName}
+                              </p>
+                            )}
+                            {group.msgs.map((m, mi) => {
+                              const isFirst = mi === 0;
+                              const isLast = mi === group.msgs.length - 1;
+                              return (
+                                <div key={m.id} className="flex flex-col">
+                                  <div
+                                    className={[
+                                      'px-4 py-2 text-sm leading-5 shadow-sm',
+                                      group.own
+                                        ? 'bg-violet-600 text-white'
+                                        : 'bg-background border text-foreground',
+                                      group.own
+                                        ? isFirst && isLast ? 'rounded-[18px] rounded-tr-sm'
+                                          : isFirst ? 'rounded-[18px] rounded-tr-sm rounded-br-sm'
+                                          : isLast ? 'rounded-[18px] rounded-tr-sm'
+                                          : 'rounded-[18px] rounded-r-sm'
+                                        : isFirst && isLast ? 'rounded-[18px] rounded-tl-sm'
+                                          : isFirst ? 'rounded-[18px] rounded-tl-sm rounded-bl-sm'
+                                          : isLast ? 'rounded-[18px] rounded-tl-sm'
+                                          : 'rounded-[18px] rounded-l-sm',
+                                    ].join(' ')}
+                                  >
+                                    <p className="whitespace-pre-wrap">{m.body}</p>
+                                  </div>
+                                  {/* Timestamp only under the last bubble in a group */}
+                                  {isLast && (
+                                    <p className={`mt-0.5 text-[11px] text-muted-foreground ${group.own ? 'text-right' : 'pl-1'}`}>
+                                      {formatDate(m.createdAt)}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {/* Spacer so outgoing bubbles don't hug the very edge */}
+                          {group.own && <div className="w-7 shrink-0" />}
                         </div>
-                      </div>
-                    );
-                  })
-                )
+                      ))}
+                      <div ref={messagesEndRef} />
+                    </div>
+                  );
+                })()
               ) : null}
             </div>
 
@@ -1002,10 +1400,10 @@ export function MessagingHub({ user }: MessagingHubProps) {
                 <Badge variant="outline">{newChatMembers.length} selected</Badge>
               </div>
               <div className="max-h-[260px] space-y-1.5 overflow-y-auto rounded-2xl border p-2">
-                {chatTargets.length === 0 ? (
-                  <p className="p-2 text-sm text-muted-foreground">No people available right now.</p>
+                {groupChatTargets.length === 0 ? (
+                  <p className="p-2 text-sm text-muted-foreground">No staff members available right now.</p>
                 ) : (
-                  chatTargets.map((target) => {
+                  groupChatTargets.map((target) => {
                     const targetKey = getTargetKey(target);
                     const selected = newChatMembers.includes(targetKey);
                     return (

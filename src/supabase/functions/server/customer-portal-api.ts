@@ -10,8 +10,8 @@ import { extractUserToken } from './auth-helper.ts';
  *   portal_user:{email_hash}         → { email, contactId, orgId, passwordHash, name, createdAt, lastLogin }
  *   portal_session:{token}           → { email, contactId, orgId, expiresAt }
  *   portal_invite:{code}             → { contactId, orgId, email, expiresAt, createdBy }
- *   portal_message:{orgId}:{contactId}:{id} → { id, contactId, orgId, from, subject, body, createdAt, updatedAt, status, replies[], internalNotes[] }
- *   internal_chat:{orgId}:{id}       → { id, orgId, title, contextType, contextLabel, status, messages[] }
+ *   portal_message:{orgId}:{contactId}:{id} → { id, contactId, orgId, from, subject, body, createdAt, updatedAt, retainedUntil, status, replies[], internalNotes[] }
+ *   internal_chat:{orgId}:{id}       → { id, orgId, title, contextType, contextLabel, retainedUntil, status, messages[] }
  *   portal_access_log:{orgId}:{contactId} → { enabled, enabledAt, enabledBy }
  */
 
@@ -41,6 +41,57 @@ function generateInviteCode(): string {
   const bytes = new Uint8Array(6);
   crypto.getRandomValues(bytes);
   return hexEncode(bytes.buffer).toUpperCase();
+}
+
+const CHAT_RETENTION_DAYS = 30;
+const CHAT_RETENTION_MS = CHAT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+function getConversationLastActivityAt(item: any): string {
+  const timestamps = [item?.updatedAt, item?.createdAt, item?.resolvedAt];
+
+  if (Array.isArray(item?.replies)) {
+    timestamps.push(...item.replies.map((reply: any) => reply?.createdAt));
+  }
+  if (Array.isArray(item?.internalNotes)) {
+    timestamps.push(...item.internalNotes.map((note: any) => note?.createdAt));
+  }
+  if (Array.isArray(item?.messages)) {
+    timestamps.push(...item.messages.map((message: any) => message?.createdAt));
+  }
+
+  const validTimes = timestamps
+    .filter(Boolean)
+    .map((value) => new Date(value).getTime())
+    .filter((value) => !Number.isNaN(value));
+
+  return new Date(validTimes.length ? Math.max(...validTimes) : Date.now()).toISOString();
+}
+
+function isWithinChatRetention(item: any): boolean {
+  const lastActivityAt = new Date(getConversationLastActivityAt(item)).getTime();
+  return Date.now() - lastActivityAt <= CHAT_RETENTION_MS;
+}
+
+function withChatRetention(item: any) {
+  const lastActivityAt = getConversationLastActivityAt(item);
+  return {
+    ...item,
+    lastActivityAt,
+    retainedUntil: new Date(new Date(lastActivityAt).getTime() + CHAT_RETENTION_MS).toISOString(),
+  };
+}
+
+function canAccessInternalChat(chat: any, userId: string, email?: string): boolean {
+  const participants = Array.isArray(chat?.participants) ? chat.participants : [];
+  if (chat?.createdBy === userId) return true;
+  if (participants.length === 0) return true;
+
+  const normalizedEmail = (email || '').toLowerCase().trim();
+  return participants.some((participant: any) => {
+    if (participant?.kind === 'portal') return false;
+    const participantEmail = (participant?.email || '').toLowerCase().trim();
+    return participant?.id === userId || (!!normalizedEmail && participantEmail === normalizedEmail);
+  });
 }
 
 export function customerPortalAPI(app: Hono) {
@@ -580,9 +631,10 @@ export function customerPortalAPI(app: Hono) {
       if (!session) return c.json({ error: 'Unauthorized' }, 401);
 
       const messages = await kv.getByPrefix(`portal_message:${session.orgId}:${session.contactId}:`);
+      const retainedMessages = (messages || []).filter(isWithinChatRetention).map(withChatRetention);
 
       // Sort by last activity, newest first
-      const sorted = (messages || []).sort((a: any, b: any) => {
+      const sorted = retainedMessages.sort((a: any, b: any) => {
         const aLatest = a.updatedAt || (a.replies?.length ? a.replies[a.replies.length - 1].createdAt : a.createdAt);
         const bLatest = b.updatedAt || (b.replies?.length ? b.replies[b.replies.length - 1].createdAt : b.createdAt);
         return new Date(bLatest).getTime() - new Date(aLatest).getTime();
@@ -636,6 +688,7 @@ export function customerPortalAPI(app: Hono) {
         existing.customerUnread = false;
         existing.status = 'open';
         existing.updatedAt = now;
+        existing.retainedUntil = new Date(Date.now() + CHAT_RETENTION_MS).toISOString();
 
         await kv.set(existingKey, existing);
         console.log(`[portal] Reply sent by ${session.email} on thread ${messageId}`);
@@ -663,6 +716,7 @@ export function customerPortalAPI(app: Hono) {
         status: 'open',
         createdAt: now,
         updatedAt: now,
+        retainedUntil: new Date(Date.now() + CHAT_RETENTION_MS).toISOString(),
         read: false,
         replies: [],
         internalNotes: [],
@@ -993,9 +1047,10 @@ export function customerPortalAPI(app: Hono) {
       // Fetch all portal messages for this org using the KV prefix pattern:
       // portal_message:{orgId}:{contactId}:{msgId}
       const allMessages = await kv.getByPrefix(`portal_message:${orgId}:`);
+      const retainedMessages = (allMessages || []).filter(isWithinChatRetention).map(withChatRetention);
 
       // Enrich with contact names if available
-      const contactIds = [...new Set((allMessages || []).map((m: any) => m.contactId).filter(Boolean))];
+      const contactIds = [...new Set(retainedMessages.map((m: any) => m.contactId).filter(Boolean))];
       let contactMap: Record<string, any> = {};
       if (contactIds.length > 0) {
         const { data: contacts } = await supabase
@@ -1007,7 +1062,7 @@ export function customerPortalAPI(app: Hono) {
         }
       }
 
-      const enrichedMessages = (allMessages || []).map((msg: any) => ({
+      const enrichedMessages = retainedMessages.map((msg: any) => ({
         ...msg,
         contactName: contactMap[msg.contactId]?.name || msg.senderEmail || 'Unknown',
         contactCompany: contactMap[msg.contactId]?.company || '',
@@ -1027,6 +1082,64 @@ export function customerPortalAPI(app: Hono) {
     } catch (err: any) {
       console.error('[portal] CRM messages error:', err);
       return c.json({ error: 'Failed to load portal messages: ' + err.message }, 500);
+    }
+  });
+
+  // ── POST /portal/crm-message — CRM user starts a portal-visible thread for a customer ──
+  app.post(`${PREFIX}/crm-message`, async (c) => {
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const accessToken = extractUserToken(c);
+      if (!accessToken) return c.json({ error: 'Missing Authorization' }, 401);
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      if (authError || !user) return c.json({ error: 'Unauthorized' }, 401);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile) return c.json({ error: 'Profile not found' }, 404);
+      if (!profile.organization_id) return c.json({ error: 'No organization found' }, 400);
+
+      const body = await c.req.json();
+      const { contactId, subject, message } = body;
+
+      if (!contactId || !message) {
+        return c.json({ error: 'contactId and message are required' }, 400);
+      }
+
+      const now = new Date().toISOString();
+      const msgId = crypto.randomUUID();
+      const msgData = {
+        id: msgId,
+        type: 'customer',
+        contactId,
+        orgId: profile.organization_id,
+        from: 'team',
+        senderEmail: profile.email,
+        subject: subject?.trim() || `Message from ${profile.name || profile.email || 'Team'}`,
+        body: message,
+        status: 'open',
+        createdAt: now,
+        updatedAt: now,
+        retainedUntil: new Date(Date.now() + CHAT_RETENTION_MS).toISOString(),
+        read: true,
+        customerUnread: true,
+        replies: [],
+        internalNotes: [],
+      };
+
+      await kv.set(`portal_message:${profile.organization_id}:${contactId}:${msgId}`, msgData);
+      return c.json({ success: true, message: msgData });
+    } catch (err: any) {
+      return c.json({ error: 'Failed to send CRM portal message: ' + err.message }, 500);
     }
   });
 
@@ -1078,6 +1191,7 @@ export function customerPortalAPI(app: Hono) {
       msg.customerUnread = true; // Customer side: flag new reply as unread for the customer
       msg.status = 'open';
       msg.updatedAt = new Date().toISOString();
+      msg.retainedUntil = new Date(Date.now() + CHAT_RETENTION_MS).toISOString();
 
       await kv.set(key, msg);
 
@@ -1135,6 +1249,7 @@ export function customerPortalAPI(app: Hono) {
         createdAt: new Date().toISOString(),
       });
       msg.updatedAt = new Date().toISOString();
+      msg.retainedUntil = new Date(Date.now() + CHAT_RETENTION_MS).toISOString();
 
       await kv.set(key, msg);
       return c.json({ success: true, message: msg });
@@ -1184,6 +1299,7 @@ export function customerPortalAPI(app: Hono) {
       msg.status = normalizedStatus;
       msg.updatedAt = new Date().toISOString();
       msg.resolvedAt = normalizedStatus === 'resolved' ? new Date().toISOString() : null;
+      msg.retainedUntil = new Date(Date.now() + CHAT_RETENTION_MS).toISOString();
 
       await kv.set(key, msg);
       return c.json({ success: true, message: msg });
@@ -1215,11 +1331,15 @@ export function customerPortalAPI(app: Hono) {
       if (!profile?.organization_id) return c.json({ chats: [] });
 
       const chats = await kv.getByPrefix(`internal_chat:${profile.organization_id}:`);
-      const sorted = (chats || []).sort((a: any, b: any) =>
+      const retainedChats = (chats || [])
+        .filter(isWithinChatRetention)
+        .filter((chat: any) => canAccessInternalChat(chat, user.id, profile.email))
+        .map(withChatRetention);
+      const sorted = retainedChats.sort((a: any, b: any) =>
         new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
       );
 
-      return c.json({ chats: sorted });
+      return c.json({ chats: sorted, retentionDays: CHAT_RETENTION_DAYS });
     } catch (err: any) {
       return c.json({ error: 'Failed to load internal chats: ' + err.message }, 500);
     }
@@ -1278,6 +1398,7 @@ export function customerPortalAPI(app: Hono) {
         createdByName: profile.name || profile.email,
         createdAt: now,
         updatedAt: now,
+        retainedUntil: new Date(Date.now() + CHAT_RETENTION_MS).toISOString(),
         messages: initialMessage
           ? [{
               id: crypto.randomUUID(),
@@ -1331,6 +1452,9 @@ export function customerPortalAPI(app: Hono) {
       if (!chat) {
         return c.json({ error: 'Chat not found' }, 404);
       }
+      if (!canAccessInternalChat(chat, user.id, profile.email)) {
+        return c.json({ error: 'Forbidden' }, 403);
+      }
 
       if (!chat.messages) chat.messages = [];
       chat.messages.push({
@@ -1341,6 +1465,7 @@ export function customerPortalAPI(app: Hono) {
         createdAt: new Date().toISOString(),
       });
       chat.updatedAt = new Date().toISOString();
+      chat.retainedUntil = new Date(Date.now() + CHAT_RETENTION_MS).toISOString();
 
       await kv.set(key, chat);
       return c.json({ success: true, chat });

@@ -202,6 +202,19 @@ export async function revokePortalAccess(contactId: string, accessToken: string)
   return data;
 }
 
+export async function createCrmPortalMessage(contactId: string, message: string, subject: string, accessToken: string) {
+  const headers = await getServerHeaders();
+  const response = await fetch(`${BASE_URL}/crm-message`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ contactId, message, subject }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Failed to send portal message');
+  return data;
+}
+
 export async function replyToPortalMessage(messageId: string, contactId: string, reply: string, accessToken: string) {
   const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/reply`, {
