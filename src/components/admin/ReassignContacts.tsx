@@ -30,7 +30,7 @@ export function ReassignContacts() {
         return;
       }
 
-      // Read organization_id from the profiles table (more reliable than JWT metadata)
+      // Read the organization_id from the profiles table (more reliable than JWT metadata)
       let organizationId = user.user_metadata?.organizationId;
       try {
         const profile = await ensureUserProfile(user.id);
