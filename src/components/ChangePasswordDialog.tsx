@@ -104,7 +104,7 @@ export function ChangePasswordDialog({ open, onClose, userId }: ChangePasswordDi
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="sm:max-w-md bg-white" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-md bg-background" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>🔐 Change Your Password</DialogTitle>
           <DialogDescription>
@@ -144,7 +144,7 @@ export function ChangePasswordDialog({ open, onClose, userId }: ChangePasswordDi
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>

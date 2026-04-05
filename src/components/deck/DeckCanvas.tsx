@@ -1096,7 +1096,7 @@ export function DeckCanvas({ config, onChange }: DeckCanvasProps) {
   return (
     <div className="space-y-6 print:space-y-2 print:break-before-page">
       {/* Main Top View */}
-      <div className="bg-slate-50 rounded-lg p-6 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+      <div className="bg-muted rounded-lg p-6 border border-border print:bg-background print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
         <canvas
           ref={topViewRef}
           onPointerDown={handlePointerDown}
@@ -1107,24 +1107,24 @@ export function DeckCanvas({ config, onChange }: DeckCanvasProps) {
             handlePointerUp(e);
           }}
           onClick={handleCanvasClick}
-          className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
+          className="w-full bg-background rounded border border-border print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
         />
       </div>
 
       {/* Elevation Views */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:gap-2 print:grid-cols-2 print:break-inside-avoid">
-        <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
-          <h3 className="font-semibold text-slate-900 mb-3 print:mb-1 print:text-base">Front Elevation</h3>
+        <div className="bg-muted rounded-lg p-4 border border-border print:bg-background print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+          <h3 className="font-semibold text-foreground mb-3 print:mb-1 print:text-base">Front Elevation</h3>
           <canvas
             ref={frontViewRef}
-            className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4]"
+            className="w-full bg-background rounded border border-border print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4]"
           />
         </div>
-        <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
-          <h3 className="font-semibold text-slate-900 mb-3 print:mb-1 print:text-base">Side Elevation</h3>
+        <div className="bg-muted rounded-lg p-4 border border-border print:bg-background print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+          <h3 className="font-semibold text-foreground mb-3 print:mb-1 print:text-base">Side Elevation</h3>
           <canvas
             ref={sideViewRef}
-            className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4]"
+            className="w-full bg-background rounded border border-border print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4]"
           />
         </div>
       </div>
@@ -1132,42 +1132,42 @@ export function DeckCanvas({ config, onChange }: DeckCanvasProps) {
       {/* Specifications Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 print:hidden">
         <div className="p-3 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
-          <div className="text-xs text-black font-medium">Deck Size</div>
-          <div className="text-sm font-bold text-black mt-1">{config.width}' × {config.length}'</div>
+          <div className="text-xs text-foreground font-medium">Deck Size</div>
+          <div className="text-sm font-bold text-foreground mt-1">{config.width}' × {config.length}'</div>
         </div>
         <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-          <div className="text-xs text-black font-medium">Height</div>
-          <div className="text-sm font-bold text-black mt-1">{config.height}' from ground</div>
+          <div className="text-xs text-foreground font-medium">Height</div>
+          <div className="text-sm font-bold text-foreground mt-1">{config.height}' from ground</div>
         </div>
         <div className="p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200">
-          <div className="text-xs text-black font-medium">Decking Type</div>
-          <div className="text-sm font-bold text-black mt-1">{config.deckingType}</div>
+          <div className="text-xs text-foreground font-medium">Decking Type</div>
+          <div className="text-sm font-bold text-foreground mt-1">{config.deckingType}</div>
         </div>
         <div className="p-3 bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg border border-amber-200">
-          <div className="text-xs text-black font-medium">Pattern</div>
-          <div className="text-sm font-bold text-black mt-1 capitalize">{config.deckingPattern}</div>
+          <div className="text-xs text-foreground font-medium">Pattern</div>
+          <div className="text-sm font-bold text-foreground mt-1 capitalize">{config.deckingPattern}</div>
         </div>
       </div>
 
       {/* Legend */}
-      <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:hidden mt-6">
-        <h4 className="font-semibold text-black mb-3">Drawing Legend</h4>
+      <div className="bg-muted rounded-lg p-4 border border-border print:hidden mt-6">
+        <h4 className="font-semibold text-foreground mb-3">Drawing Legend</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-6 h-3 bg-purple-600 rounded"></div>
-            <span className="text-black">Railing</span>
+            <span className="text-foreground">Railing</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-3 bg-amber-800 rounded"></div>
-            <span className="text-black">Support Posts</span>
+            <span className="text-foreground">Support Posts</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-3 bg-purple-400 rounded"></div>
-            <span className="text-black">Stairs</span>
+            <span className="text-foreground">Stairs</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-1 bg-slate-600"></div>
-            <span className="text-black">Dimension Lines</span>
+            <span className="text-foreground">Dimension Lines</span>
           </div>
         </div>
       </div>

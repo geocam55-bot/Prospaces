@@ -46,75 +46,75 @@ export function PrintableGarageDesign({
 
       {/* Customer Information (if saved design) */}
       {customerName && (
-        <div className="mb-6 p-4 border border-gray-300 bg-gray-50">
-          <h2 className="text-lg font-bold text-black mb-3">Customer Information</h2>
+        <div className="mb-6 p-4 border border-border bg-muted">
+          <h2 className="text-lg font-bold text-foreground mb-3">Customer Information</h2>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="font-semibold text-gray-700">Customer Name:</p>
-              <p className="text-black">{customerName}</p>
+              <p className="font-semibold text-foreground">Customer Name:</p>
+              <p className="text-foreground">{customerName}</p>
             </div>
             {customerCompany && (
               <div>
-                <p className="font-semibold text-gray-700">Company:</p>
-                <p className="text-black">{customerCompany}</p>
+                <p className="font-semibold text-foreground">Company:</p>
+                <p className="text-foreground">{customerCompany}</p>
               </div>
             )}
           </div>
           {description && (
             <div className="mt-3">
-              <p className="font-semibold text-gray-700">Description:</p>
-              <p className="text-black mt-1">{description}</p>
+              <p className="font-semibold text-foreground">Description:</p>
+              <p className="text-foreground mt-1">{description}</p>
             </div>
           )}
         </div>
       )}
 
       {/* Project Specifications */}
-      <div className="mb-6 p-4 border border-gray-300">
-        <h2 className="text-lg font-bold text-black mb-3">Project Specifications</h2>
+      <div className="mb-6 p-4 border border-border">
+        <h2 className="text-lg font-bold text-foreground mb-3">Project Specifications</h2>
         <div className="grid grid-cols-3 gap-x-6 gap-y-3 text-sm">
           <div>
-            <p className="font-semibold text-gray-700">Dimensions:</p>
-            <p className="text-black">{config.width}' × {config.length}'</p>
+            <p className="font-semibold text-foreground">Dimensions:</p>
+            <p className="text-foreground">{config.width}' × {config.length}'</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Style:</p>
-            <p className="text-black capitalize">{config.style}</p>
+            <p className="font-semibold text-foreground">Style:</p>
+            <p className="text-foreground capitalize">{config.style}</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Wall Height:</p>
-            <p className="text-black">{config.wallHeight} feet</p>
+            <p className="font-semibold text-foreground">Wall Height:</p>
+            <p className="text-foreground">{config.wallHeight} feet</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Roof Pitch:</p>
-            <p className="text-black">{config.roofPitch}/12</p>
+            <p className="font-semibold text-foreground">Roof Pitch:</p>
+            <p className="text-foreground">{config.roofPitch}/12</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Foundation:</p>
-            <p className="text-black capitalize">{config.foundationType?.replace('-', ' ') || 'N/A'}</p>
+            <p className="font-semibold text-foreground">Foundation:</p>
+            <p className="text-foreground capitalize">{config.foundationType?.replace('-', ' ') || 'N/A'}</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Bays:</p>
-            <p className="text-black">{config.bays}</p>
+            <p className="font-semibold text-foreground">Bays:</p>
+            <p className="text-foreground">{config.bays}</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Siding:</p>
-            <p className="text-black capitalize">{config.sidingType}</p>
+            <p className="font-semibold text-foreground">Siding:</p>
+            <p className="text-foreground capitalize">{config.sidingType}</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Roofing:</p>
-            <p className="text-black capitalize">{config.roofingMaterial?.replace('-', ' ') || 'N/A'}</p>
+            <p className="font-semibold text-foreground">Roofing:</p>
+            <p className="text-foreground capitalize">{config.roofingMaterial?.replace('-', ' ') || 'N/A'}</p>
           </div>
         </div>
-        <div className="mt-3 pt-3 border-t border-gray-300">
-          <p className="font-semibold text-gray-700 mb-2">Additional Features:</p>
+        <div className="mt-3 pt-3 border-t border-border">
+          <p className="font-semibold text-foreground mb-2">Additional Features:</p>
           <div className="grid grid-cols-3 gap-2 text-sm">
-            {config.hasWindows && <p className="text-black">✓ Windows</p>}
-            {config.hasServiceDoor && <p className="text-black">✓ Service Door</p>}
-            {config.hasElectrical && <p className="text-black">✓ Electrical Package</p>}
-            {config.hasInsulation && <p className="text-black">✓ Insulation</p>}
-            {config.hasCeilingFinish && <p className="text-black">✓ Ceiling Finish</p>}
-            {config.hasAtticStorage && <p className="text-black">✓ Attic Storage</p>}
+            {config.hasWindows && <p className="text-foreground">✓ Windows</p>}
+            {config.hasServiceDoor && <p className="text-foreground">✓ Service Door</p>}
+            {config.hasElectrical && <p className="text-foreground">✓ Electrical Package</p>}
+            {config.hasInsulation && <p className="text-foreground">✓ Insulation</p>}
+            {config.hasCeilingFinish && <p className="text-foreground">✓ Ceiling Finish</p>}
+            {config.hasAtticStorage && <p className="text-foreground">✓ Attic Storage</p>}
           </div>
         </div>
       </div>
@@ -128,17 +128,17 @@ export function PrintableGarageDesign({
 
       {/* Materials List */}
       <div className="break-before-page">
-        <h2 className="text-lg font-bold text-black mb-3 border-b-2 border-black pb-2">
+        <h2 className="text-lg font-bold text-foreground mb-3 border-b-2 border-black pb-2">
           Bill of Materials
         </h2>
         {totalCost > 0 && (
-          <div className="mb-4 p-3 bg-gray-100 border border-gray-400">
+          <div className="mb-4 p-3 bg-muted border border-gray-400">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-semibold text-gray-800">Total Estimated Cost:</p>
-                <p className="text-xs text-gray-600 mt-1">Based on Tier 1 Pricing</p>
+                <p className="font-semibold text-foreground">Total Estimated Cost:</p>
+                <p className="text-xs text-muted-foreground mt-1">Based on Tier 1 Pricing</p>
               </div>
-              <p className="text-2xl font-bold text-black">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-2xl font-bold text-foreground">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </div>
         )}
@@ -148,7 +148,7 @@ export function PrintableGarageDesign({
       </div>
 
       {/* Footer */}
-      <div className="mt-6 pt-3 border-t border-gray-400 text-xs text-gray-600">
+      <div className="mt-6 pt-3 border-t border-gray-400 text-xs text-muted-foreground">
         <p className="mb-1">This plan is an estimate and should be verified by a professional before construction.</p>
         <p>All dimensions and materials are subject to local building codes and regulations.</p>
       </div>

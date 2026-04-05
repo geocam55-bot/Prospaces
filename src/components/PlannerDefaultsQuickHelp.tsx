@@ -48,7 +48,7 @@ export function PlannerDefaultsQuickHelp() {
       
       <CardContent className="space-y-3">
         {/* Always Visible - Quick Summary */}
-        <Alert className="bg-white border-blue-200">
+        <Alert className="bg-background border-blue-200">
           <Info className="h-4 w-4 text-blue-600" />
           <AlertDescription className="text-sm text-blue-900">
             <strong>What are Planner Defaults?</strong> Customize which inventory items are automatically 
@@ -59,12 +59,12 @@ export function PlannerDefaultsQuickHelp() {
         {expanded && (
           <div className="space-y-3">
             {/* How It Works */}
-            <div className="bg-white p-3 rounded-lg border border-blue-200">
+            <div className="bg-background p-3 rounded-lg border border-blue-200">
               <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
                 <SettingsIcon className="h-4 w-4 text-blue-600" />
                 How It Works
               </h4>
-              <ul className="text-xs space-y-1 text-gray-700">
+              <ul className="text-xs space-y-1 text-foreground">
                 <li>• <strong>Organization Defaults:</strong> Set by admins in Settings, shared by everyone</li>
                 <li>• <strong>Your Custom Defaults:</strong> Override organization defaults with your personal preferences</li>
                 <li>• <strong>Visual Indicators:</strong> Items marked "Custom" show you've personalized them</li>
@@ -72,7 +72,7 @@ export function PlannerDefaultsQuickHelp() {
             </div>
 
             {/* Key Actions */}
-            <div className="bg-white p-3 rounded-lg border border-blue-200">
+            <div className="bg-background p-3 rounded-lg border border-blue-200">
               <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-blue-600" />
                 Key Actions
@@ -103,9 +103,9 @@ export function PlannerDefaultsQuickHelp() {
             </div>
 
             {/* Tips */}
-            <div className="bg-white p-3 rounded-lg border border-blue-200">
+            <div className="bg-background p-3 rounded-lg border border-blue-200">
               <h4 className="font-medium text-sm mb-2 text-blue-900">💡 Pro Tips</h4>
-              <ul className="text-xs space-y-1 text-gray-700">
+              <ul className="text-xs space-y-1 text-foreground">
                 <li>• Customize defaults for materials you use most frequently</li>
                 <li>• Click "Save My Defaults" after making changes</li>
                 <li>• Check Settings → Appearance to verify your data is backed up</li>
@@ -115,9 +115,9 @@ export function PlannerDefaultsQuickHelp() {
             </div>
 
             {/* Common Questions */}
-            <div className="bg-white p-3 rounded-lg border border-blue-200">
+            <div className="bg-background p-3 rounded-lg border border-blue-200">
               <h4 className="font-medium text-sm mb-2 text-blue-900">❓ Common Questions</h4>
-              <div className="space-y-2 text-xs text-gray-700">
+              <div className="space-y-2 text-xs text-foreground">
                 <div>
                   <strong>Q: Will my customizations affect others?</strong>
                   <br />

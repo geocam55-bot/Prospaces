@@ -234,7 +234,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
+      <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading subscription agreement...</p>
@@ -244,7 +244,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto">
         {/* Action Buttons - Hidden when printing */}
         <div className="flex gap-3 mb-6 print:hidden">
@@ -282,11 +282,11 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
               <div className="flex items-center gap-4">
                 <Logo size="lg" className="h-16 w-16" />
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">ProSpaces CRM</h1>
-                  <p className="text-sm text-gray-600 mt-1">Professional CRM Solutions</p>
+                  <h1 className="text-3xl font-bold text-foreground">ProSpaces CRM</h1>
+                  <p className="text-sm text-muted-foreground mt-1">Professional CRM Solutions</p>
                 </div>
               </div>
-              <div className="text-right text-sm text-gray-600">
+              <div className="text-right text-sm text-muted-foreground">
                 <p>Agreement Date: {new Date().toLocaleDateString()}</p>
                 <p className="flex items-center justify-end gap-1 mt-1">
                   <FileText className="h-3 w-3" />
@@ -299,10 +299,10 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
 
             {/* Agreement Title */}
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              <h2 className="text-2xl font-bold text-foreground mb-2">
                 SOFTWARE SUBSCRIPTION AGREEMENT
               </h2>
-              <p className="text-gray-600">
+              <p className="text-muted-foreground">
                 This Subscription Agreement is entered into as of the date specified below
               </p>
             </div>
@@ -312,13 +312,13 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
               <div>
                 <h3 className="font-semibold text-lg mb-4">BETWEEN:</h3>
                 
-                <div className="bg-slate-50 p-4 rounded-lg mb-4">
+                <div className="bg-muted p-4 rounded-lg mb-4">
                   <p className="font-semibold mb-2">Provider:</p>
                   <p className="text-sm">ProSpaces CRM</p>
-                  <p className="text-sm text-gray-600">Software as a Service Provider</p>
+                  <p className="text-sm text-muted-foreground">Software as a Service Provider</p>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-lg">
+                <div className="bg-muted p-4 rounded-lg">
                   <p className="font-semibold mb-3">Client:</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:gap-2">
                     <div>
@@ -373,7 +373,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
             <div className="mb-8">
               <h3 className="font-semibold text-lg mb-4">TERMS AND CONDITIONS</h3>
               
-              <div className="space-y-4 text-sm text-gray-700">
+              <div className="space-y-4 text-sm text-foreground">
                 <div>
                   <h4 className="font-semibold mb-2">1. Service Description</h4>
                   <p>ProSpaces CRM agrees to provide the Client with access to a cloud-based Customer Relationship Management platform, including the modules and services selected below. The software is provided as a subscription service (SaaS) hosted on secure servers.</p>
@@ -436,7 +436,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
             {/* Agreement Duration */}
             <div className="mb-8">
               <h3 className="font-semibold text-lg mb-4">SUBSCRIPTION PERIOD</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted p-4 rounded-lg">
                 <div>
                   <Label htmlFor="startDate" className="text-xs flex items-center gap-2">
                     <Calendar className="h-3 w-3" />
@@ -480,10 +480,10 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                 </div>
               </div>
               <div className="flex flex-col gap-1 mt-2">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Agreement End Date: {new Date(new Date(agreementData.startDate).setMonth(new Date(agreementData.startDate).getMonth() + parseInt(agreementData.duration))).toLocaleDateString()}
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Licensed Users: {agreementData.numberOfUsers || 0} user{parseInt(agreementData.numberOfUsers) !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -494,7 +494,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
             {/* Modules Selection */}
             <div className="mb-8">
               <h3 className="font-semibold text-lg mb-4">INCLUDED MODULES</h3>
-              <p className="text-sm text-gray-600 mb-4">Select the modules to be included in this subscription:</p>
+              <p className="text-sm text-muted-foreground mb-4">Select the modules to be included in this subscription:</p>
               
               <div className="space-y-2">
                 {modules.map((module) => {
@@ -505,7 +505,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                   const displayDescription = overrideDescription || module.description;
                   
                   return (
-                    <div key={module.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-200">
+                    <div key={module.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted transition-colors border border-border">
                       <Checkbox
                         id={`module-${module.id}`}
                         checked={selectedModules.includes(module.id)}
@@ -527,7 +527,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                             placeholder="Module description"
                           />
                         ) : (
-                          <p className="text-xs text-gray-600 mt-0.5">{displayDescription}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{displayDescription}</p>
                         )}
                       </div>
                       <div className="text-right flex items-center gap-2">
@@ -585,7 +585,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                               className="h-7 w-7 p-0"
                               onClick={() => setEditingModule(module.id)}
                             >
-                              <Edit2 className="h-3 w-3 text-gray-500" />
+                              <Edit2 className="h-3 w-3 text-muted-foreground" />
                             </Button>
                           )}
                         </div>
@@ -601,7 +601,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
             {/* Services Selection */}
             <div className="mb-8">
               <h3 className="font-semibold text-lg mb-4">ADDITIONAL SERVICES</h3>
-              <p className="text-sm text-gray-600 mb-4">Select additional services (one-time or monthly fees as noted):</p>
+              <p className="text-sm text-muted-foreground mb-4">Select additional services (one-time or monthly fees as noted):</p>
               
               <div className="space-y-2">
                 {services.map((service) => {
@@ -612,7 +612,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                   const displayDescription = overrideDescription || service.description;
                   
                   return (
-                    <div key={service.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-200">
+                    <div key={service.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted transition-colors border border-border">
                       <Checkbox
                         id={`service-${service.id}`}
                         checked={selectedServices.includes(service.id)}
@@ -634,7 +634,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                             placeholder="Service description"
                           />
                         ) : (
-                          <p className="text-xs text-gray-600 mt-0.5">{displayDescription}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{displayDescription}</p>
                         )}
                       </div>
                       <div className="text-right flex items-center gap-2">
@@ -651,7 +651,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                               className="w-20 h-8 text-sm"
                               placeholder="0"
                             />
-                            <span className="text-xs text-gray-600">
+                            <span className="text-xs text-muted-foreground">
                               {service.id === 'support-priority' ? '/mo' : '(one-time)'}
                             </span>
                           </div>
@@ -694,7 +694,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                               className="h-7 w-7 p-0"
                               onClick={() => setEditingService(service.id)}
                             >
-                              <Edit2 className="h-3 w-3 text-gray-500" />
+                              <Edit2 className="h-3 w-3 text-muted-foreground" />
                             </Button>
                           )}
                         </div>
@@ -711,7 +711,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
             <div className="mb-8">
               <h3 className="font-semibold text-lg mb-4">PRICING DETAILS</h3>
               
-              <div className="bg-slate-50 p-6 rounded-lg space-y-4">
+              <div className="bg-muted p-6 rounded-lg space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="baseFee" className="text-xs">Base Platform Fee (monthly)</Label>
@@ -725,7 +725,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                         className="print:border-none print:p-0 print:h-auto"
                         placeholder="0.00"
                       />
-                      <span className="text-sm text-gray-600">/month</span>
+                      <span className="text-sm text-muted-foreground">/month</span>
                     </div>
                   </div>
                   <div>
@@ -740,7 +740,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                         className="print:border-none print:p-0 print:h-auto"
                         placeholder="0.00"
                       />
-                      <span className="text-sm text-gray-600">(one-time)</span>
+                      <span className="text-sm text-muted-foreground">(one-time)</span>
                     </div>
                   </div>
                 </div>
@@ -750,31 +750,31 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                 {/* Cost Breakdown */}
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-700">Base Platform Fee (per user):</span>
+                    <span className="text-foreground">Base Platform Fee (per user):</span>
                     <span className="font-medium">${totals.base.toFixed(2)}/month</span>
                   </div>
                   {totals.numberOfUsers > 1 && (
-                    <div className="flex justify-between text-xs text-gray-600 ml-4">
+                    <div className="flex justify-between text-xs text-muted-foreground ml-4">
                       <span>× {totals.numberOfUsers} users</span>
                       <span>${totals.baseTotal.toFixed(2)}/month</span>
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-gray-700">Selected Modules (per user):</span>
+                    <span className="text-foreground">Selected Modules (per user):</span>
                     <span className="font-medium">${totals.modules.toFixed(2)}/month</span>
                   </div>
                   {totals.numberOfUsers > 1 && (
-                    <div className="flex justify-between text-xs text-gray-600 ml-4">
+                    <div className="flex justify-between text-xs text-muted-foreground ml-4">
                       <span>× {totals.numberOfUsers} users</span>
                       <span>${totals.modulesTotal.toFixed(2)}/month</span>
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-gray-700">Additional Services:</span>
+                    <span className="text-foreground">Additional Services:</span>
                     <span className="font-medium">${totals.services.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-700">Setup Fee:</span>
+                    <span className="text-foreground">Setup Fee:</span>
                     <span className="font-medium">${totals.setup.toFixed(2)} (one-time)</span>
                   </div>
                   
@@ -785,7 +785,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                     <span className="text-purple-600">${totals.monthlyRecurring.toFixed(2)}/month</span>
                   </div>
                   {totals.monthlyTax > 0 && (
-                    <div className="flex justify-between text-sm text-gray-600">
+                    <div className="flex justify-between text-sm text-muted-foreground">
                       <span>Monthly Tax:</span>
                       <span>${totals.monthlyTax.toFixed(2)}/month</span>
                     </div>
@@ -809,7 +809,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
                     id="additionalNotes"
                     value={agreementData.additionalNotes}
                     onChange={(e) => setAgreementData({ ...agreementData, additionalNotes: e.target.value })}
-                    className="w-full mt-1 p-2 border border-slate-300 rounded-md text-sm print:border-none print:p-0"
+                    className="w-full mt-1 p-2 border border-border rounded-md text-sm print:border-none print:p-0"
                     rows={3}
                     placeholder="Enter any special terms, discounts, or additional notes..."
                   />
@@ -822,69 +822,69 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
             {/* Signature Section */}
             <div className="mb-8">
               <h3 className="font-semibold text-lg mb-4">SIGNATURES</h3>
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="text-sm text-muted-foreground mb-6">
                 By signing below, both parties agree to all terms and conditions outlined in this Subscription Agreement.
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Client Signature */}
                 <div className="space-y-4">
-                  <div className="bg-slate-50 p-4 rounded-lg">
-                    <Label className="text-xs font-semibold text-gray-700 mb-2 block">CLIENT SIGNATURE</Label>
+                  <div className="bg-muted p-4 rounded-lg">
+                    <Label className="text-xs font-semibold text-foreground mb-2 block">CLIENT SIGNATURE</Label>
                     <Input
                       value={agreementData.clientSignature}
                       onChange={(e) => setAgreementData({ ...agreementData, clientSignature: e.target.value })}
                       className="font-serif text-xl h-16 mb-3 print:border-none print:p-0 print:h-auto"
                       placeholder="Type signature here"
                     />
-                    <div className="border-t-2 border-gray-300 pt-2">
+                    <div className="border-t-2 border-border pt-2">
                       <Input
                         type="date"
                         value={agreementData.clientSignDate}
                         onChange={(e) => setAgreementData({ ...agreementData, clientSignDate: e.target.value })}
                         className="text-sm print:border-none print:p-0 print:h-auto"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Date</p>
+                      <p className="text-xs text-muted-foreground mt-1">Date</p>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs text-muted-foreground">
                     <p className="font-semibold">{agreementData.clientName || 'Client Name'}</p>
                     <p>{agreementData.clientCompany || 'Company Name'}</p>
-                    <p className="text-gray-500 mt-1">Client / Authorized Representative</p>
+                    <p className="text-muted-foreground mt-1">Client / Authorized Representative</p>
                   </div>
                 </div>
 
                 {/* Provider Signature */}
                 <div className="space-y-4">
-                  <div className="bg-slate-50 p-4 rounded-lg">
-                    <Label className="text-xs font-semibold text-gray-700 mb-2 block">PROVIDER SIGNATURE</Label>
+                  <div className="bg-muted p-4 rounded-lg">
+                    <Label className="text-xs font-semibold text-foreground mb-2 block">PROVIDER SIGNATURE</Label>
                     <Input
                       value={agreementData.providerSignature}
                       onChange={(e) => setAgreementData({ ...agreementData, providerSignature: e.target.value })}
                       className="font-serif text-xl h-16 mb-3 print:border-none print:p-0 print:h-auto"
                       placeholder="Type signature here"
                     />
-                    <div className="border-t-2 border-gray-300 pt-2">
+                    <div className="border-t-2 border-border pt-2">
                       <Input
                         type="date"
                         value={agreementData.providerSignDate}
                         onChange={(e) => setAgreementData({ ...agreementData, providerSignDate: e.target.value })}
                         className="text-sm print:border-none print:p-0 print:h-auto"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Date</p>
+                      <p className="text-xs text-muted-foreground mt-1">Date</p>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs text-muted-foreground">
                     <p className="font-semibold">ProSpaces CRM</p>
                     <p>Software as a Service Provider</p>
-                    <p className="text-gray-500 mt-1">Authorized Representative</p>
+                    <p className="text-muted-foreground mt-1">Authorized Representative</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="mt-12 pt-6 border-t border-gray-200 text-center text-xs text-gray-500">
+            <div className="mt-12 pt-6 border-t border-border text-center text-xs text-muted-foreground">
               <p>This is a legally binding agreement. Please read carefully before signing.</p>
               <p className="mt-1">For questions or concerns, please contact: support@prospaces-crm.com</p>
               <p className="mt-2">© {new Date().getFullYear()} ProSpaces CRM. All rights reserved.</p>

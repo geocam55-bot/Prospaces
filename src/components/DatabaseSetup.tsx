@@ -329,11 +329,11 @@ ON CONFLICT (id) DO NOTHING;
           </div>
 
           {/* Detailed Instructions */}
-          <div className="bg-white border-2 border-green-400 rounded-lg p-4 shadow-md">
+          <div className="bg-background border-2 border-green-400 rounded-lg p-4 shadow-md">
             <p className="text-base text-green-900 font-bold mb-3 flex items-center gap-2">
               <span className="text-2xl">📋</span> Complete Step-by-Step Instructions:
             </p>
-            <ol className="text-sm text-gray-800 space-y-2 ml-6 list-decimal">
+            <ol className="text-sm text-foreground space-y-2 ml-6 list-decimal">
               <li><strong>Click the blue "STEP 1" button above</strong> to copy the SQL script to your clipboard</li>
               <li><strong>Click the green "STEP 2" button</strong> to open Supabase SQL Editor in a new tab</li>
               <li><strong>In Supabase:</strong> Paste the script (Ctrl+V or Cmd+V) into the editor</li>
@@ -359,11 +359,11 @@ ON CONFLICT (id) DO NOTHING;
 
         {/* Alternative Quick Setup - Collapsed and de-emphasized */}
         <details className="space-y-3 opacity-40 hover:opacity-100 transition-opacity">
-          <summary className="cursor-pointer text-xs font-semibold text-gray-600 hover:text-gray-800">
+          <summary className="cursor-pointer text-xs font-semibold text-muted-foreground hover:text-foreground">
             ⚙️ Advanced: Try Automatic Quick Setup (usually doesn't work with this error)
           </summary>
-          <div className="mt-3 space-y-2 p-3 bg-gray-50 rounded border">
-            <p className="text-xs text-gray-700">
+          <div className="mt-3 space-y-2 p-3 bg-muted rounded border">
+            <p className="text-xs text-foreground">
               This attempts to create your profile automatically, but <strong>WILL FAIL</strong> with the infinite recursion error. You must use the SQL script above.
             </p>
             <Button

@@ -164,10 +164,10 @@ export function BidsTableMigration() {
         </Alert>
 
         <div className="space-y-2">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             This migration will add the following columns to the bids table:
           </p>
-          <ul className="text-sm text-gray-600 list-disc list-inside space-y-1">
+          <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
             <li><code>notes</code> - Text notes for the deal</li>
             <li><code>line_items</code> - JSON array of line items</li>
             <li><code>subtotal</code> - Deal subtotal before tax</li>
@@ -230,8 +230,8 @@ export function BidsTableMigration() {
         </Button>
 
         {results.length > 0 && (
-          <div className="bg-gray-50 rounded-lg p-4 space-y-1 max-h-96 overflow-y-auto">
-            <p className="text-xs font-mono text-gray-800 whitespace-pre-wrap">
+          <div className="bg-muted rounded-lg p-4 space-y-1 max-h-96 overflow-y-auto">
+            <p className="text-xs font-mono text-foreground whitespace-pre-wrap">
               {results.map((result, index) => (
                 <div key={index}>{result}</div>
               ))}

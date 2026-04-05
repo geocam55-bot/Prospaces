@@ -1,31 +1,41 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
-import {
-  Shield,
-  Lock,
-  Search,
-  Save,
-  RotateCcw,
-  AlertCircle,
-  CheckCircle2,
-  History,
-  Copy,
-  Filter
-} from 'lucide-react';
-import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import {
+  AlertCircle,
+  Ban,
+  CheckCircle2,
+  Eye,
+  Pencil,
+  RotateCcw,
+  Save,
+  Search,
+  Shield,
+} from 'lucide-react';
 import type { User, UserRole } from '../App';
 import { PermissionGate } from './PermissionGate';
-import { canView } from '../utils/permissions';
-import { useDebounce } from '../utils/useDebounce';
-import { ALL_MODULES, ALL_ROLES, getDefaultPermission, refreshPermissionsFromStorage } from '../utils/permissions';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
-import { createClient } from '../utils/supabase/client';
+import {
+  ALL_ROLES,
+  ALL_SPACES,
+  accessLevelToPermission,
+  canChange,
+  canView,
+  formatModuleLabel,
+  getDefaultPermission,
+  getDefaultSpacePermission,
+  getSpacePermissionKey,
+  normalizePermissionRecords,
+  permissionToAccessLevel,
+  refreshPermissionsFromStorage,
+  type PermissionRecord,
+  type SpaceAccessLevel,
+} from '../utils/permissions';
+import { projectId } from '../utils/supabase/info';
 import { getServerHeaders } from '../utils/server-headers';
 import { AuditLog as AuditLogViewer } from './AuditLog';
 import { logAuditEvent } from '../utils/audit';
@@ -36,72 +46,38 @@ interface SecurityProps {
   user: User;
 }
 
-interface ModulePermission {
-  module: string;
-  role: UserRole;
-  visible: boolean;
-  add: boolean;
-  change: boolean;
-  delete: boolean;
-}
+const ACCESS_OPTIONS: Array<{ value: SpaceAccessLevel; label: string; icon: typeof Ban }> = [
+  { value: 'none', label: 'No Access', icon: Ban },
+  { value: 'view', label: 'View Only', icon: Eye },
+  { value: 'full', label: 'Full Access', icon: Pencil },
+];
 
-interface LegacyAuditLog {
-  id: string;
-  timestamp: string;
-  user: string;
-  action: string;
-  module: string;
-  role: UserRole;
-  changes: string;
-}
+type ModuleAccessChoice = 'inherit' | SpaceAccessLevel;
+
+const MODULE_ACCESS_OPTIONS: Array<{ value: ModuleAccessChoice; label: string; icon: typeof Ban }> = [
+  { value: 'inherit', label: 'Inherit', icon: Shield },
+  { value: 'none', label: 'No Access', icon: Ban },
+  { value: 'view', label: 'View Only', icon: Eye },
+  { value: 'full', label: 'Full Access', icon: Pencil },
+];
 
 export function Security({ user }: SecurityProps) {
-  const [permissions, setPermissions] = useState<ModulePermission[]>([]);
-  const [legacyAuditLogs, setLegacyAuditLogs] = useState<LegacyAuditLog[]>([]);
+  const [permissions, setPermissions] = useState<PermissionRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
-  const [selectedModule, setSelectedModule] = useState<string>('all');
+  const [selectedSpace, setSelectedSpace] = useState<string>('all');
+  const [copyFromRole, setCopyFromRole] = useState<UserRole>('manager');
+  const [copyToRole, setCopyToRole] = useState<UserRole>('standard_user');
   const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [hasChanges, setHasChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Check if user has access to this page
   const canAccessSecurity = canView('security', user.role);
+  const canEditSecurity = canChange('security', user.role);
 
-  const modules = [
-    { id: 'dashboard', name: 'Dashboard', icon: '📊' },
-    { id: 'ai-suggestions', name: 'AI Suggestions', icon: '🤖' },
-    { id: 'team-dashboard', name: 'Team Dashboard', icon: '👥' },
-    { id: 'contacts', name: 'Contacts', icon: '👥' },
-    { id: 'tasks', name: 'Tasks', icon: '✓' },
-    { id: 'appointments', name: 'Appointments', icon: '📅' },
-    { id: 'bids', name: 'Deals', icon: '📄' },
-    { id: 'quotes', name: 'Quotes', icon: '💰' },
-    { id: 'notes', name: 'Notes', icon: '📝' },
-    { id: 'documents', name: 'Documents', icon: '📁' },
-    { id: 'email', name: 'Email', icon: '✉️' },
-    { id: 'marketing', name: 'Marketing', icon: '📈' },
-    { id: 'inventory', name: 'Inventory', icon: '📦' },
-    { id: 'project-wizards', name: 'Project Wizards', icon: '🪄' },
-    { id: 'kitchen-planner', name: 'Kitchen Planner', icon: '🍳' },
-    { id: 'reports', name: 'Reports', icon: '📊' },
-    { id: 'admin', name: 'Admin Menu', icon: '🛠️' },
-    { id: 'users', name: 'Users', icon: '👤' },
-    { id: 'settings', name: 'Settings', icon: '⚙️' },
-    { id: 'tenants', name: 'Tenants', icon: '🏢' },
-    { id: 'security', name: 'Security', icon: '🔒' },
-    { id: 'import-export', name: 'Import/Export', icon: '🔄' },
-  ];
+  const roles = ALL_ROLES.filter((role) => user.role === 'super_admin' || role !== 'super_admin');
 
-  const allRoles: UserRole[] = ALL_ROLES;
-  
-  // Filter roles - Admin should not see or manage super_admin permissions
-  const roles = allRoles.filter(role => 
-    user.role === 'super_admin' || role !== 'super_admin'
-  );
-
-  const roleLabels = {
+  const roleLabels: Record<UserRole, string> = {
     super_admin: 'Super Admin',
     admin: 'Admin',
     director: 'Director',
@@ -111,26 +87,37 @@ export function Security({ user }: SecurityProps) {
     standard_user: 'Standard User',
   };
 
+  const getRoleBadgeClass = (role: UserRole) => (
+    role === 'super_admin' ? 'bg-red-50 text-red-700 border-red-200' :
+    role === 'admin' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+    role === 'director' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+    role === 'manager' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+    role === 'marketing' ? 'bg-green-50 text-green-700 border-green-200' :
+    role === 'designer' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+    'bg-muted text-foreground border-border'
+  );
+
   useEffect(() => {
     if (canAccessSecurity) {
       loadPermissions();
-      loadAuditLogs();
     }
   }, [canAccessSecurity]);
 
-  /**
-   * Helper: get the access token for authenticated server calls.
-   * Tries Supabase session first, falls back to publicAnonKey.
-   */
-  const getAuthToken = async (): Promise<string> => {
-    try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) return session.access_token;
-    } catch (e) {
-    
-    }
-    return publicAnonKey;
+  const filteredSpaces = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return ALL_SPACES.filter((space) => {
+      const matchesFilter = selectedSpace === 'all' || space.id === selectedSpace;
+      const matchesQuery = !query ||
+        space.name.toLowerCase().includes(query) ||
+        space.description.toLowerCase().includes(query) ||
+        space.modules.some((module) => module.toLowerCase().includes(query));
+
+      return matchesFilter && matchesQuery;
+    });
+  }, [searchQuery, selectedSpace]);
+
+  const initializeDefaultPermissions = () => {
+    setPermissions(normalizePermissionRecords());
   };
 
   const loadPermissions = async () => {
@@ -138,199 +125,126 @@ export function Security({ user }: SecurityProps) {
     const orgId = localStorage.getItem('currentOrgId') || user.organizationId || user.organization_id || 'org_001';
 
     try {
-      // Try server first (KV store)
       const headers = await getServerHeaders();
       const res = await Promise.race([
-        fetch(`${SERVER_BASE}/permissions?organization_id=${encodeURIComponent(orgId)}`, {
-          headers,
-        }),
+        fetch(`${SERVER_BASE}/permissions?organization_id=${encodeURIComponent(orgId)}`, { headers }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
       ]);
 
       if (res.ok) {
         const json = await res.json();
-        if (json.permissions && Array.isArray(json.permissions) && json.permissions.length > 0) {
-          
-
-          // Sync server data back to localStorage for offline/fast use
-          localStorage.setItem(`permissions_${orgId}`, JSON.stringify(json.permissions));
-          setPermissions(json.permissions);
+        if (Array.isArray(json.permissions) && json.permissions.length > 0) {
+          const normalized = normalizePermissionRecords(json.permissions);
+          localStorage.setItem(`permissions_${orgId}`, JSON.stringify(normalized));
+          setPermissions(normalized);
           setIsLoading(false);
           return;
-        } else {
-          
         }
-      } else {
-        const errText = await res.text().catch(() => '');
-        
       }
-    } catch (err) {
-      
+    } catch {
+      // Fall back to local storage / defaults below
     }
 
-    // Fallback: load from localStorage
     try {
       const storedPerms = localStorage.getItem(`permissions_${orgId}`);
-
       if (storedPerms) {
-        const permsArray = JSON.parse(storedPerms);
-
-        // Migration: Check if ai-suggestions module exists in stored permissions
-        const hasAISuggestions = permsArray.some((p: ModulePermission) => p.module === 'ai-suggestions');
-
-        if (!hasAISuggestions) {
-          
-          roles.forEach(role => {
-            if (role === 'super_admin' || role === 'admin') {
-              permsArray.push({ module: 'ai-suggestions', role, visible: true, add: true, change: true, delete: true });
-            } else if (role === 'manager' || role === 'director') {
-              permsArray.push({ module: 'ai-suggestions', role, visible: true, add: true, change: true, delete: false });
-            } else if (role === 'marketing') {
-              permsArray.push({ module: 'ai-suggestions', role, visible: true, add: false, change: false, delete: false });
-            } else {
-              permsArray.push({ module: 'ai-suggestions', role, visible: false, add: false, change: false, delete: false });
-            }
-          });
-          localStorage.setItem(`permissions_${orgId}`, JSON.stringify(permsArray));
-          
-        }
-
-        setPermissions(permsArray);
+        setPermissions(normalizePermissionRecords(JSON.parse(storedPerms)));
       } else {
         initializeDefaultPermissions();
       }
-    } catch (error) {
-      
+    } catch {
       initializeDefaultPermissions();
     }
 
     setIsLoading(false);
   };
 
-  const loadAuditLogs = async () => {
-    const orgId = localStorage.getItem('currentOrgId') || user.organizationId || user.organization_id || 'org_001';
+  const getAccessLevel = (spaceId: string, role: UserRole): SpaceAccessLevel => {
+    const record = permissions.find((permission) => permission.module === getSpacePermissionKey(spaceId as any) && permission.role === role);
+    return permissionToAccessLevel(record || getDefaultSpacePermission(spaceId as any, role));
+  };
 
-    try {
-      // Try server first
-      const headers = await getServerHeaders();
-      const res = await Promise.race([
-        fetch(`${SERVER_BASE}/permissions/audit-logs?organization_id=${encodeURIComponent(orgId)}`, {
-          headers,
-        }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000)),
-      ]);
+  const setAccessLevel = (spaceId: string, role: UserRole, accessLevel: SpaceAccessLevel) => {
+    const nextPermission = accessLevelToPermission(accessLevel);
 
-      if (res.ok) {
-        const json = await res.json();
-        if (json.logs && Array.isArray(json.logs)) {
-          
-          // Sync to localStorage
-          localStorage.setItem(`audit_logs_${orgId}`, JSON.stringify(json.logs));
-          setLegacyAuditLogs(json.logs);
-          return;
-        }
-      }
-    } catch (err) {
-      
-    }
+    setPermissions((previous) => {
+      const updated = [...previous];
+      const module = getSpacePermissionKey(spaceId as any);
+      const existingIndex = updated.findIndex((permission) => permission.module === module && permission.role === role);
 
-    // Fallback: load from localStorage
-    try {
-      const storedLogs = localStorage.getItem(`audit_logs_${orgId}`);
-      if (storedLogs) {
-        setLegacyAuditLogs(JSON.parse(storedLogs));
+      if (existingIndex >= 0) {
+        updated[existingIndex] = { ...updated[existingIndex], ...nextPermission }; 
       } else {
-        setLegacyAuditLogs([]);
+        updated.push({ module, role, ...nextPermission });
       }
-    } catch (error) {
-      
-      setLegacyAuditLogs([]);
-    }
-  };
 
-  const initializeDefaultPermissions = () => {
-    const defaultPerms: ModulePermission[] = [];
-    modules.forEach(module => {
-      roles.forEach(role => {
-        const perm = getDefaultPermission(module.id, role);
-        defaultPerms.push({
-          module: module.id,
-          role,
-          ...perm,
-        });
-      });
-    });
-    setPermissions(defaultPerms);
-  };
-
-  const getPermission = (module: string, role: UserRole, type: 'visible' | 'add' | 'change' | 'delete'): boolean => {
-    const perm = permissions.find(p => p.module === module && p.role === role);
-    return perm ? perm[type] : false;
-  };
-
-  const updatePermission = (module: string, role: UserRole, type: 'visible' | 'add' | 'change' | 'delete', value: boolean) => {
-    setPermissions(prev => {
-      const updated = [...prev];
-      const index = updated.findIndex(p => p.module === module && p.role === role);
-      
-      if (index >= 0) {
-        updated[index] = { ...updated[index], [type]: value };
-        
-        // If visible is unchecked, uncheck all other permissions
-        if (type === 'visible' && !value) {
-          updated[index].add = false;
-          updated[index].change = false;
-          updated[index].delete = false;
-        }
-        
-        // If any permission is checked, ensure visible is checked
-        if ((type === 'add' || type === 'change' || type === 'delete') && value) {
-          updated[index].visible = true;
-        }
-      } else {
-        updated.push({
-          module,
-          role,
-          visible: type === 'visible' ? value : false,
-          add: type === 'add' ? value : false,
-          change: type === 'change' ? value : false,
-          delete: type === 'delete' ? value : false,
-        });
-      }
-      
       return updated;
     });
+
     setHasChanges(true);
   };
 
+  const getModuleAccessChoice = (module: string, role: UserRole): ModuleAccessChoice => {
+    const record = permissions.find((permission) => permission.module === module && permission.role === role);
+    return record ? permissionToAccessLevel(record) : 'inherit';
+  };
+
+  const getEffectiveModuleAccessLevel = (spaceId: string, module: string, role: UserRole): SpaceAccessLevel => {
+    const spaceLevel = getAccessLevel(spaceId, role);
+    if (spaceLevel === 'none') return 'none';
+
+    const explicitRecord = permissions.find((permission) => permission.module === module && permission.role === role);
+    const moduleLevel = permissionToAccessLevel(explicitRecord || getDefaultPermission(module, role));
+
+    if (spaceLevel === 'view') {
+      return moduleLevel === 'none' ? 'none' : 'view';
+    }
+
+    return moduleLevel;
+  };
+
+  const setModuleAccessChoice = (module: string, role: UserRole, accessChoice: ModuleAccessChoice) => {
+    setPermissions((previous) => {
+      const updated = [...previous];
+      const existingIndex = updated.findIndex((permission) => permission.module === module && permission.role === role);
+
+      if (accessChoice === 'inherit') {
+        if (existingIndex >= 0) {
+          updated.splice(existingIndex, 1);
+        }
+        return updated;
+      }
+
+      const nextPermission = accessLevelToPermission(accessChoice);
+      if (existingIndex >= 0) {
+        updated[existingIndex] = { ...updated[existingIndex], ...nextPermission };
+      } else {
+        updated.push({ module, role, ...nextPermission });
+      }
+
+      return updated;
+    });
+
+    setHasChanges(true);
+  };
+
+  const getSharedSpacesForModule = (module: string) => ALL_SPACES.filter((space) => space.modules.includes(module));
+
   const handleSave = async () => {
+    if (!canEditSecurity) {
+      setSaveMessage({ type: 'error', text: 'You have view-only access to Security and cannot save changes.' });
+      return;
+    }
+
     setIsSaving(true);
     setSaveMessage(null);
 
     const orgId = localStorage.getItem('currentOrgId') || user.organizationId || user.organization_id || 'org_001';
+    const normalizedPermissions = normalizePermissionRecords(permissions);
 
-    // Create audit log entry
-    const logEntry: LegacyAuditLog = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      user: user.full_name || user.email || 'User',
-      action: 'Updated permissions',
-      module: 'all',
-      role: user.role as UserRole,
-      changes: `${permissions.length} permissions updated`,
-    };
-
-    // Always save to localStorage first (instant, offline-safe)
-    localStorage.setItem(`permissions_${orgId}`, JSON.stringify(permissions));
+    localStorage.setItem(`permissions_${orgId}`, JSON.stringify(normalizedPermissions));
     refreshPermissionsFromStorage();
 
-    // Save audit log to localStorage
-    const storedLogs = localStorage.getItem(`audit_logs_${orgId}`);
-    const localLogs = storedLogs ? JSON.parse(storedLogs) : [];
-    localLogs.unshift(logEntry);
-    localStorage.setItem(`audit_logs_${orgId}`, JSON.stringify(localLogs.slice(0, 100)));
-
-    // Now persist to server (KV store) for cross-session / cross-device persistence
     let serverSaved = false;
     try {
       const headers = await getServerHeaders();
@@ -339,44 +253,38 @@ export function Security({ user }: SecurityProps) {
           method: 'PUT',
           headers,
           body: JSON.stringify({
-            permissions,
+            permissions: normalizedPermissions,
             organization_id: orgId,
             changedBy: user.full_name || user.email || 'User',
-            changeDescription: `${permissions.length} permissions updated`,
+            changeDescription: 'Updated hierarchical space and option access controls',
           }),
         }),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000)),
       ]);
 
-      if (res.ok) {
-        const json = await res.json();
-        
-        serverSaved = true;
-      } else {
-        const errBody = await res.text().catch(() => '');
-        
-      }
-    } catch (err) {
-      
+      serverSaved = res.ok;
+    } catch {
+      serverSaved = false;
     }
 
-    if (serverSaved) {
-      setSaveMessage({ type: 'success', text: 'Permissions saved to database successfully!' });
-    } else {
-      setSaveMessage({ type: 'success', text: 'Permissions saved locally. Server sync will retry on next save.' });
-    }
-
-    // Also log to enterprise audit log (Supabase table)
     logAuditEvent({
       action: 'permission_change',
       resourceType: 'permission',
-      description: `Updated ${permissions.length} permission entries`,
-      metadata: { permission_count: permissions.length },
+      description: `Updated hierarchical access across ${ALL_SPACES.length} spaces`,
+      metadata: {
+        model: 'space-option-hierarchy',
+        permission_count: normalizedPermissions.length,
+      },
     });
 
+    setPermissions(normalizedPermissions);
     setHasChanges(false);
-    await loadAuditLogs();
-
+    setSaveMessage({
+      type: 'success',
+      text: serverSaved
+        ? 'Space access saved successfully.'
+        : 'Space access saved locally. Server sync will retry on the next save.',
+    });
     setTimeout(() => setSaveMessage(null), 5000);
     setIsSaving(false);
   };
@@ -387,35 +295,28 @@ export function Security({ user }: SecurityProps) {
     setSaveMessage(null);
   };
 
-  const handleBulkUpdate = (role: UserRole, type: 'visible' | 'add' | 'change' | 'delete', value: boolean) => {
-    const modulesToUpdate = selectedModule === 'all' 
-      ? modules.map(m => m.id)
-      : [selectedModule];
-    
-    modulesToUpdate.forEach(module => {
-      updatePermission(module, role, type, value);
-    });
+  const handleBulkUpdate = (role: UserRole, accessLevel: SpaceAccessLevel) => {
+    const spacesToUpdate = selectedSpace === 'all'
+      ? ALL_SPACES.map((space) => space.id)
+      : [selectedSpace];
+
+    spacesToUpdate.forEach((spaceId) => setAccessLevel(spaceId, role, accessLevel));
   };
 
-  const copyPermissions = (fromRole: UserRole, toRole: UserRole) => {
-    modules.forEach(module => {
-      const sourcePerms = permissions.find(p => p.module === module.id && p.role === fromRole);
-      if (sourcePerms) {
-        updatePermission(module.id, toRole, 'visible', sourcePerms.visible);
-        updatePermission(module.id, toRole, 'add', sourcePerms.add);
-        updatePermission(module.id, toRole, 'change', sourcePerms.change);
-        updatePermission(module.id, toRole, 'delete', sourcePerms.delete);
-      }
-    });
-  };
+  const copyAccessBetweenRoles = () => {
+    if (copyFromRole === copyToRole) return;
 
-  const filteredModules = modules.filter(module => {
-    const query = debouncedSearchQuery.toLowerCase().trim();
-    if (!query) return true;
-    
-    // 🔍 Enhanced search: search module name
-    return module.name.toLowerCase().includes(query);
-  });
+    setPermissions((previous) => {
+      const filtered = previous.filter((permission) => permission.role !== copyToRole);
+      const copied = previous
+        .filter((permission) => permission.role === copyFromRole)
+        .map((permission) => ({ ...permission, role: copyToRole }));
+
+      return [...filtered, ...copied];
+    });
+
+    setHasChanges(true);
+  };
 
   if (!canAccessSecurity) {
     return (
@@ -423,7 +324,7 @@ export function Security({ user }: SecurityProps) {
         <Alert variant="destructive" className="max-w-md">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            You don't have permission to access Security Settings. Only Super Admins and Admins can manage permissions.
+            You don't have permission to access Security Settings. Only Super Admins and Admins can manage space access.
           </AlertDescription>
         </Alert>
       </div>
@@ -432,279 +333,310 @@ export function Security({ user }: SecurityProps) {
 
   return (
     <PermissionGate user={user} module="security" action="view">
-    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center justify-end gap-2">
-          {hasChanges && (
-            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
-              Unsaved Changes
-            </Badge>
-          )}
-          <Button variant="outline" onClick={handleReset} disabled={!hasChanges || isSaving}>
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Reset
-          </Button>
-          <Button onClick={handleSave} disabled={!hasChanges || isSaving}>
-            <Save className="h-4 w-4 mr-2" />
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </div>
-      </div>
-
-      {saveMessage && (
-        <Alert variant={saveMessage.type === 'success' ? 'default' : 'destructive'}>
-          {saveMessage.type === 'success' ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
-          )}
-          <AlertDescription>{saveMessage.text}</AlertDescription>
-        </Alert>
-      )}
-
-      <Tabs defaultValue="permissions">
-        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="inline-flex w-auto min-w-full">
-            <TabsTrigger value="permissions" className="whitespace-nowrap">Permissions Matrix</TabsTrigger>
-            <TabsTrigger value="bulk" className="whitespace-nowrap">Bulk Operations</TabsTrigger>
-            <TabsTrigger value="audit" className="whitespace-nowrap">Audit Logs</TabsTrigger>
-          </TabsList>
-        </div>
-
-        <TabsContent value="permissions" className="space-y-6 mt-6">
-          {/* Search and Filter */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search modules..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <Select value={selectedModule} onValueChange={setSelectedModule}>
-                  <SelectTrigger className="w-full sm:w-48">
-                    <SelectValue placeholder="Filter by module" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Modules</SelectItem>
-                    {modules.map(module => (
-                      <SelectItem key={module.id} value={module.id}>
-                        {module.icon} {module.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Permissions Matrix */}
-          <div className="space-y-4">
-            {filteredModules.map(module => (
-              <Card key={module.id}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <span className="text-2xl">{module.icon}</span>
-                    <span className="text-gray-900">{module.name}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-3">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-40">Role</th>
-                          <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
-                            <div className="flex flex-col items-center gap-1">
-                              <Lock className="h-4 w-4" />
-                              <span>Visible</span>
-                            </div>
-                          </th>
-                          <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
-                            <div className="flex flex-col items-center gap-1">
-                              <span>➕</span>
-                              <span>Add</span>
-                            </div>
-                          </th>
-                          <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
-                            <div className="flex flex-col items-center gap-1">
-                              <span>✏️</span>
-                              <span>Change</span>
-                            </div>
-                          </th>
-                          <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
-                            <div className="flex flex-col items-center gap-1">
-                              <span>🗑️</span>
-                              <span>Delete</span>
-                            </div>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {roles.map(role => (
-                          <tr key={role} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="py-3 px-4">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className={
-                                  role === 'super_admin' ? 'bg-red-50 text-red-700 border-red-200' :
-                                  role === 'admin' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                  role === 'director' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                                  role === 'manager' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                  role === 'marketing' ? 'bg-green-50 text-green-700 border-green-200' :
-                                  'bg-gray-50 text-gray-700 border-gray-200'
-                                }>
-                                  {roleLabels[role]}
-                                </Badge>
-                                {role === 'super_admin' && (
-                                  <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600">
-                                    Protected
-                                  </Badge>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <Checkbox
-                                checked={getPermission(module.id, role, 'visible')}
-                                onCheckedChange={(checked) => 
-                                  updatePermission(module.id, role, 'visible', checked as boolean)
-                                }
-                                disabled={role === 'super_admin'}
-                                title={role === 'super_admin' ? 'Super Admin permissions cannot be modified' : ''}
-                              />
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <Checkbox
-                                checked={getPermission(module.id, role, 'add')}
-                                onCheckedChange={(checked) => 
-                                  updatePermission(module.id, role, 'add', checked as boolean)
-                                }
-                                disabled={role === 'super_admin' || !getPermission(module.id, role, 'visible')}
-                                title={role === 'super_admin' ? 'Super Admin permissions cannot be modified' : ''}
-                              />
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <Checkbox
-                                checked={getPermission(module.id, role, 'change')}
-                                onCheckedChange={(checked) => 
-                                  updatePermission(module.id, role, 'change', checked as boolean)
-                                }
-                                disabled={role === 'super_admin' || !getPermission(module.id, role, 'visible')}
-                                title={role === 'super_admin' ? 'Super Admin permissions cannot be modified' : ''}
-                              />
-                            </td>
-                            <td className="py-3 px-4 text-center">
-                              <Checkbox
-                                checked={getPermission(module.id, role, 'delete')}
-                                onCheckedChange={(checked) => 
-                                  updatePermission(module.id, role, 'delete', checked as boolean)
-                                }
-                                disabled={role === 'super_admin' || !getPermission(module.id, role, 'visible')}
-                                title={role === 'super_admin' ? 'Super Admin permissions cannot be modified' : ''}
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold text-foreground">Hierarchical Space Security</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Security now follows a two-level hierarchy: <strong>1) Space Access by Role</strong>, then <strong>2) Option Access inside that Space</strong>. This lets you grant a role entry to a space without exposing every option inside it.
+            </p>
           </div>
-        </TabsContent>
+          <div className="flex items-center justify-end gap-2">
+            {hasChanges && (
+              <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
+                Unsaved Changes
+              </Badge>
+            )}
+            <Button variant="outline" onClick={handleReset} disabled={!canEditSecurity || !hasChanges || isSaving}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reset
+            </Button>
+            <Button onClick={handleSave} disabled={!canEditSecurity || !hasChanges || isSaving}>
+              <Save className="h-4 w-4 mr-2" />
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </div>
 
-        <TabsContent value="bulk" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Bulk Permission Updates</CardTitle>
-              <p className="text-sm text-gray-600 mt-1">
-                Quickly apply permissions across multiple modules or copy permissions between roles
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Bulk Update by Role */}
+        <Alert>
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            Start with the <strong>Space Access</strong> level, then fine-tune <strong>Options in that Space</strong> only where needed. <strong>View Only</strong> at the space level keeps all nested options read-only.
+            {!canEditSecurity && ' You currently have view-only access to Security, so settings here are read-only.'}
+          </AlertDescription>
+        </Alert>
+
+        {saveMessage && (
+          <Alert variant={saveMessage.type === 'success' ? 'default' : 'destructive'}>
+            {saveMessage.type === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+            <AlertDescription>{saveMessage.text}</AlertDescription>
+          </Alert>
+        )}
+
+        <Tabs defaultValue="permissions">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className="inline-flex w-auto min-w-full">
+              <TabsTrigger value="permissions" className="whitespace-nowrap">Hierarchy Matrix</TabsTrigger>
+              <TabsTrigger value="bulk" className="whitespace-nowrap">Bulk Operations</TabsTrigger>
+              <TabsTrigger value="audit" className="whitespace-nowrap">Audit Logs</TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="permissions" className="space-y-6 mt-6">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search spaces or included modules..."
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  <Select value={selectedSpace} onValueChange={setSelectedSpace}>
+                    <SelectTrigger className="w-full sm:w-56">
+                      <SelectValue placeholder="Filter by space" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Spaces</SelectItem>
+                      {ALL_SPACES.map((space) => (
+                        <SelectItem key={space.id} value={space.id}>
+                          {space.icon} {space.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">Loading space access...</p>
+                </div>
+              </div>
+            ) : (
               <div className="space-y-4">
-                <h3 className="text-sm text-gray-900">Update Permissions for All Modules</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {roles.filter(r => r !== 'super_admin').map(role => (
-                    <Card key={role} className="bg-gray-50">
-                      <CardContent className="pt-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <Badge className={
-                            role === 'admin' ? 'bg-blue-100 text-blue-700' :
-                            role === 'director' ? 'bg-orange-100 text-orange-700' :
-                            role === 'manager' ? 'bg-purple-100 text-purple-700' :
-                            role === 'marketing' ? 'bg-green-100 text-green-700' :
-                            'bg-gray-100 text-gray-700'
-                          }>
-                            {roleLabels[role]}
+                {filteredSpaces.map((space) => (
+                  <Card key={space.id}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <span className="text-2xl">{space.icon}</span>
+                        <span>{space.name}</span>
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground">{space.description}</p>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {space.modules.map((module) => (
+                          <Badge key={module} variant="secondary" className="text-xs">
+                            {module}
                           </Badge>
+                        ))}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0 space-y-5">
+                      <div>
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <h3 className="text-sm font-semibold text-foreground">Step 1 — Space Access by Role</h3>
+                          <Badge variant="secondary">Hierarchy Level 1</Badge>
                         </div>
-                        <div className="space-y-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full justify-start"
-                            onClick={() => handleBulkUpdate(role, 'visible', true)}
-                          >
-                            Enable Visible for All
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b border-border">
+                                <th className="text-left py-3 px-4 text-sm font-semibold text-foreground w-40">Role</th>
+                                <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Access Level</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {roles.map((role) => {
+                                const currentLevel = getAccessLevel(space.id, role);
+                                return (
+                                  <tr key={`${space.id}-${role}`} className="border-b border-border hover:bg-muted/40">
+                                    <td className="py-3 px-4 align-top">
+                                      <Badge variant="outline" className={getRoleBadgeClass(role)}>
+                                        {roleLabels[role]}
+                                      </Badge>
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      <div className="flex flex-wrap gap-2">
+                                        {ACCESS_OPTIONS.map((option) => {
+                                          const Icon = option.icon;
+                                          const isActive = currentLevel === option.value;
+                                          return (
+                                            <Button
+                                              key={option.value}
+                                              type="button"
+                                              size="sm"
+                                              variant={isActive ? 'default' : 'outline'}
+                                              onClick={() => setAccessLevel(space.id, role, option.value)}
+                                              disabled={role === 'super_admin' || !canEditSecurity}
+                                              className="min-w-[110px]"
+                                            >
+                                              <Icon className="h-4 w-4 mr-2" />
+                                              {option.label}
+                                            </Button>
+                                          );
+                                        })}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-border bg-muted/20 p-4 sm:p-5">
+                        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h3 className="text-sm font-semibold text-foreground">Step 2 — Option Access inside {space.name}</h3>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              After granting a role access to the space, refine exactly which options it can use. <strong>Inherit</strong> follows the role default and still respects the parent space level.
+                            </p>
+                          </div>
+                          <Badge variant="secondary">Hierarchy Level 2</Badge>
+                        </div>
+
+                        <div className="space-y-4">
+                          {space.modules.map((module) => {
+                            const sharedSpaces = getSharedSpacesForModule(module);
+
+                            return (
+                              <Card key={`${space.id}-${module}`} className="bg-background/80">
+                                <CardContent className="pt-4 space-y-3">
+                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                      <p className="text-sm font-medium text-foreground">{formatModuleLabel(module)}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {sharedSpaces.length > 1
+                                          ? `Shared with: ${sharedSpaces.map((entry) => entry.name).join(', ')}`
+                                          : 'Applies only inside this space.'}
+                                      </p>
+                                    </div>
+                                    {sharedSpaces.length > 1 && (
+                                      <Badge variant="outline" className="w-fit">Shared Option</Badge>
+                                    )}
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    {roles.map((role) => {
+                                      const currentChoice = getModuleAccessChoice(module, role);
+                                      const effectiveLevel = getEffectiveModuleAccessLevel(space.id, module, role);
+                                      const parentSpaceLevel = getAccessLevel(space.id, role);
+                                      const effectiveLabel = ACCESS_OPTIONS.find((option) => option.value === effectiveLevel)?.label || 'No Access';
+                                      const parentLabel = ACCESS_OPTIONS.find((option) => option.value === parentSpaceLevel)?.label || 'No Access';
+
+                                      return (
+                                        <div key={`${space.id}-${module}-${role}`} className="rounded-lg border border-border/60 bg-background p-3">
+                                          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                                            <div className="space-y-1">
+                                              <Badge variant="outline" className={getRoleBadgeClass(role)}>
+                                                {roleLabels[role]}
+                                              </Badge>
+                                              <div className="text-xs text-muted-foreground space-y-1">
+                                                <p>Parent space: <strong>{parentLabel}</strong></p>
+                                                <p>Effective option access: <strong>{effectiveLabel}</strong></p>
+                                              </div>
+                                            </div>
+
+                                            <div className="flex flex-wrap gap-2">
+                                              {MODULE_ACCESS_OPTIONS.map((option) => {
+                                                const Icon = option.icon;
+                                                const isActive = currentChoice === option.value;
+                                                return (
+                                                  <Button
+                                                    key={option.value}
+                                                    type="button"
+                                                    size="sm"
+                                                    variant={isActive ? 'default' : 'outline'}
+                                                    onClick={() => setModuleAccessChoice(module, role, option.value)}
+                                                    disabled={role === 'super_admin' || !canEditSecurity}
+                                                    className="min-w-[108px]"
+                                                  >
+                                                    <Icon className="h-4 w-4 mr-2" />
+                                                    {option.label}
+                                                  </Button>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+
+                                          {parentSpaceLevel === 'none' && (
+                                            <p className="mt-2 text-xs text-muted-foreground">
+                                              Enable the space first before this option becomes available for the role.
+                                            </p>
+                                          )}
+                                          {parentSpaceLevel === 'view' && currentChoice === 'full' && (
+                                            <p className="mt-2 text-xs text-amber-700">
+                                              This option is capped at <strong>View Only</strong> until the parent space is upgraded from read-only access.
+                                            </p>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="bulk" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Bulk Space Updates</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Apply one access level to all spaces, or copy one role’s space setup to another role.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {roles.filter((role) => role !== 'super_admin').map((role) => (
+                    <Card key={role} className="bg-muted/40">
+                      <CardContent className="pt-6 space-y-3">
+                        <Badge variant="outline">{roleLabels[role]}</Badge>
+                        <div className="grid grid-cols-1 gap-2">
+                          <Button variant="outline" size="sm" disabled={!canEditSecurity} onClick={() => handleBulkUpdate(role, 'full')}>
+                            Full Access for Selected Spaces
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full justify-start"
-                            onClick={() => handleBulkUpdate(role, 'add', true)}
-                          >
-                            Enable Add for All
+                          <Button variant="outline" size="sm" disabled={!canEditSecurity} onClick={() => handleBulkUpdate(role, 'view')}>
+                            View Only for Selected Spaces
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full justify-start"
-                            onClick={() => handleBulkUpdate(role, 'change', true)}
-                          >
-                            Enable Change for All
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full justify-start text-red-600 hover:text-red-700"
-                            onClick={() => {
-                              handleBulkUpdate(role, 'add', false);
-                              handleBulkUpdate(role, 'change', false);
-                              handleBulkUpdate(role, 'delete', false);
-                            }}
-                          >
-                            Revoke All Permissions
+                          <Button variant="outline" size="sm" disabled={!canEditSecurity} className="text-red-600 hover:text-red-700" onClick={() => handleBulkUpdate(role, 'none')}>
+                            Remove Access from Selected Spaces
                           </Button>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
-              </div>
 
-              {/* Copy Permissions */}
-              <div className="space-y-4">
-                <h3 className="text-sm text-gray-900">Copy Permissions Between Roles</h3>
-                <Card className="bg-blue-50">
-                  <CardContent className="pt-6">
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardContent className="pt-6 space-y-4">
+                    <h3 className="text-sm font-medium text-foreground">Copy Space Access Between Roles</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-sm text-gray-700">Copy From</label>
-                        <Select>
+                        <label className="text-sm text-foreground">Copy From</label>
+                        <Select value={copyFromRole} onValueChange={(value) => setCopyFromRole(value as UserRole)}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select role" />
                           </SelectTrigger>
                           <SelectContent>
-                            {roles.map(role => (
+                            {roles.map((role) => (
                               <SelectItem key={role} value={role}>
                                 {roleLabels[role]}
                               </SelectItem>
@@ -713,13 +645,13 @@ export function Security({ user }: SecurityProps) {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm text-gray-700">Copy To</label>
-                        <Select>
+                        <label className="text-sm text-foreground">Copy To</label>
+                        <Select value={copyToRole} onValueChange={(value) => setCopyToRole(value as UserRole)}>
                           <SelectTrigger>
                             <SelectValue placeholder="Select role" />
                           </SelectTrigger>
                           <SelectContent>
-                            {roles.map(role => (
+                            {roles.map((role) => (
                               <SelectItem key={role} value={role}>
                                 {roleLabels[role]}
                               </SelectItem>
@@ -728,22 +660,20 @@ export function Security({ user }: SecurityProps) {
                         </Select>
                       </div>
                     </div>
-                    <Button className="w-full mt-4" variant="outline">
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy Permissions
+                    <Button className="w-full" variant="outline" disabled={!canEditSecurity} onClick={copyAccessBetweenRoles}>
+                      Copy Space Access
                     </Button>
                   </CardContent>
                 </Card>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="audit" className="space-y-6 mt-6">
-          <AuditLogViewer user={user} embedded={true} />
-        </TabsContent>
-      </Tabs>
-    </div>
+          <TabsContent value="audit" className="space-y-6 mt-6">
+            <AuditLogViewer user={user} embedded={true} />
+          </TabsContent>
+        </Tabs>
+      </div>
     </PermissionGate>
   );
 }

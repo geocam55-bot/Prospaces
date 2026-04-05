@@ -92,15 +92,15 @@ export function DiagnosticPanel({ organizationId, plannerType, materialType }: D
                 const hasT1Price = inventoryItem?.unit_price > 0;
 
                 return (
-                  <div key={idx} className="border rounded p-2 text-sm bg-slate-50">
+                  <div key={idx} className="border rounded p-2 text-sm bg-muted">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="font-medium">{def.material_category}</div>
                         {def.material_type && (
-                          <div className="text-xs text-slate-600">Type: {def.material_type}</div>
+                          <div className="text-xs text-muted-foreground">Type: {def.material_type}</div>
                         )}
                         {inventoryItem && (
-                          <div className="text-xs text-slate-600 mt-1">
+                          <div className="text-xs text-muted-foreground mt-1">
                             <div>Item: {inventoryItem.item_name}</div>
                             <div>SKU: {inventoryItem.sku || 'N/A'}</div>
                             <div className={hasT1Price ? 'text-green-600' : 'text-red-600'}>
@@ -130,12 +130,12 @@ export function DiagnosticPanel({ organizationId, plannerType, materialType }: D
         )}
 
         {relevantDefaults.length === 0 && (
-          <div className="text-sm text-slate-600 bg-amber-50 border border-amber-200 rounded p-3">
+          <div className="text-sm text-muted-foreground bg-amber-50 border border-amber-200 rounded p-3">
             No defaults configured for this planner type. Go to Organization Settings → Project Wizard Material Defaults to configure.
           </div>
         )}
 
-        <div className="text-xs text-slate-500 border-t pt-3 mt-3">
+        <div className="text-xs text-muted-foreground border-t pt-3 mt-3">
           <div>Expected categories for Deck planner:</div>
           <div className="font-mono">Framing, Decking, Railing, Hardware</div>
         </div>

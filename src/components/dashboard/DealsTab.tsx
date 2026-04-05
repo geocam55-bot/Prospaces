@@ -52,7 +52,7 @@ export function DealsTab({ opportunities, users }: DealsTabProps) {
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs text-gray-500 bg-white border-b uppercase">
+            <thead className="text-xs text-muted-foreground bg-background border-b uppercase">
               <tr>
                 <th className="px-4 py-3 font-medium">ID</th>
                 <th className="px-4 py-3 font-medium">Title</th>
@@ -65,16 +65,16 @@ export function DealsTab({ opportunities, users }: DealsTabProps) {
                 <th className="px-4 py-3 font-medium text-right">Rotten days</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {opportunities.map((opp) => {
                 const rottenDays = getRottenDays(opp.updatedAt);
                 const isRotten = rottenDays > 30;
                 
                 return (
-                  <tr key={opp.id} className="hover:bg-gray-50/50">
-                    <td className="px-4 py-3 text-gray-500 font-mono text-xs">{opp.id.substring(0, 4)}</td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{opp.title}</td>
-                    <td className="px-4 py-3 text-gray-600">
+                  <tr key={opp.id} className="hover:bg-muted/50">
+                    <td className="px-4 py-3 text-muted-foreground font-mono text-xs">{opp.id.substring(0, 4)}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">{opp.title}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <Avatar className="h-12 w-12">
                           <AvatarImage src={getUserAvatar(opp.ownerId)} alt={getUserName(opp.ownerId)} />
@@ -86,23 +86,23 @@ export function DealsTab({ opportunities, users }: DealsTabProps) {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-muted text-foreground">
                             {opp.stage || opp.status || 'Unknown'}
                         </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-600 capitalize">{opp.status}</td>
+                    <td className="px-4 py-3 text-muted-foreground capitalize">{opp.status}</td>
                     <td className="px-4 py-3">
-                        <Badge variant="outline" className="font-normal text-gray-500">
+                        <Badge variant="outline" className="font-normal text-muted-foreground">
                             {opp.type || 'Deal'}
                         </Badge>
                     </td>
                     <td className="px-4 py-3 text-right font-medium">
                         ${parseFloat(opp.value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
-                    <td className="px-4 py-3 text-right text-gray-600">
+                    <td className="px-4 py-3 text-right text-muted-foreground">
                         {getProbability(opp.stage)}
                     </td>
-                    <td className={`px-4 py-3 text-right ${isRotten ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+                    <td className={`px-4 py-3 text-right ${isRotten ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
                         {rottenDays > 0 ? rottenDays : '-'}
                     </td>
                   </tr>

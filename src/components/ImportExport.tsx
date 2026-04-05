@@ -1212,14 +1212,14 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                 const dbField = dbFields.find(f => f.value === mappedField);
                 
                 return (
-                  <div key={fileCol} className="bg-white p-4 rounded-lg border space-y-2">
+                  <div key={fileCol} className="bg-background p-4 rounded-lg border space-y-2">
                     <Label className="flex items-center gap-2">
-                      <span className="text-gray-600">File Column:</span>
+                      <span className="text-muted-foreground">File Column:</span>
                       <span className="font-medium">{fileCol}</span>
                     </Label>
                     
                     <div className="flex items-center gap-2">
-                      <ArrowRight className="h-4 w-4 text-gray-400" />
+                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
                       <Select
                         value={mappedField || '__skip__'}
                         onValueChange={(value) => updateMapping(fileCol, value === '__skip__' ? '' : value)}
@@ -1239,7 +1239,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                     </div>
 
                     {/* Preview values */}
-                    <div className="text-xs text-gray-500 mt-2">
+                    <div className="text-xs text-muted-foreground mt-2">
                       <span className="font-medium">Preview: </span>
                       {previewData.map((row, i) => row[fileCol]).filter(Boolean).slice(0, 2).join(', ')}
                       {previewData.length > 2 && '...'}
@@ -1310,11 +1310,11 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           {/* Import Progress */}
           {importProgress && (
             <div className="space-y-2">
-              <div className="flex justify-between text-sm text-gray-600">
+              <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Processing records...</span>
                 <span>{importProgress.current} / {importProgress.total}</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div className="w-full bg-muted rounded-full h-2.5">
                 <div 
                   className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
                   style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
@@ -1361,7 +1361,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               Import completed: {importResult.success} successful, {importResult.failed} failed
             </p>
             {(importResult.created || importResult.updated) && (
-              <p className="text-sm text-gray-700 mt-1">
+              <p className="text-sm text-foreground mt-1">
                 {importResult.created ? `Created ${importResult.created} new records` : ''}
                 {importResult.created && importResult.updated ? ' • ' : ''}
                 {importResult.updated ? `Updated ${importResult.updated} existing records` : ''}
@@ -1375,7 +1375,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                     <li key={index} className="text-red-700">{error}</li>
                   ))}
                   {importResult.errors.length >= 25 && (
-                    <li className="text-gray-600">...and more errors (showing first 25)</li>
+                    <li className="text-muted-foreground">...and more errors (showing first 25)</li>
                   )}
                 </ul>
               </div>
@@ -1455,7 +1455,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                       </Button>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Supported formats: CSV, Excel (.xlsx, .xls), or paste tab-delimited data. Required fields: Name (Full Name), Email
                   </p>
                 </CardContent>
@@ -1513,7 +1513,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                       </Button>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Supported formats: CSV, Excel (.xlsx, .xls), or paste tab-delimited data. Required fields: Item Name, SKU
                   </p>
                 </CardContent>
@@ -1571,7 +1571,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                       </Button>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Supported formats: CSV, Excel (.xlsx, .xls), or paste tab-delimited data. Required fields: Client Name, Project Name
                   </p>
                 </CardContent>
@@ -1722,18 +1722,18 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Job Details */}
-              <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+              <div className="bg-muted p-3 rounded-lg space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Job Type:</span>
+                  <span className="text-muted-foreground">Job Type:</span>
                   <span className="font-medium capitalize">{scheduleJobType}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Data Type:</span>
+                  <span className="text-muted-foreground">Data Type:</span>
                   <span className="font-medium capitalize">{scheduleDataType}</span>
                 </div>
                 {scheduleFileName && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">File Name:</span>
+                    <span className="text-muted-foreground">File Name:</span>
                     <span className="font-medium text-xs">{scheduleFileName}</span>
                   </div>
                 )}
@@ -1753,7 +1753,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   onChange={(e) => setScheduleDateTime(e.target.value)}
                   className="w-full"
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Minimum: {new Date(getMinDateTime()).toLocaleString()}
                 </p>
               </div>

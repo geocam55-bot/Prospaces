@@ -69,11 +69,11 @@ export function AIToggleSwitch({
       onClick={handleToggle}
       disabled={isUpdating}
       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-        isEnabled ? 'bg-purple-600' : 'bg-gray-200'
+        isEnabled ? 'bg-purple-600' : 'bg-muted'
       } ${isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+        className={`inline-block h-4 w-4 transform rounded-full bg-background transition-transform ${
           isEnabled ? 'translate-x-6' : 'translate-x-1'
         }`}
       />

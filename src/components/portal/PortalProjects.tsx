@@ -28,7 +28,7 @@ export function PortalProjects({ projects }: PortalProjectsProps) {
   };
 
   const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
-    draft: { label: 'Draft', color: 'text-slate-700', bgColor: 'bg-slate-100', icon: Clock },
+    draft: { label: 'Draft', color: 'text-foreground', bgColor: 'bg-muted', icon: Clock },
     pending: { label: 'Pending', color: 'text-yellow-700', bgColor: 'bg-yellow-100', icon: Clock },
     submitted: { label: 'Submitted', color: 'text-purple-700', bgColor: 'bg-purple-100', icon: TrendingUp },
     in_progress: { label: 'In Progress', color: 'text-blue-700', bgColor: 'bg-blue-100', icon: TrendingUp },
@@ -43,16 +43,16 @@ export function PortalProjects({ projects }: PortalProjectsProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-slate-900">Your Projects</h2>
-        <p className="text-slate-500 text-sm mt-1">Track the status of your active and past projects</p>
+        <h2 className="text-xl font-bold text-foreground">Your Projects</h2>
+        <p className="text-muted-foreground text-sm mt-1">Track the status of your active and past projects</p>
       </div>
 
       {projects.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <FolderOpen className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-slate-700">No projects yet</h3>
-            <p className="text-sm text-slate-400 mt-1">Your projects and deals will appear here.</p>
+            <h3 className="text-lg font-medium text-foreground">No projects yet</h3>
+            <p className="text-sm text-muted-foreground mt-1">Your projects and deals will appear here.</p>
           </CardContent>
         </Card>
       ) : (
@@ -60,7 +60,7 @@ export function PortalProjects({ projects }: PortalProjectsProps) {
           {/* Active Projects */}
           {activeProjects.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">
+              <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
                 Active ({activeProjects.length})
               </h3>
               <div className="space-y-3">
@@ -76,13 +76,13 @@ export function PortalProjects({ projects }: PortalProjectsProps) {
                               <FolderOpen className="h-5 w-5 text-blue-600" />
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-slate-900">
+                              <p className="text-sm font-medium text-foreground">
                                 {project.title || project.bid_number || 'Project'}
                               </p>
                               {project.description && (
-                                <p className="text-xs text-slate-500 mt-1 line-clamp-2">{project.description}</p>
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{project.description}</p>
                               )}
-                              <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
+                              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <Calendar className="h-3 w-3" />
                                   {formatDate(project.created_at)}
@@ -112,7 +112,7 @@ export function PortalProjects({ projects }: PortalProjectsProps) {
           {/* Past Projects */}
           {pastProjects.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-slate-600 mb-3 uppercase tracking-wide">
+              <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
                 Past ({pastProjects.length})
               </h3>
               <div className="space-y-2">
@@ -123,17 +123,17 @@ export function PortalProjects({ projects }: PortalProjectsProps) {
                       <CardContent className="p-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <FolderOpen className="h-4 w-4 text-slate-400" />
+                            <FolderOpen className="h-4 w-4 text-muted-foreground" />
                             <div>
-                              <p className="text-sm font-medium text-slate-700">
+                              <p className="text-sm font-medium text-foreground">
                                 {project.title || project.bid_number || 'Project'}
                               </p>
-                              <p className="text-xs text-slate-400">{formatDate(project.created_at)}</p>
+                              <p className="text-xs text-muted-foreground">{formatDate(project.created_at)}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
                             {(project.total || project.amount) ? (
-                              <span className="text-sm text-slate-500">{formatCurrency(project.total || project.amount)}</span>
+                              <span className="text-sm text-muted-foreground">{formatCurrency(project.total || project.amount)}</span>
                             ) : null}
                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${config.bgColor} ${config.color}`}>
                               {config.label}

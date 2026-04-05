@@ -104,8 +104,8 @@ export function PlannerDefaultsMigrationStatus({ userId, organizationId }: Plann
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           {/* localStorage Status */}
-          <div className="flex items-start gap-3 p-4 border rounded-lg bg-gray-50">
-            <HardDrive className="h-5 w-5 text-gray-600 mt-0.5" />
+          <div className="flex items-start gap-3 p-4 border rounded-lg bg-muted">
+            <HardDrive className="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-medium text-sm">Browser Storage</span>
@@ -113,15 +113,15 @@ export function PlannerDefaultsMigrationStatus({ userId, organizationId }: Plann
                   {hasLocalStorageData ? 'Has Data' : 'Empty'}
                 </Badge>
               </div>
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {localStorageItemCount} {localStorageItemCount === 1 ? 'item' : 'items'}
               </p>
             </div>
           </div>
 
           {/* Database Status */}
-          <div className="flex items-start gap-3 p-4 border rounded-lg bg-gray-50">
-            <Database className="h-5 w-5 text-gray-600 mt-0.5" />
+          <div className="flex items-start gap-3 p-4 border rounded-lg bg-muted">
+            <Database className="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-medium text-sm">Database</span>
@@ -129,7 +129,7 @@ export function PlannerDefaultsMigrationStatus({ userId, organizationId }: Plann
                   {hasDatabaseData ? 'Has Data' : 'Empty'}
                 </Badge>
               </div>
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {databaseItemCount} {databaseItemCount === 1 ? 'item' : 'items'}
               </p>
             </div>
@@ -203,7 +203,7 @@ export function PlannerDefaultsMigrationStatus({ userId, organizationId }: Plann
         {/* Information */}
         <div className="pt-4 border-t">
           <h4 className="text-sm font-medium mb-2">About this Migration</h4>
-          <ul className="text-xs text-gray-600 space-y-1">
+          <ul className="text-xs text-muted-foreground space-y-1">
             <li>• Your customized planner defaults are being moved from browser storage to the database</li>
             <li>• Database storage is more reliable and accessible across devices</li>
             <li>• This migration is automatic but can be triggered manually here</li>

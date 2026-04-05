@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
-import { Plus, Mail, MessageSquare, Facebook, Instagram, MoreVertical, Edit, Pause, Play, Copy, Trash2, BarChart, Send, Globe, ExternalLink, ChevronDown } from 'lucide-react';
+import { Plus, Mail, MessageSquare, Share2, Camera, MoreVertical, Edit, Pause, Play, Copy, Trash2, BarChart, Send, Globe, ExternalLink, ChevronDown } from 'lucide-react';
 import { campaignsAPI } from '../../utils/api';
 import { toast } from 'sonner@2.0.3';
 import { copyToClipboard } from '../../utils/clipboard';
@@ -19,6 +19,7 @@ import { getLandingPages } from '../../utils/marketing-client';
 import { contactsAPI } from '../../utils/api';
 import { CampaignAnalytics } from './CampaignAnalytics';
 import { useAudienceSegments } from '../../hooks/useAudienceSegments';
+import { normalizeCampaignMetrics } from '../../utils/campaign-metrics';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
 import { sendSystemNotification } from '../../utils/notifications';
 
@@ -82,7 +83,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
   const loadCampaigns = async () => {
     try {
       const { campaigns: data } = await campaignsAPI.getAll();
-      setCampaigns(data || []);
+      setCampaigns((data || []).map(normalizeCampaignMetrics));
     } catch (error) {
       toast.error('Failed to load campaigns');
     }
@@ -329,9 +330,9 @@ export function CampaignManager({ user }: CampaignManagerProps) {
       case 'sms':
         return <MessageSquare className="h-4 w-4" />;
       case 'facebook':
-        return <Facebook className="h-4 w-4" />;
+        return <Share2 className="h-4 w-4" />;
       case 'instagram':
-        return <Instagram className="h-4 w-4" />;
+        return <Camera className="h-4 w-4" />;
       case 'portal':
         return <Globe className="h-4 w-4" />;
       default:
@@ -351,9 +352,9 @@ export function CampaignManager({ user }: CampaignManagerProps) {
       case 'Scheduled':
         return 'bg-blue-100 text-blue-700';
       case 'Completed':
-        return 'bg-gray-100 text-gray-700';
+        return 'bg-muted text-foreground';
       default:
-        return 'bg-gray-100 text-gray-700';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -363,8 +364,8 @@ export function CampaignManager({ user }: CampaignManagerProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl text-gray-900">Campaign Management</h2>
-          <p className="text-sm text-gray-600 mt-1">Create and manage omnichannel marketing campaigns</p>
+          <h2 className="text-xl text-foreground">Campaign Management</h2>
+          <p className="text-sm text-muted-foreground mt-1">Create and manage omnichannel marketing campaigns</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
@@ -375,7 +376,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
             </Button>
             )}
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-background">
             <DialogHeader>
               <DialogTitle>Create New Campaign</DialogTitle>
               <DialogDescription>Choose the type of campaign you want to create.</DialogDescription>
@@ -459,24 +460,24 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => insertDynamicField('{{first_name}}')}>
                               <span className="font-mono text-xs">{'{{first_name}}'}</span>
-                              <span className="ml-2 text-xs text-gray-500">- Contact's first name</span>
+                              <span className="ml-2 text-xs text-muted-foreground">- Contact's first name</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => insertDynamicField('{{last_name}}')}>
                               <span className="font-mono text-xs">{'{{last_name}}'}</span>
-                              <span className="ml-2 text-xs text-gray-500">- Contact's last name</span>
+                              <span className="ml-2 text-xs text-muted-foreground">- Contact's last name</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => insertDynamicField('{{name}}')}>
                               <span className="font-mono text-xs">{'{{name}}'}</span>
-                              <span className="ml-2 text-xs text-gray-500">- Full name</span>
+                              <span className="ml-2 text-xs text-muted-foreground">- Full name</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => insertDynamicField('{{email}}')}>
                               <span className="font-mono text-xs">{'{{email}}'}</span>
-                              <span className="ml-2 text-xs text-gray-500">- Email address</span>
+                              <span className="ml-2 text-xs text-muted-foreground">- Email address</span>
                             </DropdownMenuItem>
                             {selectedLandingPage && selectedLandingPage !== 'none' && (
                               <DropdownMenuItem onClick={() => insertDynamicField('{{landing_page}}')}>
                                 <span className="font-mono text-xs">{'{{landing_page}}'}</span>
-                                <span className="ml-2 text-xs text-gray-500">- Landing page URL</span>
+                                <span className="ml-2 text-xs text-muted-foreground">- Landing page URL</span>
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -515,8 +516,8 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                   </div>
                   <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
                     <div>
-                      <p className="text-sm text-gray-900">A/B Testing</p>
-                      <p className="text-xs text-gray-600">Test subject lines, content, or send times</p>
+                      <p className="text-sm text-foreground">A/B Testing</p>
+                      <p className="text-xs text-muted-foreground">Test subject lines, content, or send times</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={handleOpenABTestDialog}>Configure</Button>
                   </div>
@@ -552,7 +553,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                       rows={4}
                       maxLength={160}
                     />
-                    <p className="text-xs text-gray-500">Character count: 0/160</p>
+                    <p className="text-xs text-muted-foreground">Character count: 0/160</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Include Link</Label>
@@ -571,11 +572,11 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                     <Label>Platforms</Label>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        <Facebook className="h-4 w-4" />
+                        <Share2 className="h-4 w-4" />
                         Facebook
                       </Button>
                       <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        <Instagram className="h-4 w-4" />
+                        <Camera className="h-4 w-4" />
                         Instagram
                       </Button>
                     </div>
@@ -614,7 +615,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
 
               <TabsContent value="multi" className="space-y-4 mt-4">
                 <div className="space-y-4">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     Create coordinated campaigns across email, SMS, and social media channels
                   </p>
                   <div className="space-y-2">
@@ -680,7 +681,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
             <div className="space-y-2">
               <Label>Test Size (%)</Label>
               <Input type="number" min="10" max="50" defaultValue="20" placeholder="20" />
-              <p className="text-xs text-gray-500">Percentage of audience to include in test</p>
+              <p className="text-xs text-muted-foreground">Percentage of audience to include in test</p>
             </div>
             <div className="space-y-2">
               <Label>Success Metric</Label>
@@ -709,7 +710,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
 
       {/* Edit Campaign Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>Edit Campaign</DialogTitle>
             <DialogDescription>Update your campaign details.</DialogDescription>
@@ -761,7 +762,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
 
       {/* Campaign Analytics Dialog */}
       <Dialog open={isAnalyticsDialogOpen} onOpenChange={setIsAnalyticsDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>Campaign Analytics</DialogTitle>
             <DialogDescription>View detailed analytics for your campaign</DialogDescription>
@@ -780,7 +781,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
         {campaigns.length === 0 ? (
           <Card>
             <CardContent className="text-center py-12">
-              <p className="text-gray-500">No campaigns yet. Create your first campaign to get started!</p>
+              <p className="text-muted-foreground">No campaigns yet. Create your first campaign to get started!</p>
             </CardContent>
           </Card>
         ) : (
@@ -796,8 +797,8 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                     <CardTitle className="text-lg">{campaign.name}</CardTitle>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge className={getStatusColor(campaign.status)}>{campaign.status}</Badge>
-                      <span className="text-xs text-gray-500">•</span>
-                      <span className="text-xs text-gray-500">{campaign.type}</span>
+                      <span className="text-xs text-muted-foreground">•</span>
+                      <span className="text-xs text-muted-foreground">{campaign.type}</span>
                     </div>
                   </div>
                 </div>
@@ -850,35 +851,35 @@ export function CampaignManager({ user }: CampaignManagerProps) {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                 <div>
-                  <p className="text-xs text-gray-500">Audience</p>
-                  <p className="text-lg text-gray-900 mt-1">{(campaign.audience_count || campaign.audience || 0).toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Audience</p>
+                  <p className="text-lg text-foreground mt-1">{campaign.audience_metric.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Sent</p>
-                  <p className="text-lg text-gray-900 mt-1">{(campaign.sent_count || campaign.sent || 0).toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Sent</p>
+                  <p className="text-lg text-foreground mt-1">{campaign.sent_metric.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Opened</p>
-                  <p className="text-lg text-gray-900 mt-1">{campaign.opened_count || campaign.opened || 0}</p>
-                  <p className="text-xs text-gray-500">{(campaign.sent_count || campaign.sent || 0) > 0 ? (((campaign.opened_count || campaign.opened || 0) / (campaign.sent_count || campaign.sent || 1)) * 100).toFixed(1) : 0}%</p>
+                  <p className="text-xs text-muted-foreground">Opened</p>
+                  <p className="text-lg text-foreground mt-1">{campaign.opened_metric}</p>
+                  <p className="text-xs text-muted-foreground">{campaign.sent_metric > 0 ? ((campaign.opened_metric / campaign.sent_metric) * 100).toFixed(1) : 0}%</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Clicked</p>
-                  <p className="text-lg text-gray-900 mt-1">{campaign.clicked_count || campaign.clicked || 0}</p>
-                  <p className="text-xs text-gray-500">{(campaign.opened_count || campaign.opened || 0) > 0 ? (((campaign.clicked_count || campaign.clicked || 0) / (campaign.opened_count || campaign.opened || 1)) * 100).toFixed(1) : 0}%</p>
+                  <p className="text-xs text-muted-foreground">Clicked</p>
+                  <p className="text-lg text-foreground mt-1">{campaign.clicked_metric}</p>
+                  <p className="text-xs text-muted-foreground">{campaign.opened_metric > 0 ? ((campaign.clicked_metric / campaign.opened_metric) * 100).toFixed(1) : 0}%</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Converted</p>
-                  <p className="text-lg text-gray-900 mt-1">{campaign.converted_count || campaign.converted || 0}</p>
-                  <p className="text-xs text-green-600">{(campaign.sent_count || campaign.sent || 0) > 0 ? (((campaign.converted_count || campaign.converted || 0) / (campaign.sent_count || campaign.sent || 1)) * 100).toFixed(1) : 0}%</p>
+                  <p className="text-xs text-muted-foreground">Converted</p>
+                  <p className="text-lg text-foreground mt-1">{campaign.converted_metric}</p>
+                  <p className="text-xs text-green-600">{campaign.sent_metric > 0 ? ((campaign.converted_metric / campaign.sent_metric) * 100).toFixed(1) : 0}%</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Revenue</p>
-                  <p className="text-lg text-gray-900 mt-1">${(campaign.revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-xs text-muted-foreground">Revenue</p>
+                  <p className="text-lg text-foreground mt-1">${campaign.revenue_metric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Schedule</p>
-                  <p className="text-sm text-gray-900 mt-1">
+                  <p className="text-xs text-muted-foreground">Schedule</p>
+                  <p className="text-sm text-foreground mt-1">
                     {campaign.schedule || (campaign.start_date ? new Date(campaign.start_date).toLocaleDateString() : 'Not scheduled')}
                   </p>
                 </div>
@@ -887,23 +888,17 @@ export function CampaignManager({ user }: CampaignManagerProps) {
               {/* Landing Page Link */}
               {(() => {
                 // Parse landing page slug from campaign metadata
-                let landingPageSlug = null;
-                try {
-                  const metadata = JSON.parse(campaign.description || '{}');
-                  landingPageSlug = metadata.landingPageSlug;
-                } catch (e) {
-                  landingPageSlug = campaign.landing_page_slug; // Fallback to old field
-                }
+                const landingPageSlug = campaign.landing_page_slug_metric;
                 
                 return landingPageSlug ? (
-                <div className="mt-6 pt-6 border-t border-gray-100">
+                <div className="mt-6 pt-6 border-t border-border">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 flex-1">
                       <Globe className="h-4 w-4 text-blue-600" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-gray-500 mb-1">Campaign Landing Page (with UTM tracking)</p>
+                        <p className="text-xs text-muted-foreground mb-1">Campaign Landing Page (with UTM tracking)</p>
                         <div className="flex items-center gap-2">
-                          <code className="text-sm text-gray-900 bg-gray-50 px-2 py-1 rounded border border-gray-200 font-mono truncate block">
+                          <code className="text-sm text-foreground bg-muted px-2 py-1 rounded border border-border font-mono truncate block">
                             {window.location.origin}?view=landing&slug={landingPageSlug}&campaign={campaign.id}&utm_source=email&utm_medium=campaign&utm_campaign={encodeURIComponent(campaign.name)}
                           </code>
                           <Button 

@@ -160,7 +160,7 @@ export function BidLineItems({ isOpen, onClose, inventoryItems: propsInventoryIt
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
         <DialogHeader>
           <DialogTitle>Add Line Item from Inventory</DialogTitle>
           <DialogDescription>
@@ -173,7 +173,7 @@ export function BidLineItems({ isOpen, onClose, inventoryItems: propsInventoryIt
           <div>
             <Label>Search Inventory</Label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Type to search by name, SKU, or description..."
                 value={searchQuery}
@@ -182,13 +182,13 @@ export function BidLineItems({ isOpen, onClose, inventoryItems: propsInventoryIt
               />
             </div>
             {searchQuery && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {filteredInventory.length} {filteredInventory.length === 1 ? 'item' : 'items'} found
                 {filteredInventory.length >= 100 && ' (showing first 100)'}
               </p>
             )}
             {!searchQuery && inventoryItems.length > 100 && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Showing first 100 items. Use search to find specific products.
               </p>
             )}
@@ -208,15 +208,15 @@ export function BidLineItems({ isOpen, onClose, inventoryItems: propsInventoryIt
                         <div className="flex flex-col items-start text-left overflow-hidden">
                           <div>
                             <span className="font-medium">{item.name}</span>
-                            <span className="text-xs text-gray-500 ml-2">({item.sku})</span>
+                            <span className="text-xs text-muted-foreground ml-2">({item.sku})</span>
                           </div>
                           {item.description && (
-                            <span className="text-xs text-gray-400 truncate w-full max-w-[300px] block" title={item.description}>
+                            <span className="text-xs text-muted-foreground truncate w-full max-w-[300px] block" title={item.description}>
                               {item.description}
                             </span>
                           )}
                         </div>
-                        <span className="text-sm text-gray-600 whitespace-nowrap ml-2">${item.priceTier1.toFixed(2)}</span>
+                        <span className="text-sm text-muted-foreground whitespace-nowrap ml-2">${item.priceTier1.toFixed(2)}</span>
                       </div>
                     </SelectItem>
                   ))
@@ -254,7 +254,7 @@ export function BidLineItems({ isOpen, onClose, inventoryItems: propsInventoryIt
                 onChange={(e) => setCost(Number(e.target.value))}
                 placeholder="From inventory"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Reference only - not shown to customer
               </p>
             </div>
@@ -271,7 +271,7 @@ export function BidLineItems({ isOpen, onClose, inventoryItems: propsInventoryIt
                 onChange={(e) => setUnitPrice(Number(e.target.value))}
                 placeholder="Auto-populated"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Auto-populated, but you can override
               </p>
             </div>
@@ -289,26 +289,26 @@ export function BidLineItems({ isOpen, onClose, inventoryItems: propsInventoryIt
           </div>
 
           {selectedItem && unitPrice > 0 && (
-            <div className="border rounded-lg p-4 bg-gray-50">
+            <div className="border rounded-lg p-4 bg-muted">
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600">Unit Price:</span>
-                <span className="text-gray-900">${unitPrice.toFixed(2)}</span>
+                <span className="text-muted-foreground">Unit Price:</span>
+                <span className="text-foreground">${unitPrice.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600">Quantity:</span>
-                <span className="text-gray-900">{quantity}</span>
+                <span className="text-muted-foreground">Quantity:</span>
+                <span className="text-foreground">{quantity}</span>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">Discount ({discount}%):</span>
+                  <span className="text-muted-foreground">Discount ({discount}%):</span>
                   <span className="text-red-600">
                     -${(quantity * unitPrice * (discount / 100)).toFixed(2)}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between pt-2 border-t border-gray-300">
-                <span className="text-gray-900">Line Total:</span>
-                <span className="text-gray-900">
+              <div className="flex justify-between pt-2 border-t border-border">
+                <span className="text-foreground">Line Total:</span>
+                <span className="text-foreground">
                   ${(quantity * unitPrice * (1 - discount / 100)).toFixed(2)}
                 </span>
               </div>
@@ -340,10 +340,10 @@ interface LineItemsTableProps {
 export function LineItemsTable({ items, onRemove, editable = false, taxRate = 0 }: LineItemsTableProps) {
   if (items.length === 0) {
     return (
-      <div className="text-center py-8 bg-gray-50 rounded-lg">
+      <div className="text-center py-8 bg-muted rounded-lg">
         <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-        <p className="text-sm text-gray-500">No items added yet</p>
-        <p className="text-xs text-gray-400 mt-1">Click "Add Line Item" to select products</p>
+        <p className="text-sm text-muted-foreground">No items added yet</p>
+        <p className="text-xs text-muted-foreground mt-1">Click "Add Line Item" to select products</p>
       </div>
     );
   }
@@ -355,7 +355,7 @@ export function LineItemsTable({ items, onRemove, editable = false, taxRate = 0 
   return (
     <div className="border rounded-lg overflow-hidden">
       <table className="w-full text-sm">
-        <thead className="bg-gray-100">
+        <thead className="bg-muted">
           <tr>
             <th className="py-2 px-4 text-left">Item</th>
             <th className="py-2 px-4 text-center">SKU</th>
@@ -370,22 +370,22 @@ export function LineItemsTable({ items, onRemove, editable = false, taxRate = 0 
           {items.map(item => (
             <tr key={item.id} className="border-t">
               <td className="py-2 px-4">
-                <p className="text-gray-900">{item.itemName}</p>
+                <p className="text-foreground">{item.itemName}</p>
               </td>
               <td className="py-2 px-4 text-center">
-                <p className="text-xs text-gray-600">{item.sku}</p>
+                <p className="text-xs text-muted-foreground">{item.sku}</p>
               </td>
               <td className="py-2 px-4 text-right">
-                <p className="text-gray-900">{item.quantity}</p>
+                <p className="text-foreground">{item.quantity}</p>
               </td>
               <td className="py-2 px-4 text-right">
-                <p className="text-gray-900">${item.unitPrice.toFixed(2)}</p>
+                <p className="text-foreground">${item.unitPrice.toFixed(2)}</p>
               </td>
               <td className="py-2 px-4 text-right">
-                <p className="text-gray-900">{item.discount}%</p>
+                <p className="text-foreground">{item.discount}%</p>
               </td>
               <td className="py-2 px-4 text-right">
-                <p className="text-gray-900">${item.total.toFixed(2)}</p>
+                <p className="text-foreground">${item.total.toFixed(2)}</p>
               </td>
               {editable && (
                 <td className="py-2 px-4">
@@ -401,13 +401,13 @@ export function LineItemsTable({ items, onRemove, editable = false, taxRate = 0 
             </tr>
           ))}
         </tbody>
-        <tfoot className="bg-gray-50 border-t-2">
+        <tfoot className="bg-muted border-t-2">
           <tr>
             <td colSpan={editable ? 5 : 5} className="py-2 px-4 text-right">
-              <span className="text-gray-900">Subtotal:</span>
+              <span className="text-foreground">Subtotal:</span>
             </td>
             <td className="py-2 px-4 text-right">
-              <span className="text-gray-900">
+              <span className="text-foreground">
                 ${subtotal.toFixed(2)}
               </span>
             </td>
@@ -417,10 +417,10 @@ export function LineItemsTable({ items, onRemove, editable = false, taxRate = 0 
             <>
               <tr>
                 <td colSpan={editable ? 5 : 5} className="py-2 px-4 text-right">
-                  <span className="text-gray-600">Tax ({taxRate}%):</span>
+                  <span className="text-muted-foreground">Tax ({taxRate}%):</span>
                 </td>
                 <td className="py-2 px-4 text-right">
-                  <span className="text-gray-900">
+                  <span className="text-foreground">
                     ${taxAmount.toFixed(2)}
                   </span>
                 </td>
@@ -428,10 +428,10 @@ export function LineItemsTable({ items, onRemove, editable = false, taxRate = 0 
               </tr>
               <tr className="border-t">
                 <td colSpan={editable ? 5 : 5} className="py-2 px-4 text-right">
-                  <span className="font-semibold text-gray-900">Total:</span>
+                  <span className="font-semibold text-foreground">Total:</span>
                 </td>
                 <td className="py-2 px-4 text-right">
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-foreground">
                     ${total.toFixed(2)}
                   </span>
                 </td>

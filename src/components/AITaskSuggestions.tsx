@@ -391,7 +391,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       case 'high': return <Zap className="h-4 w-4 text-orange-600" />;
       case 'medium': return <Star className="h-4 w-4 text-yellow-600" />;
       case 'low': return <CheckCircle2 className="h-4 w-4 text-green-600" />;
-      default: return <AlertCircle className="h-4 w-4 text-gray-600" />;
+      default: return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -617,9 +617,9 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
               const GreetIcon = greeting.icon;
               return <GreetIcon className="h-6 w-6 text-amber-500" />;
             })()}
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">{greeting.text}</h1>
+            <h1 className="text-xl sm:text-2xl font-semibold text-foreground">{greeting.text}</h1>
           </div>
-          <p className="text-sm text-gray-500">{todayFormatted}</p>
+          <p className="text-sm text-muted-foreground">{todayFormatted}</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Streak Badge */}
@@ -637,13 +637,13 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-full sm:w-fit overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+      <div className="flex gap-1 p-1 bg-muted rounded-lg w-full sm:w-fit overflow-x-auto whitespace-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <button
           onClick={() => setActiveTab('briefing')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
             activeTab === 'briefing' 
-              ? 'bg-white text-gray-900 shadow-sm' 
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-background text-foreground shadow-sm' 
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <div className="flex items-center gap-1.5">
@@ -655,8 +655,8 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
           onClick={() => setActiveTab('suggestions')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
             activeTab === 'suggestions' 
-              ? 'bg-white text-gray-900 shadow-sm' 
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-background text-foreground shadow-sm' 
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <div className="flex items-center gap-1.5">
@@ -671,8 +671,8 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
           onClick={() => setActiveTab('history')}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
             activeTab === 'history' 
-              ? 'bg-white text-gray-900 shadow-sm' 
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-background text-foreground shadow-sm' 
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <div className="flex items-center gap-1.5">
@@ -701,7 +701,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
               <CardContent>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">
+                    <span className="text-muted-foreground">
                       {streakData.todayActionsCompleted} of {activeSuggestions.length + streakData.todayActionsCompleted} suggestions addressed
                     </span>
                     <span className="font-semibold text-blue-600">{dailyProgress}%</span>
@@ -709,16 +709,16 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                   <Progress value={dailyProgress} className="h-3" />
                   <div className="grid grid-cols-3 gap-4 pt-2">
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-900">{streakData.todayActionsCompleted}</p>
-                      <p className="text-xs text-gray-500">Done Today</p>
+                      <p className="text-2xl font-bold text-foreground">{streakData.todayActionsCompleted}</p>
+                      <p className="text-xs text-muted-foreground">Done Today</p>
                     </div>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-blue-600">{activeSuggestions.length}</p>
-                      <p className="text-xs text-gray-500">Remaining</p>
+                      <p className="text-xs text-muted-foreground">Remaining</p>
                     </div>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-purple-600">{snoozedItems.length}</p>
-                      <p className="text-xs text-gray-500">Snoozed</p>
+                      <p className="text-xs text-muted-foreground">Snoozed</p>
                     </div>
                   </div>
                 </div>
@@ -767,8 +767,8 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                 <CardContent className="pt-4 sm:pt-6">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
-                      <p className="text-xs sm:text-sm text-gray-600">Active Suggestions</p>
-                      <p className="text-2xl sm:text-3xl text-gray-900 mt-1">{activeSuggestions.length}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Active Suggestions</p>
+                      <p className="text-2xl sm:text-3xl text-foreground mt-1">{activeSuggestions.length}</p>
                     </div>
                     <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600" />
                   </div>
@@ -779,7 +779,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                 <CardContent className="pt-4 sm:pt-6">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
-                      <p className="text-xs sm:text-sm text-gray-600">Critical Actions</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Critical Actions</p>
                       <p className="text-2xl sm:text-3xl text-red-600 mt-1">{metrics.criticalActions}</p>
                     </div>
                     <Flame className="h-6 w-6 sm:h-8 sm:w-8 text-red-600" />
@@ -791,7 +791,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                 <CardContent className="pt-4 sm:pt-6">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
-                      <p className="text-xs sm:text-sm text-gray-600">Potential Revenue</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Potential Revenue</p>
                       <p className="text-xl sm:text-2xl text-green-600 mt-1">
                         ${metrics.potentialRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                       </p>
@@ -805,7 +805,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                 <CardContent className="pt-4 sm:pt-6">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
-                      <p className="text-xs sm:text-sm text-gray-600">Avg Days Inactive</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Avg Days Inactive</p>
                       <p className="text-2xl sm:text-3xl text-orange-600 mt-1">{metrics.avgDaysInactive}</p>
                     </div>
                     <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
@@ -828,16 +828,16 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0">
+                    <div className="w-12 h-12 rounded-xl bg-background shadow-sm flex items-center justify-center flex-shrink-0">
                       {(() => {
                         const FocusIcon = focusOfDay.icon;
                         return <FocusIcon className="h-6 w-6 text-indigo-600" />;
                       })()}
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 mb-1">{focusOfDay.label}</h3>
-                      <p className="text-sm text-gray-600 mb-2">{focusOfDay.description}</p>
-                      <div className="flex items-center gap-3 text-xs text-gray-500">
+                      <h3 className="font-semibold text-foreground mb-1">{focusOfDay.label}</h3>
+                      <p className="text-sm text-muted-foreground mb-2">{focusOfDay.description}</p>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Target className="h-3 w-3" /> {focusOfDay.count} items
                         </span>
@@ -872,20 +872,20 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
               </CardHeader>
               <CardContent>
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 rounded-xl bg-background shadow-sm flex items-center justify-center flex-shrink-0">
                     {(() => {
                       const TipIcon = dailyTip.icon;
                       return <TipIcon className="h-6 w-6 text-amber-600" />;
                     })()}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-gray-700 leading-relaxed">{dailyTip.tip}</p>
+                    <p className="text-sm text-foreground leading-relaxed">{dailyTip.tip}</p>
                   </div>
                 </div>
                 {/* Daily Quote */}
                 <div className="mt-4 pt-4 border-t border-amber-200">
-                  <p className="text-xs italic text-gray-500">"{dailyQuote.quote}"</p>
-                  <p className="text-xs text-gray-400 mt-1">-- {dailyQuote.author}</p>
+                  <p className="text-xs italic text-muted-foreground">"{dailyQuote.quote}"</p>
+                  <p className="text-xs text-muted-foreground mt-1">-- {dailyQuote.author}</p>
                 </div>
               </CardContent>
             </Card>
@@ -951,8 +951,8 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
               <CardContent>
                 <div className="space-y-2">
                   {snoozedItems.map(item => (
-                    <div key={item.id} className="flex items-center justify-between text-sm bg-white rounded-lg px-3 py-2">
-                      <span className="text-gray-700 truncate flex-1 mr-2">{item.title}</span>
+                    <div key={item.id} className="flex items-center justify-between text-sm bg-background rounded-lg px-3 py-2">
+                      <span className="text-foreground truncate flex-1 mr-2">{item.title}</span>
                       <span className="text-xs text-blue-600 whitespace-nowrap">
                         Returns {new Date(item.snoozeUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
@@ -1034,19 +1034,19 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                 <div className="space-y-4">
                   {[1, 2, 3].map(i => (
                     <div key={i} className="animate-pulse">
-                      <div className="h-24 bg-gray-200 rounded-lg"></div>
+                      <div className="h-24 bg-muted rounded-lg"></div>
                     </div>
                   ))}
                 </div>
               ) : filteredSuggestions.length === 0 ? (
                 <div className="text-center py-12">
                   <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-green-500" />
-                  <p className="text-lg text-gray-900 mb-2">
+                  <p className="text-lg text-foreground mb-2">
                     {activeSuggestions.length === 0 && suggestions.length === 0 
                       ? "No suggestions yet" 
                       : "All caught up!"}
                   </p>
-                  <p className="text-sm text-gray-600 max-w-md mx-auto">
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
                     {activeSuggestions.length === 0 && suggestions.length === 0
                       ? "Suggestions are generated from your deals, contacts, tasks, and opportunities. Add some data or check the browser console for diagnostics."
                       : dismissedIds.length > 0 || snoozedItems.length > 0
@@ -1092,7 +1092,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                           ? 'border-orange-200 bg-orange-50'
                           : suggestion.priority === 'medium'
                           ? 'border-yellow-200 bg-yellow-50'
-                          : 'border-gray-200 bg-white'
+                          : 'border-border bg-background'
                       }`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
@@ -1102,35 +1102,35 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
-                              <h3 className="text-sm sm:text-base text-gray-900">{suggestion.title}</h3>
+                              <h3 className="text-sm sm:text-base text-foreground">{suggestion.title}</h3>
                               <Badge className={`${getPriorityBadge(suggestion.priority).className} border text-xs`}>
                                 {suggestion.priority}
                               </Badge>
                             </div>
-                            <p className="text-xs sm:text-sm text-gray-700 mb-2">{suggestion.description}</p>
+                            <p className="text-xs sm:text-sm text-foreground mb-2">{suggestion.description}</p>
                             <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-3">
-                              <span className="text-xs text-gray-600 flex items-center gap-1">
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
                                 <BarChart3 className="h-3 w-3" />
                                 Score: {Math.round(suggestion.score)}
                               </span>
                               {suggestion.daysInactive && (
-                                <span className="text-xs text-gray-600 flex items-center gap-1">
+                                <span className="text-xs text-muted-foreground flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
                                   {suggestion.daysInactive}d
                                 </span>
                               )}
                               {suggestion.potentialValue && (
-                                <span className="text-xs text-gray-600 flex items-center gap-1">
+                                <span className="text-xs text-muted-foreground flex items-center gap-1">
                                   <DollarSign className="h-3 w-3" />
                                   ${suggestion.potentialValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                               )}
                             </div>
-                            <div className="bg-white bg-opacity-50 rounded p-2 sm:p-3 mb-3">
-                              <p className="text-xs sm:text-sm text-gray-900 mb-1">
+                            <div className="bg-background bg-opacity-50 rounded p-2 sm:p-3 mb-3">
+                              <p className="text-xs sm:text-sm text-foreground mb-1">
                                 <strong>Suggested Action:</strong> {suggestion.suggestedAction}
                               </p>
-                              <p className="text-xs text-gray-600">{suggestion.context}</p>
+                              <p className="text-xs text-muted-foreground">{suggestion.context}</p>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge variant="outline" className="text-xs">
@@ -1156,7 +1156,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                             <AlarmClock className="h-3 w-3 mr-1" />
                             Snooze
                           </Button>
-                          <Button size="sm" variant="ghost" className="flex-1 sm:flex-none text-xs sm:text-sm text-gray-400 hover:text-gray-600" onClick={() => handleDismissSuggestion(suggestion.id)}>
+                          <Button size="sm" variant="ghost" className="flex-1 sm:flex-none text-xs sm:text-sm text-muted-foreground hover:text-muted-foreground" onClick={() => handleDismissSuggestion(suggestion.id)}>
                             <X className="h-3 w-3 mr-1" />
                             Dismiss
                           </Button>
@@ -1179,29 +1179,29 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
             <Card>
               <CardContent className="pt-5 text-center">
                 <Trophy className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{streakData.totalActionsCompleted}</p>
-                <p className="text-xs text-gray-500">Total Actions</p>
+                <p className="text-2xl font-bold text-foreground">{streakData.totalActionsCompleted}</p>
+                <p className="text-xs text-muted-foreground">Total Actions</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-5 text-center">
                 <Flame className="h-8 w-8 text-orange-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{streakData.currentStreak}</p>
-                <p className="text-xs text-gray-500">Current Streak</p>
+                <p className="text-2xl font-bold text-foreground">{streakData.currentStreak}</p>
+                <p className="text-xs text-muted-foreground">Current Streak</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-5 text-center">
                 <Award className="h-8 w-8 text-purple-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{streakData.longestStreak}</p>
-                <p className="text-xs text-gray-500">Best Streak</p>
+                <p className="text-2xl font-bold text-foreground">{streakData.longestStreak}</p>
+                <p className="text-xs text-muted-foreground">Best Streak</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-5 text-center">
                 <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-gray-900">{streakData.todayActionsCompleted}</p>
-                <p className="text-xs text-gray-500">Done Today</p>
+                <p className="text-2xl font-bold text-foreground">{streakData.todayActionsCompleted}</p>
+                <p className="text-xs text-muted-foreground">Done Today</p>
               </CardContent>
             </Card>
           </div>
@@ -1212,7 +1212,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    <History className="h-5 w-5 text-gray-500" />
+                    <History className="h-5 w-5 text-muted-foreground" />
                     Action History
                   </CardTitle>
                   <CardDescription>
@@ -1230,8 +1230,8 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
               {completedActions.length === 0 ? (
                 <div className="text-center py-12">
                   <History className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-gray-500 mb-1">No actions completed yet</p>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-muted-foreground mb-1">No actions completed yet</p>
+                  <p className="text-sm text-muted-foreground">
                     Start acting on suggestions to build your streak!
                   </p>
                   <Button 
@@ -1252,8 +1252,8 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                     >
                       <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900 truncate">{action.title}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-sm text-foreground truncate">{action.title}</p>
+                        <p className="text-xs text-muted-foreground">
                           {new Date(action.completedAt).toLocaleDateString()} at{' '}
                           {new Date(action.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
@@ -1267,7 +1267,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="w-full text-gray-500"
+                      className="w-full text-muted-foreground"
                       onClick={() => setShowCompletedExpanded(!showCompletedExpanded)}
                     >
                       {showCompletedExpanded ? (
@@ -1294,7 +1294,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
 
       {/* Email Template Dialog */}
       <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Email Template</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
@@ -1338,7 +1338,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
 
       {/* Task Creation Dialog */}
       <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
-        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Create Task</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
@@ -1407,7 +1407,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
 
       {/* Snooze Dialog */}
       <Dialog open={showSnoozeDialog} onOpenChange={setShowSnoozeDialog}>
-        <DialogContent className="max-w-sm bg-white">
+        <DialogContent className="max-w-sm bg-background">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlarmClock className="h-5 w-5 text-blue-600" />
@@ -1418,7 +1418,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <p className="text-sm font-medium text-gray-900">{selectedSuggestion?.title}</p>
+            <p className="text-sm font-medium text-foreground">{selectedSuggestion?.title}</p>
             <div className="grid grid-cols-3 gap-2">
               {[
                 { value: '1', label: '1 Hour' },
@@ -1434,7 +1434,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                   className={`p-2 rounded-lg border text-sm text-center transition-all ${
                     snoozeHours === opt.value 
                       ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium' 
-                      : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                      : 'border-border hover:border-border text-muted-foreground'
                   }`}
                 >
                   {opt.label}

@@ -323,8 +323,8 @@ export function DocumentsSetup() {
               <div className="flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
                 <div className="text-sm">
-                  <strong>Role Permissions</strong>
-                  <p className="text-muted-foreground">Default permissions for all 5 roles</p>
+                  <strong>Role Space Access</strong>
+                  <p className="text-muted-foreground">Default space access for all 5 roles</p>
                 </div>
               </div>
             </div>
@@ -490,7 +490,7 @@ export function DocumentsSetup() {
             <li>• Associate documents with contacts</li>
             <li>• Search and filter by category, contact, or tags</li>
             <li>• Metadata management (title, description, tags, category)</li>
-            <li>• Role-based access control (configurable in Users → Permissions)</li>
+            <li>• Role-based access control (configurable in Security → Space Matrix)</li>
             <li>• Download and preview documents</li>
             <li>• Version tracking and audit history</li>
             <li>• 50MB file size limit per document</li>

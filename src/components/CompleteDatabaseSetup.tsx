@@ -467,17 +467,17 @@ ON CONFLICT (role, resource) DO UPDATE SET
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Alert className="bg-white border-purple-300">
+        <Alert className="bg-background border-purple-300">
           <AlertTriangle className="h-4 w-4 text-purple-600" />
           <AlertDescription className="text-purple-900">
             <strong>Database initialization needed.</strong> This comprehensive script will set up all tables, 
-            remove foreign key constraints, create organizations, and configure permissions.
+            remove foreign key constraints, create organizations, and configure access controls.
           </AlertDescription>
         </Alert>
 
-        <div className="bg-white border border-purple-200 rounded-lg p-4 space-y-3">
-          <h3 className="font-semibold text-gray-900">What this script does:</h3>
-          <ul className="text-sm text-gray-700 space-y-2 list-disc list-inside">
+        <div className="bg-background border border-purple-200 rounded-lg p-4 space-y-3">
+          <h3 className="font-semibold text-foreground">What this script does:</h3>
+          <ul className="text-sm text-foreground space-y-2 list-disc list-inside">
             <li>✅ Removes foreign key constraint on profiles table</li>
             <li>✅ Creates organizations table</li>
             <li>✅ Creates profiles table with proper structure</li>
@@ -485,13 +485,13 @@ ON CONFLICT (role, resource) DO UPDATE SET
             <li>✅ Sets up RLS (Row Level Security) policies</li>
             <li>✅ Creates default organization</li>
             <li>✅ Syncs existing auth users to profiles</li>
-            <li>✅ Inserts default role permissions</li>
+            <li>✅ Inserts default role space access</li>
           </ul>
         </div>
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Complete SQL Setup Script</h3>
+            <h3 className="text-sm font-semibold text-foreground">Complete SQL Setup Script</h3>
             <div className="flex gap-2">
               <Button
                 onClick={handleCopyToClipboard}
@@ -531,7 +531,7 @@ ON CONFLICT (role, resource) DO UPDATE SET
               <span className="bg-purple-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">!</span>
               Setup Instructions:
             </h4>
-            <ol className="text-sm text-gray-700 space-y-2 list-decimal list-inside ml-2">
+            <ol className="text-sm text-foreground space-y-2 list-decimal list-inside ml-2">
               <li>Click <strong>"Open SQL Editor"</strong> button above (opens Supabase Dashboard)</li>
               <li>Click <strong>"Copy SQL"</strong> to copy the complete script</li>
               <li>Paste the script into the Supabase SQL Editor</li>

@@ -63,7 +63,7 @@ export function PaymentMethodCard({ paymentMethod, isAdmin, actionLoading, onUpd
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-slate-500" />
+              <CreditCard className="h-5 w-5 text-muted-foreground" />
               Payment Method
             </CardTitle>
             {isAdmin && (
@@ -89,31 +89,31 @@ export function PaymentMethodCard({ paymentMethod, isAdmin, actionLoading, onUpd
         </CardHeader>
         <CardContent>
           {paymentMethod ? (
-            <div className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+            <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-gradient-to-r from-slate-50 to-white">
               {/* Card visual */}
               <div className="w-16 h-10 rounded-md bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center text-white font-bold text-sm shadow-sm">
                 {CARD_ICONS[paymentMethod.brand] || 'C'}
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-slate-900">
+                  <p className="text-sm font-medium text-foreground">
                     {paymentMethod.brand} ending in {paymentMethod.last4}
                   </p>
                   <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
                     Default
                   </Badge>
                 </div>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Expires {paymentMethod.exp_month.toString().padStart(2, '0')}/{paymentMethod.exp_year}
                 </p>
               </div>
             </div>
           ) : (
             <div className="text-center py-10">
-              <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                <CreditCard className="h-6 w-6 text-slate-400" />
+              <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                <CreditCard className="h-6 w-6 text-muted-foreground" />
               </div>
-              <p className="text-sm text-slate-500 mb-4">No payment method on file</p>
+              <p className="text-sm text-muted-foreground mb-4">No payment method on file</p>
               {isAdmin && (
                 <Button variant="outline" onClick={() => setEditOpen(true)}>
                   <Plus className="h-4 w-4 mr-1" />
@@ -124,10 +124,10 @@ export function PaymentMethodCard({ paymentMethod, isAdmin, actionLoading, onUpd
           )}
 
           {/* Security notice */}
-          <div className="flex items-center gap-2 mt-4 p-3 rounded-lg bg-slate-50 border border-slate-100">
+          <div className="flex items-center gap-2 mt-4 p-3 rounded-lg bg-muted border border-border">
             <Shield className="h-4 w-4 text-green-600 flex-shrink-0" />
-            <p className="text-xs text-slate-500">
-              <span className="font-medium text-slate-700">Demo Mode</span> — No real payment information is stored or processed.
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Demo Mode</span> — No real payment information is stored or processed.
               Card details are simulated for demonstration purposes only.
             </p>
           </div>

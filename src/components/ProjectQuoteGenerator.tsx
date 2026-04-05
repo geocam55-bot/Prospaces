@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, User, DollarSign, Loader2, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import { FileText, User, Loader2, Check, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
@@ -7,9 +7,10 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Alert, AlertDescription } from './ui/alert';
-import { contactsAPI, quotesAPI, settingsAPI } from '../utils/api';
+import { quotesAPI, settingsAPI } from '../utils/api';
 import { getGlobalTaxRate, getGlobalTaxRate2, getDefaultQuoteTerms, getPriceTierLabel, getActivePriceLevels, priceLevelToTier } from '../lib/global-settings';
 import type { User as AppUser } from '../App';
+import { CustomerSelector } from './project-wizard/CustomerSelector';
 
 interface ProjectQuoteGeneratorProps {
   user: AppUser;
@@ -22,9 +23,10 @@ interface ProjectQuoteGeneratorProps {
 interface Contact {
   id: string;
   name: string;
-  company?: string;
-  email?: string;
-  priceLevel?: string; // Named price level (dynamically configured in Admin Settings)
+  email: string;
+  phone: string;
+  company: string;
+  price_level: string;
 }
 
 export function ProjectQuoteGenerator({ 
@@ -35,12 +37,10 @@ export function ProjectQuoteGenerator({
   projectData 
 }: ProjectQuoteGeneratorProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [selectedContact, setSelectedContact] = useState<string>('');
+  const [selectedCustomer, setSelectedCustomer] = useState<Contact | null>(null);
   const [quoteTitle, setQuoteTitle] = useState('');
   const [quoteNotes, setQuoteNotes] = useState('');
   const [customerPriceLevel, setCustomerPriceLevel] = useState<string>(getPriceTierLabel(1));
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [createAsDeal, setCreateAsDeal] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -59,34 +59,14 @@ export function ProjectQuoteGenerator({
     loadOrganizationSettings();
   }, [user.organizationId]);
 
-  // Load contacts on mount
   useEffect(() => {
-    loadContacts();
-  }, []);
-
-  // Reload contacts when dialog opens
-  useEffect(() => {
-    if (isOpen) {
-      // Dialog opened - reloading contacts to get latest price levels
-      loadContacts();
-    }
-  }, [isOpen]);
-
-  // Load opportunities when contact is selected
-  useEffect(() => {
-    if (selectedContact && selectedContact !== '') {
-      // Find selected contact and get their price level
-      const contact = contacts.find(c => c.id === selectedContact);
-      if (contact) {
-        // Selected contact found
-        const priceLevel = contact.priceLevel || getPriceTierLabel(1);
-        setCustomerPriceLevel(priceLevel);
-        // Set customer price level
-      }
+    if (selectedCustomer) {
+      const priceLevel = selectedCustomer.price_level || getPriceTierLabel(1);
+      setCustomerPriceLevel(priceLevel);
     } else {
-      setCustomerPriceLevel(getPriceTierLabel(1)); // Reset to default
+      setCustomerPriceLevel(getPriceTierLabel(1));
     }
-  }, [selectedContact, contacts]);
+  }, [selectedCustomer]);
 
   const loadOrganizationSettings = async () => {
     try {
@@ -113,22 +93,6 @@ export function ProjectQuoteGenerator({
     }
   };
 
-  const loadContacts = async () => {
-    try {
-      setIsLoading(true);
-      // Loading contacts
-      const scope = 'personal';
-      const { contacts: data } = await contactsAPI.getAll(scope);
-      // Contacts loaded
-      setContacts(data || []);
-    } catch (error) {
-      // Error loading contacts
-      showAlert('error', 'Failed to load contacts');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const showAlert = (type: 'success' | 'error', message: string) => {
     setAlert({ type, message });
     setTimeout(() => setAlert(null), 5000);
@@ -145,7 +109,7 @@ export function ProjectQuoteGenerator({
   const quoteTotalWithTax = totalCost + taxAmount + taxAmount2;
 
   const handleGenerateQuote = async () => {
-    if (!selectedContact) {
+    if (!selectedCustomer?.id) {
       showAlert('error', 'Please select a customer');
       return;
     }
@@ -203,13 +167,11 @@ export function ProjectQuoteGenerator({
       const afterDiscount = subtotal - discountAmount;
       const total = afterDiscount + taxAmount + taxAmount2;
 
-      const selectedContactObj = contacts.find(c => c.id === selectedContact);
-      
       // Create quote data
       const quoteData = {
         title: quoteTitle,
-        contact_id: selectedContact,
-        contact_name: selectedContactObj ? (selectedContactObj.name || selectedContactObj.company || 'Unknown') : 'Unknown',
+        contact_id: selectedCustomer.id,
+        contact_name: selectedCustomer.name || selectedCustomer.company || 'Unknown',
         price_tier: priceLevelToTier(customerPriceLevel),
         subtotal: subtotal,
         discount_percent: discountPercent,
@@ -237,7 +199,7 @@ export function ProjectQuoteGenerator({
         setIsOpen(false);
         setQuoteTitle('');
         setQuoteNotes('');
-        setSelectedContact('');
+        setSelectedCustomer(null);
       }, 2000);
 
     } catch (error: any) {
@@ -293,52 +255,23 @@ export function ProjectQuoteGenerator({
         <div className="space-y-3">
           {/* Customer Selection */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <Label htmlFor="customer" className="flex items-center gap-1.5 text-sm">
-                <User className="w-3.5 h-3.5" />
-                Customer *
-              </Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={loadContacts}
-                disabled={isLoading}
-                className="h-6 py-0 px-2 text-xs"
-              >
-                <RefreshCw className={`w-3 h-3 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
-            <Select value={selectedContact} onValueChange={setSelectedContact}>
-              <SelectTrigger id="customer" className="h-9">
-                <SelectValue placeholder="Select a customer..." />
-              </SelectTrigger>
-              <SelectContent>
-                {isLoading ? (
-                  <SelectItem value="loading" disabled>Loading contacts...</SelectItem>
-                ) : contacts.length === 0 ? (
-                  <SelectItem value="empty" disabled>No contacts found</SelectItem>
-                ) : (
-                  contacts.map((contact) => (
-                    <SelectItem key={contact.id} value={contact.id}>
-                      {contact.name}{contact.company ? ` (${contact.company})` : ''}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-            {contacts.length === 0 && !isLoading && (
-              <p className="text-xs text-slate-500 mt-1">
-                No contacts found. Create a contact first.
-              </p>
-            )}
+            <Label htmlFor="customer" className="flex items-center gap-1.5 text-sm mb-1.5">
+              <User className="w-3.5 h-3.5" />
+              Customer *
+            </Label>
+            <CustomerSelector
+              organizationId={user.organizationId}
+              selectedCustomer={selectedCustomer}
+              onCustomerSelect={setSelectedCustomer}
+              userId={user.id}
+              showLabel={false}
+            />
           </div>
           
           {/* Customer Price Level Override */}
-          {selectedContact && (
+          {selectedCustomer && (
             <div>
-              <Label htmlFor="priceLevel" className="text-sm mb-1.5 block text-slate-600">
+              <Label htmlFor="priceLevel" className="text-sm mb-1.5 block text-muted-foreground">
                 Customer Pricing Tier (Override for Quote)
               </Label>
               <Select value={customerPriceLevel} onValueChange={setCustomerPriceLevel}>
@@ -372,39 +305,39 @@ export function ProjectQuoteGenerator({
         {/* Materials Summary */}
         <div>
           <Label className="text-sm mb-1.5 block">Materials ({materials.length} items)</Label>
-          <div className="h-9 flex items-center text-xs text-slate-600 bg-slate-50 rounded-md px-3 border">
+          <div className="h-9 flex items-center text-xs text-muted-foreground bg-muted rounded-md px-3 border">
             {materials.length > 0 ? (
               <span className="truncate">
                 {materials.slice(0, 2).map(m => m.description || m.name || m.item || 'Material').join(', ')}
                 {materials.length > 2 && ` +${materials.length - 2} more`}
               </span>
             ) : (
-              <span className="text-slate-400">No materials</span>
+              <span className="text-muted-foreground">No materials</span>
             )}
           </div>
         </div>
 
         {/* Price Summary */}
-        {selectedContact && (
+        {selectedCustomer && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1.5">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-700">Subtotal:</span>
-              <span className="text-slate-900">${totalCost.toFixed(2)}</span>
+              <span className="text-foreground">Subtotal:</span>
+              <span className="text-foreground">${totalCost.toFixed(2)}</span>
             </div>
             {taxRate > 0 && (
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600">Tax ({taxRate}%):</span>
-                <span className="text-slate-700">${taxAmount.toFixed(2)}</span>
+                <span className="text-muted-foreground">Tax ({taxRate}%):</span>
+                <span className="text-foreground">${taxAmount.toFixed(2)}</span>
               </div>
             )}
             {taxRate2 > 0 && (
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600">Tax 2 ({taxRate2}%):</span>
-                <span className="text-slate-700">${taxAmount2.toFixed(2)}</span>
+                <span className="text-muted-foreground">Tax 2 ({taxRate2}%):</span>
+                <span className="text-foreground">${taxAmount2.toFixed(2)}</span>
               </div>
             )}
             <div className="flex items-center justify-between border-t border-blue-300 pt-2">
-              <span className="text-slate-900 font-medium">Total (incl. tax):</span>
+              <span className="text-foreground font-medium">Total (incl. tax):</span>
               <span className="text-blue-900 font-semibold">${quoteTotalWithTax.toFixed(2)}</span>
             </div>
             {totalCost === 0 && (
@@ -435,7 +368,7 @@ export function ProjectQuoteGenerator({
             id="createAsDeal" 
             checked={createAsDeal} 
             onChange={(e) => setCreateAsDeal(e.target.checked)} 
-            className="w-4 h-4 rounded border-gray-300"
+            className="w-4 h-4 rounded border-border"
           />
           <Label htmlFor="createAsDeal" className="text-sm font-normal cursor-pointer">
             Track as active Deal in Pipeline
@@ -445,7 +378,7 @@ export function ProjectQuoteGenerator({
         <div className="flex gap-2 pt-2">
           <Button 
             onClick={handleGenerateQuote}
-            disabled={isSaving || !selectedContact || !quoteTitle.trim()}
+            disabled={isSaving || !selectedCustomer || !quoteTitle.trim()}
             className="flex-1 h-9"
             size="sm"
           >

@@ -30,7 +30,7 @@ interface DashboardBillingWidgetProps {
 
 const PLAN_CONFIG: Record<PlanId, { name: string; icon: typeof Zap; color: string; bg: string; border: string }> = {
   starter: {
-    name: 'Starter',
+    name: 'Standard User',
     icon: Zap,
     color: 'text-orange-600',
     bg: 'bg-orange-50',
@@ -69,8 +69,8 @@ export function DashboardBillingWidget({ onNavigate }: DashboardBillingWidgetPro
     return (
       <Card className="animate-pulse">
         <CardContent className="py-8">
-          <div className="h-4 bg-slate-200 rounded w-1/3 mb-2" />
-          <div className="h-3 bg-slate-100 rounded w-2/3" />
+          <div className="h-4 bg-muted rounded w-1/3 mb-2" />
+          <div className="h-3 bg-muted rounded w-2/3" />
         </CardContent>
       </Card>
     );
@@ -87,8 +87,8 @@ export function DashboardBillingWidget({ onNavigate }: DashboardBillingWidgetPro
                 <Sparkles className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <p className="font-semibold text-slate-900">Unlock Premium Features</p>
-                <p className="text-sm text-slate-500">
+                <p className="font-semibold text-foreground">Unlock Premium Features</p>
+                <p className="text-sm text-muted-foreground">
                   Upgrade to access marketing, inventory, 3D planners & more
                 </p>
               </div>
@@ -121,10 +121,10 @@ export function DashboardBillingWidget({ onNavigate }: DashboardBillingWidgetPro
   const periodProgress = Math.min(100, Math.max(0, ((now - periodStart) / (periodEnd - periodStart)) * 100));
 
   return (
-    <Card className={isExpired ? 'border-slate-300 opacity-75' : isCanceling ? `${config.border} border-amber-300` : config.border}>
+    <Card className={isExpired ? 'border-border opacity-75' : isCanceling ? `${config.border} border-amber-300` : config.border}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-1.5">
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
             <CreditCard className="h-4 w-4" />
             Subscription
           </CardTitle>
@@ -147,7 +147,7 @@ export function DashboardBillingWidget({ onNavigate }: DashboardBillingWidgetPro
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-900">{config.name}</span>
+              <span className="font-semibold text-foreground">{config.name}</span>
               {isTrialing && (
                 <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200">
                   Trial
@@ -159,12 +159,12 @@ export function DashboardBillingWidget({ onNavigate }: DashboardBillingWidgetPro
                 </Badge>
               )}
               {isExpired && (
-                <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200">
+                <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground border-border">
                   {subscription.status === 'canceled' ? 'Canceled' : 'Expired'}
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               {isExpired
                 ? 'Subscription ended'
                 : `${formatCurrency(subscription.amount)}/${subscription.billing_interval === 'year' ? 'yr' : 'mo'}`}
@@ -176,13 +176,13 @@ export function DashboardBillingWidget({ onNavigate }: DashboardBillingWidgetPro
         {!isExpired && (
           <div className="space-y-1">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500 flex items-center gap-1">
+              <span className="text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {isTrialing ? 'Trial ends' : 'Next billing'}
               </span>
-              <span className="font-medium text-slate-700">
+              <span className="font-medium text-foreground">
                 {formatDate(subscription.current_period_end)}
-                <span className="text-slate-400 ml-1">({days}d)</span>
+                <span className="text-muted-foreground ml-1">({days}d)</span>
               </span>
             </div>
             <Progress

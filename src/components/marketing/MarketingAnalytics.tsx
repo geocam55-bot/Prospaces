@@ -14,13 +14,13 @@ import {
   PieChart,
   Activity,
   MessageSquare,
-  Facebook,
   Instagram,
   Linkedin,
   Globe
 } from 'lucide-react';
 import type { User } from '../../App';
 import { campaignsAPI } from '../../utils/api';
+import { normalizeCampaignMetrics } from '../../utils/campaign-metrics';
 
 interface MarketingAnalyticsProps {
   user: User;
@@ -30,6 +30,7 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('30days');
+  const normalizedCampaigns = campaigns.map(normalizeCampaignMetrics);
 
   useEffect(() => {
     const loadData = async () => {
@@ -48,11 +49,11 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
   }, [user.organizationId]);
 
   // Aggregate data from campaigns
-  const totalSent = campaigns.reduce((sum, c) => sum + (c.sent_count || c.sent || 0), 0);
-  const totalOpened = campaigns.reduce((sum, c) => sum + (c.opened_count || c.opened || 0), 0);
-  const totalClicked = campaigns.reduce((sum, c) => sum + (c.clicked_count || c.clicked || c.landing_page_clicks || 0), 0);
-  const totalConverted = campaigns.reduce((sum, c) => sum + (c.converted_count || c.converted || 0), 0);
-  const totalRevenue = campaigns.reduce((sum, c) => sum + (c.revenue || 0), 0);
+  const totalSent = normalizedCampaigns.reduce((sum, c) => sum + c.sent_metric, 0);
+  const totalOpened = normalizedCampaigns.reduce((sum, c) => sum + c.opened_metric, 0);
+  const totalClicked = normalizedCampaigns.reduce((sum, c) => sum + c.clicked_metric, 0);
+  const totalConverted = normalizedCampaigns.reduce((sum, c) => sum + c.converted_metric, 0);
+  const totalRevenue = normalizedCampaigns.reduce((sum, c) => sum + c.revenue_metric, 0);
 
   // Calculate specific metrics
   const conversionRate = totalSent > 0 ? ((totalConverted / totalSent) * 100).toFixed(1) : '0.0';
@@ -60,7 +61,7 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
   // Group by Channel (Type)
   const channelStats: Record<string, any> = {};
 
-  campaigns.forEach(c => {
+  normalizedCampaigns.forEach(c => {
     const type = c.type || 'email';
     let channelName = type.charAt(0).toUpperCase() + type.slice(1);
     if (type === 'portal') channelName = 'Customer Portal';
@@ -76,11 +77,11 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
       };
     }
     
-    channelStats[channelName].sent += (c.sent_count || c.sent || 0);
-    channelStats[channelName].opened += (c.opened_count || c.opened || 0);
-    channelStats[channelName].clicked += (c.clicked_count || c.clicked || c.landing_page_clicks || 0);
-    channelStats[channelName].converted += (c.converted_count || c.converted || 0);
-    channelStats[channelName].revenue += (c.revenue || 0);
+    channelStats[channelName].sent += c.sent_metric;
+    channelStats[channelName].opened += c.opened_metric;
+    channelStats[channelName].clicked += c.clicked_metric;
+    channelStats[channelName].converted += c.converted_metric;
+    channelStats[channelName].revenue += c.revenue_metric;
   });
   
   const channelPerformance = Object.values(channelStats);
@@ -108,8 +109,8 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl text-gray-900">Marketing Analytics</h2>
-          <p className="text-sm text-gray-600 mt-1">Track performance and optimize your campaigns</p>
+          <h2 className="text-xl text-foreground">Marketing Analytics</h2>
+          <p className="text-sm text-muted-foreground mt-1">Track performance and optimize your campaigns</p>
         </div>
         <Select value={timeRange} onValueChange={setTimeRange}>
           <SelectTrigger className="w-40">
@@ -175,10 +176,10 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">{metric.title}</p>
-                        <p className="text-2xl text-gray-900 mt-2">{metric.value}</p>
+                        <p className="text-sm text-muted-foreground">{metric.title}</p>
+                        <p className="text-2xl text-foreground mt-2">{metric.value}</p>
                         <div className="flex items-center gap-1 mt-2">
-                          <span className="text-xs text-gray-500">{metric.change}</span>
+                          <span className="text-xs text-muted-foreground">{metric.change}</span>
                         </div>
                       </div>
                       <div className={`h-12 w-12 rounded-lg bg-${metric.color}-100 flex items-center justify-center`}>
@@ -197,26 +198,26 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
               <CardTitle>Recent Campaign Performance</CardTitle>
             </CardHeader>
             <CardContent>
-              {campaigns.length > 0 ? (
+              {normalizedCampaigns.length > 0 ? (
                 <div className="h-64 flex items-end justify-between gap-2 px-2">
-                  {campaigns.slice(0, 12).reverse().map((c, index) => {
+                  {normalizedCampaigns.slice(0, 12).reverse().map((c, index) => {
                     // Simple visualization: bar height relative to max revenue or sent count
-                    const maxVal = Math.max(...campaigns.map(cam => cam.revenue || 100));
-                    const height = c.revenue ? Math.max(10, (c.revenue / maxVal) * 100) : 5;
+                    const maxVal = Math.max(...normalizedCampaigns.map(cam => cam.revenue_metric || 100));
+                    const height = c.revenue_metric ? Math.max(10, (c.revenue_metric / maxVal) * 100) : 5;
                     return (
                       <div key={c.id || index} className="flex-1 flex flex-col items-center gap-2 group relative">
                         <div className="w-full bg-blue-500 rounded-t opacity-80 hover:opacity-100 transition-opacity" style={{ height: `${height}%` }}>
                           <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:block bg-black text-white text-xs p-2 rounded whitespace-nowrap z-10">
-                            {c.name}<br/>${(c.revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {c.name}<br/>${(c.revenue_metric || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
                         </div>
-                        <span className="text-xs text-gray-500 truncate w-full text-center">{c.name?.substring(0, 6)}..</span>
+                        <span className="text-xs text-muted-foreground truncate w-full text-center">{c.name?.substring(0, 6)}..</span>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <div className="h-64 flex items-center justify-center text-gray-400">
+                <div className="h-64 flex items-center justify-center text-muted-foreground">
                   No campaign data available
                 </div>
               )}
@@ -233,51 +234,51 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Channel</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Sent/Reached</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Opened</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Clicked</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Converted</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Revenue</th>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 text-sm text-muted-foreground">Channel</th>
+                      <th className="text-left py-3 px-4 text-sm text-muted-foreground">Sent/Reached</th>
+                      <th className="text-left py-3 px-4 text-sm text-muted-foreground">Opened</th>
+                      <th className="text-left py-3 px-4 text-sm text-muted-foreground">Clicked</th>
+                      <th className="text-left py-3 px-4 text-sm text-muted-foreground">Converted</th>
+                      <th className="text-left py-3 px-4 text-sm text-muted-foreground">Revenue</th>
                     </tr>
                   </thead>
                   <tbody>
                     {channelPerformance.map((channel) => (
-                      <tr key={channel.channel} className="border-b border-gray-100">
-                        <td className="py-3 px-4 text-sm text-gray-900 flex items-center gap-2">
-                          {channel.channel === 'Email' && <Mail className="h-4 w-4 text-gray-500" />}
-                          {channel.channel === 'Sms' && <MessageSquare className="h-4 w-4 text-gray-500" />}
-                          {channel.channel === 'Facebook' && <Facebook className="h-4 w-4 text-gray-500" />}
-                          {channel.channel === 'Customer Portal' && <Globe className="h-4 w-4 text-gray-500" />}
+                      <tr key={channel.channel} className="border-b border-border">
+                        <td className="py-3 px-4 text-sm text-foreground flex items-center gap-2">
+                          {channel.channel === 'Email' && <Mail className="h-4 w-4 text-muted-foreground" />}
+                          {channel.channel === 'Sms' && <MessageSquare className="h-4 w-4 text-muted-foreground" />}
+                          {channel.channel === 'Facebook' && <Globe className="h-4 w-4 text-muted-foreground" />}
+                          {channel.channel === 'Customer Portal' && <Globe className="h-4 w-4 text-muted-foreground" />}
                           {channel.channel}
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">{channel.sent.toLocaleString()}</td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground">{channel.sent.toLocaleString()}</td>
                         <td className="py-3 px-4">
                           <div>
-                            <p className="text-sm text-gray-900">{channel.opened.toLocaleString()}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm text-foreground">{channel.opened.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">
                               {channel.sent > 0 ? ((channel.opened / channel.sent) * 100).toFixed(1) : 0}%
                             </p>
                           </div>
                         </td>
                         <td className="py-3 px-4">
                           <div>
-                            <p className="text-sm text-gray-900">{channel.clicked.toLocaleString()}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm text-foreground">{channel.clicked.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">
                               {channel.opened > 0 ? ((channel.clicked / channel.opened) * 100).toFixed(1) : 0}%
                             </p>
                           </div>
                         </td>
                         <td className="py-3 px-4">
                           <div>
-                            <p className="text-sm text-gray-900">{channel.converted}</p>
+                            <p className="text-sm text-foreground">{channel.converted}</p>
                             <p className="text-xs text-green-600">
                               {channel.sent > 0 ? ((channel.converted / channel.sent) * 100).toFixed(1) : 0}%
                             </p>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-900">
+                        <td className="py-3 px-4 text-sm text-foreground">
                           ${channel.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                       </tr>
@@ -298,31 +299,31 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Campaign</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Type</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Sent</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Converted</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Revenue</th>
-                      <th className="text-left py-3 px-4 text-sm text-gray-600">Date</th>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 text-sm text-muted-foreground">Campaign</th>
+                      <th className="text-left py-3 px-4 text-sm text-muted-foreground">Type</th>
+                      <th className="text-left py-3 px-4 text-sm text-muted-foreground">Sent</th>
+                      <th className="text-left py-3 px-4 text-sm text-muted-foreground">Converted</th>
+                      <th className="text-left py-3 px-4 text-sm text-muted-foreground">Revenue</th>
+                      <th className="text-left py-3 px-4 text-sm text-muted-foreground">Date</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {campaigns.length === 0 ? (
+                    {normalizedCampaigns.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-8 text-center text-gray-500">No campaigns found</td>
+                        <td colSpan={6} className="py-8 text-center text-muted-foreground">No campaigns found</td>
                       </tr>
                     ) : (
-                      campaigns.map((campaign) => (
-                        <tr key={campaign.id} className="border-b border-gray-100">
-                          <td className="py-3 px-4 text-sm text-gray-900 font-medium">{campaign.name}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600 capitalize">{campaign.type}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600">{(campaign.sent_count || campaign.sent || 0).toLocaleString()}</td>
-                          <td className="py-3 px-4 text-sm text-gray-600">{(campaign.converted_count || campaign.converted || 0).toLocaleString()}</td>
+                      normalizedCampaigns.map((campaign) => (
+                        <tr key={campaign.id} className="border-b border-border">
+                          <td className="py-3 px-4 text-sm text-foreground font-medium">{campaign.name}</td>
+                          <td className="py-3 px-4 text-sm text-muted-foreground capitalize">{campaign.type}</td>
+                          <td className="py-3 px-4 text-sm text-muted-foreground">{campaign.sent_metric.toLocaleString()}</td>
+                          <td className="py-3 px-4 text-sm text-muted-foreground">{campaign.converted_metric.toLocaleString()}</td>
                           <td className="py-3 px-4 text-sm text-green-600">
-                            ${(campaign.revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            ${(campaign.revenue_metric || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-600">
+                          <td className="py-3 px-4 text-sm text-muted-foreground">
                             {campaign.created_at ? new Date(campaign.created_at).toLocaleDateString() : '-'}
                           </td>
                         </tr>
@@ -346,14 +347,14 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                   <div key={stage.stage}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-900">{stage.stage}</span>
+                        <span className="text-sm text-foreground">{stage.stage}</span>
                         {index > 0 && (
                           <span className="text-xs text-red-600">-{stage.dropoff}% drop-off</span>
                         )}
                       </div>
-                      <span className="text-sm text-gray-900">{stage.count.toLocaleString()}</span>
+                      <span className="text-sm text-foreground">{stage.count.toLocaleString()}</span>
                     </div>
-                    <div className="h-12 bg-gray-200 rounded-lg overflow-hidden relative">
+                    <div className="h-12 bg-muted rounded-lg overflow-hidden relative">
                       <div
                         className="h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center text-white transition-all duration-500"
                         style={{ width: `${funnelData[0].count > 0 ? (stage.count / funnelData[0].count) * 100 : 0}%` }}
@@ -366,15 +367,15 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
               </div>
 
               <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-                <h3 className="text-sm text-gray-900 mb-2">Funnel Insights</h3>
+                <h3 className="text-sm text-foreground mb-2">Funnel Insights</h3>
                 {totalSent > 0 ? (
-                  <ul className="space-y-2 text-sm text-gray-600">
+                  <ul className="space-y-2 text-sm text-muted-foreground">
                     <li>• Open rate: {((totalOpened / totalSent) * 100).toFixed(1)}%</li>
                     <li>• Click-through rate: {totalOpened > 0 ? ((totalClicked / totalOpened) * 100).toFixed(1) : 0}% of opens</li>
                     <li>• Overall conversion rate: {conversionRate}%</li>
                   </ul>
                 ) : (
-                  <p className="text-sm text-gray-600">Start sending campaigns to see funnel insights.</p>
+                  <p className="text-sm text-muted-foreground">Start sending campaigns to see funnel insights.</p>
                 )}
               </div>
             </CardContent>

@@ -100,9 +100,9 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
       case 'paused':
         return 'bg-yellow-100 text-yellow-700';
       case 'draft':
-        return 'bg-gray-100 text-gray-700';
+        return 'bg-muted text-foreground';
       default:
-        return 'bg-gray-100 text-gray-700';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -112,8 +112,8 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl text-gray-900">Customer Journey Builder</h2>
-          <p className="text-sm text-gray-600 mt-1">Create automated workflows based on customer behavior</p>
+          <h2 className="text-xl text-foreground">Customer Journey Builder</h2>
+          <p className="text-sm text-muted-foreground mt-1">Create automated workflows based on customer behavior</p>
         </div>
         <Button onClick={handleCreateJourney} disabled={isCreating} className="flex items-center gap-2">
           {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -126,11 +126,11 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
         <div className="lg:col-span-1 space-y-4">
           {isLoading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : journeys.length === 0 ? (
             <Card>
-              <CardContent className="py-8 text-center text-gray-500">
+              <CardContent className="py-8 text-center text-muted-foreground">
                 <p>No journeys found</p>
                 <p className="text-sm mt-2">Create one to get started</p>
               </CardContent>
@@ -196,23 +196,23 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">Trigger:</span>
-                    <span className="text-gray-900">{journey.trigger_type || 'Manual'}</span>
+                    <span className="text-muted-foreground">Trigger:</span>
+                    <span className="text-foreground">{journey.trigger_type || 'Manual'}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">Enrolled:</span>
-                    <span className="text-gray-900">{journey.enrolled_count || 0}</span>
+                    <span className="text-muted-foreground">Enrolled:</span>
+                    <span className="text-foreground">{journey.enrolled_count || 0}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">Completed:</span>
-                    <span className="text-gray-900">{journey.completed_count || 0}</span>
+                    <span className="text-muted-foreground">Completed:</span>
+                    <span className="text-foreground">{journey.completed_count || 0}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">Avg. Duration:</span>
-                    <span className="text-gray-900">{journey.avg_duration_days || 0} days</span>
+                    <span className="text-muted-foreground">Avg. Duration:</span>
+                    <span className="text-foreground">{journey.avg_duration_days || 0} days</span>
                   </div>
                   <div className="pt-2 border-t">
-                    <p className="text-xs text-gray-600">Conversion Rate</p>
+                    <p className="text-xs text-muted-foreground">Conversion Rate</p>
                     <p className="text-lg text-green-600">{journey.conversion_rate || 0}%</p>
                   </div>
                 </div>
@@ -264,9 +264,9 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
                                 <div className={`h-12 w-12 rounded-lg bg-${color}-100 flex items-center justify-center flex-shrink-0`}>
                                   <Icon className={`h-6 w-6 text-${color}-600`} />
                                 </div>
-                                <div className="flex-1 bg-white border-2 border-gray-200 rounded-lg p-4 hover:border-blue-500 cursor-pointer transition-colors">
-                                  <p className="text-sm text-gray-900">{step.title || step.name || 'Untitled Step'}</p>
-                                  <p className="text-xs text-gray-500 mt-1 capitalize">{step.type}</p>
+                                <div className="flex-1 bg-background border-2 border-border rounded-lg p-4 hover:border-blue-500 cursor-pointer transition-colors">
+                                  <p className="text-sm text-foreground">{step.title || step.name || 'Untitled Step'}</p>
+                                  <p className="text-xs text-muted-foreground mt-1 capitalize">{step.type}</p>
                                 </div>
                                 <Button variant="ghost" size="sm">
                                   <MoreVertical className="h-4 w-4" />
@@ -291,7 +291,7 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
                         })}
                       </div>
                     ) : (
-                      <div className="text-center py-12 text-gray-500">
+                      <div className="text-center py-12 text-muted-foreground">
                         <p>No steps configured for this journey yet.</p>
                         <p className="text-sm mt-2">Add a step to get started.</p>
                       </div>
@@ -303,19 +303,19 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
                     <CardContent className="pt-6">
                       <div className="grid grid-cols-4 gap-4">
                         <div>
-                          <p className="text-xs text-gray-600">Total Steps</p>
-                          <p className="text-xl text-gray-900 mt-1">{currentJourney?.steps?.length || 0}</p>
+                          <p className="text-xs text-muted-foreground">Total Steps</p>
+                          <p className="text-xl text-foreground mt-1">{currentJourney?.steps?.length || 0}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600">Avg. Duration</p>
-                          <p className="text-xl text-gray-900 mt-1">{currentJourney?.avg_duration_days || 0} days</p>
+                          <p className="text-xs text-muted-foreground">Avg. Duration</p>
+                          <p className="text-xl text-foreground mt-1">{currentJourney?.avg_duration_days || 0} days</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600">Active Users</p>
-                          <p className="text-xl text-gray-900 mt-1">{currentJourney?.enrolled_count || 0}</p>
+                          <p className="text-xs text-muted-foreground">Active Users</p>
+                          <p className="text-xl text-foreground mt-1">{currentJourney?.enrolled_count || 0}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600">Completed</p>
+                          <p className="text-xs text-muted-foreground">Completed</p>
                           <p className="text-xl text-green-600 mt-1">{currentJourney?.completed_count || 0}</p>
                         </div>
                       </div>
@@ -323,9 +323,9 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
                   </Card>
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-96 text-gray-500">
+                <div className="flex items-center justify-center h-96 text-muted-foreground">
                   <div className="text-center">
-                    <Play className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <Play className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                     <p>Select a journey to view and edit</p>
                   </div>
                 </div>
@@ -343,30 +343,30 @@ export function JourneyBuilder({ user }: JourneyBuilderProps) {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <h3 className="text-sm text-gray-900 mb-3">Entry Triggers</h3>
+              <h3 className="text-sm text-foreground mb-3">Entry Triggers</h3>
               <div className="space-y-2">
                 {['Form Submitted', 'Contact Created', 'Tag Added', 'Page Visited', 'Email Clicked', 'Purchase Made'].map((trigger) => (
-                  <div key={trigger} className="p-2 bg-gray-50 rounded text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">
+                  <div key={trigger} className="p-2 bg-muted rounded text-sm text-foreground hover:bg-muted cursor-pointer">
                     {trigger}
                   </div>
                 ))}
               </div>
             </div>
             <div>
-              <h3 className="text-sm text-gray-900 mb-3">Actions</h3>
+              <h3 className="text-sm text-foreground mb-3">Actions</h3>
               <div className="space-y-2">
                 {['Send Email', 'Send SMS', 'Add Tag', 'Update Score', 'Create Task', 'Send Notification'].map((action) => (
-                  <div key={action} className="p-2 bg-gray-50 rounded text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">
+                  <div key={action} className="p-2 bg-muted rounded text-sm text-foreground hover:bg-muted cursor-pointer">
                     {action}
                   </div>
                 ))}
               </div>
             </div>
             <div>
-              <h3 className="text-sm text-gray-900 mb-3">Control Flow</h3>
+              <h3 className="text-sm text-foreground mb-3">Control Flow</h3>
               <div className="space-y-2">
                 {['Wait/Delay', 'If/Then Branch', 'A/B Split', 'Go To Step', 'End Journey', 'Repeat Loop'].map((control) => (
-                  <div key={control} className="p-2 bg-gray-50 rounded text-sm text-gray-700 hover:bg-gray-100 cursor-pointer">
+                  <div key={control} className="p-2 bg-muted rounded text-sm text-foreground hover:bg-muted cursor-pointer">
                     {control}
                   </div>
                 ))}

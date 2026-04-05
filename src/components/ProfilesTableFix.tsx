@@ -123,13 +123,13 @@ CREATE POLICY "admins_can_delete_profiles" ON public.profiles
           <AlertTriangle className="h-5 w-5" />
           Profiles Table Fix Required
         </CardTitle>
-        <CardDescription className="text-sm text-gray-500">
+        <CardDescription className="text-sm text-muted-foreground">
           The profiles table currently has a foreign key constraint that prevents inviting users 
           who haven't signed up yet. Run the SQL script below to fix this.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Alert className="bg-white border-orange-300">
+        <Alert className="bg-background border-orange-300">
           <Database className="h-4 w-4" />
           <AlertDescription>
             The profiles table currently has a foreign key constraint that prevents inviting users 
@@ -139,7 +139,7 @@ CREATE POLICY "admins_can_delete_profiles" ON public.profiles
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">SQL Migration Script</h3>
+            <h3 className="text-sm font-semibold text-foreground">SQL Migration Script</h3>
             <Button
               onClick={handleCopy}
               size="sm"
@@ -164,9 +164,9 @@ CREATE POLICY "admins_can_delete_profiles" ON public.profiles
             {SQL_FIX}
           </pre>
 
-          <div className="bg-white border border-orange-200 rounded-lg p-4 space-y-2">
-            <h4 className="font-medium text-sm text-gray-900">Instructions:</h4>
-            <ol className="text-sm text-gray-700 space-y-1 list-decimal list-inside">
+          <div className="bg-background border border-orange-200 rounded-lg p-4 space-y-2">
+            <h4 className="font-medium text-sm text-foreground">Instructions:</h4>
+            <ol className="text-sm text-foreground space-y-1 list-decimal list-inside">
               <li>Click "Copy SQL" button above</li>
               <li>Open Supabase Dashboard → SQL Editor</li>
               <li>Paste and run the script</li>

@@ -707,28 +707,28 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
   return (
     <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg overflow-hidden relative">
       {/* Instructions overlay */}
-      <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
-        <div className="font-semibold text-slate-900 mb-1">🎮 3D Controls:</div>
-        <div className="space-y-0.5 text-slate-700">
+      <div className="absolute top-4 left-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
+        <div className="font-semibold text-foreground mb-1">🎮 3D Controls:</div>
+        <div className="space-y-0.5 text-foreground">
           <div>🖱️ <strong>Rotate:</strong> Click + drag</div>
           <div>🔍 <strong>Zoom:</strong> Scroll wheel</div>
         </div>
       </div>
 
       {/* Stats overlay */}
-      <div className="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
+      <div className="absolute top-4 right-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <div className="text-xs text-slate-600">Cabinets</div>
-            <div className="font-bold text-slate-900">{config.cabinets.length}</div>
+            <div className="text-xs text-muted-foreground">Cabinets</div>
+            <div className="font-bold text-foreground">{config.cabinets.length}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Appliances</div>
-            <div className="font-bold text-slate-900">{config.appliances.length}</div>
+            <div className="text-xs text-muted-foreground">Appliances</div>
+            <div className="font-bold text-foreground">{config.appliances.length}</div>
           </div>
           <div className="col-span-2">
-            <div className="text-xs text-slate-600">Room Size</div>
-            <div className="font-bold text-slate-900">
+            <div className="text-xs text-muted-foreground">Room Size</div>
+            <div className="font-bold text-foreground">
               {config.roomWidth}' × {config.roomLength}' × {config.roomHeight}'
             </div>
           </div>

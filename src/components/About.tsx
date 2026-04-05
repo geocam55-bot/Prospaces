@@ -30,7 +30,7 @@ export function About({ onClose }: AboutProps) {
     { name: 'Inventory Tracking', icon: Package, color: theme.isDark ? 'text-orange-400' : 'text-orange-600' },
     { name: 'Document Management', icon: FileText, color: theme.isDark ? 'text-indigo-400' : 'text-indigo-600' },
     { name: 'Project Wizards', icon: Hammer, color: theme.isDark ? 'text-amber-400' : 'text-amber-600' },
-    { name: 'Security & Audit', icon: Shield, color: theme.isDark ? 'text-slate-400' : 'text-slate-600' },
+    { name: 'Security & Audit', icon: Shield, color: theme.isDark ? 'text-muted-foreground' : 'text-muted-foreground' },
   ];
 
   const planners = [
@@ -311,7 +311,7 @@ export function About({ onClose }: AboutProps) {
                 {systemRequirements.browsers.map((browser) => (
                   <span 
                     key={browser} 
-                    className={`px-2 py-1 rounded text-xs ${theme.isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}
+                    className={`px-2 py-1 rounded text-xs ${theme.isDark ? 'bg-slate-800 text-slate-300' : 'bg-muted text-foreground'}`}
                   >
                     {browser}
                   </span>
@@ -338,7 +338,7 @@ export function About({ onClose }: AboutProps) {
                 {systemRequirements.mobile.map((platform) => (
                   <span 
                     key={platform} 
-                    className={`px-2 py-1 rounded text-xs ${theme.isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}`}
+                    className={`px-2 py-1 rounded text-xs ${theme.isDark ? 'bg-slate-800 text-slate-300' : 'bg-muted text-foreground'}`}
                   >
                     {platform}
                   </span>

@@ -17,7 +17,7 @@ function formatQty(item: any): React.ReactNode {
         <span className="text-amber-700 font-semibold">{displayQty}</span>{' '}
         <span className="text-amber-700">{item.convertedUnit || 'units'}</span>
         {item.orderQuantity != null && item.orderQuantity !== item.convertedQuantity && (
-          <span className="block text-xs text-gray-500">
+          <span className="block text-xs text-muted-foreground">
             Order: {item.orderQuantity} {item.convertedUnit || 'units'}
           </span>
         )}
@@ -45,20 +45,20 @@ export function RoofMaterialsList({ materials, compact = false }: RoofMaterialsL
           {nonZeroItems.map((item, index) => (
             <div
               key={index}
-              className={`${compact ? 'py-1' : 'p-3'} bg-slate-50 rounded-lg border border-slate-200`}
+              className={`${compact ? 'py-1' : 'p-3'} bg-muted rounded-lg border border-border`}
             >
               <div className="flex justify-between items-start">
                 <div className="flex-1">
-                  <div className="text-sm text-slate-900">
+                  <div className="text-sm text-foreground">
                     {item.description}
                   </div>
                   {item.notes && !compact && (
-                    <div className="text-xs text-slate-600 mt-1">
+                    <div className="text-xs text-muted-foreground mt-1">
                       {item.notes}
                     </div>
                   )}
                   {item.sku && !compact && (
-                    <div className="text-xs text-slate-500 mt-1">
+                    <div className="text-xs text-muted-foreground mt-1">
                       SKU: {item.sku}
                     </div>
                   )}
@@ -66,7 +66,7 @@ export function RoofMaterialsList({ materials, compact = false }: RoofMaterialsL
                 <div className="text-right ml-4">
                   {formatQty(item)}
                   {item.unitPrice && !compact && (
-                    <div className="text-xs text-slate-600">
+                    <div className="text-xs text-muted-foreground">
                       ${item.unitPrice.toFixed(2)} / {item.conversionFactor && item.conversionFactor !== 1 ? (item.convertedUnit || 'box') : item.unit}
                     </div>
                   )}
@@ -114,14 +114,14 @@ export function RoofMaterialsList({ materials, compact = false }: RoofMaterialsL
       {renderMaterialSection('4. Ridge & Hip', materials.ridgeAndHip, 'border-red-300 text-red-900')}
       {renderMaterialSection('5. Flashing', materials.flashing, 'border-yellow-300 text-yellow-900')}
       {renderMaterialSection('6. Ventilation', materials.ventilation, 'border-green-300 text-green-900')}
-      {renderMaterialSection('7. Hardware & Accessories', materials.hardware, 'border-slate-300 text-slate-900')}
+      {renderMaterialSection('7. Hardware & Accessories', materials.hardware, 'border-border text-foreground')}
 
       {!compact && (
-        <div className="mt-6 p-4 bg-slate-100 rounded-lg border border-slate-300">
-          <h4 className="text-sm font-semibold text-slate-900 mb-2">
+        <div className="mt-6 p-4 bg-muted rounded-lg border border-border">
+          <h4 className="text-sm font-semibold text-foreground mb-2">
             Important Notes
           </h4>
-          <ul className="text-xs text-slate-700 space-y-1">
+          <ul className="text-xs text-foreground space-y-1">
             <li>• Material calculations include waste factor as configured</li>
             <li>• Verify all measurements before ordering materials</li>
             <li>• Check local building codes for specific requirements</li>

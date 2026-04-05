@@ -30,8 +30,8 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] p-8">
         <Brush className="w-16 h-16 text-slate-300 mb-4" />
-        <h2 className="text-xl font-semibold text-slate-700">Under Construction</h2>
-        <p className="text-slate-500 mt-2 text-center max-w-md">
+        <h2 className="text-xl font-semibold text-foreground">Under Construction</h2>
+        <p className="text-muted-foreground mt-2 text-center max-w-md">
           The Finishing Planner is currently being developed and is only visible to administrators.
         </p>
       </div>
@@ -787,7 +787,13 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     if (!id || id === 'none') return null;
     const item = inventoryItems.find(i => i.id === id || i.sku === id);
     if (item) {
-      return { id: item.id, sku: item.sku, description: item.name, price: item.unit_price || fallbackPrice };
+      const resolvedPrice = Number(item.unitPrice ?? item.unit_price ?? fallbackPrice);
+      return {
+        id: item.id,
+        sku: item.sku,
+        description: item.name || fallbackDesc,
+        price: Number.isFinite(resolvedPrice) ? resolvedPrice : fallbackPrice,
+      };
     }
     return { description: fallbackDesc, price: fallbackPrice };
   };
@@ -863,7 +869,10 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     }
   }
 
-  const totalCost = materials.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+  const totalCost = materials.reduce(
+    (sum, item) => sum + (Number(item.quantity) * Number(item.price ?? 0)),
+    0,
+  );
 
   // Filter inventory items for dropdowns
   const baseboardItems = inventoryItems.filter(i => i.name?.toLowerCase().includes('base') || i.category?.toLowerCase() === 'trim');
@@ -871,21 +880,75 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   const crownItems = inventoryItems.filter(i => i.name?.toLowerCase().includes('crown') || i.category?.toLowerCase() === 'trim');
   const wainscottingItems = inventoryItems.filter(i => i.name?.toLowerCase().includes('wainscot') || i.category?.toLowerCase() === 'panel');
 
+  const currentConfig = {
+    bgImage,
+    pdfPages,
+    activePageIndex,
+    pagesData,
+    imageDims,
+    scaleData,
+    perimeter,
+    walls,
+    doors,
+    windows,
+    sqFt,
+    exteriorLF,
+    interiorLF,
+    allDoors,
+    allWindows,
+    baseboardId,
+    casingId,
+    crownId,
+    wainscottingId,
+    jambStockSize,
+    bipassTrackSize,
+    hingeSize,
+    doorKnobType,
+  };
+
+  const handleLoadSavedDesign = (savedConfig: any) => {
+    if (!savedConfig) return;
+
+    setPdfPages(savedConfig.pdfPages || (savedConfig.bgImage ? [savedConfig.bgImage] : []));
+    setActivePageIndex(savedConfig.activePageIndex || 0);
+    setPagesData(savedConfig.pagesData || {});
+
+    setBgImage(savedConfig.bgImage || null);
+    setImageDims(savedConfig.imageDims || null);
+    setScaleData(savedConfig.scaleData || { p1: null, p2: null, distance: 0 });
+    setPerimeter(savedConfig.perimeter || []);
+    setWalls(savedConfig.walls || []);
+    setDoors(savedConfig.doors || []);
+    setWindows(savedConfig.windows || []);
+
+    if (savedConfig.baseboardId !== undefined) setBaseboardId(savedConfig.baseboardId);
+    if (savedConfig.casingId !== undefined) setCasingId(savedConfig.casingId);
+    if (savedConfig.crownId !== undefined) setCrownId(savedConfig.crownId);
+    if (savedConfig.wainscottingId !== undefined) setWainscottingId(savedConfig.wainscottingId);
+    if (savedConfig.jambStockSize !== undefined) setJambStockSize(savedConfig.jambStockSize);
+    if (savedConfig.bipassTrackSize !== undefined) setBipassTrackSize(savedConfig.bipassTrackSize);
+    if (savedConfig.hingeSize !== undefined) setHingeSize(savedConfig.hingeSize);
+    if (savedConfig.doorKnobType !== undefined) setDoorKnobType(savedConfig.doorKnobType);
+
+    setMode('idle');
+    toast.success('Saved design loaded successfully!');
+  };
+
   return (
     <PermissionGate user={user} module="project-wizards" action="view">
       {/* Mobile restriction message */}
       <div className="lg:hidden flex flex-col items-center justify-center min-h-[60vh] p-6 text-center space-y-6">
         <div className="relative">
-          <div className="bg-slate-100 p-4 rounded-full">
-            <Monitor className="w-12 h-12 text-slate-400" />
+          <div className="bg-muted p-4 rounded-full">
+            <Monitor className="w-12 h-12 text-muted-foreground" />
           </div>
-          <div className="absolute -bottom-2 -right-2 bg-white p-1 rounded-full shadow-sm">
+          <div className="absolute -bottom-2 -right-2 bg-background p-1 rounded-full shadow-sm">
             <Smartphone className="w-6 h-6 text-red-500" />
           </div>
         </div>
         <div className="max-w-md space-y-3">
-          <h2 className="text-2xl font-semibold text-slate-800">Desktop Only</h2>
-          <p className="text-slate-600 leading-relaxed">
+          <h2 className="text-2xl font-semibold text-foreground">Desktop Only</h2>
+          <p className="text-muted-foreground leading-relaxed">
             Due to the size restrictions of mobile displays, the Finishing Planner requires a larger screen space for precision design. 
             For the best experience, please access this feature on your desktop or laptop computer.
           </p>
@@ -893,7 +956,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
       </div>
 
       {/* Desktop view */}
-      <div className="hidden lg:block bg-slate-50 min-h-screen pb-12">
+      <div className="hidden lg:block bg-muted min-h-screen pb-12">
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200 print:hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -908,13 +971,13 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
           </div>
         </div>
 
-        <div className="bg-white border-b border-slate-200 print:hidden sticky top-0 z-10">
+        <div className="bg-background border-b border-border print:hidden sticky top-0 z-10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <nav className="flex gap-8">
               <button
                 onClick={() => setActiveTab('digitizer')}
                 className={`flex items-center gap-2 py-4 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'digitizer' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                  activeTab === 'digitizer' ? 'border-blue-600 text-blue-600' : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Ruler className="w-4 h-4" /> Trace Floorplan
@@ -922,7 +985,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
               <button
                 onClick={() => setActiveTab('materials')}
                 className={`flex items-center gap-2 py-4 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'materials' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                  activeTab === 'materials' ? 'border-blue-600 text-blue-600' : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Package className="w-4 h-4" /> Takeoff & Materials
@@ -930,7 +993,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
               <button
                 onClick={() => setActiveTab('defaults')}
                 className={`flex items-center gap-2 py-4 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'defaults' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                  activeTab === 'defaults' ? 'border-blue-600 text-blue-600' : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Settings className="w-4 h-4" /> Defaults
@@ -943,30 +1006,30 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
           {activeTab === 'digitizer' && (
             <div className="flex flex-col gap-4">
               {/* Top Toolbar */}
-              <div className="bg-white p-3 rounded-lg shadow-sm border border-slate-200 flex flex-wrap items-center gap-3">
+              <div className="bg-background p-3 rounded-lg shadow-sm border border-border flex flex-wrap items-center gap-3">
                 {/* Upload & Draft */}
-                <div className="flex items-center gap-1 pr-3 border-r border-slate-200">
+                <div className="flex items-center gap-1 pr-3 border-r border-border">
                   <label className={`cursor-pointer flex flex-col items-center justify-center p-2 rounded-md hover:bg-purple-50 transition-colors ${loading ? 'opacity-50' : ''}`}>
                     <UploadCloud className="w-5 h-5 mb-1 text-purple-500" />
-                    <span className="text-[10px] font-medium text-slate-600">Upload</span>
+                    <span className="text-[10px] font-medium text-muted-foreground">Upload</span>
                     <input type="file" accept="application/pdf, image/jpeg, image/png" className="hidden" disabled={loading} onChange={handleFileUpload} />
                   </label>
                   <button onClick={handleSaveDraft} disabled={loading || !bgImage} className="flex flex-col items-center justify-center p-2 rounded-md hover:bg-green-50 transition-colors disabled:opacity-50">
                     <Save className="w-5 h-5 mb-1 text-green-500" />
-                    <span className="text-[10px] font-medium text-slate-600">Save</span>
+                    <span className="text-[10px] font-medium text-muted-foreground">Save</span>
                   </button>
                   <label className={`cursor-pointer flex flex-col items-center justify-center p-2 rounded-md hover:bg-orange-50 transition-colors ${loading ? 'opacity-50' : ''}`}>
                     <FolderOpen className="w-5 h-5 mb-1 text-orange-500" />
-                    <span className="text-[10px] font-medium text-slate-600">Load</span>
+                    <span className="text-[10px] font-medium text-muted-foreground">Load</span>
                     <input type="file" accept=".pjt" className="hidden" disabled={loading} onChange={handleLoadProjectFile} />
                   </label>
                 </div>
 
                 {/* History Tools */}
-                <div className="flex items-center gap-1 pr-3 border-r border-slate-200">
-                  <button onClick={handleUndoAction} className="flex flex-col items-center justify-center p-2 rounded-md hover:bg-slate-100 transition-colors">
-                    <Undo className="w-5 h-5 mb-1 text-slate-600" />
-                    <span className="text-[10px] font-medium text-slate-600">Undo</span>
+                <div className="flex items-center gap-1 pr-3 border-r border-border">
+                  <button onClick={handleUndoAction} className="flex flex-col items-center justify-center p-2 rounded-md hover:bg-muted transition-colors">
+                    <Undo className="w-5 h-5 mb-1 text-muted-foreground" />
+                    <span className="text-[10px] font-medium text-muted-foreground">Undo</span>
                   </button>
                   <button onClick={() => {
                     if (confirm("Clear all tracing data?")) {
@@ -975,44 +1038,44 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                     }
                   }} className="flex flex-col items-center justify-center p-2 rounded-md hover:bg-red-50 transition-colors">
                     <Trash2 className="w-5 h-5 mb-1 text-red-500" />
-                    <span className="text-[10px] font-medium text-slate-600">Clear</span>
+                    <span className="text-[10px] font-medium text-muted-foreground">Clear</span>
                   </button>
                 </div>
 
                 {/* Digitizing Tools */}
                 <div className="flex items-center gap-1 flex-1">
-                  <button onClick={() => setMode('calibrate')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'calibrate' ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-indigo-50 text-slate-600'}`}>
+                  <button onClick={() => setMode('calibrate')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'calibrate' ? 'bg-indigo-600 text-white shadow-md' : 'hover:bg-indigo-50 text-muted-foreground'}`}>
                     <Maximize2 className={`w-5 h-5 mb-1 ${mode === 'calibrate' ? 'text-white' : 'text-indigo-500'}`} />
                     <span className="text-[10px] font-medium">Set Scale</span>
                   </button>
-                  <button onClick={() => setMode('perimeter')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'perimeter' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-blue-50 text-slate-600'}`}>
+                  <button onClick={() => setMode('perimeter')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'perimeter' ? 'bg-blue-600 text-white shadow-md' : 'hover:bg-blue-50 text-muted-foreground'}`}>
                     <Square className={`w-5 h-5 mb-1 ${mode === 'perimeter' ? 'text-white' : 'text-blue-500'}`} />
                     <span className="text-[10px] font-medium">Perimeter</span>
                   </button>
-                  <button onClick={() => { setMode('wall'); setCurrentWallPoint(null); }} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'wall' ? 'bg-cyan-600 text-white shadow-md' : 'hover:bg-cyan-50 text-slate-600'}`}>
+                  <button onClick={() => { setMode('wall'); setCurrentWallPoint(null); }} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'wall' ? 'bg-cyan-600 text-white shadow-md' : 'hover:bg-cyan-50 text-muted-foreground'}`}>
                     <Minus className={`w-5 h-5 mb-1 ${mode === 'wall' ? 'text-white' : 'text-cyan-500'}`} />
                     <span className="text-[10px] font-medium">Int. Walls</span>
                   </button>
-                  <button onClick={() => setMode('door')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'door' ? 'bg-emerald-600 text-white shadow-md' : 'hover:bg-emerald-50 text-slate-600'}`}>
+                  <button onClick={() => setMode('door')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'door' ? 'bg-emerald-600 text-white shadow-md' : 'hover:bg-emerald-50 text-muted-foreground'}`}>
                     <DoorOpen className={`w-5 h-5 mb-1 ${mode === 'door' ? 'text-white' : 'text-emerald-500'}`} />
                     <span className="text-[10px] font-medium">Doors</span>
                   </button>
-                  <button onClick={() => setMode('window')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'window' ? 'bg-teal-600 text-white shadow-md' : 'hover:bg-teal-50 text-slate-600'}`}>
+                  <button onClick={() => setMode('window')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'window' ? 'bg-teal-600 text-white shadow-md' : 'hover:bg-teal-50 text-muted-foreground'}`}>
                     <LayoutGrid className={`w-5 h-5 mb-1 ${mode === 'window' ? 'text-white' : 'text-teal-500'}`} />
                     <span className="text-[10px] font-medium">Windows</span>
                   </button>
-                  <button onClick={() => setMode('idle')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'idle' ? 'bg-slate-700 text-white shadow-md' : 'hover:bg-slate-100 text-slate-600'}`}>
-                    <MousePointer2 className={`w-5 h-5 mb-1 ${mode === 'idle' ? 'text-white' : 'text-slate-500'}`} />
+                  <button onClick={() => setMode('idle')} className={`flex flex-col items-center justify-center py-2 px-3 rounded-md transition-colors ${mode === 'idle' ? 'bg-slate-700 text-white shadow-md' : 'hover:bg-muted text-muted-foreground'}`}>
+                    <MousePointer2 className={`w-5 h-5 mb-1 ${mode === 'idle' ? 'text-white' : 'text-muted-foreground'}`} />
                     <span className="text-[10px] font-medium">Select/Pan</span>
                   </button>
 
                   {/* Door Settings Inline */}
                   {mode === 'door' && (
-                    <div className="flex items-center gap-3 pl-4 border-l border-slate-200 ml-2">
+                    <div className="flex items-center gap-3 pl-4 border-l border-border ml-2">
                       <div className="flex flex-col gap-1">
-                        <Label className="text-[9px] uppercase text-slate-500 font-bold">Type</Label>
+                        <Label className="text-[9px] uppercase text-muted-foreground font-bold">Type</Label>
                         <Select value={currentDoorType} onValueChange={setCurrentDoorType}>
-                          <SelectTrigger className="h-7 text-xs bg-slate-50 w-[100px] border-slate-200"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-7 text-xs bg-muted w-[100px] border-border"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="Prehung">Prehung</SelectItem>
                             <SelectItem value="BiFolding">BiFolding</SelectItem>
@@ -1022,9 +1085,9 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                         </Select>
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Label className="text-[9px] uppercase text-slate-500 font-bold">Size</Label>
+                        <Label className="text-[9px] uppercase text-muted-foreground font-bold">Size</Label>
                         <Select value={currentDoorSize} onValueChange={setCurrentDoorSize}>
-                          <SelectTrigger className="h-7 text-xs bg-slate-50 w-[80px] border-slate-200"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-7 text-xs bg-muted w-[80px] border-border"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {['18"','24"','28"','30"','32"','34"','38"'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                           </SelectContent>
@@ -1032,9 +1095,9 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                       </div>
                       {currentDoorType === 'Prehung' && (
                         <div className="flex flex-col gap-1">
-                          <Label className="text-[9px] uppercase text-slate-500 font-bold">Handing</Label>
+                          <Label className="text-[9px] uppercase text-muted-foreground font-bold">Handing</Label>
                           <Select value={currentDoorHanding} onValueChange={setCurrentDoorHanding}>
-                            <SelectTrigger className="h-7 text-xs bg-slate-50 w-[80px] border-slate-200"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-7 text-xs bg-muted w-[80px] border-border"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="Left">Left</SelectItem>
                               <SelectItem value="Right">Right</SelectItem>
@@ -1047,11 +1110,11 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                 </div>
 
                 {/* Material Selection */}
-                <div className="flex items-center gap-3 pl-4 border-l border-slate-200 ml-auto min-w-max">
+                <div className="flex items-center gap-3 pl-4 border-l border-border ml-auto min-w-max">
                   <div className="flex flex-col gap-1">
-                    <Label className="text-[9px] uppercase text-slate-500 font-bold">Moulding Type</Label>
+                    <Label className="text-[9px] uppercase text-muted-foreground font-bold">Moulding Type</Label>
                     <Select value={mouldingMaterialType} onValueChange={setMouldingMaterialType}>
-                      <SelectTrigger className="h-7 text-xs bg-slate-50 w-[110px] border-slate-200"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-7 text-xs bg-muted w-[110px] border-border"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="mdf">MDF</SelectItem>
                         <SelectItem value="finger_joint">Finger Joint</SelectItem>
@@ -1062,14 +1125,14 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                 </div>
 
                 {/* Takeoff Quick Stats */}
-                <div className="flex items-center gap-4 text-xs pl-4 border-l border-slate-200 min-w-max">
+                <div className="flex items-center gap-4 text-xs pl-4 border-l border-border min-w-max">
                   <div className="flex flex-col items-end">
-                    <span className="text-slate-400 text-[9px] uppercase font-semibold">Area</span>
-                    <span className="font-bold text-slate-700">{sqFt > 0 ? sqFt.toFixed(1) : '--'} sqft</span>
+                    <span className="text-muted-foreground text-[9px] uppercase font-semibold">Area</span>
+                    <span className="font-bold text-foreground">{sqFt > 0 ? sqFt.toFixed(1) : '--'} sqft</span>
                   </div>
                   <div className="flex flex-col items-end">
-                    <span className="text-slate-400 text-[9px] uppercase font-semibold">Baseboard</span>
-                    <span className="font-bold text-slate-700">{totalBaseboardLF > 0 ? totalBaseboardLF.toFixed(1) : '--'} lf</span>
+                    <span className="text-muted-foreground text-[9px] uppercase font-semibold">Baseboard</span>
+                    <span className="font-bold text-foreground">{totalBaseboardLF > 0 ? totalBaseboardLF.toFixed(1) : '--'} lf</span>
                   </div>
                   {pixelsPerFoot === 0 && perimeter.length > 0 && (
                     <div className="text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200 flex items-center gap-1.5 ml-2 shadow-sm">
@@ -1090,8 +1153,8 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                         onClick={() => handlePageSwitch(index)}
                         className={`px-4 py-2 text-sm font-medium rounded-t-lg border-t border-x transition-colors whitespace-nowrap ${
                           activePageIndex === index
-                            ? 'bg-white text-blue-600 border-slate-300 border-b-white'
-                            : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-50'
+                            ? 'bg-background text-blue-600 border-border border-b-white'
+                            : 'bg-muted text-muted-foreground border-border hover:bg-muted'
                         }`}
                         style={{ marginBottom: activePageIndex === index ? '-2px' : '0' }}
                       >
@@ -1100,18 +1163,18 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                     ))}
                   </div>
                 )}
-                <div className={`relative border-2 border-slate-300 shadow-inner bg-slate-200 ${pdfPages.length > 1 ? 'rounded-b-lg rounded-tr-lg' : 'rounded-lg'}`}>
+                <div className={`relative border-2 border-border shadow-inner bg-muted ${pdfPages.length > 1 ? 'rounded-b-lg rounded-tr-lg' : 'rounded-lg'}`}>
                   {bgImage && imageDims && (
-                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur rounded-lg shadow-md border border-slate-200 flex items-center p-1 z-10">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-600 hover:text-slate-900" onClick={() => setZoom(z => Math.max(0.1, z - 0.1))}>
+                    <div className="absolute top-4 right-4 bg-background/90 backdrop-blur rounded-lg shadow-md border border-border flex items-center p-1 z-10">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={() => setZoom(z => Math.max(0.1, z - 0.1))}>
                         <ZoomOut className="w-4 h-4" />
                       </Button>
-                      <span className="text-xs font-medium w-12 text-center text-slate-600">{Math.round(zoom * 100)}%</span>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-600 hover:text-slate-900" onClick={() => setZoom(z => z + 0.1)}>
+                      <span className="text-xs font-medium w-12 text-center text-muted-foreground">{Math.round(zoom * 100)}%</span>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={() => setZoom(z => z + 0.1)}>
                         <ZoomIn className="w-4 h-4" />
                       </Button>
-                      <div className="w-px h-4 bg-slate-200 mx-1" />
-                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs font-medium text-slate-600 hover:text-slate-900" onClick={() => {
+                      <div className="w-px h-4 bg-muted mx-1" />
+                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs font-medium text-muted-foreground hover:text-foreground" onClick={() => {
                         if (imageDims && containerRef.current) {
                           const cw = containerRef.current.clientWidth - 40;
                           const ch = containerRef.current.clientHeight - 40;
@@ -1124,8 +1187,8 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                       }}>
                         Fit
                       </Button>
-                      <div className="w-px h-4 bg-slate-200 mx-1" />
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-600 hover:text-slate-900" onClick={handleRotateImage} title="Rotate 90°">
+                      <div className="w-px h-4 bg-muted mx-1" />
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={handleRotateImage} title="Rotate 90°">
                         <RotateCw className="w-4 h-4" />
                       </Button>
                     </div>
@@ -1141,15 +1204,15 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                     onMouseLeave={handleContainerMouseUp}
                   >
                     {!bgImage ? (
-                      <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 p-8">
+                      <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-8">
                         <UploadCloud className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p className="font-medium text-slate-500">No Floorplan Uploaded</p>
+                        <p className="font-medium text-muted-foreground">No Floorplan Uploaded</p>
                         <p className="text-sm">Upload a floorplan file using the toolbar above to begin tracing.</p>
                       </div>
                     ) : (
                       <div className="min-w-full min-h-full w-max h-max flex items-center justify-center p-4">
                         <div 
-                          className={`relative shrink-0 inline-block bg-white shadow-sm transition-transform duration-75 ${mode !== 'idle' ? 'cursor-crosshair' : 'cursor-default'}`}
+                          className={`relative shrink-0 inline-block bg-background shadow-sm transition-transform duration-75 ${mode !== 'idle' ? 'cursor-crosshair' : 'cursor-default'}`}
                           style={{ 
                             width: imageDims ? imageDims.w * zoom : 'auto', 
                             height: imageDims ? imageDims.h * zoom : 'auto' 
@@ -1335,8 +1398,8 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                       </Select>
                     </div>
 
-                    <div className="pt-4 border-t border-slate-100">
-                      <h4 className="text-sm font-semibold mb-4 text-slate-800">Door Hardware & Framing</h4>
+                    <div className="pt-4 border-t border-border">
+                      <h4 className="text-sm font-semibold mb-4 text-foreground">Door Hardware & Framing</h4>
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <Label>Jamb Stock</Label>
@@ -1388,7 +1451,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
               </div>
 
               <div className="lg:col-span-3 space-y-6">
-                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+                <div className="bg-background rounded-lg shadow-sm border border-border p-6">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex-1 w-full sm:w-auto">
                       <div className="flex items-center justify-between">
@@ -1405,7 +1468,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                       projectType="interior"
                       materials={materials}
                       totalCost={totalCost}
-                      projectData={{ sqFt, exteriorLF, interiorLF, doors: allDoors.length, windows: allWindows.length, baseboardId, casingId, crownId, wainscottingId }}
+                      projectData={currentConfig}
                     />
                   </div>
 
@@ -1413,38 +1476,23 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                     <SavedProjectDesigns
                       user={user}
                       projectType="interior"
-                      currentConfig={{
-                        sqFt, exteriorLF, interiorLF, 
-                        allDoors, allWindows, 
-                        baseboardId, casingId, crownId, wainscottingId, ceilingHeight
-                      }}
+                      currentConfig={currentConfig}
                       materials={materials}
                       totalCost={totalCost}
-                      onLoadDesign={(savedConfig) => {
-                        if (savedConfig.sqFt) setSqFt(savedConfig.sqFt);
-                        if (savedConfig.exteriorLF) setExteriorLF(savedConfig.exteriorLF);
-                        if (savedConfig.interiorLF) setInteriorLF(savedConfig.interiorLF);
-                        if (savedConfig.allDoors) setAllDoors(savedConfig.allDoors);
-                        if (savedConfig.allWindows) setAllWindows(savedConfig.allWindows);
-                        if (savedConfig.baseboardId !== undefined) setBaseboardId(savedConfig.baseboardId);
-                        if (savedConfig.casingId !== undefined) setCasingId(savedConfig.casingId);
-                        if (savedConfig.crownId !== undefined) setCrownId(savedConfig.crownId);
-                        if (savedConfig.wainscottingId !== undefined) setWainscottingId(savedConfig.wainscottingId);
-                        if (savedConfig.ceilingHeight !== undefined) setCeilingHeight(savedConfig.ceilingHeight);
-                      }}
+                      onLoadDesign={handleLoadSavedDesign}
                     />
                   </div>
 
                   {materials.length === 0 ? (
-                    <div className="text-center py-12 bg-slate-50 rounded-lg border border-dashed border-slate-300">
-                      <Package className="w-8 h-8 text-slate-400 mx-auto mb-3" />
-                      <p className="text-slate-600 font-medium">No materials calculated</p>
-                      <p className="text-sm text-slate-500 mt-1">Upload a floorplan and set the scale to generate a takeoff.</p>
+                    <div className="text-center py-12 bg-muted rounded-lg border border-dashed border-border">
+                      <Package className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-muted-foreground font-medium">No materials calculated</p>
+                      <p className="text-sm text-muted-foreground mt-1">Upload a floorplan and set the scale to generate a takeoff.</p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto border rounded-lg">
                       <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
+                        <thead className="text-xs text-muted-foreground uppercase bg-muted border-b">
                           <tr>
                             <th className="px-4 py-3">Item Description</th>
                             <th className="px-4 py-3 text-right">Quantity (+10% Waste)</th>
@@ -1453,16 +1501,21 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                             <th className="px-4 py-3 text-right">Ext. Price</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {materials.map((item, index) => (
-                            <tr key={index} className="hover:bg-slate-50 transition-colors">
-                              <td className="px-4 py-3 font-medium text-slate-900">{item.description}</td>
-                              <td className="px-4 py-3 text-right">{item.quantity}</td>
-                              <td className="px-4 py-3">{item.unit}</td>
-                              <td className="px-4 py-3 text-right">${item.price.toFixed(2)}</td>
-                              <td className="px-4 py-3 text-right font-medium text-slate-700">${(item.quantity * item.price).toFixed(2)}</td>
-                            </tr>
-                          ))}
+                        <tbody className="divide-y divide-border">
+                          {materials.map((item, index) => {
+                            const unitPrice = Number(item.price ?? 0);
+                            const quantity = Number(item.quantity ?? 0);
+
+                            return (
+                              <tr key={index} className="hover:bg-muted transition-colors">
+                                <td className="px-4 py-3 font-medium text-foreground">{item.description}</td>
+                                <td className="px-4 py-3 text-right">{quantity}</td>
+                                <td className="px-4 py-3">{item.unit}</td>
+                                <td className="px-4 py-3 text-right">${unitPrice.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right font-medium text-foreground">${(quantity * unitPrice).toFixed(2)}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1486,11 +1539,11 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
       {/* PDF Page Selection Modal */}
       {showPdfModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <div className="bg-background rounded-xl shadow-xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="p-4 border-b border-border flex justify-between items-center bg-muted">
               <div>
-                <h3 className="font-semibold text-slate-800 text-lg">Select Pages to Extract</h3>
-                <p className="text-sm text-slate-500">Choose which pages from the PDF you want to digitize.</p>
+                <h3 className="font-semibold text-foreground text-lg">Select Pages to Extract</h3>
+                <p className="text-sm text-muted-foreground">Choose which pages from the PDF you want to digitize.</p>
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="ghost" onClick={() => {
@@ -1503,9 +1556,9 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                 </Button>
               </div>
             </div>
-            <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
+            <div className="p-6 overflow-y-auto flex-1 bg-muted/50">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-medium text-slate-600">{pdfThumbnails.length} Pages Available</span>
+                <span className="text-sm font-medium text-muted-foreground">{pdfThumbnails.length} Pages Available</span>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setSelectedPdfPages(new Set(pdfThumbnails.map(t => t.index)))}>Select All</Button>
                   <Button variant="outline" size="sm" onClick={() => setSelectedPdfPages(new Set())}>Clear All</Button>
@@ -1523,17 +1576,17 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                         else newSet.add(thumb.index);
                         setSelectedPdfPages(newSet);
                       }}
-                      className={`relative cursor-pointer group rounded-lg overflow-hidden transition-all duration-200 border-2 ${isSelected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200 hover:border-slate-300'}`}
+                      className={`relative cursor-pointer group rounded-lg overflow-hidden transition-all duration-200 border-2 ${isSelected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-border hover:border-border'}`}
                     >
-                      <div className="aspect-[3/4] bg-white flex items-center justify-center p-2 relative">
+                      <div className="aspect-[3/4] bg-background flex items-center justify-center p-2 relative">
                         <img src={thumb.dataUrl} alt={`Page ${thumb.index}`} className={`max-w-full max-h-full object-contain ${isSelected ? 'opacity-100' : 'opacity-80 group-hover:opacity-100'}`} />
                         
                         {/* Selection indicator */}
-                        <div className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white/80 border-slate-300 text-transparent group-hover:border-slate-400'}`}>
+                        <div className={`absolute top-2 left-2 w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors ${isSelected ? 'bg-blue-500 border-blue-500 text-white' : 'bg-background/80 border-border text-transparent group-hover:border-slate-400'}`}>
                           <Check className="w-3 h-3" />
                         </div>
                       </div>
-                      <div className={`text-center py-2 text-xs font-medium ${isSelected ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                      <div className={`text-center py-2 text-xs font-medium ${isSelected ? 'bg-blue-50 text-blue-700' : 'bg-muted text-muted-foreground'}`}>
                         Page {thumb.index}
                       </div>
                     </div>

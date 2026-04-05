@@ -262,13 +262,13 @@ export function OpportunitySelector({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">
-                <span className="text-slate-500">No opportunity</span>
+                <span className="text-muted-foreground">No opportunity</span>
               </SelectItem>
               {opportunities.map((opp) => (
                 <SelectItem key={opp.id} value={opp.id}>
                   <div className="flex flex-col">
                     <span>{opp.title}</span>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-muted-foreground">
                       {opp.customer_name} • ${opp.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} • {opp.status}
                     </span>
                   </div>
@@ -280,11 +280,11 @@ export function OpportunitySelector({
       </div>
 
       {!customerId ? (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted-foreground">
           💡 Select a customer first to see their opportunities
         </p>
       ) : opportunities.length === 0 && !isLoading ? (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted-foreground">
           No open opportunities found for this customer. Create one to link this design.
         </p>
       ) : null}

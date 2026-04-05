@@ -35,7 +35,7 @@ export function KitchenMaterialsList({ materials, config }: KitchenMaterialsList
           </div>
           <div>
             <h2 className="text-xl font-semibold">Kitchen Materials List</h2>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               {config.roomWidth}' × {config.roomLength}' {config.layoutStyle} Kitchen
             </p>
           </div>
@@ -199,7 +199,7 @@ export function KitchenMaterialsList({ materials, config }: KitchenMaterialsList
         {materials.installation.length > 0 && (
           <div className="mb-6">
             <h3 className="font-semibold flex items-center gap-2 mb-3">
-              <Hammer className="h-5 w-5 text-gray-600" />
+              <Hammer className="h-5 w-5 text-muted-foreground" />
               Installation
             </h3>
             <Table>
@@ -222,7 +222,7 @@ export function KitchenMaterialsList({ materials, config }: KitchenMaterialsList
                     <TableCell className="text-right font-medium">{formatPrice(item.totalPrice)}</TableCell>
                   </TableRow>
                 ))}
-                <TableRow className="bg-gray-50">
+                <TableRow className="bg-muted">
                   <TableCell colSpan={4} className="font-semibold">Installation Subtotal</TableCell>
                   <TableCell className="text-right font-semibold">
                     ${calculateCategoryTotal(materials.installation).toFixed(2)}

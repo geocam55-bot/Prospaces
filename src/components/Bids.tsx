@@ -592,11 +592,11 @@ export function Bids({ user }: BidsProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b bg-white px-6 py-4">
+      <div className="border-b bg-background px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Deals & Quotes</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-2xl font-bold text-foreground">Deals & Quotes</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Manage your quotes, proposals, and deals
             </p>
           </div>
@@ -608,7 +608,7 @@ export function Bids({ user }: BidsProps) {
 
         <div className="flex items-center gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search quotes..."
               value={searchTerm}
@@ -640,7 +640,7 @@ export function Bids({ user }: BidsProps) {
           </Tabs>
         </div>
 
-        <div className="flex items-center gap-2 mt-3 text-sm text-gray-500">
+        <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
           <span>{filteredQuotes.length} quotes</span>
           <span>•</span>
           <span>Total Value: ${filteredQuotes.reduce((sum, q) => sum + q.total, 0).toLocaleString()}</span>
@@ -651,7 +651,7 @@ export function Bids({ user }: BidsProps) {
         {view === 'kanban' ? (
           <div className="h-full overflow-auto p-6">
             {filteredQuotes.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                 <FileText className="h-12 w-12 mb-4" />
                 <p className="text-lg font-medium">No bids found</p>
                 <p className="text-sm">Create your first quote to get started</p>
@@ -671,7 +671,7 @@ export function Bids({ user }: BidsProps) {
         ) : (
           <div className="p-6 overflow-auto">
             {filteredQuotes.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
                 <FileText className="h-12 w-12 mb-4" />
                 <p className="text-lg font-medium">No bids found</p>
                 <p className="text-sm">Create your first quote to get started</p>
@@ -694,7 +694,7 @@ export function Bids({ user }: BidsProps) {
                               {quote.status}
                             </Badge>
                           </div>
-                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <User className="h-3 w-3" />
                               {quote.contactName || 'No Contact'}
@@ -799,31 +799,31 @@ export function Bids({ user }: BidsProps) {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm text-gray-500">Contact</Label>
+                  <Label className="text-sm text-muted-foreground">Contact</Label>
                   <p className="font-medium">{previewQuote.contactName}</p>
                 </div>
                 <div>
-                  <Label className="text-sm text-gray-500">Total</Label>
+                  <Label className="text-sm text-muted-foreground">Total</Label>
                   <p className="font-medium">${previewQuote.total.toLocaleString()}</p>
                 </div>
                 <div>
-                  <Label className="text-sm text-gray-500">Status</Label>
+                  <Label className="text-sm text-muted-foreground">Status</Label>
                   <Badge>{previewQuote.status}</Badge>
                 </div>
                 <div>
-                  <Label className="text-sm text-gray-500">Valid Until</Label>
+                  <Label className="text-sm text-muted-foreground">Valid Until</Label>
                   <p className="font-medium">{previewQuote.validUntil && !isNaN(new Date(previewQuote.validUntil).getTime()) ? new Date(previewQuote.validUntil).toLocaleDateString() : ''}</p>
                 </div>
               </div>
               {previewQuote.notes && (
                 <div>
-                  <Label className="text-sm text-gray-500">Notes</Label>
+                  <Label className="text-sm text-muted-foreground">Notes</Label>
                   <p className="text-sm">{previewQuote.notes}</p>
                 </div>
               )}
               {previewQuote.terms && (
                 <div>
-                  <Label className="text-sm text-gray-500">Terms</Label>
+                  <Label className="text-sm text-muted-foreground">Terms</Label>
                   <p className="text-sm">{previewQuote.terms}</p>
                 </div>
               )}
@@ -837,7 +837,7 @@ export function Bids({ user }: BidsProps) {
 
       {/* Edit/Create Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="!max-w-none w-[98vw] h-[90vh] flex flex-col bg-white p-0 border-0 shadow-2xl">
+        <DialogContent className="!max-w-none w-[98vw] h-[90vh] flex flex-col bg-background p-0 border-0 shadow-2xl">
           <div className="p-6 border-b flex-shrink-0">
             <DialogHeader>
               <DialogTitle>{selectedQuote ? 'Edit Quote' : 'New Quote'}</DialogTitle>
@@ -958,7 +958,7 @@ export function Bids({ user }: BidsProps) {
             {/* Line Items Section */}
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-gray-900">Line Items</h3>
+                <h3 className="text-sm font-medium text-foreground">Line Items</h3>
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -983,21 +983,21 @@ export function Bids({ user }: BidsProps) {
               </div>
 
               {!(editFormData.lineItems && editFormData.lineItems.length > 0) ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <div className="text-center py-8 bg-muted rounded-lg">
                   <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm text-gray-500">No items added yet</p>
+                  <p className="text-sm text-muted-foreground">No items added yet</p>
                 </div>
               ) : (
                 <div className="border rounded-lg overflow-hidden">
                   <table className="w-full">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-muted">
                       <tr>
-                        <th className="text-left py-2 px-4 text-xs text-gray-600">SKU</th>
-                        <th className="text-left py-2 px-4 text-xs text-gray-600">Item Name</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Quote Qty</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Cost (Base)</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Tier {editFormData.priceTier || 1} Price</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Total</th>
+                        <th className="text-left py-2 px-4 text-xs text-muted-foreground">SKU</th>
+                        <th className="text-left py-2 px-4 text-xs text-muted-foreground">Item Name</th>
+                        <th className="text-right py-2 px-4 text-xs text-muted-foreground">Quote Qty</th>
+                        <th className="text-right py-2 px-4 text-xs text-muted-foreground">Cost (Base)</th>
+                        <th className="text-right py-2 px-4 text-xs text-muted-foreground">Tier {editFormData.priceTier || 1} Price</th>
+                        <th className="text-right py-2 px-4 text-xs text-muted-foreground">Total</th>
                         <th className="w-12"></th>
                       </tr>
                     </thead>
@@ -1036,27 +1036,27 @@ export function Bids({ user }: BidsProps) {
                         const baseCost = inventoryItem?.cost || item.cost || 0;
 
                         return (
-                        <tr key={item.id} className="border-t hover:bg-gray-50">
+                        <tr key={item.id} className="border-t hover:bg-muted">
                           <td className="py-2 px-4">
-                            <p className="text-sm font-mono text-gray-700">{displaySku || '-'}</p>
+                            <p className="text-sm font-mono text-foreground">{displaySku || '-'}</p>
                           </td>
                           <td className="py-2 px-4">
-                            <p className="text-sm text-gray-900">{displayName}</p>
+                            <p className="text-sm text-foreground">{displayName}</p>
                             {item.description && item.description !== displayName && (
-                              <p className="text-xs text-gray-500">{item.description}</p>
+                              <p className="text-xs text-muted-foreground">{item.description}</p>
                             )}
                           </td>
                           <td className="py-2 px-4 text-right">
-                            <p className="text-sm text-gray-900">{item.quantity || 1}</p>
+                            <p className="text-sm text-foreground">{item.quantity || 1}</p>
                           </td>
                           <td className="py-2 px-4 text-right">
-                            <p className="text-sm text-gray-900">${Number(baseCost || 0).toFixed(2)}</p>
+                            <p className="text-sm text-foreground">${Number(baseCost || 0).toFixed(2)}</p>
                           </td>
                           <td className="py-2 px-4 text-right">
-                            <p className="text-sm text-gray-900">${Number(tierPrice || 0).toFixed(2)}</p>
+                            <p className="text-sm text-foreground">${Number(tierPrice || 0).toFixed(2)}</p>
                           </td>
                           <td className="py-2 px-4 text-right">
-                            <p className="text-sm font-medium text-gray-900">${(item.total || 0).toFixed(2)}</p>
+                            <p className="text-sm font-medium text-foreground">${(item.total || 0).toFixed(2)}</p>
                           </td>
                           <td className="py-2 px-4">
                             <div className="flex gap-1">
@@ -1093,7 +1093,7 @@ export function Bids({ user }: BidsProps) {
             {/* Pricing */}
             {editFormData.lineItems && editFormData.lineItems.length > 0 && (
               <div className="space-y-4 pt-4 border-t">
-                <h3 className="text-sm font-medium text-gray-900">Pricing</h3>
+                <h3 className="text-sm font-medium text-foreground">Pricing</h3>
                 <div className="grid md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Bid Discount (%)</Label>
@@ -1133,17 +1133,17 @@ export function Bids({ user }: BidsProps) {
                     editFormData.taxPercent2 || 0
                   );
                   return (
-                    <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="bg-muted rounded-lg p-4">
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Subtotal:</span>
-                          <span className="text-gray-900">
+                          <span className="text-muted-foreground">Subtotal:</span>
+                          <span className="text-foreground">
                             ${editTotals.subtotal.toFixed(2)}
                           </span>
                         </div>
                         {(editFormData.discountPercent || 0) > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Discount ({editFormData.discountPercent}%):</span>
+                            <span className="text-muted-foreground">Discount ({editFormData.discountPercent}%):</span>
                             <span className="text-red-600">
                               -${editTotals.discountAmount.toFixed(2)}
                             </span>
@@ -1151,23 +1151,23 @@ export function Bids({ user }: BidsProps) {
                         )}
                         {(editFormData.taxPercent || 0) > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Tax 1 ({editFormData.taxPercent}%):</span>
-                            <span className="text-gray-900">
+                            <span className="text-muted-foreground">Tax 1 ({editFormData.taxPercent}%):</span>
+                            <span className="text-foreground">
                               ${editTotals.taxAmount.toFixed(2)}
                             </span>
                           </div>
                         )}
                         {(editFormData.taxPercent2 || 0) > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Tax 2 ({editFormData.taxPercent2}%):</span>
-                            <span className="text-gray-900">
+                            <span className="text-muted-foreground">Tax 2 ({editFormData.taxPercent2}%):</span>
+                            <span className="text-foreground">
                               ${editTotals.taxAmount2.toFixed(2)}
                             </span>
                           </div>
                         )}
-                        <div className="flex justify-between pt-2 border-t border-gray-300">
-                          <span className="text-gray-900 font-medium">Total:</span>
-                          <span className="text-xl font-bold text-gray-900">
+                        <div className="flex justify-between pt-2 border-t border-border">
+                          <span className="text-foreground font-medium">Total:</span>
+                          <span className="text-xl font-bold text-foreground">
                             ${editTotals.total.toFixed(2)}
                           </span>
                         </div>
@@ -1179,7 +1179,7 @@ export function Bids({ user }: BidsProps) {
             )}
           </div>
 
-          <div className="p-6 border-t flex-shrink-0 bg-gray-50">
+          <div className="p-6 border-t flex-shrink-0 bg-muted">
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleSave}>

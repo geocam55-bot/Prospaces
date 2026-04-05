@@ -35,7 +35,7 @@ export function PrintableRoofDesign({
           </div>
         )}
         {description && (
-          <p className="text-sm mt-2 text-gray-700">{description}</p>
+          <p className="text-sm mt-2 text-foreground">{description}</p>
         )}
         <p className="text-sm mt-2">
           <strong>Date:</strong> {new Date().toLocaleDateString()}
@@ -68,7 +68,7 @@ export function PrintableRoofDesign({
         </div>
         {/* L-Shaped Wing Details */}
         {config.style === 'l-shaped' && config.lShapeConfig && (
-          <div className="mt-3 text-sm border-t border-gray-200 pt-2">
+          <div className="mt-3 text-sm border-t border-border pt-2">
             <p className="font-bold mb-1">L-Shape Wing:</p>
             <p><strong>Wing Dimensions:</strong> {config.lShapeConfig.wingLength}' x {config.lShapeConfig.wingWidth}'</p>
             <p><strong>Wing Position:</strong> {config.lShapeConfig.wingPosition.replace('-', ' ')}</p>
@@ -77,7 +77,7 @@ export function PrintableRoofDesign({
         )}
         {/* T-Shaped Wing Details */}
         {config.style === 't-shaped' && config.tShapeConfig && (
-          <div className="mt-3 text-sm border-t border-gray-200 pt-2">
+          <div className="mt-3 text-sm border-t border-border pt-2">
             <p className="font-bold mb-1">T-Shape Wing:</p>
             <p><strong>Wing Dimensions:</strong> {config.tShapeConfig.wingLength}' x {config.tShapeConfig.wingWidth}'</p>
             <p><strong>Wing Side:</strong> {config.tShapeConfig.wingSide}</p>
@@ -86,7 +86,7 @@ export function PrintableRoofDesign({
         )}
         {/* U-Shaped Wing Details */}
         {config.style === 'u-shaped' && config.uShapeConfig && (
-          <div className="mt-3 text-sm border-t border-gray-200 pt-2">
+          <div className="mt-3 text-sm border-t border-border pt-2">
             <p className="font-bold mb-1">U-Shape Wings (x2):</p>
             <p><strong>Wing Dimensions:</strong> {config.uShapeConfig.wingLength}' x {config.uShapeConfig.wingWidth}' each</p>
             <p><strong>Wing Side:</strong> {config.uShapeConfig.wingSide}</p>
@@ -95,28 +95,28 @@ export function PrintableRoofDesign({
         )}
         {/* Dormer Details */}
         {config.hasDormers && config.dormers && config.dormers.length > 0 && (
-          <div className="mt-3 text-sm border-t border-gray-200 pt-2">
+          <div className="mt-3 text-sm border-t border-border pt-2">
             <p className="font-bold mb-1">Dormers ({config.dormers.length}):</p>
             <table className="w-full text-xs border-collapse mt-1">
               <thead>
-                <tr className="bg-gray-50">
-                  <th className="border border-gray-300 p-1 text-left">#</th>
-                  <th className="border border-gray-300 p-1 text-left">Style</th>
-                  <th className="border border-gray-300 p-1 text-left">Size (W x H x D)</th>
-                  <th className="border border-gray-300 p-1 text-left">Position</th>
-                  <th className="border border-gray-300 p-1 text-left">Side</th>
-                  <th className="border border-gray-300 p-1 text-left">Window</th>
+                <tr className="bg-muted">
+                  <th className="border border-border p-1 text-left">#</th>
+                  <th className="border border-border p-1 text-left">Style</th>
+                  <th className="border border-border p-1 text-left">Size (W x H x D)</th>
+                  <th className="border border-border p-1 text-left">Position</th>
+                  <th className="border border-border p-1 text-left">Side</th>
+                  <th className="border border-border p-1 text-left">Window</th>
                 </tr>
               </thead>
               <tbody>
                 {config.dormers.map((d, i) => (
                   <tr key={d.id}>
-                    <td className="border border-gray-300 p-1">{i + 1}</td>
-                    <td className="border border-gray-300 p-1 capitalize">{d.style}</td>
-                    <td className="border border-gray-300 p-1">{d.width}' x {d.height}' x {d.depth}'</td>
-                    <td className="border border-gray-300 p-1 capitalize">{d.horizontalPosition}</td>
-                    <td className="border border-gray-300 p-1 capitalize">{d.side}</td>
-                    <td className="border border-gray-300 p-1">{d.hasWindow ? 'Yes' : 'No'}</td>
+                    <td className="border border-border p-1">{i + 1}</td>
+                    <td className="border border-border p-1 capitalize">{d.style}</td>
+                    <td className="border border-border p-1">{d.width}' x {d.height}' x {d.depth}'</td>
+                    <td className="border border-border p-1 capitalize">{d.horizontalPosition}</td>
+                    <td className="border border-border p-1 capitalize">{d.side}</td>
+                    <td className="border border-border p-1">{d.hasWindow ? 'Yes' : 'No'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -142,20 +142,20 @@ export function PrintableRoofDesign({
             <h3 className="font-bold text-sm mb-2">1. ROOF DECK</h3>
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 p-1 text-left">Description</th>
-                  <th className="border border-gray-300 p-1 text-right">Qty</th>
-                  <th className="border border-gray-300 p-1 text-left">Unit</th>
-                  {totalCost ? <th className="border border-gray-300 p-1 text-right">Cost</th> : null}
+                <tr className="bg-muted">
+                  <th className="border border-border p-1 text-left">Description</th>
+                  <th className="border border-border p-1 text-right">Qty</th>
+                  <th className="border border-border p-1 text-left">Unit</th>
+                  {totalCost ? <th className="border border-border p-1 text-right">Cost</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {materials.roofDeck.map((item, idx) => (
                   <tr key={idx}>
-                    <td className="border border-gray-300 p-1">{item.description}</td>
-                    <td className="border border-gray-300 p-1 text-right">{item.quantity}</td>
-                    <td className="border border-gray-300 p-1">{item.unit}</td>
-                    {totalCost ? <td className="border border-gray-300 p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
+                    <td className="border border-border p-1">{item.description}</td>
+                    <td className="border border-border p-1 text-right">{item.quantity}</td>
+                    <td className="border border-border p-1">{item.unit}</td>
+                    {totalCost ? <td className="border border-border p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
                   </tr>
                 ))}
               </tbody>
@@ -169,20 +169,20 @@ export function PrintableRoofDesign({
             <h3 className="font-bold text-sm mb-2">2. UNDERLAYMENT</h3>
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 p-1 text-left">Description</th>
-                  <th className="border border-gray-300 p-1 text-right">Qty</th>
-                  <th className="border border-gray-300 p-1 text-left">Unit</th>
-                  {totalCost ? <th className="border border-gray-300 p-1 text-right">Cost</th> : null}
+                <tr className="bg-muted">
+                  <th className="border border-border p-1 text-left">Description</th>
+                  <th className="border border-border p-1 text-right">Qty</th>
+                  <th className="border border-border p-1 text-left">Unit</th>
+                  {totalCost ? <th className="border border-border p-1 text-right">Cost</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {materials.underlayment.map((item, idx) => (
                   <tr key={idx}>
-                    <td className="border border-gray-300 p-1">{item.description}</td>
-                    <td className="border border-gray-300 p-1 text-right">{item.quantity}</td>
-                    <td className="border border-gray-300 p-1">{item.unit}</td>
-                    {totalCost ? <td className="border border-gray-300 p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
+                    <td className="border border-border p-1">{item.description}</td>
+                    <td className="border border-border p-1 text-right">{item.quantity}</td>
+                    <td className="border border-border p-1">{item.unit}</td>
+                    {totalCost ? <td className="border border-border p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
                   </tr>
                 ))}
               </tbody>
@@ -196,20 +196,20 @@ export function PrintableRoofDesign({
             <h3 className="font-bold text-sm mb-2">3. SHINGLES</h3>
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 p-1 text-left">Description</th>
-                  <th className="border border-gray-300 p-1 text-right">Qty</th>
-                  <th className="border border-gray-300 p-1 text-left">Unit</th>
-                  {totalCost ? <th className="border border-gray-300 p-1 text-right">Cost</th> : null}
+                <tr className="bg-muted">
+                  <th className="border border-border p-1 text-left">Description</th>
+                  <th className="border border-border p-1 text-right">Qty</th>
+                  <th className="border border-border p-1 text-left">Unit</th>
+                  {totalCost ? <th className="border border-border p-1 text-right">Cost</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {materials.shingles.map((item, idx) => (
                   <tr key={idx}>
-                    <td className="border border-gray-300 p-1">{item.description}</td>
-                    <td className="border border-gray-300 p-1 text-right">{item.quantity}</td>
-                    <td className="border border-gray-300 p-1">{item.unit}</td>
-                    {totalCost ? <td className="border border-gray-300 p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
+                    <td className="border border-border p-1">{item.description}</td>
+                    <td className="border border-border p-1 text-right">{item.quantity}</td>
+                    <td className="border border-border p-1">{item.unit}</td>
+                    {totalCost ? <td className="border border-border p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
                   </tr>
                 ))}
               </tbody>
@@ -223,20 +223,20 @@ export function PrintableRoofDesign({
             <h3 className="font-bold text-sm mb-2">4. RIDGE & HIP</h3>
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 p-1 text-left">Description</th>
-                  <th className="border border-gray-300 p-1 text-right">Qty</th>
-                  <th className="border border-gray-300 p-1 text-left">Unit</th>
-                  {totalCost ? <th className="border border-gray-300 p-1 text-right">Cost</th> : null}
+                <tr className="bg-muted">
+                  <th className="border border-border p-1 text-left">Description</th>
+                  <th className="border border-border p-1 text-right">Qty</th>
+                  <th className="border border-border p-1 text-left">Unit</th>
+                  {totalCost ? <th className="border border-border p-1 text-right">Cost</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {materials.ridgeAndHip.map((item, idx) => (
                   <tr key={idx}>
-                    <td className="border border-gray-300 p-1">{item.description}</td>
-                    <td className="border border-gray-300 p-1 text-right">{item.quantity}</td>
-                    <td className="border border-gray-300 p-1">{item.unit}</td>
-                    {totalCost ? <td className="border border-gray-300 p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
+                    <td className="border border-border p-1">{item.description}</td>
+                    <td className="border border-border p-1 text-right">{item.quantity}</td>
+                    <td className="border border-border p-1">{item.unit}</td>
+                    {totalCost ? <td className="border border-border p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
                   </tr>
                 ))}
               </tbody>
@@ -250,20 +250,20 @@ export function PrintableRoofDesign({
             <h3 className="font-bold text-sm mb-2">5. FLASHING</h3>
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 p-1 text-left">Description</th>
-                  <th className="border border-gray-300 p-1 text-right">Qty</th>
-                  <th className="border border-gray-300 p-1 text-left">Unit</th>
-                  {totalCost ? <th className="border border-gray-300 p-1 text-right">Cost</th> : null}
+                <tr className="bg-muted">
+                  <th className="border border-border p-1 text-left">Description</th>
+                  <th className="border border-border p-1 text-right">Qty</th>
+                  <th className="border border-border p-1 text-left">Unit</th>
+                  {totalCost ? <th className="border border-border p-1 text-right">Cost</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {materials.flashing.map((item, idx) => (
                   <tr key={idx}>
-                    <td className="border border-gray-300 p-1">{item.description}</td>
-                    <td className="border border-gray-300 p-1 text-right">{item.quantity}</td>
-                    <td className="border border-gray-300 p-1">{item.unit}</td>
-                    {totalCost ? <td className="border border-gray-300 p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
+                    <td className="border border-border p-1">{item.description}</td>
+                    <td className="border border-border p-1 text-right">{item.quantity}</td>
+                    <td className="border border-border p-1">{item.unit}</td>
+                    {totalCost ? <td className="border border-border p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
                   </tr>
                 ))}
               </tbody>
@@ -277,20 +277,20 @@ export function PrintableRoofDesign({
             <h3 className="font-bold text-sm mb-2">6. VENTILATION</h3>
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 p-1 text-left">Description</th>
-                  <th className="border border-gray-300 p-1 text-right">Qty</th>
-                  <th className="border border-gray-300 p-1 text-left">Unit</th>
-                  {totalCost ? <th className="border border-gray-300 p-1 text-right">Cost</th> : null}
+                <tr className="bg-muted">
+                  <th className="border border-border p-1 text-left">Description</th>
+                  <th className="border border-border p-1 text-right">Qty</th>
+                  <th className="border border-border p-1 text-left">Unit</th>
+                  {totalCost ? <th className="border border-border p-1 text-right">Cost</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {materials.ventilation.map((item, idx) => (
                   <tr key={idx}>
-                    <td className="border border-gray-300 p-1">{item.description}</td>
-                    <td className="border border-gray-300 p-1 text-right">{item.quantity}</td>
-                    <td className="border border-gray-300 p-1">{item.unit}</td>
-                    {totalCost ? <td className="border border-gray-300 p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
+                    <td className="border border-border p-1">{item.description}</td>
+                    <td className="border border-border p-1 text-right">{item.quantity}</td>
+                    <td className="border border-border p-1">{item.unit}</td>
+                    {totalCost ? <td className="border border-border p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
                   </tr>
                 ))}
               </tbody>
@@ -304,20 +304,20 @@ export function PrintableRoofDesign({
             <h3 className="font-bold text-sm mb-2">7. HARDWARE & ACCESSORIES</h3>
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 p-1 text-left">Description</th>
-                  <th className="border border-gray-300 p-1 text-right">Qty</th>
-                  <th className="border border-gray-300 p-1 text-left">Unit</th>
-                  {totalCost ? <th className="border border-gray-300 p-1 text-right">Cost</th> : null}
+                <tr className="bg-muted">
+                  <th className="border border-border p-1 text-left">Description</th>
+                  <th className="border border-border p-1 text-right">Qty</th>
+                  <th className="border border-border p-1 text-left">Unit</th>
+                  {totalCost ? <th className="border border-border p-1 text-right">Cost</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {materials.hardware.map((item, idx) => (
                   <tr key={idx}>
-                    <td className="border border-gray-300 p-1">{item.description}</td>
-                    <td className="border border-gray-300 p-1 text-right">{item.quantity}</td>
-                    <td className="border border-gray-300 p-1">{item.unit}</td>
-                    {totalCost ? <td className="border border-gray-300 p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
+                    <td className="border border-border p-1">{item.description}</td>
+                    <td className="border border-border p-1 text-right">{item.quantity}</td>
+                    <td className="border border-border p-1">{item.unit}</td>
+                    {totalCost ? <td className="border border-border p-1 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '-'}</td> : null}
                   </tr>
                 ))}
               </tbody>
@@ -337,9 +337,9 @@ export function PrintableRoofDesign({
       )}
 
       {/* Footer Notes */}
-      <div className="mt-6 border-t border-gray-300 pt-4 text-xs">
+      <div className="mt-6 border-t border-border pt-4 text-xs">
         <p className="font-bold mb-2">IMPORTANT NOTES:</p>
-        <ul className="list-disc list-inside space-y-1 text-gray-700">
+        <ul className="list-disc list-inside space-y-1 text-foreground">
           <li>This is an estimate only. Verify all measurements before ordering materials.</li>
           <li>Additional materials may be needed for complex roof designs or repairs.</li>
           <li>Check local building codes for specific requirements and permits.</li>
@@ -347,7 +347,7 @@ export function PrintableRoofDesign({
           <li>Prices subject to change. Confirm costs with supplier before ordering.</li>
           <li>Waste factor of {(config.wasteFactor * 100).toFixed(0)}% has been included in calculations.</li>
         </ul>
-        <p className="mt-4 text-center text-gray-600">
+        <p className="mt-4 text-center text-muted-foreground">
           Generated by Roof Planner • For estimation purposes only
         </p>
       </div>

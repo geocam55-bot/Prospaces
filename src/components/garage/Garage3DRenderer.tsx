@@ -47,6 +47,31 @@ function addEdgeOutline(scene: Scene, geometry: BufferGeometry, mesh: Mesh, colo
   scene.add(wireframe);
 }
 
+type RoofPoint = [number, number, number];
+
+function createRoofQuadGeometry(a: RoofPoint, b: RoofPoint, c: RoofPoint, d: RoofPoint): BufferGeometry {
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array([
+    ...a,
+    ...b,
+    ...c,
+    ...a,
+    ...c,
+    ...d,
+  ]), 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function addRoofSurface(scene: Scene, geometry: BufferGeometry, material: MeshStandardMaterial, color = 0x222222) {
+  const mesh = new Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  addEdgeOutline(scene, geometry, mesh, color);
+  return mesh;
+}
+
 export function Garage3DRenderer({ config }: Garage3DRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<{
@@ -201,39 +226,48 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
     const roofMaterial = new MeshStandardMaterial({ 
       map: roofTexture,
       roughness: config.roofingMaterial === 'metal' ? 0.25 : 0.95,
-      metalness: config.roofingMaterial === 'metal' ? 0.6 : 0.0
+      metalness: config.roofingMaterial === 'metal' ? 0.6 : 0.0,
+      side: DoubleSide
     });
 
     if (config.roofStyle === 'gable') {
-      // Left roof slope
-      const roofLength = Math.sqrt(Math.pow(garageWidth / 2, 2) + Math.pow(roofRise, 2));
-      const roofAngle = Math.atan2(roofRise, garageWidth / 2);
-      
-      const leftRoofGeometry = new BoxGeometry(roofLength + 0.3, 0.1, garageLength + 0.6);
-      const leftRoof = new Mesh(leftRoofGeometry, roofMaterial);
-      leftRoof.position.set(
-        -garageWidth / 4,
-        wallHeight + 0.2 + roofRise / 2,
-        0
-      );
-      leftRoof.rotation.z = roofAngle;
-      leftRoof.castShadow = true;
-      leftRoof.receiveShadow = true;
-      scene.add(leftRoof);
-      addEdgeOutline(scene, leftRoofGeometry, leftRoof, 0x222222);
+      const roofBaseY = wallHeight + 0.2;
+      const ridgeY = roofBaseY + roofRise;
+      const sideOverhang = 0.18;
+      const endOverhang = 0.3;
+      const zFront = garageLength / 2 + endOverhang;
+      const zBack = -garageLength / 2 - endOverhang;
 
-      // Right roof slope
-      const rightRoof = new Mesh(leftRoofGeometry, roofMaterial);
-      rightRoof.position.set(
-        garageWidth / 4,
-        wallHeight + 0.2 + roofRise / 2,
-        0
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [-garageWidth / 2 - sideOverhang, roofBaseY, zFront],
+          [0, ridgeY, zFront],
+          [0, ridgeY, zBack],
+          [-garageWidth / 2 - sideOverhang, roofBaseY, zBack],
+        ),
+        roofMaterial,
       );
-      rightRoof.rotation.z = -roofAngle;
-      rightRoof.castShadow = true;
-      rightRoof.receiveShadow = true;
-      scene.add(rightRoof);
-      addEdgeOutline(scene, leftRoofGeometry, rightRoof, 0x222222);
+
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [0, ridgeY, zFront],
+          [garageWidth / 2 + sideOverhang, roofBaseY, zFront],
+          [garageWidth / 2 + sideOverhang, roofBaseY, zBack],
+          [0, ridgeY, zBack],
+        ),
+        roofMaterial,
+      );
+
+      const ridgeCap = new Mesh(
+        new BoxGeometry(0.12, 0.08, garageLength + endOverhang * 2 + 0.04),
+        roofMaterial
+      );
+      ridgeCap.position.set(0, ridgeY + 0.04, 0);
+      ridgeCap.castShadow = true;
+      ridgeCap.receiveShadow = true;
+      scene.add(ridgeCap);
 
       // Gable end walls
       const gableGeometry = new BufferGeometry();
@@ -638,32 +672,32 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
   return (
     <div className="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-200 rounded-lg overflow-hidden relative">
       {/* Instructions overlay */}
-      <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
-        <div className="font-semibold text-slate-900 mb-1">🎮 3D Controls:</div>
-        <div className="space-y-0.5 text-slate-700">
+      <div className="absolute top-4 left-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
+        <div className="font-semibold text-foreground mb-1">🎮 3D Controls:</div>
+        <div className="space-y-0.5 text-foreground">
           <div>🖱️ <strong>Rotate:</strong> Click + drag / Swipe</div>
           <div>🔍 <strong>Zoom:</strong> Scroll / Pinch</div>
         </div>
       </div>
 
       {/* Stats overlay */}
-      <div className="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
+      <div className="absolute top-4 right-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <div className="text-xs text-slate-600">Size</div>
-            <div className="font-bold text-slate-900">{config.width}' × {config.length}'</div>
+            <div className="text-xs text-muted-foreground">Size</div>
+            <div className="font-bold text-foreground">{config.width}' × {config.length}'</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Bays</div>
-            <div className="font-bold text-slate-900">{config.bays}</div>
+            <div className="text-xs text-muted-foreground">Bays</div>
+            <div className="font-bold text-foreground">{config.bays}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Roof</div>
-            <div className="font-bold text-slate-900">{config.roofStyle}</div>
+            <div className="text-xs text-muted-foreground">Roof</div>
+            <div className="font-bold text-foreground">{config.roofStyle}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Doors</div>
-            <div className="font-bold text-slate-900">{config.doors.length}</div>
+            <div className="text-xs text-muted-foreground">Doors</div>
+            <div className="font-bold text-foreground">{config.doors.length}</div>
           </div>
         </div>
       </div>

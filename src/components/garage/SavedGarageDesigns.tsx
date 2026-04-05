@@ -231,7 +231,7 @@ export function SavedGarageDesigns({
             {isSaving ? 'Saving...' : 'Save Design'}
           </Button>
           
-          <div className="text-xs text-slate-500 space-y-1">
+          <div className="text-xs text-muted-foreground space-y-1">
             <p>• Designs are saved to your organization's database</p>
             <p>• Current: {currentConfig.width}' × {currentConfig.length}' {currentConfig.bays}-bay garage</p>
             <p>• Estimated Cost: ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -249,11 +249,11 @@ export function SavedGarageDesigns({
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-slate-500">
+            <div className="text-center py-8 text-muted-foreground">
               Loading designs...
             </div>
           ) : designs.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">
+            <div className="text-center py-8 text-muted-foreground">
               <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>No saved designs yet</p>
               <p className="text-sm mt-1">Save your first design above to get started</p>
@@ -263,30 +263,30 @@ export function SavedGarageDesigns({
               {designs.map((design) => (
                 <div
                   key={design.id}
-                  className="border border-slate-200 rounded-lg p-4 hover:border-green-300 hover:bg-green-50/50 transition-colors"
+                  className="border border-border rounded-lg p-4 hover:border-green-300 hover:bg-green-50/50 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <h3 className="font-medium text-slate-900">{design.name}</h3>
+                      <h3 className="font-medium text-foreground">{design.name}</h3>
                       {design.description && (
-                        <p className="text-sm text-slate-600 mt-1">{design.description}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{design.description}</p>
                       )}
-                      <div className="text-sm text-slate-600 mt-2">
+                      <div className="text-sm text-muted-foreground mt-2">
                         {design.config.width}' × {design.config.length}' • {design.config.bays}-bay • {design.config.roofStyle} roof
                       </div>
                       {design.customer_name && (
-                        <div className="flex items-center gap-2 mt-2 text-sm text-slate-700">
+                        <div className="flex items-center gap-2 mt-2 text-sm text-foreground">
                           <User className="w-3 h-3" />
                           <span>{design.customer_name}</span>
                           {design.customer_company && (
-                            <span className="text-slate-500">({design.customer_company})</span>
+                            <span className="text-muted-foreground">({design.customer_company})</span>
                           )}
                           <span className="text-green-600 ml-2">
                             {design.price_tier.toUpperCase()}
                           </span>
                         </div>
                       )}
-                      <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                         <span>Saved {new Date(design.created_at).toLocaleDateString()}</span>
                         <span>•</span>
                         <span className="text-green-600">${design.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

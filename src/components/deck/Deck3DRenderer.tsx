@@ -1306,42 +1306,42 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
   ]);
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-sky-100 to-blue-200 rounded-lg overflow-hidden relative print:h-[600px] print:bg-white print:border-2 print:border-black print:rounded-none select-none touch-none">
+    <div className="w-full h-full bg-gradient-to-br from-sky-100 to-blue-200 rounded-lg overflow-hidden relative print:h-[600px] print:bg-background print:border-2 print:border-black print:rounded-none select-none touch-none">
       {/* Instructions overlay */}
-      <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm print:hidden">
-        <div className="font-semibold text-slate-900 mb-1">🎮 3D Controls:</div>
-        <div className="space-y-0.5 text-slate-700">
+      <div className="absolute top-4 left-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm print:hidden">
+        <div className="font-semibold text-foreground mb-1">🎮 3D Controls:</div>
+        <div className="space-y-0.5 text-foreground">
           <div>🖱️/👆 <strong>Rotate:</strong> Click + drag / 1-finger swipe</div>
           <div>🔍/✌️ <strong>Zoom:</strong> Scroll wheel / 2-finger pinch</div>
         </div>
       </div>
 
       {/* Stats overlay */}
-      <div className="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 print:hidden">
+      <div className="absolute top-4 right-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3 print:hidden">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <div className="text-xs text-slate-600">Size</div>
-            <div className="font-bold text-slate-900">{config.width}' × {config.length}'</div>
+            <div className="text-xs text-muted-foreground">Size</div>
+            <div className="font-bold text-foreground">{config.width}' × {config.length}'</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Height</div>
-            <div className="font-bold text-slate-900">{config.height || 2}'</div>
+            <div className="text-xs text-muted-foreground">Height</div>
+            <div className="font-bold text-foreground">{config.height || 2}'</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Railings</div>
-            <div className="font-bold text-slate-900">{config.railingSides.length} sides</div>
+            <div className="text-xs text-muted-foreground">Railings</div>
+            <div className="font-bold text-foreground">{config.railingSides.length} sides</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Stairs</div>
-            <div className="font-bold text-slate-900">{config.hasStairs ? 'Yes' : 'No'}</div>
+            <div className="text-xs text-muted-foreground">Stairs</div>
+            <div className="font-bold text-foreground">{config.hasStairs ? 'Yes' : 'No'}</div>
           </div>
         </div>
-        <div className="mt-3 pt-3 border-t border-slate-200">
-          <div className="text-xs text-slate-600 mb-1">Post Size</div>
-          <div className="text-xs font-medium text-slate-900">
+        <div className="mt-3 pt-3 border-t border-border">
+          <div className="text-xs text-muted-foreground mb-1">Post Size</div>
+          <div className="text-xs font-medium text-foreground">
             {config.height && config.height > 2 ? '5.5" × 5.5"' : '3.5" × 3.5"'}
           </div>
-          <div className="text-xs text-slate-500 mt-1">
+          <div className="text-xs text-muted-foreground mt-1">
             Per BCBC 9.17.4.1
           </div>
         </div>

@@ -607,7 +607,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
           <CardContent className="pt-6">
             <Alert className="bg-gradient-to-br from-blue-50 to-purple-50 border-purple-200 mb-6">
               <Info className="h-4 w-4 text-purple-600" />
-              <AlertDescription className="text-xs text-gray-700">
+              <AlertDescription className="text-xs text-foreground">
                 <strong>Sign Up:</strong> New user registration requires an invitation code. Contact your organization administrator to receive an invitation.
               </AlertDescription>
             </Alert>
@@ -690,7 +690,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
                       {isResetLoading ? 'Sending reset link...' : 'Forgot password?'}
                     </Button>
                     {!email && (
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Enter your email address above first
                       </p>
                     )}
@@ -708,7 +708,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
                         {isResendingEmail ? 'Sending...' : '📧 Resend Confirmation Email'}
                       </Button>
                       {!email && (
-                        <p className="text-xs text-gray-500 mt-1 text-center">
+                        <p className="text-xs text-muted-foreground mt-1 text-center">
                           Please enter your email address first
                         </p>
                       )}
@@ -752,7 +752,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
                       required
                       minLength={6}
                     />
-                    <p className="text-xs text-gray-500">At least 6 characters</p>
+                    <p className="text-xs text-muted-foreground">At least 6 characters</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-invitation">Invitation Code</Label>
@@ -782,7 +782,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
 
                 <Alert className="mt-4 bg-gradient-to-br from-blue-50 to-purple-50 border-purple-200">
                   <Info className="h-4 w-4 text-purple-600" />
-                  <AlertDescription className="text-xs text-gray-700">
+                  <AlertDescription className="text-xs text-foreground">
                     <strong>Note:</strong> If you see a rate limiting error, please wait 30 seconds before trying again. If you get an "email already registered" error, use the Sign In tab instead.
                   </AlertDescription>
                 </Alert>

@@ -410,7 +410,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
       case 'failed':
         return <Badge className="bg-red-100 text-red-700 border-red-200">Failed</Badge>;
       case 'cancelled':
-        return <Badge className="bg-gray-100 text-gray-700 border-gray-200">Cancelled</Badge>;
+        return <Badge className="bg-muted text-foreground border-border">Cancelled</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -452,8 +452,8 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
             </Button>
           )}
           <div>
-            <h2 className="text-2xl text-gray-900">Scheduled Jobs</h2>
-            <p className="text-sm text-gray-600">View and manage scheduled import/export jobs</p>
+            <h2 className="text-2xl text-foreground">Scheduled Jobs</h2>
+            <p className="text-sm text-muted-foreground">View and manage scheduled import/export jobs</p>
           </div>
         </div>
         <Button variant="outline" onClick={loadJobs} disabled={isLoading}>
@@ -485,7 +485,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
             {pendingJobs.map((job) => (
               <div
                 key={job.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted"
               >
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
@@ -495,18 +495,18 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
                     </span>
                     {getStatusBadge(job.status)}
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <CalendarIcon className="h-3 w-3" />
                       Scheduled: {formatDateTime(job.scheduled_time)}
                     </span>
                     {job.file_name && (
-                      <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                      <span className="text-xs bg-muted px-2 py-1 rounded">
                         {job.file_name}
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Created by {job.creator_name || 'Unknown'} on {formatDateTime(job.created_at)}
                   </p>
                 </div>
@@ -539,7 +539,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           {completedJobs.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <History className="h-12 w-12 mx-auto mb-2 opacity-20" />
               <p>No job history yet</p>
             </div>
@@ -558,7 +558,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
                       </span>
                       {getStatusBadge(job.status)}
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         {job.status === 'completed' ? (
                           <CheckCircle className="h-3 w-3 text-green-600" />
@@ -568,7 +568,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
                         {job.completed_at ? formatDateTime(job.completed_at) : 'Not completed'}
                       </span>
                       {job.record_count && (
-                        <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                        <span className="text-xs bg-muted px-2 py-1 rounded">
                           {job.record_count} records
                         </span>
                       )}
@@ -578,7 +578,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
                         Error: {job.error_message}
                       </p>
                     )}
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Scheduled for {formatDateTime(job.scheduled_time)}
                     </p>
                   </div>
@@ -588,7 +588,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
                     onClick={() => deleteJob(job.id)}
                     disabled={isProcessing}
                   >
-                    <Trash2 className="h-4 w-4 text-gray-400" />
+                    <Trash2 className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </div>
               ))}

@@ -21,6 +21,8 @@
   ],
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/inventory.html", "destination": "/inventory.html" },
+    { "source": "/it.html", "destination": "/it.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

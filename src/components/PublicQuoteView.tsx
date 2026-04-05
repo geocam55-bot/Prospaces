@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, AlertCircle, Printer, Download, Mail, CheckCircle2 } from 'lucide-react';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { publicAnonKey } from '../utils/supabase/info';
+import { buildServerFunctionUrl } from '../utils/server-function-url';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from './ui/card';
 import { toast } from 'sonner@2.0.3';
@@ -32,7 +33,7 @@ export function PublicQuoteView() {
       }
 
       try {
-        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/view?id=${encodeURIComponent(id)}&orgId=${encodeURIComponent(orgId)}&type=${encodeURIComponent(type)}`, {
+        const response = await fetch(buildServerFunctionUrl(`/public/view?id=${encodeURIComponent(id)}&orgId=${encodeURIComponent(orgId)}&type=${encodeURIComponent(type)}`), {
             headers: {
                 'Authorization': `Bearer ${publicAnonKey}`
             }
@@ -69,16 +70,16 @@ export function PublicQuoteView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-muted">
         <Loader2 className="h-10 w-10 animate-spin text-blue-600 mb-4" />
-        <p className="text-slate-600">Loading document...</p>
+        <p className="text-muted-foreground">Loading document...</p>
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-muted p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="mx-auto bg-red-100 p-3 rounded-full w-fit mb-4">
@@ -106,7 +107,7 @@ export function PublicQuoteView() {
       const type = params.get('type') || 'quote';
       const campaignId = params.get('campaignId');
 
-      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/accept`, {
+      const response = await fetch(buildServerFunctionUrl('/public/accept'), {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${publicAnonKey}`,
@@ -138,18 +139,18 @@ export function PublicQuoteView() {
 
   if (showThankYou) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 print:bg-white print:p-0">
+      <div className="min-h-screen bg-muted flex items-center justify-center p-4 print:bg-background print:p-0">
         <Card className="w-full max-w-md shadow-lg border-t-4 border-t-green-500 text-center py-8">
           <CardHeader className="pb-4">
             <div className="mx-auto bg-green-100 p-4 rounded-full w-fit mb-6">
               <CheckCircle2 className="h-10 w-10 text-green-600" />
             </div>
-            <CardTitle className="text-3xl font-bold text-slate-900 mb-2">Thank You!</CardTitle>
-            <CardDescription className="text-base text-slate-600">
+            <CardTitle className="text-3xl font-bold text-foreground mb-2">Thank You!</CardTitle>
+            <CardDescription className="text-base text-muted-foreground">
               Your acceptance has been confirmed and our team has been notified.
             </CardDescription>
           </CardHeader>
-          <CardContent className="text-slate-600">
+          <CardContent className="text-muted-foreground">
             <p>We're thrilled to move forward with your project. You will receive a follow-up email shortly with the next steps.</p>
           </CardContent>
           <CardFooter className="justify-center pt-6">
@@ -189,7 +190,7 @@ export function PublicQuoteView() {
   const projectName = data.projectName || data.project_name;
 
   return (
-    <div className="min-h-screen bg-slate-100 py-8 px-4 sm:px-6 lg:px-8 print:bg-white print:p-0">
+    <div className="min-h-screen bg-muted py-8 px-4 sm:px-6 lg:px-8 print:bg-background print:p-0">
       <div className="max-w-4xl mx-auto print:max-w-none">
         
         {/* Actions Bar - Hidden on Print */}
@@ -202,7 +203,7 @@ export function PublicQuoteView() {
                  {organizationName.charAt(0)}
                </div>
              )}
-             <span className="font-bold text-slate-700">{organizationName}</span>
+             <span className="font-bold text-foreground">{organizationName}</span>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => window.print()}>
@@ -217,27 +218,27 @@ export function PublicQuoteView() {
         </div>
 
         <Card className="shadow-lg border-t-4 border-t-purple-600 print:shadow-none print:border-0">
-          <CardHeader className="bg-slate-50 border-b print:bg-white print:border-b-2">
+          <CardHeader className="bg-muted border-b print:bg-background print:border-b-2">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
                     {orgSettings?.logo_url ? (
-                      <img src={orgSettings.logo_url} alt="Company Logo" className="h-16 w-16 object-contain rounded-xl bg-white" />
+                      <img src={orgSettings.logo_url} alt="Company Logo" className="h-16 w-16 object-contain rounded-xl bg-background" />
                     ) : (
                       <div className="h-16 w-16 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-2xl">
                         {organizationName.charAt(0)}
                       </div>
                     )}
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
-                        <p className="text-sm text-slate-500 mt-1">
+                        <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+                        <p className="text-sm text-muted-foreground mt-1">
                             Issued: {new Date(data.created_at || data.createdAt).toLocaleDateString()}
                         </p>
                     </div>
                 </div>
                 <div className="text-right">
-                    <div className="text-sm text-slate-500 uppercase tracking-wider font-semibold">Total Amount</div>
+                    <div className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Total Amount</div>
                     <div className="text-3xl font-bold text-purple-600">{formatCurrency(totalAmount)}</div>
-                    <div className="text-xs text-slate-400 mt-1">{data.status === 'accepted' ? 'Paid / Accepted' : 'Valid until ' + new Date(validUntil).toLocaleDateString()}</div>
+                    <div className="text-xs text-muted-foreground mt-1">{data.status === 'accepted' ? 'Paid / Accepted' : 'Valid until ' + new Date(validUntil).toLocaleDateString()}</div>
                 </div>
             </div>
           </CardHeader>
@@ -245,14 +246,14 @@ export function PublicQuoteView() {
             {/* Header / Meta Info */}
             <div className="grid grid-cols-2 gap-8 p-8 print:p-6">
                 <div>
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Bill To</h3>
-                    <div className="font-semibold text-lg text-slate-900">{contactName}</div>
-                    <div className="text-slate-600">{contactEmail}</div>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Bill To</h3>
+                    <div className="font-semibold text-lg text-foreground">{contactName}</div>
+                    <div className="text-muted-foreground">{contactEmail}</div>
                 </div>
                 <div className="text-right">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Payable To</h3>
-                    <div className="font-semibold text-lg text-slate-900">{organizationName}</div>
-                    <div className="text-slate-600">{orgSettings?.address || 'ProSpaces CRM Platform'}</div>
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Payable To</h3>
+                    <div className="font-semibold text-lg text-foreground">{organizationName}</div>
+                    <div className="text-muted-foreground">{orgSettings?.address || 'ProSpaces CRM Platform'}</div>
                 </div>
             </div>
 
@@ -260,24 +261,24 @@ export function PublicQuoteView() {
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-slate-50 border-y border-slate-200 print:bg-slate-100">
-                            <th className="py-3 px-6 font-semibold text-slate-700 text-sm uppercase tracking-wider">Item</th>
-                            <th className="py-3 px-6 font-semibold text-slate-700 text-sm uppercase tracking-wider">Description</th>
-                            <th className="py-3 px-6 font-semibold text-slate-700 text-center text-sm uppercase tracking-wider">Qty</th>
-                            <th className="py-3 px-6 font-semibold text-slate-700 text-right text-sm uppercase tracking-wider">Price</th>
-                            <th className="py-3 px-6 font-semibold text-slate-700 text-right text-sm uppercase tracking-wider">Total</th>
+                        <tr className="bg-muted border-y border-border print:bg-muted">
+                            <th className="py-3 px-6 font-semibold text-foreground text-sm uppercase tracking-wider">Item</th>
+                            <th className="py-3 px-6 font-semibold text-foreground text-sm uppercase tracking-wider">Description</th>
+                            <th className="py-3 px-6 font-semibold text-foreground text-center text-sm uppercase tracking-wider">Qty</th>
+                            <th className="py-3 px-6 font-semibold text-foreground text-right text-sm uppercase tracking-wider">Price</th>
+                            <th className="py-3 px-6 font-semibold text-foreground text-right text-sm uppercase tracking-wider">Total</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-border">
                         {lineItems?.map((item: any, index: number) => (
-                            <tr key={index} className="hover:bg-slate-50/50 print:break-inside-avoid">
-                                <td className="py-4 px-6 font-medium text-slate-800">{item.itemName || item.title || item.item_name || item.sku || item.itemId || 'Item'}</td>
-                                <td className="py-4 px-6 text-slate-600 text-sm">{item.description}</td>
-                                <td className="py-4 px-6 text-center text-slate-600">{item.quantity || 1}</td>
-                                <td className="py-4 px-6 text-right font-mono text-slate-600">
+                            <tr key={index} className="hover:bg-muted/50 print:break-inside-avoid">
+                                <td className="py-4 px-6 font-medium text-foreground">{item.itemName || item.title || item.item_name || item.sku || item.itemId || 'Item'}</td>
+                                <td className="py-4 px-6 text-muted-foreground text-sm">{item.description}</td>
+                                <td className="py-4 px-6 text-center text-muted-foreground">{item.quantity || 1}</td>
+                                <td className="py-4 px-6 text-right font-mono text-muted-foreground">
                                     {formatCurrency(item.unitPrice || item.price || item.unit_price)}
                                 </td>
-                                <td className="py-4 px-6 text-right font-mono font-medium text-slate-900">
+                                <td className="py-4 px-6 text-right font-mono font-medium text-foreground">
                                     {formatCurrency(item.total || ((item.quantity || 1) * (item.unitPrice || item.price || item.unit_price)))}
                                 </td>
                             </tr>
@@ -287,14 +288,14 @@ export function PublicQuoteView() {
             </div>
 
             {/* Totals */}
-            <div className="p-6 bg-slate-50/50 border-t border-slate-200 print:bg-transparent">
+            <div className="p-6 bg-muted/50 border-t border-border print:bg-transparent">
                 <div className="flex flex-col gap-2 ml-auto max-w-xs">
-                    <div className="flex justify-between text-slate-600">
+                    <div className="flex justify-between text-muted-foreground">
                         <span>Subtotal:</span>
                         <span>{formatCurrency(subtotalAmount)}</span>
                     </div>
                     {taxAmount > 0 && (
-                        <div className="flex justify-between text-slate-600">
+                        <div className="flex justify-between text-muted-foreground">
                             <span>Tax:</span>
                             <span>{formatCurrency(taxAmount)}</span>
                         </div>
@@ -305,7 +306,7 @@ export function PublicQuoteView() {
                             <span>-{formatCurrency(discountAmount)}</span>
                         </div>
                     )}
-                    <div className="flex justify-between font-bold text-xl text-slate-900 border-t-2 border-slate-300 pt-3 mt-2">
+                    <div className="flex justify-between font-bold text-xl text-foreground border-t-2 border-border pt-3 mt-2">
                         <span>Total:</span>
                         <span>{formatCurrency(totalAmount)}</span>
                     </div>
@@ -314,9 +315,9 @@ export function PublicQuoteView() {
             
             {/* Notes */}
             {data.notes && (
-                <div className="p-6 border-t border-slate-200 print:break-inside-avoid">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Notes</h3>
-                    <p className="text-slate-700 text-sm whitespace-pre-wrap bg-yellow-50 p-4 rounded-lg border border-yellow-100 print:border-0 print:bg-transparent print:p-0">
+                <div className="p-6 border-t border-border print:break-inside-avoid">
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Notes</h3>
+                    <p className="text-foreground text-sm whitespace-pre-wrap bg-yellow-50 p-4 rounded-lg border border-yellow-100 print:border-0 print:bg-transparent print:p-0">
                         {data.notes}
                     </p>
                 </div>
@@ -324,9 +325,9 @@ export function PublicQuoteView() {
             
              {/* Terms */}
             {(data.terms || true) && (
-                <div className="p-6 border-t border-slate-200 bg-slate-50 print:bg-white print:border-t-2">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Terms & Conditions</h3>
-                    <p className="text-slate-500 text-xs whitespace-pre-wrap leading-relaxed">
+                <div className="p-6 border-t border-border bg-muted print:bg-background print:border-t-2">
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Terms & Conditions</h3>
+                    <p className="text-muted-foreground text-xs whitespace-pre-wrap leading-relaxed">
                         {data.terms || "Payment is due within 30 days. Please include the quote number on your check. Thank you for your business!"}
                     </p>
                 </div>
@@ -334,7 +335,7 @@ export function PublicQuoteView() {
           </CardContent>
           
           {data.status !== 'accepted' && (
-            <CardFooter className="bg-slate-50 border-t p-6 flex justify-end print:hidden">
+            <CardFooter className="bg-muted border-t p-6 flex justify-end print:hidden">
                 <Button 
                     className="bg-green-600 hover:bg-green-700 text-white font-medium px-8 py-2 h-auto text-lg"
                     onClick={handleAccept}
@@ -351,7 +352,7 @@ export function PublicQuoteView() {
           )}
         </Card>
         
-        <div className="mt-8 text-center text-slate-400 text-xs print:hidden">
+        <div className="mt-8 text-center text-muted-foreground text-xs print:hidden">
             &copy; {new Date().getFullYear()} {organizationName}. Powered by ProSpaces CRM.
         </div>
       </div>

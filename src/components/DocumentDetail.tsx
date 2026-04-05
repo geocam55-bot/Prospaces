@@ -94,7 +94,7 @@ export function DocumentDetail({ document, user, onBack, onEdit, onDelete }: Doc
     if (fileType.includes('word') || fileType.includes('document')) return <FileText className="w-8 h-8 text-blue-500" />;
     if (fileType.includes('excel') || fileType.includes('sheet')) return <FileText className="w-8 h-8 text-green-500" />;
     if (fileType.includes('image')) return <File className="w-8 h-8 text-purple-500" />;
-    return <File className="w-8 h-8 text-gray-500" />;
+    return <File className="w-8 h-8 text-muted-foreground" />;
   };
 
   return (

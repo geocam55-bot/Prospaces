@@ -28,7 +28,7 @@ const FALLBACK_PLANS: {
 }[] = [
   {
     id: 'starter',
-    name: 'Starter',
+    name: 'Standard User',
     description: 'Perfect for small teams getting started with CRM',
     price: 29,
     priceAnnual: 290,
@@ -49,7 +49,7 @@ const FALLBACK_PLANS: {
     icon: Crown,
     popular: true,
     features: [
-      'Everything in Starter',
+      'Everything in Standard User',
       'Marketing automation',
       'Inventory management',
       'Document management',
@@ -137,7 +137,7 @@ export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSel
     <div className="space-y-6">
       {/* Billing toggle */}
       <div className="flex items-center justify-center gap-3">
-        <Label htmlFor="billing-toggle" className={`text-sm font-medium ${!annual ? 'text-slate-900' : 'text-slate-500'}`}>
+        <Label htmlFor="billing-toggle" className={`text-sm font-medium ${!annual ? 'text-foreground' : 'text-muted-foreground'}`}>
           Monthly
         </Label>
         <Switch
@@ -145,7 +145,7 @@ export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSel
           checked={annual}
           onCheckedChange={setAnnual}
         />
-        <Label htmlFor="billing-toggle" className={`text-sm font-medium ${annual ? 'text-slate-900' : 'text-slate-500'}`}>
+        <Label htmlFor="billing-toggle" className={`text-sm font-medium ${annual ? 'text-foreground' : 'text-muted-foreground'}`}>
           Annual
         </Label>
         {annual && (
@@ -191,7 +191,7 @@ export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSel
                   ? 'border-blue-500 shadow-lg shadow-blue-100 ring-1 ring-blue-500'
                   : isCurrent
                   ? 'border-green-500 ring-1 ring-green-500'
-                  : 'hover:border-slate-300 hover:shadow-md'
+                  : 'hover:border-border hover:shadow-md'
               }`}
             >
               {plan.popular && (
@@ -207,22 +207,22 @@ export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSel
 
               <CardHeader className="pb-4 pt-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className={`p-2 rounded-lg ${plan.popular ? 'bg-blue-100' : 'bg-slate-100'}`}>
-                    <Icon className={`h-5 w-5 ${plan.popular ? 'text-blue-600' : 'text-slate-600'}`} />
+                  <div className={`p-2 rounded-lg ${plan.popular ? 'bg-blue-100' : 'bg-muted'}`}>
+                    <Icon className={`h-5 w-5 ${plan.popular ? 'text-blue-600' : 'text-muted-foreground'}`} />
                   </div>
                   <CardTitle className="text-xl">{plan.name}</CardTitle>
                 </div>
-                <p className="text-sm text-slate-500">{plan.description}</p>
+                <p className="text-sm text-muted-foreground">{plan.description}</p>
               </CardHeader>
 
               <CardContent className="flex flex-col flex-1">
                 {/* Price */}
                 <div className="mb-5">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold text-slate-900">
+                    <span className="text-4xl font-bold text-foreground">
                       {formatCurrency(price)}
                     </span>
-                    <span className="text-slate-500 text-sm">
+                    <span className="text-muted-foreground text-sm">
                       /user/{annual ? 'year' : 'mo'}
                     </span>
                   </div>
@@ -238,7 +238,7 @@ export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSel
                   {plan.features.map((feature, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm">
                       <Check className={`h-4 w-4 mt-0.5 flex-shrink-0 ${plan.popular ? 'text-blue-600' : 'text-green-600'}`} />
-                      <span className="text-slate-700">{feature}</span>
+                      <span className="text-foreground">{feature}</span>
                     </li>
                   ))}
                 </ul>
@@ -270,7 +270,7 @@ export function PricingPlans({ currentPlanId, subscriptionStatus, isAdmin, onSel
       </div>
 
       {/* FAQ/Note */}
-      <div className="text-center text-sm text-slate-500 mt-4">
+      <div className="text-center text-sm text-muted-foreground mt-4">
         All plans include SSL encryption, daily backups, and 99.9% uptime SLA.
         <br />
         Need a custom plan? <span className="text-blue-600 cursor-pointer hover:underline">Contact sales</span>

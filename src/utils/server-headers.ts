@@ -115,7 +115,7 @@ export async function getServerHeaders(extraHeaders?: Record<string, string>): P
   };
 
   const userToken = await getUserAccessToken();
-  if (userToken) {
+  if (!headers['X-User-Token'] && userToken) {
     headers['X-User-Token'] = userToken;
   }
 

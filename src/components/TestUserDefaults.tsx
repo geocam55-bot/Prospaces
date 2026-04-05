@@ -227,7 +227,7 @@ export function TestUserDefaults({ userId, organizationId }: TestUserDefaultsPro
                       {result.message}
                     </AlertDescription>
                     {result.data && (
-                      <pre className="text-xs mt-2 p-2 bg-white/50 rounded overflow-auto max-h-32">
+                      <pre className="text-xs mt-2 p-2 bg-background/50 rounded overflow-auto max-h-32">
                         {JSON.stringify(result.data, null, 2)}
                       </pre>
                     )}

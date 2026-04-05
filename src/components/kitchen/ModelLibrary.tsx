@@ -87,8 +87,8 @@ export function ModelLibrary() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-900">3D Model Library</h2>
-          <p className="text-slate-500 mt-1">Upload and manage .obj files for use in the 3D planner.</p>
+          <h2 className="text-2xl font-semibold text-foreground">3D Model Library</h2>
+          <p className="text-muted-foreground mt-1">Upload and manage .obj files for use in the 3D planner.</p>
         </div>
         <Button onClick={fetchModels} variant="outline" className="gap-2">
           <RefreshCcw className="w-4 h-4" />
@@ -101,7 +101,7 @@ export function ModelLibrary() {
           <h3 className="text-lg font-medium mb-4">Upload New Model</h3>
           <form onSubmit={handleUpload} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Model Name</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Model Name</label>
               <Input
                 value={uploadName}
                 onChange={(e) => setUploadName(e.target.value)}
@@ -110,7 +110,7 @@ export function ModelLibrary() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">File (.obj)</label>
+              <label className="block text-sm font-medium text-foreground mb-1">File (.obj)</label>
               <Input
                 id="file-upload"
                 type="file"
@@ -142,21 +142,21 @@ export function ModelLibrary() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
           ) : models.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
+            <div className="text-center py-12 text-muted-foreground">
               <FileBox className="w-12 h-12 mx-auto mb-3 text-slate-300" />
               <p>No 3D models uploaded yet.</p>
             </div>
           ) : (
             <div className="space-y-3">
               {models.map((model, i) => (
-                <div key={i} className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors">
+                <div key={i} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="bg-blue-100 p-2 rounded text-blue-600">
                       <FileBox className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900">{model.name}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="font-medium text-foreground">{model.name}</p>
+                      <p className="text-xs text-muted-foreground">
                         {model.size ? (model.size / 1024 / 1024).toFixed(2) + ' MB' : 'Unknown size'} • 
                         {new Date(model.created_at).toLocaleDateString()}
                       </p>

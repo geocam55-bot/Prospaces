@@ -1137,7 +1137,7 @@ app.post(`${P}/quotes/:id/accept`, async (c) => {
       const quoteValue = data.total || data.amount || data.value || 0;
       if (orgId) {
         // Postgres
-        const { data: pgCamps } = await supabase.from('campaigns').select('id, description').eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
+        const { data: pgCamps } = await supabase.from('campaigns').select('id, description, converted_count, revenue').eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
         if (pgCamps && pgCamps.length > 0) {
           const pgCamp = pgCamps[0];
           let meta: any = {};
@@ -1146,7 +1146,11 @@ app.post(`${P}/quotes/:id/accept`, async (c) => {
           }
           meta.converted_count = (meta.converted_count || 0) + 1;
           meta.revenue = (meta.revenue || 0) + Number(quoteValue);
-          await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
+          await supabase.from('campaigns').update({
+            description: JSON.stringify(meta),
+            converted_count: (pgCamp.converted_count || 0) + 1,
+            revenue: (Number(pgCamp.revenue) || 0) + Number(quoteValue),
+          }).eq('id', pgCamp.id);
         }
 
         const campaigns = await kv.getByPrefix(`campaign:${orgId}:`);
@@ -1757,6 +1761,8 @@ app.post(`${PREFIX}/campaigns/:id/send`, async (c) => {
       .update({ 
         status: 'Active', 
         description: JSON.stringify(meta),
+        sent_count: newSentCount,
+        audience_count: Math.max(campaign.audience_count || 0, newSentCount),
       })
       .eq('id', campaignId);
 
@@ -2614,7 +2620,7 @@ app.post(`${PREFIX}/public/events`, async (c) => {
       const isOpen = eventType === 'open';
       const campaignId = body.campaignId;
       if (isClick || isOpen) {
-        let query = getSupabase().from('campaigns').select('id, description');
+        let query = getSupabase().from('campaigns').select('id, description, opened_count, clicked_count');
         if (campaignId) {
             query = query.eq('id', campaignId);
         } else {
@@ -2636,7 +2642,16 @@ app.post(`${PREFIX}/public/events`, async (c) => {
              meta.opened_count = Math.max((meta.opened_count || 0), meta.clicked_count); 
           }
           
-          await getSupabase().from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
+          const nextClickedCount = isClick ? (pgCamp.clicked_count || 0) + 1 : (pgCamp.clicked_count || 0);
+          const nextOpenedCount = isOpen
+            ? (pgCamp.opened_count || 0) + 1
+            : Math.max((pgCamp.opened_count || 0), nextClickedCount);
+
+          await getSupabase().from('campaigns').update({
+            description: JSON.stringify(meta),
+            opened_count: nextOpenedCount,
+            clicked_count: nextClickedCount,
+          }).eq('id', pgCamp.id);
           // public/events incremented campaign metric
         }
       }
@@ -2695,7 +2710,7 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
 
       if (campaignId) {
         // Update Postgres
-        const { data: pgCamp } = await supabase.from('campaigns').select('id, description').eq('id', campaignId).single();
+        const { data: pgCamp } = await supabase.from('campaigns').select('id, description, converted_count, revenue').eq('id', campaignId).single();
         if (pgCamp) {
           let meta: any = {};
           if (pgCamp.description && pgCamp.description.startsWith('{')) {
@@ -2703,7 +2718,11 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
           }
           meta.converted_count = (meta.converted_count || 0) + 1;
           meta.revenue = (meta.revenue || 0) + Number(quoteValue);
-          await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', campaignId);
+          await supabase.from('campaigns').update({
+            description: JSON.stringify(meta),
+            converted_count: (pgCamp.converted_count || 0) + 1,
+            revenue: (Number(pgCamp.revenue) || 0) + Number(quoteValue),
+          }).eq('id', campaignId);
         }
 
         // Update KV (legacy/backup)
@@ -2728,7 +2747,7 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
           // public/accept incremented converted_count for latest KV campaign
           
           // Also try to update latest Postgres campaign
-          const { data: pgCamps } = await supabase.from('campaigns').select('id, description').eq('organization_id', orgId).eq('type', 'email').order('created_at', { ascending: false }).limit(1);
+          const { data: pgCamps } = await supabase.from('campaigns').select('id, description, converted_count, revenue').eq('organization_id', orgId).eq('type', 'email').order('created_at', { ascending: false }).limit(1);
           if (pgCamps && pgCamps.length > 0) {
             const pgCamp = pgCamps[0];
             let meta: any = {};
@@ -2737,7 +2756,11 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
             }
             meta.converted_count = (meta.converted_count || 0) + 1;
             meta.revenue = (meta.revenue || 0) + Number(quoteValue);
-            await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
+            await supabase.from('campaigns').update({
+              description: JSON.stringify(meta),
+              converted_count: (pgCamp.converted_count || 0) + 1,
+              revenue: (Number(pgCamp.revenue) || 0) + Number(quoteValue),
+            }).eq('id', pgCamp.id);
             // public/accept incremented converted_count for latest Postgres campaign
           }
         }

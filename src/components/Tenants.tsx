@@ -9,6 +9,8 @@ import { OrganizationModuleManager } from './OrganizationModuleManager';
 import { getOrgMode, setOrgMode } from '../utils/settings-client';
 import { AVAILABLE_MODULES } from '../lib/global-settings';
 import type { OrgUserMode } from '../utils/settings-client';
+import { getOrgSubscriptions, type Subscription, type PlanId } from '../utils/subscription-client';
+import { createClient } from '../utils/supabase/client';
 import { 
   Building2, 
   Plus, 
@@ -22,7 +24,13 @@ import {
   Lock,
   X,
   CheckCircle2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  CreditCard,
+  ArrowLeft,
+  DollarSign,
+  Loader2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -95,6 +103,11 @@ export function Tenants({ user, organization }: TenantsProps) {
   const [isDeleting, setIsDeleting] = useState<string | null>(null); // Track which org is being deleted
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [viewingAgreement, setViewingAgreement] = useState<Tenant | null>(null);
+  const [viewingBilling, setViewingBilling] = useState<Tenant | null>(null);
+  const [billingData, setBillingData] = useState<(Subscription & { user_email?: string; user_name?: string; user_role?: string })[]>([]);
+  const [isBillingLoading, setIsBillingLoading] = useState(false);
+  const [billingPage, setBillingPage] = useState(1);
+  const billingPerPage = 10;
 
   // Compute all available modules dynamically based on all tenants and defaults
   const availableModules = useMemo(() => {
@@ -320,11 +333,75 @@ export function Tenants({ user, organization }: TenantsProps) {
     setFormData({ ...formData, logo: '' });
   };
 
+  const handleViewBilling = async (tenant: Tenant) => {
+    setViewingBilling(tenant);
+    setIsBillingLoading(true);
+    setBillingPage(1);
+    try {
+      const supabaseClient = createClient();
+      // Read all profiles for users in this org (including free/null billing_plan)
+      const { data: profiles } = await supabaseClient
+        .from('profiles')
+        .select('id, email, name, role, status, billing_plan, updated_at')
+        .eq('organization_id', tenant.id);
+
+      // Build subscription-like records for display
+      const planPrices: Record<string, number> = { starter: 29, professional: 79, enterprise: 199 };
+      const enriched = (profiles || []).map(p => {
+        const plan = p.billing_plan || 'free';
+        return {
+          id: `plan:${p.id}`,
+          organization_id: tenant.id,
+          user_id: p.id,
+          plan_id: plan as PlanId,
+          status: (plan === 'free' ? 'free' : 'active') as string,
+          billing_interval: 'month' as const,
+          current_period_start: p.updated_at || '',
+          current_period_end: '',
+          cancel_at_period_end: false,
+          amount: planPrices[plan] || 0,
+          currency: 'USD',
+          created_at: p.updated_at || '',
+          updated_at: p.updated_at || '',
+          user_email: p.email || null,
+          user_name: p.name || null,
+          user_role: p.role || null,
+        };
+      });
+
+      setBillingData(enriched);
+    } catch (error) {
+      showAlert('error', 'Failed to load billing data');
+      setBillingData([]);
+    } finally {
+      setIsBillingLoading(false);
+    }
+  };
+
+  const getPlanDisplayName = (planId: string) => {
+    const names: Record<string, string> = {
+      free: 'Free',
+      starter: 'Standard User',
+      professional: 'Professional',
+      enterprise: 'Enterprise',
+    };
+    return names[planId] || planId;
+  };
+
+  const getPlanPrice = (planId: string, interval: string = 'month') => {
+    const prices: Record<string, { month: number; year: number }> = {
+      starter: { month: 29, year: 290 },
+      professional: { month: 79, year: 790 },
+      enterprise: { month: 199, year: 1990 },
+    };
+    return prices[planId]?.[interval as 'month' | 'year'] || 0;
+  };
+
   const getPlanFeatures = (plan: string): string[] => {
     const features: Record<string, string[]> = {
       free: ['Basic features', 'Email support'],
       starter: ['Core CRM (Contacts, Deals, Tasks)', 'Email integration', 'Basic reports', 'Community support'],
-      professional: ['Everything in Starter', 'Marketing automation', 'Inventory management', 'Document management', 'Project Wizards (3D planners)', 'Advanced reports & analytics', 'Customer portal', 'Email support'],
+      professional: ['Everything in Standard User', 'Marketing automation', 'Inventory management', 'Document management', 'Project Wizards (3D planners)', 'Advanced reports & analytics', 'Customer portal', 'Email support'],
       enterprise: ['Everything in Professional', 'Dedicated account manager', 'Custom integrations', 'SSO / SAML support', 'Audit log', 'Priority support (24/7)', 'API access', 'Custom onboarding'],
     };
     return features[plan] || [];
@@ -332,21 +409,21 @@ export function Tenants({ user, organization }: TenantsProps) {
 
   const getPlanColor = (plan: string) => {
     const colors: Record<string, string> = {
-      free: 'bg-gray-100 text-gray-700 border-gray-200',
+      free: 'bg-muted text-foreground border-border',
       starter: 'bg-blue-100 text-blue-700 border-blue-200',
       professional: 'bg-purple-100 text-purple-700 border-purple-200',
       enterprise: 'bg-amber-100 text-amber-700 border-amber-200',
     };
-    return colors[plan] || 'bg-gray-100 text-gray-700 border-gray-200';
+    return colors[plan] || 'bg-muted text-foreground border-border';
   };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       active: 'bg-green-100 text-green-700 border-green-200',
-      inactive: 'bg-gray-100 text-gray-700 border-gray-200',
+      inactive: 'bg-muted text-foreground border-border',
       suspended: 'bg-red-100 text-red-700 border-red-200',
     };
-    return colors[status] || 'bg-gray-100 text-gray-700 border-gray-200';
+    return colors[status] || 'bg-muted text-foreground border-border';
   };
 
   const filteredTenants = tenants.filter(tenant => {
@@ -400,6 +477,222 @@ export function Tenants({ user, organization }: TenantsProps) {
     );
   }
 
+  // If viewing billing, show billing breakdown
+  if (viewingBilling) {
+    const activeSubs = billingData.filter(s => s.status === 'active' || s.status === 'trialing');
+    const paidSubs = billingData.filter(s => s.plan_id !== 'free' && (s.status === 'active' || s.status === 'trialing'));
+    const freeSubs = billingData.filter(s => s.plan_id === 'free' || s.status === 'free');
+    const totalPages = Math.ceil(billingData.length / billingPerPage);
+    const paginatedData = billingData.slice((billingPage - 1) * billingPerPage, billingPage * billingPerPage);
+    const totalMonthly = paidSubs.reduce((sum, s) => {
+      if (s.billing_interval === 'year') return sum + (s.amount / 12);
+      return sum + s.amount;
+    }, 0);
+    const totalAnnual = totalMonthly * 12;
+
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => { setViewingBilling(null); setBillingData([]); }}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Organizations
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {viewingBilling.logo && (
+            <img src={viewingBilling.logo} alt="" className="h-10 w-10 rounded-lg object-contain border border-border bg-background p-1" />
+          )}
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">{viewingBilling.name}</h2>
+            <p className="text-sm text-muted-foreground">Billing Breakdown</p>
+          </div>
+          <Badge className={getPlanColor(viewingBilling.plan)}>{getPlanDisplayName(viewingBilling.plan)}</Badge>
+          <Badge className={getStatusColor(viewingBilling.status)}>{viewingBilling.status}</Badge>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-1">
+                <UsersIcon className="h-4 w-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Active Plans</p>
+              </div>
+              <p className="text-2xl font-bold text-foreground">{paidSubs.length}</p>
+              <p className="text-xs text-muted-foreground mt-1">of {billingData.length} total ({freeSubs.length} free)</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-1">
+                <DollarSign className="h-4 w-4 text-green-500" />
+                <p className="text-xs text-muted-foreground">Monthly Revenue</p>
+              </div>
+              <p className="text-2xl font-bold text-foreground">${totalMonthly.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground mt-1">effective monthly</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-1">
+                <DollarSign className="h-4 w-4 text-blue-500" />
+                <p className="text-xs text-muted-foreground">Annual Revenue</p>
+              </div>
+              <p className="text-2xl font-bold text-foreground">${totalAnnual.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground mt-1">projected yearly</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-1">
+                <CreditCard className="h-4 w-4 text-purple-500" />
+                <p className="text-xs text-muted-foreground">Org Plan</p>
+              </div>
+              <p className="text-2xl font-bold text-foreground">{getPlanDisplayName(viewingBilling.plan)}</p>
+              {viewingBilling.customPlanPrice && (
+                <p className="text-xs text-amber-600 mt-1">Custom: ${viewingBilling.customPlanPrice}/mo</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Subscriptions Table */}
+        <Card>
+          <CardContent className="pt-6">
+            <h3 className="text-sm font-medium text-foreground mb-4">Billing Plans by User</h3>
+            {isBillingLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading billing data...</span>
+              </div>
+            ) : billingData.length === 0 ? (
+              <div className="text-center py-12">
+                <CreditCard className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">No individual billing plans found for this organization.</p>
+                <p className="text-xs text-muted-foreground mt-1">Users in this organization have not been assigned individual plans yet.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">User</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">Role</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">Plan</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">Status</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">Billing</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-muted-foreground uppercase">Amount</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">Period End</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {paginatedData.map((sub) => (
+                      <tr key={sub.id} className="hover:bg-muted">
+                        <td className="py-3 px-4">
+                          <div>
+                            <p className="font-medium text-foreground">{sub.user_name || 'Unknown'}</p>
+                            <p className="text-xs text-muted-foreground">{sub.user_email || '—'}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-xs capitalize text-muted-foreground">{sub.user_role?.replace('_', ' ') || '—'}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge className={getPlanColor(sub.plan_id)}>{getPlanDisplayName(sub.plan_id)}</Badge>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge className={
+                            sub.status === 'active' ? 'bg-green-100 text-green-700 border-green-200' :
+                            sub.status === 'trialing' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                            sub.status === 'past_due' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                            sub.status === 'free' ? 'bg-muted text-muted-foreground border-border' :
+                            'bg-muted text-foreground border-border'
+                          }>
+                            {sub.status}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-xs text-muted-foreground capitalize">{sub.billing_interval}ly</span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {sub.amount > 0 ? (
+                            <>
+                              <span className="font-medium text-foreground">${sub.amount.toFixed(2)}</span>
+                              <span className="text-xs text-muted-foreground">/{sub.billing_interval === 'year' ? 'yr' : 'mo'}</span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">$0.00</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-xs text-muted-foreground">
+                            {sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : '—'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {billingData.length > 0 && (
+                    <tfoot>
+                      <tr className="border-t-2 border-border bg-muted">
+                        <td colSpan={5} className="py-3 px-4 text-sm font-medium text-foreground">
+                          Total ({paidSubs.length} paid, {freeSubs.length} free)
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="font-bold text-foreground">${totalMonthly.toFixed(2)}</span>
+                          <span className="text-xs text-muted-foreground">/mo</span>
+                        </td>
+                        <td className="py-3 px-4"></td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t border-border px-4 py-3 mt-2">
+                    <p className="text-xs text-muted-foreground">
+                      Showing {(billingPage - 1) * billingPerPage + 1}–{Math.min(billingPage * billingPerPage, billingData.length)} of {billingData.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={billingPage <= 1}
+                        onClick={() => setBillingPage(p => p - 1)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <Button
+                          key={page}
+                          variant={page === billingPage ? 'default' : 'outline'}
+                          size="sm"
+                          className="min-w-[32px]"
+                          onClick={() => setBillingPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={billingPage >= totalPages}
+                        onClick={() => setBillingPage(p => p + 1)}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <PermissionGate user={user} module="tenants" action="view">
     <div className="space-y-6">
@@ -436,8 +729,8 @@ export function Tenants({ user, organization }: TenantsProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Organizations</p>
-                <p className="text-2xl text-gray-900 mt-1">{stats.total}</p>
+                <p className="text-sm text-muted-foreground">Total Organizations</p>
+                <p className="text-2xl text-foreground mt-1">{stats.total}</p>
               </div>
               <Building2 className="h-8 w-8 text-purple-600" />
             </div>
@@ -447,8 +740,8 @@ export function Tenants({ user, organization }: TenantsProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Active Organizations</p>
-                <p className="text-2xl text-gray-900 mt-1">{stats.active}</p>
+                <p className="text-sm text-muted-foreground">Active Organizations</p>
+                <p className="text-2xl text-foreground mt-1">{stats.active}</p>
               </div>
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
@@ -458,8 +751,8 @@ export function Tenants({ user, organization }: TenantsProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Users</p>
-                <p className="text-2xl text-gray-900 mt-1">{stats.totalUsers}</p>
+                <p className="text-sm text-muted-foreground">Total Users</p>
+                <p className="text-2xl text-foreground mt-1">{stats.totalUsers}</p>
               </div>
               <UsersIcon className="h-8 w-8 text-blue-600" />
             </div>
@@ -469,8 +762,8 @@ export function Tenants({ user, organization }: TenantsProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Contacts</p>
-                <p className="text-2xl text-gray-900 mt-1">{stats.totalContacts.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">Total Contacts</p>
+                <p className="text-2xl text-foreground mt-1">{stats.totalContacts.toLocaleString()}</p>
               </div>
               <FileText className="h-8 w-8 text-orange-600" />
             </div>
@@ -486,7 +779,7 @@ export function Tenants({ user, organization }: TenantsProps) {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search organizations..."
                   value={searchQuery}
@@ -514,7 +807,7 @@ export function Tenants({ user, organization }: TenantsProps) {
       <div className="grid grid-cols-1 gap-4">
         {isLoading ? (
           <Card>
-            <CardContent className="py-12 text-center text-gray-500">
+            <CardContent className="py-12 text-center text-muted-foreground">
               Loading organizations...
             </CardContent>
           </Card>
@@ -522,7 +815,7 @@ export function Tenants({ user, organization }: TenantsProps) {
           <Card>
             <CardContent className="py-12 text-center">
               <Building2 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-gray-500">No organizations found</p>
+              <p className="text-muted-foreground">No organizations found</p>
               {canAdd('tenants', user.role) && (
                 <Button className="mt-4" onClick={() => handleOpenDialog()}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -541,7 +834,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
                         {tenant.logo ? (
-                          <div className="h-12 w-12 rounded-lg border border-gray-200 bg-white flex items-center justify-center overflow-hidden">
+                          <div className="h-12 w-12 rounded-lg border border-border bg-background flex items-center justify-center overflow-hidden">
                             <img 
                               src={tenant.logo} 
                               alt={`${tenant.name} logo`} 
@@ -555,7 +848,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                         )}
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="text-lg text-gray-900">{tenant.name}</h3>
+                            <h3 className="text-lg text-foreground">{tenant.name}</h3>
                             <Badge variant="outline" className={getStatusColor(tenant.status)}>
                               {tenant.status}
                             </Badge>
@@ -569,16 +862,16 @@ export function Tenants({ user, organization }: TenantsProps) {
                             )}
                           </div>
                           {tenant.domain && (
-                            <p className="text-sm text-gray-600 mt-1">{tenant.domain}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{tenant.domain}</p>
                           )}
                           {tenant.billingEmail && (
-                            <p className="text-sm text-gray-600">{tenant.billingEmail}</p>
+                            <p className="text-sm text-muted-foreground">{tenant.billingEmail}</p>
                           )}
                         </div>
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger
-                          className="inline-flex items-center justify-center rounded-md text-sm ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 w-9"
+                          className="inline-flex items-center justify-center rounded-md text-sm ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-muted hover:text-foreground h-9 w-9"
                           disabled={isDeleting === tenant.id}
                         >
                           {isDeleting === tenant.id ? (
@@ -594,6 +887,10 @@ export function Tenants({ user, organization }: TenantsProps) {
                               View Agreement
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem onClick={() => handleViewBilling(tenant)} disabled={isDeleting === tenant.id}>
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            View Billing
+                          </DropdownMenuItem>
                           {canChange('tenants', user.role) && (
                             <DropdownMenuItem onClick={() => handleOpenDialog(tenant)} disabled={isDeleting === tenant.id}>
                               <Edit className="h-4 w-4 mr-2" />
@@ -616,26 +913,26 @@ export function Tenants({ user, organization }: TenantsProps) {
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
                       <div>
-                        <p className="text-xs text-gray-500">Users</p>
-                        <p className="text-sm text-gray-900 mt-1">
+                        <p className="text-xs text-muted-foreground">Users</p>
+                        <p className="text-sm text-foreground mt-1">
                           {tenant.userCount}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Contacts</p>
-                        <p className="text-sm text-gray-900 mt-1">
+                        <p className="text-xs text-muted-foreground">Contacts</p>
+                        <p className="text-sm text-foreground mt-1">
                           {(tenant.contactsCount || 0).toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Created</p>
-                        <p className="text-sm text-gray-900 mt-1">
+                        <p className="text-xs text-muted-foreground">Created</p>
+                        <p className="text-sm text-foreground mt-1">
                           {new Date(tenant.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Updated</p>
-                        <p className="text-sm text-gray-900 mt-1">
+                        <p className="text-xs text-muted-foreground">Updated</p>
+                        <p className="text-sm text-foreground mt-1">
                           {new Date(tenant.updatedAt).toLocaleDateString()}
                         </p>
                       </div>
@@ -643,7 +940,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
                     {tenant.features && tenant.features.length > 0 && (
                       <div className="mt-4">
-                        <p className="text-xs text-gray-500 mb-2">Plan Features:</p>
+                        <p className="text-xs text-muted-foreground mb-2">Plan Features:</p>
                         <div className="flex flex-wrap gap-2">
                           {tenant.features.map((feature, index) => (
                             <Badge key={index} variant="secondary" className="text-xs">
@@ -663,7 +960,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
       {/* Create/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>{editingTenant ? 'Edit Organization' : 'Create New Organization'}</DialogTitle>
             <DialogDescription>
@@ -674,7 +971,7 @@ export function Tenants({ user, organization }: TenantsProps) {
           <div className="space-y-6">
             {/* Basic Information */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Basic Information</h3>
+              <h3 className="text-sm text-foreground">Basic Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label>Organization Name *</Label>
@@ -722,7 +1019,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
             {/* Logo Upload */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Organization Logo</h3>
+              <h3 className="text-sm text-foreground">Organization Logo</h3>
               <div>
                 <Label>Upload Logo</Label>
                 <div className="mt-2">
@@ -731,10 +1028,10 @@ export function Tenants({ user, organization }: TenantsProps) {
                       <img 
                         src={formData.logo} 
                         alt="Organization logo" 
-                        className="h-20 w-20 object-contain rounded-lg border border-gray-200 bg-white p-2"
+                        className="h-20 w-20 object-contain rounded-lg border border-border bg-background p-2"
                       />
                       <div className="flex-1">
-                        <p className="text-sm text-gray-600 mb-2">Logo uploaded successfully</p>
+                        <p className="text-sm text-muted-foreground mb-2">Logo uploaded successfully</p>
                         <Button 
                           variant="outline" 
                           size="sm"
@@ -747,7 +1044,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                       </div>
                     </div>
                   ) : (
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                    <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
                       <input
                         type="file"
                         id="logo-upload"
@@ -757,18 +1054,18 @@ export function Tenants({ user, organization }: TenantsProps) {
                       />
                       <label htmlFor="logo-upload" className="cursor-pointer">
                         <div className="flex flex-col items-center">
-                          <ImageIcon className="h-12 w-12 text-gray-400 mb-3" />
-                          <p className="text-sm text-gray-600 mb-1">
+                          <ImageIcon className="h-12 w-12 text-muted-foreground mb-3" />
+                          <p className="text-sm text-muted-foreground mb-1">
                             Click to upload or drag and drop
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             PNG, JPG, GIF up to 2MB
                           </p>
                         </div>
                       </label>
                     </div>
                   )}
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     This logo will be displayed on the organization pages
                   </p>
                 </div>
@@ -777,7 +1074,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
             {/* Subscription */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Subscription & Features</h3>
+              <h3 className="text-sm text-foreground">Subscription & Features</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label>Status</Label>
@@ -802,25 +1099,25 @@ export function Tenants({ user, organization }: TenantsProps) {
                       <SelectItem value="free">
                         <div className="flex flex-col">
                           <span>Free</span>
-                          <span className="text-xs text-gray-500">Basic features, email support</span>
+                          <span className="text-xs text-muted-foreground">Basic features, email support</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="starter">
                         <div className="flex flex-col">
-                          <span>Starter — $29/mo</span>
-                          <span className="text-xs text-gray-500">Core CRM, email integration, basic reports</span>
+                          <span>Standard User — $29/mo</span>
+                          <span className="text-xs text-muted-foreground">Core CRM, email integration, basic reports</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="professional">
                         <div className="flex flex-col">
                           <span>Professional — $79/mo</span>
-                          <span className="text-xs text-gray-500">Marketing, inventory, 3D planners, advanced reports</span>
+                          <span className="text-xs text-muted-foreground">Marketing, inventory, 3D planners, advanced reports</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="enterprise">
                         <div className="flex flex-col">
                           <span>Enterprise — $199/mo</span>
-                          <span className="text-xs text-gray-500">SSO, API access, custom integrations, 24/7 support</span>
+                          <span className="text-xs text-muted-foreground">SSO, API access, custom integrations, 24/7 support</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -829,7 +1126,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                 <div>
                   <Label>Custom Plan Price</Label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
                     <Input
                       type="number"
                       min="0"
@@ -840,7 +1137,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                       className="pl-7"
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Override the default plan price for this customer (per month)
                   </p>
                 </div>
@@ -849,7 +1146,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
             {/* Dynamic Modules Access */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Modules Access</h3>
+              <h3 className="text-sm text-foreground">Modules Access</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {availableModules.map(key => {
                   const moduleDef = AVAILABLE_MODULES.find(m => m.id === key);
@@ -871,8 +1168,8 @@ export function Tenants({ user, organization }: TenantsProps) {
 
             {/* User Mode */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">User Mode</h3>
-              <div className="flex items-center justify-between p-4 rounded-lg border bg-gray-50/50">
+              <h3 className="text-sm text-foreground">User Mode</h3>
+              <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/50">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Label className="text-sm font-medium">
@@ -881,15 +1178,15 @@ export function Tenants({ user, organization }: TenantsProps) {
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                       formData.user_mode === 'multi'
                         ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
+                        : 'bg-muted text-foreground'
                     }`}>
                       {formData.user_mode === 'multi' ? 'Team' : 'Solo'}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {formData.user_mode === 'single'
                       ? 'Solo workspace — team management features are hidden'
-                      : 'Team workspace — roles, permissions, and user management enabled'}
+                      : 'Team workspace — roles, space access, and user management enabled'}
                   </p>
                 </div>
                 <Switch
@@ -900,8 +1197,8 @@ export function Tenants({ user, organization }: TenantsProps) {
             </div>
 
             {/* Plan Features Preview */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-700 mb-2">Plan Features:</p>
+            <div className="bg-muted rounded-lg p-4">
+              <p className="text-sm text-foreground mb-2">Plan Features:</p>
               <div className="flex flex-wrap gap-2">
                 {getPlanFeatures(formData.plan).map((feature, index) => (
                   <Badge key={index} variant="secondary" className="text-xs">

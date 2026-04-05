@@ -52,7 +52,7 @@ function TemplateMiniMap({ config }: { config: RoofConfig }) {
   };
 
   return (
-    <div className="h-40 w-full bg-slate-100 flex items-center justify-center p-4 border-b border-slate-200">
+    <div className="h-40 w-full bg-muted flex items-center justify-center p-4 border-b border-border">
       <svg 
         viewBox={`-${padding} -${padding} ${l + padding * 2} ${w + padding * 2}`} 
         className="w-full h-full max-w-full max-h-full drop-shadow-sm" 
@@ -367,14 +367,14 @@ export function RoofTemplates({ onLoadTemplate, currentConfig }: RoofTemplatesPr
   ];
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+    <div className="bg-background rounded-lg shadow-sm border border-border p-6">
       <div className="flex items-center gap-3 mb-6">
         <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
           <LayoutTemplate className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Sample Designs</h2>
-          <p className="text-sm text-slate-500">Start with a pre-configured layout</p>
+          <h2 className="text-lg font-semibold text-foreground">Sample Designs</h2>
+          <p className="text-sm text-muted-foreground">Start with a pre-configured layout</p>
         </div>
       </div>
 
@@ -390,17 +390,17 @@ export function RoofTemplates({ onLoadTemplate, currentConfig }: RoofTemplatesPr
                 relative group rounded-xl border-2 transition-all duration-200 overflow-hidden cursor-pointer flex flex-col
                 ${isSelected
                   ? 'border-orange-600 bg-orange-50 shadow-md'
-                  : 'border-slate-200 bg-white hover:border-orange-300 hover:bg-slate-50'
+                  : 'border-border bg-background hover:border-orange-300 hover:bg-muted'
                 }
               `}
             >
               <TemplateMiniMap config={template.config} />
               
               <div className="p-4 flex-1 flex flex-col">
-                <h3 className={`font-medium mb-1 ${isSelected ? 'text-orange-900' : 'text-slate-900'}`}>
+                <h3 className={`font-medium mb-1 ${isSelected ? 'text-orange-900' : 'text-foreground'}`}>
                   {template.name}
                 </h3>
-                <p className={`text-sm flex-1 ${isSelected ? 'text-orange-700' : 'text-slate-500'}`}>
+                <p className={`text-sm flex-1 ${isSelected ? 'text-orange-700' : 'text-muted-foreground'}`}>
                   {template.description}
                 </p>
                 

@@ -1,7 +1,7 @@
 import { formatCurrency, formatDate, type BillingEvent, type PlanId } from '../../utils/subscription-client';
 
 const PLAN_NAMES: Record<PlanId, string> = {
-  starter: 'Starter',
+  starter: 'Standard User',
   professional: 'Professional',
   enterprise: 'Enterprise',
 };

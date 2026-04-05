@@ -1857,9 +1857,9 @@ export function RoofCanvas({ config, onChange }: RoofCanvasProps) {
   return (
     <div className="space-y-6 print:space-y-2 print:break-before-page">
       {/* Main Top View */}
-      <div className="bg-slate-50 rounded-lg p-6 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+      <div className="bg-muted rounded-lg p-6 border border-border print:bg-background print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
         <div className="mb-4 print:mb-1">
-          <h3 className="font-semibold text-slate-900 print:text-base">Top View (Plan)</h3>
+          <h3 className="font-semibold text-foreground print:text-base">Top View (Plan)</h3>
         </div>
         <canvas
           ref={topViewRef}
@@ -1871,30 +1871,30 @@ export function RoofCanvas({ config, onChange }: RoofCanvasProps) {
             handlePointerUp(e);
           }}
           onClick={(e) => handleCanvasClick(e, 'top')}
-          className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
+          className="w-full bg-background rounded border border-border print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
         />
       </div>
 
       {/* Elevation Views */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:gap-2 print:grid-cols-2 print:break-inside-avoid">
-        <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
-          <h3 className="font-semibold text-slate-900 mb-3 print:mb-1 print:text-base">Front Elevation</h3>
+        <div className="bg-muted rounded-lg p-4 border border-border print:bg-background print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+          <h3 className="font-semibold text-foreground mb-3 print:mb-1 print:text-base">Front Elevation</h3>
           <canvas
             ref={frontViewRef}
             onPointerMove={(e) => handlePointerMove(e, 'front')}
             onPointerLeave={handlePointerLeave}
             onClick={(e) => handleCanvasClick(e, 'front')}
-            className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
+            className="w-full bg-background rounded border border-border print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
           />
         </div>
-        <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
-          <h3 className="font-semibold text-slate-900 mb-3 print:mb-1 print:text-base">Side Elevation</h3>
+        <div className="bg-muted rounded-lg p-4 border border-border print:bg-background print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+          <h3 className="font-semibold text-foreground mb-3 print:mb-1 print:text-base">Side Elevation</h3>
           <canvas
             ref={sideViewRef}
             onPointerMove={(e) => handlePointerMove(e, 'side')}
             onPointerLeave={handlePointerLeave}
             onClick={(e) => handleCanvasClick(e, 'side')}
-            className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
+            className="w-full bg-background rounded border border-border print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
           />
         </div>
       </div>
@@ -1928,29 +1928,29 @@ export function RoofCanvas({ config, onChange }: RoofCanvasProps) {
       </div>
 
       {/* Legend */}
-      <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:hidden">
-        <h4 className="text-sm font-semibold text-slate-900 mb-3">Drawing Legend</h4>
+      <div className="bg-muted rounded-lg p-4 border border-border print:hidden">
+        <h4 className="text-sm font-semibold text-foreground mb-3">Drawing Legend</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-6 h-1 bg-red-500"></div>
-            <span className="text-slate-700">Ridge Line</span>
+            <span className="text-foreground">Ridge Line</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-1 bg-blue-500"></div>
-            <span className="text-slate-700">Valley</span>
+            <span className="text-foreground">Valley</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-1 bg-green-600 opacity-50" style={{ borderStyle: 'dashed' }}></div>
-            <span className="text-slate-700">Overhang</span>
+            <span className="text-foreground">Overhang</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-6 h-1 bg-amber-500"></div>
-            <span className="text-slate-700">Pitch Angle</span>
+            <span className="text-foreground">Pitch Angle</span>
           </div>
           {config.hasDormers && (config.dormers || []).length > 0 && (
             <div className="flex items-center gap-2">
               <div className="w-6 h-1 bg-purple-500"></div>
-              <span className="text-slate-700">Dormer</span>
+              <span className="text-foreground">Dormer</span>
             </div>
           )}
         </div>

@@ -77,7 +77,7 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
   };
 
   const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-    draft: { label: 'Draft', color: 'text-slate-700', bgColor: 'bg-slate-100' },
+    draft: { label: 'Draft', color: 'text-foreground', bgColor: 'bg-muted' },
     sent: { label: 'Pending Review', color: 'text-blue-700', bgColor: 'bg-blue-100' },
     viewed: { label: 'Under Review', color: 'text-indigo-700', bgColor: 'bg-indigo-100' },
     accepted: { label: 'Accepted', color: 'text-green-700', bgColor: 'bg-green-100' },
@@ -105,7 +105,7 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
                 <CardTitle className="text-xl">
                   {selectedQuote.title || selectedQuote.quote_number || 'Quote'}
                 </CardTitle>
-                <p className="text-sm text-slate-500 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Quote #{selectedQuote.quote_number || selectedQuote.id?.slice(0, 8)}
                 </p>
               </div>
@@ -124,12 +124,12 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
           <CardContent className="space-y-6">
             {/* Quote Details */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-3 rounded-lg bg-slate-50">
-                <p className="text-xs text-slate-500">Date Created</p>
+              <div className="p-3 rounded-lg bg-muted">
+                <p className="text-xs text-muted-foreground">Date Created</p>
                 <p className="text-sm font-medium">{formatDate(selectedQuote.created_at)}</p>
               </div>
-              <div className="p-3 rounded-lg bg-slate-50">
-                <p className="text-xs text-slate-500">Valid Until</p>
+              <div className="p-3 rounded-lg bg-muted">
+                <p className="text-xs text-muted-foreground">Valid Until</p>
                 <p className="text-sm font-medium">
                   {selectedQuote.valid_until ? formatDate(selectedQuote.valid_until) : 'N/A'}
                 </p>
@@ -143,29 +143,29 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
             {/* Line Items */}
             {lineItems.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold text-slate-900 mb-3">Line Items</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-3">Line Items</h3>
                 <div className="border rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-slate-50">
+                    <thead className="bg-muted">
                       <tr>
-                        <th className="text-left p-3 font-medium text-slate-600">Item</th>
-                        <th className="text-right p-3 font-medium text-slate-600">Qty</th>
-                        <th className="text-right p-3 font-medium text-slate-600">Unit Price</th>
-                        <th className="text-right p-3 font-medium text-slate-600">Total</th>
+                        <th className="text-left p-3 font-medium text-muted-foreground">Item</th>
+                        <th className="text-right p-3 font-medium text-muted-foreground">Qty</th>
+                        <th className="text-right p-3 font-medium text-muted-foreground">Unit Price</th>
+                        <th className="text-right p-3 font-medium text-muted-foreground">Total</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
                       {lineItems.map((item: any, idx: number) => (
                         <tr key={idx}>
                           <td className="p-3">
-                            <p className="font-medium text-slate-900">{item.itemName || item.item_name || 'Item'}</p>
+                            <p className="font-medium text-foreground">{item.itemName || item.item_name || 'Item'}</p>
                             {(item.description || item.sku) && (
-                              <p className="text-xs text-slate-500 mt-0.5">{item.description || item.sku}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">{item.description || item.sku}</p>
                             )}
                           </td>
-                          <td className="p-3 text-right text-slate-600">{item.quantity}</td>
-                          <td className="p-3 text-right text-slate-600">{formatCurrency(item.unitPrice || item.unit_price)}</td>
-                          <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(item.total)}</td>
+                          <td className="p-3 text-right text-muted-foreground">{item.quantity}</td>
+                          <td className="p-3 text-right text-muted-foreground">{formatCurrency(item.unitPrice || item.unit_price)}</td>
+                          <td className="p-3 text-right font-medium text-foreground">{formatCurrency(item.total)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -175,7 +175,7 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
                 {/* Totals */}
                 <div className="mt-4 space-y-2 text-sm">
                   <div className="flex justify-between px-3">
-                    <span className="text-slate-500">Subtotal</span>
+                    <span className="text-muted-foreground">Subtotal</span>
                     <span className="font-medium">{formatCurrency(selectedQuote.subtotal)}</span>
                   </div>
                   {selectedQuote.discount_amount > 0 && (
@@ -186,12 +186,12 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
                   )}
                   {selectedQuote.tax_amount > 0 && (
                     <div className="flex justify-between px-3">
-                      <span className="text-slate-500">Tax</span>
+                      <span className="text-muted-foreground">Tax</span>
                       <span className="font-medium">{formatCurrency(selectedQuote.tax_amount)}</span>
                     </div>
                   )}
                   <div className="flex justify-between px-3 pt-2 border-t text-base">
-                    <span className="font-semibold text-slate-900">Total</span>
+                    <span className="font-semibold text-foreground">Total</span>
                     <span className="font-bold text-blue-700">{formatCurrency(selectedQuote.total)}</span>
                   </div>
                 </div>
@@ -201,16 +201,16 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
             {/* Notes / Terms */}
             {selectedQuote.notes && (
               <div>
-                <h3 className="text-sm font-semibold text-slate-900 mb-2">Notes</h3>
-                <p className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3 whitespace-pre-wrap">
+                <h3 className="text-sm font-semibold text-foreground mb-2">Notes</h3>
+                <p className="text-sm text-muted-foreground bg-muted rounded-lg p-3 whitespace-pre-wrap">
                   {selectedQuote.notes}
                 </p>
               </div>
             )}
             {selectedQuote.terms && (
               <div>
-                <h3 className="text-sm font-semibold text-slate-900 mb-2">Terms & Conditions</h3>
-                <p className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3 whitespace-pre-wrap">
+                <h3 className="text-sm font-semibold text-foreground mb-2">Terms & Conditions</h3>
+                <p className="text-sm text-muted-foreground bg-muted rounded-lg p-3 whitespace-pre-wrap">
                   {selectedQuote.terms}
                 </p>
               </div>
@@ -241,7 +241,7 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
 
         {/* Confirm Dialog */}
         <Dialog open={!!showConfirmDialog} onOpenChange={() => setShowConfirmDialog(null)}>
-          <DialogContent className="bg-white max-w-md">
+          <DialogContent className="bg-background max-w-md">
             <DialogHeader>
               <DialogTitle>
                 {showConfirmDialog?.type === 'accept' ? 'Accept Quote?' : 'Decline Quote?'}
@@ -283,16 +283,16 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-slate-900">Your Quotes & Proposals</h2>
-        <p className="text-slate-500 text-sm mt-1">Review and respond to quotes from your service provider</p>
+        <h2 className="text-xl font-bold text-foreground">Your Quotes & Proposals</h2>
+        <p className="text-muted-foreground text-sm mt-1">Review and respond to quotes from your service provider</p>
       </div>
 
       {quotes.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-slate-700">No quotes yet</h3>
-            <p className="text-sm text-slate-400 mt-1">When your service provider sends you a quote, it will appear here.</p>
+            <h3 className="text-lg font-medium text-foreground">No quotes yet</h3>
+            <p className="text-sm text-muted-foreground mt-1">When your service provider sends you a quote, it will appear here.</p>
           </CardContent>
         </Card>
       ) : (
@@ -313,10 +313,10 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
                           <FileText className="h-5 w-5 text-blue-600" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-900 truncate">
+                          <p className="text-sm font-medium text-foreground truncate">
                             {quote.title || quote.quote_number || 'Quote'}
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-muted-foreground">
                             #{quote.quote_number || quote.id?.slice(0, 8)} &middot; {formatDate(quote.created_at)}
                           </p>
                         </div>
@@ -324,7 +324,7 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
                     </div>
                     <div className="flex items-center gap-3 ml-4">
                       <div className="text-right">
-                        <p className="text-sm font-semibold text-slate-900">{formatCurrency(quote.total)}</p>
+                        <p className="text-sm font-semibold text-foreground">{formatCurrency(quote.total)}</p>
                         <span className={`text-xs font-medium ${config.color}`}>{config.label}</span>
                       </div>
                       {canAct(quote.status) && (
@@ -332,7 +332,7 @@ export function PortalQuotes({ quotes, onRefresh }: PortalQuotesProps) {
                           Action Required
                         </Badge>
                       )}
-                      <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     </div>
                   </div>
                 </CardContent>

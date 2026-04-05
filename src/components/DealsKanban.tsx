@@ -137,7 +137,7 @@ const DealCard = ({
       ref={drag}
       className={`mb-3 touch-none ${isDragging ? 'opacity-50' : 'opacity-100'}`}
     >
-      <Card className="bg-white shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing border-l-[3px] group relative overflow-hidden" 
+      <Card className="bg-background shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing border-l-[3px] group relative overflow-hidden" 
         style={{ 
           borderLeftColor: 
             quote.status === 'accepted' ? '#22c55e' : 
@@ -152,7 +152,7 @@ const DealCard = ({
         <CardContent className="p-3 space-y-2.5">
           <div className="flex justify-between items-start gap-2">
             <div className="space-y-1">
-              <h4 className="font-medium text-sm text-gray-900 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">
+              <h4 className="font-medium text-sm text-foreground line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">
                 {quote.title}
               </h4>
               <div className="flex flex-wrap gap-1.5">
@@ -163,7 +163,7 @@ const DealCard = ({
                   </Badge>
                 )}
                 {isStale && (
-                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-gray-200 text-gray-500 bg-gray-50">
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-border text-muted-foreground bg-muted">
                     Stale ({daysSinceUpdate}d)
                   </Badge>
                 )}
@@ -176,11 +176,11 @@ const DealCard = ({
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 -mr-2 text-gray-400 hover:text-gray-600">
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 -mr-2 text-muted-foreground hover:text-muted-foreground">
                   <MoreVertical className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-white">
+              <DropdownMenuContent align="end" className="bg-background">
                 {onViewAgreement && (
                   <>
                     <DropdownMenuItem onClick={() => onViewAgreement(quote)}>
@@ -209,23 +209,23 @@ const DealCard = ({
           </div>
 
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-gray-900 font-semibold">
+            <div className="flex items-center gap-1.5 text-foreground font-semibold">
               <span className="text-base">{formatCurrency(quote.total)}</span>
             </div>
             {['draft', 'sent', 'viewed'].includes(quote.status) && (
-              <div className="flex items-center gap-1 text-[10px] text-gray-500" title="Win Probability">
-                <TrendingUp className={`h-3 w-3 ${probability > 50 ? 'text-green-500' : 'text-gray-400'}`} />
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground" title="Win Probability">
+                <TrendingUp className={`h-3 w-3 ${probability > 50 ? 'text-green-500' : 'text-muted-foreground'}`} />
                 <span>{probability}%</span>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <User className="h-3 w-3" />
             <span className="truncate max-w-[140px]">{quote.contactName || 'No Contact'}</span>
           </div>
 
-          <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400">
+          <div className="pt-2 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground">
             <div className="flex items-center gap-1">
               <span className="font-mono">{quote.quoteNumber}</span>
               <span>•</span>
@@ -295,7 +295,7 @@ const KanbanColumn = ({
       case 'viewed': return 'bg-indigo-50 border-indigo-200 text-indigo-700';
       case 'sent': return 'bg-blue-50 border-blue-200 text-blue-700';
       case 'expired': return 'bg-orange-50 border-orange-200 text-orange-700';
-      default: return 'bg-gray-50 border-gray-200 text-gray-700';
+      default: return 'bg-muted border-border text-foreground';
     }
   };
 
@@ -303,14 +303,14 @@ const KanbanColumn = ({
     <div 
       ref={drop}
       className={`flex-shrink-0 w-64 md:w-72 flex flex-col h-full rounded-lg transition-colors ${
-        isOver ? 'bg-slate-200 ring-2 ring-blue-400 ring-inset' : 'bg-slate-100'
+        isOver ? 'bg-muted ring-2 ring-blue-400 ring-inset' : 'bg-muted'
       }`}
     >
       {/* Column Header */}
       <div className={`p-3 border-b-2 rounded-t-lg flex flex-col gap-1 sticky top-0 bg-inherit z-10 ${getStatusColor(status).replace('bg-', 'border-').split(' ')[2]}`}>
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm uppercase tracking-wider">{title}</h3>
-          <Badge variant="secondary" className="text-xs bg-white text-gray-700">{quotes.length}</Badge>
+          <Badge variant="secondary" className="text-xs bg-background text-foreground">{quotes.length}</Badge>
         </div>
         <div className="text-xs font-medium opacity-80">
           {formatCurrency(totalValue)}
@@ -331,7 +331,7 @@ const KanbanColumn = ({
           />
         ))}
         {quotes.length === 0 && (
-          <div className="h-24 flex flex-col items-center justify-center text-gray-400 text-xs border-2 border-dashed border-gray-200 rounded-lg m-1">
+          <div className="h-24 flex flex-col items-center justify-center text-muted-foreground text-xs border-2 border-dashed border-border rounded-lg m-1">
             <span className="mb-1">No deals</span>
             <span className="opacity-50">Drop here</span>
           </div>

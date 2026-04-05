@@ -326,7 +326,7 @@ export function SavedDeckDesigns({
                     </div>
                     <div>
                       <Label className="text-xs text-blue-800">Status</Label>
-                      <div className="mt-1 px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-600">
+                      <div className="mt-1 px-3 py-2 bg-background border border-border rounded-md text-sm text-muted-foreground">
                         Open
                       </div>
                     </div>
@@ -349,7 +349,7 @@ export function SavedDeckDesigns({
           
           {saveMessage && (
             <Alert className={saveMessage.includes('success') ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}>
-              <AlertDescription className={saveMessage.includes('success') ? 'text-black' : 'text-black'}>
+              <AlertDescription className={saveMessage.includes('success') ? 'text-foreground' : 'text-foreground'}>
                 {saveMessage}
               </AlertDescription>
             </Alert>
@@ -373,7 +373,7 @@ export function SavedDeckDesigns({
             )}
           </Button>
           
-          <div className="text-xs text-slate-500 space-y-1">
+          <div className="text-xs text-muted-foreground space-y-1">
             <p>• Designs are saved to your organization's database</p>
             <p>• Current: {currentConfig.width}' × {currentConfig.length}' {currentConfig.shape} deck</p>
             <p>• Estimated Cost: ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -391,11 +391,11 @@ export function SavedDeckDesigns({
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-slate-500">
+            <div className="text-center py-8 text-muted-foreground">
               Loading designs...
             </div>
           ) : designs.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">
+            <div className="text-center py-8 text-muted-foreground">
               <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>No saved designs yet</p>
               <p className="text-sm mt-1">Save your first design above to get started</p>
@@ -405,34 +405,34 @@ export function SavedDeckDesigns({
               {designs.map((design) => (
                 <div
                   key={design.id}
-                  className="border border-slate-200 rounded-lg p-4 hover:border-purple-300 hover:bg-purple-50/50 transition-colors"
+                  className="border border-border rounded-lg p-4 hover:border-purple-300 hover:bg-purple-50/50 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
-                      <h3 className="font-medium text-slate-900">{design.name}</h3>
+                      <h3 className="font-medium text-foreground">{design.name}</h3>
                       {design.description && (
-                        <p className="text-sm text-slate-600 mt-1">{design.description}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{design.description}</p>
                       )}
-                      <div className="text-sm text-slate-600 mt-2">
+                      <div className="text-sm text-muted-foreground mt-2">
                         {design.config.width}' × {design.config.length}' • {design.config.shape} shape
                         {design.config.hasStairs && ' • w/Stairs'}
                       </div>
                       {design.customer_name && (
-                        <div className="flex items-center gap-2 mt-2 text-sm text-slate-700">
+                        <div className="flex items-center gap-2 mt-2 text-sm text-foreground">
                           <User className="w-3 h-3" />
                           <span>{design.customer_name}</span>
                           {design.customer_company && (
-                            <span className="text-slate-500">({design.customer_company})</span>
+                            <span className="text-muted-foreground">({design.customer_company})</span>
                           )}
-                          <span className="text-black ml-2">
+                          <span className="text-foreground ml-2">
                             {design.price_tier.toUpperCase()}
                           </span>
                         </div>
                       )}
-                      <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                         <span>Saved {new Date(design.created_at).toLocaleDateString()}</span>
                         <span>•</span>
-                        <span className="text-black">${design.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-foreground">${design.total_cost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     </div>
                   </div>

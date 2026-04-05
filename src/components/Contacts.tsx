@@ -620,7 +620,7 @@ export function Contacts({ user }: ContactsProps) {
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <AlertTriangle className="h-12 w-12 text-amber-500" />
             <h2 className="text-xl font-semibold text-foreground">No Contacts Found</h2>
-            <p className="text-gray-600 text-center max-w-md">
+            <p className="text-muted-foreground text-center max-w-md">
               You don't have any contacts visible yet. If contacts were imported by an admin,
               they may need an ownership fix to become visible to your account.
             </p>
@@ -659,9 +659,9 @@ export function Contacts({ user }: ContactsProps) {
 
             {/* Diagnosis results */}
             {ownershipDiagnosis && (
-              <div className="w-full max-w-2xl mt-4 bg-gray-50 rounded-lg p-4 border text-sm space-y-2">
-                <h3 className="font-semibold text-gray-800">Diagnosis Results</h3>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-700">
+              <div className="w-full max-w-2xl mt-4 bg-muted rounded-lg p-4 border text-sm space-y-2">
+                <h3 className="font-semibold text-foreground">Diagnosis Results</h3>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-foreground">
                   <span>Your email:</span>
                   <span className="font-mono text-xs">{ownershipDiagnosis.user?.email}</span>
                   <span>Your user ID:</span>
@@ -687,7 +687,7 @@ export function Contacts({ user }: ContactsProps) {
                 </div>
                 {ownershipDiagnosis.uniqueAccountOwners?.length > 0 && (
                   <div className="mt-2">
-                    <span className="font-semibold text-gray-800">Account owners in org:</span>
+                    <span className="font-semibold text-foreground">Account owners in org:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {ownershipDiagnosis.uniqueAccountOwners.map((owner: string) => (
                         <span key={owner} className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs font-mono">
@@ -699,7 +699,7 @@ export function Contacts({ user }: ContactsProps) {
                 )}
                 {ownershipDiagnosis.orgProfiles?.length > 0 && (
                   <div className="mt-2">
-                    <span className="font-semibold text-gray-800">Users in org:</span>
+                    <span className="font-semibold text-foreground">Users in org:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {ownershipDiagnosis.orgProfiles.map((p: any) => (
                         <span key={p.id} className="bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-mono">
@@ -746,7 +746,7 @@ export function Contacts({ user }: ContactsProps) {
         
         {/* Edit Contact Dialog - Available from Detail View */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-white !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
+          <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-background !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
             <DialogHeader>
               <DialogTitle>Edit Contact</DialogTitle>
               <DialogDescription>
@@ -1025,7 +1025,7 @@ export function Contacts({ user }: ContactsProps) {
                   Add Contact
                 </Button>
               </DialogTrigger>
-              <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-white !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
+              <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-background !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
                 <DialogHeader>
                   <DialogTitle>Add New Contact</DialogTitle>
                   <DialogDescription>
@@ -1242,7 +1242,7 @@ export function Contacts({ user }: ContactsProps) {
             <div className="space-y-3">
               <div className="flex gap-3">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search contacts by name, email, company, phone, or status..."
                     value={searchQuery}
@@ -1294,24 +1294,24 @@ export function Contacts({ user }: ContactsProps) {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-3 sm:px-4 text-sm text-gray-600">Actions</th>
-                    <th className="text-left py-3 px-3 sm:px-4 text-sm text-gray-600">Name</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden md:table-cell">Email</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden lg:table-cell">Phone</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden lg:table-cell">Company</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden xl:table-cell">Account Owner</th>
-                    <th className="text-left py-3 px-3 sm:px-4 text-sm text-gray-600">Status</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden xl:table-cell">Price Level</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden xl:table-cell">Tags</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden md:table-cell">Created</th>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-3 sm:px-4 text-sm text-muted-foreground">Actions</th>
+                    <th className="text-left py-3 px-3 sm:px-4 text-sm text-muted-foreground">Name</th>
+                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden md:table-cell">Email</th>
+                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden lg:table-cell">Phone</th>
+                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden lg:table-cell">Company</th>
+                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden xl:table-cell">Account Owner</th>
+                    <th className="text-left py-3 px-3 sm:px-4 text-sm text-muted-foreground">Status</th>
+                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden xl:table-cell">Price Level</th>
+                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden xl:table-cell">Tags</th>
+                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden md:table-cell">Created</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedContacts.map((contact) => (
                     <tr 
                       key={contact.id} 
-                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      className="border-b border-border hover:bg-muted cursor-pointer"
                       onClick={() => setSelectedContact(contact)}
                     >
                       <td className="py-3 px-3 sm:px-4" onClick={(e) => e.stopPropagation()}>
@@ -1360,30 +1360,30 @@ export function Contacts({ user }: ContactsProps) {
                           </div>
                           <div className="flex flex-col min-w-0">
                             <span className="text-sm font-medium text-foreground truncate">{contact.name || 'Unknown'}</span>
-                            <span className="text-xs text-gray-500 truncate md:hidden">{contact.email}</span>
+                            <span className="text-xs text-muted-foreground truncate md:hidden">{contact.email}</span>
                           </div>
                         </div>
                       </td>
                       <td className="py-3 px-4 hidden md:table-cell">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Mail className="h-4 w-4 flex-shrink-0" />
                           <span className="truncate">{contact.email}</span>
                         </div>
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Phone className="h-4 w-4 flex-shrink-0" />
                           {contact.phone}
                         </div>
                       </td>
                       <td className="py-3 px-4 hidden lg:table-cell">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Building className="h-4 w-4 flex-shrink-0" />
                           {contact.company}
                         </div>
                       </td>
                       <td className="py-3 px-4 hidden xl:table-cell">
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-muted-foreground">
                           {contact.accountOwnerNumber || '-'}
                         </span>
                       </td>
@@ -1410,7 +1410,7 @@ export function Contacts({ user }: ContactsProps) {
                               </Badge>
                             ))
                           ) : (
-                            <span className="text-xs text-gray-400">-</span>
+                            <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </div>
                       </td>
@@ -1424,7 +1424,7 @@ export function Contacts({ user }: ContactsProps) {
                         />
                       </td>
                       <td className="py-3 px-4 hidden md:table-cell">
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-muted-foreground">
                           {contact.createdAt ? new Date(contact.createdAt).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
@@ -1436,7 +1436,7 @@ export function Contacts({ user }: ContactsProps) {
                   ))}
                   {filteredContacts.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="py-8 text-center text-gray-500">
+                      <td colSpan={10} className="py-8 text-center text-muted-foreground">
                         No contacts found
                       </td>
                     </tr>
@@ -1448,7 +1448,7 @@ export function Contacts({ user }: ContactsProps) {
             {/* ⚡ Pagination Controls */}
             {filteredContacts.length > itemsPerPage && (
               <div className="flex items-center justify-between border-t pt-4 mt-4">
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-muted-foreground">
                   Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredContacts.length)} of {filteredContacts.length} contacts
                 </div>
                 <div className="flex items-center gap-2">
@@ -1504,7 +1504,7 @@ export function Contacts({ user }: ContactsProps) {
 
       {/* Edit Contact Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-white !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
+        <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-background !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
           <DialogHeader>
             <DialogTitle>Edit Contact</DialogTitle>
             <DialogDescription>
@@ -1753,7 +1753,7 @@ export function Contacts({ user }: ContactsProps) {
 
       {/* Add Project Manager Dialog */}
       <Dialog open={isAddPMDialogOpen} onOpenChange={setIsAddPMDialogOpen}>
-        <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-white !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
+        <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-background !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
           <DialogHeader>
             <DialogTitle>Add Project Manager</DialogTitle>
             <DialogDescription>
@@ -1812,7 +1812,7 @@ export function Contacts({ user }: ContactsProps) {
 
       {/* Edit Project Manager Dialog */}
       <Dialog open={isEditPMDialogOpen} onOpenChange={setIsEditPMDialogOpen}>
-        <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-white !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
+        <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-background !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
           <DialogHeader>
             <DialogTitle>Edit Project Manager</DialogTitle>
             <DialogDescription>
