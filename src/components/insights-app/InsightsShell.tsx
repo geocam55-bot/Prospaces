@@ -2,15 +2,25 @@ import React, { useState, Suspense, lazy, useCallback } from 'react';
 import {
   BarChart3,
   FileText,
+  MessageSquare,
   DollarSign,
   TrendingUp,
   LogOut,
   ChevronRight,
+  ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
   ArrowLeft,
   User as UserIcon,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 import { Switch } from '../ui/switch';
 import { Label } from '../ui/label';
 import { createClient } from '../../utils/supabase/client';
@@ -33,8 +43,13 @@ const BidProposalReports = lazyNamed(
   () => import('../reports/BidProposalReports'),
   'BidProposalReports'
 );
+const MessagingHub = lazyNamed(() => import('../MessagingHub'), 'MessagingHub');
+const SettingsComponent = lazyNamed(
+  () => import('../Settings'),
+  'Settings'
+);
 
-type InsightsView = 'home' | 'summary' | 'deals';
+type InsightsView = 'home' | 'summary' | 'deals' | 'messages' | 'profile';
 
 interface NavItem {
   id: InsightsView;
@@ -47,6 +62,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: 'summary', label: 'Summary', icon: BarChart3, color: 'text-indigo-600', bgColor: 'bg-indigo-50' },
   { id: 'deals', label: 'Deals', icon: FileText, color: 'text-amber-600', bgColor: 'bg-amber-50' },
+  { id: 'messages', label: 'Message Space', icon: MessageSquare, color: 'text-violet-600', bgColor: 'bg-violet-50' },
 ];
 
 function ModuleLoading() {
@@ -70,6 +86,7 @@ export function InsightsShell({ user, accessToken, onLogout }: InsightsShellProp
   const [currentView, setCurrentView] = useState<InsightsView>('home');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showCost, setShowCost] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User>(user);
 
   const handleNavigate = useCallback((view: InsightsView) => {
     setCurrentView(view);
@@ -77,6 +94,10 @@ export function InsightsShell({ user, accessToken, onLogout }: InsightsShellProp
 
   const handleBackToSpaces = () => {
     window.location.href = '/?view=space-chooser';
+  };
+
+  const handleOpenProfile = () => {
+    setCurrentView('profile');
   };
 
   const handleLogout = async () => {
@@ -180,67 +201,85 @@ export function InsightsShell({ user, accessToken, onLogout }: InsightsShellProp
           )}
         </nav>
 
-        {/* Bottom: user info + logout */}
+        {/* Bottom: account menu */}
         <div className="border-t border-slate-100 p-3 space-y-2 shrink-0">
-          <div
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 bg-slate-50 ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center shrink-0">
-              {user.avatar_url ? (
-                <img
-                  src={user.avatar_url}
-                  alt=""
-                  className="h-8 w-8 rounded-full object-cover"
-                />
-              ) : (
-                <UserIcon className="h-4 w-4 text-white" />
-              )}
-            </div>
-            {!isCollapsed && (
-              <div className="overflow-hidden flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800 truncate">
-                  {user.full_name || user.email}
-                </p>
-                <p className="text-[11px] text-slate-400 truncate">
-                  {user.role.replace('_', ' ')}
-                </p>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="w-full focus:outline-none">
+              <div
+                title={isCollapsed ? 'Open account menu' : undefined}
+                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 bg-slate-50 text-left transition-all hover:bg-slate-100 ${
+                  isCollapsed ? 'justify-center' : ''
+                }`}
+              >
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center shrink-0">
+                  {currentUser.avatar_url ? (
+                    <img
+                      src={currentUser.avatar_url}
+                      alt=""
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <UserIcon className="h-4 w-4 text-white" />
+                  )}
+                </div>
+                {!isCollapsed && (
+                  <>
+                    <div className="overflow-hidden flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">
+                        {currentUser.full_name || currentUser.email}
+                      </p>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        Account menu
+                      </p>
+                    </div>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                  </>
+                )}
               </div>
-            )}
-          </div>
-          <button
-            onClick={handleBackToSpaces}
-            title={isCollapsed ? 'Back to Spaces' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition-all ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <ArrowLeft className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span className="text-sm">Back to Spaces</span>}
-          </button>
-          <button
-            onClick={handleLogout}
-            title={isCollapsed ? 'Sign out' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span className="text-sm">Sign out</span>}
-          </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-56">
+              <DropdownMenuLabel>
+                <div>
+                  <p className="font-medium">{currentUser.full_name || currentUser.email}</p>
+                  <p className="text-xs text-muted-foreground font-normal mt-1">{currentUser.email || 'No email'}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleOpenProfile}>
+                <UserIcon className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleBackToSpaces}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Spaces Main Page
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                <LogOut className="mr-2 h-4 w-4" />
+                Log Off
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
 
       {/* ── Main content ── */}
       <main className="flex-1 overflow-auto">
         {currentView === 'home' && (
-          <HomeView user={user} onNavigate={handleNavigate} />
+          <HomeView user={currentUser} onNavigate={handleNavigate} />
         )}
 
         <Suspense fallback={<ModuleLoading />}>
-          {currentView === 'summary' && <ManagerSummaryReports user={user} showCost={showCost} />}
-          {currentView === 'deals' && <BidProposalReports user={user} showCost={showCost} />}
+          {currentView === 'summary' && <ManagerSummaryReports user={currentUser} showCost={showCost} />}
+          {currentView === 'deals' && <BidProposalReports user={currentUser} showCost={showCost} />}
+          {currentView === 'messages' && <MessagingHub user={currentUser} />}
+          {currentView === 'profile' && (
+            <SettingsComponent
+              user={currentUser}
+              organization={null}
+              onUserUpdate={setCurrentUser}
+            />
+          )}
         </Suspense>
       </main>
     </div>

@@ -7,9 +7,11 @@ import {
   Triangle,
   ChefHat,
   Brush,
+  MessageSquare,
   LogOut,
   Settings,
   ChevronRight,
+  ChevronDown,
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
@@ -17,6 +19,14 @@ import {
   User as UserIcon,
   Users,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
 import { ChangePasswordDialog } from '../ChangePasswordDialog';
 import { createClient } from '../../utils/supabase/client';
@@ -57,16 +67,20 @@ const InteriorFinishingPlanner = lazyNamed(
   'InteriorFinishingPlanner'
 );
 const Contacts = lazyNamed(() => import('../Contacts'), 'Contacts');
+const MessagingHub = lazyNamed(() => import('../MessagingHub'), 'MessagingHub');
+const SettingsComponent = lazyNamed(() => import('../Settings'), 'Settings');
 
 type PlannerView =
   | 'home'
   | 'contacts'
+  | 'messages'
   | 'kitchen-planner'
   | 'deck-planner'
   | 'garage-planner'
   | 'shed-planner'
   | 'roof-planner'
-  | 'interior-finishing';
+  | 'interior-finishing'
+  | 'profile';
 
 interface NavItem {
   id: PlannerView;
@@ -81,6 +95,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Home', icon: LayoutDashboard, color: 'text-slate-600', bgColor: 'bg-slate-100' },
   { id: 'contacts', label: 'Contacts', icon: Users, color: 'text-sky-600', bgColor: 'bg-sky-50', module: 'contacts' },
+  { id: 'messages', label: 'Message Space', icon: MessageSquare, color: 'text-violet-600', bgColor: 'bg-violet-50', module: 'messages' },
   { id: 'deck-planner', label: 'Deck Planner', icon: Hammer, color: 'text-amber-600', bgColor: 'bg-amber-50' },
   { id: 'garage-planner', label: 'Garage Planner', icon: Warehouse, color: 'text-blue-600', bgColor: 'bg-blue-50' },
   { id: 'shed-planner', label: 'Shed Planner', icon: Home, color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
@@ -177,14 +192,15 @@ interface ProjectWizardsShellProps {
 export function ProjectWizardsShell({ user, onLogout }: ProjectWizardsShellProps) {
   const [currentView, setCurrentView] = useState<PlannerView>('home');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User>(user);
   const [, setPermissionVersion] = useState(0);
 
   useEffect(() => onPermissionsChanged(() => setPermissionVersion((version) => version + 1)), []);
 
-  const isAdmin = user.role === 'super_admin' || user.role === 'admin';
+  const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'admin';
 
   const visibleNav = NAV_ITEMS.filter(
-    (item) => (!item.adminOnly || isAdmin) && (!item.module || canView(item.module, user.role))
+    (item) => (!item.adminOnly || isAdmin) && (!item.module || canView(item.module, currentUser.role))
   );
 
   const handleNavigate = useCallback((view: PlannerView) => {
@@ -193,6 +209,10 @@ export function ProjectWizardsShell({ user, onLogout }: ProjectWizardsShellProps
 
   const handleBackToSpaces = () => {
     window.location.href = '/?view=space-chooser';
+  };
+
+  const handleOpenProfile = () => {
+    setCurrentView('profile');
   };
 
   const handleLogout = async () => {
@@ -278,94 +298,112 @@ export function ProjectWizardsShell({ user, onLogout }: ProjectWizardsShellProps
           })}
         </nav>
 
-        {/* Bottom: user info + logout */}
+        {/* Bottom: account menu */}
         <div className="border-t border-slate-100 p-3 space-y-2 shrink-0">
-          <div
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 bg-slate-50 ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center shrink-0">
-              {user.avatar_url ? (
-                <img
-                  src={user.avatar_url}
-                  alt=""
-                  className="h-8 w-8 rounded-full object-cover"
-                />
-              ) : (
-                <UserIcon className="h-4 w-4 text-white" />
-              )}
-            </div>
-            {!isCollapsed && (
-              <div className="overflow-hidden flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800 truncate">
-                  {user.full_name || user.email}
-                </p>
-                <p className="text-[11px] text-slate-400 truncate">
-                  {user.role.replace('_', ' ')}
-                </p>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="w-full focus:outline-none">
+              <div
+                title={isCollapsed ? 'Open account menu' : undefined}
+                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 bg-slate-50 text-left transition-all hover:bg-slate-100 ${
+                  isCollapsed ? 'justify-center' : ''
+                }`}
+              >
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center shrink-0">
+                  {currentUser.avatar_url ? (
+                    <img
+                      src={currentUser.avatar_url}
+                      alt=""
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <UserIcon className="h-4 w-4 text-white" />
+                  )}
+                </div>
+                {!isCollapsed && (
+                  <>
+                    <div className="overflow-hidden flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">
+                        {currentUser.full_name || currentUser.email}
+                      </p>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        Account menu
+                      </p>
+                    </div>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                  </>
+                )}
               </div>
-            )}
-          </div>
-          <button
-            onClick={handleBackToSpaces}
-            title={isCollapsed ? 'Back to Spaces' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition-all ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <ArrowLeft className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span className="text-sm">Back to Spaces</span>}
-          </button>
-          <button
-            onClick={handleLogout}
-            title={isCollapsed ? 'Sign out' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span className="text-sm">Sign out</span>}
-          </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-56">
+              <DropdownMenuLabel>
+                <div>
+                  <p className="font-medium">{currentUser.full_name || currentUser.email}</p>
+                  <p className="text-xs text-muted-foreground font-normal mt-1">{currentUser.email || 'No email'}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleOpenProfile}>
+                <UserIcon className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleBackToSpaces}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Spaces Main Page
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                <LogOut className="mr-2 h-4 w-4" />
+                Log Off
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
 
       {/* ── Main content area ── */}
       <main className="flex-1 overflow-auto">
         {currentView === 'home' && (
-          <HomeView user={user} onNavigate={handleNavigate} isAdmin={isAdmin} />
+          <HomeView user={currentUser} onNavigate={handleNavigate} isAdmin={isAdmin} />
         )}
 
         <Suspense fallback={<PlannerLoading />}>
-          {currentView === 'contacts' && <Contacts user={user} />}
+          {currentView === 'contacts' && <Contacts user={currentUser} />}
+          {currentView === 'messages' && <MessagingHub user={currentUser} />}
+          {currentView === 'profile' && (
+            <SettingsComponent
+              user={currentUser}
+              organization={null}
+              onUserUpdate={setCurrentUser}
+            />
+          )}
           {currentView === 'kitchen-planner' && (
             <PlannerErrorBoundary onNavigate={handleNavigate} plannerKey="kitchen-planner">
-              <KitchenPlanner user={user} />
+              <KitchenPlanner user={currentUser} />
             </PlannerErrorBoundary>
           )}
           {currentView === 'deck-planner' && (
             <PlannerErrorBoundary onNavigate={handleNavigate} plannerKey="deck-planner">
-              <DeckPlanner user={user} />
+              <DeckPlanner user={currentUser} />
             </PlannerErrorBoundary>
           )}
           {currentView === 'garage-planner' && (
             <PlannerErrorBoundary onNavigate={handleNavigate} plannerKey="garage-planner">
-              <GaragePlanner user={user} />
+              <GaragePlanner user={currentUser} />
             </PlannerErrorBoundary>
           )}
           {currentView === 'shed-planner' && (
             <PlannerErrorBoundary onNavigate={handleNavigate} plannerKey="shed-planner">
-              <ShedPlanner user={user} />
+              <ShedPlanner user={currentUser} />
             </PlannerErrorBoundary>
           )}
           {currentView === 'roof-planner' && (
             <PlannerErrorBoundary onNavigate={handleNavigate} plannerKey="roof-planner">
-              <RoofPlanner user={user} />
+              <RoofPlanner user={currentUser} />
             </PlannerErrorBoundary>
           )}
           {currentView === 'interior-finishing' && (
             <PlannerErrorBoundary onNavigate={handleNavigate} plannerKey="interior-finishing">
-              <InteriorFinishingPlanner user={user} />
+              <InteriorFinishingPlanner user={currentUser} />
             </PlannerErrorBoundary>
           )}
         </Suspense>

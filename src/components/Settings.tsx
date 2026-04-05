@@ -41,7 +41,6 @@ import {
   Moon,
 } from 'lucide-react';
 import type { User } from '../App';
-import { PermissionGate } from './PermissionGate';
 import { tenantsAPI, settingsAPI } from '../utils/api';
 import { DEFAULT_PRICE_TIER_LABELS, type PriceTierLabels, getPriceTierLabel, getActivePriceLevels, AVAILABLE_MODULES } from '../lib/global-settings';
 
@@ -704,36 +703,33 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   // Show loading spinner while settings are being fetched
   if (isLoading) {
     return (
-      <PermissionGate user={user} module="settings" action="view">
-        <div className="p-6">
-          <div className="flex items-center justify-center py-16">
-            <div className="text-center space-y-3">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
-              <p className="text-sm text-muted-foreground">Loading settings...</p>
-              <p className="text-xs text-muted-foreground mt-2">
-                If this takes too long, settings will load from local cache automatically.
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-3 text-xs text-muted-foreground hover:text-muted-foreground"
-                onClick={() => {
-                  loadSettingsFromLocalStorage();
-                  setShowDatabaseWarning(true);
-                  setIsLoading(false);
-                }}
-              >
-                Skip and use cached settings
-              </Button>
-            </div>
+      <div className="p-6">
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center space-y-3">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
+            <p className="text-sm text-muted-foreground">Loading settings...</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              If this takes too long, settings will load from local cache automatically.
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-3 text-xs text-muted-foreground hover:text-muted-foreground"
+              onClick={() => {
+                loadSettingsFromLocalStorage();
+                setShowDatabaseWarning(true);
+                setIsLoading(false);
+              }}
+            >
+              Skip and use cached settings
+            </Button>
           </div>
         </div>
-      </PermissionGate>
+      </div>
     );
   }
 
   return (
-    <PermissionGate user={user} module="settings" action="view">
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <WorkflowSettingsDialog 
         open={showWorkflowDialog} 
@@ -1606,6 +1602,5 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         </DialogContent>
       </Dialog>
     </div>
-    </PermissionGate>
   );
 }

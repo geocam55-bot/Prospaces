@@ -10,7 +10,8 @@ import { extractUserToken } from './auth-helper.ts';
  *   portal_user:{email_hash}         → { email, contactId, orgId, passwordHash, name, createdAt, lastLogin }
  *   portal_session:{token}           → { email, contactId, orgId, expiresAt }
  *   portal_invite:{code}             → { contactId, orgId, email, expiresAt, createdBy }
- *   portal_message:{orgId}:{id}      → { id, contactId, orgId, from, subject, body, createdAt, read, replies[] }
+ *   portal_message:{orgId}:{contactId}:{id} → { id, contactId, orgId, from, subject, body, createdAt, updatedAt, status, replies[], internalNotes[] }
+ *   internal_chat:{orgId}:{id}       → { id, orgId, title, contextType, contextLabel, status, messages[] }
  *   portal_access_log:{orgId}:{contactId} → { enabled, enabledAt, enabledBy }
  */
 
@@ -104,6 +105,8 @@ export function customerPortalAPI(app: Hono) {
 
       // Mark portal access as enabled for this contact
       await kv.set(`portal_access_log:${orgId}:${contactId}`, {
+        contactId,
+        contactName: contact.name || contact.company || contactEmail,
         enabled: true,
         enabledAt: new Date().toISOString(),
         enabledBy: user.id,
@@ -249,6 +252,8 @@ export function customerPortalAPI(app: Hono) {
         email: invite.email.toLowerCase().trim(),
         contactId: invite.contactId,
         orgId: invite.orgId,
+        createdAt: new Date().toISOString(),
+        lastActiveAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
       });
 
@@ -300,6 +305,8 @@ export function customerPortalAPI(app: Hono) {
         email: portalUser.email,
         contactId: portalUser.contactId,
         orgId: portalUser.orgId,
+        createdAt: new Date().toISOString(),
+        lastActiveAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       });
 
@@ -374,7 +381,7 @@ export function customerPortalAPI(app: Hono) {
   });
 
   // ── Helper: validate portal session ──
-  async function validateSession(c: any): Promise<{ contactId: string; orgId: string; email: string } | null> {
+  async function validateSession(c: any): Promise<{ contactId: string; orgId: string; email: string; lastActiveAt?: string } | null> {
     const token = c.req.header('X-Portal-Token');
     if (!token) return null;
 
@@ -385,6 +392,9 @@ export function customerPortalAPI(app: Hono) {
       await kv.del(`portal_session:${token}`);
       return null;
     }
+
+    session.lastActiveAt = new Date().toISOString();
+    await kv.set(`portal_session:${token}`, session);
 
     return session;
   }
@@ -571,29 +581,69 @@ export function customerPortalAPI(app: Hono) {
 
       const messages = await kv.getByPrefix(`portal_message:${session.orgId}:${session.contactId}:`);
 
-      // Sort by date, newest first
-      const sorted = (messages || []).sort((a: any, b: any) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+      // Sort by last activity, newest first
+      const sorted = (messages || []).sort((a: any, b: any) => {
+        const aLatest = a.updatedAt || (a.replies?.length ? a.replies[a.replies.length - 1].createdAt : a.createdAt);
+        const bLatest = b.updatedAt || (b.replies?.length ? b.replies[b.replies.length - 1].createdAt : b.createdAt);
+        return new Date(bLatest).getTime() - new Date(aLatest).getTime();
+      });
 
-      return c.json({ messages: sorted });
+      // Never expose staff-only internal notes to the customer portal
+      const publicMessages = sorted.map((msg: any) => ({
+        ...msg,
+        status: msg.status || 'open',
+        internalNotes: undefined,
+      }));
+
+      return c.json({ messages: publicMessages });
     } catch (err: any) {
       console.error('[portal] Messages error:', err);
       return c.json({ error: 'Failed to load messages: ' + err.message }, 500);
     }
   });
 
-  // ── POST /portal/messages — Customer sends a message ──
+  // ── POST /portal/messages — Customer sends a message or reply ──
   app.post(`${PREFIX}/messages`, async (c) => {
     try {
       const session = await validateSession(c);
       if (!session) return c.json({ error: 'Unauthorized' }, 401);
 
       const body = await c.req.json();
-      const { subject, message } = body;
+      const { subject, message, messageId, contextType, contextLabel } = body;
 
-      if (!subject || !message) {
-        return c.json({ error: 'Subject and message are required' }, 400);
+      if (!message) {
+        return c.json({ error: 'Message is required' }, 400);
+      }
+
+      const now = new Date().toISOString();
+
+      if (messageId) {
+        const existingKey = `portal_message:${session.orgId}:${session.contactId}:${messageId}`;
+        const existing = await kv.get(existingKey);
+
+        if (!existing) {
+          return c.json({ error: 'Conversation not found' }, 404);
+        }
+
+        if (!existing.replies) existing.replies = [];
+        existing.replies.push({
+          from: 'customer',
+          senderName: session.email,
+          body: message,
+          createdAt: now,
+        });
+        existing.read = false;
+        existing.customerUnread = false;
+        existing.status = 'open';
+        existing.updatedAt = now;
+
+        await kv.set(existingKey, existing);
+        console.log(`[portal] Reply sent by ${session.email} on thread ${messageId}`);
+        return c.json({ success: true, message: existing });
+      }
+
+      if (!subject) {
+        return c.json({ error: 'Subject is required' }, 400);
       }
 
       const msgBytes = new Uint8Array(8);
@@ -601,15 +651,21 @@ export function customerPortalAPI(app: Hono) {
       const msgId = hexEncode(msgBytes.buffer);
       const msgData = {
         id: msgId,
+        type: 'customer',
         contactId: session.contactId,
         orgId: session.orgId,
         from: 'customer',
         senderEmail: session.email,
         subject,
         body: message,
-        createdAt: new Date().toISOString(),
+        contextType: contextType || null,
+        contextLabel: contextLabel || null,
+        status: 'open',
+        createdAt: now,
+        updatedAt: now,
         read: false,
         replies: [],
+        internalNotes: [],
       };
 
       await kv.set(`portal_message:${session.orgId}:${session.contactId}:${msgId}`, msgData);
@@ -846,8 +902,64 @@ export function customerPortalAPI(app: Hono) {
 
       const orgId = profile.organization_id;
       const accessLogs = await kv.getByPrefix(`portal_access_log:${orgId}:`);
+      const portalUserRecords = (await kv.getByPrefix('portal_user:')) || [];
+      const activeSessions = ((await kv.getByPrefix('portal_session:')) || []).filter((session: any) => {
+        if (session.orgId !== orgId) return false;
+        if (!session.expiresAt || new Date(session.expiresAt) < new Date()) return false;
+        const lastActive = session.lastActiveAt || session.createdAt || session.expiresAt;
+        return !!lastActive && (Date.now() - new Date(lastActive).getTime()) < 15 * 60 * 1000;
+      });
 
-      return c.json({ portalUsers: accessLogs || [] });
+      const emails = [...new Set((accessLogs || []).map((entry: any) => entry.email).filter(Boolean))];
+      const contactIds = [...new Set((accessLogs || []).map((entry: any) => entry.contactId).filter(Boolean))];
+
+      let contactsByEmail: Record<string, any> = {};
+      let contactsById: Record<string, any> = {};
+
+      if (emails.length > 0) {
+        const { data: contactsByEmailData } = await supabase
+          .from('contacts')
+          .select('id, name, email, company')
+          .in('email', emails);
+        (contactsByEmailData || []).forEach((contact: any) => {
+          contactsByEmail[contact.email] = contact;
+          contactsById[contact.id] = contact;
+        });
+      }
+
+      if (contactIds.length > 0) {
+        const missingIds = contactIds.filter((id: string) => !contactsById[id]);
+        if (missingIds.length > 0) {
+          const { data: contactsByIdData } = await supabase
+            .from('contacts')
+            .select('id, name, email, company')
+            .in('id', missingIds);
+          (contactsByIdData || []).forEach((contact: any) => {
+            contactsById[contact.id] = contact;
+            if (contact.email) contactsByEmail[contact.email] = contact;
+          });
+        }
+      }
+
+      const portalUsers = (accessLogs || []).map((entry: any) => {
+        const portalUser = portalUserRecords.find((record: any) => record.email === entry.email);
+        const contact = (entry.contactId && contactsById[entry.contactId]) || (entry.email && contactsByEmail[entry.email]) || null;
+        const online = activeSessions.some((session: any) => {
+          return (entry.contactId && session.contactId === entry.contactId) || (entry.email && session.email === entry.email);
+        });
+
+        return {
+          ...entry,
+          contactId: entry.contactId || contact?.id || portalUser?.contactId || null,
+          name: entry.contactName || contact?.name || portalUser?.name || entry.email || 'Portal User',
+          company: contact?.company || '',
+          email: entry.email || contact?.email || portalUser?.email || '',
+          lastLogin: portalUser?.lastLogin || null,
+          online,
+        };
+      });
+
+      return c.json({ portalUsers });
     } catch (err: any) {
       return c.json({ error: 'Failed to list portal users: ' + err.message }, 500);
     }
@@ -964,6 +1076,8 @@ export function customerPortalAPI(app: Hono) {
       });
       msg.read = true;           // CRM side: mark as read (team has seen it)
       msg.customerUnread = true; // Customer side: flag new reply as unread for the customer
+      msg.status = 'open';
+      msg.updatedAt = new Date().toISOString();
 
       await kv.set(key, msg);
 
@@ -972,6 +1086,266 @@ export function customerPortalAPI(app: Hono) {
       return c.json({ success: true, message: msg });
     } catch (err: any) {
       return c.json({ error: 'Failed to send reply: ' + err.message }, 500);
+    }
+  });
+
+  // ── POST /portal/internal-note — CRM user adds a staff-only note to a customer thread ──
+  app.post(`${PREFIX}/internal-note`, async (c) => {
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const accessToken = extractUserToken(c);
+      if (!accessToken) return c.json({ error: 'Missing Authorization' }, 401);
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      if (authError || !user) return c.json({ error: 'Unauthorized' }, 401);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile) return c.json({ error: 'Profile not found' }, 404);
+
+      const body = await c.req.json();
+      const { messageId, contactId, note } = body;
+
+      if (!messageId || !contactId || !note) {
+        return c.json({ error: 'messageId, contactId, and note are required' }, 400);
+      }
+
+      const orgId = profile.organization_id;
+      const key = `portal_message:${orgId}:${contactId}:${messageId}`;
+      const msg = await kv.get(key);
+
+      if (!msg) {
+        return c.json({ error: 'Message not found' }, 404);
+      }
+
+      if (!msg.internalNotes) msg.internalNotes = [];
+      msg.internalNotes.push({
+        id: crypto.randomUUID(),
+        from: 'internal',
+        senderName: profile.name || profile.email,
+        body: note,
+        createdAt: new Date().toISOString(),
+      });
+      msg.updatedAt = new Date().toISOString();
+
+      await kv.set(key, msg);
+      return c.json({ success: true, message: msg });
+    } catch (err: any) {
+      return c.json({ error: 'Failed to save internal note: ' + err.message }, 500);
+    }
+  });
+
+  // ── POST /portal/status — CRM user updates customer conversation status ──
+  app.post(`${PREFIX}/status`, async (c) => {
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const accessToken = extractUserToken(c);
+      if (!accessToken) return c.json({ error: 'Missing Authorization' }, 401);
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      if (authError || !user) return c.json({ error: 'Unauthorized' }, 401);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile) return c.json({ error: 'Profile not found' }, 404);
+
+      const body = await c.req.json();
+      const { messageId, contactId, status } = body;
+
+      if (!messageId || !contactId || !status) {
+        return c.json({ error: 'messageId, contactId, and status are required' }, 400);
+      }
+
+      const normalizedStatus = status === 'resolved' ? 'resolved' : 'open';
+      const orgId = profile.organization_id;
+      const key = `portal_message:${orgId}:${contactId}:${messageId}`;
+      const msg = await kv.get(key);
+
+      if (!msg) {
+        return c.json({ error: 'Message not found' }, 404);
+      }
+
+      msg.status = normalizedStatus;
+      msg.updatedAt = new Date().toISOString();
+      msg.resolvedAt = normalizedStatus === 'resolved' ? new Date().toISOString() : null;
+
+      await kv.set(key, msg);
+      return c.json({ success: true, message: msg });
+    } catch (err: any) {
+      return c.json({ error: 'Failed to update status: ' + err.message }, 500);
+    }
+  });
+
+  // ── GET /portal/internal-chats — CRM user: list internal staff-only chats ──
+  app.get(`${PREFIX}/internal-chats`, async (c) => {
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const accessToken = extractUserToken(c);
+      if (!accessToken) return c.json({ error: 'Missing Authorization' }, 401);
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      if (authError || !user) return c.json({ error: 'Unauthorized' }, 401);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.organization_id) return c.json({ chats: [] });
+
+      const chats = await kv.getByPrefix(`internal_chat:${profile.organization_id}:`);
+      const sorted = (chats || []).sort((a: any, b: any) =>
+        new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
+      );
+
+      return c.json({ chats: sorted });
+    } catch (err: any) {
+      return c.json({ error: 'Failed to load internal chats: ' + err.message }, 500);
+    }
+  });
+
+  // ── POST /portal/internal-chats — CRM user creates a staff-only chat ──
+  app.post(`${PREFIX}/internal-chats`, async (c) => {
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const accessToken = extractUserToken(c);
+      if (!accessToken) return c.json({ error: 'Missing Authorization' }, 401);
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      if (authError || !user) return c.json({ error: 'Unauthorized' }, 401);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.organization_id) return c.json({ error: 'No organization found' }, 400);
+
+      const body = await c.req.json();
+      const { title, contextType, contextLabel, initialMessage, chatType, participants } = body;
+
+      if (!title) {
+        return c.json({ error: 'title is required' }, 400);
+      }
+
+      const normalizedParticipants = Array.isArray(participants)
+        ? participants.map((participant: any) => ({
+            id: participant?.id || null,
+            name: participant?.name || participant?.email || 'Member',
+            email: participant?.email || null,
+            kind: participant?.kind === 'portal' ? 'portal' : 'staff',
+          }))
+        : [];
+
+      const now = new Date().toISOString();
+      const chatId = crypto.randomUUID();
+      const chat = {
+        id: chatId,
+        orgId: profile.organization_id,
+        title,
+        chatType: chatType || (normalizedParticipants.length > 1 ? 'group' : normalizedParticipants.length === 1 ? 'direct' : 'general'),
+        contextType: contextType || 'general',
+        contextLabel: contextLabel || '',
+        participants: normalizedParticipants,
+        status: 'open',
+        createdBy: user.id,
+        createdByName: profile.name || profile.email,
+        createdAt: now,
+        updatedAt: now,
+        messages: initialMessage
+          ? [{
+              id: crypto.randomUUID(),
+              senderId: user.id,
+              senderName: profile.name || profile.email,
+              body: initialMessage,
+              createdAt: now,
+            }]
+          : [],
+      };
+
+      await kv.set(`internal_chat:${profile.organization_id}:${chatId}`, chat);
+      return c.json({ success: true, chat });
+    } catch (err: any) {
+      return c.json({ error: 'Failed to create internal chat: ' + err.message }, 500);
+    }
+  });
+
+  // ── POST /portal/internal-chats/:id/message — CRM user sends a staff-only chat message ──
+  app.post(`${PREFIX}/internal-chats/:id/message`, async (c) => {
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const accessToken = extractUserToken(c);
+      if (!accessToken) return c.json({ error: 'Missing Authorization' }, 401);
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      if (authError || !user) return c.json({ error: 'Unauthorized' }, 401);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.organization_id) return c.json({ error: 'No organization found' }, 400);
+
+      const chatId = c.req.param('id');
+      const body = await c.req.json();
+      const { message } = body;
+
+      if (!message) {
+        return c.json({ error: 'message is required' }, 400);
+      }
+
+      const key = `internal_chat:${profile.organization_id}:${chatId}`;
+      const chat = await kv.get(key);
+      if (!chat) {
+        return c.json({ error: 'Chat not found' }, 404);
+      }
+
+      if (!chat.messages) chat.messages = [];
+      chat.messages.push({
+        id: crypto.randomUUID(),
+        senderId: user.id,
+        senderName: profile.name || profile.email,
+        body: message,
+        createdAt: new Date().toISOString(),
+      });
+      chat.updatedAt = new Date().toISOString();
+
+      await kv.set(key, chat);
+      return c.json({ success: true, chat });
+    } catch (err: any) {
+      return c.json({ error: 'Failed to send internal chat message: ' + err.message }, 500);
     }
   });
 

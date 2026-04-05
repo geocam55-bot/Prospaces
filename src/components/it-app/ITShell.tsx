@@ -10,16 +10,26 @@ import {
   CreditCard,
   FileText,
   Globe,
+  MessageSquare,
   Clock,
   Wrench,
   LogOut,
   ChevronRight,
+  ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
   ArrowLeft,
   User as UserIcon,
   Users as UsersIcon,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 import { createClient } from '../../utils/supabase/client';
 import { canView, onPermissionsChanged } from '../../utils/permissions';
 import type { User } from '../../App';
@@ -43,7 +53,7 @@ const ImportExport = lazyNamed(() => import('../ImportExport'), 'ImportExport');
 const ScheduledJobs = lazyNamed(() => import('../ScheduledJobs'), 'ScheduledJobs');
 const SubscriptionBilling = lazyNamed(() => import('../subscription/SubscriptionBilling'), 'SubscriptionBilling');
 const SubscriptionAgreement = lazyNamed(() => import('../SubscriptionAgreement'), 'SubscriptionAgreement');
-const PortalMessagesAdmin = lazyNamed(() => import('../portal/PortalMessagesAdmin'), 'PortalMessagesAdmin');
+const PortalMessagesAdmin = lazyNamed(() => import('../MessagingHub'), 'MessagingHub');
 const AdminFixUsers = lazyNamed(() => import('../AdminFixUsers'), 'AdminFixUsers');
 const Contacts = lazyNamed(() => import('../Contacts'), 'Contacts');
 
@@ -83,7 +93,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'scheduled-jobs', label: 'Scheduled Jobs',       icon: Clock,      color: 'text-amber-600',   bgColor: 'bg-amber-50' },
   { id: 'billing',        label: 'Billing',              icon: CreditCard, color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
   { id: 'agreement',      label: 'Subscription',         icon: FileText,   color: 'text-blue-600',    bgColor: 'bg-blue-50',    superAdminOnly: true },
-  { id: 'portal-admin',   label: 'Customer Portal',      icon: Globe,      color: 'text-rose-600',    bgColor: 'bg-rose-50' },
+  { id: 'portal-admin',   label: 'Message Space',        icon: MessageSquare, color: 'text-rose-600', bgColor: 'bg-rose-50' },
   { id: 'fix-users',      label: 'Fix Users',            icon: Wrench,     color: 'text-orange-600',  bgColor: 'bg-orange-50',  superAdminOnly: true },
 ];
 
@@ -140,6 +150,10 @@ export function ITShell({ user, accessToken, onLogout }: ITShellProps) {
 
   const handleBackToSpaces = () => {
     window.location.href = '/?view=space-chooser';
+  };
+
+  const handleOpenProfile = () => {
+    setCurrentView('settings');
   };
 
   const handleLogout = async () => {
@@ -259,74 +273,72 @@ export function ITShell({ user, accessToken, onLogout }: ITShellProps) {
           })}
         </nav>
 
-        {/* Bottom: user info + logout */}
+        {/* Bottom: account menu */}
         <div className="p-3 space-y-2 shrink-0" style={{ borderTop: `1px solid ${theme.colors.border}` }}>
-          <div
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-            style={{ backgroundColor: theme.colors.backgroundTertiary }}
-          >
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center shrink-0">
-              {currentUser.avatar_url ? (
-                <img
-                  src={currentUser.avatar_url}
-                  alt=""
-                  className="h-8 w-8 rounded-full object-cover"
-                />
-              ) : (
-                <UserIcon className="h-4 w-4 text-white" />
-              )}
-            </div>
-            {!isCollapsed && (
-              <div className="overflow-hidden flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: theme.colors.text }}>
-                  {currentUser.full_name || currentUser.email}
-                </p>
-                <p className="text-[11px] truncate" style={{ color: theme.colors.textMuted }}>
-                  {currentUser.role.replace('_', ' ')}
-                </p>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="w-full focus:outline-none">
+              <div
+                title={isCollapsed ? 'Open account menu' : undefined}
+                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
+                  isCollapsed ? 'justify-center' : ''
+                }`}
+                style={{ backgroundColor: theme.colors.backgroundTertiary }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.colors.navHover;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.colors.backgroundTertiary;
+                }}
+              >
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center shrink-0">
+                  {currentUser.avatar_url ? (
+                    <img
+                      src={currentUser.avatar_url}
+                      alt=""
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <UserIcon className="h-4 w-4 text-white" />
+                  )}
+                </div>
+                {!isCollapsed && (
+                  <>
+                    <div className="overflow-hidden flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: theme.colors.text }}>
+                        {currentUser.full_name || currentUser.email}
+                      </p>
+                      <p className="text-[11px] truncate" style={{ color: theme.colors.textMuted }}>
+                        Account menu
+                      </p>
+                    </div>
+                    <ChevronDown className="h-4 w-4 shrink-0" style={{ color: theme.colors.textMuted }} />
+                  </>
+                )}
               </div>
-            )}
-          </div>
-          <button
-            onClick={handleBackToSpaces}
-            title={isCollapsed ? 'Back to Spaces' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-            style={{ color: theme.colors.textMuted }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(139,92,246,0.18)' : 'rgba(243,232,255,1)';
-              e.currentTarget.style.color = '#7C3AED';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = theme.colors.textMuted;
-            }}
-          >
-            <ArrowLeft className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span className="text-sm">Back to Spaces</span>}
-          </button>
-          <button
-            onClick={handleLogout}
-            title={isCollapsed ? 'Sign out' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-            style={{ color: theme.colors.textMuted }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(239,68,68,0.15)' : 'rgba(254,226,226,1)';
-              e.currentTarget.style.color = '#DC2626';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.color = theme.colors.textMuted;
-            }}
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span className="text-sm">Sign out</span>}
-          </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-56">
+              <DropdownMenuLabel>
+                <div>
+                  <p className="font-medium">{currentUser.full_name || currentUser.email}</p>
+                  <p className="text-xs text-muted-foreground font-normal mt-1">{currentUser.email || 'No email'}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleOpenProfile}>
+                <UserIcon className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleBackToSpaces}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Spaces Main Page
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                <LogOut className="mr-2 h-4 w-4" />
+                Log Off
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
 

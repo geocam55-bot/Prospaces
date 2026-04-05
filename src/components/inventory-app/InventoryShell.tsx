@@ -4,15 +4,25 @@ import {
   BarChart3,
   AlertTriangle,
   Search,
+  MessageSquare,
   Tag,
   LogOut,
   ChevronRight,
+  ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
   ArrowLeft,
   User as UserIcon,
   Wrench,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 import { createClient } from '../../utils/supabase/client';
 import type { User } from '../../App';
 
@@ -29,8 +39,13 @@ const Inventory = lazyNamed(
   () => import('../Inventory'),
   'Inventory'
 );
+const MessagingHub = lazyNamed(() => import('../MessagingHub'), 'MessagingHub');
+const SettingsComponent = lazyNamed(
+  () => import('../Settings'),
+  'Settings'
+);
 
-type InventoryView = 'home' | 'catalog';
+type InventoryView = 'home' | 'catalog' | 'messages' | 'profile';
 
 interface NavItem {
   id: InventoryView;
@@ -42,6 +57,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'catalog', label: 'Inventory Catalog', icon: Package, color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+  { id: 'messages', label: 'Message Space', icon: MessageSquare, color: 'text-violet-600', bgColor: 'bg-violet-50' },
 ];
 
 function ModuleLoading() {
@@ -64,6 +80,7 @@ interface InventoryShellProps {
 export function InventoryShell({ user, accessToken, onLogout }: InventoryShellProps) {
   const [currentView, setCurrentView] = useState<InventoryView>('home');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User>(user);
 
   const handleNavigate = useCallback((view: InventoryView) => {
     setCurrentView(view);
@@ -71,6 +88,10 @@ export function InventoryShell({ user, accessToken, onLogout }: InventoryShellPr
 
   const handleBackToSpaces = () => {
     window.location.href = '/?view=space-chooser';
+  };
+
+  const handleOpenProfile = () => {
+    setCurrentView('profile');
   };
 
   const handleLogout = async () => {
@@ -156,66 +177,84 @@ export function InventoryShell({ user, accessToken, onLogout }: InventoryShellPr
           })}
         </nav>
 
-        {/* Bottom: user info + logout */}
+        {/* Bottom: account menu */}
         <div className="border-t border-slate-100 p-3 space-y-2 shrink-0">
-          <div
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 bg-slate-50 ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shrink-0">
-              {user.avatar_url ? (
-                <img
-                  src={user.avatar_url}
-                  alt=""
-                  className="h-8 w-8 rounded-full object-cover"
-                />
-              ) : (
-                <UserIcon className="h-4 w-4 text-white" />
-              )}
-            </div>
-            {!isCollapsed && (
-              <div className="overflow-hidden flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800 truncate">
-                  {user.full_name || user.email}
-                </p>
-                <p className="text-[11px] text-slate-400 truncate">
-                  {user.role.replace('_', ' ')}
-                </p>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="w-full focus:outline-none">
+              <div
+                title={isCollapsed ? 'Open account menu' : undefined}
+                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 bg-slate-50 text-left transition-all hover:bg-slate-100 ${
+                  isCollapsed ? 'justify-center' : ''
+                }`}
+              >
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shrink-0">
+                  {currentUser.avatar_url ? (
+                    <img
+                      src={currentUser.avatar_url}
+                      alt=""
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <UserIcon className="h-4 w-4 text-white" />
+                  )}
+                </div>
+                {!isCollapsed && (
+                  <>
+                    <div className="overflow-hidden flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">
+                        {currentUser.full_name || currentUser.email}
+                      </p>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        Account menu
+                      </p>
+                    </div>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                  </>
+                )}
               </div>
-            )}
-          </div>
-          <button
-            onClick={handleBackToSpaces}
-            title={isCollapsed ? 'Back to Spaces' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 transition-all ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <ArrowLeft className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span className="text-sm">Back to Spaces</span>}
-          </button>
-          <button
-            onClick={handleLogout}
-            title={isCollapsed ? 'Sign out' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span className="text-sm">Sign out</span>}
-          </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-56">
+              <DropdownMenuLabel>
+                <div>
+                  <p className="font-medium">{currentUser.full_name || currentUser.email}</p>
+                  <p className="text-xs text-muted-foreground font-normal mt-1">{currentUser.email || 'No email'}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleOpenProfile}>
+                <UserIcon className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleBackToSpaces}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Spaces Main Page
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                <LogOut className="mr-2 h-4 w-4" />
+                Log Off
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
 
       {/* ── Main content ── */}
       <main className="flex-1 overflow-auto">
         {currentView === 'home' && (
-          <HomeView user={user} onNavigate={handleNavigate} />
+          <HomeView user={currentUser} onNavigate={handleNavigate} />
         )}
 
         <Suspense fallback={<ModuleLoading />}>
-          {currentView === 'catalog' && <Inventory user={user} />}
+          {currentView === 'catalog' && <Inventory user={currentUser} />}
+          {currentView === 'messages' && <MessagingHub user={currentUser} />}
+          {currentView === 'profile' && (
+            <SettingsComponent
+              user={currentUser}
+              organization={null}
+              onUserUpdate={setCurrentUser}
+            />
+          )}
         </Suspense>
       </main>
     </div>

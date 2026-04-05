@@ -63,7 +63,7 @@ const BackgroundImportManager = lazyNamed(() => import('./components/BackgroundI
 const AITaskSuggestions = lazyNamed(() => import('./components/AITaskSuggestions'), 'AITaskSuggestions');
 const AdminFixUsers = lazyNamed(() => import('./components/AdminFixUsers'), 'AdminFixUsers');
 const About = lazyNamed(() => import('./components/About'), 'About');
-const PortalMessagesAdmin = lazyNamed(() => import('./components/portal/PortalMessagesAdmin'), 'PortalMessagesAdmin');
+const PortalMessagesAdmin = lazyNamed(() => import('./components/MessagingHub'), 'MessagingHub');
 const SubscriptionBilling = lazyNamed(() => import('./components/subscription/SubscriptionBilling'), 'SubscriptionBilling');
 // Planners
 const KitchenPlanner = lazyNamed(() => import('./components/planners/KitchenPlanner'), 'KitchenPlanner');
@@ -585,7 +585,7 @@ export function AppContent() {
           />
 
           <main 
-            className={`flex-1 overflow-auto transition-all duration-300 lg:fixed lg:top-16 lg:bottom-0 lg:right-0 ${isSidebarCollapsed ? 'lg:left-20' : 'lg:left-64'}`} 
+            className="flex-1 overflow-auto transition-all duration-300"
             style={{ background: 'var(--color-background-secondary)' }}
           >
             <OfflineIndicator />
@@ -599,6 +599,7 @@ export function AppContent() {
               {currentView === 'contacts' && <Contacts user={user} />}
               {currentView === 'tasks' && <Tasks user={user} />}
               {currentView === 'bids' && <Bids user={user} />}
+              {currentView === 'messages' && <PortalMessagesAdmin user={user} />}
               {currentView === 'notes' && <Notes user={user} />}
               {currentView === 'appointments' && <Appointments user={user} />}
               {currentView === 'documents' && <Documents user={user} />}

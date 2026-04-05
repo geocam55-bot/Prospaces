@@ -14,6 +14,7 @@ import {
   Building2,
   UserCog,
   Mail,
+  MessageSquare,
   TrendingUp,
   Package,
   Shield,
@@ -34,6 +35,8 @@ import {
   Home,
   Triangle,
   Globe,
+  PanelLeftClose,
+  PanelLeftOpen,
   CreditCard,
   History,
   Info,
@@ -58,7 +61,6 @@ import { useUnreadEmails } from '../hooks/useUnreadEmails';
 import { useBidNotifications } from '../hooks/useBidNotifications';
 import { useTaskNotifications } from '../hooks/useTaskNotifications';
 import { useAppointmentNotifications } from '../hooks/useAppointmentNotifications';
-import { SubscriptionBadge } from './subscription/SubscriptionBadge';
 import { getCurrentSubscription } from '../utils/subscription-client';
 
 interface NavigationProps {
@@ -122,6 +124,7 @@ export function Navigation({
     ...(organization?.ai_suggestions_enabled ? [{ id: 'ai-suggestions', label: 'AI Suggestions', icon: Sparkles }] : []),
     { id: 'contacts', label: 'Contacts', icon: Users },
     { id: 'bids', label: 'Deals', icon: FileText },
+    { id: 'messages', label: 'Message Space', icon: MessageSquare },
     { id: 'notes', label: 'Notes', icon: StickyNote },
     // Show Appointments for all users (including Admin for calendar sync testing)
     { 
@@ -249,7 +252,7 @@ export function Navigation({
             {(item.id === 'admin' || item.id === 'project-wizards') ? (
               <button
                 onClick={() => toggleSubmenu(item.id)}
-                className={`w-full group flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'justify-between px-3'} py-2 text-sm rounded-md transition-colors ${
+                className={`w-full group flex items-center ${isSidebarCollapsed ? 'justify-center px-2 py-3' : 'justify-between px-4 py-3'} text-sm rounded-xl transition-all duration-150 ${
                   isSubmenuItem && !isSidebarCollapsed ? 'pl-6' : ''
                 }`}
                 style={{
@@ -285,7 +288,7 @@ export function Navigation({
               <>
                 <button
                   onClick={() => handleNavClick(item.id)}
-                  className={`w-full group flex items-center ${isSidebarCollapsed ? 'justify-center pr-2 px-2' : 'pr-8 px-3'} py-2 text-sm rounded-md transition-colors ${
+                  className={`w-full group flex items-center ${isSidebarCollapsed ? 'justify-center px-2 py-3' : 'pr-10 px-4 py-3'} text-sm rounded-xl transition-all duration-150 ${
                     isSubmenuItem && !isSidebarCollapsed ? 'pl-6' : ''
                   }`}
                   style={{
@@ -314,7 +317,7 @@ export function Navigation({
                       e.stopPropagation();
                       toggleSubmenu(item.id);
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-background/10 transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1 transition-colors hover:bg-background/10"
                     aria-label={isExpanded ? 'Collapse submenu' : 'Expand submenu'}
                   >
                     {isExpanded ? (
@@ -340,7 +343,7 @@ export function Navigation({
       <button
         key={item.id}
         onClick={() => handleNavClick(item.id)}
-        className={`w-full group flex items-center ${isSidebarCollapsed ? 'justify-center px-2' : 'px-3'} py-2 text-sm rounded-md transition-colors ${
+        className={`w-full group flex items-center ${isSidebarCollapsed ? 'justify-center px-2 py-3' : 'px-4 py-3'} text-sm rounded-xl transition-all duration-150 ${
           isSubmenuItem && !isSidebarCollapsed ? 'pl-11' : ''
         }`}
         style={{
@@ -428,7 +431,12 @@ export function Navigation({
         <div className="flex items-center justify-between gap-2 px-3 py-3">
           <div className="flex min-w-0 items-center gap-2">
             <Logo size="sm" />
-            <span className="truncate font-semibold">ProSpaces CRM</span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">Sales Space</p>
+              <p className="truncate text-[10px] uppercase tracking-wide" style={{ opacity: 0.7 }}>
+                {getPageTitle(currentView)}
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-0.5">
             {/* AI Suggestions Icon */}
@@ -546,7 +554,7 @@ export function Navigation({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleBackToSpaces}>
                   <Home className="mr-2 h-4 w-4" />
-                  Back to Spaces
+                  Spaces Main Page
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleNavClick('settings')}>
                   <User className="mr-2 h-4 w-4" />
@@ -559,7 +567,7 @@ export function Navigation({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onLogout} className="text-red-600">
                   <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
+                  Log Off
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -575,71 +583,179 @@ export function Navigation({
         </div>
       </div>
 
-      {/* Desktop sidebar — starts below the full-width header */}
-      <div className={`hidden lg:fixed lg:top-16 lg:bottom-0 lg:left-0 lg:flex lg:flex-col transition-all duration-300 z-30 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-64'}`}>
-        <div 
-          className="flex flex-col flex-grow border-r pt-4 pb-4 overflow-y-auto"
-          style={{
-            background: theme.colors.navBackground,
-            color: theme.colors.navText,
-            borderColor: theme.colors.border
-          }}
+      {/* Desktop sidebar */}
+      <aside
+        className={`hidden lg:flex lg:flex-col transition-all duration-300 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-72'}`}
+        style={{
+          background: theme.colors.navBackground,
+          borderRight: `1px solid ${theme.colors.border}`,
+          color: theme.colors.navText,
+        }}
+      >
+        <div
+          className="flex items-center gap-3 px-5 h-16 shrink-0"
+          style={{ borderBottom: `1px solid ${theme.colors.border}` }}
         >
-          <nav className="flex-1 px-2 space-y-1">
-            {navItems.map((item) => renderNavItem(item))}
-          </nav>
+          <Logo size="sm" className="h-9 w-9 shrink-0" />
+          {!isSidebarCollapsed && (
+            <div className="overflow-hidden">
+              <span className="text-base font-bold tracking-tight block truncate" style={{ color: theme.colors.navText }}>
+                Sales Space
+              </span>
+              <span className="text-[10px] font-medium uppercase tracking-wider block" style={{ color: theme.colors.textMuted }}>
+                CRM Workspace
+              </span>
+            </div>
+          )}
+          {onToggleSidebar && (
+            <button
+              onClick={onToggleSidebar}
+              className="ml-auto transition-colors p-1 rounded-lg"
+              style={{ color: theme.colors.textMuted }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = theme.colors.navHover;
+                e.currentTarget.style.color = theme.colors.navText;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = theme.colors.textMuted;
+              }}
+              title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isSidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </button>
+          )}
+        </div>
 
-          {/* Sidebar Footer - Legal Links */}
-          <div className={`px-3 pt-3 mt-2 border-t ${isSidebarCollapsed ? 'text-center' : ''}`} style={{ borderColor: theme.colors.border }}>
-            {!isSidebarCollapsed ? (
-              <div className="flex items-center justify-center gap-3 pb-3">
-                <a
-                  href="?view=privacy-policy"
-                  className="text-xs transition-colors"
-                  style={{ color: theme.colors.navText, opacity: 0.5 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; }}
-                >
-                  Privacy
-                </a>
-                <span className="text-xs" style={{ color: theme.colors.navText, opacity: 0.3 }}>·</span>
-                <a
-                  href="?view=terms-of-service"
-                  className="text-xs transition-colors"
-                  style={{ color: theme.colors.navText, opacity: 0.5 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; }}
-                >
-                  Terms
-                </a>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-1 pb-3">
-                <a
-                  href="?view=privacy-policy"
-                  className="text-[10px] transition-colors"
-                  style={{ color: theme.colors.navText, opacity: 0.5 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; }}
-                  title="Privacy Policy"
-                >
-                  Privacy
-                </a>
-                <a
-                  href="?view=terms-of-service"
-                  className="text-[10px] transition-colors"
-                  style={{ color: theme.colors.navText, opacity: 0.5 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; }}
-                  title="Terms of Service"
-                >
-                  Terms
-                </a>
+        <div className="px-3 pt-4">
+          <div
+            className={`flex items-center gap-3 rounded-xl ${isSidebarCollapsed ? 'justify-center px-2 py-3' : 'px-4 py-3'}`}
+            style={{ backgroundColor: theme.colors.navActive }}
+          >
+            {(() => {
+              const Icon = getPageIcon(currentView);
+              return <Icon className="h-5 w-5 shrink-0" style={{ color: theme.colors.primary }} />;
+            })()}
+            {!isSidebarCollapsed && (
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wide" style={{ color: theme.colors.textMuted }}>
+                  Current Page
+                </p>
+                <p className="truncate text-sm font-semibold" style={{ color: theme.colors.navText }}>
+                  {getPageTitle(currentView)}
+                </p>
               </div>
             )}
           </div>
         </div>
-      </div>
+
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+          {navItems.map((item) => renderNavItem(item))}
+        </nav>
+
+        <div className="p-3 space-y-2 shrink-0" style={{ borderTop: `1px solid ${theme.colors.border}` }}>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="w-full focus:outline-none">
+              <div
+                title={isSidebarCollapsed ? 'Open account menu' : undefined}
+                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
+                  isSidebarCollapsed ? 'justify-center' : ''
+                }`}
+                style={{ backgroundColor: theme.colors.backgroundTertiary }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.colors.navHover;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = theme.colors.backgroundTertiary;
+                }}
+              >
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarImage src={user.avatar_url} alt={user.full_name || user.email || 'User'} />
+                  <AvatarFallback className="bg-blue-600 text-white text-sm">
+                    {getInitials(user.full_name || user.email || '')}
+                  </AvatarFallback>
+                </Avatar>
+                {!isSidebarCollapsed && (
+                  <div className="overflow-hidden flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: theme.colors.text }}>
+                      {user.full_name || user.email || 'User'}
+                    </p>
+                    <p className="text-[11px] truncate" style={{ color: theme.colors.textMuted }}>
+                      Account menu
+                    </p>
+                  </div>
+                )}
+                {!isSidebarCollapsed && <ChevronDown className="h-4 w-4 shrink-0" style={{ color: theme.colors.textMuted }} />}
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-56">
+              <DropdownMenuLabel>
+                <div>
+                  <p className="font-medium">{user.full_name || user.email || 'User'}</p>
+                  <p className="text-xs text-muted-foreground font-normal mt-1">{user.email || 'No email'}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleNavClick('settings')}>
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleBackToSpaces}>
+                <Home className="mr-2 h-4 w-4" />
+                Spaces Main Page
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onLogout} className="text-red-600">
+                <LogOut className="mr-2 h-4 w-4" />
+                Log Off
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {!isSidebarCollapsed ? (
+            <div className="flex items-center justify-center gap-3 pt-1">
+              <a
+                href="?view=privacy-policy"
+                className="text-xs transition-colors"
+                style={{ color: theme.colors.navText, opacity: 0.5 }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; }}
+              >
+                Privacy
+              </a>
+              <span className="text-xs" style={{ color: theme.colors.navText, opacity: 0.3 }}>·</span>
+              <a
+                href="?view=terms-of-service"
+                className="text-xs transition-colors"
+                style={{ color: theme.colors.navText, opacity: 0.5 }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; }}
+              >
+                Terms
+              </a>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-1 pt-1">
+              <a
+                href="?view=privacy-policy"
+                className="text-[10px] transition-colors"
+                style={{ color: theme.colors.navText, opacity: 0.5 }}
+                title="Privacy Policy"
+              >
+                Privacy
+              </a>
+              <a
+                href="?view=terms-of-service"
+                className="text-[10px] transition-colors"
+                style={{ color: theme.colors.navText, opacity: 0.5 }}
+                title="Terms of Service"
+              >
+                Terms
+              </a>
+            </div>
+          )}
+        </div>
+      </aside>
 
       {/* Mobile menu */}
       {isMobileMenuOpen && (
@@ -682,224 +798,6 @@ export function Navigation({
         </div>
       )}
 
-      {/* Desktop header */}
-      <div 
-        className="hidden lg:block fixed top-0 left-0 right-0 z-50 h-16 shadow-sm"
-        style={{
-          background: theme.colors.topBarBackground,
-          color: theme.colors.topBarText,
-          borderBottom: `1px solid ${theme.colors.border}`,
-        }}
-      >
-        <div className="flex items-center justify-between h-full px-4">
-          <div className="flex items-center gap-3">
-            {/* Logo & Brand */}
-            <div className="flex items-center gap-2 mr-2">
-              <Logo size="md" className="h-9 w-9" />
-              {!isSidebarCollapsed && (
-                <span className="text-lg font-semibold whitespace-nowrap" style={{ color: theme.colors.topBarText }}>
-                  ProSpaces CRM
-                </span>
-              )}
-            </div>
-
-            {/* Sidebar Toggle */}
-            <button
-              onClick={onToggleSidebar}
-              className="p-1.5 rounded-md transition-colors"
-              style={{ color: theme.colors.topBarText, opacity: 0.7 }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '1';
-                e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '0.7';
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-              title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-
-            {/* Divider */}
-            <div className="h-6 w-px mx-1" style={{ backgroundColor: theme.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)' }} />
-
-            {/* Page Title */}
-            {(() => {
-              const Icon = getPageIcon(currentView);
-              return <Icon className="h-5 w-5" style={{ color: theme.colors.primary }} />;
-            })()}
-            <h1 className="text-lg font-semibold" style={{ color: theme.colors.topBarText }}>
-              {getPageTitle(currentView)}
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* AI Suggestions Icon */}
-            {suggestions.length > 0 && (
-              <button
-                className="relative p-2 rounded-full transition-colors"
-                style={{ color: theme.colors.topBarText }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                onClick={() => handleNavClick('ai-suggestions')}
-                title={`${suggestions.length} AI Suggestions`}
-              >
-                <Sparkles className="h-5 w-5 text-purple-400 animate-pulse" />
-                <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
-                  {suggestions.length > 9 ? '9+' : suggestions.length}
-                </span>
-              </button>
-            )}
-
-            {/* Bid Notifications Icon */}
-            {unreadBidsCount > 0 && (
-              <button
-                className="relative p-2 rounded-full transition-colors"
-                style={{ color: theme.colors.topBarText }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                onClick={() => handleNavClick('bids')}
-                title={`${unreadBidsCount} Deal Updates`}
-              >
-                <FileText className="h-5 w-5 text-orange-400 animate-pulse" />
-                <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
-                  {unreadBidsCount > 9 ? '9+' : unreadBidsCount}
-                </span>
-              </button>
-            )}
-
-            {/* Task Notifications Icon */}
-            {taskCount > 0 && (
-              <button
-                className="relative p-2 rounded-full transition-colors"
-                style={{ color: theme.colors.topBarText }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                onClick={() => handleNavClick('tasks')}
-                title={`${taskCount} Pending Tasks`}
-              >
-                <CheckSquare className="h-5 w-5 text-green-400 animate-pulse" />
-                <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
-                  {taskCount > 9 ? '9+' : taskCount}
-                </span>
-              </button>
-            )}
-
-            {/* Appointment Notifications Icon */}
-            {appointmentCount > 0 && (
-              <button
-                className="relative p-2 rounded-full transition-colors"
-                style={{ color: theme.colors.topBarText }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                onClick={() => handleNavClick('appointments')}
-                title={`${appointmentCount} Upcoming Appointments`}
-              >
-                <Calendar className="h-5 w-5 text-purple-400 animate-pulse" />
-                <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
-                  {appointmentCount > 9 ? '9+' : appointmentCount}
-                </span>
-              </button>
-            )}
-
-            {/* Email Icon */}
-            {unreadCount > 0 && (
-              <button
-                className="relative p-2 rounded-full transition-colors"
-                style={{ color: theme.colors.topBarText }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                onClick={() => handleNavClick('email')}
-                title={`${unreadCount} Unread Emails`}
-              >
-                <Mail className="h-5 w-5 text-blue-400 animate-pulse" />
-                <span className="absolute top-0 right-0 h-4 w-4 text-[10px] flex items-center justify-center bg-red-500 text-white rounded-full">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              </button>
-            )}
-
-            {organization && (
-              <div 
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border"
-                style={{
-                  backgroundColor: theme.isDark ? 'rgba(59,130,246,0.15)' : '#eff6ff',
-                  borderColor: theme.isDark ? 'rgba(59,130,246,0.3)' : '#bfdbfe',
-                }}
-              >
-                <Building2 className="h-4 w-4" style={{ color: theme.isDark ? '#93c5fd' : '#2563eb' }} />
-                <span className="text-sm font-medium" style={{ color: theme.isDark ? '#93c5fd' : '#1d4ed8' }}>{organization.name}</span>
-              </div>
-            )}
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBackToSpaces}
-              className="hidden sm:inline-flex items-center gap-2"
-            >
-              <Home className="h-4 w-4" />
-              Spaces
-            </Button>
-
-            {/* Subscription Badge */}
-            <SubscriptionBadge onClick={() => handleNavClick('subscription-billing')} />
-
-            <DropdownMenu>
-              <DropdownMenuTrigger className="focus:outline-none">
-                <Avatar className="h-8 w-8 shrink-0 cursor-pointer ring-2 ring-offset-2 ring-transparent hover:ring-blue-500 transition-all" style={{ '--tw-ring-offset-color': theme.colors.topBarBackground } as any}>
-                  <AvatarImage src={user.avatar_url} alt={user.full_name || user.email || 'User'} />
-                  <AvatarFallback className="bg-blue-600 text-white text-sm">
-                    {getInitials(user.full_name || user.email || '')}
-                  </AvatarFallback>
-                </Avatar>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 bg-black border-[#2E2E2E] text-white">
-                <DropdownMenuLabel>
-                  <div>
-                    <p className="font-medium text-white">{user.full_name || user.email || 'User'}</p>
-                    <p className="text-xs text-muted-foreground font-normal mt-1">{user.email || 'No email'}</p>
-                  </div>
-                </DropdownMenuLabel>
-                {organization && (
-                  <>
-                    <DropdownMenuSeparator className="bg-[#2E2E2E]" />
-                    <DropdownMenuLabel>
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded bg-[#1E1E1E] flex items-center justify-center">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground font-normal">Organization</p>
-                          <p className="text-sm font-medium text-white">{organization.name}</p>
-                        </div>
-                      </div>
-                    </DropdownMenuLabel>
-                  </>
-                )}
-                <DropdownMenuSeparator className="bg-[#2E2E2E]" />
-                <DropdownMenuItem onClick={handleBackToSpaces} className="text-gray-200 focus:bg-[#1E1E1E] focus:text-white">
-                  <Home className="mr-2 h-4 w-4" />
-                  Back to Spaces
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleNavClick('settings')} className="text-gray-200 focus:bg-[#1E1E1E] focus:text-white">
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleNavClick('about')} className="text-gray-200 focus:bg-[#1E1E1E] focus:text-white">
-                  <Info className="mr-2 h-4 w-4" />
-                  About
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-[#2E2E2E]" />
-                <DropdownMenuItem onClick={onLogout} className="text-red-500 focus:bg-[#1E1E1E] focus:text-red-400">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </div>
     </>
   );
 }

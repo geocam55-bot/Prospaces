@@ -121,10 +121,16 @@ export async function getPortalMessages() {
   return portalFetch('/messages');
 }
 
-export async function sendPortalMessage(subject: string, message: string) {
+export async function sendPortalMessage(subject: string, message: string, messageId?: string, context?: { contextType?: string; contextLabel?: string }) {
   return portalFetch('/messages', {
     method: 'POST',
-    body: JSON.stringify({ subject, message }),
+    body: JSON.stringify({
+      subject,
+      message,
+      messageId,
+      contextType: context?.contextType,
+      contextLabel: context?.contextLabel,
+    }),
   });
 }
 
@@ -206,5 +212,75 @@ export async function replyToPortalMessage(messageId: string, contactId: string,
 
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'Failed to send reply');
+  return data;
+}
+
+export async function addPortalInternalNote(messageId: string, contactId: string, note: string, accessToken: string) {
+  const headers = await getServerHeaders();
+  const response = await fetch(`${BASE_URL}/internal-note`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ messageId, contactId, note }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Failed to save internal note');
+  return data;
+}
+
+export async function updatePortalThreadStatus(messageId: string, contactId: string, status: 'open' | 'resolved', accessToken: string) {
+  const headers = await getServerHeaders();
+  const response = await fetch(`${BASE_URL}/status`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ messageId, contactId, status }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Failed to update conversation status');
+  return data;
+}
+
+export async function getInternalChats(accessToken: string) {
+  const headers = await getServerHeaders();
+  const response = await fetch(`${BASE_URL}/internal-chats`, {
+    headers,
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Failed to load internal chats');
+  return data;
+}
+
+export async function createInternalChat(payload: {
+  title: string;
+  contextType?: string;
+  contextLabel?: string;
+  initialMessage?: string;
+  chatType?: 'general' | 'direct' | 'group';
+  participants?: Array<{ id?: string; name: string; email?: string; kind?: 'staff' | 'portal' }>;
+}, accessToken: string) {
+  const headers = await getServerHeaders();
+  const response = await fetch(`${BASE_URL}/internal-chats`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Failed to create internal chat');
+  return data;
+}
+
+export async function sendInternalChatMessage(chatId: string, message: string, accessToken: string) {
+  const headers = await getServerHeaders();
+  const response = await fetch(`${BASE_URL}/internal-chats/${chatId}/message`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ message }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Failed to send internal chat message');
   return data;
 }

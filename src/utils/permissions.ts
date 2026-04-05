@@ -32,7 +32,7 @@ export const ALL_ROLES: UserRole[] = ['super_admin', 'admin', 'director', 'manag
 
 export const ALL_MODULES = [
   'dashboard', 'ai-suggestions', 'contacts', 'tasks', 'appointments', 'opportunities',
-  'bids', 'quotes', 'notes', 'email', 'marketing', 'inventory',
+  'bids', 'quotes', 'messages', 'notes', 'email', 'marketing', 'inventory',
   'users', 'settings', 'tenants', 'security', 'import-export',
   'documents', 'team-dashboard', 'reports', 'project-wizards', 'admin', 'kitchen-planner',
 ];
@@ -46,6 +46,7 @@ export const MODULE_LABELS: Record<string, string> = {
   opportunities: 'Opportunities',
   bids: 'Deals',
   quotes: 'Quotes',
+  messages: 'Message Space',
   notes: 'Notes',
   email: 'Email',
   marketing: 'Marketing',
@@ -74,16 +75,17 @@ const SPACE_MODULES: Record<SpaceId, string[]> = {
     'opportunities',
     'bids',
     'quotes',
+    'messages',
     'notes',
     'email',
     'documents',
     'settings',
   ],
-  marketing: ['marketing', 'contacts', 'email', 'reports'],
-  design: ['project-wizards', 'kitchen-planner', 'contacts'],
-  insights: ['reports'],
-  inventory: ['inventory'],
-  it: ['admin', 'users', 'security', 'tenants', 'import-export'],
+  marketing: ['marketing', 'contacts', 'messages', 'email', 'reports'],
+  design: ['project-wizards', 'kitchen-planner', 'messages', 'contacts'],
+  insights: ['reports', 'messages'],
+  inventory: ['inventory', 'messages'],
+  it: ['admin', 'users', 'security', 'tenants', 'import-export', 'messages'],
 };
 
 export const ALL_SPACES: SpaceDefinition[] = [
@@ -282,13 +284,16 @@ function getRoleCapabilityPermission(module: string, role: UserRole): Permission
   }
 
   if (role === 'marketing') {
-    if (module === 'tenants' || module === 'security' || module === 'users' || module === 'settings' || module === 'import-export') {
+    if (module === 'tenants' || module === 'security' || module === 'users' || module === 'import-export') {
       return { visible: false, add: false, change: false, delete: false };
+    }
+    if (module === 'settings') {
+      return { visible: true, add: false, change: true, delete: false };
     }
     return {
       visible: module !== 'bids' && module !== 'quotes',
-      add: module === 'marketing' || module === 'contacts' || module === 'email' || module === 'opportunities',
-      change: module === 'marketing' || module === 'contacts' || module === 'email' || module === 'opportunities',
+      add: module === 'marketing' || module === 'contacts' || module === 'email' || module === 'opportunities' || module === 'messages',
+      change: module === 'marketing' || module === 'contacts' || module === 'email' || module === 'opportunities' || module === 'messages',
       delete: module === 'marketing',
     };
   }
@@ -314,6 +319,7 @@ function getRoleCapabilityPermission(module: string, role: UserRole): Permission
     contacts: { visible: true, add: true, change: true, delete: false },
     tasks: { visible: true, add: true, change: true, delete: false },
     appointments: { visible: true, add: true, change: true, delete: false },
+    messages: { visible: true, add: true, change: true, delete: false },
     notes: { visible: true, add: true, change: true, delete: false },
     bids: { visible: true, add: true, change: true, delete: false },
     opportunities: { visible: true, add: true, change: true, delete: false },

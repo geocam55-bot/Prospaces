@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { TrendingUp, TrendingDown, Mail, Users, MousePointer, DollarSign, Target, Zap, Send, Eye, MousePointerClick, FileText } from 'lucide-react';
 import type { User } from '../../App';
-import { campaignsAPI, contactsAPI, journeysAPI } from '../../utils/api';
+import { bidsAPI, campaignsAPI, contactsAPI, journeysAPI, quotesAPI } from '../../utils/api';
 import { getDealActivities, type DealActivity } from '../../utils/marketing-client';
 import { normalizeCampaignMetrics } from '../../utils/campaign-metrics';
 import { Skeleton } from '../ui/skeleton';
@@ -18,6 +18,7 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
   const [stats, setStats] = useState({
     activeCampaigns: 0,
     totalLeads: 0,
+    pipelineValue: 0,
     avgOpenRate: 0,
     conversionRate: 0,
     revenue: 0,
@@ -26,16 +27,28 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
   const [recentCampaigns, setRecentCampaigns] = useState<any[]>([]);
   const [dealActivities, setDealActivities] = useState<DealActivity[]>([]);
 
+  const parseAmount = (val: any): number => {
+    if (typeof val === 'number') return val;
+    if (!val) return 0;
+    if (typeof val === 'string') {
+      const clean = val.replace(/[^0-9.-]/g, '');
+      return parseFloat(clean) || 0;
+    }
+    return 0;
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
         // Fetch data in parallel
-        const [campaignsData, contactsData, journeysData, activitiesData] = await Promise.all([
+        const [campaignsData, contactsData, journeysData, activitiesData, bidsData, quotesData] = await Promise.all([
           campaignsAPI.getAll(),
           contactsAPI.getAll('team'),
           journeysAPI.getAll(user.organizationId || ''),
-          getDealActivities()
+          getDealActivities(),
+          bidsAPI.getAll('team'),
+          quotesAPI.getAll('team')
         ]);
 
         const campaigns = (campaignsData.campaigns || []).map(normalizeCampaignMetrics);
@@ -55,9 +68,19 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
 
         const activeJourneysCount = Array.isArray(journeys) ? journeys.filter((j: any) => j.status === 'active').length : 0;
 
+        const allDeals = [...(bidsData.bids || []), ...(quotesData.quotes || [])];
+        const openDeals = allDeals.filter((deal: any) => {
+          const status = (deal.status || '').toLowerCase();
+          return !['accepted', 'won', 'completed', 'rejected', 'lost', 'expired'].includes(status);
+        });
+        const pipelineValue = openDeals.reduce((sum: number, deal: any) => {
+          return sum + parseAmount(deal.total || deal.amount);
+        }, 0);
+
         setStats({
           activeCampaigns: activeCampaignsCount,
           totalLeads: contacts.length,
+          pipelineValue,
           avgOpenRate,
           conversionRate,
           revenue: totalRevenue,
@@ -97,6 +120,15 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
       icon: Users,
       bgColor: 'bg-green-100',
       textColor: 'text-green-600',
+    },
+    {
+      title: 'Pipeline Value',
+      value: `$${stats.pipelineValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      change: 'open deals total',
+      trend: 'up',
+      icon: DollarSign,
+      bgColor: 'bg-cyan-100',
+      textColor: 'text-cyan-600',
     },
     {
       title: 'Avg. Open Rate',
@@ -173,7 +205,7 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {loading ? (
-          Array.from({ length: 6 }).map((_, i) => (
+          Array.from({ length: 7 }).map((_, i) => (
             <Card key={i}>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
@@ -193,6 +225,7 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
           const colorMap: Record<string, string> = {
             'bg-blue-100': 'bg-blue-600',
             'bg-green-100': 'bg-green-600',
+            'bg-cyan-100': 'bg-cyan-600',
             'bg-purple-100': 'bg-purple-600',
             'bg-orange-100': 'bg-orange-500',
             'bg-emerald-100': 'bg-emerald-600',

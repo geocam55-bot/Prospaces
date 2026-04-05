@@ -3,17 +3,27 @@ import {
   TrendingUp,
   BarChart3,
   Mail,
+  MessageSquare,
   Target,
   Zap,
   Globe,
   Users,
   LogOut,
   ChevronRight,
+  ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
   ArrowLeft,
   User as UserIcon,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 import { createClient } from '../../utils/supabase/client';
 import { canView, onPermissionsChanged } from '../../utils/permissions';
 import type { User } from '../../App';
@@ -52,21 +62,28 @@ const MarketingAnalytics = lazyNamed(
   'MarketingAnalytics'
 );
 const Contacts = lazyNamed(() => import('../Contacts'), 'Contacts');
+const MessagingHub = lazyNamed(() => import('../MessagingHub'), 'MessagingHub');
 const ReferralsTab = lazyNamed(
   () => import('../marketing/referrals/ReferralsTab'),
   'ReferralsTab'
+);
+const SettingsComponent = lazyNamed(
+  () => import('../Settings'),
+  'Settings'
 );
 
 type MarketingView =
   | 'home'
   | 'dashboard'
   | 'contacts'
+  | 'messages'
   | 'campaigns'
   | 'leads'
   | 'journeys'
   | 'pages'
   | 'referrals'
-  | 'analytics';
+  | 'analytics'
+  | 'profile';
 
 interface NavItem {
   id: MarketingView;
@@ -80,6 +97,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3, color: 'text-rose-600', bgColor: 'bg-rose-50' },
   { id: 'contacts', label: 'Contacts', icon: Users, color: 'text-sky-600', bgColor: 'bg-sky-50', module: 'contacts' },
+  { id: 'messages', label: 'Message Space', icon: MessageSquare, color: 'text-violet-600', bgColor: 'bg-violet-50', module: 'messages' },
   { id: 'campaigns', label: 'Campaigns', icon: Mail, color: 'text-blue-600', bgColor: 'bg-blue-50' },
   { id: 'leads', label: 'Lead Scoring', icon: Target, color: 'text-amber-600', bgColor: 'bg-amber-50' },
   { id: 'journeys', label: 'Journeys', icon: Zap, color: 'text-cyan-600', bgColor: 'bg-cyan-50' },
@@ -108,11 +126,12 @@ interface MarketingShellProps {
 export function MarketingShell({ user, accessToken, onLogout }: MarketingShellProps) {
   const [currentView, setCurrentView] = useState<MarketingView>('home');
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User>(user);
   const [, setPermissionVersion] = useState(0);
 
   useEffect(() => onPermissionsChanged(() => setPermissionVersion((version) => version + 1)), []);
 
-  const visibleNavItems = NAV_ITEMS.filter((item) => !item.module || canView(item.module, user.role));
+  const visibleNavItems = NAV_ITEMS.filter((item) => !item.module || canView(item.module, currentUser.role));
 
   const handleNavigate = useCallback((view: MarketingView) => {
     setCurrentView(view);
@@ -120,6 +139,10 @@ export function MarketingShell({ user, accessToken, onLogout }: MarketingShellPr
 
   const handleBackToSpaces = () => {
     window.location.href = '/?view=space-chooser';
+  };
+
+  const handleOpenProfile = () => {
+    setCurrentView('profile');
   };
 
   const handleLogout = async () => {
@@ -205,73 +228,91 @@ export function MarketingShell({ user, accessToken, onLogout }: MarketingShellPr
           })}
         </nav>
 
-        {/* Bottom: user info + logout */}
+        {/* Bottom: account menu */}
         <div className="border-t border-slate-100 p-3 space-y-2 shrink-0">
-          <div
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 bg-slate-50 ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-rose-400 to-orange-500 flex items-center justify-center shrink-0">
-              {user.avatar_url ? (
-                <img
-                  src={user.avatar_url}
-                  alt=""
-                  className="h-8 w-8 rounded-full object-cover"
-                />
-              ) : (
-                <UserIcon className="h-4 w-4 text-white" />
-              )}
-            </div>
-            {!isCollapsed && (
-              <div className="overflow-hidden flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800 truncate">
-                  {user.full_name || user.email}
-                </p>
-                <p className="text-[11px] text-slate-400 truncate">
-                  {user.role.replace('_', ' ')}
-                </p>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="w-full focus:outline-none">
+              <div
+                title={isCollapsed ? 'Open account menu' : undefined}
+                className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 bg-slate-50 text-left transition-all hover:bg-slate-100 ${
+                  isCollapsed ? 'justify-center' : ''
+                }`}
+              >
+                <div className="h-8 w-8 rounded-full bg-gradient-to-br from-rose-400 to-orange-500 flex items-center justify-center shrink-0">
+                  {currentUser.avatar_url ? (
+                    <img
+                      src={currentUser.avatar_url}
+                      alt=""
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <UserIcon className="h-4 w-4 text-white" />
+                  )}
+                </div>
+                {!isCollapsed && (
+                  <>
+                    <div className="overflow-hidden flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-800 truncate">
+                        {currentUser.full_name || currentUser.email}
+                      </p>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        Account menu
+                      </p>
+                    </div>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+                  </>
+                )}
               </div>
-            )}
-          </div>
-          <button
-            onClick={handleBackToSpaces}
-            title={isCollapsed ? 'Back to Spaces' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition-all ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <ArrowLeft className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span className="text-sm">Back to Spaces</span>}
-          </button>
-          <button
-            onClick={handleLogout}
-            title={isCollapsed ? 'Sign out' : undefined}
-            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all ${
-              isCollapsed ? 'justify-center' : ''
-            }`}
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            {!isCollapsed && <span className="text-sm">Sign out</span>}
-          </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-56">
+              <DropdownMenuLabel>
+                <div>
+                  <p className="font-medium">{currentUser.full_name || currentUser.email}</p>
+                  <p className="text-xs text-muted-foreground font-normal mt-1">{currentUser.email || 'No email'}</p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleOpenProfile}>
+                <UserIcon className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleBackToSpaces}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Spaces Main Page
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                <LogOut className="mr-2 h-4 w-4" />
+                Log Off
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
 
       {/* ── Main content ── */}
       <main className="flex-1 overflow-auto">
         {currentView === 'home' && (
-          <HomeView user={user} onNavigate={handleNavigate} />
+          <HomeView user={currentUser} onNavigate={handleNavigate} />
         )}
 
         <Suspense fallback={<ModuleLoading />}>
-          {currentView === 'dashboard' && <MarketingDashboard user={user} />}
-          {currentView === 'contacts' && <Contacts user={user} />}
-          {currentView === 'campaigns' && <CampaignManager user={user} />}
-          {currentView === 'leads' && <LeadScoring user={user} />}
-          {currentView === 'journeys' && <JourneyBuilder user={user} />}
-          {currentView === 'pages' && <LandingPageBuilder user={user} accessToken={accessToken} />}
-          {currentView === 'referrals' && <ReferralsTab user={user} />}
-          {currentView === 'analytics' && <MarketingAnalytics user={user} />}
+          {currentView === 'dashboard' && <MarketingDashboard user={currentUser} />}
+          {currentView === 'contacts' && <Contacts user={currentUser} />}
+          {currentView === 'messages' && <MessagingHub user={currentUser} />}
+          {currentView === 'campaigns' && <CampaignManager user={currentUser} />}
+          {currentView === 'leads' && <LeadScoring user={currentUser} />}
+          {currentView === 'journeys' && <JourneyBuilder user={currentUser} />}
+          {currentView === 'pages' && <LandingPageBuilder user={currentUser} accessToken={accessToken} />}
+          {currentView === 'referrals' && <ReferralsTab user={currentUser} />}
+          {currentView === 'analytics' && <MarketingAnalytics user={currentUser} />}
+          {currentView === 'profile' && (
+            <SettingsComponent
+              user={currentUser}
+              organization={null}
+              onUserUpdate={setCurrentUser}
+            />
+          )}
         </Suspense>
       </main>
     </div>
