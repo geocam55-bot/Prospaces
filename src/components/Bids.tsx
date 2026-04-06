@@ -16,7 +16,8 @@ import { BidLineItems } from './BidLineItems';
 import { DealsKanban, Quote, LineItem } from './DealsKanban';
 import { EmailQuoteDialog } from './EmailQuoteDialog';
 import { createClient } from '../utils/supabase/client';
-import { SubscriptionAgreement, Organization } from './SubscriptionAgreement';
+import { SubscriptionAgreement } from './SubscriptionAgreement';
+import type { Organization } from '../App';
 import { getPriceTierLabel, getActivePriceLevels, priceLevelToTier } from '../lib/global-settings';
 import { toast } from 'sonner@2.0.3';
 
@@ -80,6 +81,8 @@ export function Bids({ user }: BidsProps) {
   const [orgSettings, setOrgSettings] = useState<any>(null);
 
   const [orgData, setOrgData] = useState<Organization | null>(null);
+  const normalizedRole = (user?.role || '').toLowerCase().replace(/[\s-]+/g, '_');
+  const canViewAgreement = normalizedRole === 'super_admin' || normalizedRole === 'superadmin';
 
   // Load data
   useEffect(() => {
@@ -103,6 +106,14 @@ export function Bids({ user }: BidsProps) {
           setOrgData({
             id: data.id,
             name: data.name,
+            billingEmail: data.billing_email || data.billingEmail || '',
+            address: data.address || '',
+            phone: data.phone || '',
+            notes: data.notes || '',
+            logo: data.logo || '',
+            status: data.status || 'active',
+            plan: data.plan || 'starter',
+            customPlanPrice: data.custom_plan_price || '',
             ai_suggestions_enabled: data.ai_suggestions_enabled,
             marketing_enabled: data.marketing_enabled,
             inventory_enabled: data.inventory_enabled,
@@ -664,7 +675,7 @@ export function Bids({ user }: BidsProps) {
                 onPreview={handlePreview}
                 onDelete={handleDelete}
                 onEmail={handleEmail}
-                onViewAgreement={user?.role === 'SUPERADMIN' ? handleViewAgreement : undefined}
+                onViewAgreement={canViewAgreement ? handleViewAgreement : undefined}
               />
             )}
           </div>
@@ -717,7 +728,7 @@ export function Bids({ user }: BidsProps) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {user?.role === 'SUPERADMIN' && (
+                            {canViewAgreement && (
                               <>
                                 <DropdownMenuItem onClick={() => handleViewAgreement(quote)}>
                                   <FileText className="h-4 w-4 mr-2" />

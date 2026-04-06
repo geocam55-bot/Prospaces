@@ -89,6 +89,14 @@ export interface User {
 export interface Organization {
   id: string;
   name: string;
+  billingEmail?: string;
+  address?: string;
+  phone?: string;
+  notes?: string;
+  logo?: string;
+  status?: 'active' | 'inactive' | 'suspended';
+  plan?: 'free' | 'starter' | 'professional' | 'enterprise';
+  customPlanPrice?: string;
   ai_suggestions_enabled?: boolean;
   appointments_enabled?: boolean;
   documents_enabled?: boolean;

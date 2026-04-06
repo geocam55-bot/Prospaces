@@ -29,9 +29,10 @@ interface Service {
 interface SubscriptionAgreementProps {
   organization?: Organization | null;
   onBack?: () => void;
+  embedded?: boolean;
 }
 
-export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgreementProps) {
+export function SubscriptionAgreement({ organization, onBack, embedded = false }: SubscriptionAgreementProps) {
   const [agreementData, setAgreementData] = useState({
     clientName: '',
     clientCompany: '',
@@ -81,9 +82,9 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
         }
       }
       
-      // Load SuperAdmin tax rates
+      // Load settings for the selected organization when available
       try {
-        const orgId = localStorage.getItem('currentOrgId');
+        const orgId = organization?.id || localStorage.getItem('currentOrgId');
         if (orgId) {
           const settings = await settingsAPI.getOrganizationSettings(orgId);
           if (settings) {
@@ -104,8 +105,8 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
       setAgreementData(prev => ({
         ...prev,
         clientCompany: prev.clientCompany || organization.name || '',
-        clientAddress: prev.clientAddress || (organization as any).address || '',
-        clientEmail: prev.clientEmail || (organization as any).billingEmail || '',
+        clientAddress: prev.clientAddress || organization.address || '',
+        clientEmail: prev.clientEmail || organization.billingEmail || '',
       }));
     }
   }, [organization, isLoading]);
@@ -234,7 +235,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8 flex items-center justify-center">
+      <div className={embedded ? 'flex items-center justify-center py-12' : 'min-h-screen bg-muted p-4 sm:p-6 lg:p-8 flex items-center justify-center'}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading subscription agreement...</p>
@@ -244,7 +245,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
   }
 
   return (
-    <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8">
+    <div className={embedded ? 'space-y-4' : 'min-h-screen bg-muted p-4 sm:p-6 lg:p-8'}>
       <div className="max-w-5xl mx-auto">
         {/* Action Buttons - Hidden when printing */}
         <div className="flex gap-3 mb-6 print:hidden">

@@ -142,6 +142,26 @@ export function Tenants({ user, organization }: TenantsProps) {
 
   // Only super_admin can access this module
   const canAccessTenants = canView('tenants', user.role);
+  const normalizedRole = (user?.role || '').toLowerCase().replace(/[\s-]+/g, '_');
+  const isSuperAdmin = normalizedRole === 'super_admin' || normalizedRole === 'superadmin';
+
+  const mapTenantToOrganization = (tenant: Tenant): Organization => ({
+    id: tenant.id,
+    name: tenant.name,
+    billingEmail: tenant.billingEmail,
+    address: tenant.address,
+    phone: tenant.phone,
+    notes: tenant.notes,
+    logo: tenant.logo,
+    status: tenant.status,
+    plan: tenant.plan,
+    customPlanPrice: tenant.customPlanPrice,
+    ai_suggestions_enabled: tenant.ai_suggestions_enabled,
+    marketing_enabled: tenant.marketing_enabled,
+    inventory_enabled: tenant.inventory_enabled,
+    import_export_enabled: tenant.import_export_enabled,
+    documents_enabled: tenant.documents_enabled,
+  });
 
   useEffect(() => {
     if (canAccessTenants) {
@@ -459,16 +479,8 @@ export function Tenants({ user, organization }: TenantsProps) {
 
   // If viewing agreement, show that instead
   if (viewingAgreement) {
-    const orgData: Organization = {
-      id: viewingAgreement.id,
-      name: viewingAgreement.name,
-      ai_suggestions_enabled: viewingAgreement.ai_suggestions_enabled,
-      marketing_enabled: viewingAgreement.marketing_enabled,
-      inventory_enabled: viewingAgreement.inventory_enabled,
-      import_export_enabled: viewingAgreement.import_export_enabled,
-      documents_enabled: viewingAgreement.documents_enabled,
-    };
-    
+    const orgData = mapTenantToOrganization(viewingAgreement);
+
     return (
       <SubscriptionAgreement 
         organization={orgData} 
@@ -479,6 +491,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
   // If viewing billing, show billing breakdown
   if (viewingBilling) {
+    const billingOrganization = mapTenantToOrganization(viewingBilling);
     const activeSubs = billingData.filter(s => s.status === 'active' || s.status === 'trialing');
     const paidSubs = billingData.filter(s => s.plan_id !== 'free' && (s.status === 'active' || s.status === 'trialing'));
     const freeSubs = billingData.filter(s => s.plan_id === 'free' || s.status === 'free');
@@ -500,16 +513,24 @@ export function Tenants({ user, organization }: TenantsProps) {
           </Button>
         </div>
 
-        <div className="flex items-center gap-3">
-          {viewingBilling.logo && (
-            <img src={viewingBilling.logo} alt="" className="h-10 w-10 rounded-lg object-contain border border-border bg-background p-1" />
-          )}
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">{viewingBilling.name}</h2>
-            <p className="text-sm text-muted-foreground">Billing Breakdown</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            {viewingBilling.logo && (
+              <img src={viewingBilling.logo} alt="" className="h-10 w-10 rounded-lg object-contain border border-border bg-background p-1" />
+            )}
+            <div>
+              <h2 className="text-xl font-semibold text-foreground">{viewingBilling.name}</h2>
+              <p className="text-sm text-muted-foreground">Billing Breakdown</p>
+            </div>
+            <Badge className={getPlanColor(viewingBilling.plan)}>{getPlanDisplayName(viewingBilling.plan)}</Badge>
+            <Badge className={getStatusColor(viewingBilling.status)}>{viewingBilling.status}</Badge>
           </div>
-          <Badge className={getPlanColor(viewingBilling.plan)}>{getPlanDisplayName(viewingBilling.plan)}</Badge>
-          <Badge className={getStatusColor(viewingBilling.status)}>{viewingBilling.status}</Badge>
+          {isSuperAdmin && (
+            <Button variant="outline" size="sm" onClick={() => setViewingAgreement(viewingBilling)}>
+              <FileText className="h-4 w-4 mr-2" />
+              Open Agreement
+            </Button>
+          )}
         </div>
 
         {/* Summary Cards */}
@@ -557,6 +578,16 @@ export function Tenants({ user, organization }: TenantsProps) {
             </CardContent>
           </Card>
         </div>
+
+        {isSuperAdmin && (
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-medium text-foreground">Subscription Agreement</h3>
+              <p className="text-sm text-muted-foreground">The agreement is restored here and stays prefilled for the selected organization.</p>
+            </div>
+            <SubscriptionAgreement organization={billingOrganization} embedded />
+          </div>
+        )}
 
         {/* Subscriptions Table */}
         <Card>
@@ -881,7 +912,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                           )}
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {user?.role === 'SUPERADMIN' && (
+                          {isSuperAdmin && (
                             <DropdownMenuItem onClick={() => setViewingAgreement(tenant)} disabled={isDeleting === tenant.id}>
                               <FileText className="h-4 w-4 mr-2" />
                               View Agreement
