@@ -806,13 +806,13 @@ export function MessagingHub({ user }: MessagingHubProps) {
   }, [internalChats, messages, activePortalUsers]);
 
   return (
-    <div className="flex h-[calc(100dvh-80px)] min-h-0 overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl md:mx-4 md:mb-4 md:rounded-[28px]">
+    <div className="flex h-[calc(100dvh-8.5rem)] max-h-[calc(100dvh-8.5rem)] min-h-[26rem] overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl sm:h-[calc(100dvh-6.5rem)] sm:max-h-[calc(100dvh-6.5rem)] md:mx-4 md:mb-4 md:rounded-[28px] lg:h-[calc(100dvh-80px)] lg:max-h-[calc(100dvh-80px)]">
 
       {/* ── LEFT SIDEBAR ── */}
       <div className={`relative flex w-full md:w-[340px] shrink-0 flex-col border-r border-slate-200 bg-white ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
 
         {/* Sidebar header */}
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5 sm:py-4">
           <h1 className="text-[17px] font-bold text-slate-900">Message Space</h1>
           <div className="flex items-center gap-1.5">
             <Button
@@ -838,7 +838,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
         </div>
 
         {/* Search */}
-        <div className="px-3 py-2.5">
+        <div className="px-3 py-2 sm:py-2.5">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -970,7 +970,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
         {/* Pending new DM — person selected but no existing chat */}
         {pendingDirectTarget && !selectedConversation ? (
           <>
-            <div className="flex shrink-0 items-center gap-3 border-b bg-background px-4 py-3">
+            <div className="flex shrink-0 items-center gap-2.5 border-b bg-background px-3 py-2 sm:px-4 sm:py-3">
               <Button
                 size="icon"
                 variant="ghost"
@@ -992,11 +992,11 @@ export function MessagingHub({ user }: MessagingHubProps) {
             </div>
             <div className="flex-1 bg-muted/10" />
             <div
-              className="shrink-0 border-t bg-background px-3 py-3"
+              className="shrink-0 border-t bg-background px-2.5 py-2 sm:px-3 sm:py-3"
               style={{
-                paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
-                paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
-                paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+                paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
+                paddingLeft: 'max(0.625rem, env(safe-area-inset-left))',
+                paddingRight: 'max(0.625rem, env(safe-area-inset-right))',
               }}
             >
               <div className="w-full">
@@ -1045,7 +1045,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
         ) : (
           <>
             {/* Chat header */}
-            <div className="flex shrink-0 items-center gap-3 border-b bg-background px-4 py-3">
+            <div className="flex shrink-0 flex-wrap items-center gap-2.5 border-b bg-background px-3 py-2.5 sm:flex-nowrap sm:px-4 sm:py-3">
               <Button
                 size="icon"
                 variant="ghost"
@@ -1085,12 +1085,12 @@ export function MessagingHub({ user }: MessagingHubProps) {
               </div>
               {/* Customer message actions */}
               {selectedConversationType === 'customer' && selectedMessage && (
-                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={handleCreateFollowUpTask}
-                    className="gap-1.5 rounded-full text-xs px-2 sm:px-3"
+                    className="gap-1 rounded-full px-1.5 text-[11px] sm:px-3 sm:text-xs"
                     title="Create follow-up task"
                   >
                     <FileText className="h-3.5 w-3.5" />
@@ -1101,7 +1101,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                     variant={selectedMessage.status === 'resolved' ? 'default' : 'outline'}
                     onClick={handleToggleResolved}
                     disabled={sending}
-                    className="gap-1.5 rounded-full text-xs px-2 sm:px-3"
+                    className="gap-1 rounded-full px-1.5 text-[11px] sm:px-3 sm:text-xs"
                     title={selectedMessage.status === 'resolved' ? 'Resolved' : 'Resolve'}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" />
@@ -1112,7 +1112,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
             </div>
 
             {/* ── Message history ── */}
-            <div className="flex-1 overflow-y-auto bg-muted/10 px-4 py-4">
+            <div className="flex-1 overflow-y-auto bg-muted/10 px-2.5 py-2.5 sm:px-4 sm:py-4">
               {selectedConversationType === 'customer' && selectedMessage ? (
                 customerTimeline.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground py-12">No messages yet.</p>
@@ -1286,11 +1286,11 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
             {/* Composer */}
             <div
-              className="shrink-0 border-t bg-background px-3 py-3"
+              className="shrink-0 border-t bg-background px-2.5 py-2 sm:px-3 sm:py-3"
               style={{
-                paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
-                paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
-                paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+                paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
+                paddingLeft: 'max(0.625rem, env(safe-area-inset-left))',
+                paddingRight: 'max(0.625rem, env(safe-area-inset-right))',
               }}
             >
               {selectedConversationType === 'customer' && selectedMessage ? (
