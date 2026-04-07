@@ -806,7 +806,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
   }, [internalChats, messages, activePortalUsers]);
 
   return (
-    <div className="flex h-[calc(100vh-80px)] min-h-0 overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl md:rounded-[28px] md:mx-4 md:mb-4">
+    <div className="flex h-[calc(100dvh-80px)] min-h-0 overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl md:mx-4 md:mb-4 md:rounded-[28px]">
 
       {/* ── LEFT SIDEBAR ── */}
       <div className={`relative flex w-full md:w-[340px] shrink-0 flex-col border-r border-slate-200 bg-white ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
@@ -991,8 +991,15 @@ export function MessagingHub({ user }: MessagingHubProps) {
               </div>
             </div>
             <div className="flex-1 bg-muted/10" />
-            <div className="shrink-0 border-t bg-background px-3 py-3">
-              <div className="flex min-w-0 items-center gap-2">
+            <div
+              className="shrink-0 border-t bg-background px-3 py-3"
+              style={{
+                paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+                paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+                paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+              }}
+            >
+              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
                 <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[24px] border bg-background px-3 py-2.5 sm:px-4">
                   <input
                     type="text"
@@ -1015,7 +1022,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                   disabled={sending || !pendingMessage.trim()}
                   size="sm"
                   aria-label={`Send message to ${pendingDirectTarget.name}`}
-                  className="h-10 shrink-0 rounded-full px-3 sm:px-4"
+                  className="h-10 w-10 shrink-0 rounded-full px-0 sm:w-auto sm:px-4"
                 >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   <span className="hidden sm:inline">Send</span>
@@ -1276,10 +1283,17 @@ export function MessagingHub({ user }: MessagingHubProps) {
             </div>
 
             {/* Composer */}
-            <div className="shrink-0 border-t bg-background px-3 py-3">
+            <div
+              className="shrink-0 border-t bg-background px-3 py-3"
+              style={{
+                paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+                paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+                paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+              }}
+            >
               {selectedConversationType === 'customer' && selectedMessage ? (
                 <>
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
                     <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[24px] border bg-background px-3 py-2.5 sm:px-4">
                       <input
                         type="text"
@@ -1301,21 +1315,21 @@ export function MessagingHub({ user }: MessagingHubProps) {
                       disabled={sending || !replyText.trim()}
                       size="sm"
                       aria-label="Send customer reply"
-                      className="h-10 shrink-0 rounded-full px-3 sm:px-4"
+                      className="h-10 w-10 shrink-0 rounded-full px-0 sm:w-auto sm:px-4"
                     >
                       {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       <span className="hidden sm:inline">Send</span>
                     </Button>
                   </div>
                   {/* Private notes — collapsible */}
-                  <details className="mt-2.5 group">
+                  <details className="group mt-2.5">
                     <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
                       <Lock className="h-3.5 w-3.5" />
                       Private notes ({(selectedMessage.internalNotes || []).length})
                     </summary>
                     <div className="mt-2 space-y-2 rounded-xl bg-amber-50 p-2">
                       {(selectedMessage.internalNotes || []).length === 0 ? (
-                        <p className="text-xs text-muted-foreground p-1">No notes yet.</p>
+                        <p className="p-1 text-xs text-muted-foreground">No notes yet.</p>
                       ) : (
                         (selectedMessage.internalNotes || []).map((note: any) => (
                           <div key={note.id || `${note.createdAt}-${note.body}`} className="rounded-lg border bg-background p-2">
@@ -1348,7 +1362,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                   </details>
                 </>
               ) : selectedChat ? (
-                <div className="flex min-w-0 items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
                   <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[24px] border bg-background px-3 py-2.5 sm:px-4">
                     <input
                       type="text"
@@ -1370,7 +1384,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                     disabled={sending || !internalChatMessage.trim()}
                     size="sm"
                     aria-label="Send internal message"
-                    className="h-10 shrink-0 rounded-full px-3 sm:px-4"
+                    className="h-10 w-10 shrink-0 rounded-full px-0 sm:w-auto sm:px-4"
                   >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     <span className="hidden sm:inline">Send</span>
