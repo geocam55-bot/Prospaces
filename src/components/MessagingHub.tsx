@@ -806,10 +806,10 @@ export function MessagingHub({ user }: MessagingHubProps) {
   }, [internalChats, messages, activePortalUsers]);
 
   return (
-    <div className="flex h-[calc(100dvh-8.5rem)] max-h-[calc(100dvh-8.5rem)] min-h-[26rem] overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl sm:h-[calc(100dvh-6.5rem)] sm:max-h-[calc(100dvh-6.5rem)] md:mx-4 md:mb-4 md:rounded-[28px] lg:h-[calc(100dvh-80px)] lg:max-h-[calc(100dvh-80px)]">
+    <div className="flex w-full h-[calc(100svh-3.5rem)] min-h-[20rem] overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl sm:h-[calc(100svh-4rem)] md:mx-4 md:mb-4 md:rounded-[28px] lg:h-svh">
 
       {/* ── LEFT SIDEBAR ── */}
-      <div className={`relative flex w-full md:w-[340px] shrink-0 flex-col border-r border-slate-200 bg-white ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`relative w-full md:w-[340px] shrink-0 flex-col border-r border-slate-200 bg-white ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
 
         {/* Sidebar header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-5 sm:py-4">
