@@ -965,7 +965,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
       </div>
 
       {/* ── RIGHT CHAT AREA ── */}
-      <div className={`min-w-0 flex-1 flex-col bg-[#f5f7fb] ${mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`min-w-0 flex-1 flex-col overflow-x-hidden bg-[#f5f7fb] ${mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'}`}>
 
         {/* Pending new DM — person selected but no existing chat */}
         {pendingDirectTarget && !selectedConversation ? (
@@ -999,34 +999,36 @@ export function MessagingHub({ user }: MessagingHubProps) {
                 paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
               }}
             >
-              <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
-                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[24px] border bg-background px-3 py-2.5 sm:px-4">
-                  <input
-                    type="text"
-                    placeholder={`Message ${pendingDirectTarget.name}...`}
-                    value={pendingMessage}
-                    onChange={(e) => setPendingMessage(e.target.value)}
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendToPendingTarget();
-                      }
-                    }}
-                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                  />
-                  <Smile className="h-5 w-5 shrink-0 text-muted-foreground" />
+              <div className="w-full">
+                <div className="relative w-full max-w-full">
+                  <div className="flex w-full min-w-0 items-center rounded-[24px] border bg-background py-2.5 pl-3 pr-14 sm:pl-4 sm:pr-24">
+                    <input
+                      type="text"
+                      placeholder={`Message ${pendingDirectTarget.name}...`}
+                      value={pendingMessage}
+                      onChange={(e) => setPendingMessage(e.target.value)}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendToPendingTarget();
+                        }
+                      }}
+                      className="min-w-0 w-full flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                    />
+                    <Smile className="hidden h-5 w-5 shrink-0 text-muted-foreground sm:block" />
+                  </div>
+                  <Button
+                    onClick={handleSendToPendingTarget}
+                    disabled={sending || !pendingMessage.trim()}
+                    size="sm"
+                    aria-label={`Send message to ${pendingDirectTarget.name}`}
+                    className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full px-0 sm:h-10 sm:w-auto sm:px-3"
+                  >
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    <span className="hidden sm:inline">Send</span>
+                  </Button>
                 </div>
-                <Button
-                  onClick={handleSendToPendingTarget}
-                  disabled={sending || !pendingMessage.trim()}
-                  size="sm"
-                  aria-label={`Send message to ${pendingDirectTarget.name}`}
-                  className="h-10 w-10 shrink-0 rounded-full px-0 sm:w-auto sm:px-4"
-                >
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  <span className="hidden sm:inline">Send</span>
-                </Button>
               </div>
             </div>
           </>
@@ -1083,7 +1085,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
               </div>
               {/* Customer message actions */}
               {selectedConversationType === 'customer' && selectedMessage && (
-                <div className="flex shrink-0 items-center gap-1.5">
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                   <Button
                     size="sm"
                     variant="ghost"
@@ -1177,7 +1179,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                                           : 'rounded-[18px] rounded-r-sm',
                                     ].join(' ')}
                                   >
-                                    <p className="whitespace-pre-wrap">{post.body}</p>
+                                    <p className="whitespace-pre-wrap break-words">{post.body}</p>
                                   </div>
                                   {/* Timestamp — only under the last bubble in a group */}
                                   {isLast && (
@@ -1259,7 +1261,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                                           : 'rounded-[18px] rounded-l-sm',
                                     ].join(' ')}
                                   >
-                                    <p className="whitespace-pre-wrap">{m.body}</p>
+                                    <p className="whitespace-pre-wrap break-words">{m.body}</p>
                                   </div>
                                   {/* Timestamp only under the last bubble in a group */}
                                   {isLast && (
@@ -1293,33 +1295,35 @@ export function MessagingHub({ user }: MessagingHubProps) {
             >
               {selectedConversationType === 'customer' && selectedMessage ? (
                 <>
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
-                    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[24px] border bg-background px-3 py-2.5 sm:px-4">
-                      <input
-                        type="text"
-                        placeholder="Message..."
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendReply();
-                          }
-                        }}
-                        className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                      />
-                      <Smile className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  <div className="w-full">
+                    <div className="relative w-full max-w-full">
+                      <div className="flex w-full min-w-0 items-center rounded-[24px] border bg-background py-2.5 pl-3 pr-14 sm:pl-4 sm:pr-24">
+                        <input
+                          type="text"
+                          placeholder="Message..."
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendReply();
+                            }
+                          }}
+                          className="min-w-0 w-full flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                        />
+                        <Smile className="hidden h-5 w-5 shrink-0 text-muted-foreground sm:block" />
+                      </div>
+                      <Button
+                        onClick={handleSendReply}
+                        disabled={sending || !replyText.trim()}
+                        size="sm"
+                        aria-label="Send customer reply"
+                        className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full px-0 sm:h-10 sm:w-auto sm:px-3"
+                      >
+                        {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        <span className="hidden sm:inline">Send</span>
+                      </Button>
                     </div>
-                    <Button
-                      onClick={handleSendReply}
-                      disabled={sending || !replyText.trim()}
-                      size="sm"
-                      aria-label="Send customer reply"
-                      className="h-10 w-10 shrink-0 rounded-full px-0 sm:w-auto sm:px-4"
-                    >
-                      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      <span className="hidden sm:inline">Send</span>
-                    </Button>
                   </div>
                   {/* Private notes — collapsible */}
                   <details className="group mt-2.5">
@@ -1362,33 +1366,35 @@ export function MessagingHub({ user }: MessagingHubProps) {
                   </details>
                 </>
               ) : selectedChat ? (
-                <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
-                  <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[24px] border bg-background px-3 py-2.5 sm:px-4">
-                    <input
-                      type="text"
-                      placeholder="Message..."
-                      value={internalChatMessage}
-                      onChange={(e) => setInternalChatMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendInternalChatMessage();
-                        }
-                      }}
-                      className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                    />
-                    <Smile className="h-5 w-5 shrink-0 text-muted-foreground" />
+                <div className="w-full">
+                  <div className="relative w-full max-w-full">
+                    <div className="flex w-full min-w-0 items-center rounded-[24px] border bg-background py-2.5 pl-3 pr-14 sm:pl-4 sm:pr-24">
+                      <input
+                        type="text"
+                        placeholder="Message..."
+                        value={internalChatMessage}
+                        onChange={(e) => setInternalChatMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendInternalChatMessage();
+                          }
+                        }}
+                        className="min-w-0 w-full flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                      />
+                      <Smile className="hidden h-5 w-5 shrink-0 text-muted-foreground sm:block" />
+                    </div>
+                    <Button
+                      onClick={handleSendInternalChatMessage}
+                      disabled={sending || !internalChatMessage.trim()}
+                      size="sm"
+                      aria-label="Send internal message"
+                      className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full px-0 sm:h-10 sm:w-auto sm:px-3"
+                    >
+                      {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      <span className="hidden sm:inline">Send</span>
+                    </Button>
                   </div>
-                  <Button
-                    onClick={handleSendInternalChatMessage}
-                    disabled={sending || !internalChatMessage.trim()}
-                    size="sm"
-                    aria-label="Send internal message"
-                    className="h-10 w-10 shrink-0 rounded-full px-0 sm:w-auto sm:px-4"
-                  >
-                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    <span className="hidden sm:inline">Send</span>
-                  </Button>
                 </div>
               ) : null}
             </div>
