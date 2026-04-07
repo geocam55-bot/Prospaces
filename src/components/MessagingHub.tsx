@@ -806,7 +806,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
   }, [internalChats, messages, activePortalUsers]);
 
   return (
-    <div className="flex w-full h-[calc(100svh-3.5rem)] min-h-[20rem] overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl sm:h-[calc(100svh-4rem)] md:mx-4 md:mb-4 md:rounded-[28px] lg:h-svh">
+    <div className="fixed inset-x-0 top-14 bottom-0 sm:top-16 flex overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl md:mx-4 md:mb-4 md:rounded-[28px] lg:static lg:inset-auto lg:h-svh">
 
       {/* ── LEFT SIDEBAR ── */}
       <div className={`relative w-full md:w-[340px] shrink-0 flex-col border-r border-slate-200 bg-white ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
@@ -1007,7 +1007,6 @@ export function MessagingHub({ user }: MessagingHubProps) {
                       placeholder={`Message ${pendingDirectTarget.name}...`}
                       value={pendingMessage}
                       onChange={(e) => setPendingMessage(e.target.value)}
-                      autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
