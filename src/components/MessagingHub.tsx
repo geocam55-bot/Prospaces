@@ -805,8 +805,24 @@ export function MessagingHub({ user }: MessagingHubProps) {
     );
   }, [internalChats, messages, activePortalUsers]);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const nav = window.innerWidth >= 1024 ? 0 : window.innerWidth >= 640 ? 64 : 56;
+    const setH = () => {
+      if (!containerRef.current) return;
+      const h = window.innerWidth >= 1024
+        ? window.innerHeight
+        : window.innerHeight - nav;
+      containerRef.current.style.height = `${h}px`;
+      containerRef.current.style.maxHeight = `${h}px`;
+    };
+    setH();
+    window.addEventListener('resize', setH);
+    return () => window.removeEventListener('resize', setH);
+  }, []);
+
   return (
-    <div className="flex flex-1 min-h-0 overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl md:mx-4 md:mb-4 md:rounded-[28px]">
+    <div ref={containerRef} className="flex overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl md:mx-4 md:mb-4 md:rounded-[28px]">
 
       {/* ── LEFT SIDEBAR ── */}
       <div className={`relative w-full md:w-[340px] shrink-0 flex-col border-r border-slate-200 bg-white ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
@@ -965,7 +981,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
       </div>
 
       {/* ── RIGHT CHAT AREA ── */}
-      <div className={`min-w-0 flex-1 flex-col overflow-x-hidden bg-[#f5f7fb] ${mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`min-w-0 flex-1 flex-col overflow-hidden bg-[#f5f7fb] ${mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'}`}>
 
         {/* Pending new DM — person selected but no existing chat */}
         {pendingDirectTarget && !selectedConversation ? (
