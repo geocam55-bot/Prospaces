@@ -1,6 +1,6 @@
 import { getSupabaseUrl } from './supabase/client';
 
-const DEPLOYED_FUNCTION_ROUTE = 'make-server-8405be07';
+const DEPLOYED_FUNCTION_ROUTE = 'server';
 
 export function buildServerFunctionUrl(path = ''): string {
   const normalizedPath = path

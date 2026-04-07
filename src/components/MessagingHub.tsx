@@ -806,7 +806,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
   }, [internalChats, messages, activePortalUsers]);
 
   return (
-    <div className="fixed inset-x-0 top-14 bottom-0 sm:top-16 flex overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl md:mx-4 md:mb-4 md:rounded-[28px] lg:static lg:inset-auto lg:h-svh">
+    <div className="flex flex-1 min-h-0 overflow-hidden border border-slate-200 bg-[#f5f7fb] shadow-xl md:mx-4 md:mb-4 md:rounded-[28px]">
 
       {/* ── LEFT SIDEBAR ── */}
       <div className={`relative w-full md:w-[340px] shrink-0 flex-col border-r border-slate-200 bg-white ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>

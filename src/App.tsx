@@ -594,13 +594,21 @@ export function AppContent() {
           />
 
           <main 
-            className="flex-1 overflow-auto transition-all duration-300"
+            className={`flex-1 transition-all duration-300 ${
+              currentView === 'messages' || currentView === 'portal-admin'
+                ? 'overflow-hidden flex flex-col'
+                : 'overflow-auto'
+            }`}
             style={{ background: 'var(--color-background-secondary)' }}
           >
             <OfflineIndicator />
             <PWAInstallPrompt />
 
-            <div className="pt-14 sm:pt-16 lg:pt-0">
+            <div className={`${
+              currentView === 'messages' || currentView === 'portal-admin'
+                ? 'flex flex-col flex-1 min-h-0 pt-14 sm:pt-16 lg:pt-0'
+                : 'pt-14 sm:pt-16 lg:pt-0'
+            }`}>
               <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
               {currentView === 'main-panels' && <MainPanels user={user} organization={organization} onNavigate={setCurrentView} />}
               {currentView === 'dashboard' && <Dashboard user={user} organization={organization} onNavigate={setCurrentView} />}
