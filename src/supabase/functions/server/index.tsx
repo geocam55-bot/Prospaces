@@ -901,7 +901,21 @@ app.get(`${P}/messages`, async (c) => {
     const s = await kv.get(`portal_session:${tok}`);
     if (!s) return c.json({ error: 'Invalid' }, 401);
     const msgs = await kv.getByPrefix(`portal_message:${s.orgId}:${s.contactId}:`);
-    return c.json({ messages: msgs || [] });
+    const sorted = (msgs || []).sort((a: any, b: any) => {
+      const getLatestTime = (item: any) => {
+        const timestamps = [item?.updatedAt, item?.createdAt];
+        if (Array.isArray(item?.replies)) timestamps.push(...item.replies.map((reply: any) => reply?.createdAt));
+        if (Array.isArray(item?.internalNotes)) timestamps.push(...item.internalNotes.map((note: any) => note?.createdAt));
+        const latest = timestamps
+          .filter(Boolean)
+          .map((value: string) => new Date(value).getTime())
+          .filter((value: number) => !Number.isNaN(value));
+        return latest.length ? Math.max(...latest) : 0;
+      };
+
+      return getLatestTime(b) - getLatestTime(a);
+    });
+    return c.json({ messages: sorted });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
@@ -911,9 +925,53 @@ app.post(`${P}/messages`, async (c) => {
     if (!tok) return c.json({ error: 'No token' }, 401);
     const s = await kv.get(`portal_session:${tok}`);
     if (!s) return c.json({ error: 'Invalid' }, 401);
-    const { subject, body } = await c.req.json();
+
+    const { subject, message, body, messageId, contextType, contextLabel } = await c.req.json();
+    const messageText = [message, body].find((value) => typeof value === 'string' && value.trim())?.trim();
+    if (!messageText) return c.json({ error: 'Message is required' }, 400);
+
+    const now = new Date().toISOString();
+
+    if (messageId) {
+      const existingKey = `portal_message:${s.orgId}:${s.contactId}:${messageId}`;
+      const existing = await kv.get(existingKey);
+      if (!existing) return c.json({ error: 'Conversation not found' }, 404);
+
+      existing.replies = existing.replies || [];
+      existing.replies.push({
+        from: 'customer',
+        senderName: s.email,
+        body: messageText,
+        createdAt: now,
+      });
+      existing.read = false;
+      existing.customerUnread = false;
+      existing.status = 'open';
+      existing.updatedAt = now;
+
+      await kv.set(existingKey, existing);
+      return c.json({ success: true, message: existing });
+    }
+
     const id = crypto.randomUUID();
-    const msg = { id, contactId: s.contactId, orgId: s.orgId, from: 'customer', senderEmail: s.email, subject, body, createdAt: new Date().toISOString(), read: false, replies: [] };
+    const msg = {
+      id,
+      contactId: s.contactId,
+      orgId: s.orgId,
+      from: 'customer',
+      senderEmail: s.email,
+      subject: subject?.trim() || 'Portal Chat',
+      body: messageText,
+      contextType: contextType || null,
+      contextLabel: contextLabel || null,
+      createdAt: now,
+      updatedAt: now,
+      status: 'open',
+      read: false,
+      customerUnread: false,
+      replies: [],
+      internalNotes: [],
+    };
     await kv.set(`portal_message:${s.orgId}:${s.contactId}:${id}`, msg);
     return c.json({ success: true, message: msg });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
@@ -940,13 +998,18 @@ app.post(`${P}/reply`, async (c) => {
   try {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
-    const { messageId, contactId, body: rb } = await c.req.json();
+    const { messageId, contactId, reply, body } = await c.req.json();
+    const replyText = [reply, body].find((value) => typeof value === 'string' && value.trim())?.trim();
+    if (!messageId || !contactId || !replyText) return c.json({ error: 'messageId, contactId, and reply are required' }, 400);
     const key = `portal_message:${auth.profile.organization_id}:${contactId}:${messageId}`;
     const msg = await kv.get(key);
     if (!msg) return c.json({ error: 'Not found' }, 404);
     msg.replies = msg.replies || [];
-    msg.replies.push({ from: 'crm', body: rb, createdAt: new Date().toISOString(), senderName: auth.profile.name || auth.user.email });
+    msg.replies.push({ from: 'team', body: replyText, createdAt: new Date().toISOString(), senderName: auth.profile.name || auth.user.email });
     msg.read = true;
+    msg.customerUnread = true;
+    msg.status = 'open';
+    msg.updatedAt = new Date().toISOString();
     await kv.set(key, msg);
     return c.json({ success: true, message: msg });
   } catch (err: any) { return c.json({ error: err.message }, 500); }

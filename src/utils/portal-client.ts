@@ -127,6 +127,7 @@ export async function sendPortalMessage(subject: string, message: string, messag
     body: JSON.stringify({
       subject,
       message,
+      body: message,
       messageId,
       contextType: context?.contextType,
       contextLabel: context?.contextLabel,
@@ -220,7 +221,7 @@ export async function replyToPortalMessage(messageId: string, contactId: string,
   const response = await fetch(`${BASE_URL}/reply`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ messageId, contactId, reply }),
+    body: JSON.stringify({ messageId, contactId, reply, body: reply }),
   });
 
   const data = await response.json();

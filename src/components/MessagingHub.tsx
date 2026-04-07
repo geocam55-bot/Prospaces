@@ -992,8 +992,8 @@ export function MessagingHub({ user }: MessagingHubProps) {
             </div>
             <div className="flex-1 bg-muted/10" />
             <div className="shrink-0 border-t bg-background px-3 py-3">
-              <div className="flex items-center gap-2">
-                <div className="flex flex-1 items-center gap-2 rounded-[24px] border bg-background px-4 py-2.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[24px] border bg-background px-3 py-2.5 sm:px-4">
                   <input
                     type="text"
                     placeholder={`Message ${pendingDirectTarget.name}...`}
@@ -1006,17 +1006,19 @@ export function MessagingHub({ user }: MessagingHubProps) {
                         handleSendToPendingTarget();
                       }
                     }}
-                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                   />
                   <Smile className="h-5 w-5 shrink-0 text-muted-foreground" />
                 </div>
                 <Button
                   onClick={handleSendToPendingTarget}
                   disabled={sending || !pendingMessage.trim()}
-                  className="shrink-0 gap-1.5 rounded-full px-4"
+                  size="sm"
+                  aria-label={`Send message to ${pendingDirectTarget.name}`}
+                  className="h-10 shrink-0 rounded-full px-3 sm:px-4"
                 >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  Send
+                  <span className="hidden sm:inline">Send</span>
                 </Button>
               </div>
             </div>
@@ -1277,8 +1279,8 @@ export function MessagingHub({ user }: MessagingHubProps) {
             <div className="shrink-0 border-t bg-background px-3 py-3">
               {selectedConversationType === 'customer' && selectedMessage ? (
                 <>
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-1 items-center gap-2 rounded-[24px] border bg-background px-4 py-2.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[24px] border bg-background px-3 py-2.5 sm:px-4">
                       <input
                         type="text"
                         placeholder="Message..."
@@ -1290,17 +1292,19 @@ export function MessagingHub({ user }: MessagingHubProps) {
                             handleSendReply();
                           }
                         }}
-                        className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                        className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                       />
                       <Smile className="h-5 w-5 shrink-0 text-muted-foreground" />
                     </div>
                     <Button
                       onClick={handleSendReply}
                       disabled={sending || !replyText.trim()}
-                      className="shrink-0 gap-1.5 rounded-full px-4"
+                      size="sm"
+                      aria-label="Send customer reply"
+                      className="h-10 shrink-0 rounded-full px-3 sm:px-4"
                     >
                       {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      Send
+                      <span className="hidden sm:inline">Send</span>
                     </Button>
                   </div>
                   {/* Private notes — collapsible */}
@@ -1344,8 +1348,8 @@ export function MessagingHub({ user }: MessagingHubProps) {
                   </details>
                 </>
               ) : selectedChat ? (
-                <div className="flex items-center gap-2">
-                  <div className="flex flex-1 items-center gap-2 rounded-[24px] border bg-background px-4 py-2.5">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[24px] border bg-background px-3 py-2.5 sm:px-4">
                     <input
                       type="text"
                       placeholder="Message..."
@@ -1357,17 +1361,19 @@ export function MessagingHub({ user }: MessagingHubProps) {
                           handleSendInternalChatMessage();
                         }
                       }}
-                      className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                      className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                     />
                     <Smile className="h-5 w-5 shrink-0 text-muted-foreground" />
                   </div>
                   <Button
                     onClick={handleSendInternalChatMessage}
                     disabled={sending || !internalChatMessage.trim()}
-                    className="shrink-0 gap-1.5 rounded-full px-4"
+                    size="sm"
+                    aria-label="Send internal message"
+                    className="h-10 shrink-0 rounded-full px-3 sm:px-4"
                   >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    Send
+                    <span className="hidden sm:inline">Send</span>
                   </Button>
                 </div>
               ) : null}

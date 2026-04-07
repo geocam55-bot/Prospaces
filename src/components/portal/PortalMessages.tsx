@@ -36,10 +36,16 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
   useEffect(() => {
     const interval = window.setInterval(() => {
       onRefresh();
-    }, 30000);
+    }, 10000);
 
     return () => window.clearInterval(interval);
   }, [onRefresh]);
+
+  useEffect(() => {
+    if (!selectedMessage?.id) return;
+    const latestMessage = messages.find((msg: any) => msg.id === selectedMessage.id) || null;
+    setSelectedMessage(latestMessage);
+  }, [messages, selectedMessage?.id]);
 
   const formatDate = (date: string) => {
     if (!date) return '';
@@ -181,9 +187,15 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
                   placeholder="Type your reply..."
                 />
                 <div className="mt-2 flex justify-end">
-                  <Button onClick={handleSend} disabled={sending || !body.trim()} className="gap-2 rounded-full px-4">
+                  <Button
+                    onClick={handleSend}
+                    disabled={sending || !body.trim()}
+                    size="sm"
+                    className="h-10 gap-2 rounded-full px-3 sm:px-4"
+                  >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    Send Reply
+                    <span className="hidden sm:inline">Send Reply</span>
+                    <span className="sm:hidden">Send</span>
                   </Button>
                 </div>
               </div>
