@@ -1,31 +1,38 @@
 import { publicAnonKey } from './supabase/info';
 import { createClient } from './supabase/client';
 import { buildServerFunctionUrl, getServerFunctionUrlCandidates } from './server-function-url';
-import { getServerHeaders } from './server-headers';
+import { getServerHeaders, getUserAccessToken } from './server-headers';
 
 const BASE_URL = buildServerFunctionUrl('/portal');
 
 async function crmHeaders(accessToken?: string): Promise<Record<string, string>> {
-  if (accessToken) {
-    return {
-      'Authorization': `Bearer ${publicAnonKey}`,
-      'Content-Type': 'application/json',
-      'X-User-Token': accessToken,
-    };
-  }
+  const freshToken = await getUserAccessToken().catch(() => null);
+  const userToken = freshToken || accessToken || null;
 
-  return getServerHeaders();
+  return {
+    'Authorization': `Bearer ${publicAnonKey}`,
+    'Content-Type': 'application/json',
+    ...(userToken ? { 'X-User-Token': userToken } : {}),
+  };
 }
 
 function isUnmatchedResponse(response: Response, data: any): boolean {
   return response.status === 404 || data?.matched === false;
 }
 
+function isApplicationErrorResponse(response: Response, data: any): boolean {
+  return !!response.ok
+    && !!data
+    && typeof data === 'object'
+    && (typeof data.error === 'string' || typeof data.message === 'string')
+    && data.success !== true;
+}
+
 function shouldRetryAuth(response: Response, data: any): boolean {
   const rawError = String(data?.error || data?.message || '');
-  return !response.ok && (
+  return (
     response.status === 401
-    || /invalid.*token|envalid.*token|user token|missing auth token|unauthorized/i.test(rawError)
+    || /invalid.*token|envalid.*token|expired.*token|token.*expired|jwt|user token|missing auth token|unauthorized/i.test(rawError)
   );
 }
 
@@ -58,7 +65,9 @@ async function fetchFromServer(
         data = null;
       }
 
-      if (response.ok && !isUnmatchedResponse(response, data)) {
+      const applicationError = isApplicationErrorResponse(response, data);
+
+      if (response.ok && !isUnmatchedResponse(response, data) && !applicationError) {
         return data;
       }
 

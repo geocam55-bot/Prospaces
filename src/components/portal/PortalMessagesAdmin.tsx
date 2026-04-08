@@ -19,7 +19,6 @@ import {
   Globe,
 } from 'lucide-react';
 import { getCrmPortalMessages, replyToPortalMessage, getPortalUsers } from '../../utils/portal-client';
-import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner@2.0.3';
 import type { User as CrmUser } from '../../App';
 
@@ -36,8 +35,6 @@ export function PortalMessagesAdmin({ user }: PortalMessagesAdminProps) {
   const [sending, setSending] = useState(false);
   const [activeTab, setActiveTab] = useState<'messages' | 'users'>('messages');
 
-  const supabase = createClient();
-
   useEffect(() => {
     loadData();
   }, []);
@@ -45,14 +42,11 @@ export function PortalMessagesAdmin({ user }: PortalMessagesAdminProps) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
-
       const [messagesData, usersData] = await Promise.all([
-        getCrmPortalMessages(session.access_token).catch((_err: any) => {
+        getCrmPortalMessages().catch((_err: any) => {
           return { messages: [] };
         }),
-        getPortalUsers(session.access_token).catch((_err: any) => {
+        getPortalUsers().catch((_err: any) => {
           return { portalUsers: [] };
         }),
       ]);
@@ -74,17 +68,10 @@ export function PortalMessagesAdmin({ user }: PortalMessagesAdminProps) {
 
     setSending(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        toast.error('Not authenticated');
-        return;
-      }
-
       await replyToPortalMessage(
         selectedMessage.id,
         selectedMessage.contactId,
-        replyText.trim(),
-        session.access_token
+        replyText.trim()
       );
       toast.success('Reply sent!');
       setReplyText('');

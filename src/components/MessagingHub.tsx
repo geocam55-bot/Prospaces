@@ -26,7 +26,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
-import { getUserAccessToken } from '../utils/server-headers';
 import {
   addPortalInternalNote,
   createCrmPortalMessage,
@@ -84,12 +83,6 @@ export function MessagingHub({ user }: MessagingHubProps) {
     [internalChats, selectedChatId]
   );
 
-  const getAccessToken = async () => {
-    const accessToken = await getUserAccessToken();
-    if (!accessToken) throw new Error('Not authenticated');
-    return accessToken;
-  };
-
   const syncCurrentUserPresence = async () => {
     try {
       const supabase = createClient();
@@ -111,11 +104,10 @@ export function MessagingHub({ user }: MessagingHubProps) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const accessToken = await getAccessToken();
       const [messagesResult, usersResult, internalResult, staffResult] = await Promise.allSettled([
-        getCrmPortalMessages(accessToken),
-        getPortalUsers(accessToken),
-        getInternalChats(accessToken),
+        getCrmPortalMessages(),
+        getPortalUsers(),
+        getInternalChats(),
         usersAPI.getAll(),
       ]);
 
@@ -376,8 +368,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
     if (!selectedMessage || !replyText.trim()) return;
     setSending(true);
     try {
-      const accessToken = await getAccessToken();
-      await replyToPortalMessage(selectedMessage.id, selectedMessage.contactId, replyText.trim(), accessToken);
+      await replyToPortalMessage(selectedMessage.id, selectedMessage.contactId, replyText.trim());
       toast.success('Customer reply sent');
       setReplyText('');
       await loadData();
@@ -392,8 +383,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
     if (!selectedMessage || !internalNoteText.trim()) return;
     setSending(true);
     try {
-      const accessToken = await getAccessToken();
-      await addPortalInternalNote(selectedMessage.id, selectedMessage.contactId, internalNoteText.trim(), accessToken);
+      await addPortalInternalNote(selectedMessage.id, selectedMessage.contactId, internalNoteText.trim());
       toast.success('Internal note added');
       setInternalNoteText('');
       await loadData();
@@ -408,9 +398,8 @@ export function MessagingHub({ user }: MessagingHubProps) {
     if (!selectedMessage) return;
     setSending(true);
     try {
-      const accessToken = await getAccessToken();
       const nextStatus = selectedMessage.status === 'resolved' ? 'open' : 'resolved';
-      await updatePortalThreadStatus(selectedMessage.id, selectedMessage.contactId, nextStatus, accessToken);
+      await updatePortalThreadStatus(selectedMessage.id, selectedMessage.contactId, nextStatus);
       toast.success(nextStatus === 'resolved' ? 'Conversation marked resolved' : 'Conversation reopened');
       await loadData();
     } catch (err: any) {
@@ -474,18 +463,14 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
     setSending(true);
     try {
-      const accessToken = await getAccessToken();
-      const result = await createInternalChat(
-        {
-          title: derivedTitle,
-          contextType: derivedContextType,
-          contextLabel: derivedContextLabel,
-          initialMessage: newChatMessage.trim(),
-          chatType: derivedChatType,
-          participants: selectedMembers,
-        },
-        accessToken
-      );
+      const result = await createInternalChat({
+        title: derivedTitle,
+        contextType: derivedContextType,
+        contextLabel: derivedContextLabel,
+        initialMessage: newChatMessage.trim(),
+        chatType: derivedChatType,
+        participants: selectedMembers,
+      });
       toast.success(derivedChatType === 'group' ? 'Saved group created' : 'Chat created');
       setShowNewChat(false);
       setNewChatTitle('');
@@ -600,8 +585,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
       setPendingMessage('');
 
       try {
-        const accessToken = await getAccessToken();
-        const result = await createCrmPortalMessage(target.contactId, messageText, subject, accessToken);
+        const result = await createCrmPortalMessage(target.contactId, messageText, subject);
         if (result?.message?.id) {
           setMessages(prev => [
             result.message,
@@ -653,18 +637,14 @@ export function MessagingHub({ user }: MessagingHubProps) {
     setPendingMessage('');
 
     try {
-      const accessToken = await getAccessToken();
-      const result = await createInternalChat(
-        {
-          title: target.name,
-          contextType: `direct-${target.kind}`,
-          contextLabel: getTargetKey(target),
-          chatType: 'direct',
-          participants: [{ id: target.id, name: target.name, email: target.email, kind: target.kind }],
-          initialMessage: messageText,
-        },
-        accessToken
-      );
+      const result = await createInternalChat({
+        title: target.name,
+        contextType: `direct-${target.kind}`,
+        contextLabel: getTargetKey(target),
+        chatType: 'direct',
+        participants: [{ id: target.id, name: target.name, email: target.email, kind: target.kind }],
+        initialMessage: messageText,
+      });
 
       if (result?.chat?.id) {
         setInternalChats(prev => [
@@ -718,8 +698,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
     );
 
     try {
-      const accessToken = await getAccessToken();
-      const result = await sendInternalChatMessage(chatId, messageText, accessToken);
+      const result = await sendInternalChatMessage(chatId, messageText);
       // Replace the optimistic entry with the authoritative server response
       if (result?.chat) {
         setInternalChats(prev => prev.map(c => (c.id === result.chat.id ? result.chat : c)));
