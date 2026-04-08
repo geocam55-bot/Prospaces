@@ -608,7 +608,7 @@ export function AppContent() {
               {currentView === 'contacts' && <Contacts user={user} />}
               {currentView === 'tasks' && <Tasks user={user} />}
               {currentView === 'bids' && <Bids user={user} />}
-              {currentView === 'messages' && <PortalMessagesAdmin user={user} />}
+              {currentView === 'messages' && <PortalMessagesAdmin user={user} accessToken={session?.access_token} />}
               {currentView === 'notes' && <Notes user={user} />}
               {currentView === 'appointments' && <Appointments user={user} />}
               {currentView === 'documents' && <Documents user={user} />}
@@ -631,7 +631,7 @@ export function AppContent() {
               {currentView === 'shed-planner' && <DesktopOnlyPlanner><PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="shed-planner"><Suspense fallback={<PlannerLoading />}><ShedPlanner user={user} /></Suspense></PlannerErrorBoundary></DesktopOnlyPlanner>}
               {currentView === 'roof-planner' && <DesktopOnlyPlanner><PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="roof-planner"><Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense></PlannerErrorBoundary></DesktopOnlyPlanner>}
               {currentView === 'interior-finishing' && <DesktopOnlyPlanner><PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="interior-finishing"><Suspense fallback={<PlannerLoading />}><InteriorFinishingPlanner user={user} /></Suspense></PlannerErrorBoundary></DesktopOnlyPlanner>}
-              {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
+              {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} accessToken={session?.access_token} />}
               {currentView === 'subscription-billing' && <SubscriptionBilling user={user} />}
               {currentView === 'subscription-agreement' && <SubscriptionAgreement organization={organization} />}
               {currentView === 'about' && <About />}

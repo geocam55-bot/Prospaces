@@ -6,11 +6,13 @@ import { getServerHeaders, getUserAccessToken } from './server-headers';
 const BASE_URL = buildServerFunctionUrl('/portal');
 
 async function crmHeaders(accessToken?: string): Promise<Record<string, string>> {
-  const freshToken = await getUserAccessToken().catch(() => null);
-  const userToken = freshToken || accessToken || null;
+  const explicitToken = accessToken?.trim() || null;
+  const freshToken = explicitToken ? null : await getUserAccessToken().catch(() => null);
+  const userToken = explicitToken || freshToken || null;
 
   return {
-    'Authorization': `Bearer ${publicAnonKey}`,
+    'Authorization': `Bearer ${userToken || publicAnonKey}`,
+    'apikey': publicAnonKey,
     'Content-Type': 'application/json',
     ...(userToken ? { 'X-User-Token': userToken } : {}),
   };
