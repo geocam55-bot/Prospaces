@@ -4,6 +4,16 @@ import { getServerHeaders } from './server-headers';
 
 const BASE_URL = buildServerFunctionUrl('/portal');
 
+// Build headers using an already-obtained user token, bypassing the async
+// auth-state listener so the request never fires without X-User-Token.
+function crmHeaders(accessToken: string): Record<string, string> {
+  return {
+    'Authorization': `Bearer ${publicAnonKey}`,
+    'Content-Type': 'application/json',
+    'X-User-Token': accessToken,
+  };
+}
+
 // ── Session management ──
 const PORTAL_TOKEN_KEY = 'portal_session_token';
 const PORTAL_USER_KEY = 'portal_user';
@@ -157,9 +167,8 @@ export async function rejectQuote(quoteId: string) {
 // ── CRM-side functions (use CRM auth) ──
 
 export async function getCrmPortalMessages(accessToken: string) {
-  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/crm-messages`, {
-    headers,
+    headers: crmHeaders(accessToken),
   });
 
   const data = await response.json();
@@ -168,10 +177,9 @@ export async function getCrmPortalMessages(accessToken: string) {
 }
 
 export async function createPortalInvite(contactId: string, accessToken: string) {
-  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/invite`, {
     method: 'POST',
-    headers,
+    headers: crmHeaders(accessToken),
     body: JSON.stringify({ contactId }),
   });
 
@@ -181,9 +189,8 @@ export async function createPortalInvite(contactId: string, accessToken: string)
 }
 
 export async function getPortalUsers(accessToken: string) {
-  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/portal-users`, {
-    headers,
+    headers: crmHeaders(accessToken),
   });
 
   const data = await response.json();
@@ -192,10 +199,9 @@ export async function getPortalUsers(accessToken: string) {
 }
 
 export async function revokePortalAccess(contactId: string, accessToken: string) {
-  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/revoke/${contactId}`, {
     method: 'DELETE',
-    headers,
+    headers: crmHeaders(accessToken),
   });
 
   const data = await response.json();
@@ -204,10 +210,9 @@ export async function revokePortalAccess(contactId: string, accessToken: string)
 }
 
 export async function createCrmPortalMessage(contactId: string, message: string, subject: string, accessToken: string) {
-  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/crm-message`, {
     method: 'POST',
-    headers,
+    headers: crmHeaders(accessToken),
     body: JSON.stringify({ contactId, message, subject }),
   });
 
@@ -217,10 +222,9 @@ export async function createCrmPortalMessage(contactId: string, message: string,
 }
 
 export async function replyToPortalMessage(messageId: string, contactId: string, reply: string, accessToken: string) {
-  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/reply`, {
     method: 'POST',
-    headers,
+    headers: crmHeaders(accessToken),
     body: JSON.stringify({ messageId, contactId, reply, body: reply }),
   });
 
@@ -230,10 +234,9 @@ export async function replyToPortalMessage(messageId: string, contactId: string,
 }
 
 export async function addPortalInternalNote(messageId: string, contactId: string, note: string, accessToken: string) {
-  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/internal-note`, {
     method: 'POST',
-    headers,
+    headers: crmHeaders(accessToken),
     body: JSON.stringify({ messageId, contactId, note }),
   });
 
@@ -243,10 +246,9 @@ export async function addPortalInternalNote(messageId: string, contactId: string
 }
 
 export async function updatePortalThreadStatus(messageId: string, contactId: string, status: 'open' | 'resolved', accessToken: string) {
-  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/status`, {
     method: 'POST',
-    headers,
+    headers: crmHeaders(accessToken),
     body: JSON.stringify({ messageId, contactId, status }),
   });
 
@@ -256,9 +258,8 @@ export async function updatePortalThreadStatus(messageId: string, contactId: str
 }
 
 export async function getInternalChats(accessToken: string) {
-  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/internal-chats`, {
-    headers,
+    headers: crmHeaders(accessToken),
   });
 
   const data = await response.json();
@@ -274,10 +275,9 @@ export async function createInternalChat(payload: {
   chatType?: 'general' | 'direct' | 'group';
   participants?: Array<{ id?: string; name: string; email?: string; kind?: 'staff' | 'portal' }>;
 }, accessToken: string) {
-  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/internal-chats`, {
     method: 'POST',
-    headers,
+    headers: crmHeaders(accessToken),
     body: JSON.stringify(payload),
   });
 
@@ -287,10 +287,9 @@ export async function createInternalChat(payload: {
 }
 
 export async function sendInternalChatMessage(chatId: string, message: string, accessToken: string) {
-  const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/internal-chats/${chatId}/message`, {
     method: 'POST',
-    headers,
+    headers: crmHeaders(accessToken),
     body: JSON.stringify({ message }),
   });
 
