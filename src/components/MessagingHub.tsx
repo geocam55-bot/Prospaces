@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
+import { getUserAccessToken } from '../utils/server-headers';
 import {
   addPortalInternalNote,
   createCrmPortalMessage,
@@ -84,10 +85,9 @@ export function MessagingHub({ user }: MessagingHubProps) {
   );
 
   const getAccessToken = async () => {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) throw new Error('Not authenticated');
-    return session.access_token;
+    const accessToken = await getUserAccessToken();
+    if (!accessToken) throw new Error('Not authenticated');
+    return accessToken;
   };
 
   const syncCurrentUserPresence = async () => {
@@ -112,68 +112,94 @@ export function MessagingHub({ user }: MessagingHubProps) {
     setLoading(true);
     try {
       const accessToken = await getAccessToken();
-      const [messagesData, usersData, internalData, staffData] = await Promise.all([
-        getCrmPortalMessages(accessToken).catch(() => ({ messages: [] })),
-        getPortalUsers(accessToken).catch(() => ({ portalUsers: [] })),
-        getInternalChats(accessToken).catch(() => ({ chats: [] })),
-        usersAPI.getAll().catch(() => []),
+      const [messagesResult, usersResult, internalResult, staffResult] = await Promise.allSettled([
+        getCrmPortalMessages(accessToken),
+        getPortalUsers(accessToken),
+        getInternalChats(accessToken),
+        usersAPI.getAll(),
       ]);
 
-      const nextMessages = messagesData.messages || [];
-      const nextUsers = usersData.portalUsers || [];
-      const nextChats = (internalData.chats || []).filter((chat: any) => canAccessInternalChat(chat));
-      const nextStaff = Array.isArray((staffData as any)?.users)
-        ? (staffData as any).users
-        : Array.isArray(staffData)
-          ? staffData
-          : [];
+      const nextMessages = messagesResult.status === 'fulfilled'
+        ? (messagesResult.value.messages || [])
+        : null;
+      const nextUsers = usersResult.status === 'fulfilled'
+        ? (usersResult.value.portalUsers || [])
+        : null;
+      const nextChats = internalResult.status === 'fulfilled'
+        ? (internalResult.value.chats || []).filter((chat: any) => canAccessInternalChat(chat))
+        : null;
+      const nextStaffSource = staffResult.status === 'fulfilled' ? staffResult.value : null;
+      const nextStaff = Array.isArray((nextStaffSource as any)?.users)
+        ? (nextStaffSource as any).users
+        : Array.isArray(nextStaffSource)
+          ? nextStaffSource
+          : null;
 
-      setMessages(nextMessages);
-      setPortalUsers(nextUsers);
-      setStaffUsers(nextStaff);
+      if (nextMessages !== null) {
+        setMessages(nextMessages);
+      }
+      if (nextUsers !== null) {
+        setPortalUsers(nextUsers);
+      }
+      if (nextStaff !== null) {
+        setStaffUsers(nextStaff);
+      }
 
       // Merge server chats with local state so any optimistically-added chats
       // (created between now and the last server flush) are not wiped out by a
-      // full replace.  If the server returned nothing, keep local state intact
-      // to avoid clearing a just-created chat during the race window.
-      setInternalChats(prev => {
-        if (nextChats.length === 0) return prev;
-        const serverMap = new Map(nextChats.map((c: any) => [c.id, c]));
-        // Update existing chats and keep any local-only ones that haven't synced yet
-        const merged = prev.map((c: any) => serverMap.has(c.id) ? serverMap.get(c.id) : c);
-        const brandNew = nextChats.filter((c: any) => !prev.some((pc: any) => pc.id === c.id));
-        return [...merged, ...brandNew];
-      });
+      // transient refresh failure or race window.
+      if (nextChats !== null) {
+        setInternalChats(prev => {
+          if (nextChats.length === 0) {
+            return prev.filter((chat: any) => String(chat?.id || '').startsWith('pending'));
+          }
+
+          const serverMap = new Map(nextChats.map((c: any) => [c.id, c]));
+          const merged = prev.map((c: any) => serverMap.has(c.id) ? serverMap.get(c.id) : c);
+          const brandNew = nextChats.filter((c: any) => !prev.some((pc: any) => pc.id === c.id));
+          return [...merged, ...brandNew];
+        });
+      }
 
       const isFirstLoad = !initializedRef.current;
       if (isFirstLoad) {
         initializedRef.current = true;
-        // On first load: auto-select the most recent conversation
-        if (nextChats.length > 0) {
+        if (nextChats && nextChats.length > 0) {
           setSelectedChatId(nextChats[0].id);
           setSelectedConversationType('internal');
-        } else if (nextMessages.length > 0) {
+        } else if (nextMessages && nextMessages.length > 0) {
           setSelectedMessageId(nextMessages[0].id);
           setSelectedConversationType('customer');
         }
       } else {
-        // On background polls: use functional setters so we always read the
-        // LIVE selection state, not the stale closure value.  Only change
-        // selection if the currently-selected item has been deleted server-side.
-        setSelectedChatId(currentId => {
-          if (!currentId) return currentId;
-          if (nextChats.length > 0 && !nextChats.some((c: any) => c.id === currentId)) {
-            return nextChats[0]?.id || null;
-          }
-          return currentId;
-        });
-        setSelectedMessageId(currentId => {
-          if (!currentId) return currentId;
-          if (nextMessages.length > 0 && !nextMessages.some((m: any) => m.id === currentId)) {
-            return nextMessages[0]?.id || null;
-          }
-          return currentId;
-        });
+        if (nextChats !== null) {
+          setSelectedChatId(currentId => {
+            if (!currentId) return currentId;
+            if (nextChats.length > 0 && !nextChats.some((c: any) => c.id === currentId)) {
+              return nextChats[0]?.id || null;
+            }
+            return currentId;
+          });
+        }
+
+        if (nextMessages !== null) {
+          setSelectedMessageId(currentId => {
+            if (!currentId) return currentId;
+            if (nextMessages.length > 0 && !nextMessages.some((m: any) => m.id === currentId)) {
+              return nextMessages[0]?.id || null;
+            }
+            return currentId;
+          });
+        }
+      }
+
+      if (
+        messagesResult.status === 'rejected'
+        && usersResult.status === 'rejected'
+        && internalResult.status === 'rejected'
+        && staffResult.status === 'rejected'
+      ) {
+        throw new Error('Failed to load messaging hub');
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to load messaging hub');
@@ -194,36 +220,71 @@ export function MessagingHub({ user }: MessagingHubProps) {
     return () => window.clearInterval(interval);
   }, []);
 
-  // Real-time subscription — instantly deliver messages from other users without waiting for the
-  // next poll.  Listens to INSERT/UPDATE events on the kv_store table and patches local state for
-  // any row whose key belongs to this org's internal-chat namespace.
+  // Real-time subscription — instantly deliver internal chats and portal-thread updates
+  // without waiting for the next poll cycle.
   useEffect(() => {
     const orgId = user.organization_id || user.organizationId;
     if (!orgId) return;
 
     const supabase = createClient();
     const channel = supabase
-      .channel(`internal-chats-rt-${orgId}`)
+      .channel(`message-space-rt-${orgId}`)
       .on(
         'postgres_changes' as any,
         { event: '*', schema: 'public', table: 'kv_store_8405be07' },
         (payload: any) => {
           const key: string = payload.new?.key || payload.old?.key || '';
-          if (!key.startsWith(`internal_chat:${orgId}:`)) return;
 
-          if (payload.eventType === 'DELETE' || !payload.new?.value) {
+          if (key.startsWith(`internal_chat:${orgId}:`)) {
             const chatId = key.split(':')[2];
-            if (chatId) setInternalChats(prev => prev.filter(c => c.id !== chatId));
-          } else {
+
+            if (payload.eventType === 'DELETE' || !payload.new?.value) {
+              if (chatId) {
+                setInternalChats(prev => prev.filter((chat) => chat.id !== chatId));
+              }
+              return;
+            }
+
             const chat = payload.new.value;
             if (!canAccessInternalChat(chat)) return;
+
             setInternalChats(prev => {
-              const exists = prev.some(c => c.id === chat.id);
+              const exists = prev.some((existingChat) => existingChat.id === chat.id);
               return exists
-                ? prev.map(c => (c.id === chat.id ? chat : c))
-                : [...prev, chat];
+                ? prev.map((existingChat) => (existingChat.id === chat.id ? chat : existingChat))
+                : [chat, ...prev];
             });
+            return;
           }
+
+          if (!key.startsWith(`portal_message:${orgId}:`)) return;
+
+          const messageId = key.split(':').pop();
+          if (payload.eventType === 'DELETE' || !payload.new?.value) {
+            if (messageId) {
+              setMessages(prev => prev.filter((message) => message.id !== messageId));
+            }
+            return;
+          }
+
+          const incomingMessage = payload.new.value;
+          setMessages(prev => {
+            const existing = prev.find((message) => message.id === incomingMessage.id);
+            const mergedMessage = {
+              ...existing,
+              ...incomingMessage,
+              contactName: incomingMessage.contactName || existing?.contactName || incomingMessage.senderEmail || 'Customer',
+              contactEmail: incomingMessage.contactEmail || existing?.contactEmail || incomingMessage.senderEmail || '',
+            };
+
+            const nextMessages = existing
+              ? prev.map((message) => (message.id === mergedMessage.id ? mergedMessage : message))
+              : [mergedMessage, ...prev];
+
+            return [...nextMessages].sort((a, b) =>
+              new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
+            );
+          });
         }
       )
       .subscribe();
@@ -231,7 +292,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user.organization_id, user.organizationId]);
+  }, [user.organization_id, user.organizationId, user.id, user.email]);
 
   // Auto-scroll the history to the bottom whenever the active conversation or its
   // message count changes (new messages arriving, switching to a different chat, etc.)

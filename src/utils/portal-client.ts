@@ -1,17 +1,91 @@
 import { publicAnonKey } from './supabase/info';
-import { buildServerFunctionUrl } from './server-function-url';
+import { createClient } from './supabase/client';
+import { buildServerFunctionUrl, getServerFunctionUrlCandidates } from './server-function-url';
 import { getServerHeaders } from './server-headers';
 
 const BASE_URL = buildServerFunctionUrl('/portal');
 
-// Build headers using an already-obtained user token, bypassing the async
-// auth-state listener so the request never fires without X-User-Token.
-function crmHeaders(accessToken: string): Record<string, string> {
-  return {
-    'Authorization': `Bearer ${publicAnonKey}`,
-    'Content-Type': 'application/json',
-    'X-User-Token': accessToken,
-  };
+async function crmHeaders(accessToken?: string): Promise<Record<string, string>> {
+  if (accessToken) {
+    return {
+      'Authorization': `Bearer ${publicAnonKey}`,
+      'Content-Type': 'application/json',
+      'X-User-Token': accessToken,
+    };
+  }
+
+  return getServerHeaders();
+}
+
+function isUnmatchedResponse(response: Response, data: any): boolean {
+  return response.status === 404 || data?.matched === false;
+}
+
+function shouldRetryAuth(response: Response, data: any): boolean {
+  const rawError = String(data?.error || data?.message || '');
+  return !response.ok && (
+    response.status === 401
+    || /invalid.*token|envalid.*token|user token|missing auth token|unauthorized/i.test(rawError)
+  );
+}
+
+function getPortalBaseUrlCandidates(): string[] {
+  return Array.from(new Set([BASE_URL, ...getServerFunctionUrlCandidates('/portal')]));
+}
+
+async function fetchFromServer(
+  path: string,
+  options: RequestInit = {},
+  getHeaders: () => Promise<Record<string, string>> | Record<string, string>,
+  retryAuth?: () => Promise<boolean>,
+): Promise<any> {
+  let lastError: Error | null = null;
+
+  for (const baseUrl of getPortalBaseUrlCandidates()) {
+    let didRetryAuth = false;
+
+    while (true) {
+      const headers = await getHeaders();
+      const response = await fetch(`${baseUrl}${path}`, {
+        ...options,
+        headers,
+      });
+
+      let data: any = null;
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+
+      if (response.ok && !isUnmatchedResponse(response, data)) {
+        return data;
+      }
+
+      if (isUnmatchedResponse(response, data)) {
+        lastError = new Error(`Messaging route unavailable at ${baseUrl}`);
+        break;
+      }
+
+      if (!didRetryAuth && retryAuth && shouldRetryAuth(response, data)) {
+        didRetryAuth = true;
+        const refreshed = await retryAuth();
+        if (refreshed) {
+          continue;
+        }
+      }
+
+      const rawError = String(data?.error || data?.message || `Request failed (${response.status}): ${response.statusText}`);
+      lastError = new Error(
+        shouldRetryAuth(response, data)
+          ? 'Your sign-in session expired. Please refresh the page or sign in again, then retry.'
+          : rawError
+      );
+      break;
+    }
+  }
+
+  throw lastError || new Error('Unable to reach the messaging server');
 }
 
 // ── Session management ──
@@ -49,27 +123,36 @@ export function clearPortalSession() {
 // ── Shared fetch helper ──
 async function portalFetch(path: string, options: RequestInit = {}): Promise<any> {
   const token = getPortalToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
-    ...(options.headers as Record<string, string> || {}),
-  };
-  if (token) {
-    headers['X-Portal-Token'] = token;
-  }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers,
+  return fetchFromServer(path, options, () => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${publicAnonKey}`,
+      ...(options.headers as Record<string, string> || {}),
+    };
+
+    if (token) {
+      headers['X-Portal-Token'] = token;
+    }
+
+    return headers;
   });
+}
 
-  const data = await response.json();
+async function crmFetch(path: string, options: RequestInit = {}, accessToken?: string): Promise<any> {
+  let tokenOverride = accessToken;
 
-  if (!response.ok) {
-    throw new Error(data.error || `Request failed: ${response.statusText}`);
-  }
-
-  return data;
+  return fetchFromServer(
+    path,
+    options,
+    () => tokenOverride ? crmHeaders(tokenOverride) : getServerHeaders(),
+    async () => {
+      const supabase = createClient();
+      const refreshResult = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } }));
+      tokenOverride = refreshResult?.data?.session?.access_token || undefined;
+      return !!tokenOverride;
+    },
+  );
 }
 
 // ── Auth ──
@@ -166,105 +249,57 @@ export async function rejectQuote(quoteId: string) {
 
 // ── CRM-side functions (use CRM auth) ──
 
-export async function getCrmPortalMessages(accessToken: string) {
-  const response = await fetch(`${BASE_URL}/crm-messages`, {
-    headers: crmHeaders(accessToken),
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to load portal messages');
-  return data;
+export async function getCrmPortalMessages(accessToken?: string) {
+  return crmFetch('/crm-messages', {}, accessToken);
 }
 
-export async function createPortalInvite(contactId: string, accessToken: string) {
-  const response = await fetch(`${BASE_URL}/invite`, {
+export async function createPortalInvite(contactId: string, accessToken?: string) {
+  return crmFetch('/invite', {
     method: 'POST',
-    headers: crmHeaders(accessToken),
     body: JSON.stringify({ contactId }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to create invite');
-  return data;
+  }, accessToken);
 }
 
-export async function getPortalUsers(accessToken: string) {
-  const response = await fetch(`${BASE_URL}/portal-users`, {
-    headers: crmHeaders(accessToken),
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to list portal users');
-  return data;
+export async function getPortalUsers(accessToken?: string) {
+  return crmFetch('/portal-users', {}, accessToken);
 }
 
-export async function revokePortalAccess(contactId: string, accessToken: string) {
-  const response = await fetch(`${BASE_URL}/revoke/${contactId}`, {
+export async function revokePortalAccess(contactId: string, accessToken?: string) {
+  return crmFetch(`/revoke/${contactId}`, {
     method: 'DELETE',
-    headers: crmHeaders(accessToken),
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to revoke access');
-  return data;
+  }, accessToken);
 }
 
-export async function createCrmPortalMessage(contactId: string, message: string, subject: string, accessToken: string) {
-  const response = await fetch(`${BASE_URL}/crm-message`, {
+export async function createCrmPortalMessage(contactId: string, message: string, subject: string, accessToken?: string) {
+  return crmFetch('/crm-message', {
     method: 'POST',
-    headers: crmHeaders(accessToken),
     body: JSON.stringify({ contactId, message, subject }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to send portal message');
-  return data;
+  }, accessToken);
 }
 
-export async function replyToPortalMessage(messageId: string, contactId: string, reply: string, accessToken: string) {
-  const response = await fetch(`${BASE_URL}/reply`, {
+export async function replyToPortalMessage(messageId: string, contactId: string, reply: string, accessToken?: string) {
+  return crmFetch('/reply', {
     method: 'POST',
-    headers: crmHeaders(accessToken),
     body: JSON.stringify({ messageId, contactId, reply, body: reply }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to send reply');
-  return data;
+  }, accessToken);
 }
 
-export async function addPortalInternalNote(messageId: string, contactId: string, note: string, accessToken: string) {
-  const response = await fetch(`${BASE_URL}/internal-note`, {
+export async function addPortalInternalNote(messageId: string, contactId: string, note: string, accessToken?: string) {
+  return crmFetch('/internal-note', {
     method: 'POST',
-    headers: crmHeaders(accessToken),
     body: JSON.stringify({ messageId, contactId, note }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to save internal note');
-  return data;
+  }, accessToken);
 }
 
-export async function updatePortalThreadStatus(messageId: string, contactId: string, status: 'open' | 'resolved', accessToken: string) {
-  const response = await fetch(`${BASE_URL}/status`, {
+export async function updatePortalThreadStatus(messageId: string, contactId: string, status: 'open' | 'resolved', accessToken?: string) {
+  return crmFetch('/status', {
     method: 'POST',
-    headers: crmHeaders(accessToken),
     body: JSON.stringify({ messageId, contactId, status }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to update conversation status');
-  return data;
+  }, accessToken);
 }
 
-export async function getInternalChats(accessToken: string) {
-  const response = await fetch(`${BASE_URL}/internal-chats`, {
-    headers: crmHeaders(accessToken),
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to load internal chats');
-  return data;
+export async function getInternalChats(accessToken?: string) {
+  return crmFetch('/internal-chats', {}, accessToken);
 }
 
 export async function createInternalChat(payload: {
@@ -274,26 +309,16 @@ export async function createInternalChat(payload: {
   initialMessage?: string;
   chatType?: 'general' | 'direct' | 'group';
   participants?: Array<{ id?: string; name: string; email?: string; kind?: 'staff' | 'portal' }>;
-}, accessToken: string) {
-  const response = await fetch(`${BASE_URL}/internal-chats`, {
+}, accessToken?: string) {
+  return crmFetch('/internal-chats', {
     method: 'POST',
-    headers: crmHeaders(accessToken),
     body: JSON.stringify(payload),
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to create internal chat');
-  return data;
+  }, accessToken);
 }
 
-export async function sendInternalChatMessage(chatId: string, message: string, accessToken: string) {
-  const response = await fetch(`${BASE_URL}/internal-chats/${chatId}/message`, {
+export async function sendInternalChatMessage(chatId: string, message: string, accessToken?: string) {
+  return crmFetch(`/internal-chats/${chatId}/message`, {
     method: 'POST',
-    headers: crmHeaders(accessToken),
     body: JSON.stringify({ message }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to send internal chat message');
-  return data;
+  }, accessToken);
 }
