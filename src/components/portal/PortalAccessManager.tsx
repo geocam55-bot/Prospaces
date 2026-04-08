@@ -115,7 +115,7 @@ export function PortalAccessManager({ contactId, contactName, contactEmail }: Po
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Give {contactName || 'this contact'} access to view their quotes, projects, and communicate with your team through the customer portal.
           </p>
 
@@ -162,7 +162,7 @@ export function PortalAccessManager({ contactId, contactName, contactEmail }: Po
 
       {/* Invite Code Dialog */}
       <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
-        <DialogContent className="bg-white max-w-md">
+        <DialogContent className="bg-background max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -176,9 +176,9 @@ export function PortalAccessManager({ contactId, contactName, contactEmail }: Po
           <div className="space-y-4 mt-2">
             {/* Invite Code */}
             <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Invite Code</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Invite Code</label>
               <div className="flex items-center gap-2">
-                <div className="flex-1 bg-slate-50 border rounded-lg px-4 py-3 font-mono text-lg text-center tracking-[0.3em] font-bold text-slate-900">
+                <div className="flex-1 bg-muted border rounded-lg px-4 py-3 font-mono text-lg text-center tracking-[0.3em] font-bold text-foreground">
                   {inviteCode}
                 </div>
                 <Button variant="outline" size="sm" onClick={copyInviteCode} className="shrink-0">
@@ -189,10 +189,10 @@ export function PortalAccessManager({ contactId, contactName, contactEmail }: Po
 
             {/* Portal Link */}
             <div>
-              <label className="text-xs font-medium text-slate-500 mb-1 block">Direct Registration Link</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Direct Registration Link</label>
               <div className="flex items-center gap-2">
                 <input
-                  className="flex-1 bg-slate-50 border rounded-lg px-3 py-2 text-xs text-slate-600 truncate"
+                  className="flex-1 bg-muted border rounded-lg px-3 py-2 text-xs text-muted-foreground truncate"
                   value={portalUrl}
                   readOnly
                 />

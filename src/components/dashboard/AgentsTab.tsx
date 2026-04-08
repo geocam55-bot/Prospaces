@@ -173,7 +173,7 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="text-xs text-gray-500 bg-white border-b">
+              <thead className="text-xs text-muted-foreground bg-background border-b">
                 <tr>
                   <th className="px-4 py-3 font-medium">Owner</th>
                   <th className="px-4 py-3 font-medium text-right">Closed amount</th>
@@ -189,8 +189,8 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
               </thead>
               <tbody>
                 {agentMetrics.map((agent, i) => (
-                  <tr key={agent.id} className="border-b last:border-0 hover:bg-gray-50/50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
+                  <tr key={agent.id} className="border-b last:border-0 hover:bg-muted/50">
+                    <td className="px-4 py-3 font-medium text-foreground">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-16 w-16">
                           <AvatarImage src={agent.avatar} alt={agent.name} />
@@ -212,7 +212,7 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
                         {agent.dealsCount}
                     </td>
                     
-                    <td className="px-4 py-3 text-right bg-slate-50">{agent.openDeals}</td>
+                    <td className="px-4 py-3 text-right bg-muted">{agent.openDeals}</td>
                     <td className="px-4 py-3 text-right bg-orange-50">{agent.lostDeals}</td>
                     <td className="px-4 py-3 text-right bg-blue-50">{agent.wonDeals}</td>
                     
@@ -237,7 +237,7 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
       {/* Sales Pipeline by Agent Chart */}
       <Card className="border-0 shadow-sm min-w-0">
         <CardHeader>
-          <CardTitle className="text-gray-700 text-lg">Sales pipeline by agent</CardTitle>
+          <CardTitle className="text-foreground text-lg">Sales pipeline by agent</CardTitle>
         </CardHeader>
         <CardContent>
             {/* Using absolute positioning trick to fix Recharts width issue */}

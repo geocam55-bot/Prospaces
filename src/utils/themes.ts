@@ -77,16 +77,16 @@ export const themes: Record<string, Theme> = {
       backgroundSecondary: '#f9fafb',
       backgroundTertiary: '#f3f4f6',
       
-      text: '#000000',
-      textSecondary: '#000000',
-      textMuted: '#000000',
+      text: '#1a1a2e',
+      textSecondary: '#4a4a5a',
+      textMuted: '#71717a',
       
       primary: '#9333ea',
       primaryHover: '#7e22ce',
       primaryText: '#ffffff',
       
       secondary: '#f3f4f6',
-      secondaryText: '#000000',
+      secondaryText: '#1a1a2e',
       
       accent: '#ec4899',
       accentHover: '#db2777',
@@ -97,7 +97,7 @@ export const themes: Record<string, Theme> = {
       
       card: '#ffffff',
       cardHover: '#f9fafb',
-      cardText: '#000000',
+      cardText: '#1a1a2e',
       
       input: '#e5e7eb',
       
@@ -132,16 +132,16 @@ export const themes: Record<string, Theme> = {
       backgroundSecondary: '#f9fafb',
       backgroundTertiary: '#f3f4f6',
       
-      text: '#000000',
-      textSecondary: '#000000',
-      textMuted: '#000000',
+      text: '#111827',
+      textSecondary: '#4b5563',
+      textMuted: '#6b7280',
       
       primary: '#3b82f6',
       primaryHover: '#2563eb',
       primaryText: '#ffffff',
       
       secondary: '#f1f5f9',
-      secondaryText: '#000000',
+      secondaryText: '#111827',
       
       accent: '#3b82f6',
       accentHover: '#2563eb',
@@ -152,7 +152,7 @@ export const themes: Record<string, Theme> = {
       
       card: '#ffffff',
       cardHover: '#f9fafb',
-      cardText: '#000000',
+      cardText: '#111827',
       
       input: '#e5e7eb',
       
@@ -165,12 +165,12 @@ export const themes: Record<string, Theme> = {
       destructiveText: '#ffffff',
       
       navBackground: '#ffffff',
-      navText: '#000000',
+      navText: '#111827',
       navHover: '#f3f4f6',
       navActive: '#e5e7eb',
       
       topBarBackground: '#ffffff',
-      topBarText: '#000000',
+      topBarText: '#111827',
       
       shadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
     },
@@ -240,16 +240,16 @@ export const themes: Record<string, Theme> = {
       backgroundSecondary: '#f0f9ff',
       backgroundTertiary: '#e0f2fe',
       
-      text: '#000000',
-      textSecondary: '#000000',
-      textMuted: '#000000',
+      text: '#0c1929',
+      textSecondary: '#334e68',
+      textMuted: '#627d98',
       
       primary: '#0284c7',
       primaryHover: '#0369a1',
       primaryText: '#ffffff',
       
       secondary: '#e0f2fe',
-      secondaryText: '#000000',
+      secondaryText: '#0c1929',
       
       accent: '#06b6d4',
       accentHover: '#0891b2',
@@ -260,7 +260,7 @@ export const themes: Record<string, Theme> = {
       
       card: '#ffffff',
       cardHover: '#f0f9ff',
-      cardText: '#000000',
+      cardText: '#0c1929',
       
       input: '#bae6fd',
       
@@ -295,16 +295,16 @@ export const themes: Record<string, Theme> = {
       backgroundSecondary: '#f0fdf4',
       backgroundTertiary: '#dcfce7',
       
-      text: '#000000',
-      textSecondary: '#000000',
-      textMuted: '#000000',
+      text: '#14270d',
+      textSecondary: '#365a2b',
+      textMuted: '#4d7c3f',
       
       primary: '#16a34a',
       primaryHover: '#15803d',
       primaryText: '#ffffff',
       
       secondary: '#f0fdf4',
-      secondaryText: '#000000',
+      secondaryText: '#14270d',
       
       accent: '#22c55e',
       accentHover: '#16a34a',
@@ -315,7 +315,7 @@ export const themes: Record<string, Theme> = {
       
       card: '#ffffff',
       cardHover: '#f0fdf4',
-      cardText: '#000000',
+      cardText: '#14270d',
       
       input: '#bbf7d0',
       
@@ -350,16 +350,16 @@ export const themes: Record<string, Theme> = {
       backgroundSecondary: '#fff7ed',
       backgroundTertiary: '#ffedd5',
       
-      text: '#000000',
-      textSecondary: '#000000',
-      textMuted: '#000000',
+      text: '#1c1105',
+      textSecondary: '#5c3d14',
+      textMuted: '#8a6534',
       
       primary: '#ea580c',
       primaryHover: '#c2410c',
       primaryText: '#ffffff',
       
       secondary: '#fff7ed',
-      secondaryText: '#000000',
+      secondaryText: '#1c1105',
       
       accent: '#f97316',
       accentHover: '#ea580c',
@@ -370,7 +370,7 @@ export const themes: Record<string, Theme> = {
       
       card: '#ffffff',
       cardHover: '#fff7ed',
-      cardText: '#000000',
+      cardText: '#1c1105',
       
       input: '#fed7aa',
       
@@ -460,16 +460,16 @@ export const themes: Record<string, Theme> = {
       backgroundSecondary: '#f5f1eb',
       backgroundTertiary: '#ede7dd',
       
-      text: '#000000',
-      textSecondary: '#000000',
-      textMuted: '#000000',
+      text: '#2c1810',
+      textSecondary: '#5c4033',
+      textMuted: '#7a6355',
       
       primary: '#6d4c41',
       primaryHover: '#5d4037',
       primaryText: '#ffffff',
       
       secondary: '#efebe9',
-      secondaryText: '#000000',
+      secondaryText: '#2c1810',
       
       accent: '#8d6e63',
       accentHover: '#795548',
@@ -480,7 +480,7 @@ export const themes: Record<string, Theme> = {
       
       card: '#ffffff',
       cardHover: '#f5f1eb',
-      cardText: '#000000',
+      cardText: '#2c1810',
       
       input: '#d7ccc8',
       
@@ -515,16 +515,16 @@ export const themes: Record<string, Theme> = {
       backgroundSecondary: '#ffe4e9',
       backgroundTertiary: '#fecdd6',
       
-      text: '#000000',
-      textSecondary: '#000000',
-      textMuted: '#000000',
+      text: '#2a0f18',
+      textSecondary: '#6b3347',
+      textMuted: '#904d66',
       
       primary: '#e11d48',
       primaryHover: '#be123c',
       primaryText: '#ffffff',
       
       secondary: '#ffe4e9',
-      secondaryText: '#000000',
+      secondaryText: '#2a0f18',
       
       accent: '#f43f5e',
       accentHover: '#e11d48',
@@ -535,7 +535,7 @@ export const themes: Record<string, Theme> = {
       
       card: '#ffffff',
       cardHover: '#fff5f7',
-      cardText: '#000000',
+      cardText: '#2a0f18',
       
       input: '#fecdd6',
       
@@ -570,16 +570,16 @@ export const themes: Record<string, Theme> = {
       backgroundSecondary: '#f1f5f9',
       backgroundTertiary: '#e2e8f0',
       
-      text: '#000000',
-      textSecondary: '#000000',
-      textMuted: '#000000',
+      text: '#0f172a',
+      textSecondary: '#334155',
+      textMuted: '#64748b',
       
       primary: '#0ea5e9',
       primaryHover: '#0284c7',
       primaryText: '#ffffff',
       
       secondary: '#f1f5f9',
-      secondaryText: '#000000',
+      secondaryText: '#0f172a',
       
       accent: '#38bdf8',
       accentHover: '#0ea5e9',
@@ -590,7 +590,7 @@ export const themes: Record<string, Theme> = {
       
       card: '#ffffff',
       cardHover: '#f8fafc',
-      cardText: '#000000',
+      cardText: '#0f172a',
       
       input: '#cbd5e1',
       

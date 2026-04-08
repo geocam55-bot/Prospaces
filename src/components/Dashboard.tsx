@@ -14,7 +14,9 @@ import {
   Target,
   Users,
   Layers,
-  BarChart3
+  BarChart3,
+  FileText,
+  StickyNote
 } from 'lucide-react';
 import { ExplicitChartContainer } from './ui/ExplicitChartContainer';
 import { 
@@ -323,8 +325,10 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       {/* Daily AI Briefing Popup - Deferred render to prevent blocking main thread during initial load */}
       {mounted && <DailyBriefingPopup user={user} onNavigate={onNavigate} organization={organization} />}
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        </div>
         <div className="flex items-center space-x-2">
           <Button variant="outline" size="sm" onClick={loadDashboardData} disabled={isLoading}>
             <Activity className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -631,25 +635,25 @@ function TaskItem({ task }: { task: any }) {
   };
 
   return (
-    <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-      <div className={`mt-0.5 ${task.status === 'completed' ? 'text-green-600' : 'text-gray-400'}`}>
+    <div className="flex items-start gap-3 p-3 rounded-lg border border-border hover:bg-muted transition-colors">
+      <div className={`mt-0.5 ${task.status === 'completed' ? 'text-green-600' : 'text-muted-foreground'}`}>
         <CheckCircle2 className="h-5 w-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`font-medium text-gray-900 ${task.status === 'completed' ? 'line-through text-gray-500' : ''}`}>
+        <p className={`font-medium text-foreground ${task.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>
           {task.title}
         </p>
         {task.description && (
-          <p className="text-sm text-gray-600 mt-1 truncate">{task.description}</p>
+          <p className="text-sm text-muted-foreground mt-1 truncate">{task.description}</p>
         )}
         <div className="flex items-center gap-2 mt-2">
           {task.priority && (
-            <span className={`text-xs px-2 py-1 rounded-full ${priorityColors[task.priority as keyof typeof priorityColors] || 'text-gray-600 bg-gray-100'}`}>
+            <span className={`text-xs px-2 py-1 rounded-full ${priorityColors[task.priority as keyof typeof priorityColors] || 'text-muted-foreground bg-muted'}`}>
               {task.priority}
             </span>
           )}
           {task.dueDate && (
-            <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>
+            <span className={`text-xs flex items-center gap-1 ${isOverdue ? 'text-red-600' : 'text-muted-foreground'}`}>
               <Clock className="h-3 w-3" />
               {new Date(task.dueDate).toLocaleDateString()}
             </span>
@@ -668,17 +672,17 @@ function AppointmentItem({ appointment }: { appointment: any }) {
 
   return (
     <div className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-      isToday ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+      isToday ? 'border-blue-300 bg-blue-50' : 'border-border hover:bg-muted'
     }`}>
-      <div className={`mt-0.5 ${isToday ? 'text-blue-600' : isPast ? 'text-gray-400' : 'text-indigo-600'}`}>
+      <div className={`mt-0.5 ${isToday ? 'text-blue-600' : isPast ? 'text-muted-foreground' : 'text-indigo-600'}`}>
         <Calendar className="h-5 w-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-gray-900">{appointment.title}</p>
+        <p className="font-medium text-foreground">{appointment.title}</p>
         {appointment.description && (
-          <p className="text-sm text-gray-600 mt-1 truncate">{appointment.description}</p>
+          <p className="text-sm text-muted-foreground mt-1 truncate">{appointment.description}</p>
         )}
-        <div className="flex items-center gap-3 mt-2 text-sm text-gray-600">
+        <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
             {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -690,7 +694,7 @@ function AppointmentItem({ appointment }: { appointment: any }) {
           )}
         </div>
         {appointment.location && (
-          <p className="text-xs text-gray-500 mt-1">{appointment.location}</p>
+          <p className="text-xs text-muted-foreground mt-1">{appointment.location}</p>
         )}
       </div>
     </div>

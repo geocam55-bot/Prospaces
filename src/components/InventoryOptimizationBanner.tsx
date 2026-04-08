@@ -85,7 +85,7 @@ export function InventoryOptimizationBanner({ organizationId, itemCount, loadTim
       </Alert>
 
       <Dialog open={showInstructions} onOpenChange={setShowInstructions}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Database className="h-5 w-5" />
@@ -229,7 +229,7 @@ ANALYZE inventory;`;
             </div>
 
             {/* Why This Works */}
-            <div className="text-sm text-gray-600 border-t pt-4">
+            <div className="text-sm text-muted-foreground border-t pt-4">
               <p className="font-medium mb-1">💡 Why This Works:</p>
               <p>
                 Without indexes, PostgreSQL scans all {itemCount.toLocaleString()} rows one by one. 

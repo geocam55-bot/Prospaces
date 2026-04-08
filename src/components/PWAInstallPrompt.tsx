@@ -109,11 +109,11 @@ export function PWAInstallPrompt() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Install ProSpaces CRM on your {isIOSDevice ? 'iPhone' : isAndroidDevice ? 'Android device' : 'computer'} for:
           </p>
           
-          <ul className="space-y-2 text-sm text-gray-700">
+          <ul className="space-y-2 text-sm text-foreground">
             <li className="flex items-start gap-2">
               <span className="text-blue-600 mt-0.5">✓</span>
               <span>Quick access from your home screen</span>

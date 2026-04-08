@@ -148,7 +148,7 @@ FROM public.profiles;`;
             </p>
           </div>
 
-          <div className="bg-white border-2 border-blue-400 rounded-lg p-6 mb-6">
+          <div className="bg-background border-2 border-blue-400 rounded-lg p-6 mb-6">
             <h2 className="text-xl font-bold text-blue-900 mb-4">📝 3 Simple Steps:</h2>
             
             <div className="space-y-4">
@@ -157,7 +157,7 @@ FROM public.profiles;`;
                   1
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-gray-900">Copy the SQL script</p>
+                  <p className="font-semibold text-foreground">Copy the SQL script</p>
                   <Button onClick={copySQL} className="mt-2 w-full" variant="outline">
                     📋 Copy SQL to Clipboard
                   </Button>
@@ -169,12 +169,12 @@ FROM public.profiles;`;
                   2
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-gray-900">Open Supabase & paste the SQL</p>
+                  <p className="font-semibold text-foreground">Open Supabase & paste the SQL</p>
                   <Button onClick={openSupabase} className="mt-2 w-full bg-blue-600 hover:bg-blue-700">
                     <ExternalLink className="mr-2 h-4 w-4" />
                     Open Supabase SQL Editor
                   </Button>
-                  <p className="text-xs text-gray-600 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     Paste the SQL and click the green <strong>RUN</strong> button
                   </p>
                 </div>
@@ -185,7 +185,7 @@ FROM public.profiles;`;
                   3
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-gray-900">Verify it worked</p>
+                  <p className="font-semibold text-foreground">Verify it worked</p>
                   <Button 
                     onClick={checkIfFixed} 
                     className="mt-2 w-full bg-green-600 hover:bg-green-700"

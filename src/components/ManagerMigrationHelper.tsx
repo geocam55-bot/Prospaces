@@ -113,8 +113,8 @@ export function ManagerMigrationHelper() {
               1
             </div>
             <div className="flex-1">
-              <p className="font-medium text-gray-900">Copy the SQL migration</p>
-              <p className="text-sm text-gray-600 mt-1">Click the button below to copy the SQL code</p>
+              <p className="font-medium text-foreground">Copy the SQL migration</p>
+              <p className="text-sm text-muted-foreground mt-1">Click the button below to copy the SQL code</p>
               <div className="flex gap-2 mt-2">
                 <Button
                   onClick={handleCopy}
@@ -155,8 +155,8 @@ export function ManagerMigrationHelper() {
               2
             </div>
             <div className="flex-1">
-              <p className="font-medium text-gray-900">Open Supabase SQL Editor</p>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="font-medium text-foreground">Open Supabase SQL Editor</p>
+              <p className="text-sm text-muted-foreground mt-1">
                 Go to your Supabase dashboard → SQL Editor → New Query
               </p>
               <Button
@@ -182,11 +182,11 @@ export function ManagerMigrationHelper() {
               3
             </div>
             <div className="flex-1">
-              <p className="font-medium text-gray-900">Run the migration</p>
-              <p className="text-sm text-gray-600 mt-1">
-                Paste the SQL code and click <strong>Run</strong> or press <kbd className="px-1.5 py-0.5 bg-gray-200 rounded text-xs font-mono">Ctrl+Enter</kbd>
+              <p className="font-medium text-foreground">Run the migration</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Paste the SQL code and click <strong>Run</strong> or press <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">Ctrl+Enter</kbd>
               </p>
-              <p className="text-sm text-gray-600 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 ✅ After running, refresh this page to use the manager feature
               </p>
             </div>

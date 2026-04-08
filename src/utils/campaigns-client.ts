@@ -2,27 +2,108 @@ import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
 import { projectId } from './supabase/info';
 import { getServerHeaders } from './server-headers';
+import { buildServerFunctionUrl } from './server-function-url';
 
 const PG_COLUMNS = [
   'id', 'name', 'description', 'type', 'status', 'start_date', 'end_date', 
   'owner_id', 'organization_id', 'created_at', 'updated_at'
 ];
 
+function parseMetaSource(source: any) {
+  if (!source) return {};
+
+  if (typeof source === 'object') {
+    return source;
+  }
+
+  if (typeof source === 'string') {
+    const text = source.trim();
+    if (!text.startsWith('{')) return {};
+
+    try {
+      const parsed = JSON.parse(text);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  return {};
+}
+
+function mergeMetaObjects(...sources: any[]) {
+  const result: Record<string, any> = {};
+
+  for (const source of sources) {
+    const parsed = parseMetaSource(source);
+
+    for (const [key, value] of Object.entries(parsed)) {
+      if (
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        result[key] &&
+        typeof result[key] === 'object' &&
+        !Array.isArray(result[key])
+      ) {
+        result[key] = mergeMetaObjects(result[key], value);
+      } else {
+        result[key] = value;
+      }
+    }
+  }
+
+  return result;
+}
+
 function unpackCampaign(c: any) {
   if (!c) return c;
-  let meta = {};
-  if (c.description && c.description.startsWith('{')) {
-    try {
-      meta = JSON.parse(c.description);
-    } catch(e) {}
+  const meta = mergeMetaObjects(c.description, c.metadata, c.meta, c.metrics, c.stats, c.analytics);
+
+  // Prefer concrete Postgres values, but keep non-zero metadata metrics when
+  // top-level fields are null/undefined or stale zeros.
+  const merged: Record<string, any> = { ...meta, ...c };
+
+  const toNumberIfNumeric = (value: any): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const n = Number(trimmed);
+      if (Number.isFinite(n)) return n;
+    }
+    return null;
+  };
+
+  for (const [key, metaValue] of Object.entries(meta)) {
+    const pgValue = c[key];
+
+    if (pgValue === null || pgValue === undefined) {
+      merged[key] = metaValue;
+      continue;
+    }
+
+    const pgNumeric = toNumberIfNumeric(pgValue);
+    const metaNumeric = toNumberIfNumeric(metaValue);
+
+    if (pgNumeric !== null && metaNumeric !== null && pgNumeric === 0 && metaNumeric !== 0) {
+      merged[key] = metaValue;
+    }
   }
-  return { ...meta, ...c }; // Postgres columns take precedence, but meta provides the rest
+
+  return merged;
 }
 
 function packCampaignData(newData: any, existingData: any = {}) {
   const pgData: any = {};
-  const meta: any = existingData.description && existingData.description.startsWith('{') 
-    ? JSON.parse(existingData.description) : {};
+  const meta: any = mergeMetaObjects(
+    existingData.description,
+    existingData.metadata,
+    existingData.meta,
+    existingData.metrics,
+    existingData.stats,
+    existingData.analytics,
+  );
   
   for (const key of Object.keys(newData)) {
     if (PG_COLUMNS.includes(key)) {
@@ -205,7 +286,7 @@ export async function sendCampaignClient(id: string) {
     const profile = await ensureUserProfile(session.user.id);
     
     const headers = await getServerHeaders();
-    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/campaigns/${id}/send`, {
+    const response = await fetch(buildServerFunctionUrl(`/campaigns/${id}/send`), {
       method: 'POST',
       headers,
     });

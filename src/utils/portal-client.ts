@@ -1,7 +1,103 @@
-import { projectId, publicAnonKey } from './supabase/info';
-import { getServerHeaders } from './server-headers';
+import { publicAnonKey } from './supabase/info';
+import { createClient } from './supabase/client';
+import { buildServerFunctionUrl, getServerFunctionUrlCandidates } from './server-function-url';
+import { getServerHeaders, getUserAccessToken } from './server-headers';
 
-const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/portal`;
+const BASE_URL = buildServerFunctionUrl('/portal');
+
+async function crmHeaders(accessToken?: string): Promise<Record<string, string>> {
+  const explicitToken = accessToken?.trim() || null;
+  const freshToken = explicitToken ? null : await getUserAccessToken().catch(() => null);
+  const userToken = explicitToken || freshToken || null;
+
+  return {
+    'Authorization': `Bearer ${userToken || publicAnonKey}`,
+    'apikey': publicAnonKey,
+    'Content-Type': 'application/json',
+    ...(userToken ? { 'X-User-Token': userToken } : {}),
+  };
+}
+
+function isUnmatchedResponse(response: Response, data: any): boolean {
+  return response.status === 404 || data?.matched === false;
+}
+
+function isApplicationErrorResponse(response: Response, data: any): boolean {
+  return !!response.ok
+    && !!data
+    && typeof data === 'object'
+    && (typeof data.error === 'string' || typeof data.message === 'string')
+    && data.success !== true;
+}
+
+function shouldRetryAuth(response: Response, data: any): boolean {
+  const rawError = String(data?.error || data?.message || '');
+  return (
+    response.status === 401
+    || /invalid.*token|envalid.*token|expired.*token|token.*expired|jwt|user token|missing auth token|unauthorized/i.test(rawError)
+  );
+}
+
+function getPortalBaseUrlCandidates(): string[] {
+  return Array.from(new Set([BASE_URL, ...getServerFunctionUrlCandidates('/portal')]));
+}
+
+async function fetchFromServer(
+  path: string,
+  options: RequestInit = {},
+  getHeaders: () => Promise<Record<string, string>> | Record<string, string>,
+  retryAuth?: () => Promise<boolean>,
+): Promise<any> {
+  let lastError: Error | null = null;
+
+  for (const baseUrl of getPortalBaseUrlCandidates()) {
+    let didRetryAuth = false;
+
+    while (true) {
+      const headers = await getHeaders();
+      const response = await fetch(`${baseUrl}${path}`, {
+        ...options,
+        headers,
+      });
+
+      let data: any = null;
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+
+      const applicationError = isApplicationErrorResponse(response, data);
+
+      if (response.ok && !isUnmatchedResponse(response, data) && !applicationError) {
+        return data;
+      }
+
+      if (isUnmatchedResponse(response, data)) {
+        lastError = new Error(`Messaging route unavailable at ${baseUrl}`);
+        break;
+      }
+
+      if (!didRetryAuth && retryAuth && shouldRetryAuth(response, data)) {
+        didRetryAuth = true;
+        const refreshed = await retryAuth();
+        if (refreshed) {
+          continue;
+        }
+      }
+
+      const rawError = String(data?.error || data?.message || `Request failed (${response.status}): ${response.statusText}`);
+      lastError = new Error(
+        shouldRetryAuth(response, data)
+          ? 'Your sign-in session expired. Please refresh the page or sign in again, then retry.'
+          : rawError
+      );
+      break;
+    }
+  }
+
+  throw lastError || new Error('Unable to reach the messaging server');
+}
 
 // ── Session management ──
 const PORTAL_TOKEN_KEY = 'portal_session_token';
@@ -38,27 +134,36 @@ export function clearPortalSession() {
 // ── Shared fetch helper ──
 async function portalFetch(path: string, options: RequestInit = {}): Promise<any> {
   const token = getPortalToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
-    ...(options.headers as Record<string, string> || {}),
-  };
-  if (token) {
-    headers['X-Portal-Token'] = token;
-  }
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers,
+  return fetchFromServer(path, options, () => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${publicAnonKey}`,
+      ...(options.headers as Record<string, string> || {}),
+    };
+
+    if (token) {
+      headers['X-Portal-Token'] = token;
+    }
+
+    return headers;
   });
+}
 
-  const data = await response.json();
+async function crmFetch(path: string, options: RequestInit = {}, accessToken?: string): Promise<any> {
+  let tokenOverride = accessToken;
 
-  if (!response.ok) {
-    throw new Error(data.error || `Request failed: ${response.statusText}`);
-  }
-
-  return data;
+  return fetchFromServer(
+    path,
+    options,
+    () => tokenOverride ? crmHeaders(tokenOverride) : getServerHeaders(),
+    async () => {
+      const supabase = createClient();
+      const refreshResult = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } }));
+      tokenOverride = refreshResult?.data?.session?.access_token || undefined;
+      return !!tokenOverride;
+    },
+  );
 }
 
 // ── Auth ──
@@ -120,10 +225,17 @@ export async function getPortalMessages() {
   return portalFetch('/messages');
 }
 
-export async function sendPortalMessage(subject: string, message: string) {
+export async function sendPortalMessage(subject: string, message: string, messageId?: string, context?: { contextType?: string; contextLabel?: string }) {
   return portalFetch('/messages', {
     method: 'POST',
-    body: JSON.stringify({ subject, message }),
+    body: JSON.stringify({
+      subject,
+      message,
+      body: message,
+      messageId,
+      contextType: context?.contextType,
+      contextLabel: context?.contextLabel,
+    }),
   });
 }
 
@@ -148,62 +260,76 @@ export async function rejectQuote(quoteId: string) {
 
 // ── CRM-side functions (use CRM auth) ──
 
-export async function getCrmPortalMessages(accessToken: string) {
-  const headers = await getServerHeaders();
-  const response = await fetch(`${BASE_URL}/crm-messages`, {
-    headers,
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to load portal messages');
-  return data;
+export async function getCrmPortalMessages(accessToken?: string) {
+  return crmFetch('/crm-messages', {}, accessToken);
 }
 
-export async function createPortalInvite(contactId: string, accessToken: string) {
-  const headers = await getServerHeaders();
-  const response = await fetch(`${BASE_URL}/invite`, {
+export async function createPortalInvite(contactId: string, accessToken?: string) {
+  return crmFetch('/invite', {
     method: 'POST',
-    headers,
     body: JSON.stringify({ contactId }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to create invite');
-  return data;
+  }, accessToken);
 }
 
-export async function getPortalUsers(accessToken: string) {
-  const headers = await getServerHeaders();
-  const response = await fetch(`${BASE_URL}/portal-users`, {
-    headers,
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to list portal users');
-  return data;
+export async function getPortalUsers(accessToken?: string) {
+  return crmFetch('/portal-users', {}, accessToken);
 }
 
-export async function revokePortalAccess(contactId: string, accessToken: string) {
-  const headers = await getServerHeaders();
-  const response = await fetch(`${BASE_URL}/revoke/${contactId}`, {
+export async function revokePortalAccess(contactId: string, accessToken?: string) {
+  return crmFetch(`/revoke/${contactId}`, {
     method: 'DELETE',
-    headers,
-  });
-
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to revoke access');
-  return data;
+  }, accessToken);
 }
 
-export async function replyToPortalMessage(messageId: string, contactId: string, reply: string, accessToken: string) {
-  const headers = await getServerHeaders();
-  const response = await fetch(`${BASE_URL}/reply`, {
+export async function createCrmPortalMessage(contactId: string, message: string, subject: string, accessToken?: string) {
+  return crmFetch('/crm-message', {
     method: 'POST',
-    headers,
-    body: JSON.stringify({ messageId, contactId, reply }),
-  });
+    body: JSON.stringify({ contactId, message, subject }),
+  }, accessToken);
+}
 
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Failed to send reply');
-  return data;
+export async function replyToPortalMessage(messageId: string, contactId: string, reply: string, accessToken?: string) {
+  return crmFetch('/reply', {
+    method: 'POST',
+    body: JSON.stringify({ messageId, contactId, reply, body: reply }),
+  }, accessToken);
+}
+
+export async function addPortalInternalNote(messageId: string, contactId: string, note: string, accessToken?: string) {
+  return crmFetch('/internal-note', {
+    method: 'POST',
+    body: JSON.stringify({ messageId, contactId, note }),
+  }, accessToken);
+}
+
+export async function updatePortalThreadStatus(messageId: string, contactId: string, status: 'open' | 'resolved', accessToken?: string) {
+  return crmFetch('/status', {
+    method: 'POST',
+    body: JSON.stringify({ messageId, contactId, status }),
+  }, accessToken);
+}
+
+export async function getInternalChats(accessToken?: string) {
+  return crmFetch('/internal-chats', {}, accessToken);
+}
+
+export async function createInternalChat(payload: {
+  title: string;
+  contextType?: string;
+  contextLabel?: string;
+  initialMessage?: string;
+  chatType?: 'general' | 'direct' | 'group';
+  participants?: Array<{ id?: string; name: string; email?: string; kind?: 'staff' | 'portal' }>;
+}, accessToken?: string) {
+  return crmFetch('/internal-chats', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }, accessToken);
+}
+
+export async function sendInternalChatMessage(chatId: string, message: string, accessToken?: string) {
+  return crmFetch(`/internal-chats/${chatId}/message`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  }, accessToken);
 }

@@ -12,30 +12,25 @@ import {
   Target,
   Globe
 } from 'lucide-react';
-import { projectId } from '../../utils/supabase/info';
 import { createClient } from '../../utils/supabase/client';
+import { normalizeCampaignMetrics } from '../../utils/campaign-metrics';
+import { buildServerFunctionUrl } from '../../utils/server-function-url';
 
 interface CampaignAnalyticsProps {
   campaign: any;
 }
 
 export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
-  // Parse landing page slug from campaign description metadata
-  let landingPageSlug = null;
-  try {
-    const metadata = JSON.parse(campaign.description || '{}');
-    landingPageSlug = metadata.landingPageSlug;
-  } catch (e) {
-    landingPageSlug = campaign.landing_page_slug; // Fallback to old field
-  }
+  const normalizedCampaign = normalizeCampaignMetrics(campaign);
+  const landingPageSlug = normalizedCampaign.landing_page_slug_metric;
   
   const [analytics, setAnalytics] = useState({
-    emailsSent: campaign.sent_count || campaign.sent || 0,
-    emailsOpened: campaign.opened_count || campaign.opened || 0,
-    landingPageClicks: campaign.clicked_count || campaign.clicked || campaign.landing_page_clicks || 0,
-    avgTimeSpent: campaign.avg_time_spent || 0,
-    conversions: campaign.converted_count || campaign.converted || 0,
-    revenue: campaign.revenue || 0,
+    emailsSent: normalizedCampaign.sent_metric,
+    emailsOpened: normalizedCampaign.opened_metric,
+    landingPageClicks: normalizedCampaign.clicked_metric,
+    avgTimeSpent: normalizedCampaign.avg_time_spent_metric,
+    conversions: normalizedCampaign.converted_metric,
+    revenue: normalizedCampaign.revenue_metric,
   });
   
   const [landingPageAnalytics, setLandingPageAnalytics] = useState<any>(null);
@@ -54,13 +49,15 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
         .single();
         
       if (data) {
+        const normalized = normalizeCampaignMetrics(data);
         setAnalytics(prev => ({
           ...prev,
-          emailsSent: data.sent_count || data.sent || 0,
-          emailsOpened: data.opened_count || data.opened || 0,
-          landingPageClicks: data.clicked_count || data.clicked || data.landing_page_clicks || prev.landingPageClicks,
-          conversions: data.converted_count || data.converted || prev.conversions,
-          revenue: data.revenue || prev.revenue,
+          emailsSent: normalized.sent_metric,
+          emailsOpened: normalized.opened_metric,
+          landingPageClicks: normalized.clicked_metric,
+          avgTimeSpent: normalized.avg_time_spent_metric,
+          conversions: normalized.converted_metric,
+          revenue: normalized.revenue_metric,
         }));
       }
     };
@@ -77,14 +74,15 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
         table: 'campaigns', 
         filter: `id=eq.${campaign.id}` 
       }, (payload: any) => {
-        const data = payload.new;
+        const data = normalizeCampaignMetrics(payload.new);
         setAnalytics(prev => ({
           ...prev,
-          emailsSent: data.sent_count || data.sent || 0,
-          emailsOpened: data.opened_count || data.opened || 0,
-          landingPageClicks: data.clicked_count || data.clicked || data.landing_page_clicks || prev.landingPageClicks,
-          conversions: data.converted_count || data.converted || prev.conversions,
-          revenue: data.revenue || prev.revenue,
+          emailsSent: data.sent_metric,
+          emailsOpened: data.opened_metric,
+          landingPageClicks: data.clicked_metric,
+          avgTimeSpent: data.avg_time_spent_metric,
+          conversions: data.converted_metric,
+          revenue: data.revenue_metric,
         }));
       })
       .subscribe();
@@ -109,7 +107,7 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
         }
 
         const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/analytics/campaign/${campaign.id}/landing-page`,
+          buildServerFunctionUrl(`/analytics/campaign/${campaign.id}/landing-page`),
           {
             headers: {
               'Authorization': `Bearer ${session.access_token}`,
@@ -174,8 +172,8 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
                 <Mail className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-xs text-gray-500">Emails Sent</p>
-                <p className="text-xl font-semibold text-gray-900">{analytics.emailsSent.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Emails Sent</p>
+                <p className="text-xl font-semibold text-foreground">{analytics.emailsSent.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
@@ -188,8 +186,8 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
                 <Eye className="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <p className="text-xs text-gray-500">Opened</p>
-                <p className="text-xl font-semibold text-gray-900">{analytics.emailsOpened.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Opened</p>
+                <p className="text-xl font-semibold text-foreground">{analytics.emailsOpened.toLocaleString()}</p>
                 <p className="text-xs text-green-600">{openRate}%</p>
               </div>
             </div>
@@ -203,8 +201,8 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
                 <MousePointerClick className="h-5 w-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-xs text-gray-500">Landing Page Clicks</p>
-                <p className="text-xl font-semibold text-gray-900">{analytics.landingPageClicks.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Landing Page Clicks</p>
+                <p className="text-xl font-semibold text-foreground">{analytics.landingPageClicks.toLocaleString()}</p>
                 <p className="text-xs text-purple-600">{clickThroughRate}% CTR</p>
               </div>
             </div>
@@ -218,8 +216,8 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
                 <Target className="h-5 w-5 text-orange-600" />
               </div>
               <div>
-                <p className="text-xs text-gray-500">Conversions</p>
-                <p className="text-xl font-semibold text-gray-900">{analytics.conversions.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Conversions</p>
+                <p className="text-xl font-semibold text-foreground">{analytics.conversions.toLocaleString()}</p>
                 <p className="text-xs text-orange-600">{conversionRate}%</p>
               </div>
             </div>
@@ -238,15 +236,15 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Avg. Time on Landing Page</span>
+              <span className="text-sm text-muted-foreground">Avg. Time on Landing Page</span>
               <Badge variant="outline">{formatTime(analytics.avgTimeSpent)}</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Click-Through Rate</span>
+              <span className="text-sm text-muted-foreground">Click-Through Rate</span>
               <Badge variant="outline">{clickThroughRate}%</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Open Rate</span>
+              <span className="text-sm text-muted-foreground">Open Rate</span>
               <Badge variant="outline">{openRate}%</Badge>
             </div>
           </CardContent>
@@ -261,19 +259,19 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Total Revenue</span>
+              <span className="text-sm text-muted-foreground">Total Revenue</span>
               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                 ${analytics.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Revenue per Email</span>
+              <span className="text-sm text-muted-foreground">Revenue per Email</span>
               <Badge variant="outline">
                 ${analytics.emailsSent > 0 ? (analytics.revenue / analytics.emailsSent).toFixed(2) : '0.00'}
               </Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Conversion Rate</span>
+              <span className="text-sm text-muted-foreground">Conversion Rate</span>
               <Badge variant="outline">{conversionRate}%</Badge>
             </div>
           </CardContent>
@@ -288,37 +286,37 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
         <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-gray-500">Campaign Name</p>
-              <p className="text-sm text-gray-900 font-medium">{campaign.name}</p>
+              <p className="text-xs text-muted-foreground">Campaign Name</p>
+              <p className="text-sm text-foreground font-medium">{campaign.name}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Status</p>
+              <p className="text-xs text-muted-foreground">Status</p>
               <Badge className={
                 campaign.status === 'Active' ? 'bg-green-100 text-green-700' :
                 campaign.status === 'Paused' ? 'bg-yellow-100 text-yellow-700' :
-                campaign.status === 'Completed' ? 'bg-gray-100 text-gray-700' :
+                campaign.status === 'Completed' ? 'bg-muted text-foreground' :
                 'bg-blue-100 text-blue-700'
               }>
                 {campaign.status}
               </Badge>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Audience Segment</p>
-              <p className="text-sm text-gray-900">{campaign.audience_segment || 'All Contacts'}</p>
+              <p className="text-xs text-muted-foreground">Audience Segment</p>
+              <p className="text-sm text-foreground">{campaign.audience_segment || 'All Contacts'}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Landing Page</p>
-              <p className="text-sm text-gray-900">{campaign.landing_page_name || 'None'}</p>
+              <p className="text-xs text-muted-foreground">Landing Page</p>
+              <p className="text-sm text-foreground">{campaign.landing_page_name || 'None'}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Start Date</p>
-              <p className="text-sm text-gray-900">
+              <p className="text-xs text-muted-foreground">Start Date</p>
+              <p className="text-sm text-foreground">
                 {campaign.start_date ? new Date(campaign.start_date).toLocaleDateString() : 'Not started'}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Type</p>
-              <p className="text-sm text-gray-900 capitalize">{campaign.type || 'Email'}</p>
+              <p className="text-xs text-muted-foreground">Type</p>
+              <p className="text-sm text-foreground capitalize">{campaign.type || 'Email'}</p>
             </div>
           </div>
         </CardContent>
@@ -336,34 +334,34 @@ export function CampaignAnalytics({ campaign }: CampaignAnalyticsProps) {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
               <div className="p-4 bg-blue-50 rounded-lg">
-                <p className="text-xs text-gray-600 mb-1">Page Visits</p>
-                <p className="text-2xl font-bold text-gray-900">{landingPageAnalytics.stats.visits}</p>
+                <p className="text-xs text-muted-foreground mb-1">Page Visits</p>
+                <p className="text-2xl font-bold text-foreground">{landingPageAnalytics.stats.visits}</p>
               </div>
               <div className="p-4 bg-green-50 rounded-lg">
-                <p className="text-xs text-gray-600 mb-1">Conversions</p>
-                <p className="text-2xl font-bold text-gray-900">{landingPageAnalytics.stats.conversions}</p>
+                <p className="text-xs text-muted-foreground mb-1">Conversions</p>
+                <p className="text-2xl font-bold text-foreground">{landingPageAnalytics.stats.conversions}</p>
               </div>
               <div className="p-4 bg-purple-50 rounded-lg">
-                <p className="text-xs text-gray-600 mb-1">Conversion Rate</p>
-                <p className="text-2xl font-bold text-gray-900">{landingPageAnalytics.stats.conversionRate}%</p>
+                <p className="text-xs text-muted-foreground mb-1">Conversion Rate</p>
+                <p className="text-2xl font-bold text-foreground">{landingPageAnalytics.stats.conversionRate}%</p>
               </div>
             </div>
 
             {/* UTM Source Breakdown */}
             {Object.keys(landingPageAnalytics.utmBreakdown || {}).length > 0 && (
               <div>
-                <h4 className="text-sm font-semibold text-gray-900 mb-3">Traffic Sources</h4>
+                <h4 className="text-sm font-semibold text-foreground mb-3">Traffic Sources</h4>
                 <div className="space-y-2">
                   {Object.entries(landingPageAnalytics.utmBreakdown).map(([source, data]: [string, any]) => (
-                    <div key={source} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={source} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
                         <Badge variant="outline" className="capitalize">{source}</Badge>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-muted-foreground">
                           {data.visits} visit{data.visits !== 1 ? 's' : ''}
                         </span>
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-muted-foreground">
                           {data.conversions} conversion{data.conversions !== 1 ? 's' : ''}
                         </span>
                         <Badge className="bg-green-100 text-green-700">

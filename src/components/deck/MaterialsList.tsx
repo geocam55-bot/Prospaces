@@ -17,7 +17,7 @@ function QtyCell({ item }: { item: any }) {
       <div className="text-right">
         <span className="text-amber-700 font-semibold">{displayQty}</span>
         {item.orderQuantity != null && item.orderQuantity !== item.convertedQuantity && (
-          <span className="block text-xs text-gray-500">
+          <span className="block text-xs text-muted-foreground">
             Order: {item.orderQuantity} {item.convertedUnit || 'units'}
           </span>
         )}
@@ -60,43 +60,43 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
         {/* Summary Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="flex items-center gap-2 text-black mb-1">
+            <div className="flex items-center gap-2 text-foreground mb-1">
               <Hammer className="w-4 h-4" />
               <span className="text-xs">Framing</span>
             </div>
-            <div className="text-black">{materials.framing.length} items</div>
+            <div className="text-foreground">{materials.framing.length} items</div>
           </div>
           
           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <div className="flex items-center gap-2 text-black mb-1">
+            <div className="flex items-center gap-2 text-foreground mb-1">
               <Package className="w-4 h-4" />
               <span className="text-xs">Decking</span>
             </div>
-            <div className="text-black">{materials.decking.length} items</div>
+            <div className="text-foreground">{materials.decking.length} items</div>
           </div>
           
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-            <div className="flex items-center gap-2 text-black mb-1">
+            <div className="flex items-center gap-2 text-foreground mb-1">
               <Fence className="w-4 h-4" />
               <span className="text-xs">Railing</span>
             </div>
-            <div className="text-black">{materials.railing.length} items</div>
+            <div className="text-foreground">{materials.railing.length} items</div>
           </div>
           
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-            <div className="flex items-center gap-2 text-black mb-1">
+            <div className="flex items-center gap-2 text-foreground mb-1">
               <Wrench className="w-4 h-4" />
               <span className="text-xs">Hardware</span>
             </div>
-            <div className="text-black">{materials.hardware.length} items</div>
+            <div className="text-foreground">{materials.hardware.length} items</div>
           </div>
         </div>
 
         {/* Total Items */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+        <div className="bg-muted border border-border rounded-lg p-3">
           <div className="flex justify-between items-center">
-            <span className="text-black text-sm">Total Material Items:</span>
-            <span className="text-black">{allItems.length}</span>
+            <span className="text-foreground text-sm">Total Material Items:</span>
+            <span className="text-foreground">{allItems.length}</span>
           </div>
         </div>
       </div>
@@ -106,8 +106,8 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
   return (
     <div className="space-y-6 print:space-y-4">
       <div className="flex items-center justify-between print:hidden">
-        <h2 className="text-slate-900">Bill of Materials</h2>
-        <span className="text-sm text-slate-600">{allItems.length} total items</span>
+        <h2 className="text-foreground">Bill of Materials</h2>
+        <span className="text-sm text-muted-foreground">{allItems.length} total items</span>
       </div>
 
       {/* Framing */}
@@ -115,31 +115,31 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Hammer className="w-5 h-5 text-blue-600" />
-            <h3 className="text-slate-900">Framing</h3>
+            <h3 className="text-foreground">Framing</h3>
           </div>
           <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">SKU</th>
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">Description</th>
-                  <th className="text-right py-2 px-3 text-sm text-slate-600">Qty</th>
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">Unit</th>
-                  <th className="text-right py-2 px-3 text-sm text-slate-600">Unit Price</th>
-                  <th className="text-right py-2 px-3 text-sm text-slate-600">Total</th>
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">Notes</th>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">SKU</th>
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">Description</th>
+                  <th className="text-right py-2 px-3 text-sm text-muted-foreground">Qty</th>
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">Unit</th>
+                  <th className="text-right py-2 px-3 text-sm text-muted-foreground">Unit Price</th>
+                  <th className="text-right py-2 px-3 text-sm text-muted-foreground">Total</th>
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {materials.framing.filter(item => item.quantity > 0).map((item, idx) => (
-                  <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
-                    <td className="py-2 px-3 text-slate-900">{item.description}</td>
-                    <td className="py-2 px-3 text-slate-900 text-right"><QtyCell item={item} /></td>
-                    <td className="py-2 px-3 text-slate-600"><UnitCell item={item} /></td>
-                    <td className="py-2 px-3 text-slate-900 text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
-                    <td className="py-2 px-3 text-slate-900 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
-                    <td className="py-2 px-3 text-slate-600 text-sm">{item.notes || '—'}</td>
+                  <tr key={idx} className="border-b border-border hover:bg-muted">
+                    <td className="py-2 px-3 text-muted-foreground text-sm">{item.sku || '—'}</td>
+                    <td className="py-2 px-3 text-foreground">{item.description}</td>
+                    <td className="py-2 px-3 text-foreground text-right"><QtyCell item={item} /></td>
+                    <td className="py-2 px-3 text-muted-foreground"><UnitCell item={item} /></td>
+                    <td className="py-2 px-3 text-foreground text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
+                    <td className="py-2 px-3 text-foreground text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
+                    <td className="py-2 px-3 text-muted-foreground text-sm">{item.notes || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -153,31 +153,31 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Package className="w-5 h-5 text-green-600" />
-            <h3 className="text-slate-900">Decking</h3>
+            <h3 className="text-foreground">Decking</h3>
           </div>
           <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">SKU</th>
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">Description</th>
-                  <th className="text-right py-2 px-3 text-sm text-slate-600">Qty</th>
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">Unit</th>
-                  <th className="text-right py-2 px-3 text-sm text-slate-600">Unit Price</th>
-                  <th className="text-right py-2 px-3 text-sm text-slate-600">Total</th>
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">Notes</th>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">SKU</th>
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">Description</th>
+                  <th className="text-right py-2 px-3 text-sm text-muted-foreground">Qty</th>
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">Unit</th>
+                  <th className="text-right py-2 px-3 text-sm text-muted-foreground">Unit Price</th>
+                  <th className="text-right py-2 px-3 text-sm text-muted-foreground">Total</th>
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {materials.decking.filter(item => item.quantity > 0).map((item, idx) => (
-                  <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
-                    <td className="py-2 px-3 text-slate-900">{item.description}</td>
-                    <td className="py-2 px-3 text-slate-900 text-right"><QtyCell item={item} /></td>
-                    <td className="py-2 px-3 text-slate-600"><UnitCell item={item} /></td>
-                    <td className="py-2 px-3 text-slate-900 text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
-                    <td className="py-2 px-3 text-slate-900 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
-                    <td className="py-2 px-3 text-slate-600 text-sm">{item.notes || '—'}</td>
+                  <tr key={idx} className="border-b border-border hover:bg-muted">
+                    <td className="py-2 px-3 text-muted-foreground text-sm">{item.sku || '—'}</td>
+                    <td className="py-2 px-3 text-foreground">{item.description}</td>
+                    <td className="py-2 px-3 text-foreground text-right"><QtyCell item={item} /></td>
+                    <td className="py-2 px-3 text-muted-foreground"><UnitCell item={item} /></td>
+                    <td className="py-2 px-3 text-foreground text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
+                    <td className="py-2 px-3 text-foreground text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
+                    <td className="py-2 px-3 text-muted-foreground text-sm">{item.notes || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -191,31 +191,31 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Fence className="w-5 h-5 text-purple-600" />
-            <h3 className="text-slate-900">Railing</h3>
+            <h3 className="text-foreground">Railing</h3>
           </div>
           <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">SKU</th>
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">Description</th>
-                  <th className="text-right py-2 px-3 text-sm text-slate-600">Qty</th>
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">Unit</th>
-                  <th className="text-right py-2 px-3 text-sm text-slate-600">Unit Price</th>
-                  <th className="text-right py-2 px-3 text-sm text-slate-600">Total</th>
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">Notes</th>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">SKU</th>
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">Description</th>
+                  <th className="text-right py-2 px-3 text-sm text-muted-foreground">Qty</th>
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">Unit</th>
+                  <th className="text-right py-2 px-3 text-sm text-muted-foreground">Unit Price</th>
+                  <th className="text-right py-2 px-3 text-sm text-muted-foreground">Total</th>
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {materials.railing.filter(item => item.quantity > 0).map((item, idx) => (
-                  <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
-                    <td className="py-2 px-3 text-slate-900">{item.description}</td>
-                    <td className="py-2 px-3 text-slate-900 text-right"><QtyCell item={item} /></td>
-                    <td className="py-2 px-3 text-slate-600"><UnitCell item={item} /></td>
-                    <td className="py-2 px-3 text-slate-900 text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
-                    <td className="py-2 px-3 text-slate-900 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
-                    <td className="py-2 px-3 text-slate-600 text-sm">{item.notes || '—'}</td>
+                  <tr key={idx} className="border-b border-border hover:bg-muted">
+                    <td className="py-2 px-3 text-muted-foreground text-sm">{item.sku || '—'}</td>
+                    <td className="py-2 px-3 text-foreground">{item.description}</td>
+                    <td className="py-2 px-3 text-foreground text-right"><QtyCell item={item} /></td>
+                    <td className="py-2 px-3 text-muted-foreground"><UnitCell item={item} /></td>
+                    <td className="py-2 px-3 text-foreground text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
+                    <td className="py-2 px-3 text-foreground text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
+                    <td className="py-2 px-3 text-muted-foreground text-sm">{item.notes || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -229,31 +229,31 @@ export function MaterialsList({ materials, compact = false }: MaterialsListProps
         <div>
           <div className="flex items-center gap-2 mb-3">
             <Wrench className="w-5 h-5 text-orange-600" />
-            <h3 className="text-slate-900">Hardware & Fasteners</h3>
+            <h3 className="text-foreground">Hardware & Fasteners</h3>
           </div>
           <div className="overflow-x-auto print:overflow-visible">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">SKU</th>
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">Description</th>
-                  <th className="text-right py-2 px-3 text-sm text-slate-600">Qty</th>
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">Unit</th>
-                  <th className="text-right py-2 px-3 text-sm text-slate-600">Unit Price</th>
-                  <th className="text-right py-2 px-3 text-sm text-slate-600">Total</th>
-                  <th className="text-left py-2 px-3 text-sm text-slate-600">Notes</th>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">SKU</th>
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">Description</th>
+                  <th className="text-right py-2 px-3 text-sm text-muted-foreground">Qty</th>
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">Unit</th>
+                  <th className="text-right py-2 px-3 text-sm text-muted-foreground">Unit Price</th>
+                  <th className="text-right py-2 px-3 text-sm text-muted-foreground">Total</th>
+                  <th className="text-left py-2 px-3 text-sm text-muted-foreground">Notes</th>
                 </tr>
               </thead>
               <tbody>
                 {materials.hardware.filter(item => item.quantity > 0).map((item, idx) => (
-                  <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="py-2 px-3 text-slate-600 text-sm">{item.sku || '—'}</td>
-                    <td className="py-2 px-3 text-slate-900">{item.description}</td>
-                    <td className="py-2 px-3 text-slate-900 text-right"><QtyCell item={item} /></td>
-                    <td className="py-2 px-3 text-slate-600"><UnitCell item={item} /></td>
-                    <td className="py-2 px-3 text-slate-900 text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
-                    <td className="py-2 px-3 text-slate-900 text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
-                    <td className="py-2 px-3 text-slate-600 text-sm">{item.notes || '—'}</td>
+                  <tr key={idx} className="border-b border-border hover:bg-muted">
+                    <td className="py-2 px-3 text-muted-foreground text-sm">{item.sku || '—'}</td>
+                    <td className="py-2 px-3 text-foreground">{item.description}</td>
+                    <td className="py-2 px-3 text-foreground text-right"><QtyCell item={item} /></td>
+                    <td className="py-2 px-3 text-muted-foreground"><UnitCell item={item} /></td>
+                    <td className="py-2 px-3 text-foreground text-right">{item.unitPrice ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
+                    <td className="py-2 px-3 text-foreground text-right">{item.totalCost ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
+                    <td className="py-2 px-3 text-muted-foreground text-sm">{item.notes || '—'}</td>
                   </tr>
                 ))}
               </tbody>

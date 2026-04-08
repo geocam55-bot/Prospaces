@@ -66,8 +66,8 @@ export function PortalProfile({ contact, onRefresh, onLogout }: PortalProfilePro
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h2 className="text-xl font-bold text-slate-900">Your Profile</h2>
-        <p className="text-slate-500 text-sm mt-1">View and update your contact information</p>
+        <h2 className="text-xl font-bold text-foreground">Your Profile</h2>
+        <p className="text-muted-foreground text-sm mt-1">View and update your contact information</p>
       </div>
 
       <Card>
@@ -79,7 +79,7 @@ export function PortalProfile({ contact, onRefresh, onLogout }: PortalProfilePro
               </div>
               <div>
                 <CardTitle className="text-xl">{contact?.name || portalUser?.name}</CardTitle>
-                <p className="text-sm text-slate-500">{portalUser?.email || contact?.email}</p>
+                <p className="text-sm text-muted-foreground">{portalUser?.email || contact?.email}</p>
               </div>
             </div>
             {!editing && (
@@ -94,20 +94,20 @@ export function PortalProfile({ contact, onRefresh, onLogout }: PortalProfilePro
           {/* Read-only Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label className="text-xs text-slate-500 flex items-center gap-1.5">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <User className="h-3.5 w-3.5" />
                 Full Name
               </Label>
-              <p className="text-sm font-medium text-slate-900 px-3 py-2 bg-slate-50 rounded-lg">
+              <p className="text-sm font-medium text-foreground px-3 py-2 bg-muted rounded-lg">
                 {contact?.name || 'Not set'}
               </p>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-slate-500 flex items-center gap-1.5">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <Mail className="h-3.5 w-3.5" />
                 Email
               </Label>
-              <p className="text-sm font-medium text-slate-900 px-3 py-2 bg-slate-50 rounded-lg">
+              <p className="text-sm font-medium text-foreground px-3 py-2 bg-muted rounded-lg">
                 {contact?.email || portalUser?.email || 'Not set'}
               </p>
             </div>
@@ -116,7 +116,7 @@ export function PortalProfile({ contact, onRefresh, onLogout }: PortalProfilePro
           {/* Editable Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label htmlFor="profile-phone" className="text-xs text-slate-500 flex items-center gap-1.5">
+              <Label htmlFor="profile-phone" className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <Phone className="h-3.5 w-3.5" />
                 Phone
               </Label>
@@ -128,13 +128,13 @@ export function PortalProfile({ contact, onRefresh, onLogout }: PortalProfilePro
                   placeholder="Your phone number"
                 />
               ) : (
-                <p className="text-sm font-medium text-slate-900 px-3 py-2 bg-slate-50 rounded-lg">
+                <p className="text-sm font-medium text-foreground px-3 py-2 bg-muted rounded-lg">
                   {contact?.phone || 'Not set'}
                 </p>
               )}
             </div>
             <div className="space-y-1">
-              <Label htmlFor="profile-company" className="text-xs text-slate-500 flex items-center gap-1.5">
+              <Label htmlFor="profile-company" className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <Building className="h-3.5 w-3.5" />
                 Company
               </Label>
@@ -146,7 +146,7 @@ export function PortalProfile({ contact, onRefresh, onLogout }: PortalProfilePro
                   placeholder="Your company name"
                 />
               ) : (
-                <p className="text-sm font-medium text-slate-900 px-3 py-2 bg-slate-50 rounded-lg">
+                <p className="text-sm font-medium text-foreground px-3 py-2 bg-muted rounded-lg">
                   {contact?.company || 'Not set'}
                 </p>
               )}
@@ -154,7 +154,7 @@ export function PortalProfile({ contact, onRefresh, onLogout }: PortalProfilePro
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="profile-address" className="text-xs text-slate-500 flex items-center gap-1.5">
+            <Label htmlFor="profile-address" className="text-xs text-muted-foreground flex items-center gap-1.5">
               <MapPin className="h-3.5 w-3.5" />
               Address
             </Label>
@@ -166,7 +166,7 @@ export function PortalProfile({ contact, onRefresh, onLogout }: PortalProfilePro
                 placeholder="Your address"
               />
             ) : (
-              <p className="text-sm font-medium text-slate-900 px-3 py-2 bg-slate-50 rounded-lg">
+              <p className="text-sm font-medium text-foreground px-3 py-2 bg-muted rounded-lg">
                 {contact?.address || 'Not set'}
               </p>
             )}
@@ -204,8 +204,8 @@ export function PortalProfile({ contact, onRefresh, onLogout }: PortalProfilePro
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-slate-900">Sign Out</p>
-              <p className="text-xs text-slate-500">End your portal session</p>
+              <p className="text-sm font-medium text-foreground">Sign Out</p>
+              <p className="text-xs text-muted-foreground">End your portal session</p>
             </div>
             <Button variant="outline" onClick={handleLogout} className="text-red-600 border-red-200 hover:bg-red-50">
               Sign Out

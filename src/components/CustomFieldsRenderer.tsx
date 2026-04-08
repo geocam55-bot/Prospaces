@@ -46,7 +46,7 @@ export function CustomFieldsRenderer({
 
   return (
     <div className={cn("space-y-4 border-t pt-4 mt-4", className)}>
-      <h3 className="text-sm font-medium text-gray-500 mb-2">Additional Information</h3>
+      <h3 className="text-sm font-medium text-muted-foreground mb-2">Additional Information</h3>
       <div className="grid md:grid-cols-2 gap-4">
         {fields.map(field => {
           const value = values[field.key];

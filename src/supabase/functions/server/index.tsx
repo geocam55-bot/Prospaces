@@ -806,6 +806,50 @@ async function hashPassword(p: string): Promise<string> { return hexEncode(await
 function genToken(): string { const b = new Uint8Array(32); crypto.getRandomValues(b); return hexEncode(b.buffer); }
 function genInvite(): string { const b = new Uint8Array(6); crypto.getRandomValues(b); return hexEncode(b.buffer).toUpperCase(); }
 
+const CHAT_RETENTION_DAYS = 30;
+const CHAT_RETENTION_MS = CHAT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+function getConversationLastActivityAt(item: any): string {
+  const timestamps = [item?.updatedAt, item?.createdAt, item?.resolvedAt];
+  if (Array.isArray(item?.replies)) timestamps.push(...item.replies.map((reply: any) => reply?.createdAt));
+  if (Array.isArray(item?.internalNotes)) timestamps.push(...item.internalNotes.map((note: any) => note?.createdAt));
+  if (Array.isArray(item?.messages)) timestamps.push(...item.messages.map((message: any) => message?.createdAt));
+
+  const validTimes = timestamps
+    .filter(Boolean)
+    .map((value: string) => new Date(value).getTime())
+    .filter((value: number) => !Number.isNaN(value));
+
+  return new Date(validTimes.length ? Math.max(...validTimes) : Date.now()).toISOString();
+}
+
+function isWithinChatRetention(item: any): boolean {
+  const lastActivityAt = new Date(getConversationLastActivityAt(item)).getTime();
+  return Date.now() - lastActivityAt <= CHAT_RETENTION_MS;
+}
+
+function withChatRetention(item: any) {
+  const lastActivityAt = getConversationLastActivityAt(item);
+  return {
+    ...item,
+    lastActivityAt,
+    retainedUntil: new Date(new Date(lastActivityAt).getTime() + CHAT_RETENTION_MS).toISOString(),
+  };
+}
+
+function canAccessInternalChat(chat: any, userId: string, email?: string): boolean {
+  const participants = Array.isArray(chat?.participants) ? chat.participants : [];
+  if (chat?.createdBy === userId) return true;
+  if (participants.length === 0) return true;
+
+  const normalizedEmail = (email || '').toLowerCase().trim();
+  return participants.some((participant: any) => {
+    if (participant?.kind === 'portal') return false;
+    const participantEmail = (participant?.email || '').toLowerCase().trim();
+    return participant?.id === userId || (!!normalizedEmail && participantEmail === normalizedEmail);
+  });
+}
+
 const P = `${PREFIX}/portal`;
 
 app.get(`${P}/crm-messages`, async (c) => {
@@ -814,19 +858,29 @@ app.get(`${P}/crm-messages`, async (c) => {
     if (auth.error) return c.json({ error: auth.error }, auth.status);
     const orgId = auth.profile.organization_id;
     if (!orgId) return c.json({ error: 'No org' }, 400);
-    const msgs = await kv.getByPrefix(`portal_message:${orgId}:`);
-    const cIds = [...new Set((msgs || []).map((m: any) => m.contactId).filter(Boolean))];
-    let cMap: Record<string, any> = {};
-    if (cIds.length > 0) {
-      const { data } = await auth.supabase.from('contacts').select('id, name, email, company').in('id', cIds);
-      if (data) data.forEach((ct: any) => { cMap[ct.id] = ct; });
+
+    const allMessages = await kv.getByPrefix(`portal_message:${orgId}:`);
+    const retainedMessages = (allMessages || []).filter(isWithinChatRetention).map(withChatRetention);
+    const contactIds = [...new Set(retainedMessages.map((m: any) => m.contactId).filter(Boolean))];
+
+    let contactMap: Record<string, any> = {};
+    if (contactIds.length > 0) {
+      const { data } = await auth.supabase.from('contacts').select('id, name, email, company').in('id', contactIds);
+      (data || []).forEach((ct: any) => { contactMap[ct.id] = ct; });
     }
-    const enriched = (msgs || []).map((m: any) => ({
-      ...m, contactName: cMap[m.contactId]?.name || m.senderEmail || 'Unknown',
-      contactCompany: cMap[m.contactId]?.company || '', contactEmail: cMap[m.contactId]?.email || m.senderEmail || '',
+
+    const enriched = retainedMessages.map((m: any) => ({
+      ...m,
+      contactName: contactMap[m.contactId]?.name || m.senderEmail || 'Unknown',
+      contactCompany: contactMap[m.contactId]?.company || '',
+      contactEmail: contactMap[m.contactId]?.email || m.senderEmail || '',
     }));
-    enriched.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-    return c.json({ messages: enriched });
+
+    enriched.sort((a: any, b: any) =>
+      new Date(getConversationLastActivityAt(b)).getTime() - new Date(getConversationLastActivityAt(a)).getTime()
+    );
+
+    return c.json({ messages: enriched, retentionDays: CHAT_RETENTION_DAYS });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
@@ -846,7 +900,14 @@ app.post(`${P}/invite`, async (c) => {
     const contactName = contact.name || contact.company || email;
     const code = genInvite();
     await kv.set(`portal_invite:${code}`, { contactId, orgId: auth.profile.organization_id, email: email.toLowerCase().trim(), contactName, expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(), createdBy: auth.user.id });
-    await kv.set(`portal_access_log:${auth.profile.organization_id}:${contactId}`, { enabled: true, enabledAt: new Date().toISOString(), enabledBy: auth.user.email || auth.user.id });
+    await kv.set(`portal_access_log:${auth.profile.organization_id}:${contactId}`, {
+      enabled: true,
+      enabledAt: new Date().toISOString(),
+      enabledBy: auth.user.email || auth.user.id,
+      contactId,
+      email: email.toLowerCase().trim(),
+      contactName,
+    });
     return c.json({ success: true, inviteCode: code });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
@@ -861,9 +922,25 @@ app.post(`${P}/register`, async (c) => {
     const existing = await kv.get(`portal_user:${eh}`);
     if (existing) return c.json({ error: 'Account exists — please sign in instead' }, 409);
     const contactName = invite.contactName || invite.email;
-    await kv.set(`portal_user:${eh}`, { email: invite.email, contactId: invite.contactId, orgId: invite.orgId, passwordHash: await hashPassword(password), name: contactName, createdAt: new Date().toISOString() });
+    const now = new Date().toISOString();
+    await kv.set(`portal_user:${eh}`, {
+      email: invite.email,
+      contactId: invite.contactId,
+      orgId: invite.orgId,
+      passwordHash: await hashPassword(password),
+      name: contactName,
+      createdAt: now,
+      lastLogin: null,
+    });
     const tok = genToken();
-    await kv.set(`portal_session:${tok}`, { email: invite.email, contactId: invite.contactId, orgId: invite.orgId, expiresAt: new Date(Date.now() + 86400000).toISOString() });
+    await kv.set(`portal_session:${tok}`, {
+      email: invite.email,
+      contactId: invite.contactId,
+      orgId: invite.orgId,
+      createdAt: now,
+      lastActiveAt: now,
+      expiresAt: new Date(Date.now() + 86400000).toISOString(),
+    });
     await kv.del(`portal_invite:${inviteCode}`);
     // portal registered
     return c.json({ success: true, token: tok, user: { email: invite.email, name: contactName, contactId: invite.contactId } });
@@ -877,8 +954,18 @@ app.post(`${P}/login`, async (c) => {
     const pu = await kv.get(`portal_user:${eh}`);
     if (!pu) return c.json({ error: 'Invalid email or password' }, 401);
     if (await hashPassword(password) !== pu.passwordHash) return c.json({ error: 'Invalid email or password' }, 401);
+    const now = new Date().toISOString();
+    pu.lastLogin = now;
+    await kv.set(`portal_user:${eh}`, pu);
     const tok = genToken();
-    await kv.set(`portal_session:${tok}`, { email: pu.email, contactId: pu.contactId, orgId: pu.orgId, expiresAt: new Date(Date.now() + 86400000).toISOString() });
+    await kv.set(`portal_session:${tok}`, {
+      email: pu.email,
+      contactId: pu.contactId,
+      orgId: pu.orgId,
+      createdAt: now,
+      lastActiveAt: now,
+      expiresAt: new Date(Date.now() + 86400000).toISOString(),
+    });
     // portal login
     return c.json({ success: true, token: tok, user: { email: pu.email, name: pu.name || pu.email, contactId: pu.contactId } });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
@@ -886,34 +973,86 @@ app.post(`${P}/login`, async (c) => {
 
 app.get(`${P}/session`, async (c) => {
   try {
-    const tok = c.req.header('X-Portal-Token');
-    if (!tok) return c.json({ error: 'No token' }, 401);
-    const s = await kv.get(`portal_session:${tok}`);
-    if (!s || new Date(s.expiresAt) < new Date()) return c.json({ error: 'Invalid' }, 401);
+    const s = await portalSession(c);
+    if (!s) return c.json({ error: 'Invalid' }, 401);
     return c.json({ valid: true, ...s });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
 app.get(`${P}/messages`, async (c) => {
   try {
-    const tok = c.req.header('X-Portal-Token');
-    if (!tok) return c.json({ error: 'No token' }, 401);
-    const s = await kv.get(`portal_session:${tok}`);
-    if (!s) return c.json({ error: 'Invalid' }, 401);
-    const msgs = await kv.getByPrefix(`portal_message:${s.orgId}:${s.contactId}:`);
-    return c.json({ messages: msgs || [] });
+    const s = await portalSession(c);
+    if (!s) return c.json({ error: 'Unauthorized' }, 401);
+
+    const messages = await kv.getByPrefix(`portal_message:${s.orgId}:${s.contactId}:`);
+    const retainedMessages = (messages || []).filter(isWithinChatRetention).map(withChatRetention);
+    const sorted = retainedMessages.sort((a: any, b: any) =>
+      new Date(getConversationLastActivityAt(b)).getTime() - new Date(getConversationLastActivityAt(a)).getTime()
+    );
+
+    const publicMessages = sorted.map((msg: any) => ({
+      ...msg,
+      status: msg.status || 'open',
+      internalNotes: undefined,
+    }));
+
+    return c.json({ messages: publicMessages, retentionDays: CHAT_RETENTION_DAYS });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
 app.post(`${P}/messages`, async (c) => {
   try {
-    const tok = c.req.header('X-Portal-Token');
-    if (!tok) return c.json({ error: 'No token' }, 401);
-    const s = await kv.get(`portal_session:${tok}`);
-    if (!s) return c.json({ error: 'Invalid' }, 401);
-    const { subject, body } = await c.req.json();
+    const s = await portalSession(c);
+    if (!s) return c.json({ error: 'Unauthorized' }, 401);
+
+    const { subject, message, body, messageId, contextType, contextLabel } = await c.req.json();
+    const messageText = [message, body].find((value) => typeof value === 'string' && value.trim())?.trim();
+    if (!messageText) return c.json({ error: 'Message is required' }, 400);
+
+    const now = new Date().toISOString();
+
+    if (messageId) {
+      const existingKey = `portal_message:${s.orgId}:${s.contactId}:${messageId}`;
+      const existing = await kv.get(existingKey);
+      if (!existing) return c.json({ error: 'Conversation not found' }, 404);
+
+      existing.replies = existing.replies || [];
+      existing.replies.push({
+        from: 'customer',
+        senderName: s.email,
+        body: messageText,
+        createdAt: now,
+      });
+      existing.read = false;
+      existing.customerUnread = false;
+      existing.status = 'open';
+      existing.updatedAt = now;
+      existing.retainedUntil = new Date(Date.now() + CHAT_RETENTION_MS).toISOString();
+
+      await kv.set(existingKey, existing);
+      return c.json({ success: true, message: existing });
+    }
+
     const id = crypto.randomUUID();
-    const msg = { id, contactId: s.contactId, orgId: s.orgId, from: 'customer', senderEmail: s.email, subject, body, createdAt: new Date().toISOString(), read: false, replies: [] };
+    const msg = {
+      id,
+      contactId: s.contactId,
+      orgId: s.orgId,
+      from: 'customer',
+      senderEmail: s.email,
+      subject: subject?.trim() || 'Portal Chat',
+      body: messageText,
+      contextType: contextType || null,
+      contextLabel: contextLabel || null,
+      createdAt: now,
+      updatedAt: now,
+      retainedUntil: new Date(Date.now() + CHAT_RETENTION_MS).toISOString(),
+      status: 'open',
+      read: false,
+      customerUnread: false,
+      replies: [],
+      internalNotes: [],
+    };
     await kv.set(`portal_message:${s.orgId}:${s.contactId}:${id}`, msg);
     return c.json({ success: true, message: msg });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
@@ -936,37 +1075,289 @@ app.post(`${P}/messages/:id/read`, async (c) => {
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
+app.post(`${P}/crm-message`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const { contactId, subject, message, body } = await c.req.json();
+    const messageText = [message, body].find((value) => typeof value === 'string' && value.trim())?.trim();
+    if (!contactId || !messageText) return c.json({ error: 'contactId and message are required' }, 400);
+    if (!auth.profile.organization_id) return c.json({ error: 'No organization found' }, 400);
+
+    const now = new Date().toISOString();
+    const msgId = crypto.randomUUID();
+    const msg = {
+      id: msgId,
+      type: 'customer',
+      contactId,
+      orgId: auth.profile.organization_id,
+      from: 'team',
+      senderEmail: auth.profile.email || auth.user.email,
+      subject: subject?.trim() || `Message from ${auth.profile.name || auth.user.email || 'Team'}`,
+      body: messageText,
+      status: 'open',
+      createdAt: now,
+      updatedAt: now,
+      retainedUntil: new Date(Date.now() + CHAT_RETENTION_MS).toISOString(),
+      read: true,
+      customerUnread: true,
+      replies: [],
+      internalNotes: [],
+    };
+
+    await kv.set(`portal_message:${auth.profile.organization_id}:${contactId}:${msgId}`, msg);
+    return c.json({ success: true, message: msg });
+  } catch (err: any) { return c.json({ error: 'Failed to send CRM portal message: ' + err.message }, 500); }
+});
+
 app.post(`${P}/reply`, async (c) => {
   try {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
-    const { messageId, contactId, body: rb } = await c.req.json();
+    const { messageId, contactId, reply, body } = await c.req.json();
+    const replyText = [reply, body].find((value) => typeof value === 'string' && value.trim())?.trim();
+    if (!messageId || !contactId || !replyText) return c.json({ error: 'messageId, contactId, and reply are required' }, 400);
     const key = `portal_message:${auth.profile.organization_id}:${contactId}:${messageId}`;
     const msg = await kv.get(key);
     if (!msg) return c.json({ error: 'Not found' }, 404);
     msg.replies = msg.replies || [];
-    msg.replies.push({ from: 'crm', body: rb, createdAt: new Date().toISOString(), senderName: auth.profile.name || auth.user.email });
+    msg.replies.push({ from: 'team', body: replyText, createdAt: new Date().toISOString(), senderName: auth.profile.name || auth.user.email });
     msg.read = true;
+    msg.customerUnread = true;
+    msg.status = 'open';
+    msg.updatedAt = new Date().toISOString();
+    msg.retainedUntil = new Date(Date.now() + CHAT_RETENTION_MS).toISOString();
     await kv.set(key, msg);
     return c.json({ success: true, message: msg });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+app.post(`${P}/internal-note`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const { messageId, contactId, note } = await c.req.json();
+    if (!messageId || !contactId || !note) return c.json({ error: 'messageId, contactId, and note are required' }, 400);
+    const key = `portal_message:${auth.profile.organization_id}:${contactId}:${messageId}`;
+    const msg = await kv.get(key);
+    if (!msg) return c.json({ error: 'Message not found' }, 404);
+
+    msg.internalNotes = msg.internalNotes || [];
+    msg.internalNotes.push({
+      id: crypto.randomUUID(),
+      from: 'internal',
+      senderName: auth.profile.name || auth.user.email,
+      body: note,
+      createdAt: new Date().toISOString(),
+    });
+    msg.updatedAt = new Date().toISOString();
+    msg.retainedUntil = new Date(Date.now() + CHAT_RETENTION_MS).toISOString();
+
+    await kv.set(key, msg);
+    return c.json({ success: true, message: msg });
+  } catch (err: any) { return c.json({ error: 'Failed to save internal note: ' + err.message }, 500); }
+});
+
+app.post(`${P}/status`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const { messageId, contactId, status } = await c.req.json();
+    if (!messageId || !contactId || !status) return c.json({ error: 'messageId, contactId, and status are required' }, 400);
+
+    const key = `portal_message:${auth.profile.organization_id}:${contactId}:${messageId}`;
+    const msg = await kv.get(key);
+    if (!msg) return c.json({ error: 'Message not found' }, 404);
+
+    const normalizedStatus = status === 'resolved' ? 'resolved' : 'open';
+    msg.status = normalizedStatus;
+    msg.updatedAt = new Date().toISOString();
+    msg.resolvedAt = normalizedStatus === 'resolved' ? new Date().toISOString() : null;
+    msg.retainedUntil = new Date(Date.now() + CHAT_RETENTION_MS).toISOString();
+
+    await kv.set(key, msg);
+    return c.json({ success: true, message: msg });
+  } catch (err: any) { return c.json({ error: 'Failed to update status: ' + err.message }, 500); }
+});
+
+app.get(`${P}/internal-chats`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const orgId = auth.profile.organization_id;
+    if (!orgId) return c.json({ chats: [] });
+
+    const chats = await kv.getByPrefix(`internal_chat:${orgId}:`);
+    const retainedChats = (chats || [])
+      .filter(isWithinChatRetention)
+      .filter((chat: any) => canAccessInternalChat(chat, auth.user.id, auth.profile.email))
+      .map(withChatRetention);
+
+    const sorted = retainedChats.sort((a: any, b: any) =>
+      new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
+    );
+
+    return c.json({ chats: sorted, retentionDays: CHAT_RETENTION_DAYS });
+  } catch (err: any) { return c.json({ error: 'Failed to load internal chats: ' + err.message }, 500); }
+});
+
+app.post(`${P}/internal-chats`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (!auth.profile.organization_id) return c.json({ error: 'No organization found' }, 400);
+
+    const { title, contextType, contextLabel, initialMessage, chatType, participants } = await c.req.json();
+    if (!title) return c.json({ error: 'title is required' }, 400);
+
+    const normalizedParticipants = Array.isArray(participants)
+      ? participants.map((participant: any) => ({
+          id: participant?.id || null,
+          name: participant?.name || participant?.email || 'Member',
+          email: participant?.email || null,
+          kind: participant?.kind === 'portal' ? 'portal' : 'staff',
+        }))
+      : [];
+
+    const now = new Date().toISOString();
+    const chatId = crypto.randomUUID();
+    const chat = {
+      id: chatId,
+      orgId: auth.profile.organization_id,
+      title,
+      chatType: chatType || (normalizedParticipants.length > 1 ? 'group' : normalizedParticipants.length === 1 ? 'direct' : 'general'),
+      contextType: contextType || 'general',
+      contextLabel: contextLabel || '',
+      participants: normalizedParticipants,
+      status: 'open',
+      createdBy: auth.user.id,
+      createdByName: auth.profile.name || auth.user.email,
+      createdAt: now,
+      updatedAt: now,
+      retainedUntil: new Date(Date.now() + CHAT_RETENTION_MS).toISOString(),
+      messages: initialMessage
+        ? [{
+            id: crypto.randomUUID(),
+            senderId: auth.user.id,
+            senderName: auth.profile.name || auth.user.email,
+            body: initialMessage,
+            createdAt: now,
+          }]
+        : [],
+    };
+
+    await kv.set(`internal_chat:${auth.profile.organization_id}:${chatId}`, chat);
+    return c.json({ success: true, chat });
+  } catch (err: any) { return c.json({ error: 'Failed to create internal chat: ' + err.message }, 500); }
+});
+
+app.post(`${P}/internal-chats/:id/message`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (!auth.profile.organization_id) return c.json({ error: 'No organization found' }, 400);
+
+    const chatId = c.req.param('id');
+    const { message } = await c.req.json();
+    if (!message) return c.json({ error: 'message is required' }, 400);
+
+    const key = `internal_chat:${auth.profile.organization_id}:${chatId}`;
+    const chat = await kv.get(key);
+    if (!chat) return c.json({ error: 'Chat not found' }, 404);
+    if (!canAccessInternalChat(chat, auth.user.id, auth.profile.email)) return c.json({ error: 'Forbidden' }, 403);
+
+    chat.messages = chat.messages || [];
+    chat.messages.push({
+      id: crypto.randomUUID(),
+      senderId: auth.user.id,
+      senderName: auth.profile.name || auth.user.email,
+      body: message,
+      createdAt: new Date().toISOString(),
+    });
+    chat.updatedAt = new Date().toISOString();
+    chat.retainedUntil = new Date(Date.now() + CHAT_RETENTION_MS).toISOString();
+
+    await kv.set(key, chat);
+    return c.json({ success: true, chat });
+  } catch (err: any) { return c.json({ error: 'Failed to send internal chat message: ' + err.message }, 500); }
 });
 
 app.get(`${P}/portal-users`, async (c) => {
   try {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
-    const logs = await kv.getByPrefix(`portal_access_log:${auth.profile.organization_id}:`);
-    return c.json({ portalUsers: logs || [] });
-  } catch (err: any) { return c.json({ error: err.message }, 500); }
+
+    const orgId = auth.profile.organization_id;
+    const accessLogs = await kv.getByPrefix(`portal_access_log:${orgId}:`);
+    const portalUserRecords = (await kv.getByPrefix('portal_user:')) || [];
+    const activeSessions = ((await kv.getByPrefix('portal_session:')) || []).filter((session: any) => {
+      if (session.orgId !== orgId) return false;
+      if (!session.expiresAt || new Date(session.expiresAt) < new Date()) return false;
+      const lastActive = session.lastActiveAt || session.createdAt || session.expiresAt;
+      return !!lastActive && (Date.now() - new Date(lastActive).getTime()) < 15 * 60 * 1000;
+    });
+
+    const emails = [...new Set((accessLogs || []).map((entry: any) => entry.email).filter(Boolean))];
+    const contactIds = [...new Set((accessLogs || []).map((entry: any) => entry.contactId).filter(Boolean))];
+
+    const contactsByEmail: Record<string, any> = {};
+    const contactsById: Record<string, any> = {};
+
+    if (emails.length > 0) {
+      const { data: contactsByEmailData } = await auth.supabase
+        .from('contacts')
+        .select('id, name, email, company')
+        .in('email', emails);
+      (contactsByEmailData || []).forEach((contact: any) => {
+        contactsByEmail[contact.email] = contact;
+        contactsById[contact.id] = contact;
+      });
+    }
+
+    if (contactIds.length > 0) {
+      const missingIds = contactIds.filter((id: string) => !contactsById[id]);
+      if (missingIds.length > 0) {
+        const { data: contactsByIdData } = await auth.supabase
+          .from('contacts')
+          .select('id, name, email, company')
+          .in('id', missingIds);
+        (contactsByIdData || []).forEach((contact: any) => {
+          contactsById[contact.id] = contact;
+          if (contact.email) contactsByEmail[contact.email] = contact;
+        });
+      }
+    }
+
+    const portalUsers = (accessLogs || []).map((entry: any) => {
+      const portalUser = portalUserRecords.find((record: any) => record.email === entry.email);
+      const contact = (entry.contactId && contactsById[entry.contactId]) || (entry.email && contactsByEmail[entry.email]) || null;
+      const online = activeSessions.some((session: any) =>
+        (entry.contactId && session.contactId === entry.contactId) || (entry.email && session.email === entry.email)
+      );
+
+      return {
+        ...entry,
+        contactId: entry.contactId || contact?.id || portalUser?.contactId || null,
+        name: entry.contactName || contact?.name || portalUser?.name || entry.email || 'Portal User',
+        company: contact?.company || '',
+        email: entry.email || contact?.email || portalUser?.email || '',
+        lastLogin: portalUser?.lastLogin || null,
+        online,
+      };
+    });
+
+    return c.json({ portalUsers });
+  } catch (err: any) { return c.json({ error: 'Failed to list portal users: ' + err.message }, 500); }
 });
 
 // Portal session validator helper
-async function portalSession(c: any): Promise<{ contactId: string; orgId: string; email: string } | null> {
+async function portalSession(c: any): Promise<{ contactId: string; orgId: string; email: string; lastActiveAt?: string } | null> {
   const tok = c.req.header('X-Portal-Token');
   if (!tok) return null;
   const s = await kv.get(`portal_session:${tok}`);
   if (!s || new Date(s.expiresAt) < new Date()) return null;
+  s.lastActiveAt = new Date().toISOString();
+  await kv.set(`portal_session:${tok}`, s);
   return s;
 }
 
@@ -1137,7 +1528,7 @@ app.post(`${P}/quotes/:id/accept`, async (c) => {
       const quoteValue = data.total || data.amount || data.value || 0;
       if (orgId) {
         // Postgres
-        const { data: pgCamps } = await supabase.from('campaigns').select('id, description').eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
+        const { data: pgCamps } = await supabase.from('campaigns').select('id, description, converted_count, revenue').eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
         if (pgCamps && pgCamps.length > 0) {
           const pgCamp = pgCamps[0];
           let meta: any = {};
@@ -1146,7 +1537,11 @@ app.post(`${P}/quotes/:id/accept`, async (c) => {
           }
           meta.converted_count = (meta.converted_count || 0) + 1;
           meta.revenue = (meta.revenue || 0) + Number(quoteValue);
-          await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
+          await supabase.from('campaigns').update({
+            description: JSON.stringify(meta),
+            converted_count: (pgCamp.converted_count || 0) + 1,
+            revenue: (Number(pgCamp.revenue) || 0) + Number(quoteValue),
+          }).eq('id', pgCamp.id);
         }
 
         const campaigns = await kv.getByPrefix(`campaign:${orgId}:`);
@@ -1757,6 +2152,8 @@ app.post(`${PREFIX}/campaigns/:id/send`, async (c) => {
       .update({ 
         status: 'Active', 
         description: JSON.stringify(meta),
+        sent_count: newSentCount,
+        audience_count: Math.max(campaign.audience_count || 0, newSentCount),
       })
       .eq('id', campaignId);
 
@@ -2614,7 +3011,7 @@ app.post(`${PREFIX}/public/events`, async (c) => {
       const isOpen = eventType === 'open';
       const campaignId = body.campaignId;
       if (isClick || isOpen) {
-        let query = getSupabase().from('campaigns').select('id, description');
+        let query = getSupabase().from('campaigns').select('id, description, opened_count, clicked_count');
         if (campaignId) {
             query = query.eq('id', campaignId);
         } else {
@@ -2636,7 +3033,16 @@ app.post(`${PREFIX}/public/events`, async (c) => {
              meta.opened_count = Math.max((meta.opened_count || 0), meta.clicked_count); 
           }
           
-          await getSupabase().from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
+          const nextClickedCount = isClick ? (pgCamp.clicked_count || 0) + 1 : (pgCamp.clicked_count || 0);
+          const nextOpenedCount = isOpen
+            ? (pgCamp.opened_count || 0) + 1
+            : Math.max((pgCamp.opened_count || 0), nextClickedCount);
+
+          await getSupabase().from('campaigns').update({
+            description: JSON.stringify(meta),
+            opened_count: nextOpenedCount,
+            clicked_count: nextClickedCount,
+          }).eq('id', pgCamp.id);
           // public/events incremented campaign metric
         }
       }
@@ -2695,7 +3101,7 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
 
       if (campaignId) {
         // Update Postgres
-        const { data: pgCamp } = await supabase.from('campaigns').select('id, description').eq('id', campaignId).single();
+        const { data: pgCamp } = await supabase.from('campaigns').select('id, description, converted_count, revenue').eq('id', campaignId).single();
         if (pgCamp) {
           let meta: any = {};
           if (pgCamp.description && pgCamp.description.startsWith('{')) {
@@ -2703,7 +3109,11 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
           }
           meta.converted_count = (meta.converted_count || 0) + 1;
           meta.revenue = (meta.revenue || 0) + Number(quoteValue);
-          await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', campaignId);
+          await supabase.from('campaigns').update({
+            description: JSON.stringify(meta),
+            converted_count: (pgCamp.converted_count || 0) + 1,
+            revenue: (Number(pgCamp.revenue) || 0) + Number(quoteValue),
+          }).eq('id', campaignId);
         }
 
         // Update KV (legacy/backup)
@@ -2728,7 +3138,7 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
           // public/accept incremented converted_count for latest KV campaign
           
           // Also try to update latest Postgres campaign
-          const { data: pgCamps } = await supabase.from('campaigns').select('id, description').eq('organization_id', orgId).eq('type', 'email').order('created_at', { ascending: false }).limit(1);
+          const { data: pgCamps } = await supabase.from('campaigns').select('id, description, converted_count, revenue').eq('organization_id', orgId).eq('type', 'email').order('created_at', { ascending: false }).limit(1);
           if (pgCamps && pgCamps.length > 0) {
             const pgCamp = pgCamps[0];
             let meta: any = {};
@@ -2737,7 +3147,11 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
             }
             meta.converted_count = (meta.converted_count || 0) + 1;
             meta.revenue = (meta.revenue || 0) + Number(quoteValue);
-            await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
+            await supabase.from('campaigns').update({
+              description: JSON.stringify(meta),
+              converted_count: (pgCamp.converted_count || 0) + 1,
+              revenue: (Number(pgCamp.revenue) || 0) + Number(quoteValue),
+            }).eq('id', pgCamp.id);
             // public/accept incremented converted_count for latest Postgres campaign
           }
         }

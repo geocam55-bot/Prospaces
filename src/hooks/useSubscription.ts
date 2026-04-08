@@ -7,11 +7,11 @@ import {
 
 /**
  * Feature gates mapped to minimum plan tier.
- * 'starter' = all paid plans, 'professional' = pro+enterprise, 'enterprise' = enterprise only.
+ * 'starter' = all paid plans (Standard User), 'professional' = pro+enterprise, 'enterprise' = enterprise only.
  * Features not listed are available on all plans including free.
  */
 const FEATURE_GATES: Record<string, PlanId> = {
-  // Starter+ features
+  // Standard User+ features
   'email-integration': 'starter',
   'basic-reports': 'starter',
 

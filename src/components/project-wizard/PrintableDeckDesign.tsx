@@ -32,7 +32,7 @@ export function PrintableDeckDesign({
       {/* Header */}
       <div className="border-b-2 border-black pb-4 mb-6 print:mt-8">
         <h1 className="text-3xl font-bold mb-2">Deck Plan & Materials List</h1>
-        <div className="text-sm text-gray-800">
+        <div className="text-sm text-foreground">
           <p>Date: {new Date().toLocaleDateString()}</p>
           <p>Project Type: Deck Construction</p>
         </div>
@@ -40,72 +40,72 @@ export function PrintableDeckDesign({
 
       {/* Customer Information (if saved design) */}
       {customerName && (
-        <div className="mb-6 p-4 border border-gray-300 bg-gray-50">
-          <h2 className="text-lg font-bold text-black mb-3">Customer Information</h2>
+        <div className="mb-6 p-4 border border-border bg-muted">
+          <h2 className="text-lg font-bold text-foreground mb-3">Customer Information</h2>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="font-semibold text-gray-700">Customer Name:</p>
-              <p className="text-black">{customerName}</p>
+              <p className="font-semibold text-foreground">Customer Name:</p>
+              <p className="text-foreground">{customerName}</p>
             </div>
             {customerCompany && (
               <div>
-                <p className="font-semibold text-gray-700">Company:</p>
-                <p className="text-black">{customerCompany}</p>
+                <p className="font-semibold text-foreground">Company:</p>
+                <p className="text-foreground">{customerCompany}</p>
               </div>
             )}
           </div>
           {description && (
             <div className="mt-3">
-              <p className="font-semibold text-gray-700">Description:</p>
-              <p className="text-black mt-1">{description}</p>
+              <p className="font-semibold text-foreground">Description:</p>
+              <p className="text-foreground mt-1">{description}</p>
             </div>
           )}
         </div>
       )}
 
       {/* Project Specifications */}
-      <div className="mb-6 p-4 border border-gray-300">
-        <h2 className="text-lg font-bold text-black mb-3">Project Specifications</h2>
+      <div className="mb-6 p-4 border border-border">
+        <h2 className="text-lg font-bold text-foreground mb-3">Project Specifications</h2>
         <div className="grid grid-cols-3 gap-x-6 gap-y-3 text-sm">
           <div>
-            <p className="font-semibold text-gray-700">Dimensions:</p>
-            <p className="text-black">{config.width}' × {config.length}'</p>
+            <p className="font-semibold text-foreground">Dimensions:</p>
+            <p className="text-foreground">{config.width}' × {config.length}'</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Shape:</p>
-            <p className="text-black capitalize">{config.shape}</p>
+            <p className="font-semibold text-foreground">Shape:</p>
+            <p className="text-foreground capitalize">{config.shape}</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Height:</p>
-            <p className="text-black">{config.height} feet</p>
+            <p className="font-semibold text-foreground">Height:</p>
+            <p className="text-foreground">{config.height} feet</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Decking Type:</p>
-            <p className="text-black">{config.deckingType}</p>
+            <p className="font-semibold text-foreground">Decking Type:</p>
+            <p className="text-foreground">{config.deckingType}</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Stairs:</p>
-            <p className="text-black">{config.hasStairs ? `Yes (${config.stairSide})` : 'No'}</p>
+            <p className="font-semibold text-foreground">Stairs:</p>
+            <p className="text-foreground">{config.hasStairs ? `Yes (${config.stairSide})` : 'No'}</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Decking Pattern:</p>
-            <p className="text-black capitalize">{config.deckingPattern}</p>
+            <p className="font-semibold text-foreground">Decking Pattern:</p>
+            <p className="text-foreground capitalize">{config.deckingPattern}</p>
           </div>
           <div>
-            <p className="font-semibold text-gray-700">Railing Style:</p>
-            <p className="text-black capitalize">{config.railingStyle || 'Treated'}</p>
+            <p className="font-semibold text-foreground">Railing Style:</p>
+            <p className="text-foreground capitalize">{config.railingStyle || 'Treated'}</p>
           </div>
         </div>
       </div>
 
       {/* Plan View & Elevation */}
       <div className="mb-6">
-        <h2 className="text-lg font-bold text-black mb-3">3D Deck Visualization</h2>
-        <div className="w-full h-[600px] border border-gray-300 bg-gradient-to-br from-sky-100 to-blue-200">
+        <h2 className="text-lg font-bold text-foreground mb-3">3D Deck Visualization</h2>
+        <div className="w-full h-[600px] border border-border bg-gradient-to-br from-sky-100 to-blue-200">
           {snapshotUrl ? (
             <img src={snapshotUrl} alt="3D Deck Snapshot" className="w-full h-full object-contain" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-500">
+            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
               <p>Switch to 3D view before printing to see 3D visualization</p>
             </div>
           )}
@@ -114,17 +114,17 @@ export function PrintableDeckDesign({
 
       {/* Materials List */}
       <div className="break-before-page">
-        <h2 className="text-lg font-bold text-black mb-3 border-b-2 border-black pb-2">
+        <h2 className="text-lg font-bold text-foreground mb-3 border-b-2 border-black pb-2">
           Bill of Materials
         </h2>
         {totalCost > 0 && (
-          <div className="mb-4 p-3 bg-gray-100 border border-gray-400">
+          <div className="mb-4 p-3 bg-muted border border-gray-400">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-semibold text-gray-800">Total Estimated Cost:</p>
-                <p className="text-xs text-gray-600 mt-1">Based on Tier 1 Pricing</p>
+                <p className="font-semibold text-foreground">Total Estimated Cost:</p>
+                <p className="text-xs text-muted-foreground mt-1">Based on Tier 1 Pricing</p>
               </div>
-              <p className="text-2xl font-bold text-black">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-2xl font-bold text-foreground">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </div>
         )}
@@ -134,7 +134,7 @@ export function PrintableDeckDesign({
       </div>
 
       {/* Footer */}
-      <div className="mt-6 pt-3 border-t border-gray-400 text-xs text-gray-600">
+      <div className="mt-6 pt-3 border-t border-gray-400 text-xs text-muted-foreground">
         <p className="mb-1">This plan is an estimate and should be verified by a professional before construction.</p>
         <p>All dimensions and materials are subject to local building codes and regulations.</p>
       </div>

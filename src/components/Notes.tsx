@@ -280,7 +280,7 @@ export function Notes({ user }: NotesProps) {
       <Card>
         <CardHeader>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search notes by title, content, or contact name..."
               value={searchQuery}
@@ -292,10 +292,10 @@ export function Notes({ user }: NotesProps) {
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : filteredNotes.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <StickyNote className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No notes found</p>
             </div>
@@ -328,7 +328,7 @@ export function Notes({ user }: NotesProps) {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-3 whitespace-pre-wrap">{note.content}</p>
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-3 whitespace-pre-wrap">{note.content}</p>
                   {note.linkedTo && (
                     <div className="mb-3">
                       <span className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">
@@ -336,7 +336,7 @@ export function Notes({ user }: NotesProps) {
                       </span>
                     </div>
                   )}
-                  <p className="text-xs text-gray-400">{formatDate(note.createdAt)}</p>
+                  <p className="text-xs text-muted-foreground">{formatDate(note.createdAt)}</p>
                 </CardContent>
               </Card>
             ))}

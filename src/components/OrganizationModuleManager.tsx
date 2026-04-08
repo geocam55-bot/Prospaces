@@ -154,20 +154,20 @@ export function OrganizationModuleManager({ user }: OrganizationModuleManagerPro
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       active: 'bg-green-100 text-green-700 border-green-200',
-      inactive: 'bg-gray-100 text-gray-700 border-gray-200',
+      inactive: 'bg-muted text-foreground border-border',
       suspended: 'bg-red-100 text-red-700 border-red-200',
     };
-    return colors[status] || 'bg-gray-100 text-gray-700 border-gray-200';
+    return colors[status] || 'bg-muted text-foreground border-border';
   };
 
   const getPlanColor = (plan: string) => {
     const colors: Record<string, string> = {
-      free: 'bg-gray-100 text-gray-700 border-gray-200',
+      free: 'bg-muted text-foreground border-border',
       starter: 'bg-blue-100 text-blue-700 border-blue-200',
       professional: 'bg-purple-100 text-purple-700 border-purple-200',
       enterprise: 'bg-amber-100 text-amber-700 border-amber-200',
     };
-    return colors[plan] || 'bg-gray-100 text-gray-700 border-gray-200';
+    return colors[plan] || 'bg-muted text-foreground border-border';
   };
 
   if (isLoading) {
@@ -175,7 +175,7 @@ export function OrganizationModuleManager({ user }: OrganizationModuleManagerPro
       <Card>
         <CardContent className="py-12 flex items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-3" />
-          <span className="text-gray-500">Loading organizations...</span>
+          <span className="text-muted-foreground">Loading organizations...</span>
         </CardContent>
       </Card>
     );
@@ -192,8 +192,8 @@ export function OrganizationModuleManager({ user }: OrganizationModuleManagerPro
                 <Settings2 className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Module Manager</h2>
-                <p className="text-sm text-gray-500">
+                <h2 className="text-lg font-semibold text-foreground">Module Manager</h2>
+                <p className="text-sm text-muted-foreground">
                   Select an organization and toggle modules on or off
                 </p>
               </div>
@@ -204,7 +204,7 @@ export function OrganizationModuleManager({ user }: OrganizationModuleManagerPro
                 <select
                   value={selectedOrgId}
                   onChange={(e) => setSelectedOrgId(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full bg-background border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="" disabled>Select an organization...</option>
                   {organizations.map(org => (
@@ -219,7 +219,7 @@ export function OrganizationModuleManager({ user }: OrganizationModuleManagerPro
                 size="icon"
                 onClick={loadOrganizations}
                 title="Refresh organizations"
-                className="bg-white"
+                className="bg-background"
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
@@ -249,7 +249,7 @@ export function OrganizationModuleManager({ user }: OrganizationModuleManagerPro
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   {selectedOrg.logo ? (
-                    <div className="h-10 w-10 rounded-lg border border-gray-200 bg-white flex items-center justify-center overflow-hidden">
+                    <div className="h-10 w-10 rounded-lg border border-border bg-background flex items-center justify-center overflow-hidden">
                       <img
                         src={selectedOrg.logo}
                         alt={`${selectedOrg.name} logo`}
@@ -262,7 +262,7 @@ export function OrganizationModuleManager({ user }: OrganizationModuleManagerPro
                     </div>
                   )}
                   <div>
-                    <h3 className="text-base font-semibold text-gray-900">
+                    <h3 className="text-base font-semibold text-foreground">
                       {selectedOrg.name}
                     </h3>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -303,7 +303,7 @@ export function OrganizationModuleManager({ user }: OrganizationModuleManagerPro
                   className={`transition-all duration-200 ${
                     isEnabled
                       ? 'border-blue-200 bg-blue-50/30 shadow-sm'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
+                      : 'border-border bg-background hover:border-border'
                   }`}
                 >
                   <CardContent className="pt-5 pb-5">
@@ -313,16 +313,16 @@ export function OrganizationModuleManager({ user }: OrganizationModuleManagerPro
                           className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
                             isEnabled
                               ? 'bg-blue-100 text-blue-600'
-                              : 'bg-gray-100 text-gray-400'
+                              : 'bg-muted text-muted-foreground'
                           }`}
                         >
                           <IconComponent className="h-4.5 w-4.5" />
                         </div>
                         <div className="min-w-0">
-                          <Label className="text-sm font-medium text-gray-900 leading-tight">
+                          <Label className="text-sm font-medium text-foreground leading-tight">
                             {label}
                           </Label>
-                          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                             {description}
                           </p>
                         </div>
@@ -350,7 +350,7 @@ export function OrganizationModuleManager({ user }: OrganizationModuleManagerPro
         <Card>
           <CardContent className="py-12 text-center">
             <Building2 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-gray-500">
+            <p className="text-muted-foreground">
               {organizations.length === 0
                 ? 'No organizations found. Create one first.'
                 : 'Select an organization from the dropdown above to manage its modules.'}

@@ -109,8 +109,8 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
   return (
     <div className="space-y-6">
       {/* Save Current Design */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-        <h2 className="text-slate-900 mb-4">Save Current Design</h2>
+      <div className="bg-background rounded-lg shadow-sm border border-border p-6">
+        <h2 className="text-foreground mb-4">Save Current Design</h2>
         
         {!showSaveDialog ? (
           <button
@@ -123,7 +123,7 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
         ) : (
           <div className="space-y-4">
             <div>
-              <label className="block text-slate-700 text-sm mb-1">
+              <label className="block text-foreground text-sm mb-1">
                 Design Name *
               </label>
               <input
@@ -131,12 +131,12 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
                 value={designName}
                 onChange={(e) => setDesignName(e.target.value)}
                 placeholder="e.g., Smith Residence Roof"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               />
             </div>
 
             <div>
-              <label className="block text-slate-700 text-sm mb-1">
+              <label className="block text-foreground text-sm mb-1">
                 Description
               </label>
               <textarea
@@ -144,13 +144,13 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
                 onChange={(e) => setDesignDescription(e.target.value)}
                 placeholder="Add notes about this design..."
                 rows={3}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-slate-700 text-sm mb-1">
+                <label className="block text-foreground text-sm mb-1">
                   Customer Name
                 </label>
                 <CustomerSelector
@@ -160,7 +160,7 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
                 />
               </div>
               <div>
-                <label className="block text-slate-700 text-sm mb-1">
+                <label className="block text-foreground text-sm mb-1">
                   Opportunity
                 </label>
                 <OpportunitySelector
@@ -193,7 +193,7 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
                   setShowSaveDialog(false);
                   setSaveError('');
                 }}
-                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 border border-border text-foreground rounded-lg hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
@@ -203,16 +203,16 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
       </div>
 
       {/* Saved Designs List */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-        <h2 className="text-slate-900 mb-4">Saved Designs</h2>
+      <div className="bg-background rounded-lg shadow-sm border border-border p-6">
+        <h2 className="text-foreground mb-4">Saved Designs</h2>
 
         {isLoading ? (
-          <div className="text-center py-8 text-slate-600">
+          <div className="text-center py-8 text-muted-foreground">
             Loading saved designs...
           </div>
         ) : savedDesigns.length === 0 ? (
-          <div className="text-center py-8 text-slate-600">
-            <FileText className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+          <div className="text-center py-8 text-muted-foreground">
+            <FileText className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
             <p>No saved designs yet</p>
             <p className="text-sm mt-1">Save your first roof design to get started</p>
           </div>
@@ -221,27 +221,27 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
             {savedDesigns.map((design) => (
               <div
                 key={design.id}
-                className="p-4 border-2 border-slate-200 rounded-lg hover:border-orange-400 transition-colors"
+                className="p-4 border-2 border-border rounded-lg hover:border-orange-400 transition-colors"
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-slate-900 truncate">
+                    <h3 className="font-semibold text-foreground truncate">
                       {design.name}
                     </h3>
                     {design.description && (
-                      <p className="text-sm text-slate-600 mt-1 line-clamp-2">
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                         {design.description}
                       </p>
                     )}
                     {design.customer_name && (
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Customer: {design.customer_name}
                       </p>
                     )}
                   </div>
                 </div>
 
-                <div className="text-xs text-slate-500 space-y-1 mb-3">
+                <div className="text-xs text-muted-foreground space-y-1 mb-3">
                   <div>
                     {design.config.length}' × {design.config.width}' • {design.config.style} roof
                   </div>

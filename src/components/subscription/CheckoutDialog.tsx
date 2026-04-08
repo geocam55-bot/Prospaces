@@ -32,7 +32,7 @@ interface CheckoutDialogProps {
 }
 
 const PLAN_INFO_DEFAULTS: Record<PlanId, { name: string; price: number; priceAnnual: number; icon: typeof Zap; color: string }> = {
-  starter: { name: 'Starter', price: 29, priceAnnual: 290, icon: Zap, color: 'text-orange-600' },
+  starter: { name: 'Standard User', price: 29, priceAnnual: 290, icon: Zap, color: 'text-orange-600' },
   professional: { name: 'Professional', price: 79, priceAnnual: 790, icon: Crown, color: 'text-blue-600' },
   enterprise: { name: 'Enterprise', price: 199, priceAnnual: 1990, icon: Building2, color: 'text-purple-600' },
 };
@@ -151,33 +151,33 @@ export function CheckoutDialog({
 
         <div className="space-y-5 py-2">
           {/* Selected plan summary */}
-          <Card className="p-4 bg-slate-50 border-slate-200">
+          <Card className="p-4 bg-muted border-border">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-white border border-slate-200">
+                <div className="p-2 rounded-lg bg-background border border-border">
                   <Icon className={`h-5 w-5 ${plan.color}`} />
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-900">{plan.name} Plan</p>
-                  <p className="text-xs text-slate-500 capitalize">{interval}ly billing</p>
+                  <p className="font-semibold text-foreground">{plan.name} Plan</p>
+                  <p className="text-xs text-muted-foreground capitalize">{interval}ly billing</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-xl font-bold text-slate-900">{formatCurrency(amount)}</p>
-                <p className="text-xs text-slate-500">/user/{interval}</p>
+                <p className="text-xl font-bold text-foreground">{formatCurrency(amount)}</p>
+                <p className="text-xs text-muted-foreground">/user/{interval}</p>
               </div>
             </div>
 
             {/* Billing toggle */}
-            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-200">
-              <Label className={`text-xs ${!isAnnual ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>
+            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border">
+              <Label className={`text-xs ${!isAnnual ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
                 Monthly
               </Label>
               <Switch
                 checked={isAnnual}
                 onCheckedChange={(checked) => onIntervalChange(checked ? 'year' : 'month')}
               />
-              <Label className={`text-xs ${isAnnual ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>
+              <Label className={`text-xs ${isAnnual ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
                 Annual
               </Label>
               {isAnnual && (
@@ -206,7 +206,7 @@ export function CheckoutDialog({
 
           {/* Payment form */}
           <div className="space-y-3">
-            <p className="text-sm font-medium text-slate-700 flex items-center gap-2">
+            <p className="text-sm font-medium text-foreground flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
               Payment Details
               <Badge variant="secondary" className="text-[10px]">Demo</Badge>
@@ -266,10 +266,10 @@ export function CheckoutDialog({
           </div>
 
           {/* Order summary */}
-          <div className="space-y-2 p-3 rounded-lg bg-slate-50 border border-slate-100">
+          <div className="space-y-2 p-3 rounded-lg bg-muted border border-border">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-600">{plan.name} ({interval}ly)</span>
-              <span className="text-slate-900">{wantsTrial && !hasExistingSub ? '$0.00' : formatCurrency(amount)}</span>
+              <span className="text-muted-foreground">{plan.name} ({interval}ly)</span>
+              <span className="text-foreground">{wantsTrial && !hasExistingSub ? '$0.00' : formatCurrency(amount)}</span>
             </div>
             {wantsTrial && !hasExistingSub && (
               <div className="flex justify-between text-sm">
@@ -283,7 +283,7 @@ export function CheckoutDialog({
               <span>{wantsTrial && !hasExistingSub ? '$0.00' : formatCurrency(amount)}</span>
             </div>
             {wantsTrial && !hasExistingSub && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground">
                 After trial: {formatCurrency(amount)}/{interval} starting on trial end date
               </p>
             )}
@@ -291,7 +291,7 @@ export function CheckoutDialog({
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-slate-400 mr-auto">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mr-auto">
             <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
             Demo mode — no real charges
           </div>

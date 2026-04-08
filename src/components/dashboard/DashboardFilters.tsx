@@ -63,7 +63,7 @@ export function DashboardFilters() {
       <Card className="border-0 shadow-sm">
         <CardContent className="p-4 space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="start-date" className="text-xs font-semibold text-gray-500">REPORT DATE</Label>
+            <Label htmlFor="start-date" className="text-xs font-semibold text-muted-foreground">REPORT DATE</Label>
             <Input
               id="start-date"
               type="date"
@@ -88,7 +88,7 @@ export function DashboardFilters() {
       <Card className="border-0 shadow-sm">
         <CardContent className="p-4 space-y-4">
           <div className="space-y-2">
-            <Label className="text-xs font-semibold text-gray-500">Deal Owner</Label>
+            <Label className="text-xs font-semibold text-muted-foreground">Deal Owner</Label>
             <Select>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="All" />
@@ -106,7 +106,7 @@ export function DashboardFilters() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs font-semibold text-gray-500">Deal Stage</Label>
+            <Label className="text-xs font-semibold text-muted-foreground">Deal Stage</Label>
             <Select>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="All" />
@@ -121,7 +121,7 @@ export function DashboardFilters() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs font-semibold text-gray-500">Pipeline</Label>
+            <Label className="text-xs font-semibold text-muted-foreground">Pipeline</Label>
             <Select>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="All" />
@@ -134,7 +134,7 @@ export function DashboardFilters() {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs font-semibold text-gray-500">Deal Label</Label>
+            <Label className="text-xs font-semibold text-muted-foreground">Deal Label</Label>
             <Select>
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="All" />

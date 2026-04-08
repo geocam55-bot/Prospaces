@@ -30,12 +30,12 @@ export function Reports({ user }: ReportsProps) {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
         {/* Price/Cost Toggle Switch */}
-        <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-4 py-2.5 shadow-sm">
-          <DollarSign className="h-4 w-4 text-gray-500" />
+        <div className="flex items-center gap-3 bg-background border border-border rounded-lg px-4 py-2.5 shadow-sm">
+          <DollarSign className="h-4 w-4 text-muted-foreground" />
           <div className="flex items-center gap-2">
             <Label 
               htmlFor="price-toggle" 
-              className={`text-sm cursor-pointer transition-colors ${!showCost ? 'text-gray-900' : 'text-gray-500'}`}
+              className={`text-sm cursor-pointer transition-colors ${!showCost ? 'text-foreground' : 'text-muted-foreground'}`}
             >
               Selling Price
             </Label>
@@ -46,7 +46,7 @@ export function Reports({ user }: ReportsProps) {
             />
             <Label 
               htmlFor="price-toggle" 
-              className={`text-sm cursor-pointer transition-colors ${showCost ? 'text-gray-900' : 'text-gray-500'}`}
+              className={`text-sm cursor-pointer transition-colors ${showCost ? 'text-foreground' : 'text-muted-foreground'}`}
             >
               Cost
             </Label>

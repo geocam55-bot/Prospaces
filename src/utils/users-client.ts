@@ -170,11 +170,7 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
       avatar_url: user.user_metadata?.avatar_url,
     };
 
-    // Check permissions
-    if (currentUserRole !== 'super_admin' && currentUserRole !== 'admin' && currentUserRole !== 'director' && currentUserRole !== 'manager') {
-      // Insufficient permissions — returning current user only
-      return { users: [currentUserData] };
-    }
+    // All authenticated users can see their organization colleagues (needed for messaging)
 
     // ── Strategy 1: Server-side API (bypasses RLS) ──
     const accessToken = await getAccessToken();

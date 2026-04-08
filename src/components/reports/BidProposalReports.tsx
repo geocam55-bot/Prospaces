@@ -117,7 +117,7 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
 
   if (loading) {
     return <div className="flex items-center justify-center h-64">
-      <div className="text-gray-500">Loading deal reports...</div>
+      <div className="text-muted-foreground">Loading deal reports...</div>
     </div>;
   }
 
@@ -133,7 +133,7 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl text-gray-900">Deal & Proposal Reports</h2>
+        <h2 className="text-xl text-foreground">Deal & Proposal Reports</h2>
         <Select defaultValue="30days">
           <SelectTrigger className="w-40">
             <SelectValue />
@@ -188,20 +188,20 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Sales Rep</th>
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Total Deals</th>
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Won</th>
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Lost</th>
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Win Rate</th>
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Avg Value</th>
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Sales Rep</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Total Deals</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Won</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Lost</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Win Rate</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Avg Value</th>
                 </tr>
               </thead>
               <tbody>
                 {winRateBySalesRep.map((rep, index) => (
-                  <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-sm text-gray-900">{rep.name}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{rep.total}</td>
+                  <tr key={index} className="border-b border-border hover:bg-muted">
+                    <td className="py-3 px-4 text-sm text-foreground">{rep.name}</td>
+                    <td className="py-3 px-4 text-sm text-muted-foreground">{rep.total}</td>
                     <td className="py-3 px-4">
                       <Badge className="bg-green-100 text-green-700">{rep.won}</Badge>
                     </td>
@@ -219,8 +219,8 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-1">
-                        <DollarSign className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-900">{(rep.avgValue / 1000).toFixed(0)}K</span>
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-foreground">{(rep.avgValue / 1000).toFixed(0)}K</span>
                       </div>
                     </td>
                   </tr>
@@ -249,18 +249,18 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
                       ${(data.avgValue / 1000).toFixed(0)}K
                     </div>
                   </div>
-                  <span className="text-xs text-gray-500">{data.month}</span>
+                  <span className="text-xs text-muted-foreground">{data.month}</span>
                 </div>
               ))}
             </div>
             <div className="mt-6 pt-6 border-t">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Avg Value</p>
-                  <p className="text-xl text-gray-900 mt-1">$44K</p>
+                  <p className="text-sm text-muted-foreground">Avg Value</p>
+                  <p className="text-xl text-foreground mt-1">$44K</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-600">Change</p>
+                  <p className="text-sm text-muted-foreground">Change</p>
                   <p className="text-xl text-green-600 mt-1">+24%</p>
                 </div>
               </div>
@@ -284,18 +284,18 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
                       {data.avgCycle} days
                     </div>
                   </div>
-                  <span className="text-xs text-gray-500">{data.month}</span>
+                  <span className="text-xs text-muted-foreground">{data.month}</span>
                 </div>
               ))}
             </div>
             <div className="mt-6 pt-6 border-t">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Avg Cycle Time</p>
-                  <p className="text-xl text-gray-900 mt-1">17 days</p>
+                  <p className="text-sm text-muted-foreground">Avg Cycle Time</p>
+                  <p className="text-xl text-foreground mt-1">17 days</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-gray-600">Improvement</p>
+                  <p className="text-sm text-muted-foreground">Improvement</p>
                   <p className="text-xl text-green-600 mt-1">-14%</p>
                 </div>
               </div>

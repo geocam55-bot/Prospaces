@@ -36,7 +36,10 @@
     "lib/**/*.ts",
     "lib/**/*.tsx",
     "App.tsx",
-    "main.tsx"
+    "main.tsx",
+    "project-wizards-entry.tsx",
+    "marketing-entry.tsx",
+    "insights-entry.tsx"
   ],
   "exclude": [
     "node_modules",

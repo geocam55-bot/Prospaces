@@ -94,7 +94,7 @@ export function WorkflowSettingsDialog({ open, onOpenChange, organizationId }: W
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-background dark:bg-slate-900">
         <DialogHeader>
           <DialogTitle>Configure Workflows</DialogTitle>
           <DialogDescription>
@@ -111,7 +111,7 @@ export function WorkflowSettingsDialog({ open, onOpenChange, organizationId }: W
           
           <div className="mt-4 space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-sm font-medium text-gray-700">Active Automations</h3>
+              <h3 className="text-sm font-medium text-foreground">Active Automations</h3>
               <Button size="sm" onClick={() => setIsEditing(true)} disabled={isEditing}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Workflow
@@ -119,7 +119,7 @@ export function WorkflowSettingsDialog({ open, onOpenChange, organizationId }: W
             </div>
 
             {isEditing && (
-              <Card className="border-dashed border-2 bg-gray-50">
+              <Card className="border-dashed border-2 bg-muted">
                 <CardContent className="pt-6 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -151,7 +151,7 @@ export function WorkflowSettingsDialog({ open, onOpenChange, organizationId }: W
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 justify-center py-2 text-gray-400">
+                  <div className="flex items-center gap-2 justify-center py-2 text-muted-foreground">
                     <ArrowRight className="h-4 w-4" />
                     <span className="text-xs uppercase font-medium">Then</span>
                     <ArrowRight className="h-4 w-4" />
@@ -186,24 +186,24 @@ export function WorkflowSettingsDialog({ open, onOpenChange, organizationId }: W
 
             <div className="space-y-2">
               {workflows.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 border rounded-md">
+                <div className="text-center py-8 text-muted-foreground border rounded-md">
                   No workflows configured.
                 </div>
               ) : (
                 workflows.map(workflow => (
                   <Card key={workflow.id} className="overflow-hidden">
-                    <div className="flex items-center justify-between p-4 bg-white">
+                    <div className="flex items-center justify-between p-4 bg-background">
                       <div className="flex items-center gap-3">
                         <div 
-                          className={`p-2 rounded-full cursor-pointer transition-colors ${workflow.isActive ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}
+                          className={`p-2 rounded-full cursor-pointer transition-colors ${workflow.isActive ? 'bg-green-100 text-green-600' : 'bg-muted text-muted-foreground'}`}
                           onClick={() => toggleWorkflowStatus(workflow.id)}
                           title={workflow.isActive ? "Active" : "Paused"}
                         >
                           {workflow.isActive ? <Play className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
                         </div>
                         <div>
-                          <h4 className={`font-medium ${!workflow.isActive && 'text-gray-500'}`}>{workflow.name}</h4>
-                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                          <h4 className={`font-medium ${!workflow.isActive && 'text-muted-foreground'}`}>{workflow.name}</h4>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                             <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100">
                               When: {workflow.trigger.replace(/_/g, ' ')}
                             </span>

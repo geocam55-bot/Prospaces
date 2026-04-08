@@ -90,7 +90,7 @@ export function RoomCanvas({ room, onUpdateDoor, onSelectDoor }: RoomCanvasProps
   return (
     <div 
       ref={containerRef}
-      className="w-full h-full min-h-[300px] bg-slate-50 border border-slate-200 rounded-lg relative overflow-hidden select-none cursor-crosshair"
+      className="w-full h-full min-h-[300px] bg-muted border border-border rounded-lg relative overflow-hidden select-none cursor-crosshair"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}

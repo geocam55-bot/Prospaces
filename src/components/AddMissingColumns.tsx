@@ -320,7 +320,7 @@ ORDER BY table_name, column_name;`;
           <p className="text-muted-foreground">Add missing columns to existing tables</p>
         </div>
 
-        <Card className="border-orange-200 bg-white shadow-lg">
+        <Card className="border-orange-200 bg-background shadow-lg">
           <CardHeader className="bg-gradient-to-r from-orange-50 to-yellow-50 border-b border-orange-100">
             <CardTitle className="flex items-center gap-2 text-orange-900">
               <Database className="h-6 w-6" />
@@ -337,44 +337,44 @@ ORDER BY table_name, column_name;`;
             </Alert>
 
             <div className="bg-gradient-to-br from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Columns to be Added:</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-4">Columns to be Added:</h3>
               <div className="space-y-3">
                 <div>
                   <h4 className="text-sm font-medium text-orange-900 mb-2">📋 Profiles Table:</h4>
-                  <ul className="text-sm text-gray-700 space-y-1 ml-4">
+                  <ul className="text-sm text-foreground space-y-1 ml-4">
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
-                      <code className="bg-gray-100 px-2 py-0.5 rounded">needs_password_change</code> - Password reset flag
+                      <code className="bg-muted px-2 py-0.5 rounded">needs_password_change</code> - Password reset flag
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
-                      <code className="bg-gray-100 px-2 py-0.5 rounded">temp_password</code> - Temporary password storage
+                      <code className="bg-muted px-2 py-0.5 rounded">temp_password</code> - Temporary password storage
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
-                      <code className="bg-gray-100 px-2 py-0.5 rounded">temp_password_created_at</code> - Password expiry tracking
+                      <code className="bg-muted px-2 py-0.5 rounded">temp_password_created_at</code> - Password expiry tracking
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
-                      <code className="bg-gray-100 px-2 py-0.5 rounded">avatar_url</code> - User profile pictures
+                      <code className="bg-muted px-2 py-0.5 rounded">avatar_url</code> - User profile pictures
                     </li>
                   </ul>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-orange-900 mb-2">💼 Bids Table:</h4>
-                  <ul className="text-sm text-gray-700 space-y-1 ml-4">
+                  <ul className="text-sm text-foreground space-y-1 ml-4">
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
-                      <code className="bg-gray-100 px-2 py-0.5 rounded">created_by</code> - Track bid creator
+                      <code className="bg-muted px-2 py-0.5 rounded">created_by</code> - Track bid creator
                     </li>
                   </ul>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-orange-900 mb-2">📦 Inventory Table:</h4>
-                  <ul className="text-sm text-gray-700 space-y-1 ml-4">
+                  <ul className="text-sm text-foreground space-y-1 ml-4">
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
-                      <code className="bg-gray-100 px-2 py-0.5 rounded">image_url</code> - Product images
+                      <code className="bg-muted px-2 py-0.5 rounded">image_url</code> - Product images
                     </li>
                   </ul>
                 </div>
@@ -383,7 +383,7 @@ ORDER BY table_name, column_name;`;
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">Migration SQL Script</h3>
+                <h3 className="text-sm font-semibold text-foreground">Migration SQL Script</h3>
                 <div className="flex gap-2">
                   <Button
                     onClick={copyToClipboard}
@@ -426,27 +426,27 @@ ORDER BY table_name, column_name;`;
                 <ol className="space-y-3">
                   <li className="flex gap-3">
                     <span className="text-orange-600 font-semibold shrink-0">1.</span>
-                    <span className="text-gray-700">
+                    <span className="text-foreground">
                       Click <strong>"Copy SQL"</strong> above
                     </span>
                   </li>
                   <li className="flex gap-3">
                     <span className="text-orange-600 font-semibold shrink-0">2.</span>
-                    <span className="text-gray-700">
+                    <span className="text-foreground">
                       Click <strong>"Open SQL Editor"</strong> to open Supabase
                     </span>
                   </li>
                   <li className="flex gap-3">
                     <span className="text-orange-600 font-semibold shrink-0">3.</span>
-                    <span className="text-gray-700">
+                    <span className="text-foreground">
                       Paste the SQL and click <strong>"Run"</strong>
                     </span>
                   </li>
                   <li className="flex gap-3">
                     <span className="text-orange-600 font-semibold shrink-0">4.</span>
-                    <span className="text-gray-700">
+                    <span className="text-foreground">
                       Click <strong>"Refresh App"</strong> below
-                      <span className="block text-sm text-gray-600 mt-1">
+                      <span className="block text-sm text-muted-foreground mt-1">
                         ✅ Your existing data will remain intact!
                       </span>
                     </span>

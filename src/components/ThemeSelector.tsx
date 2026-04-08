@@ -12,7 +12,7 @@ function ThemePreviewSwatch({ theme }: { theme: Theme }) {
   const c = theme.colors;
   
   return (
-    <div className="mb-3 rounded-md overflow-hidden border border-gray-200 dark:border-gray-700">
+    <div className="mb-3 rounded-md overflow-hidden border border-border dark:border-gray-700">
       {/* Simulated page layout */}
       <div className="h-28 flex" style={{ background: c.background }}>
         {/* Sidebar preview */}
@@ -107,7 +107,7 @@ export function ThemeSelector() {
                 className={`relative p-4 rounded-lg border-2 transition-all text-left hover:shadow-md ${
                   isActive
                     ? 'border-blue-500 ring-2 ring-blue-200 bg-blue-50 dark:bg-blue-950 dark:ring-blue-800'
-                    : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
+                    : 'border-border hover:border-border dark:border-gray-700 dark:hover:border-gray-600'
                 } ${isSaving ? 'opacity-75 cursor-wait' : ''}`}
               >
                 {isActive && !isSaving && (
@@ -128,12 +128,12 @@ export function ThemeSelector() {
                 {/* Theme Info */}
                 <div className="flex items-start justify-between gap-2 mt-3">
                   <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1 flex items-center gap-1.5">
+                    <h3 className="font-semibold text-foreground dark:text-gray-100 mb-1 flex items-center gap-1.5">
                       {displayTheme.name}
-                      {displayTheme.isDark && React.createElement(Moon, filterFigmaProps({ className: "h-3.5 w-3.5 text-gray-400" }))}
+                      {displayTheme.isDark && React.createElement(Moon, filterFigmaProps({ className: "h-3.5 w-3.5 text-muted-foreground" }))}
                       {!displayTheme.isDark && React.createElement(Sun, filterFigmaProps({ className: "h-3.5 w-3.5 text-amber-400" }))}
                     </h3>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{displayTheme.description}</p>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground">{displayTheme.description}</p>
                   </div>
                   <Button
                     variant="ghost"
@@ -151,32 +151,32 @@ export function ThemeSelector() {
                 {/* Color Palette Preview */}
                 <div className="flex gap-1.5 mt-3">
                   <div 
-                    className="h-5 w-5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm" 
+                    className="h-5 w-5 rounded-full border border-border dark:border-gray-600 shadow-sm" 
                     style={{ background: displayTheme.colors.primary }}
                     title="Primary"
                   />
                   <div 
-                    className="h-5 w-5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm" 
+                    className="h-5 w-5 rounded-full border border-border dark:border-gray-600 shadow-sm" 
                     style={{ background: displayTheme.colors.accent }}
                     title="Accent"
                   />
                   <div 
-                    className="h-5 w-5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm" 
+                    className="h-5 w-5 rounded-full border border-border dark:border-gray-600 shadow-sm" 
                     style={{ background: displayTheme.colors.success }}
                     title="Success"
                   />
                   <div 
-                    className="h-5 w-5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm" 
+                    className="h-5 w-5 rounded-full border border-border dark:border-gray-600 shadow-sm" 
                     style={{ background: displayTheme.colors.warning }}
                     title="Warning"
                   />
                   <div 
-                    className="h-5 w-5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm" 
+                    className="h-5 w-5 rounded-full border border-border dark:border-gray-600 shadow-sm" 
                     style={{ background: displayTheme.colors.error }}
                     title="Error"
                   />
                   <div 
-                    className="h-5 w-5 rounded-full border border-gray-200 dark:border-gray-600 shadow-sm" 
+                    className="h-5 w-5 rounded-full border border-border dark:border-gray-600 shadow-sm" 
                     style={{ background: displayTheme.colors.background }}
                     title="Background"
                   />

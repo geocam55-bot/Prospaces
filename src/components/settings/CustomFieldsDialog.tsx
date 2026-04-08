@@ -131,7 +131,7 @@ export function CustomFieldsDialog({ open, onOpenChange, organizationId }: Custo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-background dark:bg-slate-900">
         <DialogHeader>
           <DialogTitle>Manage Custom Fields</DialogTitle>
           <DialogDescription>
@@ -150,8 +150,8 @@ export function CustomFieldsDialog({ open, onOpenChange, organizationId }: Custo
           <div className="mt-6 space-y-4">
             <div className="flex justify-between items-center">
               <div>
-                <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 capitalize">{activeTab} Fields</h3>
-                <p className="text-xs text-gray-500">Define additional data points for {activeTab}s</p>
+                <h3 className="text-sm font-medium text-foreground dark:text-gray-100 capitalize">{activeTab} Fields</h3>
+                <p className="text-xs text-muted-foreground">Define additional data points for {activeTab}s</p>
               </div>
               <Button size="sm" onClick={() => setIsEditing(true)} disabled={isEditing}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -160,7 +160,7 @@ export function CustomFieldsDialog({ open, onOpenChange, organizationId }: Custo
             </div>
 
             {isEditing && (
-              <Card className="border-dashed border-2 bg-gray-50 dark:bg-gray-800/50">
+              <Card className="border-dashed border-2 bg-muted dark:bg-gray-800/50">
                 <CardContent className="pt-6 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -192,7 +192,7 @@ export function CustomFieldsDialog({ open, onOpenChange, organizationId }: Custo
                   </div>
 
                   {newField.type === 'select' && (
-                    <div className="space-y-2 bg-white p-3 rounded border">
+                    <div className="space-y-2 bg-background p-3 rounded border">
                       <Label>Dropdown Options</Label>
                       <div className="flex gap-2">
                         <Input 
@@ -205,13 +205,13 @@ export function CustomFieldsDialog({ open, onOpenChange, organizationId }: Custo
                       </div>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {newField.options?.map((opt, i) => (
-                          <span key={i} className="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded flex items-center gap-1">
+                          <span key={i} className="bg-muted text-foreground text-xs px-2 py-1 rounded flex items-center gap-1">
                             {opt}
                             <button onClick={() => handleRemoveOption(opt)} className="hover:text-red-500"><Trash2 className="h-3 w-3" /></button>
                           </span>
                         ))}
                         {(!newField.options || newField.options.length === 0) && (
-                          <span className="text-xs text-gray-400 italic">No options added yet</span>
+                          <span className="text-xs text-muted-foreground italic">No options added yet</span>
                         )}
                       </div>
                     </div>
@@ -236,14 +236,14 @@ export function CustomFieldsDialog({ open, onOpenChange, organizationId }: Custo
 
             <div className="space-y-2">
               {filteredFields.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 border rounded-md bg-gray-50/50">
+                <div className="text-center py-12 text-muted-foreground border rounded-md bg-muted/50">
                   <List className="h-8 w-8 mx-auto text-gray-300 mb-2" />
                   <p>No custom fields defined for {activeTab}s.</p>
                 </div>
               ) : (
                 filteredFields.map(field => (
                   <Card key={field.id} className="overflow-hidden hover:border-blue-300 transition-colors">
-                    <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-800">
+                    <div className="flex items-center justify-between p-4 bg-background dark:bg-gray-800">
                       <div className="flex items-center gap-4">
                         <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-blue-600 dark:text-blue-400">
                           {getIconForType(field.type)}
@@ -253,11 +253,11 @@ export function CustomFieldsDialog({ open, onOpenChange, organizationId }: Custo
                             {field.label}
                             {field.required && <span className="text-xs text-red-500 font-normal">(Required)</span>}
                           </h4>
-                          <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
-                            <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">{field.key}</span>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                            <span className="font-mono bg-muted dark:bg-gray-700 px-1 rounded">{field.key}</span>
                             <span className="capitalize">{field.type}</span>
                             {field.options && field.options.length > 0 && (
-                              <span className="text-gray-400">[{field.options.length} options]</span>
+                              <span className="text-muted-foreground">[{field.options.length} options]</span>
                             )}
                           </div>
                         </div>

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { publicAnonKey } from '../utils/supabase/info';
+import { buildServerFunctionUrl } from '../utils/server-function-url';
 
 export function TrackingRedirect() {
   useEffect(() => {
@@ -19,7 +20,7 @@ export function TrackingRedirect() {
       // If we have tracking data, log it
       if (id && orgId) {
         try {
-          await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/events`, {
+          await fetch(buildServerFunctionUrl('/public/events'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -49,9 +50,9 @@ export function TrackingRedirect() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-white">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-      <p className="text-gray-600 font-medium">Redirecting...</p>
+      <p className="text-muted-foreground font-medium">Redirecting...</p>
     </div>
   );
 }

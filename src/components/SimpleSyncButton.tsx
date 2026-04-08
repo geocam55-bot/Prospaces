@@ -138,7 +138,7 @@ export function SimpleSyncButton({ onSuccess }: SimpleSyncButtonProps) {
 
       {/* Setup Dialog */}
       <Dialog open={showSetup} onOpenChange={setShowSetup}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle className="text-xl">One-Time Setup Required</DialogTitle>
             <DialogDescription>

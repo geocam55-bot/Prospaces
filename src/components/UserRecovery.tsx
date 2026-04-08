@@ -303,10 +303,10 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
                 
                 {/* Auth User Status */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                  <div className="flex items-center justify-between p-3 bg-muted rounded">
                     <div>
                       <p className="text-sm font-medium">Auth User (auth.users)</p>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-muted-foreground">
                         {searchResults.authUser ? (
                           <>
                             ✅ Found - ID: {searchResults.authUser.id.substring(0, 8)}...
@@ -321,10 +321,10 @@ export function UserRecovery({ currentUserId, currentOrganizationId, currentUser
                   </div>
 
                   {/* Profile Status */}
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                  <div className="flex items-center justify-between p-3 bg-muted rounded">
                     <div>
                       <p className="text-sm font-medium">Profile (profiles table)</p>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-muted-foreground">
                         {searchResults.profile ? (
                           <>
                             ✅ Found - Organization: {searchResults.profile.organization_id}
@@ -488,7 +488,7 @@ WHERE email = '${searchResults.email}';`}</pre>
             </div>
           )}
 
-          <div className="text-xs text-gray-500 space-y-1 mt-4">
+          <div className="text-xs text-muted-foreground space-y-1 mt-4">
             <p><strong>Troubleshooting Tips:</strong></p>
             <ul className="list-disc pl-5 space-y-1">
               <li>If user exists in auth but no profile: Click "Create Profile"</li>

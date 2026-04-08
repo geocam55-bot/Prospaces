@@ -46,6 +46,31 @@ function addEdgeOutline(scene: Scene, geometry: BufferGeometry, mesh: Mesh, colo
   scene.add(wireframe);
 }
 
+type RoofPoint = [number, number, number];
+
+function createRoofQuadGeometry(a: RoofPoint, b: RoofPoint, c: RoofPoint, d: RoofPoint): BufferGeometry {
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array([
+    ...a,
+    ...b,
+    ...c,
+    ...a,
+    ...c,
+    ...d,
+  ]), 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function addRoofSurface(scene: Scene, geometry: BufferGeometry, material: MeshStandardMaterial, color = 0x333333) {
+  const mesh = new Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  addEdgeOutline(scene, geometry, mesh, color);
+  return mesh;
+}
+
 export function Shed3DRenderer({ config }: Shed3DRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<{
@@ -250,37 +275,48 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     const roofMaterial = new MeshStandardMaterial({ 
       map: roofTexture,
       roughness: config.roofingMaterial === 'metal' ? 0.25 : 0.95,
-      metalness: config.roofingMaterial === 'metal' ? 0.6 : 0.0
+      metalness: config.roofingMaterial === 'metal' ? 0.6 : 0.0,
+      side: DoubleSide
     });
 
     if (config.style === 'gable') {
-      const roofLength = Math.sqrt(Math.pow(shedWidth / 2, 2) + Math.pow(roofRise, 2));
-      const roofAngle = Math.atan2(roofRise, shedWidth / 2);
-      
-      // Left roof slope
-      const leftRoofGeometry = new BoxGeometry(roofLength + 0.15, 0.08, shedLength + 0.3);
-      const leftRoof = new Mesh(leftRoofGeometry, roofMaterial);
-      leftRoof.position.set(
-        -shedWidth / 4,
-        wallHeight + 0.2 + roofRise / 2,
-        0
-      );
-      leftRoof.rotation.z = roofAngle;
-      leftRoof.castShadow = true;
-      leftRoof.receiveShadow = true;
-      scene.add(leftRoof);
+      const roofBaseY = wallHeight + 0.2;
+      const ridgeY = roofBaseY + roofRise;
+      const sideOverhang = 0.1;
+      const endOverhang = 0.15;
+      const zFront = shedLength / 2 + endOverhang;
+      const zBack = -shedLength / 2 - endOverhang;
 
-      // Right roof slope
-      const rightRoof = new Mesh(leftRoofGeometry, roofMaterial);
-      rightRoof.position.set(
-        shedWidth / 4,
-        wallHeight + 0.2 + roofRise / 2,
-        0
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [-shedWidth / 2 - sideOverhang, roofBaseY, zFront],
+          [0, ridgeY, zFront],
+          [0, ridgeY, zBack],
+          [-shedWidth / 2 - sideOverhang, roofBaseY, zBack],
+        ),
+        roofMaterial,
       );
-      rightRoof.rotation.z = -roofAngle;
-      rightRoof.castShadow = true;
-      rightRoof.receiveShadow = true;
-      scene.add(rightRoof);
+
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [0, ridgeY, zFront],
+          [shedWidth / 2 + sideOverhang, roofBaseY, zFront],
+          [shedWidth / 2 + sideOverhang, roofBaseY, zBack],
+          [0, ridgeY, zBack],
+        ),
+        roofMaterial,
+      );
+
+      const ridgeCap = new Mesh(
+        new BoxGeometry(0.1, 0.08, shedLength + endOverhang * 2 + 0.04),
+        roofMaterial
+      );
+      ridgeCap.position.set(0, ridgeY + 0.04, 0);
+      ridgeCap.castShadow = true;
+      ridgeCap.receiveShadow = true;
+      scene.add(ridgeCap);
 
       // Gable end walls (triangular fills)
       const gableGeometry = new BufferGeometry();
@@ -309,16 +345,22 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
       gableBack.castShadow = true;
       scene.add(gableBack);
     } else if (config.style === 'lean-to') {
-      const roofLength = Math.sqrt(Math.pow(shedWidth, 2) + Math.pow(roofRise, 2));
-      const roofAngle = Math.atan2(roofRise, shedWidth);
-      
-      const leanRoofGeometry = new BoxGeometry(roofLength + 0.15, 0.08, shedLength + 0.3);
-      const leanRoof = new Mesh(leanRoofGeometry, roofMaterial);
-      leanRoof.position.set(0, wallHeight + 0.2 + roofRise / 2, 0);
-      leanRoof.rotation.z = roofAngle;
-      leanRoof.castShadow = true;
-      leanRoof.receiveShadow = true;
-      scene.add(leanRoof);
+      const roofBaseY = wallHeight + 0.2;
+      const sideOverhang = 0.1;
+      const endOverhang = 0.15;
+      const zFront = shedLength / 2 + endOverhang;
+      const zBack = -shedLength / 2 - endOverhang;
+
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [-shedWidth / 2 - sideOverhang, roofBaseY + roofRise, zFront],
+          [shedWidth / 2 + sideOverhang, roofBaseY, zFront],
+          [shedWidth / 2 + sideOverhang, roofBaseY, zBack],
+          [-shedWidth / 2 - sideOverhang, roofBaseY + roofRise, zBack],
+        ),
+        roofMaterial,
+      );
 
       // Lean-to gable end walls (triangular fills - right triangle shape)
       const leanGableFrontGeometry = new BufferGeometry();
@@ -356,71 +398,67 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
       const lowerRoofLength = Math.sqrt(Math.pow(lowerWidth, 2) + Math.pow(lowerRise, 2));
       const lowerRoofAngle = Math.atan2(lowerRise, lowerWidth);
       
-      // Lower left roof panel
-      const lowerLeftRoof = new Mesh(
-        new BoxGeometry(lowerRoofLength + 0.1, 0.08, shedLength + 0.3),
-        roofMaterial
-      );
-      // Position at 3/8 from left (-3/8 of width), halfway up the lower rise
-      lowerLeftRoof.position.set(
-        -(shedWidth / 2 - lowerWidth / 2),
-        wallHeight + 0.2 + lowerRise / 2,
-        0
-      );
-      lowerLeftRoof.rotation.z = lowerRoofAngle;
-      lowerLeftRoof.castShadow = true;
-      lowerLeftRoof.receiveShadow = true;
-      scene.add(lowerLeftRoof);
-      
-      // Lower right roof panel
-      const lowerRightRoof = new Mesh(
-        new BoxGeometry(lowerRoofLength + 0.1, 0.08, shedLength + 0.3),
-        roofMaterial
-      );
-      lowerRightRoof.position.set(
-        (shedWidth / 2 - lowerWidth / 2),
-        wallHeight + 0.2 + lowerRise / 2,
-        0
-      );
-      lowerRightRoof.rotation.z = -lowerRoofAngle;
-      lowerRightRoof.castShadow = true;
-      lowerRightRoof.receiveShadow = true;
-      scene.add(lowerRightRoof);
-      
-      // Upper sections (gentler angle from mid-point to peak)
+      const roofBaseY = wallHeight + 0.2;
+      const zFront = shedLength / 2 + 0.15;
+      const zBack = -shedLength / 2 - 0.15;
+      const leftEaveX = -shedWidth / 2 - 0.08;
+      const rightEaveX = shedWidth / 2 + 0.08;
       const upperWidth = shedWidth / 4; // Quarter of the width for upper section
       const upperRoofLength = Math.sqrt(Math.pow(upperWidth, 2) + Math.pow(upperRise, 2));
       const upperRoofAngle = Math.atan2(upperRise, upperWidth);
-      
-      // Upper left roof panel
-      const upperLeftRoof = new Mesh(
-        new BoxGeometry(upperRoofLength + 0.1, 0.08, shedLength + 0.3),
+
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [leftEaveX, roofBaseY, zFront],
+          [-barnLowerX, wallHeight + 0.2 + lowerRise, zFront],
+          [-barnLowerX, wallHeight + 0.2 + lowerRise, zBack],
+          [leftEaveX, roofBaseY, zBack],
+        ),
+        roofMaterial,
+      );
+
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [-barnLowerX, wallHeight + 0.2 + lowerRise, zFront],
+          [0, wallHeight + 0.2 + lowerRise + upperRise, zFront],
+          [0, wallHeight + 0.2 + lowerRise + upperRise, zBack],
+          [-barnLowerX, wallHeight + 0.2 + lowerRise, zBack],
+        ),
+        roofMaterial,
+      );
+
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [0, wallHeight + 0.2 + lowerRise + upperRise, zFront],
+          [barnLowerX, wallHeight + 0.2 + lowerRise, zFront],
+          [barnLowerX, wallHeight + 0.2 + lowerRise, zBack],
+          [0, wallHeight + 0.2 + lowerRise + upperRise, zBack],
+        ),
+        roofMaterial,
+      );
+
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [barnLowerX, wallHeight + 0.2 + lowerRise, zFront],
+          [rightEaveX, roofBaseY, zFront],
+          [rightEaveX, roofBaseY, zBack],
+          [barnLowerX, wallHeight + 0.2 + lowerRise, zBack],
+        ),
+        roofMaterial,
+      );
+
+      const ridgeCap = new Mesh(
+        new BoxGeometry(0.1, 0.08, shedLength + 0.34),
         roofMaterial
       );
-      upperLeftRoof.position.set(
-        -upperWidth / 2,
-        wallHeight + 0.2 + lowerRise + upperRise / 2,
-        0
-      );
-      upperLeftRoof.rotation.z = upperRoofAngle;
-      upperLeftRoof.castShadow = true;
-      upperLeftRoof.receiveShadow = true;
-      scene.add(upperLeftRoof);
-      
-      // Upper right roof panel
-      const upperRightRoof = new Mesh(
-        new BoxGeometry(upperRoofLength + 0.1, 0.08, shedLength + 0.3),
-        roofMaterial
-      );
-      upperRightRoof.position.set(
-        upperWidth / 2,
-        wallHeight + 0.2 + lowerRise + upperRise / 2,
-        0
-      );
-      upperRightRoof.rotation.z = -upperRoofAngle;
-      upperRightRoof.castShadow = true;
-      upperRightRoof.receiveShadow = true;
-      scene.add(upperRightRoof);
+      ridgeCap.position.set(0, wallHeight + 0.2 + lowerRise + upperRise + 0.04, 0);
+      ridgeCap.castShadow = true;
+      ridgeCap.receiveShadow = true;
+      scene.add(ridgeCap);
 
       // Barn/gambrel gable end walls (pentagonal shape: two triangles per side)
       const barnWallTop = wallHeight + 0.2;
@@ -519,30 +557,42 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
       const roofAngle = Math.atan2(roofRise, shedWidth / 2);
       const overhangDepth = shedLength * 0.15; // Front porch overhang
 
-      // Left roof slope (extends forward with overhang)
-      const leftRoofGeometry = new BoxGeometry(roofSlopeLength + 0.15, 0.08, shedLength + 0.3 + overhangDepth);
-      const leftRoof = new Mesh(leftRoofGeometry, roofMaterial);
-      leftRoof.position.set(
-        -shedWidth / 4,
-        wallHeight + 0.2 + roofRise / 2,
-        overhangDepth / 2
-      );
-      leftRoof.rotation.z = roofAngle;
-      leftRoof.castShadow = true;
-      leftRoof.receiveShadow = true;
-      scene.add(leftRoof);
+      const roofBaseY = wallHeight + 0.2;
+      const ridgeY = roofBaseY + roofRise;
+      const sideOverhang = 0.1;
+      const zFront = shedLength / 2 + 0.15 + overhangDepth;
+      const zBack = -shedLength / 2 - 0.15;
 
-      // Right roof slope (extends forward with overhang)
-      const rightRoof = new Mesh(leftRoofGeometry, roofMaterial);
-      rightRoof.position.set(
-        shedWidth / 4,
-        wallHeight + 0.2 + roofRise / 2,
-        overhangDepth / 2
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [-shedWidth / 2 - sideOverhang, roofBaseY, zFront],
+          [0, ridgeY, zFront],
+          [0, ridgeY, zBack],
+          [-shedWidth / 2 - sideOverhang, roofBaseY, zBack],
+        ),
+        roofMaterial,
       );
-      rightRoof.rotation.z = -roofAngle;
-      rightRoof.castShadow = true;
-      rightRoof.receiveShadow = true;
-      scene.add(rightRoof);
+
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [0, ridgeY, zFront],
+          [shedWidth / 2 + sideOverhang, roofBaseY, zFront],
+          [shedWidth / 2 + sideOverhang, roofBaseY, zBack],
+          [0, ridgeY, zBack],
+        ),
+        roofMaterial,
+      );
+
+      const ridgeCap = new Mesh(
+        new BoxGeometry(0.1, 0.08, shedLength + 0.34 + overhangDepth),
+        roofMaterial
+      );
+      ridgeCap.position.set(0, ridgeY + 0.04, overhangDepth / 2);
+      ridgeCap.castShadow = true;
+      ridgeCap.receiveShadow = true;
+      scene.add(ridgeCap);
 
       // Overhang support posts
       const postGeometry = new BoxGeometry(0.08, wallHeight, 0.08);
@@ -589,35 +639,43 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
       const frontHalfW = shedWidth / 2 + peakOffsetX; // shorter front side
       const backHalfW = shedWidth / 2 - peakOffsetX;  // longer back side
 
-      // Front (left) roof slope
-      const frontSlopeLen = Math.sqrt(frontHalfW * frontHalfW + roofRise * roofRise);
-      const frontSlopeAngle = Math.atan2(roofRise, frontHalfW);
-      const frontRoofGeom = new BoxGeometry(frontSlopeLen + 0.15, 0.08, shedLength + 0.3);
-      const frontRoof = new Mesh(frontRoofGeom, roofMaterial);
-      frontRoof.position.set(
-        (-shedWidth / 2 + peakOffsetX) / 2,
-        wallHeight + 0.2 + roofRise / 2,
-        0
-      );
-      frontRoof.rotation.z = frontSlopeAngle;
-      frontRoof.castShadow = true;
-      frontRoof.receiveShadow = true;
-      scene.add(frontRoof);
+      const roofBaseY = wallHeight + 0.2;
+      const ridgeY = roofBaseY + roofRise;
+      const sideOverhang = 0.1;
+      const endOverhang = 0.15;
+      const zFront = shedLength / 2 + endOverhang;
+      const zBack = -shedLength / 2 - endOverhang;
 
-      // Back (right) roof slope
-      const backSlopeLen = Math.sqrt(backHalfW * backHalfW + roofRise * roofRise);
-      const backSlopeAngle = Math.atan2(roofRise, backHalfW);
-      const backRoofGeom = new BoxGeometry(backSlopeLen + 0.15, 0.08, shedLength + 0.3);
-      const backRoof = new Mesh(backRoofGeom, roofMaterial);
-      backRoof.position.set(
-        (shedWidth / 2 + peakOffsetX) / 2,
-        wallHeight + 0.2 + roofRise / 2,
-        0
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [-shedWidth / 2 - sideOverhang, roofBaseY, zFront],
+          [peakOffsetX, ridgeY, zFront],
+          [peakOffsetX, ridgeY, zBack],
+          [-shedWidth / 2 - sideOverhang, roofBaseY, zBack],
+        ),
+        roofMaterial,
       );
-      backRoof.rotation.z = -backSlopeAngle;
-      backRoof.castShadow = true;
-      backRoof.receiveShadow = true;
-      scene.add(backRoof);
+
+      addRoofSurface(
+        scene,
+        createRoofQuadGeometry(
+          [peakOffsetX, ridgeY, zFront],
+          [shedWidth / 2 + sideOverhang, roofBaseY, zFront],
+          [shedWidth / 2 + sideOverhang, roofBaseY, zBack],
+          [peakOffsetX, ridgeY, zBack],
+        ),
+        roofMaterial,
+      );
+
+      const ridgeCap = new Mesh(
+        new BoxGeometry(0.1, 0.08, shedLength + endOverhang * 2 + 0.04),
+        roofMaterial
+      );
+      ridgeCap.position.set(peakOffsetX, ridgeY + 0.04, 0);
+      ridgeCap.castShadow = true;
+      ridgeCap.receiveShadow = true;
+      scene.add(ridgeCap);
 
       // Front gable end wall
       const sFrontGableGeom = new BufferGeometry();
@@ -929,32 +987,32 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
   return (
     <div className="w-full h-full bg-gradient-to-br from-green-100 to-emerald-200 rounded-lg overflow-hidden relative">
       {/* Instructions overlay */}
-      <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
-        <div className="font-semibold text-slate-900 mb-1">🎮 3D Controls:</div>
-        <div className="space-y-0.5 text-slate-700">
+      <div className="absolute top-4 left-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
+        <div className="font-semibold text-foreground mb-1">🎮 3D Controls:</div>
+        <div className="space-y-0.5 text-foreground">
           <div>🖱️ <strong>Rotate:</strong> Click + drag / Swipe</div>
           <div>🔍 <strong>Zoom:</strong> Scroll / Pinch</div>
         </div>
       </div>
 
       {/* Stats overlay */}
-      <div className="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
+      <div className="absolute top-4 right-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <div className="text-xs text-slate-600">Size</div>
-            <div className="font-bold text-slate-900">{config.width}' × {config.length}'</div>
+            <div className="text-xs text-muted-foreground">Size</div>
+            <div className="font-bold text-foreground">{config.width}' × {config.length}'</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Style</div>
-            <div className="font-bold text-slate-900">{config.style}</div>
+            <div className="text-xs text-muted-foreground">Style</div>
+            <div className="font-bold text-foreground">{config.style}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Windows</div>
-            <div className="font-bold text-slate-900">{config.windows.length}</div>
+            <div className="text-xs text-muted-foreground">Windows</div>
+            <div className="font-bold text-foreground">{config.windows.length}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Door</div>
-            <div className="font-bold text-slate-900">{config.doorType}</div>
+            <div className="text-xs text-muted-foreground">Door</div>
+            <div className="font-bold text-foreground">{config.doorType}</div>
           </div>
         </div>
       </div>

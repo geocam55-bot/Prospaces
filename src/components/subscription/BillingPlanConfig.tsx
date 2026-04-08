@@ -179,8 +179,8 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400 mr-2" />
-          <span className="text-gray-500">Loading billing plan configuration...</span>
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+          <span className="text-muted-foreground">Loading billing plan configuration...</span>
         </CardContent>
       </Card>
     );
@@ -219,7 +219,7 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
               </div>
               <div>
                 <CardTitle className="text-lg">Billing Plans Configuration</CardTitle>
-                <p className="text-sm text-gray-500 mt-0.5">
+                <p className="text-sm text-muted-foreground mt-0.5">
                   Configure default pricing, features, and options for each subscription plan
                 </p>
               </div>
@@ -257,7 +257,7 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
         </CardHeader>
         {config.updated_at && (
           <CardContent className="pt-0">
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-muted-foreground">
               Last updated: {new Date(config.updated_at).toLocaleString()}
             </p>
           </CardContent>
@@ -268,7 +268,7 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="h-4 w-4 text-gray-500" />
+            <FileText className="h-4 w-4 text-muted-foreground" />
             Global Billing Settings
           </CardTitle>
         </CardHeader>
@@ -317,7 +317,7 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
                 value={config.annualDiscountPercent}
                 onChange={(e) => updateGlobalSetting('annualDiscountPercent', parseInt(e.target.value) || 0)}
               />
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Applied when recalculating annual prices
               </p>
             </div>
@@ -361,17 +361,17 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
               </div>
               <div className="flex items-center gap-3">
                 {plan.popular && (
-                  <Badge className="bg-white/20 text-white border-white/30 text-xs">
+                  <Badge className="bg-background/20 text-white border-white/30 text-xs">
                     <Star className="h-3 w-3 mr-1 fill-current" /> Popular
                   </Badge>
                 )}
                 {!plan.visible && (
-                  <Badge className="bg-white/20 text-white border-white/30 text-xs">
+                  <Badge className="bg-background/20 text-white border-white/30 text-xs">
                     <EyeOff className="h-3 w-3 mr-1" /> Hidden
                   </Badge>
                 )}
                 {plan.trialEnabled && (
-                  <Badge className="bg-white/20 text-white border-white/30 text-xs">
+                  <Badge className="bg-background/20 text-white border-white/30 text-xs">
                     <Clock className="h-3 w-3 mr-1" /> Trial
                   </Badge>
                 )}
@@ -395,7 +395,7 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
                   <div>
                     <Label className="text-sm">Monthly Price ($)</Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
                       <Input
                         type="number"
                         min={0}
@@ -418,7 +418,7 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
                       </button>
                     </Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
                       <Input
                         type="number"
                         min={0}
@@ -429,7 +429,7 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
                       />
                     </div>
                     {plan.price > 0 && (
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Savings: {Math.round((1 - plan.priceAnnual / (plan.price * 12)) * 100)}% off monthly
                       </p>
                     )}
@@ -474,7 +474,7 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
                       onCheckedChange={(v) => updatePlan(planId, 'visible', v)}
                     />
                     <Label htmlFor={`${planId}-visible`} className="text-sm flex items-center gap-1 cursor-pointer">
-                      {plan.visible ? <Eye className="h-3.5 w-3.5 text-green-600" /> : <EyeOff className="h-3.5 w-3.5 text-gray-400" />}
+                      {plan.visible ? <Eye className="h-3.5 w-3.5 text-green-600" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
                       Visible on pricing page
                     </Label>
                   </div>
@@ -498,7 +498,7 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
                       }}
                     />
                     <Label htmlFor={`${planId}-popular`} className="text-sm flex items-center gap-1 cursor-pointer">
-                      <Star className={`h-3.5 w-3.5 ${plan.popular ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'}`} />
+                      <Star className={`h-3.5 w-3.5 ${plan.popular ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground'}`} />
                       Mark as "Most Popular"
                     </Label>
                   </div>
@@ -509,7 +509,7 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
                       onCheckedChange={(v) => updatePlan(planId, 'trialEnabled', v)}
                     />
                     <Label htmlFor={`${planId}-trial`} className="text-sm flex items-center gap-1 cursor-pointer">
-                      <Clock className={`h-3.5 w-3.5 ${plan.trialEnabled ? 'text-blue-500' : 'text-gray-400'}`} />
+                      <Clock className={`h-3.5 w-3.5 ${plan.trialEnabled ? 'text-blue-500' : 'text-muted-foreground'}`} />
                       Free trial available ({config.trialDays} days)
                     </Label>
                   </div>
@@ -522,17 +522,17 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
                     {(plan.features || []).map((feature, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center gap-2 group bg-gray-50 rounded-md px-3 py-1.5"
+                        className="flex items-center gap-2 group bg-muted rounded-md px-3 py-1.5"
                       >
                         <GripVertical className="h-3.5 w-3.5 text-gray-300 shrink-0" />
                         <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                        <span className="text-sm text-gray-700 flex-1">{feature}</span>
+                        <span className="text-sm text-foreground flex-1">{feature}</span>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             type="button"
                             onClick={() => moveFeature(planId, idx, 'up')}
                             disabled={idx === 0}
-                            className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                            className="p-0.5 text-muted-foreground hover:text-muted-foreground disabled:opacity-30"
                             title="Move up"
                           >
                             <span className="text-xs">&#9650;</span>
@@ -541,7 +541,7 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
                             type="button"
                             onClick={() => moveFeature(planId, idx, 'down')}
                             disabled={idx === (plan.features?.length || 0) - 1}
-                            className="p-0.5 text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                            className="p-0.5 text-muted-foreground hover:text-muted-foreground disabled:opacity-30"
                             title="Move down"
                           >
                             <span className="text-xs">&#9660;</span>
@@ -593,10 +593,10 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Eye className="h-4 w-4 text-gray-500" />
+            <Eye className="h-4 w-4 text-muted-foreground" />
             Pricing Preview
           </CardTitle>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             How the plans will appear to customers
           </p>
         </CardHeader>
@@ -611,7 +611,7 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
                 <div
                   key={planId}
                   className={`relative rounded-xl border-2 p-5 ${
-                    plan.popular ? 'border-purple-400 shadow-lg shadow-purple-100' : 'border-gray-200'
+                    plan.popular ? 'border-purple-400 shadow-lg shadow-purple-100' : 'border-border'
                   }`}
                 >
                   {plan.popular && (
@@ -623,18 +623,18 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
                     <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${PLAN_HEADER_COLORS[planId]} flex items-center justify-center`}>
                       <Icon className="h-4 w-4 text-white" />
                     </div>
-                    <h4 className="font-semibold text-gray-900">{plan.name}</h4>
+                    <h4 className="font-semibold text-foreground">{plan.name}</h4>
                   </div>
                   {plan.description && (
-                    <p className="text-xs text-gray-500 mb-3">{plan.description}</p>
+                    <p className="text-xs text-muted-foreground mb-3">{plan.description}</p>
                   )}
                   <div className="mb-4">
-                    <span className="text-2xl font-bold text-gray-900">
+                    <span className="text-2xl font-bold text-foreground">
                       {formatCurrency(plan.price, plan.currency || config.currency)}
                     </span>
-                    <span className="text-sm text-gray-500">/month</span>
+                    <span className="text-sm text-muted-foreground">/month</span>
                   </div>
-                  <div className="text-xs text-gray-400 mb-4">
+                  <div className="text-xs text-muted-foreground mb-4">
                     or {formatCurrency(plan.priceAnnual, plan.currency || config.currency)}/year
                     {plan.price > 0 && (
                       <span className="text-green-600 ml-1">
@@ -646,17 +646,17 @@ export function BillingPlanConfig({ user, onConfigSaved }: BillingPlanConfigProp
                     {(plan.features || []).slice(0, 5).map((f, i) => (
                       <div key={i} className="flex items-start gap-1.5">
                         <CheckCircle2 className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
-                        <span className="text-xs text-gray-600">{f}</span>
+                        <span className="text-xs text-muted-foreground">{f}</span>
                       </div>
                     ))}
                     {(plan.features || []).length > 5 && (
-                      <p className="text-xs text-gray-400 pl-5">
+                      <p className="text-xs text-muted-foreground pl-5">
                         +{(plan.features || []).length - 5} more features
                       </p>
                     )}
                   </div>
                   {plan.trialEnabled && (
-                    <div className="mt-3 pt-3 border-t border-gray-100">
+                    <div className="mt-3 pt-3 border-t border-border">
                       <p className="text-xs text-blue-600">
                         {config.trialDays}-day free trial available
                       </p>

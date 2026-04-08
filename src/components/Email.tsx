@@ -1308,7 +1308,7 @@ export function Email({ user }: EmailProps) {
                   </SelectContent>
                 </Select>
                 {accounts.find(a => a.id === selectedAccount)?.lastSync && (
-                  <span className="text-xs text-gray-500 hidden md:inline">
+                  <span className="text-xs text-muted-foreground hidden md:inline">
                     Last synced: {formatDate(accounts.find(a => a.id === selectedAccount)!.lastSync!)}
                   </span>
                 )}
@@ -1350,9 +1350,9 @@ export function Email({ user }: EmailProps) {
       {accounts.length === 0 ? (
         <Card>
           <CardContent className="pt-12 pb-12 text-center">
-            <Mail className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg text-gray-900 mb-2">No email accounts connected</h3>
-            <p className="text-sm text-gray-600 mb-6">
+            <Mail className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg text-foreground mb-2">No email accounts connected</h3>
+            <p className="text-sm text-muted-foreground mb-6">
               Connect your Gmail, Outlook, or Apple Mail account to manage emails within the CRM
             </p>
             
@@ -1380,7 +1380,7 @@ export function Email({ user }: EmailProps) {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-900">Folders</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Folders</h3>
                   <Button 
                     variant="ghost" 
                     size="sm" 
@@ -1413,7 +1413,7 @@ export function Email({ user }: EmailProps) {
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
                           isActive
                             ? 'bg-blue-50 text-blue-700 font-medium'
-                            : 'text-gray-700 hover:bg-gray-100'
+                            : 'text-foreground hover:bg-muted'
                         }`}
                       >
                         <div className="flex items-center gap-2">
@@ -1433,7 +1433,7 @@ export function Email({ user }: EmailProps) {
                   {customFolders.length > 0 && (
                     <>
                       <div className="border-t pt-2 mt-2">
-                        <div className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase">Custom</div>
+                        <div className="px-3 py-1 text-xs font-semibold text-muted-foreground uppercase">Custom</div>
                       </div>
                       {customFolders.map((folder) => {
                         const isActive = currentFolder === folder.id;
@@ -1446,7 +1446,7 @@ export function Email({ user }: EmailProps) {
                               className={`flex-1 flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
                                 isActive
                                   ? 'bg-blue-50 text-blue-700 font-medium'
-                                  : 'text-gray-700 hover:bg-gray-100'
+                                  : 'text-foreground hover:bg-muted'
                               }`}
                             >
                               <div className="flex items-center gap-2">
@@ -1480,7 +1480,7 @@ export function Email({ user }: EmailProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full justify-start px-3 py-2 text-sm text-gray-600 hover:text-gray-900 mt-2"
+                    className="w-full justify-start px-3 py-2 text-sm text-muted-foreground hover:text-foreground mt-2"
                     onClick={() => setIsFolderDialogOpen(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -1497,7 +1497,7 @@ export function Email({ user }: EmailProps) {
               <CardHeader>
                 <div className="space-y-3">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search emails by subject, from, to, or content..."
                       value={searchQuery}
@@ -1519,7 +1519,7 @@ export function Email({ user }: EmailProps) {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="divide-y divide-gray-200 max-h-[600px] lg:max-h-[600px] overflow-y-auto">
+                <div className="divide-y divide-border max-h-[600px] lg:max-h-[600px] overflow-y-auto">
                   {filteredEmails.map((email) => (
                     <button
                       key={email.id}
@@ -1530,27 +1530,27 @@ export function Email({ user }: EmailProps) {
                         }
                       }}
                       onContextMenu={(e) => handleContextMenu(e, email)}
-                      className={`w-full text-left p-3 sm:p-4 hover:bg-gray-50 transition-colors ${
+                      className={`w-full text-left p-3 sm:p-4 hover:bg-muted transition-colors ${
                         selectedEmail?.id === email.id ? 'bg-blue-50' : ''
                       } ${!email.read ? 'bg-blue-50/30' : ''}`}
                     >
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <span className={`text-xs sm:text-sm truncate flex-1 ${!email.read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                        <span className={`text-xs sm:text-sm truncate flex-1 ${!email.read ? 'font-semibold text-foreground' : 'text-foreground'}`}>
                           {email.folder === 'sent' ? `To: ${email.to}` : email.from}
                         </span>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {email.flagged && <Flag className="h-3 w-3 text-red-500 fill-red-500" />}
                           {email.starred && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />}
-                          {email.hasAttachments && <Paperclip className="h-3 w-3 text-gray-500" />}
-                          <span className="text-xs text-gray-500 whitespace-nowrap">
+                          {email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
                             {formatDate(email.date)}
                           </span>
                         </div>
                       </div>
-                      <p className={`text-xs sm:text-sm mb-1 truncate ${!email.read ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
+                      <p className={`text-xs sm:text-sm mb-1 truncate ${!email.read ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
                         {email.subject || '(No subject)'}
                       </p>
-                      <p className="text-xs text-gray-500 line-clamp-2">{getEmailPreview(email.body)}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{getEmailPreview(email.body)}</p>
                       {email.linkedTo && (
                         <Badge variant="secondary" className="mt-2 text-xs">
                           <Link2 className="h-3 w-3 mr-1" />
@@ -1560,8 +1560,8 @@ export function Email({ user }: EmailProps) {
                     </button>
                   ))}
                   {filteredEmails.length === 0 && (
-                    <div className="p-8 text-center text-gray-500">
-                      <Mail className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                    <div className="p-8 text-center text-muted-foreground">
+                      <Mail className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-sm">No emails found</p>
                     </div>
                   )}
@@ -1586,13 +1586,13 @@ export function Email({ user }: EmailProps) {
                       >
                         ← Back to list
                       </Button>
-                      <h2 className="text-lg sm:text-xl text-gray-900 mb-2 break-words">{selectedEmail.subject}</h2>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-600">
+                      <h2 className="text-lg sm:text-xl text-foreground mb-2 break-words">{selectedEmail.subject}</h2>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
                         <span className="truncate">From: {selectedEmail.from}</span>
                         <span className="hidden sm:inline">•</span>
                         <span className="truncate">To: {selectedEmail.to}</span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {new Date(selectedEmail.date).toLocaleString()}
                       </p>
                     </div>
@@ -1639,13 +1639,13 @@ export function Email({ user }: EmailProps) {
                       // Render HTML emails in an iframe for isolation
                       <iframe
                         srcDoc={selectedEmail.body}
-                        className="w-full min-h-[400px] border-0 bg-white"
+                        className="w-full min-h-[400px] border-0 bg-background"
                         sandbox="allow-same-origin"
                         title="Email content"
                       />
                     ) : (
                       // Render plain text emails
-                      <p className="text-gray-700 whitespace-pre-wrap">{selectedEmail.body}</p>
+                      <p className="text-foreground whitespace-pre-wrap">{selectedEmail.body}</p>
                     )}
                   </div>
                   {selectedEmail.linkedTo && (
@@ -1709,7 +1709,7 @@ export function Email({ user }: EmailProps) {
                         {customFolders.length > 0 && (
                           <>
                             <div className="border-t my-1" />
-                            <div className="px-2 py-1 text-xs font-semibold text-gray-500">Custom Folders</div>
+                            <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Custom Folders</div>
                             {customFolders.map((folder) => (
                               <DropdownMenuItem key={folder.id} onClick={() => handleMoveToFolder(selectedEmail.id, folder.id)}>
                                 <div 
@@ -1745,8 +1745,8 @@ export function Email({ user }: EmailProps) {
             ) : (
               <Card>
                 <CardContent className="pt-24 pb-24 text-center">
-                  <Mail className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">Select an email to view</p>
+                  <Mail className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">Select an email to view</p>
                 </CardContent>
               </Card>
             )}
@@ -1756,7 +1756,7 @@ export function Email({ user }: EmailProps) {
 
       {/* Compose Dialog */}
       <Dialog open={isComposeOpen} onOpenChange={setIsComposeOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle className="text-lg sm:text-xl">Compose Email</DialogTitle>
             <DialogDescription className="text-sm">
@@ -1835,7 +1835,7 @@ export function Email({ user }: EmailProps) {
 
       {/* Create Folder Dialog */}
       <Dialog open={isFolderDialogOpen} onOpenChange={setIsFolderDialogOpen}>
-        <DialogContent className="sm:max-w-[400px] bg-white">
+        <DialogContent className="sm:max-w-[400px] bg-background">
           <DialogHeader>
             <DialogTitle>Create Custom Folder</DialogTitle>
             <DialogDescription>
@@ -1867,7 +1867,7 @@ export function Email({ user }: EmailProps) {
                   onChange={(e) => setNewFolderColor(e.target.value)}
                   className="h-10 w-20"
                 />
-                <span className="text-sm text-gray-600">Choose a color to identify this folder</span>
+                <span className="text-sm text-muted-foreground">Choose a color to identify this folder</span>
               </div>
             </div>
             <div className="flex gap-2 pt-4">
@@ -1890,7 +1890,7 @@ export function Email({ user }: EmailProps) {
       {/* Context Menu */}
       {contextMenu && (
         <div
-          className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[200px]"
+          className="fixed bg-background border border-border rounded-lg shadow-lg py-1 z-50 min-w-[200px]"
           style={{
             top: contextMenu.y,
             left: contextMenu.x,
@@ -1898,7 +1898,7 @@ export function Email({ user }: EmailProps) {
           onClick={(e) => e.stopPropagation()}
         >
           <button
-            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            className="w-full text-left px-4 py-2 text-sm hover:bg-muted flex items-center gap-2"
             onClick={() => {
               handleMarkAsRead(contextMenu.email.id, !contextMenu.email.read);
               setContextMenu(null);
@@ -1918,7 +1918,7 @@ export function Email({ user }: EmailProps) {
           </button>
           
           <button
-            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            className="w-full text-left px-4 py-2 text-sm hover:bg-muted flex items-center gap-2"
             onClick={() => {
               handleToggleStar(contextMenu.email.id);
               setContextMenu(null);
@@ -1929,7 +1929,7 @@ export function Email({ user }: EmailProps) {
           </button>
 
           <button
-            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            className="w-full text-left px-4 py-2 text-sm hover:bg-muted flex items-center gap-2"
             onClick={() => {
               handleToggleFlag(contextMenu.email.id);
               setContextMenu(null);
@@ -1939,12 +1939,12 @@ export function Email({ user }: EmailProps) {
             {contextMenu.email.flagged ? 'Remove Flag' : 'Flag'}
           </button>
 
-          <div className="border-t border-gray-200 my-1" />
+          <div className="border-t border-border my-1" />
 
-          <div className="px-2 py-1 text-xs font-semibold text-gray-500">Move to</div>
+          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Move to</div>
           
           <button
-            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            className="w-full text-left px-4 py-2 text-sm hover:bg-muted flex items-center gap-2"
             onClick={() => {
               handleMoveToFolder(contextMenu.email.id, 'inbox');
               setContextMenu(null);
@@ -1955,7 +1955,7 @@ export function Email({ user }: EmailProps) {
           </button>
 
           <button
-            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            className="w-full text-left px-4 py-2 text-sm hover:bg-muted flex items-center gap-2"
             onClick={() => {
               handleMoveToFolder(contextMenu.email.id, 'archive');
               setContextMenu(null);
@@ -1966,7 +1966,7 @@ export function Email({ user }: EmailProps) {
           </button>
 
           <button
-            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            className="w-full text-left px-4 py-2 text-sm hover:bg-muted flex items-center gap-2"
             onClick={() => {
               handleMoveToFolder(contextMenu.email.id, 'drafts');
               setContextMenu(null);
@@ -1977,7 +1977,7 @@ export function Email({ user }: EmailProps) {
           </button>
 
           <button
-            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            className="w-full text-left px-4 py-2 text-sm hover:bg-muted flex items-center gap-2"
             onClick={() => {
               handleMoveToFolder(contextMenu.email.id, 'spam');
               setContextMenu(null);
@@ -1988,7 +1988,7 @@ export function Email({ user }: EmailProps) {
           </button>
 
           <button
-            className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+            className="w-full text-left px-4 py-2 text-sm hover:bg-muted flex items-center gap-2"
             onClick={() => {
               handleMoveToFolder(contextMenu.email.id, 'trash');
               setContextMenu(null);
@@ -2001,12 +2001,12 @@ export function Email({ user }: EmailProps) {
           {/* Custom Folders in Context Menu */}
           {customFolders.length > 0 && (
             <>
-              <div className="border-t border-gray-200 my-1" />
-              <div className="px-2 py-1 text-xs font-semibold text-gray-500">Custom Folders</div>
+              <div className="border-t border-border my-1" />
+              <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Custom Folders</div>
               {customFolders.map((folder) => (
                 <button
                   key={folder.id}
-                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-muted flex items-center gap-2"
                   onClick={() => {
                     handleMoveToFolder(contextMenu.email.id, folder.id);
                     setContextMenu(null);
@@ -2022,7 +2022,7 @@ export function Email({ user }: EmailProps) {
             </>
           )}
 
-          <div className="border-t border-gray-200 my-1" />
+          <div className="border-t border-border my-1" />
 
           <button
             className="w-full text-left px-4 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"

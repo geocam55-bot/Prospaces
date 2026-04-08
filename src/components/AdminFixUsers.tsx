@@ -171,7 +171,7 @@ export function AdminFixUsers() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-muted p-8">
       <div className="max-w-2xl mx-auto">
         <Card>
           <CardHeader>
@@ -199,7 +199,7 @@ export function AdminFixUsers() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter a temporary password"
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 This will be the user's password. They can change it later.
               </p>
             </div>

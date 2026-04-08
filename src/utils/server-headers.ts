@@ -104,18 +104,23 @@ export async function getUserAccessToken(): Promise<string | null> {
 
 /**
  * Build headers for a server API call.
- * Always includes Authorization with the anon key (for the gateway).
- * Adds X-User-Token when a session is available.
+ * Uses the live session JWT in `Authorization` when available, while also
+ * sending `apikey` and `X-User-Token` for compatibility with the server.
  */
 export async function getServerHeaders(extraHeaders?: Record<string, string>): Promise<Record<string, string>> {
+  const userToken = await getUserAccessToken();
+
   const headers: Record<string, string> = {
-    'Authorization': `Bearer ${publicAnonKey}`,
     'Content-Type': 'application/json',
+    'apikey': publicAnonKey,
     ...extraHeaders,
   };
 
-  const userToken = await getUserAccessToken();
-  if (userToken) {
+  if (!headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${userToken || publicAnonKey}`;
+  }
+
+  if (!headers['X-User-Token'] && userToken) {
     headers['X-User-Token'] = userToken;
   }
 

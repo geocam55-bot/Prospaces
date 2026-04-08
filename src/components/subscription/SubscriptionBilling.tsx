@@ -11,12 +11,13 @@ import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Loader2, CreditCard, Receipt, LayoutGrid, AlertTriangle, Sparkles } from 'lucide-react';
+import { Loader2, CreditCard, Receipt, LayoutGrid, AlertTriangle, Sparkles, Users } from 'lucide-react';
 import type { User } from '../../App';
 import {
   getCurrentSubscription,
   getBillingHistory,
   getPaymentMethod,
+  getOrgSubscriptions,
   createSubscription,
   updateSubscription,
   cancelSubscription,
@@ -44,6 +45,7 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
   const [checkoutInterval, setCheckoutInterval] = useState<'month' | 'year'>('month');
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [orgSubscriptions, setOrgSubscriptions] = useState<(Subscription & { user_email?: string; user_name?: string; user_role?: string })[]>([]);
 
   const isAdmin = ['admin', 'super_admin'].includes(user.role);
 
@@ -58,12 +60,20 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
       setSubscription(sub);
       setBillingEvents(events);
       setPaymentMethod(pm);
+
+      // Load org-wide subscriptions for admins
+      if (['admin', 'super_admin'].includes(user.role)) {
+        try {
+          const orgSubs = await getOrgSubscriptions();
+          setOrgSubscriptions(orgSubs);
+        } catch { /* non-critical */ }
+      }
     } catch (err: any) {
       toast.error('Failed to load subscription data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user.role]);
 
   useEffect(() => {
     loadData();
@@ -154,7 +164,7 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <span className="ml-3 text-slate-500">Loading subscription...</span>
+        <span className="ml-3 text-muted-foreground">Loading subscription...</span>
       </div>
     );
   }
@@ -182,7 +192,7 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
           <TabsTrigger value="overview" className="gap-2">
             <LayoutGrid className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -191,6 +201,17 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
             <Sparkles className="h-4 w-4" />
             <span className="hidden sm:inline">Plans</span>
           </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="team" className="gap-2">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Team</span>
+              {orgSubscriptions.length > 0 && (
+                <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
+                  {orgSubscriptions.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="payment" className="gap-2">
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">Payment</span>
@@ -229,6 +250,67 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
             refreshKey={planRefreshKey}
           />
         </TabsContent>
+
+        {/* Team Subscriptions Tab (admin only) */}
+        {isAdmin && (
+          <TabsContent value="team" className="mt-6">
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Team Subscriptions</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Each user in your organization can have their own plan level. Manage individual subscriptions below.
+                </p>
+                {orgSubscriptions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">No active user subscriptions yet.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-left text-muted-foreground">
+                          <th className="pb-2 pr-4">User</th>
+                          <th className="pb-2 pr-4">Plan</th>
+                          <th className="pb-2 pr-4">Status</th>
+                          <th className="pb-2 pr-4">Billing</th>
+                          <th className="pb-2 pr-4">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orgSubscriptions.map((sub) => (
+                          <tr key={sub.id} className="border-b last:border-0">
+                            <td className="py-3 pr-4">
+                              <div>
+                                <p className="font-medium">{sub.user_name || 'Unknown'}</p>
+                                <p className="text-xs text-muted-foreground">{sub.user_email || sub.user_id}</p>
+                              </div>
+                            </td>
+                            <td className="py-3 pr-4">
+                              <Badge variant="outline" className="capitalize">{sub.plan_id}</Badge>
+                            </td>
+                            <td className="py-3 pr-4">
+                              <Badge
+                                variant={sub.status === 'active' ? 'default' : 'secondary'}
+                                className={
+                                  sub.status === 'active' ? 'bg-green-100 text-green-700' :
+                                  sub.status === 'trialing' ? 'bg-blue-100 text-blue-700' :
+                                  sub.status === 'canceled' ? 'bg-red-100 text-red-700' :
+                                  'bg-muted text-foreground'
+                                }
+                              >
+                                {sub.status}
+                              </Badge>
+                            </td>
+                            <td className="py-3 pr-4 capitalize">{sub.billing_interval}ly</td>
+                            <td className="py-3 pr-4">${sub.amount}/{sub.billing_interval === 'year' ? 'yr' : 'mo'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         {/* Payment Method Tab */}
         <TabsContent value="payment" className="mt-6">

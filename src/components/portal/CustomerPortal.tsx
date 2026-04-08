@@ -152,10 +152,10 @@ export function CustomerPortal() {
 
   if (loading && !dashboardData) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-10 w-10 animate-spin text-blue-600 mx-auto mb-3" />
-          <p className="text-slate-500">Loading your portal...</p>
+          <p className="text-muted-foreground">Loading your portal...</p>
         </div>
       </div>
     );
@@ -178,15 +178,15 @@ export function CustomerPortal() {
   return (
     <>
       <Toaster />
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-muted">
         {/* Top Navigation Bar */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+        <header className="fixed top-0 left-0 right-0 z-50 bg-background border-b border-border shadow-sm">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex items-center justify-between h-14">
               {/* Logo & Mobile Menu */}
               <div className="flex items-center gap-3">
                 <button
-                  className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-slate-100"
+                  className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-muted"
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 >
                   {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -195,7 +195,7 @@ export function CustomerPortal() {
                   <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
                     <Building2 className="h-4 w-4 text-white" />
                   </div>
-                  <span className="font-semibold text-slate-900 hidden sm:inline">
+                  <span className="font-semibold text-foreground hidden sm:inline">
                     {dashboardData?.organization?.name || 'Customer Portal'}
                   </span>
                 </div>
@@ -213,7 +213,7 @@ export function CustomerPortal() {
                       className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         isActive
                           ? 'bg-blue-50 text-blue-700'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                       }`}
                     >
                       <Icon className="h-4 w-4" />
@@ -231,8 +231,8 @@ export function CustomerPortal() {
               {/* User Menu */}
               <div className="flex items-center gap-3">
                 <div className="hidden sm:block text-right">
-                  <p className="text-sm font-medium text-slate-900">{portalUser?.name}</p>
-                  <p className="text-xs text-slate-400">{portalUser?.email}</p>
+                  <p className="text-sm font-medium text-foreground">{portalUser?.name}</p>
+                  <p className="text-xs text-muted-foreground">{portalUser?.email}</p>
                 </div>
                 <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-sm font-bold">
                   {(portalUser?.name || 'C')[0]?.toUpperCase()}
@@ -246,7 +246,7 @@ export function CustomerPortal() {
         {mobileMenuOpen && (
           <div className="fixed inset-0 z-40 lg:hidden">
             <div className="absolute inset-0 bg-black/20" onClick={() => setMobileMenuOpen(false)} />
-            <div className="absolute top-14 left-0 right-0 bg-white border-b shadow-lg">
+            <div className="absolute top-14 left-0 right-0 bg-background border-b shadow-lg">
               <nav className="p-2 space-y-1">
                 {navItems.map((item) => {
                   const Icon = item.icon;
@@ -258,7 +258,7 @@ export function CustomerPortal() {
                       className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                         isActive
                           ? 'bg-blue-50 text-blue-700'
-                          : 'text-slate-600 hover:bg-slate-100'
+                          : 'text-muted-foreground hover:bg-muted'
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -294,8 +294,8 @@ export function CustomerPortal() {
             <Card className="max-w-md mx-auto mt-12">
               <CardContent className="p-6 text-center">
                 <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
-                <h2 className="text-lg font-semibold text-slate-900 mb-2">Unable to Load Portal</h2>
-                <p className="text-sm text-slate-500 mb-4">{dashboardError}</p>
+                <h2 className="text-lg font-semibold text-foreground mb-2">Unable to Load Portal</h2>
+                <p className="text-sm text-muted-foreground mb-4">{dashboardError}</p>
                 <div className="flex gap-2 justify-center">
                   <Button onClick={loadDashboard} variant="outline" className="gap-2">
                     <RefreshCw className="h-4 w-4" />
@@ -331,8 +331,8 @@ export function CustomerPortal() {
         </main>
 
         {/* Footer */}
-        <footer className="border-t bg-white mt-8">
-          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between text-xs text-slate-400">
+        <footer className="border-t bg-background mt-8">
+          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between text-xs text-muted-foreground">
             <span>Powered by ProSpaces CRM</span>
             <span>&copy; {new Date().getFullYear()}</span>
           </div>

@@ -6,10 +6,11 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Loader2, Send } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
 import { emailAPI } from '../utils/api';
-import { projectId } from '../utils/supabase/info';
+import { buildServerFunctionUrl } from '../utils/server-function-url';
+import { getServerHeaders } from '../utils/server-headers';
 
 interface EmailQuoteDialogProps {
   open: boolean;
@@ -97,7 +98,6 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
     }
 
     setLoading(true);
-    const supabase = createClient();
 
     try {
       const account = accounts.find(a => a.id === selectedAccount);
@@ -151,7 +151,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
       const trackingLinkUrl = `${appUrl}/?view=redirect&url=${encodedTargetUrl}&id=${quoteId}&orgId=${orgId}&type=${type}${campaignIdParam}`;
       
       // 2. Tracking Pixel (Disabled for now as it requires auth headers which email clients can't send)
-      // const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
+      // const baseUrl = buildServerFunctionUrl();
       // const trackingPixelUrl = `${baseUrl}/track/open?id=${quoteId}&orgId=${orgId}&type=quote`;
       // const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" style="display:none; visibility:hidden;" alt="" />`;
       
@@ -174,43 +174,57 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
       `;
 
       // Use consolidated server send endpoint
-      const { getServerHeaders } = await import('../utils/server-headers');
-      const { projectId: pid } = await import('../utils/supabase/info');
-      const sendHeaders = await getServerHeaders();
-      const sendRes = await fetch(
-        `https://${pid}.supabase.co/functions/v1/make-server-8405be07/email-send`,
-        {
+      const sendPayload = {
+        accountId: selectedAccount,
+        to: to.trim(),
+        subject: subject.trim(),
+        body: fullHtmlBody,
+      };
+
+      const supabase = createClient();
+
+      const sendEmailRequest = async (tokenOverride?: string) => {
+        const headers = await getServerHeaders(
+          tokenOverride ? { 'X-User-Token': tokenOverride } : undefined,
+        );
+        const response = await fetch(buildServerFunctionUrl('/email-send'), {
           method: 'POST',
-          headers: sendHeaders,
-          body: JSON.stringify({
-            accountId: selectedAccount,
-            to: to.trim(),
-            subject: subject.trim(),
-            body: fullHtmlBody,
-          }),
-        }
+          headers,
+          body: JSON.stringify(sendPayload),
+        });
+
+        const data = await response.json().catch(() => ({
+          error: response.statusText || `Send failed with status ${response.status}`,
+        }));
+
+        return { response, data };
+      };
+
+      const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+      let activeUserToken = session?.access_token;
+
+      let { response: sendRes, data: sendData } = await sendEmailRequest(activeUserToken);
+      const rawSendError = String(sendData?.error || '');
+      const shouldRetryAuth = !sendRes.ok && (
+        sendRes.status === 401
+        || /invalid.*token|envalid.*token|user token|missing auth token|unauthorized/i.test(rawSendError)
       );
-      const sendData = await sendRes.json();
-      
+
+      if (shouldRetryAuth) {
+        const refreshResult = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } }));
+        activeUserToken = refreshResult?.data?.session?.access_token || activeUserToken;
+        ({ response: sendRes, data: sendData } = await sendEmailRequest(activeUserToken));
+      }
+
       if (!sendRes.ok || !sendData.success) {
         throw new Error(sendData.error || `Send failed with status ${sendRes.status}`);
       }
 
       toast.success('Email sent successfully');
 
-      // Record the email in the local database as sent
-      await emailAPI.sendEmail({
-        account_id: selectedAccount,
-        message_id: crypto.randomUUID(), // Generate a UUID as the message ID
-        from_email: account.email,
-        to_email: to,
-        subject,
-        body: fullHtmlBody, // Save the full HTML body
-        is_read: true,
-        is_starred: false,
-        folder: 'sent',
-        received_at: new Date().toISOString(),
-      });
+      // The consolidated server endpoint already records the sent email.
+      // Avoid a second client-side insert here, which can surface stale-session
+      // `invalid token` errors even after the email was successfully sent.
       
       // Also update campaign to track this in Marketing Channel stats
       if (campaignIdToUse) {
@@ -232,7 +246,13 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      toast.error(`Failed to send email: ${error.message}`);
+      const rawMessage = error?.message || 'Unknown error';
+      const friendlyMessage = /invalid.*token|envalid.*token|user token|missing auth token|unauthorized/i.test(rawMessage)
+        ? 'Your sign-in session expired. Please refresh the page or sign in again, then retry sending the email.'
+        : /invalid[_\s-]?grant|invalid credentials|token expired|expired token/i.test(rawMessage)
+          ? 'Your email account connection has expired. Please reconnect it in the Email section and try again.'
+          : rawMessage;
+      toast.error(`Failed to send email: ${friendlyMessage}`);
     } finally {
       setLoading(false);
     }
@@ -240,7 +260,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col bg-white">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col bg-background">
         <DialogHeader>
           <DialogTitle>Email Quote</DialogTitle>
           <DialogDescription>

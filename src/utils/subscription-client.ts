@@ -25,6 +25,7 @@ export interface Plan {
 export interface Subscription {
   id: string;
   organization_id: string;
+  user_id: string;
   plan_id: PlanId;
   status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'expired';
   billing_interval: 'month' | 'year';
@@ -36,8 +37,6 @@ export interface Subscription {
   amount: number;
   currency: string;
   payment_method_id?: string;
-  seat_count?: number;
-  price_per_seat?: number;
   created_at: string;
   updated_at: string;
 }
@@ -140,6 +139,8 @@ export async function createSubscription(
   billingInterval: 'month' | 'year' = 'month',
   paymentMethod?: Partial<PaymentMethod>,
   trial = false,
+  targetUserId?: string,
+  targetOrgId?: string,
 ): Promise<Subscription> {
   const headers = await getServerHeaders();
   const res = await fetch(`${BASE_URL}/subscriptions/create`, {
@@ -150,6 +151,8 @@ export async function createSubscription(
       billing_interval: billingInterval,
       payment_method: paymentMethod,
       trial,
+      target_user_id: targetUserId,
+      target_org_id: targetOrgId,
     }),
   });
   if (!res.ok) {
@@ -163,12 +166,14 @@ export async function createSubscription(
 export async function updateSubscription(
   planId?: PlanId,
   billingInterval?: 'month' | 'year',
+  targetUserId?: string,
+  targetOrgId?: string,
 ): Promise<Subscription> {
   const headers = await getServerHeaders();
   const res = await fetch(`${BASE_URL}/subscriptions/update`, {
     method: 'PUT',
     headers,
-    body: JSON.stringify({ plan_id: planId, billing_interval: billingInterval }),
+    body: JSON.stringify({ plan_id: planId, billing_interval: billingInterval, target_user_id: targetUserId, target_org_id: targetOrgId }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -254,21 +259,20 @@ export async function simulatePayment(): Promise<{ event: BillingEvent; subscrip
 }
 
 /**
- * Adjust seat count on the org's subscription.
- * The server counts active users in the org and recalculates billing.
+ * Fetch all user subscriptions within the organization (admin only).
  */
-export async function adjustSeats(): Promise<Subscription | null> {
+export async function getOrgSubscriptions(orgOverride?: string): Promise<(Subscription & { user_email?: string; user_name?: string; user_role?: string })[]> {
   const headers = await getServerHeaders();
-  const res = await fetch(`${BASE_URL}/subscriptions/adjust-seats`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({}),
-  });
+  const url = orgOverride
+    ? `${BASE_URL}/subscriptions/org-subscriptions?org_override=${encodeURIComponent(orgOverride)}`
+    : `${BASE_URL}/subscriptions/org-subscriptions`;
+  const res = await fetch(url, { headers });
   if (!res.ok) {
-    return null;
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to fetch org subscriptions');
   }
   const data = await res.json();
-  return data.subscription;
+  return data.subscriptions || [];
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────

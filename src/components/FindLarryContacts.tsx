@@ -189,7 +189,7 @@ export function FindLarryContacts() {
                         {results.contactsByCreatedBy.length > 0 && (
                           <div className="mt-1">
                             {results.contactsByCreatedBy.map((c: any) => (
-                              <div key={c.id} className="text-xs text-gray-600">
+                              <div key={c.id} className="text-xs text-muted-foreground">
                                 • {c.name} ({c.company}) - Org: {c.organization_id || 'NULL'}
                               </div>
                             ))}
@@ -205,7 +205,7 @@ export function FindLarryContacts() {
                         {results.contactsByAccountOwner.length > 0 && (
                           <div className="mt-1">
                             {results.contactsByAccountOwner.map((c: any) => (
-                              <div key={c.id} className="text-xs text-gray-600">
+                              <div key={c.id} className="text-xs text-muted-foreground">
                                 • {c.name} ({c.company}) - Org: {c.organization_id || 'NULL'}
                               </div>
                             ))}
@@ -228,12 +228,12 @@ export function FindLarryContacts() {
                         {results.contactsWithoutOrg.length > 0 && (
                           <div className="mt-1">
                             {results.contactsWithoutOrg.slice(0, 10).map((c: any) => (
-                              <div key={c.id} className="text-xs text-gray-600">
+                              <div key={c.id} className="text-xs text-muted-foreground">
                                 • {c.name} ({c.company}) - Owner: {c.account_owner_number || 'N/A'}
                               </div>
                             ))}
                             {results.contactsWithoutOrg.length > 10 && (
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-muted-foreground">
                                 ... and {results.contactsWithoutOrg.length - 10} more
                               </div>
                             )}

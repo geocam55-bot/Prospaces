@@ -299,17 +299,17 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed top-[84px] right-4 bottom-4 w-full max-w-[380px] z-50 flex flex-col"
           >
-            <div className="flex flex-col h-full bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
+            <div className="flex flex-col h-full bg-background rounded-2xl shadow-2xl overflow-hidden border border-border">
               {/* Header */}
               <div className="relative bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-600 px-6 py-5 text-white">
                 <button
                   onClick={handleClose}
-                  className="absolute top-4 right-4 p-1.5 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
+                  className="absolute top-4 right-4 p-1.5 rounded-lg bg-background/20 hover:bg-background/30 transition-colors"
                 >
                   <X className="h-4 w-4" />
                 </button>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-background/20 flex items-center justify-center">
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <div>
@@ -320,15 +320,15 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
 
                 {/* Quick Stats */}
                 <div className="grid grid-cols-3 gap-3 mt-4">
-                  <div className="bg-white/15 rounded-lg px-3 py-2 text-center">
+                  <div className="bg-background/15 rounded-lg px-3 py-2 text-center">
                     <p className="text-2xl font-bold">{activeSuggestions.length}</p>
                     <p className="text-[11px] text-white/70">Suggestions</p>
                   </div>
-                  <div className="bg-white/15 rounded-lg px-3 py-2 text-center">
+                  <div className="bg-background/15 rounded-lg px-3 py-2 text-center">
                     <p className="text-2xl font-bold text-red-300">{criticalCount + highCount}</p>
                     <p className="text-[11px] text-white/70">Urgent</p>
                   </div>
-                  <div className="bg-white/15 rounded-lg px-3 py-2 text-center">
+                  <div className="bg-background/15 rounded-lg px-3 py-2 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <Flame className="h-4 w-4 text-orange-300" />
                       <p className="text-2xl font-bold">{streakData.currentStreak}</p>
@@ -350,7 +350,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <Brain className="h-4 w-4 text-indigo-500" />
-                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Focus Area</span>
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Focus Area</span>
                     </div>
                     <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3.5 flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
@@ -396,9 +396,9 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <AlertCircle className="h-4 w-4 text-orange-500" />
-                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Top Priorities</span>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Top Priorities</span>
                       </div>
-                      <span className="text-xs text-gray-400">{activeSuggestions.length} total</span>
+                      <span className="text-xs text-muted-foreground">{activeSuggestions.length} total</span>
                     </div>
                     <div className="space-y-2">
                       {topSuggestions.map((suggestion, index) => (
@@ -407,7 +407,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
                           initial={{ opacity: 0, x: 20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.25 + index * 0.08 }}
-                          className="bg-white border border-gray-200 rounded-xl p-3 hover:shadow-md transition-shadow cursor-pointer"
+                          className="bg-background border border-border rounded-xl p-3 hover:shadow-md transition-shadow cursor-pointer"
                           onClick={handleGoToSuggestions}
                         >
                           <div className="flex items-start gap-2.5">
@@ -415,8 +415,8 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
                               {getPriorityIcon(suggestion.priority)}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 leading-snug">{suggestion.title}</p>
-                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{suggestion.suggestedAction}</p>
+                              <p className="text-sm font-medium text-foreground leading-snug">{suggestion.title}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{suggestion.suggestedAction}</p>
                               <div className="flex items-center gap-2 mt-1.5">
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 gap-0.5">
                                   {getActionIcon(suggestion.actionType)}
@@ -428,7 +428,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
                                   </span>
                                 ) : null}
                                 {suggestion.daysInactive ? (
-                                  <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+                                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                                     <Clock className="h-2.5 w-2.5" /> {suggestion.daysInactive}d
                                   </span>
                                 ) : null}
@@ -450,14 +450,14 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <Lightbulb className="h-4 w-4 text-amber-500" />
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tip of the Day</span>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tip of the Day</span>
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-300 text-amber-700">{dailyTip.category}</Badge>
                   </div>
                   <div className="bg-amber-50 border border-amber-100 rounded-xl p-3.5">
-                    <p className="text-sm text-gray-700 leading-relaxed">{dailyTip.tip}</p>
+                    <p className="text-sm text-foreground leading-relaxed">{dailyTip.tip}</p>
                     <div className="mt-3 pt-2.5 border-t border-amber-200">
-                      <p className="text-xs italic text-gray-500">"{dailyQuote.quote}"</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">-- {dailyQuote.author}</p>
+                      <p className="text-xs italic text-muted-foreground">"{dailyQuote.quote}"</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">-- {dailyQuote.author}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -503,7 +503,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
               </div>
 
               {/* Footer */}
-              <div className="px-5 py-4 border-t border-gray-100 bg-gray-50/80">
+              <div className="px-5 py-4 border-t border-border bg-muted/80">
                 <div className="flex gap-2">
                   <Button
                     className="flex-1 bg-indigo-600 hover:bg-indigo-700"
@@ -519,7 +519,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
                     Dismiss
                   </Button>
                 </div>
-                <p className="text-[10px] text-gray-400 text-center mt-2">This briefing appears once daily</p>
+                <p className="text-[10px] text-muted-foreground text-center mt-2">This briefing appears once daily</p>
               </div>
             </div>
           </motion.div>

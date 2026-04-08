@@ -403,7 +403,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                 <Hammer className="h-5 w-5" />
                 Project Wizard Material Defaults
               </CardTitle>
-              <p className="text-sm text-gray-600 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 Set default inventory items for each material category in the project wizards. These defaults will be pre-selected when creating new projects.
               </p>
             </div>
@@ -433,13 +433,13 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
           )}
 
           {/* Quick Navigation Dropdown */}
-          <div className="bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-300 rounded-lg p-4">
+          <div className="bg-gradient-to-r from-slate-50 to-slate-100 border border-border rounded-lg p-4">
             <div className="flex items-center gap-3">
-              <Label htmlFor="planner-nav" className="text-sm font-medium text-black whitespace-nowrap">
+              <Label htmlFor="planner-nav" className="text-sm font-medium text-foreground whitespace-nowrap">
                 Jump to Planner:
               </Label>
               <Select onValueChange={scrollToPlanner}>
-                <SelectTrigger id="planner-nav" className="w-[200px] bg-white">
+                <SelectTrigger id="planner-nav" className="w-[200px] bg-background">
                   <SelectValue placeholder="Select a planner..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -486,7 +486,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                 Deck Planner
               </h3>
               <Select value={selectedDeckType} onValueChange={(value: any) => setSelectedDeckType(value)}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[180px] bg-background">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -498,13 +498,13 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               </Select>
             </div>
 
-            <div className="space-y-6 p-4 bg-white rounded-lg border border-purple-100">
+            <div className="space-y-6 p-4 bg-background rounded-lg border border-purple-100">
               {Object.entries(PLANNER_CATEGORIES.deck[selectedDeckType]).map(([sectionName, categories]) => {
                 const showCF = !isLumberGroup(sectionName);
                 return (
                   <div key={sectionName} className="space-y-3">
                     <div className="flex items-center gap-2 border-b border-purple-200 pb-1">
-                      <h4 className="font-medium text-gray-700">{sectionName}</h4>
+                      <h4 className="font-medium text-foreground">{sectionName}</h4>
                       {showCF && (
                         <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
                           <Info className="h-3 w-3" />
@@ -517,7 +517,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                         const cfValue = showCF ? getOrgCF('deck', selectedDeckType, category) : 1;
                         return (
                           <div key={category} className="space-y-2">
-                            <Label htmlFor={`deck-${selectedDeckType}-${category}`} className="text-black">{category}</Label>
+                            <Label htmlFor={`deck-${selectedDeckType}-${category}`} className="text-foreground">{category}</Label>
                             <InventoryCombobox
                               id={`deck-${selectedDeckType}-${category}`}
                               items={inventoryItems}
@@ -527,7 +527,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                             />
                             {showCF && (
                               <div className="flex items-center gap-2">
-                                <Label className="text-xs text-gray-500 whitespace-nowrap">CF:</Label>
+                                <Label className="text-xs text-muted-foreground whitespace-nowrap">CF:</Label>
                                 {(() => {
                                   const cfKey = getCFKey('deck', selectedDeckType, category);
                                   const editVal = cfEditValues[cfKey];
@@ -541,7 +541,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         onChange={(e) => handleCFInputChange('deck', selectedDeckType, category, e.target.value)}
                                         onBlur={() => handleCFInputBlur('deck', selectedDeckType, category)}
                                         placeholder="1"
-                                        className="h-7 w-24 text-xs text-black"
+                                        className="h-7 w-24 text-xs text-foreground"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
                                       />
                                       {cfValue !== 1 && editVal === undefined && (
@@ -568,13 +568,13 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               <Warehouse className="h-5 w-5 text-blue-600" />
               Garage Planner
             </h3>
-            <div className="space-y-6 p-4 bg-white rounded-lg border border-blue-100">
+            <div className="space-y-6 p-4 bg-background rounded-lg border border-blue-100">
               {Object.entries(PLANNER_CATEGORIES.garage.default).map(([sectionName, categories]) => {
                 const showCF = !isLumberGroup(sectionName);
                 return (
                   <div key={sectionName} className="space-y-3">
                     <div className="flex items-center gap-2 border-b border-blue-200 pb-1">
-                      <h4 className="font-medium text-gray-700">{sectionName}</h4>
+                      <h4 className="font-medium text-foreground">{sectionName}</h4>
                       {showCF && (
                         <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
                           <Info className="h-3 w-3" />
@@ -587,7 +587,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                         const cfValue = showCF ? getOrgCF('garage', null, category) : 1;
                         return (
                           <div key={category} className="space-y-2">
-                            <Label htmlFor={`garage-${category}`} className="text-black">{category}</Label>
+                            <Label htmlFor={`garage-${category}`} className="text-foreground">{category}</Label>
                             <InventoryCombobox
                               id={`garage-${category}`}
                               items={inventoryItems}
@@ -597,7 +597,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                             />
                             {showCF && (
                               <div className="flex items-center gap-2">
-                                <Label className="text-xs text-gray-500 whitespace-nowrap">CF:</Label>
+                                <Label className="text-xs text-muted-foreground whitespace-nowrap">CF:</Label>
                                 {(() => {
                                   const cfKey = getCFKey('garage', null, category);
                                   const editVal = cfEditValues[cfKey];
@@ -611,7 +611,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         onChange={(e) => handleCFInputChange('garage', null, category, e.target.value)}
                                         onBlur={() => handleCFInputBlur('garage', null, category)}
                                         placeholder="1"
-                                        className="h-7 w-24 text-xs text-black"
+                                        className="h-7 w-24 text-xs text-foreground"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
                                       />
                                       {cfValue !== 1 && editVal === undefined && (
@@ -638,13 +638,13 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               <Building2 className="h-5 w-5 text-green-600" />
               Shed Planner
             </h3>
-            <div className="space-y-6 p-4 bg-white rounded-lg border border-green-100">
+            <div className="space-y-6 p-4 bg-background rounded-lg border border-green-100">
               {Object.entries(PLANNER_CATEGORIES.shed.default).map(([sectionName, categories]) => {
                 const showCF = !isLumberGroup(sectionName);
                 return (
                   <div key={sectionName} className="space-y-3">
                     <div className="flex items-center gap-2 border-b border-green-200 pb-1">
-                      <h4 className="font-medium text-gray-700">{sectionName}</h4>
+                      <h4 className="font-medium text-foreground">{sectionName}</h4>
                       {showCF && (
                         <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
                           <Info className="h-3 w-3" />
@@ -657,7 +657,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                         const cfValue = showCF ? getOrgCF('shed', null, category) : 1;
                         return (
                           <div key={category} className="space-y-2">
-                            <Label htmlFor={`shed-${category}`} className="text-black">{category}</Label>
+                            <Label htmlFor={`shed-${category}`} className="text-foreground">{category}</Label>
                             <InventoryCombobox
                               id={`shed-${category}`}
                               items={inventoryItems}
@@ -667,7 +667,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                             />
                             {showCF && (
                               <div className="flex items-center gap-2">
-                                <Label className="text-xs text-gray-500 whitespace-nowrap">CF:</Label>
+                                <Label className="text-xs text-muted-foreground whitespace-nowrap">CF:</Label>
                                 {(() => {
                                   const cfKey = getCFKey('shed', null, category);
                                   const editVal = cfEditValues[cfKey];
@@ -681,7 +681,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         onChange={(e) => handleCFInputChange('shed', null, category, e.target.value)}
                                         onBlur={() => handleCFInputBlur('shed', null, category)}
                                         placeholder="1"
-                                        className="h-7 w-24 text-xs text-black"
+                                        className="h-7 w-24 text-xs text-foreground"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
                                       />
                                       {cfValue !== 1 && editVal === undefined && (
@@ -708,13 +708,13 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               <Hammer className="h-5 w-5 text-red-600" />
               Roof Planner
             </h3>
-            <div className="space-y-6 p-4 bg-white rounded-lg border border-red-100">
+            <div className="space-y-6 p-4 bg-background rounded-lg border border-red-100">
               {Object.entries(PLANNER_CATEGORIES.roof.default).map(([sectionName, categories]) => {
                 const showCF = !isLumberGroup(sectionName);
                 return (
                   <div key={sectionName} className="space-y-3">
                     <div className="flex items-center gap-2 border-b border-red-200 pb-1">
-                      <h4 className="font-medium text-gray-700">{sectionName}</h4>
+                      <h4 className="font-medium text-foreground">{sectionName}</h4>
                       {showCF && (
                         <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
                           <Info className="h-3 w-3" />
@@ -727,7 +727,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                         const cfValue = showCF ? getOrgCF('roof', null, category) : 1;
                         return (
                           <div key={category} className="space-y-2">
-                            <Label htmlFor={`roof-${category}`} className="text-black">{category}</Label>
+                            <Label htmlFor={`roof-${category}`} className="text-foreground">{category}</Label>
                             <InventoryCombobox
                               id={`roof-${category}`}
                               items={inventoryItems}
@@ -737,7 +737,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                             />
                             {showCF && (
                               <div className="flex items-center gap-2">
-                                <Label className="text-xs text-gray-500 whitespace-nowrap">CF:</Label>
+                                <Label className="text-xs text-muted-foreground whitespace-nowrap">CF:</Label>
                                 {(() => {
                                   const cfKey = getCFKey('roof', null, category);
                                   const editVal = cfEditValues[cfKey];
@@ -751,7 +751,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         onChange={(e) => handleCFInputChange('roof', null, category, e.target.value)}
                                         onBlur={() => handleCFInputBlur('roof', null, category)}
                                         placeholder="1"
-                                        className="h-7 w-24 text-xs text-black"
+                                        className="h-7 w-24 text-xs text-foreground"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
                                       />
                                       {cfValue !== 1 && editVal === undefined && (
@@ -780,7 +780,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                 Finishing Planner
               </h3>
               <Select value={selectedFinishingType} onValueChange={(value: any) => setSelectedFinishingType(value)}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[180px] bg-background">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -791,13 +791,13 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               </Select>
             </div>
 
-            <div className="space-y-6 p-4 bg-white rounded-lg border border-teal-100">
+            <div className="space-y-6 p-4 bg-background rounded-lg border border-teal-100">
               {Object.entries(PLANNER_CATEGORIES.finishing[selectedFinishingType]).map(([sectionName, categories]) => {
                 const showCF = !isLumberGroup(sectionName);
                 return (
                   <div key={sectionName} className="space-y-3">
                     <div className="flex items-center gap-2 border-b border-teal-200 pb-1">
-                      <h4 className="font-medium text-gray-700">{sectionName}</h4>
+                      <h4 className="font-medium text-foreground">{sectionName}</h4>
                       {showCF && (
                         <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
                           <Info className="h-3 w-3" />
@@ -810,7 +810,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                         const cfValue = showCF ? getOrgCF('finishing', selectedFinishingType, category) : 1;
                         return (
                           <div key={category} className="space-y-2">
-                            <Label htmlFor={`finishing-${selectedFinishingType}-${category}`} className="text-black">{category}</Label>
+                            <Label htmlFor={`finishing-${selectedFinishingType}-${category}`} className="text-foreground">{category}</Label>
                             <InventoryCombobox
                               id={`finishing-${selectedFinishingType}-${category}`}
                               items={inventoryItems}
@@ -820,7 +820,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                             />
                             {showCF && (
                               <div className="flex items-center gap-2">
-                                <Label className="text-xs text-gray-500 whitespace-nowrap">CF:</Label>
+                                <Label className="text-xs text-muted-foreground whitespace-nowrap">CF:</Label>
                                 {(() => {
                                   const cfKey = getCFKey('finishing', selectedFinishingType, category);
                                   const editVal = cfEditValues[cfKey];
@@ -834,7 +834,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         onChange={(e) => handleCFInputChange('finishing', selectedFinishingType, category, e.target.value)}
                                         onBlur={() => handleCFInputBlur('finishing', selectedFinishingType, category)}
                                         placeholder="1"
-                                        className="h-7 w-24 text-xs text-black"
+                                        className="h-7 w-24 text-xs text-foreground"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
                                       />
                                       {cfValue !== 1 && editVal === undefined && (

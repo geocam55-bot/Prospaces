@@ -19,7 +19,7 @@ function formatQty(item: any): React.ReactNode {
         <span className="text-amber-700 font-semibold">{displayQty}</span>{' '}
         <span className="text-amber-700">{item.convertedUnit || 'units'}</span>
         {item.orderQuantity != null && item.orderQuantity !== item.convertedQuantity && (
-          <span className="block text-xs text-gray-500">
+          <span className="block text-xs text-muted-foreground">
             Order: {item.orderQuantity} {item.convertedUnit || 'units'}
           </span>
         )}
@@ -56,7 +56,7 @@ export function GarageMaterialsList({ materials, compact = false }: GarageMateri
           const Icon = category.icon;
           return (
             <div key={category.key}>
-              <h3 className="flex items-center gap-2 mb-3 text-slate-900">
+              <h3 className="flex items-center gap-2 mb-3 text-foreground">
                 <Icon className="w-4 h-4" />
                 {category.label}
               </h3>
@@ -64,15 +64,15 @@ export function GarageMaterialsList({ materials, compact = false }: GarageMateri
                 {nonZeroItems.map((item, index) => (
                   <div
                     key={index}
-                    className="flex justify-between items-start text-sm py-2 border-b border-slate-100 last:border-0"
+                    className="flex justify-between items-start text-sm py-2 border-b border-border last:border-0"
                   >
                     <div className="flex-1">
-                      <div className="text-slate-900">{item.description}</div>
+                      <div className="text-foreground">{item.description}</div>
                       {item.notes && (
-                        <div className="text-xs text-slate-500 mt-0.5">{item.notes}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">{item.notes}</div>
                       )}
                     </div>
-                    <div className="ml-4 text-right font-medium text-slate-700 whitespace-nowrap">
+                    <div className="ml-4 text-right font-medium text-foreground whitespace-nowrap">
                       {formatQty(item)}
                     </div>
                   </div>
@@ -88,8 +88,8 @@ export function GarageMaterialsList({ materials, compact = false }: GarageMateri
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-slate-900 mb-2">Complete Materials List</h2>
-        <p className="text-slate-600 text-sm">
+        <h2 className="text-foreground mb-2">Complete Materials List</h2>
+        <p className="text-muted-foreground text-sm">
           Estimated materials needed for your garage build. Quantities include typical waste factors.
         </p>
       </div>
@@ -112,9 +112,9 @@ export function GarageMaterialsList({ materials, compact = false }: GarageMateri
               <CardContent>
                 <div className="space-y-3">
                   {nonZeroItems.map((item, index) => (
-                    <div key={index} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                    <div key={index} className="border-b border-border pb-3 last:border-0 last:pb-0">
                       <div className="flex justify-between items-start mb-1">
-                        <div className="font-medium text-slate-900 text-sm">
+                        <div className="font-medium text-foreground text-sm">
                           {item.description}
                         </div>
                         <div className="ml-4 font-semibold text-blue-600 whitespace-nowrap">
@@ -122,7 +122,7 @@ export function GarageMaterialsList({ materials, compact = false }: GarageMateri
                         </div>
                       </div>
                       {item.notes && (
-                        <div className="text-xs text-slate-500">{item.notes}</div>
+                        <div className="text-xs text-muted-foreground">{item.notes}</div>
                       )}
                     </div>
                   ))}

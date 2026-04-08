@@ -123,8 +123,8 @@ AND tablename = 'inventory';`;
         <CardContent className="p-6">
           <div className="text-center mb-6">
             <Database className="h-12 w-12 text-blue-600 mx-auto mb-3" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Inventory Table</h2>
-            <p className="text-gray-600">
+            <h2 className="text-2xl font-bold text-foreground mb-2">Create Inventory Table</h2>
+            <p className="text-muted-foreground">
               Run this SQL script once to create the inventory table
             </p>
           </div>
@@ -136,7 +136,7 @@ AND tablename = 'inventory';`;
                   1
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-gray-900 mb-2">Copy the SQL script</p>
+                  <p className="font-semibold text-foreground mb-2">Copy the SQL script</p>
                   <Button 
                     onClick={copySQL} 
                     className="w-full" 
@@ -164,7 +164,7 @@ AND tablename = 'inventory';`;
                   2
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-gray-900 mb-2">Open Supabase & run the SQL</p>
+                  <p className="font-semibold text-foreground mb-2">Open Supabase & run the SQL</p>
                   <Button 
                     onClick={openSupabase} 
                     className="w-full bg-blue-600 hover:bg-blue-700"
@@ -172,7 +172,7 @@ AND tablename = 'inventory';`;
                     <Database className="mr-2 h-4 w-4" />
                     Open Supabase SQL Editor
                   </Button>
-                  <p className="text-xs text-gray-600 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     Paste the SQL and click <strong>RUN</strong>
                   </p>
                 </div>
@@ -185,7 +185,7 @@ AND tablename = 'inventory';`;
                   3
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-gray-900 mb-2">Verify it worked</p>
+                  <p className="font-semibold text-foreground mb-2">Verify it worked</p>
                   <Button 
                     onClick={checkIfFixed} 
                     className="w-full bg-green-600 hover:bg-green-700"
@@ -200,7 +200,7 @@ AND tablename = 'inventory';`;
 
           {/* SQL Preview */}
           <details className="mt-6">
-            <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-900 font-semibold">
+            <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground font-semibold">
               📋 View SQL Script
             </summary>
             <textarea

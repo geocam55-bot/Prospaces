@@ -42,7 +42,7 @@ export function GarageConfigurator({ config, onChange }: GarageConfiguratorProps
               value={config.width}
               onChange={(e) => updateConfig({ width: Number(e.target.value) })}
             />
-            <p className="text-xs text-slate-500 mt-1">Typical: 12-24 ft</p>
+            <p className="text-xs text-muted-foreground mt-1">Typical: 12-24 ft</p>
           </div>
 
           <div>
@@ -55,7 +55,7 @@ export function GarageConfigurator({ config, onChange }: GarageConfiguratorProps
               value={config.length}
               onChange={(e) => updateConfig({ length: Number(e.target.value) })}
             />
-            <p className="text-xs text-slate-500 mt-1">Typical: 20-24 ft</p>
+            <p className="text-xs text-muted-foreground mt-1">Typical: 20-24 ft</p>
           </div>
 
           <div>
@@ -160,7 +160,7 @@ export function GarageConfigurator({ config, onChange }: GarageConfiguratorProps
           <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
             config.hasAtticTrusses
               ? 'border-blue-600 bg-blue-50'
-              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+              : 'border-border hover:border-slate-400 hover:bg-muted'
           }`}>
             <Checkbox
               id="hasAtticTrusses"
@@ -232,7 +232,7 @@ export function GarageConfigurator({ config, onChange }: GarageConfiguratorProps
           <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
             config.hasWalkDoor
               ? 'border-blue-600 bg-blue-50'
-              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+              : 'border-border hover:border-slate-400 hover:bg-muted'
           }`}>
             <Checkbox
               id="hasWalkDoor"
@@ -247,7 +247,7 @@ export function GarageConfigurator({ config, onChange }: GarageConfiguratorProps
           <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
             config.isInsulated
               ? 'border-blue-600 bg-blue-50'
-              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+              : 'border-border hover:border-slate-400 hover:bg-muted'
           }`}>
             <Checkbox
               id="isInsulated"
@@ -262,7 +262,7 @@ export function GarageConfigurator({ config, onChange }: GarageConfiguratorProps
           <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
             config.hasElectrical
               ? 'border-blue-600 bg-blue-50'
-              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+              : 'border-border hover:border-slate-400 hover:bg-muted'
           }`}>
             <Checkbox
               id="hasElectrical"
@@ -286,18 +286,18 @@ export function GarageConfigurator({ config, onChange }: GarageConfiguratorProps
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-xs space-y-1.5 text-slate-600">
+          <div className="text-xs space-y-1.5 text-muted-foreground">
             <div className="flex justify-between">
               <span>Wall Studs ({config.height}' walls):</span>
-              <span className="font-medium text-slate-800">{selectLumberLength(config.height)}'</span>
+              <span className="font-medium text-foreground">{selectLumberLength(config.height)}'</span>
             </div>
             <div className="flex justify-between">
               <span>Plates - Width ({config.width}'):</span>
-              <span className="font-medium text-slate-800">{getLumberLengthDescription(config.width)}</span>
+              <span className="font-medium text-foreground">{getLumberLengthDescription(config.width)}</span>
             </div>
             <div className="flex justify-between">
               <span>Plates - Length ({config.length}'):</span>
-              <span className="font-medium text-slate-800">{getLumberLengthDescription(config.length)}</span>
+              <span className="font-medium text-foreground">{getLumberLengthDescription(config.length)}</span>
             </div>
             {(() => {
               const maxDoorWidth = config.doors.reduce((max, d) => Math.max(max, d.width), 0);
@@ -305,17 +305,17 @@ export function GarageConfigurator({ config, onChange }: GarageConfiguratorProps
               return (
                 <div className="flex justify-between">
                   <span>Headers ({headerSpan}' span):</span>
-                  <span className="font-medium text-slate-800">{selectLumberLength(headerSpan)}'</span>
+                  <span className="font-medium text-foreground">{selectLumberLength(headerSpan)}'</span>
                 </div>
               );
             })()}
             <div className="flex justify-between">
               <span>Fascia - Width ({config.width}'):</span>
-              <span className="font-medium text-slate-800">{getLumberLengthDescription(config.width)}</span>
+              <span className="font-medium text-foreground">{getLumberLengthDescription(config.width)}</span>
             </div>
             <div className="flex justify-between">
               <span>Fascia - Length ({config.length}'):</span>
-              <span className="font-medium text-slate-800">{getLumberLengthDescription(config.length)}</span>
+              <span className="font-medium text-foreground">{getLumberLengthDescription(config.length)}</span>
             </div>
           </div>
           <p className="text-[10px] text-blue-600 mt-2">

@@ -7,9 +7,12 @@ import { extractUserToken } from './auth-helper.ts';
  * Subscription & Billing routes (KV-backed).
  *
  * Key patterns:
- *   subscription:{orgId}              — current subscription record
+ *   subscription:{orgId}:{userId}     — per-user subscription record
  *   billing_event:{orgId}:{eventId}   — individual billing/payment events
  *   payment_method:{orgId}            — stored payment method (demo/tokenised)
+ *
+ * Subscriptions are attached to individual users, allowing different plan
+ * levels within the same organization.
  */
 
 const PREFIX = '/make-server-8405be07';
@@ -18,7 +21,7 @@ const PREFIX = '/make-server-8405be07';
 export const PLANS = {
   starter: {
     id: 'starter',
-    name: 'Starter',
+    name: 'Standard User',
     price: 29,
     priceAnnual: 290, // ~17% savings
     currency: 'USD',
@@ -38,7 +41,7 @@ export const PLANS = {
     currency: 'USD',
     interval: 'month',
     features: [
-      'Everything in Starter',
+      'Everything in Standard User',
       'Marketing automation',
       'Inventory management',
       'Document management',
@@ -73,6 +76,7 @@ export type PlanId = keyof typeof PLANS;
 export interface Subscription {
   id: string;
   organization_id: string;
+  user_id: string;
   plan_id: PlanId;
   status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'expired';
   billing_interval: 'month' | 'year';
@@ -84,8 +88,6 @@ export interface Subscription {
   amount: number;
   currency: string;
   payment_method_id?: string;
-  seat_count?: number;
-  price_per_seat?: number;
   created_at: string;
   updated_at: string;
 }
@@ -154,26 +156,8 @@ function generateInvoiceNumber(): string {
   return `${prefix}-${y}${m}-${seq}`;
 }
 
-// ── Helper: count active users in an organization ───────────────────────
-async function countActiveSeats(orgId: string): Promise<number> {
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
-  const { count, error } = await supabase
-    .from('profiles')
-    .select('id', { count: 'exact', head: true })
-    .eq('organization_id', orgId)
-    .eq('status', 'active');
-  if (error) {
-    console.error('[subscriptions] Error counting active seats:', error);
-    return 1; // Fallback to at least 1 seat
-  }
-  return Math.max(1, count ?? 1); // Ensure at least 1
-}
-
-// ── Helper: resolve per-seat price from plan (checks admin config) ──────
-async function resolvePerSeatPrice(planId: PlanId, interval: 'month' | 'year'): Promise<number> {
+// ── Helper: resolve price from plan (checks admin config) ───────────────
+async function resolvePlanPrice(planId: PlanId, interval: 'month' | 'year'): Promise<number> {
   const defaultPlan = PLANS[planId];
   try {
     const customConfig: any = await kv.get('billing_plan_config:global');
@@ -185,6 +169,25 @@ async function resolvePerSeatPrice(planId: PlanId, interval: 'month' | 'year'): 
     }
   } catch { /* ignore */ }
   return interval === 'year' ? defaultPlan.priceAnnual : defaultPlan.price;
+}
+
+// ── Helper: resolve target user for subscription operations ─────────────
+// Admins can optionally specify a target_user_id; otherwise defaults to self.
+function resolveTargetUser(auth: { userId: string; role: string }, body: any): string {
+  if (body?.target_user_id && ['admin', 'super_admin'].includes(auth.role)) {
+    return body.target_user_id;
+  }
+  return auth.userId;
+}
+
+// ── Helper: resolve target org for subscription operations ──────────────
+// Super admins can optionally specify a target_org_id to store subscriptions under
+// a different organization (e.g. when managing users across orgs).
+function resolveTargetOrg(auth: { orgId: string; role: string }, body: any): string {
+  if (body?.target_org_id && auth.role === 'super_admin') {
+    return body.target_org_id;
+  }
+  return auth.orgId;
 }
 
 // ── Register routes ─────────────────────────────────────────────────────
@@ -215,25 +218,30 @@ export function subscriptions(app: Hono) {
     }
   });
 
-  // GET /subscriptions/current — get org's active subscription
+  // GET /subscriptions/current — get the authenticated user's subscription
   app.get(`${PREFIX}/subscriptions/current`, async (c) => {
     try {
       const auth = await authenticateAndGetOrg(c);
       if (!auth) return c.json({ error: 'Unauthorized' }, 401);
 
-      // Allow super_admin to query any org's subscription
+      // Allow super_admin to query any user's subscription
       let targetOrgId = auth.orgId;
+      let targetUserId = auth.userId;
       const orgOverride = c.req.query('org_override');
+      const userOverride = c.req.query('user_override');
       if (orgOverride && auth.role === 'super_admin') {
         targetOrgId = orgOverride;
       }
+      if (userOverride && ['admin', 'super_admin'].includes(auth.role)) {
+        targetUserId = userOverride;
+      }
 
-      const sub: Subscription | null = await kv.get(`subscription:${targetOrgId}`);
+      const sub: Subscription | null = await kv.get(`subscription:${targetOrgId}:${targetUserId}`);
 
       // If subscription exists, check if it's expired
       if (sub && sub.status === 'active' && new Date(sub.current_period_end) < new Date()) {
         sub.status = 'expired';
-        await kv.set(`subscription:${targetOrgId}`, sub);
+        await kv.set(`subscription:${targetOrgId}:${targetUserId}`, sub);
       }
 
       return c.json({ subscription: sub || null });
@@ -249,13 +257,15 @@ export function subscriptions(app: Hono) {
       const auth = await authenticateAndGetOrg(c);
       if (!auth) return c.json({ error: 'Unauthorized' }, 401);
 
-      // Only admins can manage subscriptions
+      // Only admins can manage subscriptions (for self or others)
       if (!['admin', 'super_admin'].includes(auth.role)) {
         return c.json({ error: 'Only admins can manage subscriptions' }, 403);
       }
 
       const body = await c.req.json();
       const { plan_id, billing_interval = 'month', payment_method, trial } = body;
+      const targetUserId = resolveTargetUser(auth, body);
+      const targetOrgId = resolveTargetOrg(auth, body);
 
       if (!plan_id || !PLANS[plan_id as PlanId]) {
         return c.json({ error: 'Invalid plan_id' }, 400);
@@ -285,17 +295,13 @@ export function subscriptions(app: Hono) {
         periodEnd = end.toISOString();
       }
 
-      const amount = billing_interval === 'year' ? plan.priceAnnual : plan.price;
-
-      // Count active seats for per-seat billing
-      const seatCount = await countActiveSeats(auth.orgId);
-      const perSeatPrice = await resolvePerSeatPrice(plan_id as PlanId, billing_interval);
-      const totalAmount = Math.round(perSeatPrice * seatCount * 100) / 100;
+      const amount = await resolvePlanPrice(plan_id as PlanId, billing_interval);
 
       const subId = crypto.randomUUID();
       const subscription: Subscription = {
         id: subId,
-        organization_id: auth.orgId,
+        organization_id: targetOrgId,
+        user_id: targetUserId,
         plan_id: plan_id as PlanId,
         status,
         billing_interval,
@@ -303,10 +309,8 @@ export function subscriptions(app: Hono) {
         current_period_end: periodEnd!,
         trial_end: trialEnd,
         cancel_at_period_end: false,
-        amount: totalAmount,
+        amount,
         currency: plan.currency,
-        seat_count: seatCount,
-        price_per_seat: perSeatPrice,
         created_at: periodStart,
         updated_at: periodStart,
       };
@@ -316,7 +320,7 @@ export function subscriptions(app: Hono) {
         const pmId = crypto.randomUUID();
         const pm: PaymentMethod = {
           id: pmId,
-          organization_id: auth.orgId,
+          organization_id: targetOrgId,
           type: 'card',
           brand: payment_method.brand || 'Visa',
           last4: payment_method.last4 || '4242',
@@ -325,60 +329,49 @@ export function subscriptions(app: Hono) {
           is_default: true,
           created_at: periodStart,
         };
-        await kv.set(`payment_method:${auth.orgId}`, pm);
+        await kv.set(`payment_method:${targetOrgId}`, pm);
         subscription.payment_method_id = pmId;
       }
 
-      await kv.set(`subscription:${auth.orgId}`, subscription);
+      await kv.set(`subscription:${targetOrgId}:${targetUserId}`, subscription);
 
       // Create billing event
       const eventId = crypto.randomUUID();
       const event: BillingEvent = {
         id: eventId,
-        organization_id: auth.orgId,
+        organization_id: targetOrgId,
         type: trial ? 'trial_started' : 'subscription_created',
-        amount: trial ? 0 : totalAmount,
+        amount: trial ? 0 : amount,
         currency: plan.currency,
         status: 'succeeded',
         description: trial
-          ? `Started 14-day free trial of ${plan.name} plan (${seatCount} seat${seatCount !== 1 ? 's' : ''})`
-          : `Subscribed to ${plan.name} plan (${billing_interval}ly) — ${seatCount} seat${seatCount !== 1 ? 's' : ''}`,
+          ? `Started 14-day free trial of ${plan.name} plan for user ${targetUserId}`
+          : `Subscribed user ${targetUserId} to ${plan.name} plan (${billing_interval}ly)`,
         plan_id: plan_id as PlanId,
         invoice_number: trial ? undefined : generateInvoiceNumber(),
         created_at: periodStart,
       };
-      await kv.set(`billing_event:${auth.orgId}:${eventId}`, event);
+      await kv.set(`billing_event:${targetOrgId}:${eventId}`, event);
 
       // If not a trial, simulate payment event
       if (!trial) {
         const paymentId = crypto.randomUUID();
         const paymentEvent: BillingEvent = {
           id: paymentId,
-          organization_id: auth.orgId,
+          organization_id: targetOrgId,
           type: 'payment',
-          amount: totalAmount,
+          amount,
           currency: plan.currency,
           status: 'succeeded',
-          description: `Payment for ${plan.name} plan — ${billing_interval === 'year' ? 'annual' : 'monthly'} billing (${seatCount} seat${seatCount !== 1 ? 's' : ''})`,
+          description: `Payment for ${plan.name} plan — ${billing_interval === 'year' ? 'annual' : 'monthly'} billing (user ${targetUserId})`,
           plan_id: plan_id as PlanId,
           invoice_number: generateInvoiceNumber(),
           created_at: periodStart,
         };
-        await kv.set(`billing_event:${auth.orgId}:${paymentId}`, paymentEvent);
+        await kv.set(`billing_event:${targetOrgId}:${paymentId}`, paymentEvent);
       }
 
-      console.log(`[subscriptions] Created ${status} subscription for org ${auth.orgId}: ${plan_id} (${billing_interval})`);
-
-      // Sync plan to org_details KV so Tenants page stays in sync
-      try {
-        const orgDetails: any = await kv.get(`org_details:${auth.orgId}`) || {};
-        orgDetails.plan = plan_id;
-        orgDetails.updated_at = new Date().toISOString();
-        await kv.set(`org_details:${auth.orgId}`, orgDetails);
-        console.log(`[subscriptions] Synced plan '${plan_id}' to org_details for org ${auth.orgId}`);
-      } catch (syncErr: any) {
-        console.log(`[subscriptions] Failed to sync plan to org_details (non-critical):`, syncErr.message);
-      }
+      console.log(`[subscriptions] Created ${status} subscription for user ${targetUserId} in org ${targetOrgId}: ${plan_id} (${billing_interval})`);
 
       return c.json({ subscription });
     } catch (error: any) {
@@ -387,7 +380,7 @@ export function subscriptions(app: Hono) {
     }
   });
 
-  // PUT /subscriptions/update — change plan (upgrade/downgrade)
+  // PUT /subscriptions/update — change plan (upgrade/downgrade) for a user
   app.put(`${PREFIX}/subscriptions/update`, async (c) => {
     try {
       const auth = await authenticateAndGetOrg(c);
@@ -399,10 +392,12 @@ export function subscriptions(app: Hono) {
 
       const body = await c.req.json();
       const { plan_id, billing_interval } = body;
+      const targetUserId = resolveTargetUser(auth, body);
+      const targetOrgId = resolveTargetOrg(auth, body);
 
-      const existing: Subscription | null = await kv.get(`subscription:${auth.orgId}`);
+      const existing: Subscription | null = await kv.get(`subscription:${targetOrgId}:${targetUserId}`);
       if (!existing) {
-        return c.json({ error: 'No active subscription found' }, 404);
+        return c.json({ error: 'No active subscription found for this user' }, 404);
       }
 
       if (plan_id && !PLANS[plan_id as PlanId]) {
@@ -413,7 +408,6 @@ export function subscriptions(app: Hono) {
       const newPlanId = (plan_id || existing.plan_id) as PlanId;
       const newInterval = billing_interval || existing.billing_interval;
       const plan = PLANS[newPlanId];
-      const newAmount = newInterval === 'year' ? plan.priceAnnual : plan.price;
       const oldPlan = PLANS[existing.plan_id];
 
       // Recalculate period end if interval changed
@@ -428,18 +422,13 @@ export function subscriptions(app: Hono) {
         periodEnd = end.toISOString();
       }
 
-      // Recalculate per-seat billing
-      const seatCount = existing.seat_count || await countActiveSeats(auth.orgId);
-      const perSeatPrice = await resolvePerSeatPrice(newPlanId, newInterval);
-      const totalAmount = Math.round(perSeatPrice * seatCount * 100) / 100;
+      const amount = await resolvePlanPrice(newPlanId, newInterval);
 
       const updated: Subscription = {
         ...existing,
         plan_id: newPlanId,
         billing_interval: newInterval,
-        amount: totalAmount,
-        price_per_seat: perSeatPrice,
-        seat_count: seatCount,
+        amount,
         current_period_end: periodEnd,
         status: 'active',
         cancel_at_period_end: false,
@@ -447,58 +436,48 @@ export function subscriptions(app: Hono) {
         updated_at: now,
       };
 
-      await kv.set(`subscription:${auth.orgId}`, updated);
+      await kv.set(`subscription:${targetOrgId}:${targetUserId}`, updated);
 
       // Log the plan change
       const eventId = crypto.randomUUID();
       const isUpgrade = plan.price > oldPlan.price;
       const event: BillingEvent = {
         id: eventId,
-        organization_id: auth.orgId,
+        organization_id: targetOrgId,
         type: 'plan_change',
-        amount: totalAmount,
+        amount,
         currency: plan.currency,
         status: 'succeeded',
-        description: `${isUpgrade ? 'Upgraded' : 'Changed'} from ${oldPlan.name} to ${plan.name} plan`,
+        description: `${isUpgrade ? 'Upgraded' : 'Changed'} user ${targetUserId} from ${oldPlan.name} to ${plan.name} plan`,
         plan_id: newPlanId,
         invoice_number: generateInvoiceNumber(),
         created_at: now,
       };
-      await kv.set(`billing_event:${auth.orgId}:${eventId}`, event);
+      await kv.set(`billing_event:${targetOrgId}:${eventId}`, event);
 
       // Simulate prorated payment for upgrades
       if (isUpgrade) {
+        const newAmount = newInterval === 'year' ? plan.priceAnnual : plan.price;
         const proratedAmount = Math.round((newAmount - (existing.amount || 0)) * 0.5 * 100) / 100;
         if (proratedAmount > 0) {
           const paymentId = crypto.randomUUID();
           const paymentEvent: BillingEvent = {
             id: paymentId,
-            organization_id: auth.orgId,
+            organization_id: targetOrgId,
             type: 'payment',
             amount: proratedAmount,
             currency: plan.currency,
             status: 'succeeded',
-            description: `Prorated charge for upgrade to ${plan.name}`,
+            description: `Prorated charge for upgrade to ${plan.name} (user ${targetUserId})`,
             plan_id: newPlanId,
             invoice_number: generateInvoiceNumber(),
             created_at: now,
           };
-          await kv.set(`billing_event:${auth.orgId}:${paymentId}`, paymentEvent);
+          await kv.set(`billing_event:${targetOrgId}:${paymentId}`, paymentEvent);
         }
       }
 
-      console.log(`[subscriptions] Plan changed for org ${auth.orgId}: ${existing.plan_id} → ${newPlanId}`);
-
-      // Sync plan to org_details KV so Tenants page stays in sync
-      try {
-        const orgDetails: any = await kv.get(`org_details:${auth.orgId}`) || {};
-        orgDetails.plan = newPlanId;
-        orgDetails.updated_at = new Date().toISOString();
-        await kv.set(`org_details:${auth.orgId}`, orgDetails);
-        console.log(`[subscriptions] Synced plan '${newPlanId}' to org_details for org ${auth.orgId}`);
-      } catch (syncErr: any) {
-        console.log(`[subscriptions] Failed to sync plan to org_details (non-critical):`, syncErr.message);
-      }
+      console.log(`[subscriptions] Plan changed for user ${targetUserId} in org ${targetOrgId}: ${existing.plan_id} → ${newPlanId}`);
 
       return c.json({ subscription: updated });
     } catch (error: any) {
@@ -507,7 +486,7 @@ export function subscriptions(app: Hono) {
     }
   });
 
-  // POST /subscriptions/cancel — cancel at end of period
+  // POST /subscriptions/cancel — cancel a user's subscription at end of period
   app.post(`${PREFIX}/subscriptions/cancel`, async (c) => {
     try {
       const auth = await authenticateAndGetOrg(c);
@@ -517,12 +496,13 @@ export function subscriptions(app: Hono) {
         return c.json({ error: 'Only admins can manage subscriptions' }, 403);
       }
 
-      const existing: Subscription | null = await kv.get(`subscription:${auth.orgId}`);
+      const body = await c.req.json().catch(() => ({}));
+      const targetUserId = resolveTargetUser(auth, body);
+      const existing: Subscription | null = await kv.get(`subscription:${auth.orgId}:${targetUserId}`);
       if (!existing) {
-        return c.json({ error: 'No active subscription found' }, 404);
+        return c.json({ error: 'No active subscription found for this user' }, 404);
       }
 
-      const body = await c.req.json().catch(() => ({}));
       const immediate = body.immediate === true;
       const now = new Date().toISOString();
 
@@ -534,7 +514,7 @@ export function subscriptions(app: Hono) {
         updated_at: now,
       };
 
-      await kv.set(`subscription:${auth.orgId}`, updated);
+      await kv.set(`subscription:${auth.orgId}:${targetUserId}`, updated);
 
       const plan = PLANS[existing.plan_id];
       const eventId = crypto.randomUUID();
@@ -561,7 +541,7 @@ export function subscriptions(app: Hono) {
     }
   });
 
-  // POST /subscriptions/reactivate — reactivate a canceled subscription
+  // POST /subscriptions/reactivate — reactivate a canceled user subscription
   app.post(`${PREFIX}/subscriptions/reactivate`, async (c) => {
     try {
       const auth = await authenticateAndGetOrg(c);
@@ -571,9 +551,11 @@ export function subscriptions(app: Hono) {
         return c.json({ error: 'Only admins can manage subscriptions' }, 403);
       }
 
-      const existing: Subscription | null = await kv.get(`subscription:${auth.orgId}`);
+      const body = await c.req.json().catch(() => ({}));
+      const targetUserId = resolveTargetUser(auth, body);
+      const existing: Subscription | null = await kv.get(`subscription:${auth.orgId}:${targetUserId}`);
       if (!existing) {
-        return c.json({ error: 'No subscription found' }, 404);
+        return c.json({ error: 'No subscription found for this user' }, 404);
       }
 
       const now = new Date().toISOString();
@@ -614,9 +596,9 @@ export function subscriptions(app: Hono) {
         await kv.set(`billing_event:${auth.orgId}:${paymentId}`, paymentEvent);
       }
 
-      await kv.set(`subscription:${auth.orgId}`, updated);
+      await kv.set(`subscription:${auth.orgId}:${targetUserId}`, updated);
 
-      console.log(`[subscriptions] Subscription reactivated for org ${auth.orgId}`);
+      console.log(`[subscriptions] Subscription reactivated for user ${targetUserId} in org ${auth.orgId}`);
       return c.json({ subscription: updated });
     } catch (error: any) {
       console.error('[subscriptions] Error reactivating subscription:', error);
@@ -683,12 +665,12 @@ export function subscriptions(app: Hono) {
 
       await kv.set(`payment_method:${auth.orgId}`, pm);
 
-      // Update subscription with new payment method
-      const sub: Subscription | null = await kv.get(`subscription:${auth.orgId}`);
+      // Update the user's subscription with new payment method
+      const sub: Subscription | null = await kv.get(`subscription:${auth.orgId}:${auth.userId}`);
       if (sub) {
         sub.payment_method_id = pmId;
         sub.updated_at = now;
-        await kv.set(`subscription:${auth.orgId}`, sub);
+        await kv.set(`subscription:${auth.orgId}:${auth.userId}`, sub);
       }
 
       console.log(`[subscriptions] Payment method updated for org ${auth.orgId}`);
@@ -705,7 +687,7 @@ export function subscriptions(app: Hono) {
       const auth = await authenticateAndGetOrg(c);
       if (!auth) return c.json({ error: 'Unauthorized' }, 401);
 
-      const sub: Subscription | null = await kv.get(`subscription:${auth.orgId}`);
+      const sub: Subscription | null = await kv.get(`subscription:${auth.orgId}:${auth.userId}`);
       if (!sub) return c.json({ error: 'No active subscription' }, 404);
 
       const plan = PLANS[sub.plan_id];
@@ -739,9 +721,9 @@ export function subscriptions(app: Hono) {
       sub.current_period_start = newStart;
       sub.current_period_end = newEnd.toISOString();
       sub.updated_at = newStart;
-      await kv.set(`subscription:${auth.orgId}`, sub);
+      await kv.set(`subscription:${auth.orgId}:${auth.userId}`, sub);
 
-      console.log(`[subscriptions] Simulated payment for org ${auth.orgId}: $${sub.amount}`);
+      console.log(`[subscriptions] Simulated payment for user ${auth.userId} in org ${auth.orgId}: $${sub.amount}`);
       return c.json({ event, subscription: sub });
     } catch (error: any) {
       console.error('[subscriptions] Error simulating payment:', error);
@@ -826,67 +808,51 @@ export function subscriptions(app: Hono) {
     }
   });
 
-  // POST /subscriptions/adjust-seats — recalculate billing after user changes
-  app.post(`${PREFIX}/subscriptions/adjust-seats`, async (c) => {
+  // GET /subscriptions/org-subscriptions — list all user subscriptions in the org (admin only)
+  app.get(`${PREFIX}/subscriptions/org-subscriptions`, async (c) => {
     try {
       const auth = await authenticateAndGetOrg(c);
       if (!auth) return c.json({ error: 'Unauthorized' }, 401);
 
       if (!['admin', 'super_admin'].includes(auth.role)) {
-        return c.json({ error: 'Only admins can adjust seats' }, 403);
+        return c.json({ error: 'Only admins can view organization subscriptions' }, 403);
       }
 
-      const existing: Subscription | null = await kv.get(`subscription:${auth.orgId}`);
-      if (!existing || !['active', 'trialing'].includes(existing.status)) {
-        // No active subscription to adjust — silently succeed
-        return c.json({ subscription: existing || null, adjusted: false });
+      let targetOrgId = auth.orgId;
+      const orgOverride = c.req.query('org_override');
+      if (orgOverride && auth.role === 'super_admin') {
+        targetOrgId = orgOverride;
       }
 
-      const oldSeatCount = existing.seat_count ?? 1;
-      const newSeatCount = await countActiveSeats(auth.orgId);
+      // Fetch all subscriptions with the org prefix
+      const allSubs: Subscription[] = await kv.getByPrefix(`subscription:${targetOrgId}:`);
 
-      // No change needed
-      if (newSeatCount === oldSeatCount) {
-        return c.json({ subscription: existing, adjusted: false });
+      // Enrich with user profile info
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      );
+      const userIds = allSubs.map(s => s.user_id).filter(Boolean);
+      let profiles: any[] = [];
+      if (userIds.length > 0) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, email, name, role, status')
+          .in('id', userIds);
+        profiles = data || [];
       }
 
-      const perSeatPrice = existing.price_per_seat ?? await resolvePerSeatPrice(existing.plan_id, existing.billing_interval);
-      const newAmount = Math.round(perSeatPrice * newSeatCount * 100) / 100;
-      const oldAmount = existing.amount;
-      const now = new Date().toISOString();
+      const profileMap = new Map(profiles.map(p => [p.id, p]));
+      const enriched = allSubs.map(sub => ({
+        ...sub,
+        user_email: profileMap.get(sub.user_id)?.email || null,
+        user_name: profileMap.get(sub.user_id)?.name || null,
+        user_role: profileMap.get(sub.user_id)?.role || null,
+      }));
 
-      const updated: Subscription = {
-        ...existing,
-        seat_count: newSeatCount,
-        price_per_seat: perSeatPrice,
-        amount: newAmount,
-        updated_at: now,
-      };
-
-      await kv.set(`subscription:${auth.orgId}`, updated);
-
-      // Log a billing adjustment event
-      const plan = PLANS[existing.plan_id] || { name: existing.plan_id, currency: 'USD' };
-      const eventId = crypto.randomUUID();
-      const diff = newAmount - oldAmount;
-      const direction = newSeatCount < oldSeatCount ? 'decreased' : 'increased';
-      const event: BillingEvent = {
-        id: eventId,
-        organization_id: auth.orgId,
-        type: diff < 0 ? 'credit' : 'payment',
-        amount: Math.abs(diff),
-        currency: existing.currency || 'USD',
-        status: 'succeeded',
-        description: `Seat count ${direction} from ${oldSeatCount} to ${newSeatCount} — billing adjusted from $${oldAmount.toFixed(2)} to $${newAmount.toFixed(2)}/${existing.billing_interval}`,
-        plan_id: existing.plan_id,
-        created_at: now,
-      };
-      await kv.set(`billing_event:${auth.orgId}:${eventId}`, event);
-
-      console.log(`[subscriptions] Seats adjusted for org ${auth.orgId}: ${oldSeatCount} → ${newSeatCount}, amount: $${oldAmount} → $${newAmount}`);
-      return c.json({ subscription: updated, adjusted: true, old_seats: oldSeatCount, new_seats: newSeatCount });
+      return c.json({ subscriptions: enriched });
     } catch (error: any) {
-      console.error('[subscriptions] Error adjusting seats:', error);
+      console.error('[subscriptions] Error listing org subscriptions:', error);
       return c.json({ error: error.message }, 500);
     }
   });

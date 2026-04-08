@@ -460,7 +460,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
     <div className="space-y-4">
       {existingAccounts.length > 0 ? (
         <>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Manage your connected calendar accounts
           </p>
 
@@ -472,14 +472,14 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
               return (
                 <div
                   key={account.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
+                  className="border border-border rounded-lg p-4 hover:border-border transition-colors"
                 >
                   <div className="flex items-start gap-3">
                     <span className="text-2xl">{provider.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-gray-900">{provider.name}</h4>
-                      <p className="text-sm text-gray-600 truncate">{account.email}</p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <h4 className="font-medium text-foreground">{provider.name}</h4>
+                      <p className="text-sm text-muted-foreground truncate">{account.email}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
                         Last synced: {formatLastSync(account.last_sync)}
                       </p>
                     </div>
@@ -514,7 +514,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
             })}
           </div>
 
-          <div className="pt-4 border-t border-gray-200">
+          <div className="pt-4 border-t border-border">
             <Button
               variant="outline"
               onClick={() => setStep('select')}
@@ -527,8 +527,8 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         </>
       ) : (
         <div className="text-center py-8">
-          <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 mb-4">No calendar accounts connected</p>
+          <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground mb-4">No calendar accounts connected</p>
           <Button onClick={() => setStep('select')}>
             <Calendar className="h-4 w-4 mr-2" />
             Connect Your First Calendar
@@ -547,7 +547,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
 
   const renderListAccounts = () => (
     <div className="space-y-4">
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-muted-foreground">
         Choose a calendar provider to sync your appointments
       </p>
 
@@ -592,7 +592,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         <h3 className="font-medium text-lg mb-2">
           Connect {selectedProvider === 'google' ? 'Google' : 'Outlook'} Calendar
         </h3>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           Authorize access to sync your calendar events with ProSpaces CRM
         </p>
       </div>
@@ -707,7 +707,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         <CheckCircle className="h-8 w-8 text-green-600" />
       </div>
       <h3 className="font-medium text-lg mb-2">Calendar Connected!</h3>
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-muted-foreground">
         Your {selectedProvider === 'google' ? 'Google' : 'Outlook'} Calendar is now synced with ProSpaces CRM
       </p>
     </div>
@@ -715,7 +715,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md bg-white">
+      <DialogContent className="max-w-md bg-background">
         <DialogHeader>
           <DialogTitle>
             {step === 'list' && (existingAccounts.length > 0 ? 'Manage Calendars' : 'Connect Calendar')}

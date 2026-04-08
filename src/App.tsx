@@ -2,6 +2,8 @@ import React, { useState, useEffect, Suspense, useCallback, lazy } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { Navigation } from './components/Navigation';
 import { LandingPage } from './components/LandingPage';
+import { SpaceChooser } from './components/SpaceChooser';
+import { SpaceAccessNotice } from './components/SpaceAccessNotice';
 import { Login } from './components/Login';
 import { MemberLogin } from './components/MemberLogin';
 // ── Eagerly loaded (always needed on auth'd shell) ──
@@ -26,7 +28,8 @@ import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDia
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
-import { initializePermissions } from './utils/permissions';
+import { canAccessSpace, initializePermissions } from './utils/permissions';
+import { getTheme } from './utils/themes';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 // ── Code-split: lazy-loaded page modules (only fetched when navigated to) ──
@@ -36,6 +39,7 @@ const lazyNamed = <T extends Record<string, any>>(
 ) => lazy(() => factory().then((m) => ({ default: m[name] as React.ComponentType<any> })));
 
 const Dashboard = lazyNamed(() => import('./components/Dashboard'), 'Dashboard');
+const MainPanels = lazyNamed(() => import('./components/MainPanels'), 'MainPanels');
 const Contacts = lazyNamed(() => import('./components/Contacts'), 'Contacts');
 const Tasks = lazyNamed(() => import('./components/Tasks'), 'Tasks');
 const Appointments = lazyNamed(() => import('./components/Appointments'), 'Appointments');
@@ -59,7 +63,7 @@ const BackgroundImportManager = lazyNamed(() => import('./components/BackgroundI
 const AITaskSuggestions = lazyNamed(() => import('./components/AITaskSuggestions'), 'AITaskSuggestions');
 const AdminFixUsers = lazyNamed(() => import('./components/AdminFixUsers'), 'AdminFixUsers');
 const About = lazyNamed(() => import('./components/About'), 'About');
-const PortalMessagesAdmin = lazyNamed(() => import('./components/portal/PortalMessagesAdmin'), 'PortalMessagesAdmin');
+const PortalMessagesAdmin = lazyNamed(() => import('./components/MessagingHub'), 'MessagingHub');
 const SubscriptionBilling = lazyNamed(() => import('./components/subscription/SubscriptionBilling'), 'SubscriptionBilling');
 // Planners
 const KitchenPlanner = lazyNamed(() => import('./components/planners/KitchenPlanner'), 'KitchenPlanner');
@@ -85,6 +89,14 @@ export interface User {
 export interface Organization {
   id: string;
   name: string;
+  billingEmail?: string;
+  address?: string;
+  phone?: string;
+  notes?: string;
+  logo?: string;
+  status?: 'active' | 'inactive' | 'suspended';
+  plan?: 'free' | 'starter' | 'professional' | 'enterprise';
+  customPlanPrice?: string;
   ai_suggestions_enabled?: boolean;
   appointments_enabled?: boolean;
   documents_enabled?: boolean;
@@ -238,6 +250,34 @@ export function AppContent() {
   });
   const [showChangePassword, setShowChangePassword] = useState(false);
 
+  // Landing + Enter ProSpaces should always use default light visual tokens,
+  // independent of each user's selected theme.
+  useEffect(() => {
+    const isThemeIsolatedPublicPage = (!session || !user) && (currentView === 'landing' || currentView === 'space-chooser');
+    if (!isThemeIsolatedPublicPage) return;
+
+    const light = getTheme('light');
+    const root = document.documentElement;
+    root.classList.remove('dark');
+    root.style.setProperty('--color-background', light.colors.background);
+    root.style.setProperty('--color-background-secondary', light.colors.backgroundSecondary);
+    root.style.setProperty('--color-background-tertiary', light.colors.backgroundTertiary);
+    root.style.setProperty('--color-text', light.colors.text);
+    root.style.setProperty('--color-text-secondary', light.colors.textSecondary);
+    root.style.setProperty('--color-text-muted', light.colors.textMuted);
+    root.style.setProperty('--color-primary', light.colors.primary);
+    root.style.setProperty('--color-primary-hover', light.colors.primaryHover);
+    root.style.setProperty('--color-primary-text', light.colors.primaryText);
+    root.style.setProperty('--color-border', light.colors.border);
+    root.style.setProperty('--color-card', light.colors.card);
+    root.style.setProperty('--color-nav-background', light.colors.navBackground);
+    root.style.setProperty('--color-nav-text', light.colors.navText);
+    root.style.setProperty('--color-nav-hover', light.colors.navHover);
+    root.style.setProperty('--color-nav-active', light.colors.navActive);
+    root.style.setProperty('--color-topbar-background', light.colors.topBarBackground);
+    root.style.setProperty('--color-topbar-text', light.colors.topBarText);
+  }, [session, user, currentView]);
+
   // Stable callback references to prevent unnecessary child re-renders
   const handleToggleSidebar = useCallback(() => {
     setIsSidebarCollapsed(prev => !prev);
@@ -255,12 +295,19 @@ export function AppContent() {
     localStorage.setItem('prospaces_sidebar_collapsed', String(isSidebarCollapsed));
   }, [isSidebarCollapsed]);
 
-  // Check if URL indicates member-login on mount
+  // Check if URL indicates a specific entry view on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const path = window.location.pathname;
-    if (urlParams.get('view') === 'member-login' || path === '/member-login') {
+    const requestedView = urlParams.get('view');
+
+    if (requestedView === 'member-login' || path === '/member-login') {
       setCurrentView('member-login');
+      return;
+    }
+
+    if (requestedView === 'space-chooser') {
+      setCurrentView('space-chooser');
     }
   }, []);
 
@@ -407,7 +454,7 @@ export function AppContent() {
           if (savedView) {
             setCurrentView(savedView);
           } else {
-            setCurrentView(profile.role === 'super_admin' ? 'tenants' : 'dashboard');
+            setCurrentView('space-chooser');
           }
         }
 
@@ -471,28 +518,60 @@ export function AppContent() {
     }
     
     setUser(user);
-    setCurrentView('dashboard');
+    setCurrentView('space-chooser');
   };
 
   if (!session || !user) {
     return (
       <ErrorBoundary>
-        <ThemeProvider userId={user?.id}>
-          <Toaster />
-          {currentView === 'member-login' ? (
-            <MemberLogin
-              onLogin={handleMemberLogin}
-              onBack={() => setCurrentView('landing')}
-            />
-          ) : currentView === 'login' ? (
-            <Login 
-              onBack={() => setCurrentView('landing')} 
-              onLogin={handleMemberLogin} 
-            />
-          ) : (
-            <LandingPage onGetStarted={() => setCurrentView('login')} onMemberLogin={() => setCurrentView('member-login')} />
-          )}
-        </ThemeProvider>
+        <Toaster />
+        {currentView === 'member-login' || currentView === 'space-chooser' ? (
+          <MemberLogin
+            onLogin={handleMemberLogin}
+            onBack={() => setCurrentView('landing')}
+          />
+        ) : currentView === 'login' ? (
+          <Login 
+            onBack={() => setCurrentView('landing')} 
+            onLogin={handleMemberLogin} 
+          />
+        ) : (
+          <LandingPage onGetStarted={() => setCurrentView('member-login')} onMemberLogin={() => setCurrentView('member-login')} />
+        )}
+      </ErrorBoundary>
+    );
+  }
+
+  const canAccessSalesSpace = canAccessSpace('sales', user.role, 'view');
+
+  if (!canAccessSalesSpace && currentView !== 'space-chooser') {
+    return (
+      <ErrorBoundary>
+        <Toaster />
+        <SpaceAccessNotice
+          spaceName="Sales Space"
+          accentColorClass="bg-blue-600"
+          mode="access-denied"
+          message="You are signed in, but your account does not currently have access to Sales Space. Please choose another space or contact your administrator if you need access."
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  if (currentView === 'space-chooser') {
+    return (
+      <ErrorBoundary>
+        <Toaster />
+        <SpaceChooser
+          onSelectSalesSpace={() => setCurrentView('main-panels')}
+          onSelectDesignSpace={() => { window.location.href = '/project-wizards.html'; }}
+          onSelectMarketingSpace={() => { window.location.href = '/marketing.html'; }}
+          onSelectInsightsSpace={() => { window.location.href = '/insights.html'; }}
+          onSelectInventorySpace={() => { window.location.href = '/inventory.html'; }}
+          onSelectITSpace={() => { window.location.href = '/it.html'; }}
+          onSelectMessagingSpace={() => { setCurrentView('messages'); }}
+          onBack={() => setCurrentView('main-panels')}
+        />
       </ErrorBoundary>
     );
   }
@@ -503,7 +582,7 @@ export function AppContent() {
         <Toaster />
         {/* Always-mounted background job processor — auto-processes pending import jobs */}
         <BackgroundJobProcessor user={user} onNavigate={setCurrentView} />
-        <div className="flex h-screen overflow-hidden" style={{ background: 'var(--color-background)' }}>
+        <div className="flex h-dvh overflow-hidden" style={{ background: 'var(--color-background)' }}>
           <Navigation
             user={user}
             organization={organization}
@@ -515,7 +594,7 @@ export function AppContent() {
           />
 
           <main 
-            className={`flex-1 overflow-auto transition-all duration-300 lg:fixed lg:top-16 lg:bottom-0 lg:right-0 ${isSidebarCollapsed ? 'lg:left-20' : 'lg:left-64'}`} 
+            className="flex-1 overflow-auto transition-all duration-300"
             style={{ background: 'var(--color-background-secondary)' }}
           >
             <OfflineIndicator />
@@ -523,11 +602,13 @@ export function AppContent() {
 
             <div className="pt-14 sm:pt-16 lg:pt-0">
               <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+              {currentView === 'main-panels' && <MainPanels user={user} organization={organization} onNavigate={setCurrentView} />}
               {currentView === 'dashboard' && <Dashboard user={user} organization={organization} onNavigate={setCurrentView} />}
               {currentView === 'ai-suggestions' && <AITaskSuggestions user={user} onNavigate={setCurrentView} />}
               {currentView === 'contacts' && <Contacts user={user} />}
               {currentView === 'tasks' && <Tasks user={user} />}
               {currentView === 'bids' && <Bids user={user} />}
+              {currentView === 'messages' && <PortalMessagesAdmin user={user} accessToken={session?.access_token} />}
               {currentView === 'notes' && <Notes user={user} />}
               {currentView === 'appointments' && <Appointments user={user} />}
               {currentView === 'documents' && <Documents user={user} />}
@@ -550,7 +631,7 @@ export function AppContent() {
               {currentView === 'shed-planner' && <DesktopOnlyPlanner><PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="shed-planner"><Suspense fallback={<PlannerLoading />}><ShedPlanner user={user} /></Suspense></PlannerErrorBoundary></DesktopOnlyPlanner>}
               {currentView === 'roof-planner' && <DesktopOnlyPlanner><PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="roof-planner"><Suspense fallback={<PlannerLoading />}><RoofPlanner user={user} /></Suspense></PlannerErrorBoundary></DesktopOnlyPlanner>}
               {currentView === 'interior-finishing' && <DesktopOnlyPlanner><PlannerErrorBoundary onNavigate={setCurrentView} plannerKey="interior-finishing"><Suspense fallback={<PlannerLoading />}><InteriorFinishingPlanner user={user} /></Suspense></PlannerErrorBoundary></DesktopOnlyPlanner>}
-              {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} />}
+              {currentView === 'portal-admin' && <PortalMessagesAdmin user={user} accessToken={session?.access_token} />}
               {currentView === 'subscription-billing' && <SubscriptionBilling user={user} />}
               {currentView === 'subscription-agreement' && <SubscriptionAgreement organization={organization} />}
               {currentView === 'about' && <About />}

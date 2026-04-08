@@ -87,12 +87,12 @@ export function ReassignContacts() {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 max-w-2xl">
+    <div className="bg-background rounded-lg shadow-sm p-6 max-w-2xl">
       <h2 className="mb-6">Reassign Contacts</h2>
       
       <div className="space-y-4">
         <div>
-          <label htmlFor="fromEmail" className="block text-sm text-gray-700 mb-2">
+          <label htmlFor="fromEmail" className="block text-sm text-foreground mb-2">
             From User (Current Owner)
           </label>
           <input
@@ -100,13 +100,13 @@ export function ReassignContacts() {
             type="email"
             value={fromEmail}
             onChange={(e) => setFromEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="george.campbell@ronaatlantic.ca"
           />
         </div>
 
         <div>
-          <label htmlFor="toEmail" className="block text-sm text-gray-700 mb-2">
+          <label htmlFor="toEmail" className="block text-sm text-foreground mb-2">
             To User (New Owner)
           </label>
           <input
@@ -114,7 +114,7 @@ export function ReassignContacts() {
             type="email"
             value={toEmail}
             onChange={(e) => setToEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="larry.lee@ronaatlantic.ca"
           />
         </div>
@@ -139,8 +139,8 @@ export function ReassignContacts() {
           </div>
         )}
 
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-600">
+        <div className="mt-6 p-4 bg-muted rounded-lg">
+          <p className="text-sm text-muted-foreground">
             <strong>Note:</strong> This will reassign ALL contacts currently owned by the "From User" 
             to the "To User" within your organization. This action cannot be undone.
           </p>

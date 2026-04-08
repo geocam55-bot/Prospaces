@@ -42,7 +42,7 @@ export function ShedConfigurator({ config, onChange }: ShedConfiguratorProps) {
               value={config.width}
               onChange={(e) => updateConfig({ width: Number(e.target.value) })}
             />
-            <p className="text-xs text-slate-500 mt-1">Typical: 8-12 ft</p>
+            <p className="text-xs text-muted-foreground mt-1">Typical: 8-12 ft</p>
           </div>
 
           <div>
@@ -55,7 +55,7 @@ export function ShedConfigurator({ config, onChange }: ShedConfiguratorProps) {
               value={config.length}
               onChange={(e) => updateConfig({ length: Number(e.target.value) })}
             />
-            <p className="text-xs text-slate-500 mt-1">Typical: 10-16 ft</p>
+            <p className="text-xs text-muted-foreground mt-1">Typical: 10-16 ft</p>
           </div>
 
           <div>
@@ -146,7 +146,7 @@ export function ShedConfigurator({ config, onChange }: ShedConfiguratorProps) {
           <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
             config.hasFloor
               ? 'border-green-600 bg-green-50'
-              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+              : 'border-border hover:border-slate-400 hover:bg-muted'
           }`}>
             <Checkbox
               id="hasFloor"
@@ -161,7 +161,7 @@ export function ShedConfigurator({ config, onChange }: ShedConfiguratorProps) {
           <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
             config.hasLoft
               ? 'border-green-600 bg-green-50'
-              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+              : 'border-border hover:border-slate-400 hover:bg-muted'
           }`}>
             <Checkbox
               id="hasLoft"
@@ -296,7 +296,7 @@ export function ShedConfigurator({ config, onChange }: ShedConfiguratorProps) {
           <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
             config.hasShutters
               ? 'border-green-600 bg-green-50'
-              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+              : 'border-border hover:border-slate-400 hover:bg-muted'
           }`}>
             <Checkbox
               id="hasShutters"
@@ -311,7 +311,7 @@ export function ShedConfigurator({ config, onChange }: ShedConfiguratorProps) {
           <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
             config.hasFlowerBox
               ? 'border-green-600 bg-green-50'
-              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+              : 'border-border hover:border-slate-400 hover:bg-muted'
           }`}>
             <Checkbox
               id="hasFlowerBox"
@@ -326,7 +326,7 @@ export function ShedConfigurator({ config, onChange }: ShedConfiguratorProps) {
           <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
             config.hasShelvingPackage
               ? 'border-green-600 bg-green-50'
-              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+              : 'border-border hover:border-slate-400 hover:bg-muted'
           }`}>
             <Checkbox
               id="hasShelvingPackage"
@@ -341,7 +341,7 @@ export function ShedConfigurator({ config, onChange }: ShedConfiguratorProps) {
           <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
             config.hasElectrical
               ? 'border-green-600 bg-green-50'
-              : 'border-slate-300 hover:border-slate-400 hover:bg-slate-50'
+              : 'border-border hover:border-slate-400 hover:bg-muted'
           }`}>
             <Checkbox
               id="hasElectrical"
@@ -365,30 +365,30 @@ export function ShedConfigurator({ config, onChange }: ShedConfiguratorProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-xs space-y-1.5 text-slate-600">
+          <div className="text-xs space-y-1.5 text-muted-foreground">
             {config.hasFloor && (
               <>
                 <div className="flex justify-between">
                   <span>Floor Joists ({config.width}' span):</span>
-                  <span className="font-medium text-slate-800">{selectLumberLength(config.width)}'</span>
+                  <span className="font-medium text-foreground">{selectLumberLength(config.width)}'</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Rim Joists ({config.length}' span):</span>
-                  <span className="font-medium text-slate-800">{getLumberLengthDescription(config.length)}</span>
+                  <span className="font-medium text-foreground">{getLumberLengthDescription(config.length)}</span>
                 </div>
               </>
             )}
             <div className="flex justify-between">
               <span>Wall Studs ({config.wallHeight}' walls):</span>
-              <span className="font-medium text-slate-800">{selectLumberLength(config.wallHeight)}'</span>
+              <span className="font-medium text-foreground">{selectLumberLength(config.wallHeight)}'</span>
             </div>
             <div className="flex justify-between">
               <span>Plates - Width ({config.width}'):</span>
-              <span className="font-medium text-slate-800">{getLumberLengthDescription(config.width)}</span>
+              <span className="font-medium text-foreground">{getLumberLengthDescription(config.width)}</span>
             </div>
             <div className="flex justify-between">
               <span>Plates - Length ({config.length}'):</span>
-              <span className="font-medium text-slate-800">{getLumberLengthDescription(config.length)}</span>
+              <span className="font-medium text-foreground">{getLumberLengthDescription(config.length)}</span>
             </div>
             {config.style !== 'barn' && (() => {
               const run = config.style === 'lean-to' ? config.width : config.width / 2;
@@ -397,18 +397,18 @@ export function ShedConfigurator({ config, onChange }: ShedConfiguratorProps) {
               return (
                 <div className="flex justify-between">
                   <span>Rafters ({rafterRaw}' length):</span>
-                  <span className="font-medium text-slate-800">{selectLumberLength(rafterRaw)}'</span>
+                  <span className="font-medium text-foreground">{selectLumberLength(rafterRaw)}'</span>
                 </div>
               );
             })()}
             <div className="flex justify-between">
               <span>Ridge Board ({config.length}'):</span>
-              <span className="font-medium text-slate-800">{getLumberLengthDescription(config.length)}</span>
+              <span className="font-medium text-foreground">{getLumberLengthDescription(config.length)}</span>
             </div>
             {config.hasLoft && (
               <div className="flex justify-between">
                 <span>Loft Joists ({config.width}' span):</span>
-                <span className="font-medium text-slate-800">{selectLumberLength(config.width)}'</span>
+                <span className="font-medium text-foreground">{selectLumberLength(config.width)}'</span>
               </div>
             )}
           </div>

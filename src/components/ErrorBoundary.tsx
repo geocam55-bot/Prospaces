@@ -64,7 +64,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-muted p-4">
           <Card className="max-w-2xl w-full">
             <CardHeader>
               <div className="flex items-center gap-3 mb-2">
@@ -90,11 +90,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
               {/* Error Stack (Development Only) */}
               {typeof import.meta.env !== 'undefined' && import.meta.env.DEV && this.state.errorInfo && (
-                <details className="bg-gray-100 border border-gray-300 rounded-lg p-4">
-                  <summary className="cursor-pointer font-medium text-gray-900 mb-2">
+                <details className="bg-muted border border-border rounded-lg p-4">
+                  <summary className="cursor-pointer font-medium text-foreground mb-2">
                     Component Stack (Development Only)
                   </summary>
-                  <pre className="text-xs text-gray-700 overflow-auto max-h-64 mt-2">
+                  <pre className="text-xs text-foreground overflow-auto max-h-64 mt-2">
                     {this.state.errorInfo.componentStack}
                   </pre>
                 </details>

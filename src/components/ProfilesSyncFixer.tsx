@@ -458,7 +458,7 @@ FROM public.profiles;`;
           <Database className="h-5 w-5" />
           Profiles Table Sync Tool
         </CardTitle>
-        <CardDescription className="text-sm text-gray-500">
+        <CardDescription className="text-sm text-muted-foreground">
           Ensure your profiles table is correctly set up and synced with auth.users.
         </CardDescription>
       </CardHeader>
@@ -512,7 +512,7 @@ FROM public.profiles;`;
         {/* Diagnostic Results */}
         {diagnosticResults.length > 0 && (
           <div className="space-y-2">
-            <p className="font-semibold text-gray-900">Diagnostic Results:</p>
+            <p className="font-semibold text-foreground">Diagnostic Results:</p>
             {diagnosticResults.map((result, index) => (
               <Alert key={index} className={getStatusColor(result.status)}>
                 <div className="flex items-start gap-2">
@@ -525,7 +525,7 @@ FROM public.profiles;`;
                         <summary className="cursor-pointer text-xs hover:underline">
                           View Details
                         </summary>
-                        <pre className="text-xs mt-1 p-2 bg-white rounded overflow-auto max-h-32">
+                        <pre className="text-xs mt-1 p-2 bg-background rounded overflow-auto max-h-32">
                           {JSON.stringify(result.details, null, 2)}
                         </pre>
                       </details>
@@ -539,9 +539,9 @@ FROM public.profiles;`;
 
         {/* SQL Script Section */}
         {showSQLScript && (
-          <div className="space-y-3 p-4 bg-white rounded-lg border-2 border-blue-300">
+          <div className="space-y-3 p-4 bg-background rounded-lg border-2 border-blue-300">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">📝 Fix SQL Script</h3>
+              <h3 className="font-semibold text-foreground">📝 Fix SQL Script</h3>
               <div className="flex gap-2">
                 <Button
                   onClick={handleCopySQL}
@@ -592,8 +592,8 @@ FROM public.profiles;`;
               <summary className="cursor-pointer text-sm font-semibold text-blue-900 hover:text-blue-700">
                 📄 Preview SQL Script (click to expand)
               </summary>
-              <div className="mt-2 p-3 bg-gray-50 rounded border border-gray-200 max-h-96 overflow-auto">
-                <pre className="text-xs font-mono text-gray-700 whitespace-pre-wrap">
+              <div className="mt-2 p-3 bg-muted rounded border border-border max-h-96 overflow-auto">
+                <pre className="text-xs font-mono text-foreground whitespace-pre-wrap">
                   {comprehensiveSQLFix}
                 </pre>
               </div>

@@ -86,7 +86,7 @@ export function EmailCustomFoldersMigration() {
           <AlertDescription>
             <p className="font-medium mb-2">This migration creates the custom email folders feature:</p>
             <ul className="list-disc list-inside space-y-1 text-sm">
-              <li>Creates <code className="bg-gray-100 px-1 rounded">email_custom_folders</code> table</li>
+              <li>Creates <code className="bg-muted px-1 rounded">email_custom_folders</code> table</li>
               <li>Allows users to create, edit, and delete their own custom folders</li>
               <li>Each folder has a name and color for visual organization</li>
               <li>Full RLS (Row Level Security) policies for data isolation</li>

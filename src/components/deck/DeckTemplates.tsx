@@ -51,7 +51,7 @@ function TemplateMiniMap({ config }: { config: DeckConfig }) {
   };
 
   return (
-    <div className="h-40 w-full bg-slate-100 flex items-center justify-center p-4 border-b border-slate-200">
+    <div className="h-40 w-full bg-muted flex items-center justify-center p-4 border-b border-border">
       <svg 
         viewBox={`-${padding} -${padding} ${boundW + padding * 2} ${boundL + stairExtension + detachedOffset + padding * 2}`} 
         className="w-full h-full max-w-full max-h-full drop-shadow-sm" 
@@ -196,14 +196,14 @@ export function DeckTemplates({ onLoadTemplate, currentConfig }: DeckTemplatesPr
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+    <div className="bg-background rounded-lg shadow-sm border border-border p-6">
       <div className="flex items-center gap-3 mb-6">
         <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
           <LayoutTemplate className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Sample Designs</h2>
-          <p className="text-sm text-slate-500">Start with a pre-configured layout</p>
+          <h2 className="text-lg font-semibold text-foreground">Sample Designs</h2>
+          <p className="text-sm text-muted-foreground">Start with a pre-configured layout</p>
         </div>
       </div>
 
@@ -219,17 +219,17 @@ export function DeckTemplates({ onLoadTemplate, currentConfig }: DeckTemplatesPr
                 relative group rounded-xl border-2 transition-all duration-200 overflow-hidden cursor-pointer flex flex-col
                 ${isSelected
                   ? 'border-purple-600 bg-purple-50 shadow-md'
-                  : 'border-slate-200 bg-white hover:border-purple-300 hover:bg-slate-50'
+                  : 'border-border bg-background hover:border-purple-300 hover:bg-muted'
                 }
               `}
             >
               <TemplateMiniMap config={template.config} />
               
               <div className="p-4 flex-1 flex flex-col">
-                <h3 className={`font-medium mb-1 ${isSelected ? 'text-purple-900' : 'text-slate-900'}`}>
+                <h3 className={`font-medium mb-1 ${isSelected ? 'text-purple-900' : 'text-foreground'}`}>
                   {template.name}
                 </h3>
-                <p className={`text-sm flex-1 ${isSelected ? 'text-purple-700' : 'text-slate-500'}`}>
+                <p className={`text-sm flex-1 ${isSelected ? 'text-purple-700' : 'text-muted-foreground'}`}>
                   {template.description}
                 </p>
                 

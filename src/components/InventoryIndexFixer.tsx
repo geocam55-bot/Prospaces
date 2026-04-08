@@ -127,11 +127,11 @@ ORDER BY indexname;`;
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-3">
-          <div className="bg-white p-4 rounded border border-red-200">
+          <div className="bg-background p-4 rounded border border-red-200">
             <p className="font-semibold text-red-900 mb-2">
               ⚡ Quick Fix: Run this SQL in Supabase (Takes 2 minutes)
             </p>
-            <p className="text-sm text-gray-700 mb-3">
+            <p className="text-sm text-foreground mb-3">
               Your database needs performance indexes. This will speed up inventory from <strong>17s → 0.5s</strong> (30x faster!)
             </p>
           </div>
@@ -205,7 +205,7 @@ ORDER BY indexname;`;
           </ol>
         </div>
 
-        <div className="flex gap-2 text-xs text-gray-600">
+        <div className="flex gap-2 text-xs text-muted-foreground">
           <Button
             onClick={runIndexCreation}
             disabled={isRunning}

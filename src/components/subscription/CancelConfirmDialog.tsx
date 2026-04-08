@@ -66,23 +66,23 @@ export function CancelConfirmDialog({
             <AlertDialogTitle className="text-lg">Cancel Subscription?</AlertDialogTitle>
           </div>
           <AlertDialogDescription asChild>
-            <div className="space-y-3 text-sm text-slate-600">
+            <div className="space-y-3 text-sm text-muted-foreground">
               <p>
                 You're about to cancel your <strong>{planName}</strong> plan. Here's what will happen:
               </p>
 
-              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+              <div className="p-3 rounded-lg bg-muted border border-border space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Current plan</span>
+                  <span className="text-muted-foreground">Current plan</span>
                   <Badge variant="secondary">{planName}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500">Access until</span>
-                  <span className="font-medium text-slate-900">{formatDate(subscription.current_period_end)}</span>
+                  <span className="text-muted-foreground">Access until</span>
+                  <span className="font-medium text-foreground">{formatDate(subscription.current_period_end)}</span>
                 </div>
               </div>
 
-              <ul className="list-disc pl-5 space-y-1 text-slate-500">
+              <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
                 <li>Your data will be preserved but access to paid features will end</li>
                 <li>Active users beyond the free tier limit will be deactivated</li>
                 <li>You can reactivate at any time to restore full access</li>
@@ -95,7 +95,7 @@ export function CancelConfirmDialog({
                     type="checkbox"
                     checked={cancelImmediately}
                     onChange={(e) => setCancelImmediately(e.target.checked)}
-                    className="rounded border-slate-300 text-red-600 focus:ring-red-500"
+                    className="rounded border-border text-red-600 focus:ring-red-500"
                   />
                   <span className="text-sm text-red-600 font-medium">
                     Cancel immediately (lose access now instead of at period end)
@@ -104,8 +104,8 @@ export function CancelConfirmDialog({
               </div>
 
               <div className="pt-1">
-                <Label className="text-xs text-slate-500">
-                  Type <strong className="text-slate-700">cancel</strong> to confirm
+                <Label className="text-xs text-muted-foreground">
+                  Type <strong className="text-foreground">cancel</strong> to confirm
                 </Label>
                 <Input
                   placeholder="Type 'cancel' to confirm"

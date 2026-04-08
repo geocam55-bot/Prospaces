@@ -27,7 +27,7 @@ export function MetricCard({
         <CardTitle className={`text-sm font-medium ${className?.includes('text-white') ? 'text-white/90' : 'text-muted-foreground'}`}>
           {title}
         </CardTitle>
-        <div className={`p-2 rounded-full ${className?.includes('text-white') ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
+        <div className={`p-2 rounded-full ${className?.includes('text-white') ? 'bg-background/20 text-white' : 'bg-muted text-muted-foreground'}`}>
           {icon}
         </div>
       </CardHeader>
