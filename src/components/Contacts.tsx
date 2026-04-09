@@ -1240,7 +1240,7 @@ export function Contacts({ user }: ContactsProps) {
         <Card>
           <CardHeader>
             <div className="space-y-3">
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -1251,7 +1251,7 @@ export function Contacts({ user }: ContactsProps) {
                   />
                 </div>
                 <Select value={selectedTagFilter} onValueChange={setSelectedTagFilter}>
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-full sm:w-[200px]">
                     <SelectValue placeholder="Filter..." />
                   </SelectTrigger>
                   <SelectContent>

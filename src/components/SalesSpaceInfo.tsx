@@ -42,13 +42,13 @@ const SALES_KPIS = [
 export function SalesSpaceInfo({ onBack, onEnterSpace }: SalesSpaceInfoProps) {
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen overflow-x-hidden"
       style={{
         background:
           'radial-gradient(circle at 12% 12%, rgba(30,111,217,0.15) 0%, transparent 38%), radial-gradient(circle at 88% 86%, rgba(14,165,233,0.16) 0%, transparent 42%), linear-gradient(180deg, #F3F8FF 0%, #F8FAFC 70%)',
       }}
     >
-      <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-8 sm:py-10">
         <button
           onClick={onBack}
           className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-white hover:text-slate-900"
@@ -58,7 +58,7 @@ export function SalesSpaceInfo({ onBack, onEnterSpace }: SalesSpaceInfoProps) {
 
         <div className="mt-6 rounded-2xl border border-blue-100 bg-white/90 p-6 shadow-sm backdrop-blur-sm sm:p-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-            <div className="max-w-2xl">
+            <div className="min-w-0 max-w-2xl">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Space Overview</p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Sales Space</h1>
               <p className="mt-3 text-base leading-relaxed text-slate-600">
@@ -71,13 +71,13 @@ export function SalesSpaceInfo({ onBack, onEnterSpace }: SalesSpaceInfoProps) {
             </div>
 
             <div
-              className="flex items-center gap-3 rounded-xl px-4 py-3"
+              className="flex shrink-0 items-center gap-3 rounded-xl px-4 py-3"
               style={{
                 background: 'linear-gradient(135deg, rgba(30,111,217,0.12) 0%, rgba(77,163,255,0.14) 100%)',
                 border: '1px solid rgba(30,111,217,0.22)',
               }}
             >
-              <img src={spaceSalesSvg} alt="Sales space icon" className="h-12 w-12 object-contain" />
+              <img src={spaceSalesSvg} alt="Sales space icon" className="h-12 w-12 shrink-0 object-contain" />
               <div>
                 <p className="text-sm font-semibold text-blue-900">Opportunities & Contacts</p>
                 <p className="text-xs text-blue-700">Pipeline execution workspace</p>
