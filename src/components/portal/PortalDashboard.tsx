@@ -41,10 +41,10 @@ export function PortalDashboard({ data, onNavigate }: PortalDashboardProps) {
     <div className="space-y-6">
       {/* Welcome Section */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="text-2xl font-bold text-foreground">
           Welcome back, {contact?.name || 'there'}
         </h1>
-        <p className="text-slate-500 mt-1">
+        <p className="text-muted-foreground mt-1">
           {organization?.name ? `Your portal with ${organization.name}` : 'Your customer portal'}
         </p>
       </div>
@@ -58,8 +58,8 @@ export function PortalDashboard({ data, onNavigate }: PortalDashboardProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">Active Quotes</p>
-                <p className="text-2xl font-bold text-slate-900">{activeQuotes.length}</p>
+                <p className="text-sm text-muted-foreground">Active Quotes</p>
+                <p className="text-2xl font-bold text-foreground">{activeQuotes.length}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
                 <FileText className="h-5 w-5 text-blue-600" />
@@ -75,8 +75,8 @@ export function PortalDashboard({ data, onNavigate }: PortalDashboardProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">Active Projects</p>
-                <p className="text-2xl font-bold text-slate-900">{activeProjects.length}</p>
+                <p className="text-sm text-muted-foreground">Active Projects</p>
+                <p className="text-2xl font-bold text-foreground">{activeProjects.length}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center">
                 <FolderOpen className="h-5 w-5 text-green-600" />
@@ -92,8 +92,8 @@ export function PortalDashboard({ data, onNavigate }: PortalDashboardProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">Unread Messages</p>
-                <p className="text-2xl font-bold text-slate-900">{unreadMessages || 0}</p>
+                <p className="text-sm text-muted-foreground">Unread Messages</p>
+                <p className="text-2xl font-bold text-foreground">{unreadMessages || 0}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
                 <MessageSquare className="h-5 w-5 text-purple-600" />
@@ -106,8 +106,8 @@ export function PortalDashboard({ data, onNavigate }: PortalDashboardProps) {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">Total Quoted</p>
-                <p className="text-2xl font-bold text-slate-900">{formatCurrency(totalQuotedValue)}</p>
+                <p className="text-sm text-muted-foreground">Total Quoted</p>
+                <p className="text-2xl font-bold text-foreground">{formatCurrency(totalQuotedValue)}</p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center">
                 <DollarSign className="h-5 w-5 text-amber-600" />
@@ -133,23 +133,23 @@ export function PortalDashboard({ data, onNavigate }: PortalDashboardProps) {
           </CardHeader>
           <CardContent>
             {(quotes || []).length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">No quotes yet</p>
+              <p className="text-sm text-muted-foreground text-center py-6">No quotes yet</p>
             ) : (
               <div className="space-y-3">
                 {(quotes || []).slice(0, 5).map((quote: any) => (
                   <div
                     key={quote.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors"
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted hover:bg-muted cursor-pointer transition-colors"
                     onClick={() => onNavigate('quotes')}
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
+                      <p className="text-sm font-medium text-foreground truncate">
                         {quote.title || quote.quote_number || 'Quote'}
                       </p>
-                      <p className="text-xs text-slate-500">{formatDate(quote.created_at)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(quote.created_at)}</p>
                     </div>
                     <div className="flex items-center gap-2 ml-3">
-                      <span className="text-sm font-semibold text-slate-900">
+                      <span className="text-sm font-semibold text-foreground">
                         {formatCurrency(quote.total)}
                       </span>
                       <StatusBadge status={quote.status} />
@@ -168,17 +168,17 @@ export function PortalDashboard({ data, onNavigate }: PortalDashboardProps) {
           </CardHeader>
           <CardContent>
             {(appointments || []).length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">No upcoming appointments</p>
+              <p className="text-sm text-muted-foreground text-center py-6">No upcoming appointments</p>
             ) : (
               <div className="space-y-3">
                 {(appointments || []).map((apt: any) => (
-                  <div key={apt.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50">
+                  <div key={apt.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted">
                     <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                       <Calendar className="h-5 w-5 text-blue-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900">{apt.title}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-sm font-medium text-foreground">{apt.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {new Date(apt.start_time).toLocaleDateString('en-US', {
                           weekday: 'short',
                           month: 'short',
@@ -191,7 +191,7 @@ export function PortalDashboard({ data, onNavigate }: PortalDashboardProps) {
                         })}
                       </p>
                       {apt.location && (
-                        <p className="text-xs text-slate-400 mt-0.5">{apt.location}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{apt.location}</p>
                       )}
                     </div>
                   </div>
@@ -221,7 +221,7 @@ export function PortalDashboard({ data, onNavigate }: PortalDashboardProps) {
               {activeProjects.slice(0, 3).map((project: any) => (
                 <div
                   key={project.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors"
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted hover:bg-muted cursor-pointer transition-colors"
                   onClick={() => onNavigate('projects')}
                 >
                   <div className="flex items-center gap-3">
@@ -229,10 +229,10 @@ export function PortalDashboard({ data, onNavigate }: PortalDashboardProps) {
                       <TrendingUp className="h-5 w-5 text-green-600" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-900">
+                      <p className="text-sm font-medium text-foreground">
                         {project.title || project.bid_number || 'Project'}
                       </p>
-                      <p className="text-xs text-slate-500">{formatDate(project.created_at)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(project.created_at)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -251,7 +251,7 @@ export function PortalDashboard({ data, onNavigate }: PortalDashboardProps) {
 
 function StatusBadge({ status }: { status: string }) {
   const statusConfig: Record<string, { label: string; variant: string; icon: any }> = {
-    draft: { label: 'Draft', variant: 'bg-slate-100 text-slate-700', icon: Clock },
+    draft: { label: 'Draft', variant: 'bg-muted text-foreground', icon: Clock },
     sent: { label: 'Sent', variant: 'bg-blue-100 text-blue-700', icon: FileText },
     viewed: { label: 'Viewed', variant: 'bg-indigo-100 text-indigo-700', icon: AlertCircle },
     accepted: { label: 'Accepted', variant: 'bg-green-100 text-green-700', icon: CheckCircle2 },
@@ -265,7 +265,7 @@ function StatusBadge({ status }: { status: string }) {
     lost: { label: 'Lost', variant: 'bg-red-100 text-red-700', icon: AlertCircle },
   };
 
-  const config = statusConfig[status] || { label: status, variant: 'bg-slate-100 text-slate-700', icon: Clock };
+  const config = statusConfig[status] || { label: status, variant: 'bg-muted text-foreground', icon: Clock };
 
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.variant}`}>

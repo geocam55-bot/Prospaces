@@ -14,7 +14,6 @@ import {
   Zap,
   Crown,
   Building2,
-  Users,
 } from 'lucide-react';
 import {
   formatCurrency,
@@ -37,7 +36,7 @@ interface CurrentPlanProps {
 
 const PLAN_DETAILS: Record<PlanId, { name: string; icon: typeof Zap; color: string; bgColor: string }> = {
   starter: {
-    name: 'Starter',
+    name: 'Standard User',
     icon: Zap,
     color: 'text-orange-600',
     bgColor: 'bg-orange-100',
@@ -60,8 +59,8 @@ const STATUS_STYLES: Record<string, { label: string; className: string }> = {
   active: { label: 'Active', className: 'bg-green-100 text-green-700 border-green-200' },
   trialing: { label: 'Trial', className: 'bg-blue-100 text-blue-700 border-blue-200' },
   past_due: { label: 'Past Due', className: 'bg-red-100 text-red-700 border-red-200' },
-  canceled: { label: 'Canceled', className: 'bg-slate-100 text-slate-700 border-slate-200' },
-  expired: { label: 'Expired', className: 'bg-slate-100 text-slate-500 border-slate-200' },
+  canceled: { label: 'Canceled', className: 'bg-muted text-foreground border-border' },
+  expired: { label: 'Expired', className: 'bg-muted text-muted-foreground border-border' },
 };
 
 export function CurrentPlan({ subscription, paymentMethod, isAdmin, actionLoading, onChangePlan, onCancel, onReactivate }: CurrentPlanProps) {
@@ -69,11 +68,11 @@ export function CurrentPlan({ subscription, paymentMethod, isAdmin, actionLoadin
     return (
       <Card>
         <CardContent className="py-16 text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-            <CreditCard className="h-8 w-8 text-slate-400" />
+          <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+            <CreditCard className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">No Active Subscription</h3>
-          <p className="text-slate-500 mb-6 max-w-md mx-auto">
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Active Subscription</h3>
+          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
             You're currently on the free tier. Upgrade to unlock advanced CRM features, more users, and priority support.
           </p>
           {isAdmin && (
@@ -147,13 +146,8 @@ export function CurrentPlan({ subscription, paymentMethod, isAdmin, actionLoadin
                     {status.label}
                   </Badge>
                 </CardTitle>
-                <p className="text-sm text-slate-500 mt-0.5">
+                <p className="text-sm text-muted-foreground mt-0.5">
                   {formatCurrency(subscription.amount)}/{subscription.billing_interval === 'year' ? 'year' : 'month'}
-                  {subscription.seat_count && subscription.price_per_seat ? (
-                    <span className="ml-1 text-slate-400">
-                      ({subscription.seat_count} seat{subscription.seat_count !== 1 ? 's' : ''} &times; {formatCurrency(subscription.price_per_seat)}/seat)
-                    </span>
-                  ) : null}
                 </p>
               </div>
             </div>
@@ -191,39 +185,24 @@ export function CurrentPlan({ subscription, paymentMethod, isAdmin, actionLoadin
         <CardContent className="space-y-6">
           {/* Billing period info */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
-              <Calendar className="h-5 w-5 text-slate-400" />
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">
                   {isTrialing ? 'Trial Ends' : 'Next Billing'}
                 </p>
-                <p className="text-sm font-medium text-slate-900">
+                <p className="text-sm font-medium text-foreground">
                   {formatDate(subscription.current_period_end)}
                 </p>
-                <p className="text-xs text-slate-400">{daysLeft} day{daysLeft !== 1 ? 's' : ''} left</p>
+                <p className="text-xs text-muted-foreground">{daysLeft} day{daysLeft !== 1 ? 's' : ''} left</p>
               </div>
             </div>
 
-            {subscription.seat_count != null && (
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
-              <Users className="h-5 w-5 text-slate-400" />
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
+              <CreditCard className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Active Seats</p>
-                <p className="text-sm font-medium text-slate-900">
-                  {subscription.seat_count} user{subscription.seat_count !== 1 ? 's' : ''}
-                </p>
-                {subscription.price_per_seat != null && (
-                  <p className="text-xs text-slate-400">{formatCurrency(subscription.price_per_seat)}/seat/{subscription.billing_interval === 'year' ? 'yr' : 'mo'}</p>
-                )}
-              </div>
-            </div>
-            )}
-
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
-              <CreditCard className="h-5 w-5 text-slate-400" />
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Payment Method</p>
-                <p className="text-sm font-medium text-slate-900">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Payment Method</p>
+                <p className="text-sm font-medium text-foreground">
                   {paymentMethod
                     ? `${paymentMethod.brand} ****${paymentMethod.last4}`
                     : 'None on file'}
@@ -231,11 +210,11 @@ export function CurrentPlan({ subscription, paymentMethod, isAdmin, actionLoadin
               </div>
             </div>
 
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
-              <Clock className="h-5 w-5 text-slate-400" />
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
+              <Clock className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Billing Interval</p>
-                <p className="text-sm font-medium text-slate-900 capitalize">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Billing Interval</p>
+                <p className="text-sm font-medium text-foreground capitalize">
                   {subscription.billing_interval}ly
                 </p>
               </div>

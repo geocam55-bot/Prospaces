@@ -161,7 +161,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
       name: 'Apple Mail',
       description: 'Connect your iCloud Mail account',
       icon: '✉️',
-      color: 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+      color: 'bg-muted text-muted-foreground hover:bg-muted',
     },
   ];
 
@@ -571,12 +571,12 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-white text-gray-900 [&_*]:text-inherit">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-background text-foreground [&_*]:text-inherit">
         {step === 'select' && (
           <>
             <DialogHeader>
-              <DialogTitle className="text-gray-900">Add Email Account</DialogTitle>
-              <DialogDescription className="text-gray-600">
+              <DialogTitle className="text-foreground">Add Email Account</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
                 Choose how you want to connect your email account
               </DialogDescription>
             </DialogHeader>
@@ -615,8 +615,8 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
                         🔒
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-sm text-gray-900 mb-1">IMAP/SMTP Connection</h3>
-                        <p className="text-xs text-gray-600">Configure with your email server settings</p>
+                        <h3 className="text-sm text-foreground mb-1">IMAP/SMTP Connection</h3>
+                        <p className="text-xs text-muted-foreground">Configure with your email server settings</p>
                       </div>
                       <Button variant="ghost" size="sm">
                         Configure
@@ -645,8 +645,8 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
                           {provider.icon}
                         </div>
                         <div className="flex-1">
-                          <h3 className="text-sm text-gray-900 mb-1">{provider.name}</h3>
-                          <p className="text-xs text-gray-600">{provider.description}</p>
+                          <h3 className="text-sm text-foreground mb-1">{provider.name}</h3>
+                          <p className="text-xs text-muted-foreground">{provider.description}</p>
                         </div>
                         <Button variant="ghost" size="sm">
                           Connect
@@ -839,7 +839,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
                 </div>
                 
                 <div className="border-t pt-4 mt-2">
-                   <Label className="mb-2 block text-xs font-semibold text-gray-500 uppercase">SMTP Settings (Sending)</Label>
+                   <Label className="mb-2 block text-xs font-semibold text-muted-foreground uppercase">SMTP Settings (Sending)</Label>
                    <div className="grid grid-cols-3 gap-4">
                     <div className="col-span-2 space-y-2">
                       <Label htmlFor="smtpHost">SMTP Host</Label>
@@ -893,7 +893,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
            <div className="flex flex-col items-center justify-center py-6 space-y-4">
              <CheckCircle className="h-16 w-16 text-green-500" />
              <h3 className="text-xl font-medium">Account Connected!</h3>
-             <p className="text-center text-gray-500">
+             <p className="text-center text-muted-foreground">
                Your email account has been successfully connected and is now syncing.
              </p>
            </div>

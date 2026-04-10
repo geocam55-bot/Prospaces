@@ -71,11 +71,11 @@ export function CustomerPortalLogin({ onLogin, inviteCode: initialInviteCode }: 
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 mb-4 shadow-lg">
             <Building2 className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Customer Portal</h1>
-          <p className="text-slate-500 mt-1">Access your quotes, projects, and documents</p>
+          <h1 className="text-2xl font-bold text-foreground">Customer Portal</h1>
+          <p className="text-muted-foreground mt-1">Access your quotes, projects, and documents</p>
         </div>
 
-        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+        <Card className="shadow-xl border-0 bg-background/80 backdrop-blur-sm">
           <CardHeader className="pb-4">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-2">
@@ -194,7 +194,7 @@ export function CustomerPortalLogin({ onLogin, inviteCode: initialInviteCode }: 
           </CardHeader>
         </Card>
 
-        <p className="text-center text-xs text-slate-400 mt-6">
+        <p className="text-center text-xs text-muted-foreground mt-6">
           Powered by ProSpaces CRM
         </p>
       </div>

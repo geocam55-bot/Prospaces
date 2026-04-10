@@ -1120,7 +1120,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             Back to Contacts
           </Button>
           <h1 className="text-3xl font-bold">{contact.name}</h1>
-          <p className="text-gray-600 mt-1">{contact.company}</p>
+          <p className="text-muted-foreground mt-1">{contact.company}</p>
         </div>
         {canChange('contacts', user.role) && (
           <Button onClick={() => onEdit(contact)}>
@@ -1140,28 +1140,28 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <div className="flex items-center gap-2 text-gray-600 mb-1">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <Mail className="h-4 w-4" />
               <span className="text-sm">Email</span>
             </div>
-            <p className="text-gray-900">{contact.email}</p>
+            <p className="text-foreground">{contact.email}</p>
           </div>
           <div>
-            <div className="flex items-center gap-2 text-gray-600 mb-1">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <Phone className="h-4 w-4" />
               <span className="text-sm">Phone</span>
             </div>
-            <p className="text-gray-900">{contact.phone}</p>
+            <p className="text-foreground">{contact.phone}</p>
           </div>
           <div>
-            <div className="flex items-center gap-2 text-gray-600 mb-1">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <Building className="h-4 w-4" />
               <span className="text-sm">Company</span>
             </div>
-            <p className="text-gray-900">{contact.company}</p>
+            <p className="text-foreground">{contact.company}</p>
           </div>
           <div>
-            <div className="flex items-center gap-2 text-gray-600 mb-1">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <DollarSign className="h-4 w-4" />
               <span className="text-sm">Price Level</span>
             </div>
@@ -1171,27 +1171,27 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
           </div>
           {contact.legacyNumber && (
             <div>
-              <div className="flex items-center gap-2 text-gray-600 mb-1">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
                 <span className="text-sm">Legacy #</span>
               </div>
-              <p className="text-gray-900">{contact.legacyNumber}</p>
+              <p className="text-foreground">{contact.legacyNumber}</p>
             </div>
           )}
           {contact.accountOwnerNumber && (
             <div>
-              <div className="flex items-center gap-2 text-gray-600 mb-1">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
                 <span className="text-sm">Account Owner #</span>
               </div>
-              <p className="text-gray-900">{contact.accountOwnerNumber}</p>
+              <p className="text-foreground">{contact.accountOwnerNumber}</p>
             </div>
           )}
           {(contact.address || contact.city || contact.province || contact.postalCode) && (
             <div className="md:col-span-2">
-              <div className="flex items-center gap-2 text-gray-600 mb-1">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
                 <MapPin className="h-4 w-4" />
                 <span className="text-sm">Address</span>
               </div>
-              <p className="text-gray-900 whitespace-pre-line">
+              <p className="text-foreground whitespace-pre-line">
                 {[
                   contact.address,
                   [contact.city, contact.province].filter(Boolean).join(', '),
@@ -1202,10 +1202,10 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
           )}
           {contact.notes && (
             <div className="md:col-span-2">
-              <div className="flex items-center gap-2 text-gray-600 mb-1">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
                 <span className="text-sm">Notes</span>
               </div>
-              <p className="text-gray-900">{contact.notes}</p>
+              <p className="text-foreground">{contact.notes}</p>
             </div>
           )}
         </CardContent>
@@ -1223,7 +1223,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               <Input 
                 readOnly 
                 value={contact.ptdSales != null ? `$${contact.ptdSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''} 
-                className="bg-white"
+                className="bg-background"
               />
             </div>
             <div className="space-y-2">
@@ -1231,7 +1231,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               <Input 
                 readOnly 
                 value={contact.ptdGpPercent != null ? `${Number(contact.ptdGpPercent).toFixed(1)}%` : ''} 
-                className="bg-white"
+                className="bg-background"
               />
             </div>
 
@@ -1240,7 +1240,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               <Input 
                 readOnly 
                 value={contact.ytdSales != null ? `$${contact.ytdSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''} 
-                className="bg-white"
+                className="bg-background"
               />
             </div>
             <div className="space-y-2">
@@ -1248,7 +1248,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               <Input 
                 readOnly 
                 value={contact.ytdGpPercent != null ? `${Number(contact.ytdGpPercent).toFixed(1)}%` : ''} 
-                className="bg-white"
+                className="bg-background"
               />
             </div>
 
@@ -1257,7 +1257,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               <Input 
                 readOnly 
                 value={contact.lyrSales != null ? `$${contact.lyrSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''} 
-                className="bg-white"
+                className="bg-background"
               />
             </div>
             <div className="space-y-2">
@@ -1265,7 +1265,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               <Input 
                 readOnly 
                 value={contact.lyrGpPercent != null ? `${Number(contact.lyrGpPercent).toFixed(1)}%` : ''} 
-                className="bg-white"
+                className="bg-background"
               />
             </div>
           </CardContent>
@@ -1294,7 +1294,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                     Add Project Manager
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
+                <DialogContent className="max-h-[90vh] overflow-y-auto bg-background">
                   <DialogHeader>
                     <DialogTitle>Add Project Manager</DialogTitle>
                     <DialogDescription>
@@ -1373,16 +1373,16 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : tableNotFound ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <UserPlus className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>Project Managers table not found</p>
               <p className="text-sm mt-1">Please contact your administrator to set up the table</p>
             </div>
           ) : projectManagers.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <UserPlus className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No project managers added yet</p>
               <p className="text-sm mt-1">Add project managers to keep track of key contacts</p>
@@ -1390,7 +1390,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
           ) : (
             <div className="space-y-4">
               {projectManagers.map((pm) => (
-                <div key={pm.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                <div key={pm.id} className="border rounded-lg p-4 hover:bg-muted">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
@@ -1398,19 +1398,19 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                           {pm.name.charAt(0)}
                         </div>
                         <div>
-                          <h4 className="font-semibold text-gray-900">{pm.name}</h4>
-                          <div className="flex items-center gap-1 text-sm text-gray-600">
+                          <h4 className="font-semibold text-foreground">{pm.name}</h4>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
                             <Mail className="h-3 w-3" />
                             {pm.email}
                           </div>
                         </div>
                       </div>
                       <div className="ml-12 space-y-1 text-sm">
-                        <div className="flex items-center gap-2 text-gray-600">
+                        <div className="flex items-center gap-2 text-muted-foreground">
                           <Phone className="h-3 w-3" />
                           {pm.phone}
                         </div>
-                        <div className="flex items-start gap-2 text-gray-600">
+                        <div className="flex items-start gap-2 text-muted-foreground">
                           <MapPin className="h-3 w-3 mt-0.5" />
                           <span>{pm.mailingAddress}</span>
                         </div>
@@ -1471,10 +1471,10 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         <CardContent>
           {isLoadingBids ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : bids.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No deals added yet</p>
               <p className="text-sm mt-1">Create deals to send proposals to this contact</p>
@@ -1483,7 +1483,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             <div className="space-y-4">
               {bids.map((bid) => {
                 const statusColors = {
-                  draft: 'bg-gray-100 text-gray-700',
+                  draft: 'bg-muted text-foreground',
                   sent: 'bg-blue-100 text-blue-700',
                   viewed: 'bg-indigo-100 text-indigo-700',
                   accepted: 'bg-green-100 text-green-700',
@@ -1495,33 +1495,33 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 
                 // Safe access to status color with fallback
                 const status = (bid.status || 'draft').toLowerCase();
-                const badgeClass = statusColors[status as keyof typeof statusColors] || 'bg-gray-100 text-gray-700';
+                const badgeClass = statusColors[status as keyof typeof statusColors] || 'bg-muted text-foreground';
                 
                 return (
-                  <div key={bid.id} className="border rounded-lg p-4 hover:bg-gray-50 transition">
+                  <div key={bid.id} className="border rounded-lg p-4 hover:bg-muted transition">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <FileText className="h-5 w-5 text-blue-600" />
-                          <h4 className="font-semibold text-gray-900">{bid.title}</h4>
+                          <h4 className="font-semibold text-foreground">{bid.title}</h4>
                           <Badge variant="outline">{bid._source === 'quotes' ? 'Quote' : 'Deal'}</Badge>
                           <Badge className={badgeClass}>
                             {status.charAt(0).toUpperCase() + status.slice(1)}
                           </Badge>
                         </div>
-                        {bid.notes && <p className="text-sm text-gray-600 mb-3 ml-7">{bid.notes}</p>}
+                        {bid.notes && <p className="text-sm text-muted-foreground mb-3 ml-7">{bid.notes}</p>}
                         <div className="ml-7 flex items-center gap-4 text-sm">
-                          <div className="flex items-center gap-1 text-gray-600">
+                          <div className="flex items-center gap-1 text-muted-foreground">
                             <DollarSign className="h-4 w-4" />
                             <span>${(bid.amount || bid.total || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                           </div>
                           {bid.valid_until && (
-                            <div className="flex items-center gap-1 text-gray-600">
+                            <div className="flex items-center gap-1 text-muted-foreground">
                               <Calendar className="h-4 w-4" />
                               <span>Valid Until: {new Date(bid.valid_until).toLocaleDateString()}</span>
                             </div>
                           )}
-                          <div className="flex items-center gap-1 text-gray-600">
+                          <div className="flex items-center gap-1 text-muted-foreground">
                             <TrendingUp className="h-4 w-4" />
                             <span>Created: {new Date(bid.created_at).toLocaleDateString()}</span>
                           </div>
@@ -1614,7 +1614,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         </CardHeader>
         <CardContent>
           {documents.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No documents added yet</p>
               <p className="text-sm mt-1">Upload documents to keep track of important files</p>
@@ -1622,16 +1622,16 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
           ) : (
             <div className="space-y-4">
               {documents.map((doc) => (
-                <div key={doc.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                <div key={doc.id} className="border rounded-lg p-4 hover:bg-muted">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <File className="h-5 w-5 text-blue-600" />
-                        <h4 className="font-semibold text-gray-900">{doc.fileName}</h4>
+                        <h4 className="font-semibold text-foreground">{doc.fileName}</h4>
                       </div>
-                      <p className="text-sm text-gray-600 mb-3 ml-7">{doc.description}</p>
+                      <p className="text-sm text-muted-foreground mb-3 ml-7">{doc.description}</p>
                       <div className="ml-7 flex items-center gap-4 text-sm">
-                        <div className="flex items-center gap-1 text-gray-600">
+                        <div className="flex items-center gap-1 text-muted-foreground">
                           <Calendar className="h-4 w-4" />
                           <span>Uploaded: {new Date(doc.createdAt).toLocaleDateString()}</span>
                         </div>
@@ -1681,10 +1681,10 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         <CardContent>
           {isLoadingNotes ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : linkedNotes.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <StickyNote className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No notes linked to this contact</p>
               <p className="text-sm mt-1">Link notes to this contact from the Notes module</p>
@@ -1692,13 +1692,13 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
           ) : (
             <div className="space-y-4">
               {linkedNotes.map((note) => (
-                <div key={note.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                <div key={note.id} className="border rounded-lg p-4 hover:bg-muted">
                   <div className="flex items-start gap-3">
                     <StickyNote className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-gray-900">{note.title || 'Untitled Note'}</h4>
-                      <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap line-clamp-4">{note.content}</p>
-                      <p className="text-xs text-gray-400 mt-2">
+                      <h4 className="font-semibold text-foreground">{note.title || 'Untitled Note'}</h4>
+                      <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap line-clamp-4">{note.content}</p>
+                      <p className="text-xs text-muted-foreground mt-2">
                         {new Date(note.created_at).toLocaleString('en-US', {
                           month: 'short',
                           day: 'numeric',
@@ -1726,10 +1726,10 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
         <CardContent>
           {isLoadingAppointments ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : linkedAppointments.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No appointments linked to this contact</p>
               <p className="text-sm mt-1">Link appointments from the Appointments module</p>
@@ -1742,19 +1742,19 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                   const startDate = new Date(apt.start_time);
                   const isUpcoming = startDate > new Date();
                   return (
-                    <div key={apt.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                    <div key={apt.id} className="border rounded-lg p-4 hover:bg-muted">
                       <div className="flex items-start gap-3">
                         <Calendar className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-gray-900">{apt.title}</h4>
+                            <h4 className="font-semibold text-foreground">{apt.title}</h4>
                             {isUpcoming && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-green-100 text-green-800">
                                 Upcoming
                               </span>
                             )}
                           </div>
-                          <div className="flex flex-wrap gap-3 mt-1 text-sm text-gray-600">
+                          <div className="flex flex-wrap gap-3 mt-1 text-sm text-muted-foreground">
                             <span>
                               {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                             </span>
@@ -1764,10 +1764,10 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                             </span>
                           </div>
                           {apt.location && (
-                            <p className="text-sm text-gray-500 mt-1">{apt.location}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{apt.location}</p>
                           )}
                           {apt.description && (
-                            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{apt.description}</p>
+                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{apt.description}</p>
                           )}
                         </div>
                       </div>
@@ -1781,7 +1781,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
       {/* Edit Project Manager Dialog */}
       <Dialog open={isEditPMDialogOpen} onOpenChange={setIsEditPMDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>Edit Project Manager</DialogTitle>
             <DialogDescription>
@@ -1859,7 +1859,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
       {/* Create Deal Dialog (copied from Bids.tsx / Deals module) */}
       <Dialog open={isAddBidDialogOpen} onOpenChange={setIsAddBidDialogOpen}>
-        <DialogContent className="max-w-[1400px] w-[95vw] h-[90vh] flex flex-col bg-white p-0 border-0 shadow-2xl">
+        <DialogContent className="max-w-[1400px] w-[95vw] h-[90vh] flex flex-col bg-background p-0 border-0 shadow-2xl">
           <div className="p-6 border-b flex-shrink-0">
             <DialogHeader>
               <DialogTitle>Create New Deal</DialogTitle>
@@ -1893,7 +1893,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               <Input
                 value={contact.name}
                 disabled
-                className="bg-gray-50"
+                className="bg-muted"
               />
             </div>
             <div className="space-y-2">
@@ -1901,14 +1901,14 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               <Input
                 value={contact.priceLevel || getPriceTierLabel(1)}
                 disabled
-                className="bg-gray-50"
+                className="bg-muted"
               />
             </div>
 
             {/* Line Items */}
             <div className="md:col-span-2 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm text-gray-900">Line Items</h3>
+                <h3 className="text-sm text-foreground">Line Items</h3>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
@@ -1934,20 +1934,20 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               </div>
 
               {currentLineItems.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <div className="text-center py-8 bg-muted rounded-lg">
                   <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm text-gray-500">No items added yet</p>
+                  <p className="text-sm text-muted-foreground">No items added yet</p>
                 </div>
               ) : (
                 <div className="border rounded-lg overflow-x-auto">
                   <table className="w-full min-w-[500px]">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-muted">
                       <tr>
-                        <th className="text-left py-2 px-3 text-xs text-gray-600">Item</th>
-                        <th className="text-right py-2 px-3 text-xs text-gray-600 whitespace-nowrap">Cost</th>
-                        <th className="text-right py-2 px-3 text-xs text-gray-600">Qty</th>
-                        <th className="text-right py-2 px-3 text-xs text-gray-600 whitespace-nowrap">Unit Price</th>
-                        <th className="text-right py-2 px-3 text-xs text-gray-600">Total</th>
+                        <th className="text-left py-2 px-3 text-xs text-muted-foreground">Item</th>
+                        <th className="text-right py-2 px-3 text-xs text-muted-foreground whitespace-nowrap">Cost</th>
+                        <th className="text-right py-2 px-3 text-xs text-muted-foreground">Qty</th>
+                        <th className="text-right py-2 px-3 text-xs text-muted-foreground whitespace-nowrap">Unit Price</th>
+                        <th className="text-right py-2 px-3 text-xs text-muted-foreground">Total</th>
                         <th className="w-20"></th>
                       </tr>
                     </thead>
@@ -1967,12 +1967,12 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                         return (
                           <tr key={item.id} className="border-t">
                             <td className="py-2 px-3">
-                              <p className="text-sm font-medium text-gray-900 break-words max-w-[200px]">{displayName}</p>
+                              <p className="text-sm font-medium text-foreground break-words max-w-[200px]">{displayName}</p>
                               {displayDesc && (
-                                <p className="text-xs text-gray-500 truncate max-w-[200px] mt-0.5">{displayDesc}</p>
+                                <p className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">{displayDesc}</p>
                               )}
                               {displaySku && (
-                                <p className="text-xs text-gray-400 mt-0.5">SKU: {displaySku}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">SKU: {displaySku}</p>
                               )}
                             </td>
                             <td className="py-2 px-3 text-right text-sm whitespace-nowrap">
@@ -2014,7 +2014,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             {/* Pricing */}
             {currentLineItems.length > 0 && (
               <div className="md:col-span-2 space-y-4">
-                <h3 className="text-sm text-gray-900">Pricing</h3>
+                <h3 className="text-sm text-foreground">Pricing</h3>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Quote Discount (%)</Label>
@@ -2033,7 +2033,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                       value={dealFormData.taxPercent}
                       onChange={(e) => setDealFormData({ ...dealFormData, taxPercent: Number(e.target.value) })}
                     />
-                    <p className="text-xs text-gray-500">Primary tax rate</p>
+                    <p className="text-xs text-muted-foreground">Primary tax rate</p>
                   </div>
                   <div className="space-y-2">
                     <Label>Tax Rate 2 (%) - Optional</Label>
@@ -2043,42 +2043,42 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                       value={dealFormData.taxPercent2 || 0}
                       onChange={(e) => setDealFormData({ ...dealFormData, taxPercent2: Number(e.target.value) })}
                     />
-                    <p className="text-xs text-gray-500">Secondary tax rate</p>
+                    <p className="text-xs text-muted-foreground">Secondary tax rate</p>
                   </div>
                 </div>
 
                 {/* Quote Summary */}
-                <div className="bg-gray-50 rounded-lg p-4">
+                <div className="bg-muted rounded-lg p-4">
                   <div className="space-y-2">
                     {(() => {
                       const totals = calculateBidTotals(currentLineItems, dealFormData.discountPercent, dealFormData.taxPercent, dealFormData.taxPercent2 || 0);
                       return (
                         <>
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Subtotal:</span>
-                            <span className="text-gray-900">${totals.subtotal.toFixed(2)}</span>
+                            <span className="text-muted-foreground">Subtotal:</span>
+                            <span className="text-foreground">${totals.subtotal.toFixed(2)}</span>
                           </div>
                           {dealFormData.discountPercent > 0 && (
                             <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Discount ({dealFormData.discountPercent}%):</span>
+                              <span className="text-muted-foreground">Discount ({dealFormData.discountPercent}%):</span>
                               <span className="text-red-600">-${totals.discountAmount.toFixed(2)}</span>
                             </div>
                           )}
                           {dealFormData.taxPercent > 0 && (
                             <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Tax 1 ({dealFormData.taxPercent}%):</span>
-                              <span className="text-gray-900">${totals.taxAmount.toFixed(2)}</span>
+                              <span className="text-muted-foreground">Tax 1 ({dealFormData.taxPercent}%):</span>
+                              <span className="text-foreground">${totals.taxAmount.toFixed(2)}</span>
                             </div>
                           )}
                           {(dealFormData.taxPercent2 || 0) > 0 && (
                             <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Tax 2 ({dealFormData.taxPercent2}%):</span>
-                              <span className="text-gray-900">${(totals.taxAmount2 || 0).toFixed(2)}</span>
+                              <span className="text-muted-foreground">Tax 2 ({dealFormData.taxPercent2}%):</span>
+                              <span className="text-foreground">${(totals.taxAmount2 || 0).toFixed(2)}</span>
                             </div>
                           )}
-                          <div className="flex justify-between pt-2 border-t border-gray-300">
-                            <span className="text-gray-900">Total:</span>
-                            <span className="text-xl text-gray-900">${totals.total.toFixed(2)}</span>
+                          <div className="flex justify-between pt-2 border-t border-border">
+                            <span className="text-foreground">Total:</span>
+                            <span className="text-xl text-foreground">${totals.total.toFixed(2)}</span>
                           </div>
                         </>
                       );
@@ -2113,7 +2113,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             </div>
           </div>
 
-          <div className="p-6 border-t flex-shrink-0 bg-gray-50">
+          <div className="p-6 border-t flex-shrink-0 bg-muted">
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => setIsAddBidDialogOpen(false)} className="flex-1" disabled={isSaving}>
                 Cancel
@@ -2135,7 +2135,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
       {/* ── Add Line Item Dialog (copied from Bids.tsx / Deals module) ── */}
       <Dialog open={showLineItemDialog} onOpenChange={setShowLineItemDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>{editingLineItemId ? 'Edit Line Item' : 'Add Line Item'}</DialogTitle>
             <DialogDescription>
@@ -2147,7 +2147,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             <div>
               <Label>Search Inventory</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Try: 'Hammers under $40', 'Screws', 'Paint red'..."
                   value={inventorySearchQuery}
@@ -2159,7 +2159,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 <p className="text-xs text-red-600 mt-1">{isSearchingInventory ? 'Searching...' : 'No items found. Try a different search.'}</p>
               )}
               {!inventorySearchQuery && (
-                <p className="text-xs text-gray-500 mt-1">Supports natural language: plurals, typos, and price filters</p>
+                <p className="text-xs text-muted-foreground mt-1">Supports natural language: plurals, typos, and price filters</p>
               )}
             </div>
 
@@ -2180,15 +2180,15 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                             <div className="flex flex-col items-start text-left overflow-hidden">
                               <div>
                                 <span className="font-medium">{item.name}</span>
-                                <span className="text-xs text-gray-500 ml-2">({item.sku})</span>
+                                <span className="text-xs text-muted-foreground ml-2">({item.sku})</span>
                               </div>
                               {item.description && (
-                                <span className="text-xs text-gray-400 truncate w-full max-w-[300px] block" title={item.description}>
+                                <span className="text-xs text-muted-foreground truncate w-full max-w-[300px] block" title={item.description}>
                                   {item.description}
                                 </span>
                               )}
                             </div>
-                            <span className="text-sm text-gray-600 whitespace-nowrap ml-2">${price.toFixed(2)}</span>
+                            <span className="text-sm text-muted-foreground whitespace-nowrap ml-2">${price.toFixed(2)}</span>
                           </div>
                         </SelectItem>
                       );
@@ -2222,7 +2222,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                   const priceTier = priceLevelToTier(priceLevel);
                   const invItem = inventoryItems.find(i => i.id === selectedInventoryId);
                   return invItem ? (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {priceLevel} default: ${getPriceForTier(invItem, priceTier).toFixed(2)}
                     </p>
                   ) : null;
@@ -2242,23 +2242,23 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             {selectedInventoryId && lineItemUnitPrice > 0 && (() => {
               const selectedItem = inventoryItems.find(i => i.id === selectedInventoryId);
               return (
-                <div className="bg-gray-50 rounded-lg p-4">
+                <div className="bg-muted rounded-lg p-4">
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Cost:</span>
-                      <span className="text-gray-900">${(selectedItem?.cost || 0).toFixed(2)}</span>
+                      <span className="text-muted-foreground">Cost:</span>
+                      <span className="text-foreground">${(selectedItem?.cost || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Unit Price:</span>
-                      <span className="text-gray-900">${lineItemUnitPrice.toFixed(2)}</span>
+                      <span className="text-muted-foreground">Unit Price:</span>
+                      <span className="text-foreground">${lineItemUnitPrice.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Quantity:</span>
-                      <span className="text-gray-900">{lineItemQuantity}</span>
+                      <span className="text-muted-foreground">Quantity:</span>
+                      <span className="text-foreground">{lineItemQuantity}</span>
                     </div>
                     <div className="flex justify-between pt-2 border-t">
-                      <span className="text-gray-900">Line Total:</span>
-                      <span className="text-gray-900">
+                      <span className="text-foreground">Line Total:</span>
+                      <span className="text-foreground">
                         ${(lineItemQuantity * lineItemUnitPrice).toFixed(2)}
                       </span>
                     </div>
@@ -2281,7 +2281,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
       {/* Edit Deal Dialog */}
       <Dialog open={isEditBidDialogOpen} onOpenChange={setIsEditBidDialogOpen}>
-        <DialogContent className="!max-w-none w-[98vw] h-[90vh] flex flex-col bg-white p-0 border-0 shadow-2xl">
+        <DialogContent className="!max-w-none w-[98vw] h-[90vh] flex flex-col bg-background p-0 border-0 shadow-2xl">
           <div className="p-6 border-b flex-shrink-0">
             <DialogHeader>
               <DialogTitle>Edit Deal</DialogTitle>
@@ -2336,7 +2336,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 <Input
                   value={contact.priceLevel || getPriceTierLabel(1)}
                   disabled
-                  className="bg-gray-50"
+                  className="bg-muted"
                 />
               </div>
               <div className="space-y-2">
@@ -2364,7 +2364,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Bids and quotes will be emailed to this person
                 </p>
               </div>
@@ -2372,7 +2372,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             {/* Line Items Section */}
             <div className="md:col-span-3 space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm text-gray-900">Line Items</h3>
+                <h3 className="text-sm text-foreground">Line Items</h3>
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -2401,21 +2401,21 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               </div>
 
               {editingBidLineItems.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <div className="text-center py-8 bg-muted rounded-lg">
                   <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm text-gray-500">No items added yet</p>
+                  <p className="text-sm text-muted-foreground">No items added yet</p>
                 </div>
               ) : (
                 <div className="border rounded-lg overflow-x-auto">
                   <table className="w-full min-w-[500px]">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-muted">
                       <tr>
-                        <th className="text-left py-2 px-4 text-xs text-gray-600">SKU</th>
-                        <th className="text-left py-2 px-4 text-xs text-gray-600">Item Name</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Quote Qty</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Cost (Base)</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Tier {editingBid?.price_tier || 1} Price</th>
-                        <th className="text-right py-2 px-4 text-xs text-gray-600">Total</th>
+                        <th className="text-left py-2 px-4 text-xs text-muted-foreground">SKU</th>
+                        <th className="text-left py-2 px-4 text-xs text-muted-foreground">Item Name</th>
+                        <th className="text-right py-2 px-4 text-xs text-muted-foreground">Quote Qty</th>
+                        <th className="text-right py-2 px-4 text-xs text-muted-foreground">Cost (Base)</th>
+                        <th className="text-right py-2 px-4 text-xs text-muted-foreground">Tier {editingBid?.price_tier || 1} Price</th>
+                        <th className="text-right py-2 px-4 text-xs text-muted-foreground">Total</th>
                         <th className="w-12"></th>
                       </tr>
                     </thead>
@@ -2456,27 +2456,27 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                         // Line item display data ready
 
                         return (
-                        <tr key={item.id} className="border-t hover:bg-gray-50">
+                        <tr key={item.id} className="border-t hover:bg-muted">
                           <td className="py-2 px-4">
-                            <p className="text-sm font-mono text-gray-700">{displaySku || '-'}</p>
+                            <p className="text-sm font-mono text-foreground">{displaySku || '-'}</p>
                           </td>
                           <td className="py-2 px-4">
-                            <p className="text-sm text-gray-900">{displayName}</p>
+                            <p className="text-sm text-foreground">{displayName}</p>
                             {item.description && item.description !== displayName && (
-                              <p className="text-xs text-gray-500">{item.description}</p>
+                              <p className="text-xs text-muted-foreground">{item.description}</p>
                             )}
                           </td>
                           <td className="py-2 px-4 text-right">
-                            <p className="text-sm text-gray-900">{item.quantity || 1}</p>
+                            <p className="text-sm text-foreground">{item.quantity || 1}</p>
                           </td>
                           <td className="py-2 px-4 text-right">
-                            <p className="text-sm text-gray-900">${Number(baseCost || 0).toFixed(2)}</p>
+                            <p className="text-sm text-foreground">${Number(baseCost || 0).toFixed(2)}</p>
                           </td>
                           <td className="py-2 px-4 text-right">
-                            <p className="text-sm text-gray-900">${Number(tierPrice || 0).toFixed(2)}</p>
+                            <p className="text-sm text-foreground">${Number(tierPrice || 0).toFixed(2)}</p>
                           </td>
                           <td className="py-2 px-4 text-right">
-                            <p className="text-sm font-medium text-gray-900">${(item.total || 0).toFixed(2)}</p>
+                            <p className="text-sm font-medium text-foreground">${(item.total || 0).toFixed(2)}</p>
                           </td>
                           <td className="py-2 px-4">
                             <div className="flex gap-1">
@@ -2513,7 +2513,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             {/* Pricing */}
             {editingBidLineItems.length > 0 && (
               <div className="md:col-span-3 space-y-4">
-                <h3 className="text-sm text-gray-900">Pricing</h3>
+                <h3 className="text-sm text-foreground">Pricing</h3>
                 <div className="grid md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Bid Discount (%)</Label>
@@ -2532,7 +2532,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                       value={bidTaxRate}
                       onChange={(e) => setBidTaxRate(e.target.value)}
                     />
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Primary tax rate
                     </p>
                   </div>
@@ -2544,7 +2544,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                       value={bidTaxRate2}
                       onChange={(e) => setBidTaxRate2(e.target.value)}
                     />
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Secondary tax rate
                     </p>
                   </div>
@@ -2554,17 +2554,17 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                 {(() => {
                   const editTotals = calculateBidTotals(editingBidLineItems, bidDiscountPercent, parseFloat(bidTaxRate) || 0, parseFloat(bidTaxRate2) || 0);
                   return (
-                    <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="bg-muted rounded-lg p-4">
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Subtotal:</span>
-                          <span className="text-gray-900">
+                          <span className="text-muted-foreground">Subtotal:</span>
+                          <span className="text-foreground">
                             ${editTotals.subtotal.toFixed(2)}
                           </span>
                         </div>
                         {bidDiscountPercent > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Discount ({bidDiscountPercent}%):</span>
+                            <span className="text-muted-foreground">Discount ({bidDiscountPercent}%):</span>
                             <span className="text-red-600">
                               -${editTotals.discountAmount.toFixed(2)}
                             </span>
@@ -2572,23 +2572,23 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                         )}
                         {parseFloat(bidTaxRate) > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Tax 1 ({bidTaxRate}%):</span>
-                            <span className="text-gray-900">
+                            <span className="text-muted-foreground">Tax 1 ({bidTaxRate}%):</span>
+                            <span className="text-foreground">
                               ${editTotals.taxAmount.toFixed(2)}
                             </span>
                           </div>
                         )}
                         {parseFloat(bidTaxRate2) > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Tax 2 ({bidTaxRate2}%):</span>
-                            <span className="text-gray-900">
+                            <span className="text-muted-foreground">Tax 2 ({bidTaxRate2}%):</span>
+                            <span className="text-foreground">
                               ${editTotals.taxAmount2.toFixed(2)}
                             </span>
                           </div>
                         )}
-                        <div className="flex justify-between pt-2 border-t border-gray-300">
-                          <span className="text-gray-900">Total:</span>
-                          <span className="text-xl text-gray-900">
+                        <div className="flex justify-between pt-2 border-t border-border">
+                          <span className="text-foreground">Total:</span>
+                          <span className="text-xl text-foreground">
                             ${editTotals.total.toFixed(2)}
                           </span>
                         </div>
@@ -2625,7 +2625,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             </div>
             </div>
 
-            <div className="p-6 border-t flex-shrink-0 bg-gray-50">
+            <div className="p-6 border-t flex-shrink-0 bg-muted">
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -2658,7 +2658,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
       {/* Add Line Item Dialog for Edit Bid */}
       <Dialog open={isEditLineItemDialogOpen} onOpenChange={setIsEditLineItemDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>Add Line Item</DialogTitle>
             <DialogDescription>
@@ -2670,7 +2670,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             <div>
               <Label>Search Inventory</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Type to search by name, SKU, or item number..."
                   value={inventorySearchQuery}
@@ -2697,15 +2697,15 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                             <div className="flex flex-col items-start text-left overflow-hidden">
                               <div>
                                 <span className="font-medium">{item.name}</span>
-                                <span className="text-xs text-gray-500 ml-2">({item.sku})</span>
+                                <span className="text-xs text-muted-foreground ml-2">({item.sku})</span>
                               </div>
                               {item.description && (
-                                <span className="text-xs text-gray-400 truncate w-full max-w-[300px] block" title={item.description}>
+                                <span className="text-xs text-muted-foreground truncate w-full max-w-[300px] block" title={item.description}>
                                   {item.description}
                                 </span>
                               )}
                             </div>
-                            <span className="text-sm text-gray-600 whitespace-nowrap ml-2">${price.toFixed(2)}</span>
+                            <span className="text-sm text-muted-foreground whitespace-nowrap ml-2">${price.toFixed(2)}</span>
                           </div>
                         </SelectItem>
                       );
@@ -2738,7 +2738,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                   const priceLevel = contact.priceLevel || getPriceTierLabel(1);
                   const priceTier = priceLevelToTier(priceLevel);
                   return (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {priceLevel} default: $
                       {getPriceForTier(inventoryItems.find(i => i.id === selectedInventoryId)!, priceTier).toFixed(2)}
                     </p>
@@ -2768,25 +2768,25 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             </div>
 
             {selectedInventoryId && lineItemUnitPrice > 0 && (
-              <div className="bg-gray-50 rounded-lg p-4">
+              <div className="bg-muted rounded-lg p-4">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Unit Price:</span>
-                    <span className="text-gray-900">${lineItemUnitPrice.toFixed(2)}</span>
+                    <span className="text-muted-foreground">Unit Price:</span>
+                    <span className="text-foreground">${lineItemUnitPrice.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Quantity:</span>
-                    <span className="text-gray-900">{lineItemQuantity}</span>
+                    <span className="text-muted-foreground">Quantity:</span>
+                    <span className="text-foreground">{lineItemQuantity}</span>
                   </div>
                   {lineItemDiscount > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Discount:</span>
+                      <span className="text-muted-foreground">Discount:</span>
                       <span className="text-red-600">{lineItemDiscount}%</span>
                     </div>
                   )}
                   <div className="flex justify-between pt-2 border-t">
-                    <span className="text-gray-900">Line Total:</span>
-                    <span className="text-gray-900">
+                    <span className="text-foreground">Line Total:</span>
+                    <span className="text-foreground">
                       ${calculateLineItemTotal(
                         lineItemQuantity,
                         lineItemUnitPrice,

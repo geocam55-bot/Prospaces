@@ -50,16 +50,16 @@ export function PortalDocuments({ documents }: PortalDocumentsProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-slate-900">Shared Documents</h2>
-        <p className="text-slate-500 text-sm mt-1">Documents shared with you by your service provider</p>
+        <h2 className="text-xl font-bold text-foreground">Shared Documents</h2>
+        <p className="text-muted-foreground text-sm mt-1">Documents shared with you by your service provider</p>
       </div>
 
       {documents.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <FilePlus2 className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-slate-700">No documents yet</h3>
-            <p className="text-sm text-slate-400 mt-1">
+            <h3 className="text-lg font-medium text-foreground">No documents yet</h3>
+            <p className="text-sm text-muted-foreground mt-1">
               Documents shared with you will appear here.
             </p>
           </CardContent>
@@ -71,14 +71,14 @@ export function PortalDocuments({ documents }: PortalDocumentsProps) {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="h-10 w-10 rounded-lg bg-slate-50 flex items-center justify-center shrink-0">
+                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
                       {getFileIcon(doc.file_type || doc.type, doc.file_name || doc.name)}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
+                      <p className="text-sm font-medium text-foreground truncate">
                         {doc.title || doc.file_name || doc.name || 'Document'}
                       </p>
-                      <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {formatDate(doc.created_at)}
@@ -104,7 +104,7 @@ export function PortalDocuments({ documents }: PortalDocumentsProps) {
                   </div>
                 </div>
                 {doc.description && (
-                  <p className="text-xs text-slate-500 mt-2 pl-13 ml-13">{doc.description}</p>
+                  <p className="text-xs text-muted-foreground mt-2 pl-13 ml-13">{doc.description}</p>
                 )}
               </CardContent>
             </Card>

@@ -127,7 +127,7 @@ export function Tasks({ user }: TasksProps) {
       case 'high': return 'bg-red-100 text-red-700';
       case 'medium': return 'bg-yellow-100 text-yellow-700';
       case 'low': return 'bg-green-100 text-green-700';
-      default: return 'bg-gray-100 text-gray-700';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -135,8 +135,8 @@ export function Tasks({ user }: TasksProps) {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-700';
       case 'in_progress': return 'bg-blue-100 text-blue-700';
-      case 'pending': return 'bg-gray-100 text-gray-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'pending': return 'bg-muted text-foreground';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -216,7 +216,7 @@ export function Tasks({ user }: TasksProps) {
         <Card>
           <CardHeader>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search tasks by title, description, status, priority, or assignee..."
                 value={searchQuery}
@@ -230,7 +230,7 @@ export function Tasks({ user }: TasksProps) {
               {filteredTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-start gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex items-start gap-3 p-4 border border-border rounded-lg hover:bg-muted transition-colors"
                 >
                   <button
                     onClick={() => handleToggleStatus(task.id)}
@@ -239,12 +239,12 @@ export function Tasks({ user }: TasksProps) {
                     {task.status === 'completed' ? (
                       <CheckCircle className="h-5 w-5 text-green-600" />
                     ) : (
-                      <Circle className="h-5 w-5 text-gray-400" />
+                      <Circle className="h-5 w-5 text-muted-foreground" />
                     )}
                   </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className={`text-sm text-gray-900 ${task.status === 'completed' ? 'line-through' : ''}`}>
+                      <h3 className={`text-sm text-foreground ${task.status === 'completed' ? 'line-through' : ''}`}>
                         {task.title}
                       </h3>
                       {canDelete('tasks', user.role) && (
@@ -266,7 +266,7 @@ export function Tasks({ user }: TasksProps) {
                         </DropdownMenu>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
                     <div className="flex flex-wrap items-center gap-2 mt-3">
                       <span className={`inline-block px-2 py-1 text-xs rounded ${getPriorityColor(task.priority)}`}>
                         {task.priority}
@@ -274,7 +274,7 @@ export function Tasks({ user }: TasksProps) {
                       <span className={`inline-block px-2 py-1 text-xs rounded ${getStatusColor(task.status)}`}>
                         {task.status.replace('_', ' ')}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-muted-foreground">
                         Due: {new Date(task.dueDate).toLocaleDateString()}
                       </span>
                     </div>

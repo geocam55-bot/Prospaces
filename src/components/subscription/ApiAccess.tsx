@@ -230,15 +230,15 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
                 automate workflows, and build custom integrations using REST API keys.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 w-full max-w-lg">
-                <div className="flex flex-col items-center gap-1 p-3 bg-white rounded-lg border border-amber-200">
+                <div className="flex flex-col items-center gap-1 p-3 bg-background rounded-lg border border-amber-200">
                   <Code className="h-5 w-5 text-amber-600" />
                   <span className="text-xs font-medium text-amber-800">REST API</span>
                 </div>
-                <div className="flex flex-col items-center gap-1 p-3 bg-white rounded-lg border border-amber-200">
+                <div className="flex flex-col items-center gap-1 p-3 bg-background rounded-lg border border-amber-200">
                   <Key className="h-5 w-5 text-amber-600" />
                   <span className="text-xs font-medium text-amber-800">API Key Auth</span>
                 </div>
-                <div className="flex flex-col items-center gap-1 p-3 bg-white rounded-lg border border-amber-200">
+                <div className="flex flex-col items-center gap-1 p-3 bg-background rounded-lg border border-amber-200">
                   <ShieldAlert className="h-5 w-5 text-amber-600" />
                   <span className="text-xs font-medium text-amber-800">Scoped Permissions</span>
                 </div>
@@ -264,7 +264,7 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
             <Key className="h-5 w-5 text-purple-600" />
             API Keys
           </h3>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Manage API keys for external integrations and automation.
           </p>
         </div>
@@ -308,8 +308,8 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
 
             <div>
               <h4 className="font-medium text-sm mb-2">Authentication</h4>
-              <p className="text-sm text-slate-600 mb-2">
-                Include your API key in the <code className="bg-slate-100 px-1 py-0.5 rounded text-xs">X-API-Key</code> header:
+              <p className="text-sm text-muted-foreground mb-2">
+                Include your API key in the <code className="bg-muted px-1 py-0.5 rounded text-xs">X-API-Key</code> header:
               </p>
               <code className="block text-xs bg-slate-800 text-green-400 px-3 py-2 rounded font-mono overflow-x-auto whitespace-pre">
 {`curl -H "X-API-Key: ps_live_..." \\
@@ -346,9 +346,9 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
                     }`}>
                       {ep.method}
                     </Badge>
-                    <code className="font-mono text-slate-700">{ep.path}</code>
-                    <span className="text-slate-400">-</span>
-                    <span className="text-slate-500">{ep.desc}</span>
+                    <code className="font-mono text-foreground">{ep.path}</code>
+                    <span className="text-muted-foreground">-</span>
+                    <span className="text-muted-foreground">{ep.desc}</span>
                     <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-auto">{ep.scope}</Badge>
                   </div>
                 ))}
@@ -357,7 +357,7 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
 
             <div>
               <h4 className="font-medium text-sm mb-2">Rate Limits</h4>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-muted-foreground">
                 Enterprise API keys are rate-limited to <strong>1,000 requests per minute</strong> per key.
                 If you need higher limits, contact your account manager.
               </p>
@@ -368,27 +368,27 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
 
       {/* Stats bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="border-slate-200">
+        <Card className="border-border">
           <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Active Keys</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{activeKeys.length}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Active Keys</p>
+            <p className="text-2xl font-bold text-foreground mt-1">{activeKeys.length}</p>
           </CardContent>
         </Card>
-        <Card className="border-slate-200">
+        <Card className="border-border">
           <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Revoked</p>
-            <p className="text-2xl font-bold text-slate-400 mt-1">{revokedKeys.length}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Revoked</p>
+            <p className="text-2xl font-bold text-muted-foreground mt-1">{revokedKeys.length}</p>
           </CardContent>
         </Card>
-        <Card className="border-slate-200">
+        <Card className="border-border">
           <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Key Limit</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{activeKeys.length}/10</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Key Limit</p>
+            <p className="text-2xl font-bold text-foreground mt-1">{activeKeys.length}/10</p>
           </CardContent>
         </Card>
-        <Card className="border-slate-200">
+        <Card className="border-border">
           <CardContent className="pt-4 pb-3 px-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Plan</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Plan</p>
             <Badge className="bg-purple-100 text-purple-700 border-purple-200 mt-1">Enterprise</Badge>
           </CardContent>
         </Card>
@@ -397,18 +397,18 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
       {/* Keys list */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-          <span className="ml-2 text-sm text-slate-500">Loading API keys...</span>
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-sm text-muted-foreground">Loading API keys...</span>
         </div>
       ) : keys.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center text-center py-8 gap-3">
-              <div className="p-3 bg-slate-100 rounded-full">
-                <Key className="h-6 w-6 text-slate-400" />
+              <div className="p-3 bg-muted rounded-full">
+                <Key className="h-6 w-6 text-muted-foreground" />
               </div>
-              <h4 className="font-medium text-slate-700">No API keys yet</h4>
-              <p className="text-sm text-slate-500 max-w-sm">
+              <h4 className="font-medium text-foreground">No API keys yet</h4>
+              <p className="text-sm text-muted-foreground max-w-sm">
                 Create your first API key to start integrating with external systems.
               </p>
               <Button size="sm" onClick={() => setShowCreateDialog(true)} className="mt-2">
@@ -423,7 +423,7 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
           {/* Active keys */}
           {activeKeys.length > 0 && (
             <>
-              <h4 className="text-sm font-medium text-slate-700">Active Keys</h4>
+              <h4 className="text-sm font-medium text-foreground">Active Keys</h4>
               {activeKeys.map((key) => (
                 <KeyCard
                   key={key.id}
@@ -438,7 +438,7 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
           {/* Revoked keys */}
           {revokedKeys.length > 0 && (
             <>
-              <h4 className="text-sm font-medium text-slate-400 mt-6">Revoked Keys</h4>
+              <h4 className="text-sm font-medium text-muted-foreground mt-6">Revoked Keys</h4>
               {revokedKeys.map((key) => (
                 <KeyCard
                   key={key.id}
@@ -475,7 +475,7 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
                 value={newKeyName}
                 onChange={(e) => setNewKeyName(e.target.value)}
               />
-              <p className="text-xs text-slate-500">A descriptive name to identify this key.</p>
+              <p className="text-xs text-muted-foreground">A descriptive name to identify this key.</p>
             </div>
 
             {/* Expiry */}
@@ -507,7 +507,7 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
                   });
                   return Array.from(groups.entries()).map(([group, scopes]) => (
                     <div key={group} className="px-3 py-2">
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5">{group}</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">{group}</p>
                       <div className="space-y-1.5">
                         {scopes.map(scope => (
                           <div key={scope.id} className="flex items-center justify-between">
@@ -574,7 +574,7 @@ export function ApiAccess({ user, hasAccess }: ApiAccessProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                className="absolute top-1 right-1 text-slate-400 hover:text-white"
+                className="absolute top-1 right-1 text-muted-foreground hover:text-white"
                 onClick={() => copyToClipboard(rawKey)}
               >
                 {rawKeyCopied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
@@ -664,17 +664,17 @@ function KeyCard({
     new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
-    <Card className={`transition-all ${isRevoked ? 'opacity-60 border-slate-200' : 'border-slate-200 hover:border-slate-300'}`}>
+    <Card className={`transition-all ${isRevoked ? 'opacity-60 border-border' : 'border-border hover:border-border'}`}>
       <CardContent className="pt-4 pb-3 px-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           {/* Icon + Info */}
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            <div className={`p-2 rounded-lg flex-shrink-0 ${isRevoked ? 'bg-slate-100' : 'bg-purple-50'}`}>
-              <Key className={`h-4 w-4 ${isRevoked ? 'text-slate-400' : 'text-purple-600'}`} />
+            <div className={`p-2 rounded-lg flex-shrink-0 ${isRevoked ? 'bg-muted' : 'bg-purple-50'}`}>
+              <Key className={`h-4 w-4 ${isRevoked ? 'text-muted-foreground' : 'text-purple-600'}`} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="font-medium text-sm text-slate-900 truncate">{apiKey.name}</h4>
+                <h4 className="font-medium text-sm text-foreground truncate">{apiKey.name}</h4>
                 <Badge
                   variant={isRevoked ? 'secondary' : isExpired ? 'destructive' : 'default'}
                   className={`text-[10px] px-1.5 py-0 ${
@@ -684,8 +684,8 @@ function KeyCard({
                   {isRevoked ? 'Revoked' : isExpired ? 'Expired' : 'Active'}
                 </Badge>
               </div>
-              <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
-                <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+                <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
                   {apiKey.key_prefix}
                 </code>
                 <span>Created {formatDate(apiKey.created_at)}</span>
@@ -700,7 +700,7 @@ function KeyCard({
               {/* Scopes */}
               <div className="flex flex-wrap gap-1 mt-2">
                 {apiKey.scopes.map(scope => (
-                  <Badge key={scope} variant="outline" className="text-[10px] px-1.5 py-0 font-mono border-slate-200">
+                  <Badge key={scope} variant="outline" className="text-[10px] px-1.5 py-0 font-mono border-border">
                     {scope}
                   </Badge>
                 ))}

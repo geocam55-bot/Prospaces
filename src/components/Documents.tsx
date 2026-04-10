@@ -338,7 +338,7 @@ export function Documents({ user }: DocumentsProps) {
     if (fileType.includes('word') || fileType.includes('document')) return <FileText className="w-5 h-5 text-blue-500" />;
     if (fileType.includes('excel') || fileType.includes('sheet')) return <FileText className="w-5 h-5 text-green-500" />;
     if (fileType.includes('image')) return <File className="w-5 h-5 text-purple-500" />;
-    return <File className="w-5 h-5 text-gray-500" />;
+    return <File className="w-5 h-5 text-muted-foreground" />;
   };
 
   // Show setup screen if table not found
@@ -359,7 +359,7 @@ export function Documents({ user }: DocumentsProps) {
                 Upload Document
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl bg-white">
+            <DialogContent className="max-w-2xl bg-background">
               <DialogHeader>
                 <DialogTitle>Upload Document</DialogTitle>
                 <DialogDescription>
@@ -716,7 +716,7 @@ export function Documents({ user }: DocumentsProps) {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl bg-white">
+        <DialogContent className="max-w-2xl bg-background">
           <DialogHeader>
             <DialogTitle>Edit Document Details</DialogTitle>
             <DialogDescription>

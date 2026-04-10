@@ -191,18 +191,18 @@ function CabinetCard({
 
   return (
     <div 
-      className="rounded-lg border border-slate-200 hover:shadow-md transition-shadow cursor-pointer bg-white group relative overflow-hidden" 
+      className="rounded-lg border border-border hover:shadow-md transition-shadow cursor-pointer bg-background group relative overflow-hidden" 
       onClick={handleAdd}
     >
-      <div className="h-32 p-4 border-b border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+      <div className="h-32 p-4 border-b border-border bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         {getCabinetIcon()}
         <div className="absolute top-0 left-0 right-0 h-32 bg-transparent group-hover:bg-black/5 transition-all flex items-center justify-center">
-          <Plus className="w-8 h-8 text-black opacity-0 group-hover:opacity-50 transition-opacity drop-shadow" />
+          <Plus className="w-8 h-8 text-foreground opacity-0 group-hover:opacity-50 transition-opacity drop-shadow" />
         </div>
       </div>
-      <div className="p-3 bg-white">
+      <div className="p-3 bg-background">
         <h3 className="font-medium text-sm mb-1">{cabinet.name}</h3>
-        <p className="text-xs text-gray-600 mb-2">{cabinet.width}W × {cabinet.height}H × {cabinet.depth}D</p>
+        <p className="text-xs text-muted-foreground mb-2">{cabinet.width}W × {cabinet.height}H × {cabinet.depth}D</p>
         <p className="text-sm font-semibold text-blue-600">${cabinet.price?.toFixed(2) || '0.00'}</p>
       </div>
     </div>
@@ -235,15 +235,15 @@ function ApplianceCard({
 
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer group" onClick={handleAdd}>
-      <div className="relative h-32 bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 p-4 flex items-center justify-center">
+      <div className="relative h-32 bg-gradient-to-br from-slate-50 to-slate-100 border-b border-border p-4 flex items-center justify-center">
         {getApplianceIcon()}
         <div className="absolute inset-0 bg-transparent group-hover:bg-black/5 transition-all flex items-center justify-center">
-          <Plus className="w-8 h-8 text-black opacity-0 group-hover:opacity-50 transition-opacity drop-shadow" />
+          <Plus className="w-8 h-8 text-foreground opacity-0 group-hover:opacity-50 transition-opacity drop-shadow" />
         </div>
       </div>
       <div className="p-3">
         <h3 className="font-medium text-sm mb-1">{appliance.name}</h3>
-        <p className="text-xs text-gray-600 mb-2">{appliance.width}W × {appliance.height}H</p>
+        <p className="text-xs text-muted-foreground mb-2">{appliance.width}W × {appliance.height}H</p>
         <p className="text-sm font-semibold text-green-600">${appliance.price.toFixed(2)}</p>
       </div>
     </Card>
@@ -395,10 +395,10 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
 
   if (!isDesktop) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center bg-gray-50 rounded-lg m-4 border border-gray-200">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center bg-muted rounded-lg m-4 border border-border">
         <Maximize2 className="w-16 h-16 text-blue-500 mb-4" />
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Desktop View Required</h2>
-        <p className="text-gray-600 max-w-md">
+        <h2 className="text-2xl font-bold text-foreground mb-2">Desktop View Required</h2>
+        <p className="text-muted-foreground max-w-md">
           The 3D Kitchen Planner requires a larger screen to ensure the best design experience. Please access this feature on a desktop or laptop computer.
         </p>
       </div>
@@ -407,10 +407,10 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
 
   return (
     <>
-      <div className="bg-white">
+      <div className="bg-background">
         <div className="print:hidden">
           {/* Main Tab Navigation - Design / Materials / Saved Designs */}
-          <div className="border-b bg-white">
+          <div className="border-b bg-background">
           <div className="px-6 py-0 flex items-center justify-between">
           {/* Tab Navigation */}
           <div className="flex gap-1">
@@ -419,7 +419,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === 'design'
                   ? 'border-red-600 text-red-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Edit3 className="w-4 h-4" />
@@ -431,7 +431,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === 'materials'
                   ? 'border-red-600 text-red-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <ShoppingCart className="w-4 h-4" />
@@ -443,7 +443,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === 'templates'
                   ? 'border-red-600 text-red-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <LayoutTemplate className="w-4 h-4" />
@@ -455,7 +455,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === 'saved-designs'
                   ? 'border-red-600 text-red-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Save className="w-4 h-4" />
@@ -467,7 +467,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === 'diagnostics'
                   ? 'border-red-600 text-red-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <FileTerminal className="w-4 h-4" />
@@ -479,7 +479,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === 'defaults'
                   ? 'border-red-600 text-red-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Settings className="w-4 h-4" />
@@ -491,7 +491,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                 activeTab === 'model-library'
                   ? 'border-red-600 text-red-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <Box className="w-4 h-4" />
@@ -521,15 +521,15 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
           <div className="flex gap-6 h-[calc(100vh-12rem)] min-h-[700px]">
             {/* Left Catalog Panel */}
             {showSidebar && (
-              <div className="w-72 flex-shrink-0 flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 h-full">
+              <div className="w-72 flex-shrink-0 flex flex-col bg-background rounded-lg shadow-sm border border-border h-full">
                 {/* Category Tabs */}
-                <div className="flex p-2 gap-1 border-b border-gray-100 bg-gray-50/50">
+                <div className="flex p-2 gap-1 border-b border-border bg-muted/50">
                 <button
                   onClick={() => setActiveCategory('cabinets')}
                   className={`flex-1 flex flex-col items-center justify-center gap-1 p-2 rounded-md transition-all ${
                     activeCategory === 'cabinets'
                       ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      : 'text-muted-foreground hover:bg-muted'
                   }`}
                   title="Cabinets"
                 >
@@ -541,7 +541,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                   className={`flex-1 flex flex-col items-center justify-center gap-1 p-2 rounded-md transition-all ${
                     activeCategory === 'appliances'
                       ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      : 'text-muted-foreground hover:bg-muted'
                   }`}
                   title="Appliances"
                 >
@@ -553,7 +553,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                   className={`flex-1 flex flex-col items-center justify-center gap-1 p-2 rounded-md transition-all ${
                     activeCategory === 'settings'
                       ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      : 'text-muted-foreground hover:bg-muted'
                   }`}
                   title="Room Settings"
                 >
@@ -563,15 +563,15 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
               </div>
 
               {/* Header */}
-              <div className="p-4 border-b border-gray-100 flex flex-col gap-3">
-                <div className="text-sm font-semibold text-gray-700 capitalize flex items-center gap-2">
+              <div className="p-4 border-b border-border flex flex-col gap-3">
+                <div className="text-sm font-semibold text-foreground capitalize flex items-center gap-2">
                   {activeCategory === 'cabinets' && <><Box className="w-4 h-4" /> Cabinet Catalog</>}
                   {activeCategory === 'appliances' && <><Refrigerator className="w-4 h-4" /> Appliance Catalog</>}
                   {activeCategory === 'settings' && <><Settings className="w-4 h-4" /> Room Settings</>}
                 </div>
                 {activeCategory !== 'settings' && (
                   <div className="relative w-full">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search items..."
                       value={searchTerm}
@@ -591,24 +591,24 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                         <Box className="w-6 h-6 text-blue-600" />
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-gray-900">{selectedCabinet.name}</div>
-                        <div className="text-xs text-gray-500">{selectedCabinet.width}W × {selectedCabinet.height}H × {selectedCabinet.depth}D</div>
+                        <div className="text-sm font-bold text-foreground">{selectedCabinet.name}</div>
+                        <div className="text-xs text-muted-foreground">{selectedCabinet.width}W × {selectedCabinet.height}H × {selectedCabinet.depth}D</div>
                       </div>
                     </div>
                     <div>
-                      <label className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1 block">Custom 3D Model (OBJ URL)</label>
+                      <label className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1 block">Custom 3D Model (OBJ URL)</label>
                       <Input 
                         placeholder="https://.../model.obj"
                         value={selectedCabinet.modelUrl || ''}
                         onChange={(e) => handleUpdateCabinet(selectedCabinet.id, { modelUrl: e.target.value })}
-                        className="text-xs h-8 bg-white"
+                        className="text-xs h-8 bg-background"
                       />
                     </div>
                     <div className="flex items-center gap-2 pt-2 border-t border-blue-100/50">
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className="flex-1 text-xs bg-white"
+                        className="flex-1 text-xs bg-background"
                         onClick={() => setSelectedCabinet(null)}
                       >
                         Deselect
@@ -636,7 +636,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                           />
                         ))}
                         {filteredCabinets.length === 0 && (
-                          <div className="text-sm text-gray-500 py-4 text-center">No cabinets found.</div>
+                          <div className="text-sm text-muted-foreground py-4 text-center">No cabinets found.</div>
                         )}
                       </div>
                     )}
@@ -651,7 +651,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                           />
                         ))}
                         {filteredAppliances.length === 0 && (
-                          <div className="text-sm text-gray-500 py-4 text-center">No appliances found.</div>
+                          <div className="text-sm text-muted-foreground py-4 text-center">No appliances found.</div>
                         )}
                       </div>
                     )}
@@ -669,12 +669,12 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
 
             {/* Right Side Content (Canvas & Summary) */}
             <div className="flex-1 flex flex-col gap-6 min-w-0 h-full overflow-y-auto pb-4 pr-1">
-              <div className="flex-none flex flex-col min-h-[600px] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <div className="flex flex-wrap items-center justify-between gap-4 p-4 border-b border-gray-200 bg-gray-50/50">
+              <div className="flex-none flex flex-col min-h-[600px] bg-background rounded-lg shadow-sm border border-border overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-4 p-4 border-b border-border bg-muted/50">
                   <div className="flex items-center gap-4">
                     <button
                       onClick={() => setShowSidebar(!showSidebar)}
-                      className="p-2 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors text-gray-600"
+                      className="p-2 bg-background border border-border rounded-md hover:bg-muted transition-colors text-muted-foreground"
                       title={showSidebar ? "Hide Catalog (Maximize Canvas)" : "Show Catalog"}
                     >
                       {showSidebar ? <ChevronLeft className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
@@ -691,7 +691,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
                         config.viewMode === '2D'
                           ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          : 'bg-muted text-foreground hover:bg-muted'
                       }`}
                     >
                       2D
@@ -701,7 +701,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
                         config.viewMode === '3D'
                           ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          : 'bg-muted text-foreground hover:bg-muted'
                       }`}
                     >
                       <Box className="w-4 h-4" />
@@ -709,7 +709,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                     </button>
                   </div>
                 </div>
-                <div className="flex-1 min-h-[600px] border border-gray-200 rounded-lg overflow-hidden relative">
+                <div className="flex-1 min-h-[600px] border border-border rounded-lg overflow-hidden relative">
                   <div className="absolute inset-0">
                     {config.viewMode === '2D' ? (
                       <KitchenCanvas
@@ -732,11 +732,11 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                 </div>
               </div>
 
-              <div className="flex-none bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex-none bg-background rounded-lg shadow-sm border border-border p-6">
                 <h2 className="text-lg font-semibold mb-4">Materials Summary</h2>
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-muted">
                       <tr>
                         <th className="text-left p-3 text-sm font-semibold">Category</th>
                         <th className="text-left p-3 text-sm font-semibold">Item</th>
@@ -747,8 +747,8 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                     </thead>
                     <tbody>
                       {flatMaterials.slice(0, 10).map((item, idx) => (
-                        <tr key={idx} className="border-t border-gray-100">
-                          <td className="p-3 text-sm text-gray-600">{item.category}</td>
+                        <tr key={idx} className="border-t border-border">
+                          <td className="p-3 text-sm text-muted-foreground">{item.category}</td>
                           <td className="p-3 text-sm">{item.description}</td>
                           <td className="p-3 text-sm text-right">{item.quantity} {item.unit}</td>
                           <td className="p-3 text-sm text-right">${item.unitPrice?.toFixed(2) || '—'}</td>
@@ -764,7 +764,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         )}
 
         {activeTab === 'materials' && (
-          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+          <div className="flex-1 overflow-auto p-6 bg-muted">
             <div className="max-w-6xl mx-auto">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-semibold">Materials & Cost Breakdown</h2>
@@ -788,9 +788,9 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                 />
               </div>
               
-              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="bg-background rounded-lg border border-border overflow-hidden">
                 <table className="w-full">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-muted">
                     <tr>
                       <th className="text-left p-4 font-semibold">Category</th>
                       <th className="text-left p-4 font-semibold">Item</th>
@@ -801,15 +801,15 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                   </thead>
                   <tbody>
                     {flatMaterials.map((item, idx) => (
-                      <tr key={idx} className="border-t border-gray-100">
-                        <td className="p-4 text-sm text-gray-600">{item.category}</td>
+                      <tr key={idx} className="border-t border-border">
+                        <td className="p-4 text-sm text-muted-foreground">{item.category}</td>
                         <td className="p-4">{item.description}</td>
                         <td className="p-4 text-right">{item.quantity} {item.unit}</td>
                         <td className="p-4 text-right">${item.unitPrice?.toFixed(2) || '—'}</td>
                         <td className="p-4 text-right font-medium">${item.totalPrice?.toFixed(2) || '—'}</td>
                       </tr>
                     ))}
-                    <tr className="border-t-2 border-gray-300 bg-blue-50">
+                    <tr className="border-t-2 border-border bg-blue-50">
                       <td colSpan={4} className="p-4 font-bold text-right">Grand Total:</td>
                       <td className="p-4 text-right font-bold text-xl text-blue-600">
                         ${totalPrice.toFixed(2)}
@@ -823,7 +823,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         )}
 
         {activeTab === 'saved-designs' && (
-          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+          <div className="flex-1 overflow-auto p-6 bg-muted">
             <div className="max-w-6xl mx-auto">
               <SavedKitchenDesigns 
                 user={user}
@@ -844,7 +844,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         )}
 
         {activeTab === 'templates' && (
-          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+          <div className="flex-1 overflow-auto p-6 bg-muted">
             <div className="max-w-6xl mx-auto">
               <KitchenTemplates
                 currentConfig={config}
@@ -860,7 +860,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         )}
 
         {activeTab === 'diagnostics' && (
-          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+          <div className="flex-1 overflow-auto p-6 bg-muted">
             <div className="max-w-6xl mx-auto">
               <DiagnosticPanel
                 organizationId={user.organizationId}
@@ -871,7 +871,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         )}
 
         {activeTab === 'defaults' && (
-          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+          <div className="flex-1 overflow-auto p-6 bg-muted">
             <div className="max-w-6xl mx-auto">
               <PlannerDefaults 
                 organizationId={user.organizationId}
@@ -883,7 +883,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         )}
 
         {activeTab === 'model-library' && (
-          <div className="flex-1 overflow-auto p-6 bg-gray-50">
+          <div className="flex-1 overflow-auto p-6 bg-muted">
             <div className="max-w-6xl mx-auto">
               <ModelLibrary />
             </div>

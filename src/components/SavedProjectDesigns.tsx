@@ -223,15 +223,15 @@ export function SavedProjectDesigns({
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="text-center py-4 text-sm text-gray-500">Loading...</div>
+              <div className="text-center py-4 text-sm text-muted-foreground">Loading...</div>
             ) : (
               <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                 {designs.map((design) => (
-                  <div key={design.id} className="border rounded-md p-3 hover:bg-gray-50 transition-colors">
+                  <div key={design.id} className="border rounded-md p-3 hover:bg-muted transition-colors">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <h4 className="font-medium text-sm text-gray-900">{design.name}</h4>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <h4 className="font-medium text-sm text-foreground">{design.name}</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
                           {new Date(design.created_at).toLocaleDateString()}
                         </p>
                       </div>
@@ -260,7 +260,7 @@ export function SavedProjectDesigns({
                       </div>
                     </div>
                     {design.description && (
-                      <p className="text-xs text-gray-600 mt-2 line-clamp-2">{design.description}</p>
+                      <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{design.description}</p>
                     )}
                   </div>
                 ))}

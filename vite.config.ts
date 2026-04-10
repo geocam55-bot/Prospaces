@@ -22,6 +22,16 @@
     build: {
       target: 'esnext',
       outDir: 'build',
+      rollupOptions: {
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+          'project-wizards': path.resolve(__dirname, 'project-wizards.html'),
+          marketing: path.resolve(__dirname, 'marketing.html'),
+          insights: path.resolve(__dirname, 'insights.html'),
+          inventory: path.resolve(__dirname, 'inventory.html'),
+          it: path.resolve(__dirname, 'it.html'),
+        },
+      },
     },
     server: {
       port: 3000,

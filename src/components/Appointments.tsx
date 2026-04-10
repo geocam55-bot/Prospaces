@@ -102,19 +102,19 @@ function AppointmentDetailPopover({ appointment, formatTime, onDelete, onEdit, u
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72 p-0">
         <div className="p-3 space-y-2">
-          <h4 className="font-semibold text-sm text-gray-900">{appointment.title}</h4>
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <h4 className="font-semibold text-sm text-foreground">{appointment.title}</h4>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
             <span>{formatTime(appointment.start_time)} – {formatTime(appointment.end_time)}</span>
           </div>
           {appointment.location && (
-            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <MapPin className="h-3 w-3" />
               <span>{appointment.location}</span>
             </div>
           )}
           {appointment.description && (
-            <p className="text-xs text-gray-600 line-clamp-3">{appointment.description}</p>
+            <p className="text-xs text-muted-foreground line-clamp-3">{appointment.description}</p>
           )}
           {appointment.calendar_provider && (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-700">
@@ -481,13 +481,13 @@ export function Appointments({ user }: AppointmentsProps) {
           {/* Left: View toggle + date nav */}
           <div className="flex items-center gap-2 flex-wrap">
             {/* View toggle pills */}
-            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+            <div className="inline-flex rounded-lg border border-border bg-muted p-0.5">
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger
                     type="button"
                     onClick={() => setViewMode('list')}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     <List className="h-4 w-4" />
                     <span className="hidden sm:inline">List</span>
@@ -499,7 +499,7 @@ export function Appointments({ user }: AppointmentsProps) {
                   <TooltipTrigger
                     type="button"
                     onClick={() => setViewMode('week')}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'week' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'week' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     <CalendarDays className="h-4 w-4" />
                     <span className="hidden sm:inline">Week</span>
@@ -511,7 +511,7 @@ export function Appointments({ user }: AppointmentsProps) {
                   <TooltipTrigger
                     type="button"
                     onClick={() => setViewMode('month')}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'month' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'month' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     <LayoutGrid className="h-4 w-4" />
                     <span className="hidden sm:inline">Month</span>
@@ -533,7 +533,7 @@ export function Appointments({ user }: AppointmentsProps) {
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goNext}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
-                <span className="text-sm font-semibold text-gray-800 ml-1 whitespace-nowrap">{headerLabel}</span>
+                <span className="text-sm font-semibold text-foreground ml-1 whitespace-nowrap">{headerLabel}</span>
               </div>
             )}
           </div>
@@ -558,7 +558,7 @@ export function Appointments({ user }: AppointmentsProps) {
                   </Button>
                 </DialogTrigger>
               )}
-              <DialogContent className="sm:max-w-[500px] bg-white">
+              <DialogContent className="sm:max-w-[500px] bg-background">
                 <DialogHeader>
                   <DialogTitle>Schedule New Appointment</DialogTitle>
                   <DialogDescription>Create a new appointment with date, time, and location details.</DialogDescription>
@@ -591,7 +591,7 @@ export function Appointments({ user }: AppointmentsProps) {
                     <Input id="location" value={newAppointment.location} onChange={(e) => setNewAppointment({ ...newAppointment, location: e.target.value })} placeholder="Meeting location" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="contact">Link to Contact <span className="text-gray-400 font-normal">(optional)</span></Label>
+                    <Label htmlFor="contact">Link to Contact <span className="text-muted-foreground font-normal">(optional)</span></Label>
                     <div className="relative">
                       <Input
                         id="contact"
@@ -610,13 +610,13 @@ export function Appointments({ user }: AppointmentsProps) {
                         <button
                           type="button"
                           onClick={() => { setSelectedContactId(''); setContactSearch(''); }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                         >
                           <X className="h-4 w-4" />
                         </button>
                       )}
                       {isContactDropdownOpen && !selectedContactId && (
-                        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        <div className="absolute z-50 mt-1 w-full bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
                           {contacts
                             .filter((c) => c.name.toLowerCase().includes(contactSearch.toLowerCase()))
                             .slice(0, 20)
@@ -624,20 +624,20 @@ export function Appointments({ user }: AppointmentsProps) {
                               <button
                                 key={c.id}
                                 type="button"
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
                                 onClick={() => {
                                   setSelectedContactId(c.id);
                                   setContactSearch('');
                                   setIsContactDropdownOpen(false);
                                 }}
                               >
-                                <UserIcon className="h-3.5 w-3.5 text-gray-400" />
+                                <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
                                 {c.name}
                               </button>
                             ))
                           }
                           {contactsLoaded && contacts.filter((c) => c.name.toLowerCase().includes(contactSearch.toLowerCase())).length === 0 && (
-                            <div className="px-3 py-2 text-sm text-gray-500">No contacts found</div>
+                            <div className="px-3 py-2 text-sm text-muted-foreground">No contacts found</div>
                           )}
                         </div>
                       )}
@@ -655,11 +655,11 @@ export function Appointments({ user }: AppointmentsProps) {
 
         {/* ── Loading / Empty ────────────────────────────────────── */}
         {isLoading ? (
-          <Card><CardContent className="pt-6"><div className="text-center py-12 text-gray-500">Loading appointments...</div></CardContent></Card>
+          <Card><CardContent className="pt-6"><div className="text-center py-12 text-muted-foreground">Loading appointments...</div></CardContent></Card>
         ) : appointments.length === 0 && viewMode === 'list' ? (
           <Card><CardContent className="pt-6">
-            <div className="text-center py-12 text-gray-500">
-              <CalendarIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <div className="text-center py-12 text-muted-foreground">
+              <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p>No appointments scheduled yet.</p>
               <p className="text-sm mt-2">Click "Add Appointment" to create your first one.</p>
             </div>
@@ -675,7 +675,7 @@ export function Appointments({ user }: AppointmentsProps) {
                       const startDate = new Date(appointment.start_time);
                       const isUpcoming = startDate > new Date();
                       return (
-                        <div key={appointment.id} className="flex gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                        <div key={appointment.id} className="flex gap-4 p-4 border border-border rounded-lg hover:bg-muted transition-colors">
                           <div className="flex flex-col items-center justify-center bg-blue-100 rounded-lg p-3 min-w-[70px]">
                             <span className="text-2xl text-blue-600">{startDate.getDate()}</span>
                             <span className="text-xs text-blue-600">{startDate.toLocaleDateString('en-US', { month: 'short' })}</span>
@@ -683,9 +683,9 @@ export function Appointments({ user }: AppointmentsProps) {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-gray-900">{appointment.title}</h3>
+                                <h3 className="font-semibold text-foreground">{appointment.title}</h3>
                                 {appointment.description && (
-                                  <div className="text-sm text-gray-600 mt-1">
+                                  <div className="text-sm text-muted-foreground mt-1">
                                     {(() => {
                                       const desc = appointment.description;
                                       const teamsMatch = desc.match(/https:\/\/teams\.microsoft\.com\/l\/meetup-join[^\s<]+/);
@@ -727,7 +727,7 @@ export function Appointments({ user }: AppointmentsProps) {
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
-                            <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-600">
+                            <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
                               <div className="flex items-center gap-1.5">
                                 <Clock className="h-4 w-4" />
                                 <span>{formatTime(appointment.start_time)} - {formatTime(appointment.end_time)}</span>
@@ -773,9 +773,9 @@ export function Appointments({ user }: AppointmentsProps) {
               <Card>
                 <CardContent className="p-0 sm:p-2">
                   {/* Day-of-week headers */}
-                  <div className="grid grid-cols-7 border-b border-gray-200">
+                  <div className="grid grid-cols-7 border-b border-border">
                     {DAY_LABELS.map((d) => (
-                      <div key={d} className="py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">{d}</div>
+                      <div key={d} className="py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">{d}</div>
                     ))}
                   </div>
 
@@ -791,9 +791,9 @@ export function Appointments({ user }: AppointmentsProps) {
                       return (
                         <div
                           key={i}
-                          className={`border-b border-r border-gray-100 p-1 ${!isCurrentMonth ? 'bg-gray-50/60' : 'bg-white'} ${i % 7 === 0 ? 'border-l' : ''}`}
+                          className={`border-b border-r border-border p-1 ${!isCurrentMonth ? 'bg-muted/60' : 'bg-background'} ${i % 7 === 0 ? 'border-l' : ''}`}
                         >
-                          <div className={`text-xs font-medium mb-0.5 ${isToday ? 'bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center mx-auto sm:mx-0' : isCurrentMonth ? 'text-gray-800' : 'text-gray-400'}`}>
+                          <div className={`text-xs font-medium mb-0.5 ${isToday ? 'bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center mx-auto sm:mx-0' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'}`}>
                             {date.getDate()}
                           </div>
                           <div className="space-y-0.5">
@@ -808,7 +808,7 @@ export function Appointments({ user }: AppointmentsProps) {
                               />
                             ))}
                             {overflow > 0 && (
-                              <span className="block text-[10px] text-gray-500 pl-1.5 cursor-default">+{overflow} more</span>
+                              <span className="block text-[10px] text-muted-foreground pl-1.5 cursor-default">+{overflow} more</span>
                             )}
                           </div>
                         </div>
@@ -824,14 +824,14 @@ export function Appointments({ user }: AppointmentsProps) {
               <Card>
                 <CardContent className="p-0">
                   {/* Header row */}
-                  <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-gray-200 sticky top-0 bg-white z-10">
-                    <div className="border-r border-gray-200" /> {/* gutter */}
+                  <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border sticky top-0 bg-background z-10">
+                    <div className="border-r border-border" /> {/* gutter */}
                     {weekDays.map((d, i) => {
                       const isToday = isSameDay(d, new Date());
                       return (
-                        <div key={i} className={`py-2 px-1 text-center border-r border-gray-100 ${isToday ? 'bg-blue-50' : ''}`}>
-                          <div className="text-[10px] font-semibold text-gray-500 uppercase">{DAY_LABELS[d.getDay()]}</div>
-                          <div className={`text-lg font-semibold leading-tight ${isToday ? 'text-blue-600' : 'text-gray-800'}`}>{d.getDate()}</div>
+                        <div key={i} className={`py-2 px-1 text-center border-r border-border ${isToday ? 'bg-blue-50' : ''}`}>
+                          <div className="text-[10px] font-semibold text-muted-foreground uppercase">{DAY_LABELS[d.getDay()]}</div>
+                          <div className={`text-lg font-semibold leading-tight ${isToday ? 'text-blue-600' : 'text-foreground'}`}>{d.getDate()}</div>
                         </div>
                       );
                     })}
@@ -843,7 +843,7 @@ export function Appointments({ user }: AppointmentsProps) {
                       {/* Hour labels + horizontal lines */}
                       {HOURS.map((h) => (
                         <div key={h} className="contents">
-                          <div className="border-r border-gray-200 pr-2 text-right text-[10px] text-gray-400 h-16 flex items-start pt-0.5 justify-end">
+                          <div className="border-r border-border pr-2 text-right text-[10px] text-muted-foreground h-16 flex items-start pt-0.5 justify-end">
                             {h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`}
                           </div>
                           {weekDays.map((d, di) => {
@@ -856,7 +856,7 @@ export function Appointments({ user }: AppointmentsProps) {
                             return (
                               <div
                                 key={di}
-                                className={`border-r border-b border-gray-100 h-16 relative ${isToday ? 'bg-blue-50/30' : ''}`}
+                                className={`border-r border-b border-border h-16 relative ${isToday ? 'bg-blue-50/30' : ''}`}
                               >
                                 {hourAppts.map((a) => {
                                   const start = new Date(a.start_time);
@@ -878,18 +878,18 @@ export function Appointments({ user }: AppointmentsProps) {
                                       </DropdownMenuTrigger>
                                       <DropdownMenuContent align="start" className="w-72 p-0">
                                         <div className="p-3 space-y-2">
-                                          <h4 className="font-semibold text-sm text-gray-900">{a.title}</h4>
-                                          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                                          <h4 className="font-semibold text-sm text-foreground">{a.title}</h4>
+                                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                             <Clock className="h-3 w-3" />
                                             <span>{formatTime(a.start_time)} – {formatTime(a.end_time)}</span>
                                           </div>
                                           {a.location && (
-                                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                               <MapPin className="h-3 w-3" />
                                               <span>{a.location}</span>
                                             </div>
                                           )}
-                                          {a.description && <p className="text-xs text-gray-600 line-clamp-3">{a.description}</p>}
+                                          {a.description && <p className="text-xs text-muted-foreground line-clamp-3">{a.description}</p>}
                                           {a.calendar_provider && (
                                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-700">
                                               <CalendarIcon className="h-2.5 w-2.5 mr-1" />
@@ -927,7 +927,7 @@ export function Appointments({ user }: AppointmentsProps) {
 
         {/* Edit Appointment Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[500px] bg-white">
+          <DialogContent className="sm:max-w-[500px] bg-background">
             <DialogHeader>
               <DialogTitle>Edit Appointment</DialogTitle>
               <DialogDescription>Update appointment details.</DialogDescription>
@@ -960,7 +960,7 @@ export function Appointments({ user }: AppointmentsProps) {
                 <Input id="edit-location" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} placeholder="Meeting location" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-contact">Link to Contact <span className="text-gray-400 font-normal">(optional)</span></Label>
+                <Label htmlFor="edit-contact">Link to Contact <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <div className="relative">
                   <Input
                     id="edit-contact"
@@ -979,13 +979,13 @@ export function Appointments({ user }: AppointmentsProps) {
                     <button
                       type="button"
                       onClick={() => { setEditContactId(''); setEditContactSearch(''); }}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground"
                     >
                       <X className="h-4 w-4" />
                     </button>
                   )}
                   {isEditContactDropdownOpen && !editContactId && (
-                    <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    <div className="absolute z-50 mt-1 w-full bg-background border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
                       {contacts
                         .filter((c) => c.name.toLowerCase().includes(editContactSearch.toLowerCase()))
                         .slice(0, 20)
@@ -993,20 +993,20 @@ export function Appointments({ user }: AppointmentsProps) {
                           <button
                             key={c.id}
                             type="button"
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center gap-2"
                             onClick={() => {
                               setEditContactId(c.id);
                               setEditContactSearch('');
                               setIsEditContactDropdownOpen(false);
                             }}
                           >
-                            <UserIcon className="h-3.5 w-3.5 text-gray-400" />
+                            <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
                             {c.name}
                           </button>
                         ))
                       }
                       {contactsLoaded && contacts.filter((c) => c.name.toLowerCase().includes(editContactSearch.toLowerCase())).length === 0 && (
-                        <div className="px-3 py-2 text-sm text-gray-500">No contacts found</div>
+                        <div className="px-3 py-2 text-sm text-muted-foreground">No contacts found</div>
                       )}
                     </div>
                   )}

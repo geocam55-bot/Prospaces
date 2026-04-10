@@ -106,17 +106,17 @@ export function QuickOrgFix({ currentUser, onComplete }: QuickOrgFixProps) {
           </Alert>
 
           <div className="space-y-6">
-            <div className="bg-white border-2 border-blue-200 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-900 mb-2">Your Current Organization:</h3>
+            <div className="bg-background border-2 border-blue-200 rounded-lg p-4">
+              <h3 className="font-semibold text-foreground mb-2">Your Current Organization:</h3>
               <div className="bg-blue-50 p-3 rounded">
                 <code className="text-sm font-mono text-blue-900">{currentUser.organizationId}</code>
-                <p className="text-sm text-gray-700 mt-1">({currentUser.organizationName || 'RONA Atlantic'})</p>
+                <p className="text-sm text-foreground mt-1">({currentUser.organizationName || 'RONA Atlantic'})</p>
               </div>
             </div>
 
             {wrongOrgIds.length > 0 && (
-              <div className="bg-white border-2 border-red-200 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-2">⚠️ Wrong Organizations Found:</h3>
+              <div className="bg-background border-2 border-red-200 rounded-lg p-4">
+                <h3 className="font-semibold text-foreground mb-2">⚠️ Wrong Organizations Found:</h3>
                 <div className="space-y-2">
                   {wrongOrgIds.map((orgId, i) => (
                     <div key={i} className="bg-red-50 p-3 rounded">
@@ -164,7 +164,7 @@ export function QuickOrgFix({ currentUser, onComplete }: QuickOrgFixProps) {
               )}
             </div>
 
-            <div className="text-center text-sm text-gray-600">
+            <div className="text-center text-sm text-muted-foreground">
               <p>After fixing, you'll be able to see all users in your organization.</p>
             </div>
           </div>

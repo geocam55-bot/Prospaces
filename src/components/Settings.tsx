@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner@2.0.3';
-import { Security } from './Security';
 import { ThemeSelector } from './ThemeSelector';
 import { ProjectWizardSettings } from './ProjectWizardSettings';
 import { DataDiagnostic } from './DataDiagnostic';
@@ -42,8 +41,6 @@ import {
   Moon,
 } from 'lucide-react';
 import type { User } from '../App';
-import { PermissionGate } from './PermissionGate';
-import { canView } from '../utils/permissions';
 import { tenantsAPI, settingsAPI } from '../utils/api';
 import { DEFAULT_PRICE_TIER_LABELS, type PriceTierLabels, getPriceTierLabel, getActivePriceLevels, AVAILABLE_MODULES } from '../lib/global-settings';
 
@@ -702,41 +699,37 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
 
   const canManageSettings = user.role === 'super_admin' || user.role === 'admin';
   const isSuperAdmin = user.role === 'super_admin';
-  const canAccessSecurity = canView('security', user.role);
 
   // Show loading spinner while settings are being fetched
   if (isLoading) {
     return (
-      <PermissionGate user={user} module="settings" action="view">
-        <div className="p-6">
-          <div className="flex items-center justify-center py-16">
-            <div className="text-center space-y-3">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
-              <p className="text-sm text-gray-500">Loading settings...</p>
-              <p className="text-xs text-gray-400 mt-2">
-                If this takes too long, settings will load from local cache automatically.
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-3 text-xs text-gray-400 hover:text-gray-600"
-                onClick={() => {
-                  loadSettingsFromLocalStorage();
-                  setShowDatabaseWarning(true);
-                  setIsLoading(false);
-                }}
-              >
-                Skip and use cached settings
-              </Button>
-            </div>
+      <div className="p-6">
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center space-y-3">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto" />
+            <p className="text-sm text-muted-foreground">Loading settings...</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              If this takes too long, settings will load from local cache automatically.
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-3 text-xs text-muted-foreground hover:text-muted-foreground"
+              onClick={() => {
+                loadSettingsFromLocalStorage();
+                setShowDatabaseWarning(true);
+                setIsLoading(false);
+              }}
+            >
+              Skip and use cached settings
+            </Button>
           </div>
         </div>
-      </PermissionGate>
+      </div>
     );
   }
 
   return (
-    <PermissionGate user={user} module="settings" action="view">
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <WorkflowSettingsDialog 
         open={showWorkflowDialog} 
@@ -775,8 +768,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             <TabsTrigger value="profile" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Profile</TabsTrigger>
             <TabsTrigger value="notifications" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Notifications</TabsTrigger>
             {canManageSettings && <TabsTrigger value="organization" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Organization</TabsTrigger>}
-            {isSuperAdmin && <TabsTrigger value="module-settings" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Module Defaults</TabsTrigger>}
-            {canAccessSecurity && <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Permissions</TabsTrigger>}
+            {canManageSettings && <TabsTrigger value="module-settings" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Module Defaults</TabsTrigger>}
             {canManageSettings && <TabsTrigger value="diagnostics" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Diagnostics</TabsTrigger>}
             <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
             {(userMode === 'single' || canManageSettings) && <TabsTrigger value="billing" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Billing</TabsTrigger>}
@@ -805,7 +797,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input id="email" type="email" defaultValue={user.email} disabled />
-                <p className="text-xs text-gray-500">Contact support to change your email</p>
+                <p className="text-xs text-muted-foreground">Contact support to change your email</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
@@ -813,8 +805,8 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               </div>
               <div className="space-y-2">
                 <Label htmlFor="organization">Organization</Label>
-                <div className="flex items-center gap-2 p-3 border rounded-md bg-gray-50">
-                  <Building2 className="h-5 w-5 text-gray-500" />
+                <div className="flex items-center gap-2 p-3 border rounded-md bg-muted">
+                  <Building2 className="h-5 w-5 text-muted-foreground" />
                   <div className="flex-1">
                     <Input 
                       id="organization" 
@@ -824,7 +816,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                     />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   {user.role === 'super_admin' 
                     ? 'As a Super Admin, you have access to all organizations' 
                     : 'Your organization ID. Contact a Super Admin to change organizations'}
@@ -851,7 +843,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                     )}
                   </div>
                   <div className="flex-1 space-y-3">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted-foreground">
                       Upload a profile picture to personalize your account. Recommended size: 400x400px
                     </p>
                     <div className="flex gap-2">
@@ -886,7 +878,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                         </Button>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500">PNG, JPG, GIF up to 2MB</p>
+                    <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 2MB</p>
                   </div>
                 </div>
               </div>
@@ -911,7 +903,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Email Notifications</Label>
-                  <p className="text-sm text-gray-500">Receive notifications via email</p>
+                  <p className="text-sm text-muted-foreground">Receive notifications via email</p>
                 </div>
                 <Switch
                   checked={notifications.email}
@@ -921,7 +913,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Push Notifications</Label>
-                  <p className="text-sm text-gray-500">Receive browser push notifications</p>
+                  <p className="text-sm text-muted-foreground">Receive browser push notifications</p>
                 </div>
                 <Switch
                   checked={notifications.push}
@@ -931,7 +923,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Task Assignments</Label>
-                  <p className="text-sm text-gray-500">Get notified when tasks are assigned to you</p>
+                  <p className="text-sm text-muted-foreground">Get notified when tasks are assigned to you</p>
                 </div>
                 <Switch
                   checked={notifications.taskAssignments}
@@ -941,7 +933,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Appointment Reminders</Label>
-                  <p className="text-sm text-gray-500">Reminders for upcoming appointments</p>
+                  <p className="text-sm text-muted-foreground">Reminders for upcoming appointments</p>
                 </div>
                 <Switch
                   checked={notifications.appointments}
@@ -951,7 +943,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Deal Updates</Label>
-                  <p className="text-sm text-gray-500">Updates on deal status changes</p>
+                  <p className="text-sm text-muted-foreground">Updates on deal status changes</p>
                 </div>
                 <Switch
                   checked={notifications.bids}
@@ -1002,12 +994,12 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                   <Users className="h-5 w-5" />
                   User Mode
                 </CardTitle>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Control whether this organization operates as a single-user or multi-user workspace
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-lg border bg-gray-50/50 dark:bg-gray-800/50">
+                <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/50 dark:bg-gray-800/50">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <Label className="text-base font-medium">
@@ -1016,12 +1008,12 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         userMode === 'multi'
                           ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                          : 'bg-muted text-foreground dark:bg-gray-700 dark:text-gray-300'
                       }`}>
                         {userMode === 'multi' ? 'Team' : 'Solo'}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-muted-foreground">
                       {userMode === 'single'
                         ? 'Only you have access. Team management features are hidden.'
                         : 'Multiple users can collaborate. Team management and roles are enabled.'}
@@ -1039,15 +1031,15 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                   <div className={`p-3 rounded-lg border-2 transition-colors ${
                     userMode === 'single'
                       ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/10'
-                      : 'border-transparent bg-gray-50 dark:bg-gray-800/30'
+                      : 'border-transparent bg-muted dark:bg-gray-800/30'
                   }`}>
                     <div className="flex items-center gap-2 mb-2">
-                      <div className={`p-1.5 rounded-md ${userMode === 'single' ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'}`}>
+                      <div className={`p-1.5 rounded-md ${userMode === 'single' ? 'bg-blue-100 text-blue-700' : 'bg-muted text-muted-foreground'}`}>
                         <SettingsIcon className="h-4 w-4" />
                       </div>
                       <span className="font-medium text-sm">Single User</span>
                     </div>
-                    <ul className="text-xs text-gray-500 space-y-1">
+                    <ul className="text-xs text-muted-foreground space-y-1">
                       <li>Personal workspace</li>
                       <li>Simplified navigation</li>
                       <li>No team management</li>
@@ -1057,15 +1049,15 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                   <div className={`p-3 rounded-lg border-2 transition-colors ${
                     userMode === 'multi'
                       ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/10'
-                      : 'border-transparent bg-gray-50 dark:bg-gray-800/30'
+                      : 'border-transparent bg-muted dark:bg-gray-800/30'
                   }`}>
                     <div className="flex items-center gap-2 mb-2">
-                      <div className={`p-1.5 rounded-md ${userMode === 'multi' ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'}`}>
+                      <div className={`p-1.5 rounded-md ${userMode === 'multi' ? 'bg-blue-100 text-blue-700' : 'bg-muted text-muted-foreground'}`}>
                         <Users className="h-4 w-4" />
                       </div>
                       <span className="font-medium text-sm">Multi User</span>
                     </div>
-                    <ul className="text-xs text-gray-500 space-y-1">
+                    <ul className="text-xs text-muted-foreground space-y-1">
                       <li>Team collaboration</li>
                       <li>Role-based access</li>
                       <li>User management panel</li>
@@ -1087,7 +1079,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           </TabsContent>
         )}
 
-        {isSuperAdmin && (
+        {canManageSettings && (
           <TabsContent value="module-settings" className="space-y-4">
             <div className="mb-4">
               <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -1121,12 +1113,12 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                       <CardContent className="space-y-4">
                         <div className="space-y-2">
                           <Label>Custom Fields</Label>
-                          <p className="text-sm text-gray-500">Add custom fields to your CRM data types</p>
+                          <p className="text-sm text-muted-foreground">Add custom fields to your CRM data types</p>
                           <Button type="button" variant="outline" onClick={() => setShowCustomFieldsDialog(true)}>Manage Custom Fields</Button>
                         </div>
                         <div className="space-y-2">
                           <Label>Workflows</Label>
-                          <p className="text-sm text-gray-500">Configure automated workflows and statuses</p>
+                          <p className="text-sm text-muted-foreground">Configure automated workflows and statuses</p>
                           <Button type="button" variant="outline" onClick={() => setShowWorkflowDialog(true)}>Configure Workflows</Button>
                         </div>
                       </CardContent>
@@ -1152,7 +1144,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                               onChange={(e) => setGlobalSettings({ ...globalSettings, taxRate: parseFloat(e.target.value) || 0 })}
                               placeholder="Enter tax rate (e.g., 8.5 for 8.5%)"
                             />
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                               Primary tax rate for bids and quotes
                             </p>
                           </div>
@@ -1169,7 +1161,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                               onChange={(e) => setGlobalSettings({ ...globalSettings, taxRate2: parseFloat(e.target.value) || 0 })}
                               placeholder="Enter second tax rate (e.g., 2.0 for 2.0%)"
                             />
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                               Secondary tax rate (if applicable)
                             </p>
                           </div>
@@ -1184,7 +1176,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                             placeholder="Enter default terms for quotes"
                             rows={4}
                           />
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             These terms will be used as default when creating new quotes and bids
                           </p>
                         </div>
@@ -1225,10 +1217,10 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                             </Button>
                           </div>
                           <div className="mt-2">
-                            <Label className="text-sm text-gray-500">Current Segments</Label>
+                            <Label className="text-sm text-muted-foreground">Current Segments</Label>
                             <div className="flex flex-wrap gap-2 mt-2">
                               {globalSettings.audienceSegments.map((segment, index) => (
-                                <div key={index} className="bg-gray-100 px-2 py-1 rounded text-sm flex items-center">
+                                <div key={index} className="bg-muted px-2 py-1 rounded text-sm flex items-center">
                                   {segment}
                                   <button
                                     type="button"
@@ -1288,7 +1280,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                                 })}
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             This price level will be used as default when creating new bids and quotes
                           </p>
                         </div>
@@ -1297,7 +1289,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                         <div className="space-y-3 pt-2">
                           <div>
                             <Label className="text-base font-semibold">Price Tier Labels</Label>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               Customize the names shown for each price tier across the entire CRM. Set a tier to "0" or leave blank to disable it.
                             </p>
                           </div>
@@ -1310,7 +1302,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                               { key: 't5' as const, tier: 5 },
                             ]).map(({ key, tier }) => (
                               <div key={key} className="space-y-1">
-                                <Label htmlFor={`tierLabel-${key}`} className="text-xs text-gray-600">
+                                <Label htmlFor={`tierLabel-${key}`} className="text-xs text-muted-foreground">
                                   Tier {tier} Label
                                 </Label>
                                 <Input
@@ -1341,7 +1333,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                             >
                               Reset to Defaults
                             </Button>
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-muted-foreground">
                               Defaults: Retail, VIP, VIP B, VIP A, 0
                             </span>
                           </div>
@@ -1384,7 +1376,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                               <SelectItem value="manual">Generate temporary password manually</SelectItem>
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-gray-500 mt-2">
+                          <p className="text-xs text-muted-foreground mt-2">
                             Choose how users are notified when invited. Emailing directly requires that you have configured SMTP settings in your Supabase Auth dashboard.
                           </p>
                         </div>
@@ -1400,12 +1392,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                 </div>
               </div>
             )}
-          </TabsContent>
-        )}
-
-        {canAccessSecurity && (
-          <TabsContent value="permissions" className="space-y-4">
-            <Security user={user} />
           </TabsContent>
         )}
 
@@ -1426,17 +1412,17 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Theme</Label>
-                <p className="text-sm text-gray-500">Choose your preferred theme</p>
+                <p className="text-sm text-muted-foreground">Choose your preferred theme</p>
                 <ThemeSelector />
               </div>
               <div className="space-y-2">
                 <Label>Language</Label>
-                <p className="text-sm text-gray-500">Select your preferred language</p>
+                <p className="text-sm text-muted-foreground">Select your preferred language</p>
                 <Button type="button" variant="outline">Manage Languages</Button>
               </div>
               <div className="space-y-2">
                 <Label>Layout</Label>
-                <p className="text-sm text-gray-500">Configure your dashboard layout</p>
+                <p className="text-sm text-muted-foreground">Configure your dashboard layout</p>
                 <Button type="button" variant="outline" onClick={() => setShowLayoutDialog(true)}>Configure Layout</Button>
               </div>
               <Button 
@@ -1490,60 +1476,60 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
 
       {/* Layout Configuration Dialog */}
       <Dialog open={showLayoutDialog} onOpenChange={setShowLayoutDialog}>
-        <DialogContent className="sm:max-w-[425px] max-h-[80vh] flex flex-col bg-white">
+        <DialogContent className="sm:max-w-[425px] max-h-[80vh] flex flex-col bg-background">
           <DialogHeader>
-            <DialogTitle className="text-gray-900">Configure Layout</DialogTitle>
-            <DialogDescription className="text-gray-600">
+            <DialogTitle className="text-foreground">Configure Layout</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Customize your dashboard layout to suit your workflow.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 overflow-y-auto pr-2">
             <div className="space-y-2">
-              <Label htmlFor="dashboardDensity" className="text-gray-900 font-medium">Dashboard Density</Label>
+              <Label htmlFor="dashboardDensity" className="text-foreground font-medium">Dashboard Density</Label>
               <Select
                 value={layoutConfig.dashboardDensity}
                 onValueChange={(value) => setLayoutConfig({ ...layoutConfig, dashboardDensity: value })}
               >
-                <SelectTrigger id="dashboardDensity" className="bg-white border-gray-300 text-gray-900">
-                  <SelectValue placeholder="Select dashboard density" className="text-gray-900" />
+                <SelectTrigger id="dashboardDensity" className="bg-background border-border text-foreground">
+                  <SelectValue placeholder="Select dashboard density" className="text-foreground" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="comfortable">Comfortable</SelectItem>
                   <SelectItem value="compact">Compact</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-muted-foreground">
                 Adjust the density of your dashboard to fit more or less information.
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sidebarPosition" className="text-gray-900 font-medium">Sidebar Position</Label>
+              <Label htmlFor="sidebarPosition" className="text-foreground font-medium">Sidebar Position</Label>
               <Select
                 value={layoutConfig.sidebarPosition}
                 onValueChange={(value) => setLayoutConfig({ ...layoutConfig, sidebarPosition: value })}
               >
-                <SelectTrigger id="sidebarPosition" className="bg-white border-gray-300 text-gray-900">
-                  <SelectValue placeholder="Select sidebar position" className="text-gray-900" />
+                <SelectTrigger id="sidebarPosition" className="bg-background border-border text-foreground">
+                  <SelectValue placeholder="Select sidebar position" className="text-foreground" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="left">Left</SelectItem>
                   <SelectItem value="right">Right</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-muted-foreground">
                 Choose where the sidebar should be positioned on your dashboard.
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="moduleCardSize" className="text-gray-900 font-medium">Module Card Size</Label>
+              <Label htmlFor="moduleCardSize" className="text-foreground font-medium">Module Card Size</Label>
               <Select
                 value={layoutConfig.moduleCardSize}
                 onValueChange={(value) => setLayoutConfig({ ...layoutConfig, moduleCardSize: value })}
               >
-                <SelectTrigger id="moduleCardSize" className="bg-white border-gray-300 text-gray-900">
-                  <SelectValue placeholder="Select module card size" className="text-gray-900" />
+                <SelectTrigger id="moduleCardSize" className="bg-background border-border text-foreground">
+                  <SelectValue placeholder="Select module card size" className="text-foreground" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="small">Small</SelectItem>
@@ -1551,7 +1537,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                   <SelectItem value="large">Large</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-muted-foreground">
                 Set the size of the module cards on your dashboard.
               </p>
             </div>
@@ -1559,8 +1545,8 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <Label className="text-gray-900 font-medium">Show Module Icons</Label>
-                  <p className="text-xs text-gray-600">
+                  <Label className="text-foreground font-medium">Show Module Icons</Label>
+                  <p className="text-xs text-muted-foreground">
                     Toggle the visibility of module icons on your dashboard.
                   </p>
                 </div>
@@ -1574,8 +1560,8 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <Label className="text-gray-900 font-medium">Compact Mode</Label>
-                  <p className="text-xs text-gray-600">
+                  <Label className="text-foreground font-medium">Compact Mode</Label>
+                  <p className="text-xs text-muted-foreground">
                     Enable compact mode to reduce the space used by elements on your dashboard.
                   </p>
                 </div>
@@ -1587,13 +1573,13 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tableRowHeight" className="text-gray-900 font-medium">Table Row Height</Label>
+              <Label htmlFor="tableRowHeight" className="text-foreground font-medium">Table Row Height</Label>
               <Select
                 value={layoutConfig.tableRowHeight}
                 onValueChange={(value) => setLayoutConfig({ ...layoutConfig, tableRowHeight: value })}
               >
-                <SelectTrigger id="tableRowHeight" className="bg-white border-gray-300 text-gray-900">
-                  <SelectValue placeholder="Select table row height" className="text-gray-900" />
+                <SelectTrigger id="tableRowHeight" className="bg-background border-border text-foreground">
+                  <SelectValue placeholder="Select table row height" className="text-foreground" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="small">Small</SelectItem>
@@ -1601,7 +1587,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                   <SelectItem value="large">Large</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-muted-foreground">
                 Set the height of the rows in tables on your dashboard.
               </p>
             </div>
@@ -1616,6 +1602,5 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         </DialogContent>
       </Dialog>
     </div>
-    </PermissionGate>
   );
 }

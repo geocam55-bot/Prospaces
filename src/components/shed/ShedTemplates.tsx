@@ -215,7 +215,7 @@ export function ShedTemplates({ onLoadTemplate, currentConfig }: ShedTemplatesPr
               className={`w-full justify-start h-auto py-3 ${
                 isSelected
                   ? 'border-2 border-green-600 bg-green-50'
-                  : 'border-slate-200'
+                  : 'border-border'
               }`}
               onClick={() => onLoadTemplate(template.config)}
             >
@@ -223,9 +223,9 @@ export function ShedTemplates({ onLoadTemplate, currentConfig }: ShedTemplatesPr
                 <Icon className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <div className={`font-medium ${
-                    isSelected ? 'text-green-900' : 'text-slate-900'
+                    isSelected ? 'text-green-900' : 'text-foreground'
                   }`}>{template.name}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{template.description}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{template.description}</div>
                 </div>
               </div>
             </Button>

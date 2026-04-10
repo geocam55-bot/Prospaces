@@ -62,14 +62,14 @@ WHERE id IN (
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="relative">
-                <pre className="bg-white p-3 rounded border border-blue-200 text-xs overflow-x-auto max-h-48">
+                <pre className="bg-background p-3 rounded border border-blue-200 text-xs overflow-x-auto max-h-48">
                   {quickFixSQL}
                 </pre>
                 <Button
                   onClick={handleCopySQL}
                   size="sm"
                   variant="outline"
-                  className="absolute top-2 right-2 bg-white"
+                  className="absolute top-2 right-2 bg-background"
                 >
                   {copied ? (
                     <>
@@ -149,11 +149,11 @@ WHERE id IN (
             </p>
           </div>
 
-          <div className="text-xs text-gray-600 pt-2 border-t border-red-200">
+          <div className="text-xs text-muted-foreground pt-2 border-t border-red-200">
             <p><strong>What gets fixed:</strong></p>
             <ul className="list-disc list-inside space-y-1 mt-1">
-              <li>Your organization ID in the <code className="bg-gray-100 px-1 py-0.5 rounded">profiles</code> table</li>
-              <li>Your organization ID in the <code className="bg-gray-100 px-1 py-0.5 rounded">auth.users</code> metadata</li>
+              <li>Your organization ID in the <code className="bg-muted px-1 py-0.5 rounded">profiles</code> table</li>
+              <li>Your organization ID in the <code className="bg-muted px-1 py-0.5 rounded">auth.users</code> metadata</li>
               <li>All related permission and access issues</li>
             </ul>
           </div>

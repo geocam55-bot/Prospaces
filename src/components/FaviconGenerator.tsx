@@ -111,9 +111,9 @@ export function FaviconGenerator() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 p-8">
-      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-8">
+      <div className="max-w-4xl mx-auto bg-background rounded-2xl shadow-2xl p-8">
         <h1 className="text-purple-600 mb-2">🏢 ProSpaces CRM Favicon Generator</h1>
-        <p className="text-gray-600 mb-8">Download all favicon sizes for your deployment</p>
+        <p className="text-muted-foreground mb-8">Download all favicon sizes for your deployment</p>
 
         <div className="bg-blue-50 border-l-4 border-blue-600 p-4 mb-6 rounded">
           <h3 className="text-blue-600 mt-0 mb-2">📋 Instructions</h3>
@@ -131,8 +131,8 @@ export function FaviconGenerator() {
             const displaySize = Math.min(config.size, 128);
             
             return (
-              <div key={config.name} className="text-center p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
-                <div className="text-gray-600 mb-2">{config.label}</div>
+              <div key={config.name} className="text-center p-4 bg-muted rounded-lg border-2 border-border">
+                <div className="text-muted-foreground mb-2">{config.label}</div>
                 {canvas && (
                   <div className="flex justify-center mb-2">
                     <canvas
@@ -144,12 +144,12 @@ export function FaviconGenerator() {
                           ctx?.drawImage(canvas, 0, 0, displaySize, displaySize);
                         }
                       }}
-                      className="border border-gray-300 rounded"
+                      className="border border-border rounded"
                       style={{ width: displaySize, height: displaySize }}
                     />
                   </div>
                 )}
-                <div className="text-gray-500 text-sm mb-2">{config.name}</div>
+                <div className="text-muted-foreground text-sm mb-2">{config.name}</div>
                 <button
                   onClick={() => canvas && downloadCanvas(canvas, config.name)}
                   disabled={!canvas}

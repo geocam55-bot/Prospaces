@@ -244,7 +244,7 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
 
   if (loading) {
     return <div className="flex items-center justify-center h-64">
-      <div className="text-gray-500">Loading reports...</div>
+      <div className="text-muted-foreground">Loading reports...</div>
     </div>;
   }
 
@@ -363,31 +363,31 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-2 text-sm text-gray-600">Team Member</th>
-                      <th className="text-left py-3 px-2 text-sm text-gray-600">Bids</th>
-                      <th className="text-left py-3 px-2 text-sm text-gray-600">Value</th>
-                      <th className="text-left py-3 px-2 text-sm text-gray-600">Win Rate</th>
-                      <th className="text-left py-3 px-2 text-sm text-gray-600">Tasks</th>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-2 text-sm text-muted-foreground">Team Member</th>
+                      <th className="text-left py-3 px-2 text-sm text-muted-foreground">Bids</th>
+                      <th className="text-left py-3 px-2 text-sm text-muted-foreground">Value</th>
+                      <th className="text-left py-3 px-2 text-sm text-muted-foreground">Win Rate</th>
+                      <th className="text-left py-3 px-2 text-sm text-muted-foreground">Tasks</th>
                     </tr>
                   </thead>
                   <tbody>
                     {teamPerformance.map((member, index) => (
-                      <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-2 text-sm text-gray-900">{member.name}</td>
-                        <td className="py-3 px-2 text-sm text-gray-600">{member.bids}</td>
-                        <td className="py-3 px-2 text-sm text-gray-900">{member.value}</td>
+                      <tr key={index} className="border-b border-border hover:bg-muted">
+                        <td className="py-3 px-2 text-sm text-foreground">{member.name}</td>
+                        <td className="py-3 px-2 text-sm text-muted-foreground">{member.bids}</td>
+                        <td className="py-3 px-2 text-sm text-foreground">{member.value}</td>
                         <td className="py-3 px-2">
                           <span className="text-sm text-green-600">{member.winRate}%</span>
                         </td>
-                        <td className="py-3 px-2 text-sm text-gray-600">{member.tasksCompleted}</td>
+                        <td className="py-3 px-2 text-sm text-muted-foreground">{member.tasksCompleted}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className="py-8 text-center text-gray-500">
+              <div className="py-8 text-center text-muted-foreground">
                 No team performance data available
               </div>
             )}
@@ -416,21 +416,21 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
                       {activity.type === 'bid' && <FileText className="h-5 w-5 text-purple-600" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-900">{activity.description}</p>
+                      <p className="text-sm text-foreground">{activity.description}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-500">{activity.user}</span>
-                        <span className="text-xs text-gray-400">•</span>
-                        <span className="text-xs text-gray-500">{activity.time}</span>
+                        <span className="text-xs text-muted-foreground">{activity.user}</span>
+                        <span className="text-xs text-muted-foreground">•</span>
+                        <span className="text-xs text-muted-foreground">{activity.time}</span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-gray-900">{activity.value}</p>
+                      <p className="text-sm text-foreground">{activity.value}</p>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="py-8 text-center text-gray-500">
+              <div className="py-8 text-center text-muted-foreground">
                 No recent activity to display
               </div>
             )}
@@ -461,7 +461,7 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
                             ${(data.value / 1000).toFixed(0)}K
                           </div>
                         </div>
-                        <span className="text-xs text-gray-500">{data.month}</span>
+                        <span className="text-xs text-muted-foreground">{data.month}</span>
                       </div>
                     );
                   });
@@ -470,12 +470,12 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
               <div className="flex items-center justify-center gap-8 mt-6">
                 <div className="flex items-center gap-2">
                   <div className="h-3 w-3 rounded-full bg-blue-500" />
-                  <span className="text-sm text-gray-600">Bid Value</span>
+                  <span className="text-sm text-muted-foreground">Bid Value</span>
                 </div>
               </div>
             </>
           ) : (
-            <div className="h-64 flex items-center justify-center text-gray-500">
+            <div className="h-64 flex items-center justify-center text-muted-foreground">
               No data available for this year
             </div>
           )}

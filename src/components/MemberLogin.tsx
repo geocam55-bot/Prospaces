@@ -267,7 +267,7 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
         <div className="relative z-10 flex flex-col justify-between p-12 text-white">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <div className="h-11 w-11 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20">
+              <div className="h-11 w-11 rounded-xl bg-background/15 backdrop-blur-sm flex items-center justify-center border border-white/20">
                 <Building2 className="h-6 w-6 text-white" />
               </div>
               <span className="text-2xl font-semibold tracking-tight">ProSpaces CRM</span>
@@ -301,14 +301,14 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center bg-slate-50 px-6 py-12 sm:px-12">
+      <div className="flex-1 flex items-center justify-center bg-muted px-6 py-12 sm:px-12">
         <div className="w-full max-w-md space-y-8">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-4">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
               <Building2 className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-semibold text-slate-900 tracking-tight">ProSpaces CRM</span>
+            <span className="text-xl font-semibold text-foreground tracking-tight">ProSpaces CRM</span>
           </div>
 
           {/* Header */}
@@ -316,16 +316,16 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
             {onBack && (
               <button
                 onClick={onBack}
-                className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors mb-6 group"
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 group"
               >
                 <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
                 Back to home
               </button>
             )}
-            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">
               ProSpaces CRM Members Sign In
             </h1>
-            <p className="mt-2 text-slate-500">
+            <p className="mt-2 text-muted-foreground">
               Enter your credentials to access your workspace.
             </p>
           </div>
@@ -339,11 +339,11 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="member-email" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="member-email" className="text-sm font-medium text-foreground">
                 Email address
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="member-email"
                   type="email"
@@ -355,14 +355,14 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
                     setSuccessMessage('');
                   }}
                   required
-                  className="pl-10 h-12 rounded-xl border-slate-200 bg-white focus:border-blue-500 focus:ring-blue-500/20 text-base"
+                  className="pl-10 h-12 rounded-xl border-border bg-background focus:border-blue-500 focus:ring-blue-500/20 text-base"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="member-password" className="text-sm font-medium text-slate-700">
+                <Label htmlFor="member-password" className="text-sm font-medium text-foreground">
                   Password
                 </Label>
                 <button
@@ -375,7 +375,7 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
                 </button>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="member-password"
                   type={showPassword ? 'text' : 'password'}
@@ -386,12 +386,12 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
                     setError('');
                   }}
                   required
-                  className="pl-10 pr-12 h-12 rounded-xl border-slate-200 bg-white focus:border-blue-500 focus:ring-blue-500/20 text-base"
+                  className="pl-10 pr-12 h-12 rounded-xl border-border bg-background focus:border-blue-500 focus:ring-blue-500/20 text-base"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-muted-foreground transition-colors"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -423,16 +423,30 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
 
           {/* Footer Links */}
           <div className="pt-4 text-center space-y-3">
-            <div className="flex items-center gap-4 justify-center text-xs text-slate-400">
-              <a href="?view=privacy-policy" className="hover:text-slate-600 transition-colors">
+            <p className="text-sm text-muted-foreground">
+              Need desktop design tools?{' '}
+              <a href="/project-wizards.html" className="font-medium text-blue-600 hover:text-blue-800 transition-colors">
+                Open Project Wizards
+              </a>
+              {' · '}
+              <a href="/marketing.html" className="font-medium text-rose-600 hover:text-rose-800 transition-colors">
+                Open Marketing Space
+              </a>
+              {' · '}
+              <a href="/insights.html" className="font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
+                Open Insights Space
+              </a>
+            </p>
+            <div className="flex items-center gap-4 justify-center text-xs text-muted-foreground">
+              <a href="?view=privacy-policy" className="hover:text-muted-foreground transition-colors">
                 Privacy Policy
               </a>
               <span className="text-slate-300">|</span>
-              <a href="?view=terms-of-service" className="hover:text-slate-600 transition-colors">
+              <a href="?view=terms-of-service" className="hover:text-muted-foreground transition-colors">
                 Terms of Service
               </a>
             </div>
-            <p className="text-xs text-slate-400 lg:hidden">
+            <p className="text-xs text-muted-foreground lg:hidden">
               &copy; {new Date().getFullYear()} ProSpaces CRM
             </p>
           </div>

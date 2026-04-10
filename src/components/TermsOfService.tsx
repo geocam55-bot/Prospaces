@@ -12,13 +12,13 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
   return (
     <div className={`min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 ${standalone ? '' : ''}`}>
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-10">
+      <header className="bg-background/80 backdrop-blur-md border-b border-border sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {onBack && (
               <button
                 onClick={onBack}
-                className="p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-600"
+                className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -27,7 +27,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
                 <FileText className="w-4 h-4 text-white" />
               </div>
-              <span className="font-bold text-lg text-slate-900">ProSpaces CRM</span>
+              <span className="font-bold text-lg text-foreground">ProSpaces CRM</span>
             </div>
           </div>
           <a
@@ -50,8 +50,8 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             <Scale className="w-4 h-4" />
             Legal Agreement
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">Terms of Service</h1>
-          <p className="text-slate-500 text-sm">
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">Terms of Service</h1>
+          <p className="text-muted-foreground text-sm">
             Effective Date: {effectiveDate} &middot; Last Updated: {lastUpdated}
           </p>
         </div>
@@ -60,7 +60,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
         <div className="space-y-8">
           {/* Introduction */}
           <Section>
-            <p className="text-slate-700 leading-relaxed">
+            <p className="text-foreground leading-relaxed">
               Welcome to ProSpaces CRM. These Terms of Service ("<strong>Terms</strong>") govern 
               your access to and use of the website{' '}
               <a href="https://www.prospacescrm.com" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
@@ -79,7 +79,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Eligibility"
             icon={<Users className="w-5 h-5" />}
           >
-            <p className="text-slate-700 leading-relaxed">
+            <p className="text-foreground leading-relaxed">
               You must be at least 16 years of age to use the Service. By using the Service, 
               you represent and warrant that you meet this age requirement and have the legal 
               capacity to enter into these Terms. If you are using the Service on behalf of an 
@@ -94,7 +94,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Account Registration &amp; Security"
             icon={<Lock className="w-5 h-5" />}
           >
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-foreground ml-2">
               <li>You must provide accurate, current, and complete information during registration.</li>
               <li>You are responsible for maintaining the confidentiality of your account credentials, including your password.</li>
               <li>You must notify us immediately of any unauthorized use of your account.</li>
@@ -109,14 +109,14 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Permitted Use"
             icon={<Shield className="w-5 h-5" />}
           >
-            <p className="text-slate-700 leading-relaxed mb-3">
+            <p className="text-foreground leading-relaxed mb-3">
               We grant you a limited, non-exclusive, non-transferable, revocable license to 
               access and use the Service for your internal business purposes, subject to these 
               Terms. You agree to use the Service only for lawful purposes and in accordance 
               with these Terms.
             </p>
-            <h4 className="font-semibold text-slate-800 mt-5 mb-2">You agree NOT to:</h4>
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <h4 className="font-semibold text-foreground mt-5 mb-2">You agree NOT to:</h4>
+            <ul className="list-disc list-inside space-y-2 text-foreground ml-2">
               <li>Use the Service for any illegal, fraudulent, or unauthorized purpose.</li>
               <li>Interfere with, disrupt, or attempt to gain unauthorized access to the Service or its infrastructure.</li>
               <li>Reverse-engineer, decompile, disassemble, or attempt to derive the source code of the Service.</li>
@@ -134,22 +134,22 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Your Data &amp; Content"
             icon={<FileText className="w-5 h-5" />}
           >
-            <h4 className="font-semibold text-slate-800 mb-2">4.1 Ownership</h4>
-            <p className="text-slate-700 leading-relaxed mb-4">
+            <h4 className="font-semibold text-foreground mb-2">4.1 Ownership</h4>
+            <p className="text-foreground leading-relaxed mb-4">
               You retain all rights to the data and content you submit, upload, or store through 
               the Service ("<strong>Your Data</strong>"). We do not claim ownership of Your Data.
             </p>
 
-            <h4 className="font-semibold text-slate-800 mb-2">4.2 License to Us</h4>
-            <p className="text-slate-700 leading-relaxed mb-4">
+            <h4 className="font-semibold text-foreground mb-2">4.2 License to Us</h4>
+            <p className="text-foreground leading-relaxed mb-4">
               By using the Service, you grant us a limited, non-exclusive license to access, 
               process, and display Your Data solely as necessary to provide, maintain, and 
               improve the Service. This license terminates when you delete Your Data or your 
               account.
             </p>
 
-            <h4 className="font-semibold text-slate-800 mb-2">4.3 Responsibility</h4>
-            <p className="text-slate-700 leading-relaxed">
+            <h4 className="font-semibold text-foreground mb-2">4.3 Responsibility</h4>
+            <p className="text-foreground leading-relaxed">
               You are solely responsible for the accuracy, quality, and legality of Your Data 
               and the means by which you acquired it. You must ensure that Your Data does not 
               violate any applicable law or infringe on any third party's rights.
@@ -162,12 +162,12 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Third-Party Integrations"
             icon={<Globe className="w-5 h-5" />}
           >
-            <p className="text-slate-700 leading-relaxed mb-3">
+            <p className="text-foreground leading-relaxed mb-3">
               The Service may integrate with third-party services, including but not limited to 
               Google (Gmail, Google Calendar), Microsoft (Outlook, Microsoft 365), and other 
               providers. When you connect a third-party service:
             </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-2 text-foreground ml-2">
               <li>You authorize us to access and synchronize data from those services on your behalf.</li>
               <li>Your use of third-party services is subject to their respective terms and privacy policies.</li>
               <li>We are not responsible for the availability, accuracy, or practices of third-party services.</li>
@@ -175,7 +175,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             </ul>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-              <p className="text-slate-700 leading-relaxed text-sm">
+              <p className="text-foreground leading-relaxed text-sm">
                 <strong>Google API Compliance:</strong> Our use of information received from Google 
                 APIs adheres to the{' '}
                 <a 
@@ -204,23 +204,23 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Subscription &amp; Payment"
             icon={<CreditCard className="w-5 h-5" />}
           >
-            <h4 className="font-semibold text-slate-800 mb-2">6.1 Plans</h4>
-            <p className="text-slate-700 leading-relaxed mb-4">
+            <h4 className="font-semibold text-foreground mb-2">6.1 Plans</h4>
+            <p className="text-foreground leading-relaxed mb-4">
               The Service may be offered under free or paid subscription plans. Features and 
               usage limits vary by plan. We reserve the right to modify plan features and 
               pricing with reasonable notice.
             </p>
 
-            <h4 className="font-semibold text-slate-800 mb-2">6.2 Billing</h4>
-            <p className="text-slate-700 leading-relaxed mb-4">
+            <h4 className="font-semibold text-foreground mb-2">6.2 Billing</h4>
+            <p className="text-foreground leading-relaxed mb-4">
               If you subscribe to a paid plan, you agree to pay all applicable fees. Fees are 
               billed in advance on a recurring basis (monthly or annually, depending on your 
               selected plan). All fees are non-refundable except as expressly stated in these 
               Terms or required by law.
             </p>
 
-            <h4 className="font-semibold text-slate-800 mb-2">6.3 Cancellation</h4>
-            <p className="text-slate-700 leading-relaxed">
+            <h4 className="font-semibold text-foreground mb-2">6.3 Cancellation</h4>
+            <p className="text-foreground leading-relaxed">
               You may cancel your subscription at any time. Cancellation takes effect at the 
               end of the current billing period. You will continue to have access to paid 
               features until the end of the period for which you have already paid.
@@ -233,13 +233,13 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Intellectual Property"
             icon={<Shield className="w-5 h-5" />}
           >
-            <p className="text-slate-700 leading-relaxed mb-3">
+            <p className="text-foreground leading-relaxed mb-3">
               The Service, including its design, features, code, documentation, logos, and 
               trademarks, is owned by ProSpaces CRM and is protected by copyright, trademark, 
               and other intellectual property laws. These Terms do not grant you any rights to 
               our intellectual property except as expressly stated.
             </p>
-            <p className="text-slate-700 leading-relaxed">
+            <p className="text-foreground leading-relaxed">
               "ProSpaces CRM," the ProSpaces logo, and related marks are trademarks of 
               ProSpaces CRM. You may not use these marks without our prior written permission.
             </p>
@@ -251,7 +251,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Privacy"
             icon={<Lock className="w-5 h-5" />}
           >
-            <p className="text-slate-700 leading-relaxed">
+            <p className="text-foreground leading-relaxed">
               Your privacy is important to us. Our collection, use, and disclosure of your 
               information is governed by our{' '}
               <a 
@@ -272,19 +272,19 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             icon={<AlertTriangle className="w-5 h-5" />}
           >
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <p className="text-slate-700 leading-relaxed text-sm">
+              <p className="text-foreground leading-relaxed text-sm">
                 THE SERVICE IS PROVIDED "<strong>AS IS</strong>" AND "<strong>AS AVAILABLE</strong>" 
                 WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT 
                 LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, 
                 TITLE, AND NON-INFRINGEMENT.
               </p>
-              <p className="text-slate-700 leading-relaxed text-sm mt-3">
+              <p className="text-foreground leading-relaxed text-sm mt-3">
                 WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, SECURE, OR ERROR-FREE, 
                 THAT DEFECTS WILL BE CORRECTED, OR THAT THE SERVICE IS FREE OF VIRUSES OR OTHER 
                 HARMFUL COMPONENTS.
               </p>
             </div>
-            <p className="text-slate-700 leading-relaxed mt-3">
+            <p className="text-foreground leading-relaxed mt-3">
               Some jurisdictions do not allow the exclusion of certain warranties, so some of 
               the above exclusions may not apply to you. In such cases, the exclusions will 
               apply to the fullest extent permitted by applicable law.
@@ -298,7 +298,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             icon={<Scale className="w-5 h-5" />}
           >
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-3">
-              <p className="text-slate-700 leading-relaxed text-sm">
+              <p className="text-foreground leading-relaxed text-sm">
                 TO THE MAXIMUM EXTENT PERMITTED BY LAW, PROSPACES CRM AND ITS OFFICERS, 
                 DIRECTORS, EMPLOYEES, AND AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, 
                 INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF 
@@ -306,7 +306,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
                 RELATED TO YOUR USE OF THE SERVICE.
               </p>
             </div>
-            <p className="text-slate-700 leading-relaxed">
+            <p className="text-foreground leading-relaxed">
               Our total aggregate liability for all claims arising from or related to the 
               Service shall not exceed the greater of (a) the total fees paid by you to us 
               in the twelve (12) months preceding the event giving rise to the liability, or 
@@ -320,7 +320,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Indemnification"
             icon={<Shield className="w-5 h-5" />}
           >
-            <p className="text-slate-700 leading-relaxed">
+            <p className="text-foreground leading-relaxed">
               You agree to indemnify, defend, and hold harmless ProSpaces CRM and its officers, 
               directors, employees, and agents from and against any and all claims, liabilities, 
               damages, losses, costs, and expenses (including reasonable attorneys' fees) arising 
@@ -335,21 +335,21 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Termination"
             icon={<Ban className="w-5 h-5" />}
           >
-            <h4 className="font-semibold text-slate-800 mb-2">12.1 By You</h4>
-            <p className="text-slate-700 leading-relaxed mb-4">
+            <h4 className="font-semibold text-foreground mb-2">12.1 By You</h4>
+            <p className="text-foreground leading-relaxed mb-4">
               You may terminate your account at any time by contacting us or using the account 
               deletion option in your settings (if available).
             </p>
 
-            <h4 className="font-semibold text-slate-800 mb-2">12.2 By Us</h4>
-            <p className="text-slate-700 leading-relaxed mb-4">
+            <h4 className="font-semibold text-foreground mb-2">12.2 By Us</h4>
+            <p className="text-foreground leading-relaxed mb-4">
               We may suspend or terminate your access to the Service at any time, with or 
               without cause, and with or without notice, including if we reasonably believe 
               you have violated these Terms.
             </p>
 
-            <h4 className="font-semibold text-slate-800 mb-2">12.3 Effect of Termination</h4>
-            <p className="text-slate-700 leading-relaxed">
+            <h4 className="font-semibold text-foreground mb-2">12.3 Effect of Termination</h4>
+            <p className="text-foreground leading-relaxed">
               Upon termination, your right to use the Service ceases immediately. We may 
               delete Your Data within 30 days of termination unless required by law to retain 
               it. Sections that by their nature should survive termination (including Sections 
@@ -364,7 +364,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Modifications to Terms"
             icon={<RefreshCw className="w-5 h-5" />}
           >
-            <p className="text-slate-700 leading-relaxed">
+            <p className="text-foreground leading-relaxed">
               We reserve the right to modify these Terms at any time. We will notify you of 
               material changes by posting the updated Terms on this page and updating the 
               "Last Updated" date. We may also notify you by email or through the Service. 
@@ -380,7 +380,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Governing Law &amp; Disputes"
             icon={<Scale className="w-5 h-5" />}
           >
-            <p className="text-slate-700 leading-relaxed mb-3">
+            <p className="text-foreground leading-relaxed mb-3">
               These Terms shall be governed by and construed in accordance with the laws of 
               the United States, without regard to conflict of law principles. Any disputes 
               arising from or relating to these Terms or the Service shall be resolved through 
@@ -388,7 +388,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
               Association, except that either party may seek injunctive or equitable relief 
               in a court of competent jurisdiction.
             </p>
-            <p className="text-slate-700 leading-relaxed">
+            <p className="text-foreground leading-relaxed">
               You agree that any dispute resolution proceedings will be conducted on an 
               individual basis and not as part of a class, consolidated, or representative action.
             </p>
@@ -400,7 +400,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="General Provisions"
             icon={<FileText className="w-5 h-5" />}
           >
-            <ul className="list-disc list-inside space-y-3 text-slate-700 ml-2">
+            <ul className="list-disc list-inside space-y-3 text-foreground ml-2">
               <li><strong>Entire Agreement:</strong> These Terms, together with the Privacy Policy, constitute the entire agreement between you and ProSpaces CRM regarding the Service and supersede all prior agreements.</li>
               <li><strong>Severability:</strong> If any provision of these Terms is held to be invalid or unenforceable, the remaining provisions shall continue in full force and effect.</li>
               <li><strong>Waiver:</strong> Our failure to enforce any provision of these Terms shall not be deemed a waiver of that provision or any other provision.</li>
@@ -416,23 +416,23 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
             title="Contact Us"
             icon={<Mail className="w-5 h-5" />}
           >
-            <p className="text-slate-700 leading-relaxed mb-4">
+            <p className="text-foreground leading-relaxed mb-4">
               If you have any questions or concerns about these Terms of Service, please 
               contact us:
             </p>
-            <div className="bg-slate-50 rounded-lg p-5 space-y-3">
+            <div className="bg-muted rounded-lg p-5 space-y-3">
               <div className="flex items-center gap-3">
                 <Globe className="w-5 h-5 text-blue-600 shrink-0" />
                 <div>
-                  <span className="text-sm text-slate-500">Company</span>
-                  <p className="text-slate-800 font-medium">ProSpaces CRM</p>
+                  <span className="text-sm text-muted-foreground">Company</span>
+                  <p className="text-foreground font-medium">ProSpaces CRM</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <Globe className="w-5 h-5 text-blue-600 shrink-0" />
                 <div>
-                  <span className="text-sm text-slate-500">Website</span>
-                  <p className="text-slate-800">
+                  <span className="text-sm text-muted-foreground">Website</span>
+                  <p className="text-foreground">
                     <a href="https://www.prospacescrm.com" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
                       www.prospacescrm.com
                     </a>
@@ -442,8 +442,8 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
               <div className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-blue-600 shrink-0" />
                 <div>
-                  <span className="text-sm text-slate-500">Email</span>
-                  <p className="text-slate-800">
+                  <span className="text-sm text-muted-foreground">Email</span>
+                  <p className="text-foreground">
                     <a href="mailto:legal@prospacescrm.com" className="text-blue-600 hover:underline">
                       legal@prospacescrm.com
                     </a>
@@ -455,14 +455,14 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
         </div>
 
         {/* Footer */}
-        <footer className="mt-16 pt-8 border-t border-slate-200 text-center">
+        <footer className="mt-16 pt-8 border-t border-border text-center">
           <div className="flex items-center justify-center gap-2 mb-3">
             <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
               <FileText className="w-3 h-3 text-white" />
             </div>
-            <span className="font-semibold text-slate-700">ProSpaces CRM</span>
+            <span className="font-semibold text-foreground">ProSpaces CRM</span>
           </div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} ProSpaces CRM. All rights reserved.
           </p>
           <div className="flex items-center justify-center gap-4 mt-3">
@@ -474,7 +474,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
               Terms of Service
             </a>
           </div>
-          <p className="text-xs text-slate-400 mt-2">
+          <p className="text-xs text-muted-foreground mt-2">
             These terms are effective as of {effectiveDate}.
           </p>
         </footer>
@@ -486,7 +486,7 @@ export function TermsOfService({ onBack, standalone = true }: TermsOfServiceProp
 // Reusable section wrapper
 function Section({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 sm:p-8">
+    <div className="bg-background rounded-xl shadow-sm border border-border p-6 sm:p-8">
       {children}
     </div>
   );
@@ -505,12 +505,12 @@ function TermsSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 sm:p-8">
+    <div className="bg-background rounded-xl shadow-sm border border-border p-6 sm:p-8">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
           {icon}
         </div>
-        <h3 className="text-xl font-bold text-slate-900">
+        <h3 className="text-xl font-bold text-foreground">
           {number}. {title}
         </h3>
       </div>

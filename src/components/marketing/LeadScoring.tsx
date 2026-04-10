@@ -143,7 +143,7 @@ export function LeadScoring({ user }: LeadScoringProps) {
       case 'Cold':
         return 'bg-blue-100 text-blue-700';
       default:
-        return 'bg-gray-100 text-gray-700';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -151,8 +151,8 @@ export function LeadScoring({ user }: LeadScoringProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl text-gray-900">Lead Scoring</h2>
-          <p className="text-sm text-gray-600 mt-1">Automatically score and prioritize leads based on behavior</p>
+          <h2 className="text-xl text-foreground">Lead Scoring</h2>
+          <p className="text-sm text-muted-foreground mt-1">Automatically score and prioritize leads based on behavior</p>
         </div>
         <Dialog open={isCreateRuleOpen} onOpenChange={setIsCreateRuleOpen}>
           <DialogTrigger asChild>
@@ -201,7 +201,7 @@ export function LeadScoring({ user }: LeadScoringProps) {
               <div className="space-y-2">
                 <Label>Points ({newRulePoints})</Label>
                 <Slider value={[newRulePoints]} onValueChange={(val) => setNewRulePoints(val[0])} max={100} min={-50} step={5} />
-                <p className="text-xs text-gray-500">Use negative values for score decay</p>
+                <p className="text-xs text-muted-foreground">Use negative values for score decay</p>
               </div>
               <div className="flex gap-2 mt-6">
                 <Button variant="outline" onClick={() => setIsCreateRuleOpen(false)} className="flex-1">
@@ -226,7 +226,7 @@ export function LeadScoring({ user }: LeadScoringProps) {
             <CardContent>
               <div className="space-y-3">
                 {scoringRules.map((rule) => (
-                  <div key={rule.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                  <div key={rule.id} className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted">
                     <div className="flex items-center gap-3">
                       <div className={`h-10 w-10 rounded-lg ${
                         rule.points > 0 ? 'bg-green-100' : 'bg-red-100'
@@ -238,8 +238,8 @@ export function LeadScoring({ user }: LeadScoringProps) {
                         </span>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-900">{rule.action}</p>
-                        <p className="text-xs text-gray-500">{rule.category}</p>
+                        <p className="text-sm text-foreground">{rule.action}</p>
+                        <p className="text-xs text-muted-foreground">{rule.category}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -267,16 +267,16 @@ export function LeadScoring({ user }: LeadScoringProps) {
               {displaySegments.map((segment, index) => (
                 <div key={index}>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-900">{segment.name}</span>
-                    <span className="text-sm text-gray-600">{segment.count}</span>
+                    <span className="text-sm text-foreground">{segment.name}</span>
+                    <span className="text-sm text-muted-foreground">{segment.count}</span>
                   </div>
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-blue-500"
                       style={{ width: `${segment.percentage}%` }}
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">{segment.percentage}% of total leads</p>
+                  <p className="text-xs text-muted-foreground mt-1">{segment.percentage}% of total leads</p>
                 </div>
               ))}
             </div>
@@ -296,27 +296,27 @@ export function LeadScoring({ user }: LeadScoringProps) {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Lead</th>
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Company</th>
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Score</th>
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Status</th>
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Last Activity</th>
-                  <th className="text-left py-3 px-4 text-sm text-gray-600">Actions</th>
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Lead</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Company</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Score</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Status</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Last Activity</th>
+                  <th className="text-left py-3 px-4 text-sm text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {displayLeads.length > 0 ? (
                   displayLeads.map((lead) => (
-                    <tr key={lead.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr key={lead.id} className="border-b border-border hover:bg-muted">
                       <td className="py-3 px-4">
                         <div>
-                          <p className="text-sm text-gray-900">{lead.name}</p>
-                          <p className="text-xs text-gray-500">{lead.email}</p>
+                          <p className="text-sm text-foreground">{lead.name}</p>
+                          <p className="text-xs text-muted-foreground">{lead.email}</p>
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-sm text-gray-600">{lead.company}</span>
+                        <span className="text-sm text-muted-foreground">{lead.company}</span>
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
@@ -328,7 +328,7 @@ export function LeadScoring({ user }: LeadScoringProps) {
                         <Badge className={getStatusBadge(lead.status)}>{lead.status}</Badge>
                       </td>
                       <td className="py-3 px-4">
-                        <span className="text-sm text-gray-600">{lead.lastActivity}</span>
+                        <span className="text-sm text-muted-foreground">{lead.lastActivity}</span>
                       </td>
                       <td className="py-3 px-4">
                         <Button variant="outline" size="sm">Contact</Button>
@@ -337,7 +337,7 @@ export function LeadScoring({ user }: LeadScoringProps) {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-gray-500">
+                    <td colSpan={6} className="text-center py-8 text-muted-foreground">
                       No leads scored yet. Interaction with quotes will appear here.
                     </td>
                   </tr>
@@ -358,14 +358,14 @@ export function LeadScoring({ user }: LeadScoringProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="p-3 bg-white rounded-lg">
-              <p className="text-sm text-gray-900">💡 Leads who visit the pricing page 3+ times are 5x more likely to convert. Consider increasing scoring weight.</p>
+            <div className="p-3 bg-background rounded-lg">
+              <p className="text-sm text-foreground">💡 Leads who visit the pricing page 3+ times are 5x more likely to convert. Consider increasing scoring weight.</p>
             </div>
-            <div className="p-3 bg-white rounded-lg">
-              <p className="text-sm text-gray-900">🎯 Your "Hot Leads" segment has a 67% higher conversion rate. Prioritize immediate follow-up.</p>
+            <div className="p-3 bg-background rounded-lg">
+              <p className="text-sm text-foreground">🎯 Your "Hot Leads" segment has a 67% higher conversion rate. Prioritize immediate follow-up.</p>
             </div>
-            <div className="p-3 bg-white rounded-lg">
-              <p className="text-sm text-gray-900">📊 Leads scoring 80+ typically convert within 7 days. Create urgency-based campaigns for this segment.</p>
+            <div className="p-3 bg-background rounded-lg">
+              <p className="text-sm text-foreground">📊 Leads scoring 80+ typically convert within 7 days. Create urgency-based campaigns for this segment.</p>
             </div>
           </div>
         </CardContent>

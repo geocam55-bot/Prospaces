@@ -102,7 +102,7 @@ export function InventorySearchHelp({ onExampleClick }: SearchHelpProps) {
                 <Sparkles className="h-5 w-5 text-purple-600" />
                 AI-Powered Search Guide
               </CardTitle>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Try these example searches to see the power of advanced search
               </p>
             </div>
@@ -118,7 +118,7 @@ export function InventorySearchHelp({ onExampleClick }: SearchHelpProps) {
               <div key={section.category}>
                 <div className="flex items-center gap-2 mb-3">
                   <Icon className={`h-5 w-5 text-${section.color}-600`} />
-                  <h3 className="font-medium text-gray-900">{section.category}</h3>
+                  <h3 className="font-medium text-foreground">{section.category}</h3>
                   <Badge
                     variant="outline"
                     className={`bg-${section.color}-50 text-${section.color}-700 border-${section.color}-200`}
@@ -134,15 +134,15 @@ export function InventorySearchHelp({ onExampleClick }: SearchHelpProps) {
                         onExampleClick(query.text);
                         setIsOpen(false);
                       }}
-                      className="text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 hover:border-purple-300 transition-all"
+                      className="text-left p-3 bg-muted hover:bg-muted rounded-lg border border-border hover:border-purple-300 transition-all"
                     >
                       <div className="flex items-start gap-2">
-                        <Search className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <Search className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-foreground">
                             {query.text}
                           </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {query.description}
                           </p>
                         </div>

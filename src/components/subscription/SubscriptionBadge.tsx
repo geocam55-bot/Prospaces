@@ -17,7 +17,7 @@ interface SubscriptionBadgeProps {
 
 const PLAN_CONFIG: Record<PlanId, { name: string; icon: typeof Zap; gradient: string; text: string; badge: string }> = {
   starter: {
-    name: 'Starter',
+    name: 'Standard User',
     icon: Zap,
     gradient: 'from-orange-500 to-amber-500',
     text: 'text-orange-700',
@@ -68,7 +68,7 @@ export function SubscriptionBadge({ onClick, compact = false }: SubscriptionBadg
           <TooltipTrigger
             type="button"
             onClick={onClick}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border hover:bg-muted transition-colors cursor-pointer"
           >
             <Sparkles className="h-3 w-3" />
             {!compact && 'Free'}
@@ -95,7 +95,7 @@ export function SubscriptionBadge({ onClick, compact = false }: SubscriptionBadg
 
   let badgeClass = config.badge;
   if (isCanceling) badgeClass = 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200';
-  if (isExpired) badgeClass = 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200';
+  if (isExpired) badgeClass = 'bg-muted text-muted-foreground border-border hover:bg-muted';
 
   return (
     <TooltipProvider>

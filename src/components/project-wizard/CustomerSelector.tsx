@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { createClient } from '../../utils/supabase/client';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Search, User, X } from 'lucide-react';
+import { contactsAPI } from '../../utils/api';
 
 interface Customer {
   id: string;
@@ -16,64 +16,69 @@ interface CustomerSelectorProps {
   selectedCustomer: Customer | null;
   onCustomerSelect: (customer: Customer | null) => void;
   userId?: string;
+  showLabel?: boolean;
+  label?: string;
 }
 
 export function CustomerSelector({ 
   organizationId, 
   selectedCustomer, 
   onCustomerSelect,
-  userId
+  userId: _userId,
+  showLabel = true,
+  label = 'Customer (Optional)'
 }: CustomerSelectorProps) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load customers on mount and when search changes
+  // Load customers using the same shared contacts API as the main CRM
   useEffect(() => {
     if (organizationId) {
-      loadCustomers();
+      void loadCustomers();
+    } else {
+      setCustomers([]);
     }
   }, [organizationId]);
 
-  // Reload when search query changes (with debounce effect)
-  useEffect(() => {
-    if (!organizationId) return;
-    
-    const timer = setTimeout(() => {
-      loadCustomers();
-    }, 300); // 300ms debounce
+  const filteredCustomers = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
 
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+    return customers
+      .filter((customer) => {
+        if (!normalizedSearch) return true;
+
+        return [customer.name, customer.email, customer.company]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(normalizedSearch));
+      })
+      .slice(0, 50);
+  }, [customers, searchQuery]);
 
   const loadCustomers = async () => {
     setIsLoading(true);
     try {
-      // Query contacts without price_level (column may not exist)
-      // and always default it to 't1'
-      let q = createClient()
-        .from('contacts')
-        .select('id, name, email, phone, company')
-        .eq('organization_id', organizationId)
-        .order('name');
+      const { contacts } = await contactsAPI.getAll('personal');
 
-      // If userId is provided, only show contacts owned by this user
-      if (userId) {
-        q = q.eq('owner_id', userId);
-      }
+      const normalizedCustomers = (contacts || [])
+        .filter((contact: any) => {
+          const contactOrgId = contact.organizationId || contact.organization_id;
+          return !organizationId || !contactOrgId || contactOrgId === organizationId;
+        })
+        .map((contact: any) => ({
+          id: contact.id,
+          name: contact.name || '',
+          email: contact.email || '',
+          phone: contact.phone || '',
+          company: contact.company || '',
+          price_level: contact.priceLevel || contact.price_level || 't1',
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
-      if (searchQuery) {
-        q = q.or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,company.ilike.%${searchQuery}%`);
-      }
-
-      const { data, error } = await q.limit(50);
-
-      if (error) throw error;
-      // Default price_level to 't1' for every customer
-      setCustomers((data || []).map((c: any) => ({ ...c, price_level: c.price_level || 't1' })));
+      setCustomers(normalizedCustomers);
     } catch (error) {
-      // Error loading customers
+      setCustomers([]);
     } finally {
       setIsLoading(false);
     }
@@ -92,9 +97,11 @@ export function CustomerSelector({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm text-slate-700">
-        Customer (Optional)
-      </label>
+      {showLabel && (
+        <label className="block text-sm text-foreground">
+          {label}
+        </label>
+      )}
       
       {selectedCustomer ? (
         <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -103,9 +110,9 @@ export function CustomerSelector({
               <User className="w-4 h-4 text-white" />
             </div>
             <div>
-              <div className="text-sm text-slate-900">{selectedCustomer.name}</div>
+              <div className="text-sm text-foreground">{selectedCustomer.name}</div>
               {selectedCustomer.company && (
-                <div className="text-xs text-slate-600">{selectedCustomer.company}</div>
+                <div className="text-xs text-muted-foreground">{selectedCustomer.company}</div>
               )}
               <div className="text-xs text-green-600 mt-1">
                 Price Tier: {selectedCustomer.price_level}
@@ -114,7 +121,7 @@ export function CustomerSelector({
           </div>
           <button
             onClick={handleClearCustomer}
-            className="p-1 text-slate-400 hover:text-slate-600 rounded"
+            className="p-1 text-muted-foreground hover:text-muted-foreground rounded"
           >
             <X className="w-4 h-4" />
           </button>
@@ -122,7 +129,7 @@ export function CustomerSelector({
       ) : (
         <div className="relative" style={{ zIndex: 50 }}>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               value={searchQuery}
@@ -132,7 +139,7 @@ export function CustomerSelector({
               }}
               onFocus={() => setIsDropdownOpen(true)}
               placeholder="Search customers by name, email, or company..."
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
             />
           </div>
 
@@ -143,38 +150,38 @@ export function CustomerSelector({
                 style={{ zIndex: 40 }}
                 onClick={() => setIsDropdownOpen(false)}
               />
-              <div className="absolute w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg max-h-60 overflow-y-auto" style={{ zIndex: 51 }}>
+              <div className="absolute w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto" style={{ zIndex: 51 }}>
                 {isLoading ? (
-                  <div className="p-4 text-center text-slate-500">
+                  <div className="p-4 text-center text-muted-foreground">
                     Loading customers...
                   </div>
-                ) : customers.length === 0 ? (
-                  <div className="p-4 text-center text-slate-500">
+                ) : filteredCustomers.length === 0 ? (
+                  <div className="p-4 text-center text-muted-foreground">
                     No customers found
                   </div>
                 ) : (
                   <div className="py-1">
-                    {customers.map((customer) => (
+                    {filteredCustomers.map((customer) => (
                       <button
                         key={customer.id}
                         onClick={() => handleSelectCustomer(customer)}
-                        className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-start gap-3 border-b border-slate-100 last:border-b-0"
+                        className="w-full px-4 py-3 text-left hover:bg-muted flex items-start gap-3 border-b border-border last:border-b-0"
                       >
-                        <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <User className="w-4 h-4 text-slate-600" />
+                        <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <User className="w-4 h-4 text-muted-foreground" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm text-slate-900 truncate">
+                          <div className="text-sm text-foreground truncate">
                             {customer.name}
                           </div>
                           {customer.company && (
-                            <div className="text-xs text-slate-600 truncate">
+                            <div className="text-xs text-muted-foreground truncate">
                               {customer.company}
                             </div>
                           )}
                           <div className="flex items-center gap-3 mt-1">
                             {customer.email && (
-                              <div className="text-xs text-slate-500 truncate">
+                              <div className="text-xs text-muted-foreground truncate">
                                 {customer.email}
                               </div>
                             )}
@@ -194,7 +201,7 @@ export function CustomerSelector({
       )}
       
       {selectedCustomer && (
-        <div className="text-xs text-slate-600">
+        <div className="text-xs text-muted-foreground">
           Materials will be priced at <span className="text-green-600">{selectedCustomer.price_level.toUpperCase()}</span> tier
         </div>
       )}

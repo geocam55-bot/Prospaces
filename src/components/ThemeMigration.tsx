@@ -79,7 +79,7 @@ WHERE table_name = 'profiles' AND column_name = 'theme';`;
           <>
             <Alert>
               <AlertDescription>
-                This migration adds a <code className="bg-gray-100 px-1 rounded">theme</code> column to the profiles table,
+                This migration adds a <code className="bg-muted px-1 rounded">theme</code> column to the profiles table,
                 allowing users to save their theme preferences across devices and sessions.
               </AlertDescription>
             </Alert>

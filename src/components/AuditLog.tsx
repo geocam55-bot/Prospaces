@@ -92,7 +92,7 @@ const ACTION_COLORS: Record<string, string> = {
   update: 'bg-blue-100 text-blue-800 border-blue-200',
   delete: 'bg-red-100 text-red-800 border-red-200',
   login: 'bg-purple-100 text-purple-800 border-purple-200',
-  logout: 'bg-gray-100 text-gray-800 border-gray-200',
+  logout: 'bg-muted text-foreground border-border',
   export: 'bg-orange-100 text-orange-800 border-orange-200',
   view: 'bg-cyan-100 text-cyan-800 border-cyan-200',
   permission_change: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -254,7 +254,7 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
 
   const ResourceIcon = ({ type }: { type: string }) => {
     const Icon = RESOURCE_ICONS[type] || Activity;
-    return <Icon className="h-3.5 w-3.5 text-gray-500" />;
+    return <Icon className="h-3.5 w-3.5 text-muted-foreground" />;
   };
 
   const clearFilters = () => {
@@ -275,26 +275,26 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <Card>
             <CardContent className="p-3 sm:p-4">
-              <div className="text-xs text-gray-500 mb-1">Total Events</div>
-              <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.totalCount.toLocaleString()}</div>
+              <div className="text-xs text-muted-foreground mb-1">Total Events</div>
+              <div className="text-xl sm:text-2xl font-bold text-foreground">{stats.totalCount.toLocaleString()}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-3 sm:p-4">
-              <div className="text-xs text-gray-500 mb-1">Last 24 Hours</div>
+              <div className="text-xs text-muted-foreground mb-1">Last 24 Hours</div>
               <div className="text-xl sm:text-2xl font-bold text-blue-600">{stats.last24h.toLocaleString()}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-3 sm:p-4">
-              <div className="text-xs text-gray-500 mb-1">Last 7 Days</div>
+              <div className="text-xs text-muted-foreground mb-1">Last 7 Days</div>
               <div className="text-xl sm:text-2xl font-bold text-indigo-600">{stats.last7d.toLocaleString()}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-3 sm:p-4">
-              <div className="text-xs text-gray-500 mb-1">Action Types</div>
-              <div className="text-xl sm:text-2xl font-bold text-gray-900">{Object.keys(stats.actionBreakdown).length}</div>
+              <div className="text-xs text-muted-foreground mb-1">Action Types</div>
+              <div className="text-xl sm:text-2xl font-bold text-foreground">{Object.keys(stats.actionBreakdown).length}</div>
             </CardContent>
           </Card>
         </div>
@@ -307,7 +307,7 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
             {/* Search */}
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by user, action, or description..."
                   value={searchQuery}
@@ -351,14 +351,14 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
           {/* Date range + actions row */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <label className="text-xs text-gray-500 whitespace-nowrap">From:</label>
+              <label className="text-xs text-muted-foreground whitespace-nowrap">From:</label>
               <Input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
                 className="w-36 h-9 text-sm"
               />
-              <label className="text-xs text-gray-500 whitespace-nowrap">To:</label>
+              <label className="text-xs text-muted-foreground whitespace-nowrap">To:</label>
               <Input
                 type="date"
                 value={dateTo}
@@ -398,12 +398,12 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
       <Card>
         <CardContent className="p-0">
           {isLoading && logs.length === 0 ? (
-            <div className="flex items-center justify-center py-12 text-gray-500">
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
               <RefreshCw className="h-5 w-5 animate-spin mr-2" />
               Loading audit logs...
             </div>
           ) : logs.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-muted-foreground">
               <History className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p className="font-medium">No audit logs found</p>
               <p className="text-sm mt-1">
@@ -413,15 +413,15 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-border">
               {logs.map((log) => {
                 const isExpanded = expandedLogId === log.id;
-                const actionColor = ACTION_COLORS[log.action] || 'bg-gray-100 text-gray-700 border-gray-200';
+                const actionColor = ACTION_COLORS[log.action] || 'bg-muted text-foreground border-border';
 
                 return (
                   <div
                     key={log.id}
-                    className="p-3 sm:p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                    className="p-3 sm:p-4 hover:bg-muted cursor-pointer transition-colors"
                     onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
                   >
                     <div className="flex items-start gap-3">
@@ -435,7 +435,7 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1">
                           <div className="flex-1 min-w-0">
                             {/* Description or action label */}
-                            <p className="text-sm font-medium text-gray-900 truncate">
+                            <p className="text-sm font-medium text-foreground truncate">
                               {log.details?.description || (
                                 <span className="capitalize">
                                   {log.action.replace(/_/g, ' ')} {log.resource_type.replace(/_/g, ' ')}
@@ -445,20 +445,20 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
 
                             {/* User and resource info */}
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-muted-foreground">
                                 {log.details?.user_name || log.details?.user_email || 'Unknown user'}
                               </span>
                               <span className="text-xs text-gray-300">|</span>
                               <div className="flex items-center gap-1">
                                 <ResourceIcon type={log.resource_type} />
-                                <span className="text-xs text-gray-500 capitalize">
+                                <span className="text-xs text-muted-foreground capitalize">
                                   {log.resource_type.replace(/_/g, ' ')}
                                 </span>
                               </div>
                               {log.resource_id && (
                                 <>
                                   <span className="text-xs text-gray-300">|</span>
-                                  <span className="text-xs text-gray-400 font-mono truncate max-w-[120px]">
+                                  <span className="text-xs text-muted-foreground font-mono truncate max-w-[120px]">
                                     {log.resource_id.slice(0, 8)}...
                                   </span>
                                 </>
@@ -471,7 +471,7 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
                             <Badge variant="outline" className={`text-xs ${actionColor}`}>
                               <span className="capitalize">{log.action.replace(/_/g, ' ')}</span>
                             </Badge>
-                            <span className="text-xs text-gray-400 whitespace-nowrap" title={formatDate(log.created_at)}>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap" title={formatDate(log.created_at)}>
                               {formatRelativeTime(log.created_at)}
                             </span>
                           </div>
@@ -479,26 +479,26 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
 
                         {/* Expanded details */}
                         {isExpanded && log.details && (
-                          <div className="mt-3 p-3 bg-gray-50 rounded-lg text-xs space-y-2 border border-gray-200">
+                          <div className="mt-3 p-3 bg-muted rounded-lg text-xs space-y-2 border border-border">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               <div>
-                                <span className="font-medium text-gray-600">Full Timestamp:</span>{' '}
-                                <span className="text-gray-800">{formatDate(log.created_at)}</span>
+                                <span className="font-medium text-muted-foreground">Full Timestamp:</span>{' '}
+                                <span className="text-foreground">{formatDate(log.created_at)}</span>
                               </div>
                               <div>
-                                <span className="font-medium text-gray-600">User ID:</span>{' '}
-                                <span className="text-gray-800 font-mono">{log.user_id.slice(0, 12)}...</span>
+                                <span className="font-medium text-muted-foreground">User ID:</span>{' '}
+                                <span className="text-foreground font-mono">{log.user_id.slice(0, 12)}...</span>
                               </div>
                               {log.details.user_email && (
                                 <div>
-                                  <span className="font-medium text-gray-600">Email:</span>{' '}
-                                  <span className="text-gray-800">{log.details.user_email}</span>
+                                  <span className="font-medium text-muted-foreground">Email:</span>{' '}
+                                  <span className="text-foreground">{log.details.user_email}</span>
                                 </div>
                               )}
                               {log.resource_id && (
                                 <div>
-                                  <span className="font-medium text-gray-600">Resource ID:</span>{' '}
-                                  <span className="text-gray-800 font-mono">{log.resource_id}</span>
+                                  <span className="font-medium text-muted-foreground">Resource ID:</span>{' '}
+                                  <span className="text-foreground font-mono">{log.resource_id}</span>
                                 </div>
                               )}
                             </div>
@@ -526,8 +526,8 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
                               ([k]) => !['user_email', 'user_name', 'description', 'old_values', 'new_values'].includes(k)
                             ).length > 0 && (
                               <div>
-                                <span className="font-medium text-gray-600">Additional Details:</span>
-                                <pre className="mt-1 p-2 bg-white border border-gray-100 rounded text-xs overflow-x-auto">
+                                <span className="font-medium text-muted-foreground">Additional Details:</span>
+                                <pre className="mt-1 p-2 bg-background border border-border rounded text-xs overflow-x-auto">
                                   {JSON.stringify(
                                     Object.fromEntries(
                                       Object.entries(log.details).filter(
@@ -555,7 +555,7 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
       {/* Pagination */}
       {pagination.totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Showing {((currentPage - 1) * pagination.pageSize) + 1}–{Math.min(currentPage * pagination.pageSize, pagination.totalCount)} of{' '}
             {pagination.totalCount.toLocaleString()} entries
           </p>
@@ -569,7 +569,7 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
               <ChevronLeft className="h-4 w-4" />
               <span className="hidden sm:inline ml-1">Previous</span>
             </Button>
-            <span className="text-sm text-gray-600 px-2">
+            <span className="text-sm text-muted-foreground px-2">
               Page {currentPage} of {pagination.totalPages}
             </span>
             <Button
@@ -595,11 +595,11 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
     <div className="p-4 sm:p-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <History className="h-6 w-6 text-gray-600" />
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+            <History className="h-6 w-6 text-muted-foreground" />
             Audit Log
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Track all user actions and system events across your organization
           </p>
         </div>

@@ -964,7 +964,7 @@ export function KitchenCanvas({
   };
 
   return (
-    <div className="flex flex-col h-full relative bg-gray-50">
+    <div className="flex flex-col h-full relative bg-muted">
       {/* Floating Toolbar */}
       <div 
         className="absolute z-20 flex flex-col gap-2 pointer-events-auto shadow-md rounded-lg"
@@ -975,20 +975,20 @@ export function KitchenCanvas({
         }}
         onMouseDown={handleToolbarDragStart}
       >
-        <div className="bg-white/90 backdrop-blur rounded-lg border border-gray-200 flex flex-col overflow-hidden">
+        <div className="bg-background/90 backdrop-blur rounded-lg border border-border flex flex-col overflow-hidden">
           {/* Drag Handle */}
-          <div className="bg-gray-100/50 hover:bg-gray-200/50 w-full flex items-center justify-center py-1 cursor-grab active:cursor-grabbing border-b border-gray-100">
-            <GripHorizontal className="w-4 h-4 text-gray-400" />
+          <div className="bg-muted/50 hover:bg-muted/50 w-full flex items-center justify-center py-1 cursor-grab active:cursor-grabbing border-b border-border">
+            <GripHorizontal className="w-4 h-4 text-muted-foreground" />
           </div>
           
           <div className="flex items-center p-1 gap-1">
             {/* General Tools */}
             <div className="flex items-center">
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600" onClick={handleZoomIn}>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground" onClick={handleZoomIn}>
                 <ZoomIn className="h-4 w-4" />
               </Button>
-              <span className="text-xs font-medium w-12 text-center text-gray-600">{Math.round(zoom * 100)}%</span>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600" onClick={handleZoomOut}>
+              <span className="text-xs font-medium w-12 text-center text-muted-foreground">{Math.round(zoom * 100)}%</span>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground" onClick={handleZoomOut}>
                 <ZoomOut className="h-4 w-4" />
               </Button>
               
@@ -997,14 +997,14 @@ export function KitchenCanvas({
               <Button
                 variant={config.showGrid ? 'secondary' : 'ghost'}
                 size="sm"
-                className={`h-8 px-2 text-xs ${config.showGrid ? 'bg-gray-200 text-gray-900' : 'text-gray-600'}`}
+                className={`h-8 px-2 text-xs ${config.showGrid ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}
                 onClick={() => onUpdateConfig?.({ showGrid: !config.showGrid })}
               >
                 <Grid3x3 className="h-4 w-4 mr-1.5" />
                 Grid
               </Button>
               
-              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer px-2 h-8 hover:bg-gray-100 rounded-md">
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer px-2 h-8 hover:bg-muted rounded-md">
                 <input
                   type="checkbox"
                   checked={config.snapToGrid || false}
@@ -1019,24 +1019,24 @@ export function KitchenCanvas({
 
         {/* Item Tools (only show if something is selected) */}
         {(selectedCabinet || selectedAppliance) && (
-          <div className="bg-white/90 backdrop-blur rounded-lg border border-gray-200 flex flex-col overflow-hidden shadow-sm">
+          <div className="bg-background/90 backdrop-blur rounded-lg border border-border flex flex-col overflow-hidden shadow-sm">
             <div className="bg-blue-50/50 w-full flex flex-col p-1 gap-1">
-              <div className="flex items-center gap-1 justify-center border-b border-gray-100 pb-1">
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600 bg-white shadow-sm" onClick={handleRotateCounterClockwise} title="Rotate 90° counter-clockwise">
+              <div className="flex items-center gap-1 justify-center border-b border-border pb-1">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground bg-background shadow-sm" onClick={handleRotateCounterClockwise} title="Rotate 90° counter-clockwise">
                   <RotateCcw className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600 bg-white shadow-sm" onClick={handleRotateClockwise} title="Rotate 90° clockwise">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground bg-background shadow-sm" onClick={handleRotateClockwise} title="Rotate 90° clockwise">
                   <RotateCw className="h-4 w-4" />
                 </Button>
               </div>
 
               {selectedCabinet && (
                 <div className="flex items-center justify-center gap-1 pt-1">
-                  <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-gray-600 bg-white shadow-sm" onClick={() => onUpdateCabinet(selectedCabinet.id, { x: 0, y: 0 })} title="Move cabinet to corner">
+                  <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground bg-background shadow-sm" onClick={() => onUpdateCabinet(selectedCabinet.id, { x: 0, y: 0 })} title="Move cabinet to corner">
                     <Move className="h-4 w-4 mr-1.5" />
                     To Corner
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 bg-white shadow-sm" onClick={() => onDeleteCabinet(selectedCabinet.id)}>
+                  <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 bg-background shadow-sm" onClick={() => onDeleteCabinet(selectedCabinet.id)}>
                     <Trash2 className="h-4 w-4 mr-1.5" />
                     Delete
                   </Button>

@@ -760,7 +760,7 @@ ON CONFLICT (role, module) DO UPDATE SET
           <p className="text-muted-foreground">Database Initialization Required</p>
         </div>
 
-        <Card className="border-purple-200 bg-white shadow-lg">
+        <Card className="border-purple-200 bg-background shadow-lg">
           <CardHeader className="bg-gradient-to-r from-purple-50 to-blue-50 border-b border-purple-100">
             <CardTitle className="flex items-center gap-2 text-purple-900">
               <Database className="h-6 w-6" />
@@ -777,11 +777,11 @@ ON CONFLICT (role, module) DO UPDATE SET
             </Alert>
 
             <div className="bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">What This Script Creates:</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-4">What This Script Creates:</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-purple-900">Core Tables:</h4>
-                  <ul className="text-sm text-gray-700 space-y-1">
+                  <ul className="text-sm text-foreground space-y-1">
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       Organizations & Profiles
@@ -802,7 +802,7 @@ ON CONFLICT (role, module) DO UPDATE SET
                 </div>
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-purple-900">Feature Tables:</h4>
-                  <ul className="text-sm text-gray-700 space-y-1">
+                  <ul className="text-sm text-foreground space-y-1">
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       Tasks, Notes, Appointments
@@ -826,7 +826,7 @@ ON CONFLICT (role, module) DO UPDATE SET
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">Complete SQL Setup Script</h3>
+                <h3 className="text-sm font-semibold text-foreground">Complete SQL Setup Script</h3>
                 <div className="flex gap-2">
                   <Button
                     onClick={copyToClipboard}
@@ -884,33 +884,33 @@ ON CONFLICT (role, module) DO UPDATE SET
                 <ol className="space-y-3">
                   <li className="flex gap-3">
                     <span className="text-purple-600 font-semibold shrink-0">1.</span>
-                    <span className="text-gray-700">
+                    <span className="text-foreground">
                       Click the <strong>"Open SQL Editor"</strong> button above
-                      <span className="block text-sm text-gray-600 mt-1">This opens the Supabase Dashboard SQL Editor</span>
+                      <span className="block text-sm text-muted-foreground mt-1">This opens the Supabase Dashboard SQL Editor</span>
                     </span>
                   </li>
                   <li className="flex gap-3">
                     <span className="text-purple-600 font-semibold shrink-0">2.</span>
-                    <span className="text-gray-700">
+                    <span className="text-foreground">
                       Click <strong>"Copy SQL"</strong> to copy the complete script
                     </span>
                   </li>
                   <li className="flex gap-3">
                     <span className="text-purple-600 font-semibold shrink-0">3.</span>
-                    <span className="text-gray-700">
+                    <span className="text-foreground">
                       Paste the script into the Supabase SQL Editor
                     </span>
                   </li>
                   <li className="flex gap-3">
                     <span className="text-purple-600 font-semibold shrink-0">4.</span>
-                    <span className="text-gray-700">
+                    <span className="text-foreground">
                       Click <strong>"Run"</strong> to execute the script
-                      <span className="block text-sm text-gray-600 mt-1">Wait for the success message (may take 10-15 seconds)</span>
+                      <span className="block text-sm text-muted-foreground mt-1">Wait for the success message (may take 10-15 seconds)</span>
                     </span>
                   </li>
                   <li className="flex gap-3">
                     <span className="text-purple-600 font-semibold shrink-0">5.</span>
-                    <span className="text-gray-700">
+                    <span className="text-foreground">
                       Click the <strong>\"Refresh & Check Database\"</strong> button below
                     </span>
                   </li>
@@ -947,8 +947,8 @@ ON CONFLICT (role, module) DO UPDATE SET
               </AlertDescription>
             </Alert>
 
-            <div className="pt-4 border-t border-gray-200">
-              <p className="text-sm text-gray-600 text-center">
+            <div className="pt-4 border-t border-border">
+              <p className="text-sm text-muted-foreground text-center">
                 Need help? Check your Supabase project settings or contact support.
               </p>
             </div>

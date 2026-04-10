@@ -470,26 +470,26 @@ export function PlannerMigrationValidator({ userId, organizationId }: PlannerMig
       <CardContent className="space-y-6">
         {/* Overall Summary */}
         {allTestsRun && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-slate-50 rounded-lg">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-muted rounded-lg">
             <div className="text-center">
-              <div className="text-2xl font-bold text-slate-900">{overallSummary.totalTests}</div>
-              <div className="text-xs text-slate-600">Total Tests</div>
+              <div className="text-2xl font-bold text-foreground">{overallSummary.totalTests}</div>
+              <div className="text-xs text-muted-foreground">Total Tests</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">{overallSummary.passed}</div>
-              <div className="text-xs text-slate-600">Passed</div>
+              <div className="text-xs text-muted-foreground">Passed</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600">{overallSummary.failed}</div>
-              <div className="text-xs text-slate-600">Failed</div>
+              <div className="text-xs text-muted-foreground">Failed</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-yellow-600">{overallSummary.warnings}</div>
-              <div className="text-xs text-slate-600">Warnings</div>
+              <div className="text-xs text-muted-foreground">Warnings</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{(overallSummary.duration / 1000).toFixed(2)}s</div>
-              <div className="text-xs text-slate-600">Duration</div>
+              <div className="text-xs text-muted-foreground">Duration</div>
             </div>
           </div>
         )}
@@ -551,7 +551,7 @@ export function PlannerMigrationValidator({ userId, organizationId }: PlannerMig
                 <AccordionContent>
                   <div className="space-y-3 pt-2">
                     {result.results.length === 0 ? (
-                      <p className="text-sm text-slate-600 italic">No test results yet. Run validation to see results.</p>
+                      <p className="text-sm text-muted-foreground italic">No test results yet. Run validation to see results.</p>
                     ) : (
                       result.results.map((testResult, idx) => (
                         <Alert key={idx} className={getStatusColor(testResult.status)}>
@@ -563,7 +563,7 @@ export function PlannerMigrationValidator({ userId, organizationId }: PlannerMig
                                   {testResult.category}: {testResult.test}
                                 </div>
                                 {testResult.duration && (
-                                  <span className="text-xs text-slate-500">{testResult.duration}ms</span>
+                                  <span className="text-xs text-muted-foreground">{testResult.duration}ms</span>
                                 )}
                               </div>
                               <AlertDescription className={getStatusTextColor(testResult.status)}>
@@ -574,7 +574,7 @@ export function PlannerMigrationValidator({ userId, organizationId }: PlannerMig
                                   <summary className="text-xs cursor-pointer hover:underline">
                                     View details
                                   </summary>
-                                  <pre className="text-xs mt-2 p-2 bg-white/50 rounded overflow-auto max-h-32">
+                                  <pre className="text-xs mt-2 p-2 bg-background/50 rounded overflow-auto max-h-32">
                                     {JSON.stringify(testResult.details, null, 2)}
                                   </pre>
                                 </details>

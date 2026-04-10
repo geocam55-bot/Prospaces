@@ -76,7 +76,7 @@ export function CabinetLibrary({ config, onAddCabinet }: CabinetLibraryProps) {
       {/* Search and Filter */}
       <div className="space-y-2">
         <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search cabinets..."
             value={searchTerm}
@@ -109,19 +109,19 @@ export function CabinetLibrary({ config, onAddCabinet }: CabinetLibraryProps) {
             
             return (
               <div key={category}>
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">{category}</h4>
+                <h4 className="text-sm font-semibold text-foreground mb-2">{category}</h4>
                 <div className="space-y-2">
                   {cabinets.map(cabinet => (
                     <Card 
                       key={cabinet.id} 
-                      className="p-3 hover:bg-gray-50 transition-colors cursor-move"
+                      className="p-3 hover:bg-muted transition-colors cursor-move"
                       draggable
                       onDragStart={(e) => handleDragStart(e, cabinet)}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <p className="font-medium text-sm">{cabinet.name}</p>
-                          <p className="text-xs text-gray-600 mt-1">
+                          <p className="text-xs text-muted-foreground mt-1">
                             {cabinet.width}" W × {cabinet.height}" H × {cabinet.depth}" D
                           </p>
                           <div className="flex gap-2 mt-1">
@@ -148,7 +148,7 @@ export function CabinetLibrary({ config, onAddCabinet }: CabinetLibraryProps) {
                       </div>
                       
                       {/* Visual representation */}
-                      <div className="mt-3 border rounded p-2 bg-white flex justify-center items-center h-20">
+                      <div className="mt-3 border rounded p-2 bg-background flex justify-center items-center h-20">
                         {cabinet.image ? (
                           <img src={cabinet.image} alt={cabinet.name} className="max-h-full max-w-full object-contain" />
                         ) : (
@@ -161,7 +161,7 @@ export function CabinetLibrary({ config, onAddCabinet }: CabinetLibraryProps) {
                           >
                             {/* Simple cabinet visualization */}
                             <div className="h-full flex items-center justify-center">
-                              <div className="text-xs text-gray-600 font-mono">
+                              <div className="text-xs text-muted-foreground font-mono">
                                 {cabinet.width}"
                               </div>
                             </div>
@@ -178,7 +178,7 @@ export function CabinetLibrary({ config, onAddCabinet }: CabinetLibraryProps) {
       </ScrollArea>
 
       <div className="pt-4 border-t">
-        <p className="text-xs text-gray-500 text-center">
+        <p className="text-xs text-muted-foreground text-center">
           Drag cabinets to canvas or click <Plus className="inline h-3 w-3" /> to add
         </p>
       </div>

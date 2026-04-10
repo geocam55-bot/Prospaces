@@ -327,7 +327,7 @@ export function TestDataGenerator() {
           {schemaIssues.length > 0 && (
             <div className="space-y-2">
               <h3 className="font-semibold">Database Schema Status:</h3>
-              <div className="bg-gray-50 p-3 rounded-lg space-y-1">
+              <div className="bg-muted p-3 rounded-lg space-y-1">
                 {schemaIssues.map((issue, idx) => (
                   <div key={idx} className="text-sm font-mono">
                     {issue}
@@ -341,19 +341,19 @@ export function TestDataGenerator() {
           {stats && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-blue-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-600">Contacts</div>
+                <div className="text-sm text-muted-foreground">Contacts</div>
                 <div className="text-2xl font-bold">{stats.contacts}</div>
               </div>
               <div className="bg-green-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-600">Opportunities</div>
+                <div className="text-sm text-muted-foreground">Opportunities</div>
                 <div className="text-2xl font-bold">{stats.opportunities}</div>
               </div>
               <div className="bg-purple-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-600">Bids</div>
+                <div className="text-sm text-muted-foreground">Bids</div>
                 <div className="text-2xl font-bold">{stats.bids}</div>
               </div>
               <div className="bg-orange-50 p-3 rounded-lg">
-                <div className="text-sm text-gray-600">Project Managers</div>
+                <div className="text-sm text-muted-foreground">Project Managers</div>
                 <div className="text-2xl font-bold">{stats.projectManagers}</div>
               </div>
             </div>
@@ -415,7 +415,7 @@ export function TestDataGenerator() {
             <div className="space-y-2 border-t pt-4">
               <h3 className="font-semibold">Last Generated Data:</h3>
               <div className="space-y-2 text-sm">
-                <details className="bg-gray-50 p-2 rounded">
+                <details className="bg-muted p-2 rounded">
                   <summary className="cursor-pointer font-medium">
                     Contacts ({generatedData.contacts.length})
                   </summary>
@@ -428,7 +428,7 @@ export function TestDataGenerator() {
                   </ul>
                 </details>
                 
-                <details className="bg-gray-50 p-2 rounded">
+                <details className="bg-muted p-2 rounded">
                   <summary className="cursor-pointer font-medium">
                     Bids ({generatedData.bids.length})
                   </summary>

@@ -143,17 +143,17 @@ export function EmailDebug() {
             </Alert>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="p-3 border rounded-lg bg-slate-50 space-y-2">
+              <div className="p-3 border rounded-lg bg-muted space-y-2">
                 <h4 className="font-semibold text-sm">Environment Configuration</h4>
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">Google OAuth:</span>
+                    <span className="text-muted-foreground">Google OAuth:</span>
                     <Badge variant={results.env.hasGoogleClientId ? "default" : "destructive"} className="h-5">
                       {results.env.hasGoogleClientId ? "Configured" : "Missing"}
                     </Badge>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">Azure OAuth:</span>
+                    <span className="text-muted-foreground">Azure OAuth:</span>
                     <Badge variant={results.env.hasAzureClientId ? "default" : "destructive"} className="h-5">
                       {results.env.hasAzureClientId ? "Configured" : "Missing"}
                     </Badge>
@@ -161,13 +161,13 @@ export function EmailDebug() {
                 </div>
               </div>
 
-              <div className="p-3 border rounded-lg bg-slate-50 space-y-2">
+              <div className="p-3 border rounded-lg bg-muted space-y-2">
                 <h4 className="font-semibold text-sm">Probe Results</h4>
                 <div className="space-y-1 text-xs max-h-32 overflow-y-auto">
                     {results.probes?.map((p: any, i: number) => (
                         <div key={i} className="flex justify-between items-center">
-                            <span className="font-mono text-slate-600 truncate max-w-[150px]" title={p.endpoint}>{p.endpoint}</span>
-                            <Badge variant={p.status === 'ok' ? 'outline' : 'secondary'} className={p.status === 'ok' ? 'text-green-600 border-green-200' : 'text-slate-500'}>
+                            <span className="font-mono text-muted-foreground truncate max-w-[150px]" title={p.endpoint}>{p.endpoint}</span>
+                            <Badge variant={p.status === 'ok' ? 'outline' : 'secondary'} className={p.status === 'ok' ? 'text-green-600 border-green-200' : 'text-muted-foreground'}>
                                 {p.status === 'ok' ? 'OK' : p.code || 'Fail'}
                             </Badge>
                         </div>

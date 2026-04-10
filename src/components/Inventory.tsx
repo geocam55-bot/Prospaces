@@ -915,7 +915,7 @@ export function Inventory({ user }: InventoryProps) {
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 hidden sm:block">Inventory Management</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-foreground hidden sm:block">Inventory Management</h2>
         <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto">
           <Button variant="outline" onClick={handleExportCSV} className="flex-1 sm:flex-none">
             <Download className="h-4 w-4 sm:mr-2" />
@@ -957,7 +957,7 @@ export function Inventory({ user }: InventoryProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto py-4">
-            <div className="bg-slate-50 p-4 rounded-md border text-sm font-mono whitespace-pre-wrap">
+            <div className="bg-muted p-4 rounded-md border text-sm font-mono whitespace-pre-wrap">
               {scanResult?.message}
             </div>
           </div>
@@ -1113,7 +1113,7 @@ export function Inventory({ user }: InventoryProps) {
                 {/* Search Mode Toggle */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-medium text-gray-700">Search</h3>
+                    <h3 className="text-sm font-medium text-foreground">Search</h3>
                     {useAdvancedSearch && (
                       <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                         <Sparkles className="h-3 w-3 mr-1" />
@@ -1145,7 +1145,7 @@ export function Inventory({ user }: InventoryProps) {
                 
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <div className="flex-1 relative min-w-0">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder={useAdvancedSearch 
                         ? "Try: 'tools under $50', 'red paint in stock'..." 
@@ -1163,17 +1163,17 @@ export function Inventory({ user }: InventoryProps) {
                     
                     {/* Search Suggestions */}
                     {showSuggestions && searchSuggestions.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                      <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg">
                         {searchSuggestions.map((suggestion, idx) => (
                           <button
                             key={idx}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-md last:rounded-b-md"
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-muted first:rounded-t-md last:rounded-b-md"
                             onClick={() => {
                               setSearchQuery(suggestion);
                               setShowSuggestions(false);
                             }}
                           >
-                            <Search className="h-3 w-3 inline mr-2 text-gray-400 shrink-0" />
+                            <Search className="h-3 w-3 inline mr-2 text-muted-foreground shrink-0" />
                             <span className="truncate">{suggestion}</span>
                           </button>
                         ))}
@@ -1224,7 +1224,7 @@ export function Inventory({ user }: InventoryProps) {
 
           {/* Search Results Summary */}
           {searchQuery && totalCount > 0 && (
-            <div className="flex items-center justify-between text-sm text-gray-600 px-2">
+            <div className="flex items-center justify-between text-sm text-muted-foreground px-2">
               <span>
                 Found <strong>{totalCount}</strong> {totalCount === 1 ? 'item' : 'items'}
                 {useAdvancedSearch && ' (server-side search)'}
@@ -1246,7 +1246,7 @@ export function Inventory({ user }: InventoryProps) {
           <div className="grid grid-cols-1 gap-4">
             {isLoading ? (
               <Card>
-                <CardContent className="py-12 text-center text-gray-500">
+                <CardContent className="py-12 text-center text-muted-foreground">
                   Loading inventory...
                 </CardContent>
               </Card>
@@ -1254,11 +1254,11 @@ export function Inventory({ user }: InventoryProps) {
               <Card>
                 <CardContent className="py-12 text-center">
                   <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-gray-500">
+                  <p className="text-muted-foreground">
                     {searchQuery ? 'No items match your search' : 'No inventory items found'}
                   </p>
                   {searchQuery && (
-                    <p className="text-sm text-gray-400 mt-2">
+                    <p className="text-sm text-muted-foreground mt-2">
                       Try using different keywords or{' '}
                       <button
                         onClick={() => setSearchQuery('')}
@@ -1291,10 +1291,10 @@ export function Inventory({ user }: InventoryProps) {
                             <img 
                               src={item.imageUrl} 
                               alt={item.name} 
-                              className="w-full h-full object-contain rounded border bg-gray-50" 
+                              className="w-full h-full object-contain rounded border bg-muted" 
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center rounded border bg-gray-100">
+                            <div className="w-full h-full flex items-center justify-center rounded border bg-muted">
                               <ImageIcon className="h-8 w-8 sm:h-12 sm:w-12 text-gray-300" />
                             </div>
                           )}
@@ -1303,10 +1303,10 @@ export function Inventory({ user }: InventoryProps) {
                         {/* Mobile Title & Basics */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
-                            <h3 className="text-base sm:text-lg text-gray-900 font-medium truncate">{item.name}</h3>
+                            <h3 className="text-base sm:text-lg text-foreground font-medium truncate">{item.name}</h3>
                             <div className="flex gap-1 shrink-0">
                               {canChange('inventory', user.role) && (
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500" onClick={() => handleOpenDialog(item)}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleOpenDialog(item)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
                               )}
@@ -1317,11 +1317,11 @@ export function Inventory({ user }: InventoryProps) {
                               )}
                             </div>
                           </div>
-                          <p className="text-xs sm:text-sm text-gray-600 truncate mt-1">SKU: {item.sku}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground truncate mt-1">SKU: {item.sku}</p>
                           <div className="flex flex-wrap gap-1 mt-2">
                             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
                               item.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
-                              item.status === 'inactive' ? 'bg-gray-50 text-gray-700 border-gray-200' :
+                              item.status === 'inactive' ? 'bg-muted text-foreground border-border' :
                               'bg-red-50 text-red-700 border-red-200'
                             }`}>
                               {item.status}
@@ -1341,10 +1341,10 @@ export function Inventory({ user }: InventoryProps) {
                           <img 
                             src={item.imageUrl} 
                             alt={item.name} 
-                            className="w-full h-full object-contain rounded border bg-gray-50" 
+                            className="w-full h-full object-contain rounded border bg-muted" 
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center rounded border bg-gray-100">
+                          <div className="w-full h-full flex items-center justify-center rounded border bg-muted">
                             <ImageIcon className="h-12 w-12 text-gray-300" />
                           </div>
                         )}
@@ -1355,10 +1355,10 @@ export function Inventory({ user }: InventoryProps) {
                         <div className="hidden lg:flex items-start justify-between">
                           <div>
                             <div className="flex items-center gap-2">
-                              <h3 className="text-lg text-gray-900">{item.name}</h3>
+                              <h3 className="text-lg text-foreground">{item.name}</h3>
                               <Badge variant="outline" className={
                                 item.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' :
-                                item.status === 'inactive' ? 'bg-gray-50 text-gray-700 border-gray-200' :
+                                item.status === 'inactive' ? 'bg-muted text-foreground border-border' :
                                 'bg-red-50 text-red-700 border-red-200'
                               }>
                                 {item.status}
@@ -1375,7 +1375,7 @@ export function Inventory({ user }: InventoryProps) {
                                   item._matchType === 'exact' ? 'bg-purple-100 text-purple-800 border-purple-300' :
                                   item._matchType === 'fuzzy' ? 'bg-blue-100 text-blue-800 border-blue-300' :
                                   item._matchType === 'semantic' ? 'bg-green-100 text-green-800 border-green-300' :
-                                  'bg-gray-100 text-gray-800 border-gray-300'
+                                  'bg-muted text-foreground border-border'
                                 }>
                                   {item._matchType === 'exact' && '🎯 Exact'}
                                   {item._matchType === 'fuzzy' && '✨ Fuzzy'}
@@ -1384,9 +1384,9 @@ export function Inventory({ user }: InventoryProps) {
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-sm text-gray-600 mt-1">SKU: {item.sku}</p>
+                            <p className="text-sm text-muted-foreground mt-1">SKU: {item.sku}</p>
                             {item.description && (
-                              <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+                              <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
                             )}
                             {/* Show matched fields for advanced search */}
                             {useAdvancedSearch && item._matchedFields && item._matchedFields.length > 0 && searchQuery && (
@@ -1418,7 +1418,7 @@ export function Inventory({ user }: InventoryProps) {
                         {/* Mobile Description & Matches */}
                         <div className="lg:hidden mt-2">
                           {item.description && (
-                            <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">{item.description}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{item.description}</p>
                           )}
                           {/* Search Match Indicators */}
                           {useAdvancedSearch && item._matchType && searchQuery && (
@@ -1426,7 +1426,7 @@ export function Inventory({ user }: InventoryProps) {
                               item._matchType === 'exact' ? 'bg-purple-100 text-purple-800 border-purple-300' :
                               item._matchType === 'fuzzy' ? 'bg-blue-100 text-blue-800 border-blue-300' :
                               item._matchType === 'semantic' ? 'bg-green-100 text-green-800 border-green-300' :
-                              'bg-gray-100 text-gray-800 border-gray-300'
+                              'bg-muted text-foreground border-border'
                             }`}>
                               {item._matchType === 'exact' && '🎯 Exact'}
                               {item._matchType === 'fuzzy' && '✨ Fuzzy'}
@@ -1436,45 +1436,45 @@ export function Inventory({ user }: InventoryProps) {
                           )}
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-4 bg-gray-50 lg:bg-transparent p-3 lg:p-0 rounded-md">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-4 bg-muted lg:bg-transparent p-3 lg:p-0 rounded-md">
                           <div>
-                            <p className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Category</p>
-                            <p className="text-xs sm:text-sm text-gray-900 mt-0.5 truncate">{item.category || 'N/A'}</p>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">Category</p>
+                            <p className="text-xs sm:text-sm text-foreground mt-0.5 truncate">{item.category || 'N/A'}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Qty On Hand</p>
-                            <p className="text-xs sm:text-sm text-gray-900 mt-0.5">
+                            <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">Qty On Hand</p>
+                            <p className="text-xs sm:text-sm text-foreground mt-0.5">
                               <span className={item.quantityOnHand <= 0 ? "text-red-600 font-medium" : ""}>
                                 {item.quantityOnHand}
-                              </span> <span className="text-gray-500">{item.unitOfMeasure}</span>
+                              </span> <span className="text-muted-foreground">{item.unitOfMeasure}</span>
                             </p>
                           </div>
                           <div>
-                            <p className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Reorder Lvl</p>
-                            <p className="text-xs sm:text-sm text-gray-900 mt-0.5">{item.reorderLevel}</p>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">Reorder Lvl</p>
+                            <p className="text-xs sm:text-sm text-foreground mt-0.5">{item.reorderLevel}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Cost</p>
-                            <p className="text-xs sm:text-sm text-gray-900 mt-0.5 font-medium">${item.cost.toFixed(2)}</p>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">Cost</p>
+                            <p className="text-xs sm:text-sm text-foreground mt-0.5 font-medium">${item.cost.toFixed(2)}</p>
                           </div>
                         </div>
 
                         {/* Additional Details */}
                         <div className="flex flex-wrap gap-2 sm:gap-4 mt-3">
                           {item.supplier && (
-                            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                               <Tag className="h-3 w-3" />
                               <span className="truncate max-w-[100px] sm:max-w-none">{item.supplier}</span>
                             </div>
                           )}
                           {item.location && (
-                            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                               <MapPin className="h-3 w-3" />
                               <span className="truncate max-w-[100px] sm:max-w-none">{item.location}</span>
                             </div>
                           )}
                           {item.barcode && (
-                            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                               <Barcode className="h-3 w-3" />
                               <span className="truncate max-w-[100px] sm:max-w-none">{item.barcode}</span>
                             </div>
@@ -1485,7 +1485,7 @@ export function Inventory({ user }: InventoryProps) {
                       {/* Right Section - Pricing Tiers */}
                       <div className="lg:w-80 border-t lg:border-t-0 lg:border-l pt-4 lg:pt-0 lg:pl-4 mt-2 lg:mt-0">
                         <div className="flex justify-between items-center mb-2">
-                          <p className="text-xs sm:text-sm text-gray-700 font-medium lg:font-normal">Price Tiers</p>
+                          <p className="text-xs sm:text-sm text-foreground font-medium lg:font-normal">Price Tiers</p>
                           <div className="lg:hidden p-1 px-2 bg-blue-50 rounded text-[10px] sm:text-xs text-blue-700 font-medium">
                             Margin: {item.cost > 0 ? ((item.priceTier1 - item.cost) / item.cost * 100).toFixed(1) : 0}%
                           </div>
@@ -1506,11 +1506,11 @@ export function Inventory({ user }: InventoryProps) {
                             return (
                               <div key={tier} className="text-center">
                                 <div className={`rounded px-2 py-1 ${
-                                  isDistinct ? 'bg-green-50 border border-green-200' : 'bg-gray-100'
+                                  isDistinct ? 'bg-green-50 border border-green-200' : 'bg-muted'
                                 }`}>
-                                  <p className={`text-xs ${isDistinct ? 'text-green-700 font-medium' : 'text-gray-600'}`} title={`T${tier} — ${label}`}>{label}</p>
+                                  <p className={`text-xs ${isDistinct ? 'text-green-700 font-medium' : 'text-muted-foreground'}`} title={`T${tier} — ${label}`}>{label}</p>
                                   <p className={`text-sm mt-1 ${
-                                    isDistinct ? 'text-green-900 font-semibold' : 'text-gray-900'
+                                    isDistinct ? 'text-green-900 font-semibold' : 'text-foreground'
                                   }`}>
                                     {`$${tierValue?.toFixed(2) || '0.00'}`}
                                   </p>
@@ -1534,9 +1534,9 @@ export function Inventory({ user }: InventoryProps) {
 
           {/* Pagination */}
           {totalCount > itemsPerPage && (
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 p-4 bg-gray-50 rounded-lg">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 p-4 bg-muted rounded-lg">
               <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 w-full sm:w-auto text-center sm:text-left">
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-muted-foreground">
                   Showing {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} items
                 </div>
                 <Select value={itemsPerPage.toString()} onValueChange={(value) => {
@@ -1683,13 +1683,13 @@ export function Inventory({ user }: InventoryProps) {
                   {displayLowStockCount > 0 ? (
                     <>
                       <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-                      <p className="text-gray-500">{displayLowStockCount.toLocaleString()} out-of-stock items exist but none are on this page.</p>
-                      <p className="text-sm text-gray-400 mt-1">Try searching or browsing other pages to find them.</p>
+                      <p className="text-muted-foreground">{displayLowStockCount.toLocaleString()} out-of-stock items exist but none are on this page.</p>
+                      <p className="text-sm text-muted-foreground mt-1">Try searching or browsing other pages to find them.</p>
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                      <p className="text-gray-500">All items are properly stocked!</p>
+                      <p className="text-muted-foreground">All items are properly stocked!</p>
                     </>
                   )}
                 </CardContent>
@@ -1702,24 +1702,24 @@ export function Inventory({ user }: InventoryProps) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
-                          <h3 className="text-base sm:text-lg text-gray-900 truncate">{item.name}</h3>
+                          <h3 className="text-base sm:text-lg text-foreground truncate">{item.name}</h3>
                           <Badge variant="outline" className="bg-red-50 text-red-700 shrink-0">
                             Out of Stock
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-600 mt-1 truncate">SKU: {item.sku}</p>
+                        <p className="text-sm text-muted-foreground mt-1 truncate">SKU: {item.sku}</p>
                         <div className="flex flex-wrap gap-4 sm:gap-6 mt-3">
                           <div>
-                            <p className="text-xs text-gray-500">Current Stock</p>
+                            <p className="text-xs text-muted-foreground">Current Stock</p>
                             <p className="text-sm text-red-600 font-medium mt-1">{item.quantityOnHand} {item.unitOfMeasure}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500">Category</p>
-                            <p className="text-sm text-gray-900 mt-1 truncate max-w-[150px]">{item.category || 'N/A'}</p>
+                            <p className="text-xs text-muted-foreground">Category</p>
+                            <p className="text-sm text-foreground mt-1 truncate max-w-[150px]">{item.category || 'N/A'}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500">Cost</p>
-                            <p className="text-sm text-gray-900 mt-1">${item.cost.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">Cost</p>
+                            <p className="text-sm text-foreground mt-1">${item.cost.toFixed(2)}</p>
                           </div>
                         </div>
                       </div>
@@ -1743,7 +1743,7 @@ export function Inventory({ user }: InventoryProps) {
 
       {/* Add/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto bg-white p-4 sm:p-6" onPaste={handleImagePaste}>
+        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto bg-background p-4 sm:p-6" onPaste={handleImagePaste}>
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
             <DialogDescription>
@@ -1754,10 +1754,10 @@ export function Inventory({ user }: InventoryProps) {
           <div className="space-y-6">
             {/* Basic Information */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Basic Information</h3>
+              <h3 className="text-sm text-foreground">Basic Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm text-gray-700">Item Name *</label>
+                  <label className="text-sm text-foreground">Item Name *</label>
                   <Input
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -1765,7 +1765,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">SKU *</label>
+                  <label className="text-sm text-foreground">SKU *</label>
                   <Input
                     value={formData.sku}
                     onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
@@ -1773,7 +1773,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Category</label>
+                  <label className="text-sm text-foreground">Category</label>
                   <Input
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
@@ -1781,7 +1781,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Unit of Measure</label>
+                  <label className="text-sm text-foreground">Unit of Measure</label>
                   <Select value={formData.unitOfMeasure} onValueChange={(value) => setFormData({ ...formData, unitOfMeasure: value })}>
                     <SelectTrigger>
                       <SelectValue />
@@ -1800,7 +1800,7 @@ export function Inventory({ user }: InventoryProps) {
                   </Select>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-sm text-gray-700">Description</label>
+                  <label className="text-sm text-foreground">Description</label>
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -1813,10 +1813,10 @@ export function Inventory({ user }: InventoryProps) {
 
             {/* Stock Information */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Stock Information</h3>
+              <h3 className="text-sm text-foreground">Stock Information</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="text-sm text-gray-700">Quantity On Hand</label>
+                  <label className="text-sm text-foreground">Quantity On Hand</label>
                   <Input
                     type="number"
                     value={formData.quantityOnHand}
@@ -1824,7 +1824,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Quantity On Order</label>
+                  <label className="text-sm text-foreground">Quantity On Order</label>
                   <Input
                     type="number"
                     value={formData.quantityOnOrder}
@@ -1832,7 +1832,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Reorder Level</label>
+                  <label className="text-sm text-foreground">Reorder Level</label>
                   <Input
                     type="number"
                     value={formData.reorderLevel}
@@ -1840,7 +1840,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Min Stock</label>
+                  <label className="text-sm text-foreground">Min Stock</label>
                   <Input
                     type="number"
                     value={formData.minStock}
@@ -1850,7 +1850,7 @@ export function Inventory({ user }: InventoryProps) {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm text-gray-700">Max Stock</label>
+                  <label className="text-sm text-foreground">Max Stock</label>
                   <Input
                     type="number"
                     value={formData.maxStock}
@@ -1862,11 +1862,11 @@ export function Inventory({ user }: InventoryProps) {
 
             {/* Pricing Information */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Pricing (Multi-Tier)</h3>
-              <p className="text-xs text-gray-500">Tier 1 is also used as the base Unit Price. Set each tier independently for tiered pricing.</p>
+              <h3 className="text-sm text-foreground">Pricing (Multi-Tier)</h3>
+              <p className="text-xs text-muted-foreground">Tier 1 is also used as the base Unit Price. Set each tier independently for tiered pricing.</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="text-sm text-gray-700">Cost (Base)</label>
+                  <label className="text-sm text-foreground">Cost (Base)</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1879,7 +1879,7 @@ export function Inventory({ user }: InventoryProps) {
                   const tierKey = `priceTier${tier}` as keyof typeof formData;
                   return (
                     <div key={tier}>
-                      <label className="text-sm text-gray-700">T{tier} — {getPriceTierLabel(tier)}</label>
+                      <label className="text-sm text-foreground">T{tier} — {getPriceTierLabel(tier)}</label>
                       <Input
                         type="number"
                         step="0.01"
@@ -1895,10 +1895,10 @@ export function Inventory({ user }: InventoryProps) {
 
             {/* Supplier Information */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Supplier Information</h3>
+              <h3 className="text-sm text-foreground">Supplier Information</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm text-gray-700">Supplier</label>
+                  <label className="text-sm text-foreground">Supplier</label>
                   <Input
                     value={formData.supplier}
                     onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
@@ -1906,7 +1906,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Supplier SKU</label>
+                  <label className="text-sm text-foreground">Supplier SKU</label>
                   <Input
                     value={formData.supplierSKU}
                     onChange={(e) => setFormData({ ...formData, supplierSKU: e.target.value })}
@@ -1914,7 +1914,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Lead Time (days)</label>
+                  <label className="text-sm text-foreground">Lead Time (days)</label>
                   <Input
                     type="number"
                     value={formData.leadTimeDays}
@@ -1926,10 +1926,10 @@ export function Inventory({ user }: InventoryProps) {
 
             {/* Additional Details */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Additional Details</h3>
+              <h3 className="text-sm text-foreground">Additional Details</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm text-gray-700">Barcode/UPC</label>
+                  <label className="text-sm text-foreground">Barcode/UPC</label>
                   <Input
                     value={formData.barcode}
                     onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
@@ -1937,7 +1937,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Location/Bin</label>
+                  <label className="text-sm text-foreground">Location/Bin</label>
                   <Input
                     value={formData.location}
                     onChange={(e) => setFormData({ ...formData, location: e.target.value })}
@@ -1945,7 +1945,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Status</label>
+                  <label className="text-sm text-foreground">Status</label>
                   <Select value={formData.status} onValueChange={(value: any) => setFormData({ ...formData, status: value })}>
                     <SelectTrigger>
                       <SelectValue />
@@ -1958,7 +1958,7 @@ export function Inventory({ user }: InventoryProps) {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Price Levels</label>
+                  <label className="text-sm text-foreground">Price Levels</label>
                   <Input
                     value={formData.priceLevels}
                     onChange={(e) => setFormData({ ...formData, priceLevels: e.target.value })}
@@ -1966,7 +1966,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-700">Department Code</label>
+                  <label className="text-sm text-foreground">Department Code</label>
                   <Input
                     value={formData.departmentCode}
                     onChange={(e) => setFormData({ ...formData, departmentCode: e.target.value })}
@@ -1974,7 +1974,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div className="sm:col-span-2 md:col-span-3">
-                  <label className="text-sm text-gray-700">Tags (comma-separated)</label>
+                  <label className="text-sm text-foreground">Tags (comma-separated)</label>
                   <Input
                     value={formData.tags}
                     onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
@@ -1982,7 +1982,7 @@ export function Inventory({ user }: InventoryProps) {
                   />
                 </div>
                 <div className="sm:col-span-2 md:col-span-3">
-                  <label className="text-sm text-gray-700">Notes</label>
+                  <label className="text-sm text-foreground">Notes</label>
                   <Textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -1995,7 +1995,7 @@ export function Inventory({ user }: InventoryProps) {
 
             {/* Product Image */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Product Image</h3>
+              <h3 className="text-sm text-foreground">Product Image</h3>
               <div className="space-y-2">
                 <div className="flex gap-2">
                   <label className="flex-1">
@@ -2037,7 +2037,7 @@ export function Inventory({ user }: InventoryProps) {
                     <img 
                       src={formData.imageUrl} 
                       alt="Product" 
-                      className="w-full h-48 object-contain rounded border bg-gray-50" 
+                      className="w-full h-48 object-contain rounded border bg-muted" 
                     />
                     <Button
                       size="sm"
@@ -2049,7 +2049,7 @@ export function Inventory({ user }: InventoryProps) {
                     </Button>
                   </div>
                 )}
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Upload an image or paste from clipboard (Ctrl+V / Cmd+V)
                 </p>
               </div>

@@ -175,7 +175,7 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
 
   if (isLoading) {
     return (
-        <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+        <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
             <p>Checking referral system...</p>
         </div>
@@ -194,7 +194,7 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
           <CardContent className="pt-6">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-medium text-gray-500">Total Referrals</p>
+                <p className="text-sm font-medium text-muted-foreground">Total Referrals</p>
                 <h3 className="text-2xl font-bold mt-2">{stats.total}</h3>
               </div>
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -212,14 +212,14 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
           <CardContent className="pt-6">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-medium text-gray-500">Pending Rewards</p>
+                <p className="text-sm font-medium text-muted-foreground">Pending Rewards</p>
                 <h3 className="text-2xl font-bold mt-2">${stats.pendingRewards}</h3>
               </div>
               <div className="p-2 bg-orange-100 rounded-lg">
                 <Clock className="h-5 w-5 text-orange-600" />
               </div>
             </div>
-            <p className="mt-2 text-sm text-gray-500">To be paid out</p>
+            <p className="mt-2 text-sm text-muted-foreground">To be paid out</p>
           </CardContent>
         </Card>
 
@@ -227,14 +227,14 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
           <CardContent className="pt-6">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-medium text-gray-500">Rewards Paid</p>
+                <p className="text-sm font-medium text-muted-foreground">Rewards Paid</p>
                 <h3 className="text-2xl font-bold mt-2">${stats.paidRewards}</h3>
               </div>
               <div className="p-2 bg-green-100 rounded-lg">
                 <DollarSign className="h-5 w-5 text-green-600" />
               </div>
             </div>
-            <p className="mt-2 text-sm text-gray-500">Lifetime value shared</p>
+            <p className="mt-2 text-sm text-muted-foreground">Lifetime value shared</p>
           </CardContent>
         </Card>
 
@@ -252,7 +252,7 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
                         : '--'}
                 </h3>
               </div>
-              <div className="p-2 bg-white/20 rounded-lg">
+              <div className="p-2 bg-background/20 rounded-lg">
                 <Gift className="h-5 w-5 text-white" />
               </div>
             </div>
@@ -262,7 +262,7 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
       </div>
 
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold text-gray-900">Referral Activity</h2>
+        <h2 className="text-lg font-semibold text-foreground">Referral Activity</h2>
         
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
@@ -271,7 +271,7 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
               Log Manual Referral
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] bg-white">
+          <DialogContent className="sm:max-w-[500px] bg-background">
             <DialogHeader>
               <DialogTitle>Log New Referral</DialogTitle>
               <DialogDescription>
@@ -352,7 +352,7 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="text-xs text-gray-500 bg-gray-50 border-b">
+              <thead className="text-xs text-muted-foreground bg-muted border-b">
                 <tr>
                   <th className="px-6 py-3 font-medium">Referrer</th>
                   <th className="px-6 py-3 font-medium">Referred Lead</th>
@@ -365,7 +365,7 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
               <tbody>
                 {referrals.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                         <div className="flex flex-col items-center justify-center gap-2">
                             <Share2 className="h-8 w-8 text-gray-300" />
                             <p>No referrals found yet.</p>
@@ -375,14 +375,14 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
                   </tr>
                 ) : (
                   referrals.map((referral) => (
-                    <tr key={referral.id} className="bg-white border-b hover:bg-gray-50 transition-colors">
+                    <tr key={referral.id} className="bg-background border-b hover:bg-muted transition-colors">
                       <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">{referral.referrer?.name || 'Unknown'}</div>
-                        <div className="text-xs text-gray-500">{referral.referrer?.email}</div>
+                        <div className="font-medium text-foreground">{referral.referrer?.name || 'Unknown'}</div>
+                        <div className="text-xs text-muted-foreground">{referral.referrer?.email}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">{referral.referred_lead_name || referral.referred?.name || 'Unknown'}</div>
-                        <div className="text-xs text-gray-500">{referral.referred_lead_email || referral.referred?.email}</div>
+                        <div className="font-medium text-foreground">{referral.referred_lead_name || referral.referred?.name || 'Unknown'}</div>
+                        <div className="text-xs text-muted-foreground">{referral.referred_lead_email || referral.referred?.email}</div>
                       </td>
                       <td className="px-6 py-4">
                         <StatusSelect 
@@ -393,7 +393,7 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
                       <td className="px-6 py-4 font-medium">
                         ${referral.reward_amount}
                       </td>
-                      <td className="px-6 py-4 text-gray-500">
+                      <td className="px-6 py-4 text-muted-foreground">
                         {new Date(referral.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -413,7 +413,7 @@ export function ReferralsTab({ user }: ReferralsTabProps) {
 
 function StatusSelect({ status, onChange }: { status: string, onChange: (s: string) => void }) {
   const styles: Record<string, string> = {
-    new: 'bg-gray-100 text-gray-800 hover:bg-gray-200',
+    new: 'bg-muted text-foreground hover:bg-muted',
     engaged: 'bg-blue-100 text-blue-800 hover:bg-blue-200',
     converted: 'bg-purple-100 text-purple-800 hover:bg-purple-200',
     reward_due: 'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200',

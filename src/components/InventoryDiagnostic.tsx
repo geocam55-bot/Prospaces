@@ -721,7 +721,7 @@ export function InventoryDiagnostic({ user }: InventoryDiagnosticProps) {
                   <div
                     key={job.id}
                     className={`rounded-lg border p-3 text-sm ${
-                      job.status === 'pending' ? 'bg-white border-purple-200' :
+                      job.status === 'pending' ? 'bg-background border-purple-200' :
                       job.status === 'completed' ? 'bg-green-50 border-green-200' :
                       job.status === 'failed' ? 'bg-red-50 border-red-200' :
                       job.status === 'processing' ? 'bg-blue-50 border-blue-200' :

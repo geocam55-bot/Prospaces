@@ -94,7 +94,7 @@ export function ThemeEditor({ themeId, open, onOpenChange }: ThemeEditorProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col gap-0 p-0 sm:rounded-xl shadow-2xl overflow-hidden bg-white dark:bg-slate-950 text-foreground border-border">
+      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col gap-0 p-0 sm:rounded-xl shadow-2xl overflow-hidden bg-background dark:bg-slate-950 text-foreground border-border">
         <div className="p-6 pb-4 border-b">
           <DialogHeader>
             <DialogTitle>Edit Theme Colors</DialogTitle>

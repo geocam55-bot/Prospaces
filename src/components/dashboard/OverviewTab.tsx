@@ -120,7 +120,7 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
         {/* Won Deals Trend (Line Chart) - Spans 2 cols */}
         <Card className="lg:col-span-2 shadow-sm border-0 min-w-0">
           <CardHeader>
-            <CardTitle className="text-gray-700">Won deals (last 12 months)</CardTitle>
+            <CardTitle className="text-foreground">Won deals (last 12 months)</CardTitle>
           </CardHeader>
           <CardContent>
             {/* Using absolute positioning trick to fix Recharts width issue */}
@@ -146,7 +146,7 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
         {/* Sales Pipeline (Donut) - Spans 1 col */}
         <Card className="lg:col-span-1 shadow-sm border-0 min-w-0">
           <CardHeader>
-            <CardTitle className="text-gray-700">Sales pipeline</CardTitle>
+            <CardTitle className="text-foreground">Sales pipeline</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="relative h-[300px] w-full min-w-0">
@@ -179,7 +179,7 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
         {/* Deals Projection (Line Chart) - Spans 2 cols */}
         <Card className="lg:col-span-2 shadow-sm border-0 min-w-0">
           <CardHeader>
-            <CardTitle className="text-gray-700">Deals projection (future 12 months)</CardTitle>
+            <CardTitle className="text-foreground">Deals projection (future 12 months)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="relative h-[300px] w-full min-w-0">
@@ -203,7 +203,7 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
         {/* Deal Loss Reasons (Donut) - Spans 1 col */}
         <Card className="lg:col-span-1 shadow-sm border-0 min-w-0">
           <CardHeader>
-            <CardTitle className="text-gray-700">Deal loss reasons</CardTitle>
+            <CardTitle className="text-foreground">Deal loss reasons</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="relative h-[300px] w-full min-w-0">

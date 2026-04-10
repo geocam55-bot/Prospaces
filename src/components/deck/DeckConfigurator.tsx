@@ -17,16 +17,16 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 sm:p-6">
-      <h2 className="text-slate-900 mb-4">Deck Configuration</h2>
+    <div className="bg-background rounded-lg shadow-sm border border-border p-4 sm:p-6">
+      <h2 className="text-foreground mb-4">Deck Configuration</h2>
       
       <div className="space-y-4">
         {/* Dimensions */}
         <div>
-          <h3 className="text-slate-900 text-sm mb-3">Dimensions</h3>
+          <h3 className="text-foreground text-sm mb-3">Dimensions</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-slate-700 text-sm mb-1">
+              <label className="block text-foreground text-sm mb-1">
                 Width (ft)
               </label>
               <input
@@ -36,11 +36,11 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                 step="0.5"
                 value={config.width}
                 onChange={(e) => updateConfig({ width: parseFloat(e.target.value) || 12 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
               />
             </div>
             <div>
-              <label className="block text-slate-700 text-sm mb-1">
+              <label className="block text-foreground text-sm mb-1">
                 Length (ft)
               </label>
               <input
@@ -50,7 +50,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                 step="0.5"
                 value={config.length}
                 onChange={(e) => updateConfig({ length: parseFloat(e.target.value) || 16 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
               />
             </div>
           </div>
@@ -59,7 +59,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
         {/* Height and Attachment */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-slate-700 text-sm mb-1">
+            <label className="block text-foreground text-sm mb-1">
               Deck Height Above Ground (ft)
             </label>
             <input
@@ -69,11 +69,11 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
               step="0.5"
               value={config.height}
               onChange={(e) => updateConfig({ height: parseFloat(e.target.value) || 2 })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+              className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
             />
           </div>
           <div>
-            <label className="block text-slate-700 text-sm mb-1">
+            <label className="block text-foreground text-sm mb-1">
               Attachment
             </label>
             <div className="flex h-[42px] items-center">
@@ -84,8 +84,8 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                   checked={!!config.isDetached}
                   onChange={(e) => updateConfig({ isDetached: e.target.checked })}
                 />
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                <span className="ml-3 text-sm font-medium text-slate-700">Detached (Freestanding)</span>
+                <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-background after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                <span className="ml-3 text-sm font-medium text-foreground">Detached (Freestanding)</span>
               </label>
             </div>
           </div>
@@ -93,7 +93,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
 
         {/* Shape */}
         <div>
-          <label className="block text-slate-700 text-sm mb-2">
+          <label className="block text-foreground text-sm mb-2">
             Deck Shape
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -102,7 +102,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
               className={`px-4 py-2 rounded-lg border-2 transition-colors ${
                 config.shape === 'rectangle'
                   ? 'border-purple-600 bg-purple-50 text-purple-700'
-                  : 'border-slate-300 text-slate-700 hover:border-slate-400'
+                  : 'border-border text-foreground hover:border-slate-400'
               }`}
             >
               Rectangle
@@ -117,7 +117,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
               className={`px-4 py-2 rounded-lg border-2 transition-colors ${
                 config.shape === 'l-shape'
                   ? 'border-purple-600 bg-purple-50 text-purple-700'
-                  : 'border-slate-300 text-slate-700 hover:border-slate-400'
+                  : 'border-border text-foreground hover:border-slate-400'
               }`}
             >
               L-Shape
@@ -132,7 +132,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
               className={`px-4 py-2 rounded-lg border-2 transition-colors ${
                 config.shape === 'u-shape'
                   ? 'border-purple-600 bg-purple-50 text-purple-700'
-                  : 'border-slate-300 text-slate-700 hover:border-slate-400'
+                  : 'border-border text-foreground hover:border-slate-400'
               }`}
             >
               U-Shape
@@ -149,7 +149,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
             
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-700 text-sm mb-1">
+                <label className="block text-foreground text-sm mb-1">
                   Extension Width (ft)
                 </label>
                 <input
@@ -159,11 +159,11 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                   step="1"
                   value={config.lShapeWidth || 8}
                   onChange={(e) => updateConfig({ lShapeWidth: parseFloat(e.target.value) || 8 })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
                 />
               </div>
               <div>
-                <label className="block text-slate-700 text-sm mb-1">
+                <label className="block text-foreground text-sm mb-1">
                   Extension Length (ft)
                 </label>
                 <input
@@ -173,19 +173,19 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                   step="1"
                   value={config.lShapeLength || 10}
                   onChange={(e) => updateConfig({ lShapeLength: parseFloat(e.target.value) || 10 })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-slate-700 text-sm mb-1">
+              <label className="block text-foreground text-sm mb-1">
                 Extension Position
               </label>
               <select
                 value={config.lShapePosition || 'top-left'}
                 onChange={(e) => updateConfig({ lShapePosition: e.target.value as any })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
               >
                 <option value="top-left">Top Left</option>
                 <option value="top-right">Top Right</option>
@@ -205,7 +205,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
             
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-700 text-sm mb-1">
+                <label className="block text-foreground text-sm mb-1">
                   Left Arm Width (ft)
                 </label>
                 <input
@@ -215,11 +215,11 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                   step="1"
                   value={config.uShapeLeftWidth || 6}
                   onChange={(e) => updateConfig({ uShapeLeftWidth: parseFloat(e.target.value) || 6 })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
                 />
               </div>
               <div>
-                <label className="block text-slate-700 text-sm mb-1">
+                <label className="block text-foreground text-sm mb-1">
                   Right Arm Width (ft)
                 </label>
                 <input
@@ -229,13 +229,13 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                   step="1"
                   value={config.uShapeRightWidth || 6}
                   onChange={(e) => updateConfig({ uShapeRightWidth: parseFloat(e.target.value) || 6 })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-slate-700 text-sm mb-1">
+              <label className="block text-foreground text-sm mb-1">
                 Arms Depth (ft)
               </label>
               <input
@@ -245,7 +245,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                 step="1"
                 value={config.uShapeDepth || 8}
                 onChange={(e) => updateConfig({ uShapeDepth: parseFloat(e.target.value) || 8 })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
               />
             </div>
           </div>
@@ -253,7 +253,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
 
         {/* Joist Spacing */}
         <div>
-          <label className="block text-slate-700 text-sm mb-2">
+          <label className="block text-foreground text-sm mb-2">
             Joist Spacing (inches on center)
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -264,7 +264,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                 className={`px-4 py-2 rounded-lg border-2 transition-colors ${
                   config.joistSpacing === spacing
                     ? 'border-purple-600 bg-purple-50 text-purple-700'
-                    : 'border-slate-300 text-slate-700 hover:border-slate-400'
+                    : 'border-border text-foreground hover:border-slate-400'
                 }`}
               >
                 {spacing}"
@@ -275,13 +275,13 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
 
         {/* Decking Pattern */}
         <div>
-          <label className="block text-slate-700 text-sm mb-2">
+          <label className="block text-foreground text-sm mb-2">
             Decking Board Pattern
           </label>
           <select
             value={config.deckingPattern}
             onChange={(e) => updateConfig({ deckingPattern: e.target.value as any })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
           >
             <option value="perpendicular">Perpendicular to House</option>
             <option value="parallel">Parallel to House</option>
@@ -291,13 +291,13 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
 
         {/* Decking Material Type */}
         <div>
-          <label className="block text-slate-700 text-sm mb-2">
+          <label className="block text-foreground text-sm mb-2">
             Decking Material Type
           </label>
           <select
             value={config.deckingType}
             onChange={(e) => updateConfig({ deckingType: e.target.value as any })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
           >
             <option value="Spruce">Spruce</option>
             <option value="Treated">Treated</option>
@@ -307,9 +307,9 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
         </div>
 
         {/* Stairs */}
-        <div className="border-t border-slate-200 pt-4">
+        <div className="border-t border-border pt-4">
           <div className="flex items-center justify-between mb-3">
-            <label className="text-slate-700 text-sm">
+            <label className="text-foreground text-sm">
               Include Stairs
             </label>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -319,20 +319,20 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                 onChange={(e) => updateConfig({ hasStairs: e.target.checked })}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-slate-300 peer-focus:ring-2 peer-focus:ring-purple-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              <div className="w-11 h-6 bg-slate-300 peer-focus:ring-2 peer-focus:ring-purple-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-background after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
             </label>
           </div>
 
           {config.hasStairs && (
             <div className="space-y-3">
               <div>
-                <label className="block text-slate-700 text-sm mb-1">
+                <label className="block text-foreground text-sm mb-1">
                   Stair Location
                 </label>
                 <select
                   value={config.stairSide}
                   onChange={(e) => updateConfig({ stairSide: e.target.value as any })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
                 >
                   <option value="front">Front</option>
                   <option value="back">Back</option>
@@ -341,7 +341,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                 </select>
               </div>
               <div>
-                <label className="block text-slate-700 text-sm mb-1">
+                <label className="block text-foreground text-sm mb-1">
                   Stair Width (ft)
                 </label>
                 <input
@@ -351,12 +351,12 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                   step="0.5"
                   value={config.stairWidth || 4}
                   onChange={(e) => updateConfig({ stairWidth: parseFloat(e.target.value) || 4 })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900"
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
                 />
               </div>
               
               <div className="flex items-center justify-between pt-2">
-                <label className="text-slate-700 text-sm">
+                <label className="text-foreground text-sm">
                   Include Stair Railing
                 </label>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -366,7 +366,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                     onChange={(e) => updateConfig({ stairRailing: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-slate-300 peer-focus:ring-2 peer-focus:ring-purple-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                  <div className="w-9 h-5 bg-slate-300 peer-focus:ring-2 peer-focus:ring-purple-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-background after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
                 </label>
               </div>
             </div>
@@ -374,20 +374,20 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
         </div>
 
         {/* Railings */}
-        <div className="border-t border-slate-200 pt-4">
-          <label className="block text-slate-700 text-sm mb-2">
+        <div className="border-t border-border pt-4">
+          <label className="block text-foreground text-sm mb-2">
             Railing Style
           </label>
           <select
             value={config.railingStyle || 'Treated'}
             onChange={(e) => updateConfig({ railingStyle: e.target.value as any })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-900 mb-4"
+            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground mb-4"
           >
             <option value="Treated">Treated Wood</option>
             <option value="Aluminum">Aluminum</option>
           </select>
 
-          <label className="block text-slate-700 text-sm mb-2">
+          <label className="block text-foreground text-sm mb-2">
             Railing Sides
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -397,7 +397,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                 className={`flex items-center gap-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
                   config.railingSides.includes(side as any)
                     ? 'border-purple-600 bg-purple-50 text-purple-700'
-                    : 'border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-50'
+                    : 'border-border text-foreground hover:border-slate-400 hover:bg-muted'
                 }`}
               >
                 <input
@@ -414,7 +414,7 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                       });
                     }
                   }}
-                  className="w-4 h-4 text-purple-600 border-slate-300 rounded focus:ring-purple-500"
+                  className="w-4 h-4 text-purple-600 border-border rounded focus:ring-purple-500"
                 />
                 <span className="text-sm capitalize">{side}</span>
               </label>
@@ -423,33 +423,33 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
         </div>
 
         {/* Summary Info */}
-        <div className="border-t border-slate-200 pt-4 bg-slate-50 -mx-6 -mb-6 px-6 py-4 rounded-b-lg">
+        <div className="border-t border-border pt-4 bg-muted -mx-6 -mb-6 px-6 py-4 rounded-b-lg">
           <div className="text-sm space-y-1">
             <div className="flex justify-between">
-              <span className="text-slate-600">Deck Area:</span>
-              <span className="text-slate-900">{(config.width * config.length).toFixed(0)} sq ft</span>
+              <span className="text-muted-foreground">Deck Area:</span>
+              <span className="text-foreground">{(config.width * config.length).toFixed(0)} sq ft</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-600">Perimeter:</span>
-              <span className="text-slate-900">{((config.width + config.length) * 2).toFixed(0)} ft</span>
+              <span className="text-muted-foreground">Perimeter:</span>
+              <span className="text-foreground">{((config.width + config.length) * 2).toFixed(0)} ft</span>
             </div>
           </div>
 
           {/* Auto-selected Lumber Lengths */}
-          <div className="mt-3 pt-3 border-t border-slate-300">
+          <div className="mt-3 pt-3 border-t border-border">
             <p className="text-xs font-medium text-purple-700 mb-1.5">Auto-Selected Lumber Lengths</p>
-            <div className="text-xs space-y-1 text-slate-600">
+            <div className="text-xs space-y-1 text-muted-foreground">
               <div className="flex justify-between">
                 <span>Ledger Board ({config.width}' span):</span>
-                <span className="font-medium text-slate-800">{getLumberLengthDescription(config.width)}</span>
+                <span className="font-medium text-foreground">{getLumberLengthDescription(config.width)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Joists ({config.length}' span):</span>
-                <span className="font-medium text-slate-800">{getLumberLengthDescription(config.length)}</span>
+                <span className="font-medium text-foreground">{getLumberLengthDescription(config.length)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Beams ({config.width}' span):</span>
-                <span className="font-medium text-slate-800">{getLumberLengthDescription(config.width)}</span>
+                <span className="font-medium text-foreground">{getLumberLengthDescription(config.width)}</span>
               </div>
               {(() => {
                 const boardSpan = getDeckBoardSpan(config.width, config.length, config.deckingPattern);
@@ -457,13 +457,13 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
                 return (
                   <div className="flex justify-between">
                     <span>Deck Boards ({patternLabel} {boardSpan}'):</span>
-                    <span className="font-medium text-slate-800">{getLumberLengthDescription(boardSpan)}</span>
+                    <span className="font-medium text-foreground">{getLumberLengthDescription(boardSpan)}</span>
                   </div>
                 );
               })()}
               <div className="flex justify-between">
                 <span>Posts ({Math.ceil(config.height + 1)}' height):</span>
-                <span className="font-medium text-slate-800">{selectLumberLength(Math.ceil(config.height + 1))}'</span>
+                <span className="font-medium text-foreground">{selectLumberLength(Math.ceil(config.height + 1))}'</span>
               </div>
             </div>
           </div>

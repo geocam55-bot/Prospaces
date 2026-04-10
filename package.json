@@ -73,6 +73,7 @@
     "@tailwindcss/vite": "4.1.12",
     "@types/node": "^20.10.0",
     "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^29.0.1",
     "tailwindcss": "4.1.12",
     "vite": "6.3.5"
   },

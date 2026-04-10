@@ -445,7 +445,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
                 <Settings className="h-5 w-5" />
                 {plannerType.charAt(0).toUpperCase() + plannerType.slice(1)} Planner Defaults
               </CardTitle>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Customize your personal defaults for material selections. These will override the organization defaults.
               </p>
             </div>
@@ -503,7 +503,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
               return (
                 <div key={categoryGroup} className="space-y-4">
                   <div className="flex items-center gap-2 border-b pb-2">
-                    <h3 className="font-semibold text-black">{categoryGroup}</h3>
+                    <h3 className="font-semibold text-foreground">{categoryGroup}</h3>
                     {showCF && (
                       <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
                         <Info className="h-3 w-3" />
@@ -521,7 +521,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
 
                       return (
                         <div key={category} className="space-y-2">
-                          <Label htmlFor={`${plannerType}-${selectedMaterialType}-${category}`} className="flex items-center gap-2 text-black">
+                          <Label htmlFor={`${plannerType}-${selectedMaterialType}-${category}`} className="flex items-center gap-2 text-foreground">
                             {category}
                             {isCustomized && (
                               <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Custom</span>
@@ -536,7 +536,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
                           />
                           {showCF && (
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Label className="text-xs text-gray-500 whitespace-nowrap" htmlFor={`cf-${plannerType}-${selectedMaterialType}-${category}`}>
+                              <Label className="text-xs text-muted-foreground whitespace-nowrap" htmlFor={`cf-${plannerType}-${selectedMaterialType}-${category}`}>
                                 CF:
                               </Label>
                               {(() => {
@@ -580,7 +580,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
                             </div>
                           )}
                           {isCustomized && orgValue !== 'none' && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                               Org default: {inventoryItems.find(i => i.id === orgValue)?.name || 'Not set'}
                             </p>
                           )}

@@ -253,14 +253,14 @@ export function GarageTemplates({ onLoadTemplate, currentConfig }: GarageTemplat
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+    <div className="bg-background rounded-lg shadow-sm border border-border p-6">
       <div className="flex items-center gap-3 mb-6">
         <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
           <Warehouse className="w-5 h-5" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Quick Start Templates</h2>
-          <p className="text-sm text-slate-500">Start with a pre-configured garage layout</p>
+          <h2 className="text-lg font-semibold text-foreground">Quick Start Templates</h2>
+          <p className="text-sm text-muted-foreground">Start with a pre-configured garage layout</p>
         </div>
       </div>
 
@@ -275,20 +275,20 @@ export function GarageTemplates({ onLoadTemplate, currentConfig }: GarageTemplat
               className={`relative p-5 rounded-xl border-2 transition-all duration-200 cursor-pointer flex items-start gap-4 ${
                 isSelected
                   ? 'border-blue-600 bg-blue-50 shadow-md'
-                  : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50'
+                  : 'border-border bg-background hover:border-blue-300 hover:bg-muted'
               }`}
             >
               <div className={`p-3 rounded-lg flex-shrink-0 ${
-                isSelected ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'
+                isSelected ? 'bg-blue-100 text-blue-600' : 'bg-muted text-muted-foreground'
               }`}>
                 <Icon className="w-6 h-6" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className={`font-medium mb-1 truncate ${
-                  isSelected ? 'text-blue-900' : 'text-slate-900'
+                  isSelected ? 'text-blue-900' : 'text-foreground'
                 }`}>{template.name}</div>
                 <div className={`text-sm ${
-                  isSelected ? 'text-blue-700' : 'text-slate-500'
+                  isSelected ? 'text-blue-700' : 'text-muted-foreground'
                 }`}>{template.description}</div>
               </div>
               {isSelected && (

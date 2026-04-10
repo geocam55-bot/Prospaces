@@ -212,7 +212,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
     <PermissionGate user={user} module="project-wizards" action="view">
     <div>
       {/* Sub-navigation */}
-      <div className="bg-slate-50 border-b border-slate-200 print:hidden">
+      <div className="bg-muted border-b border-border print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <nav className="flex flex-wrap gap-4 sm:gap-8">
@@ -221,7 +221,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
                 className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                   activeTab === 'design'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Ruler className="w-4 h-4" />
@@ -232,7 +232,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
                 className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                   activeTab === 'templates'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <LayoutTemplate className="w-4 h-4" />
@@ -243,7 +243,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
                 className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                   activeTab === 'materials'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Package className="w-4 h-4" />
@@ -254,7 +254,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
                 className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                   activeTab === 'saved'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <FileText className="w-4 h-4" />
@@ -265,7 +265,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
                 className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                   activeTab === 'defaults'
                     ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Settings className="w-4 h-4" />
@@ -300,17 +300,17 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
             )}
 
             <div className="flex-1 min-w-0 space-y-6 print:hidden lg:sticky lg:top-24">
-              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black">
+              <div className="bg-background rounded-lg shadow-sm border border-border p-6 print:shadow-none print:border-2 print:border-black">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                      className="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition-colors print:hidden"
+                      className="p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg transition-colors print:hidden"
                       title={isSidebarOpen ? "Collapse configurator" : "Expand configurator"}
                     >
                       {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
                     </button>
-                    <h2 className="text-slate-900 print:hidden m-0">Garage Plan & Elevation</h2>
+                    <h2 className="text-foreground print:hidden m-0">Garage Plan & Elevation</h2>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -318,7 +318,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
                         viewMode === '2d'
                           ? 'bg-blue-600 text-white'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          : 'bg-muted text-foreground hover:bg-muted'
                       }`}
                     >
                       <Layers className="w-4 h-4" />
@@ -329,7 +329,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-sm ${
                         viewMode === '3d'
                           ? 'bg-blue-600 text-white'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          : 'bg-muted text-foreground hover:bg-muted'
                       }`}
                     >
                       <Box className="w-4 h-4" />
@@ -348,8 +348,8 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black print:break-before-page">
-                <h2 className="text-slate-900 mb-4">Materials Summary</h2>
+              <div className="bg-background rounded-lg shadow-sm border border-border p-6 print:shadow-none print:border-2 print:border-black print:break-before-page">
+                <h2 className="text-foreground mb-4">Materials Summary</h2>
                 <GarageMaterialsList materials={materials} compact />
               </div>
             </div>
@@ -358,7 +358,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
 
         {activeTab === 'materials' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+            <div className="bg-background rounded-lg shadow-sm border border-border p-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 {enrichedMaterials.length > 0 && totalT1Price > 0 ? (
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex-1 w-full sm:w-auto">

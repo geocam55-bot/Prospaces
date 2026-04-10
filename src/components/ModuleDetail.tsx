@@ -547,9 +547,9 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
 
   if (!module) {
     return (
-      <div className="min-h-screen bg-white light flex items-center justify-center">
+      <div className="min-h-screen bg-background light flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl text-gray-900 mb-4">Module not found</h2>
+          <h2 className="text-2xl text-foreground mb-4">Module not found</h2>
           <Button onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Home
@@ -562,9 +562,9 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
   const Icon = module.icon;
 
   return (
-    <div className="min-h-screen bg-white light">
+    <div className="min-h-screen bg-background light">
       {/* Navigation */}
-      <div className="sticky top-0 z-50 bg-white border-b shadow-sm">
+      <div className="sticky top-0 z-50 bg-background border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <Button variant="ghost" onClick={onBack} className="group">
             <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
@@ -577,7 +577,7 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
       <div className={`bg-gradient-to-br ${module.color} py-16`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4 mb-6">
-            <div className="h-20 w-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+            <div className="h-20 w-20 rounded-2xl bg-background/20 backdrop-blur-sm flex items-center justify-center">
               <Icon className="h-12 w-12 text-white" />
             </div>
             <div>
@@ -612,7 +612,7 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
             {module.features.map((feature, index) => (
               <div key={index} className="flex items-start gap-3">
                 <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
-                <p className="text-gray-700">{feature}</p>
+                <p className="text-foreground">{feature}</p>
               </div>
             ))}
           </div>
@@ -629,7 +629,7 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
                     <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${module.color} flex items-center justify-center flex-shrink-0`}>
                       <Zap className="h-5 w-5 text-white" />
                     </div>
-                    <p className="text-gray-700 pt-1">{benefit}</p>
+                    <p className="text-foreground pt-1">{benefit}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -644,8 +644,8 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
             {module.useCases.map((useCase, index) => (
               <Card key={index} className="border-0 shadow-lg">
                 <CardContent className="pt-6">
-                  <h3 className="text-xl mb-3 text-gray-900">{useCase.title}</h3>
-                  <p className="text-gray-600">{useCase.description}</p>
+                  <h3 className="text-xl mb-3 text-foreground">{useCase.title}</h3>
+                  <p className="text-muted-foreground">{useCase.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -671,7 +671,7 @@ export function ModuleDetail({ moduleId, onBack }: ModuleDetailProps) {
       {/* Footer */}
       <div className="bg-gray-900 text-white py-12 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-gray-400">© 2025 ProSpaces CRM. All rights reserved.</p>
+          <p className="text-muted-foreground">© 2025 ProSpaces CRM. All rights reserved.</p>
         </div>
       </div>
     </div>
