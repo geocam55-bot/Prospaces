@@ -8,6 +8,17 @@ const BASE_URL = buildServerFunctionUrl('/portal');
 const PORTAL_TOKEN_KEY = 'portal_session_token';
 const PORTAL_USER_KEY = 'portal_user';
 
+export interface PortalAttachment {
+  id?: string;
+  name: string;
+  fileName?: string;
+  filePath: string;
+  contentType?: string;
+  size?: number;
+  url?: string;
+  uploadedAt?: string;
+}
+
 export function getPortalToken(): string | null {
   return localStorage.getItem(PORTAL_TOKEN_KEY);
 }
@@ -121,7 +132,13 @@ export async function getPortalMessages() {
   return portalFetch('/messages');
 }
 
-export async function sendPortalMessage(subject: string, message: string, messageId?: string, context?: { contextType?: string; contextLabel?: string }) {
+export async function sendPortalMessage(
+  subject: string,
+  message: string,
+  messageId?: string,
+  context?: { contextType?: string; contextLabel?: string },
+  attachments?: PortalAttachment[]
+) {
   return portalFetch('/messages', {
     method: 'POST',
     body: JSON.stringify({
@@ -130,8 +147,36 @@ export async function sendPortalMessage(subject: string, message: string, messag
       messageId,
       contextType: context?.contextType,
       contextLabel: context?.contextLabel,
+      attachments: attachments || [],
     }),
   });
+}
+
+export async function uploadPortalAttachment(file: File, opts?: { contactId?: string }, accessToken?: string) {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (opts?.contactId) formData.append('contactId', opts.contactId);
+
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${publicAnonKey}`,
+  };
+
+  if (accessToken) {
+    headers['X-User-Token'] = accessToken;
+  } else {
+    const token = getPortalToken();
+    if (token) headers['X-Portal-Token'] = token;
+  }
+
+  const response = await fetch(`${BASE_URL}/attachments`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Failed to upload attachment');
+  return data;
 }
 
 export async function markMessageRead(messageId: string) {
@@ -202,12 +247,18 @@ export async function revokePortalAccess(contactId: string, accessToken: string)
   return data;
 }
 
-export async function replyToPortalMessage(messageId: string, contactId: string, reply: string, accessToken: string) {
+export async function replyToPortalMessage(
+  messageId: string,
+  contactId: string,
+  reply: string,
+  accessToken: string,
+  attachments?: PortalAttachment[]
+) {
   const headers = await getServerHeaders();
   const response = await fetch(`${BASE_URL}/reply`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ messageId, contactId, reply }),
+    body: JSON.stringify({ messageId, contactId, reply, attachments: attachments || [] }),
   });
 
   const data = await response.json();

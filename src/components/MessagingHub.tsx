@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Input } from './ui/input';
@@ -23,6 +23,8 @@ import {
   Search,
   Smile,
   ChevronLeft,
+  Paperclip,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
@@ -33,6 +35,7 @@ import {
   getInternalChats,
   getPortalUsers,
   replyToPortalMessage,
+  uploadPortalAttachment,
   sendInternalChatMessage,
   updatePortalThreadStatus,
 } from '../utils/portal-client';
@@ -53,7 +56,18 @@ export function MessagingHub({ user }: MessagingHubProps) {
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [selectedConversationType, setSelectedConversationType] = useState<'customer' | 'internal'>('internal');
+  // Refs that always hold the LATEST values so loadData and the polling interval
+  // (which has a stale closure due to empty deps []) can read them correctly.
+  const selectedMessageIdRef = useRef<string | null>(null);
+  const selectedChatIdRef = useRef<string | null>(null);
+  const selectedConversationTypeRef = useRef<'customer' | 'internal'>('internal');
+  selectedMessageIdRef.current = selectedMessageId;
+  selectedChatIdRef.current = selectedChatId;
+  selectedConversationTypeRef.current = selectedConversationType;
+  // Stable ref so the polling interval always invokes the freshest loadData.
+  const loadDataRef = useRef<() => Promise<void>>(async () => {});
   const [replyText, setReplyText] = useState('');
+  const [replyAttachments, setReplyAttachments] = useState<any[]>([]);
   const [internalNoteText, setInternalNoteText] = useState('');
   const [internalChatMessage, setInternalChatMessage] = useState('');
   const [showNewChat, setShowNewChat] = useState(false);
@@ -64,6 +78,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
   const [pendingDirectTarget, setPendingDirectTarget] = useState<any>(null);
   const [pendingMessage, setPendingMessage] = useState('');
   const [mobileView, setMobileView] = useState<'sidebar' | 'chat'>('sidebar');
+  const [showOnlySlaAlerts, setShowOnlySlaAlerts] = useState(false);
 
   const selectedMessage = useMemo(
     () => messages.find((message) => message.id === selectedMessageId) || null,
@@ -100,7 +115,10 @@ export function MessagingHub({ user }: MessagingHubProps) {
     }
   };
 
-  const loadData = async () => {
+  const loadData = async (
+    currentSelectedMessageId: string | null = selectedMessageIdRef.current,
+    currentSelectedChatId: string | null = selectedChatIdRef.current,
+  ) => {
     setLoading(true);
     try {
       const accessToken = await getAccessToken();
@@ -119,24 +137,67 @@ export function MessagingHub({ user }: MessagingHubProps) {
         : Array.isArray(staffData)
           ? staffData
           : [];
+      const selectedMessageExistsInNext = currentSelectedMessageId
+        ? nextMessages.some((message: any) => message.id === currentSelectedMessageId)
+        : false;
+      const preservedSelectedMessage =
+        currentSelectedMessageId && !selectedMessageExistsInNext
+          ? messages.find((message: any) => message.id === currentSelectedMessageId) ?? null
+          : null;
 
-      setMessages(nextMessages);
+      setMessages(
+        preservedSelectedMessage
+          ? [
+              preservedSelectedMessage,
+              ...nextMessages.filter((message: any) => message.id !== currentSelectedMessageId),
+            ]
+          : nextMessages
+      );
       setPortalUsers(nextUsers);
       setStaffUsers(nextStaff);
-      setInternalChats(nextChats);
+      // Use updater form so we can preserve any optimistically-added chat (e.g., just created)
+      // that hasn't appeared in the API response yet.
+      setInternalChats((prevChats) => {
+        const mergedChats = nextChats.map((nextChat: any) => {
+          const prevChat = prevChats.find((chat: any) => chat.id === nextChat.id);
+          if (!prevChat) return nextChat;
 
-      if (!selectedMessageId && nextMessages.length > 0) {
+          const prevMessages = Array.isArray(prevChat.messages) ? prevChat.messages : [];
+          const nextMessages = Array.isArray(nextChat.messages) ? nextChat.messages : [];
+
+          // If the server response is briefly stale after a send, keep the richer local thread.
+          if (currentSelectedChatId === nextChat.id && prevMessages.length > nextMessages.length) {
+            return {
+              ...nextChat,
+              messages: prevMessages,
+              updatedAt: prevChat.updatedAt || nextChat.updatedAt,
+            };
+          }
+
+          return nextChat;
+        });
+
+        const preserved =
+          currentSelectedChatId && !nextChats.some((c: any) => c.id === currentSelectedChatId)
+            ? prevChats.find((c: any) => c.id === currentSelectedChatId) ?? null
+            : null;
+        return preserved ? [preserved, ...mergedChats] : mergedChats;
+      });
+
+      if (!currentSelectedMessageId && nextMessages.length > 0) {
         setSelectedMessageId(nextMessages[0].id);
-      } else if (selectedMessageId && !nextMessages.some((message: any) => message.id === selectedMessageId)) {
+      } else if (currentSelectedMessageId && !selectedMessageExistsInNext && !preservedSelectedMessage) {
         setSelectedMessageId(nextMessages[0]?.id || null);
       }
 
-      if (!selectedChatId && nextChats.length > 0) {
+      // Only auto-select an internal chat if the user is not already viewing a customer thread.
+      // This prevents a customer reply from flipping the view to internal chats.
+      if (!currentSelectedChatId && !currentSelectedMessageId && nextChats.length > 0) {
         setSelectedChatId(nextChats[0].id);
         setSelectedConversationType('internal');
-      } else if (selectedChatId && !nextChats.some((chat: any) => chat.id === selectedChatId)) {
-        setSelectedChatId(nextChats[0]?.id || null);
       }
+      // If the selected chat isn't in the API response, the updater above preserves it
+      // so we intentionally skip the old reset-to-null logic here.
 
       if (nextChats.length === 0 && nextMessages.length > 0) {
         setSelectedConversationType('customer');
@@ -148,10 +209,14 @@ export function MessagingHub({ user }: MessagingHubProps) {
     }
   };
 
+  // Keep loadDataRef pointing to the latest loadData on every render
+  // so the polling interval (with empty deps) never calls a stale copy.
+  loadDataRef.current = loadData;
+
   useEffect(() => {
     const refreshPresence = async () => {
       await syncCurrentUserPresence();
-      await loadData();
+      await loadDataRef.current();
     };
 
     refreshPresence();
@@ -190,6 +255,54 @@ export function MessagingHub({ user }: MessagingHubProps) {
     return Date.now() - timestamp <= minutes * 60 * 1000;
   };
 
+  const formatMinutesAsWait = (totalMinutes: number) => {
+    if (totalMinutes < 60) return `${totalMinutes}m waiting`;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours < 24) return minutes > 0 ? `${hours}h ${minutes}m waiting` : `${hours}h waiting`;
+    const days = Math.floor(hours / 24);
+    const remHours = hours % 24;
+    return remHours > 0 ? `${days}d ${remHours}h waiting` : `${days}d waiting`;
+  };
+
+  const getCustomerSlaState = (message: any) => {
+    if (!message || message.status === 'resolved') {
+      return { waitingForTeam: false, level: 'none', minutes: 0, label: '' as string };
+    }
+
+    const timeline = [
+      { from: message.from, createdAt: message.createdAt },
+      ...((message.replies || []).map((reply: any) => ({ from: reply.from, createdAt: reply.createdAt }))),
+    ]
+      .filter((item: any) => !!item.createdAt)
+      .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    if (timeline.length === 0) {
+      return { waitingForTeam: false, level: 'none', minutes: 0, label: '' as string };
+    }
+
+    const latest = timeline[timeline.length - 1];
+    const waitingForTeam = latest.from === 'customer';
+    if (!waitingForTeam) {
+      return { waitingForTeam: false, level: 'none', minutes: 0, label: '' as string };
+    }
+
+    const lastCustomerTimestamp = new Date(latest.createdAt).getTime();
+    if (Number.isNaN(lastCustomerTimestamp)) {
+      return { waitingForTeam: false, level: 'none', minutes: 0, label: '' as string };
+    }
+
+    const waitingMinutes = Math.max(0, Math.floor((Date.now() - lastCustomerTimestamp) / 60000));
+    const level = waitingMinutes >= 240 ? 'critical' : waitingMinutes >= 60 ? 'warning' : 'normal';
+
+    return {
+      waitingForTeam: true,
+      level,
+      minutes: waitingMinutes,
+      label: formatMinutesAsWait(waitingMinutes),
+    };
+  };
+
   const getAvatarFallback = (name?: string, email?: string) => {
     const source = (name || email || 'User').trim();
     const parts = source.split(/\s+/).filter(Boolean);
@@ -200,16 +313,34 @@ export function MessagingHub({ user }: MessagingHubProps) {
   const getTargetKey = (target: any) => `${target.kind}:${target.id || target.email || target.name}`;
 
   const handleSendReply = async () => {
-    if (!selectedMessage || !replyText.trim()) return;
+    if (!selectedMessage || (!replyText.trim() && replyAttachments.length === 0)) return;
     setSending(true);
     try {
       const accessToken = await getAccessToken();
-      await replyToPortalMessage(selectedMessage.id, selectedMessage.contactId, replyText.trim(), accessToken);
+      await replyToPortalMessage(selectedMessage.id, selectedMessage.contactId, replyText.trim(), accessToken, replyAttachments);
       toast.success('Customer reply sent');
       setReplyText('');
+      setReplyAttachments([]);
       await loadData();
     } catch (err: any) {
       toast.error(err.message || 'Failed to send reply');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleReplyAttachmentPick = async (file: File | null) => {
+    if (!file || !selectedMessage) return;
+    try {
+      setSending(true);
+      const accessToken = await getAccessToken();
+      const result = await uploadPortalAttachment(file, { contactId: selectedMessage.contactId }, accessToken);
+      if (result?.attachment) {
+        setReplyAttachments((prev) => [...prev, result.attachment]);
+        toast.success('Attachment added');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload attachment');
     } finally {
       setSending(false);
     }
@@ -260,6 +391,37 @@ export function MessagingHub({ user }: MessagingHubProps) {
       toast.success('Follow-up task created');
     } catch (err: any) {
       toast.error(err.message || 'Failed to create task');
+    }
+  };
+
+  const handleCreateEscalationTask = async () => {
+    if (!selectedMessage || !selectedCustomerSla?.waitingForTeam) return;
+
+    const customerLabel = selectedMessage.contactName || selectedMessage.contactEmail || 'customer';
+    const dueAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const managerFallback = staffUsers.find((staff: any) => {
+      const role = String(staff?.role || '').toLowerCase();
+      return staff?.id && staff.id !== user.id && ['manager', 'director', 'admin', 'super_admin'].includes(role);
+    });
+    const assigneeId = selectedCustomerSla.level === 'critical'
+      ? (managerFallback?.id || user.id)
+      : user.id;
+    const assignmentNote = assigneeId === user.id
+      ? 'Assigned to current user.'
+      : `Assigned to escalation owner: ${managerFallback?.name || managerFallback?.email || 'manager'}.`;
+
+    try {
+      await tasksAPI.create({
+        title: `SLA escalation: ${selectedMessage.subject || 'Customer conversation'}`,
+        description: `Customer ${customerLabel} is waiting for a response (${selectedCustomerSla.label}).\n${assignmentNote}\n\nSubject: ${selectedMessage.subject || 'No subject'}\nMessage: ${selectedMessage.body || ''}`,
+        status: 'pending',
+        priority: selectedCustomerSla.level === 'critical' ? 'high' : 'medium',
+        assigned_to: assigneeId,
+        due_date: dueAt,
+      });
+      toast.success('Escalation task created');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create escalation task');
     }
   };
 
@@ -349,6 +511,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
     }
 
     // Show compose area instantly — no API call until first message is sent
+    setSelectedConversationType('internal');
     setPendingDirectTarget(target);
     setPendingMessage('');
     setSelectedChatId(null);
@@ -357,28 +520,66 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
   const handleSendToPendingTarget = async () => {
     if (!pendingDirectTarget || !pendingMessage.trim()) return;
+    const target = pendingDirectTarget;
+    const firstMessage = pendingMessage.trim();
+    const nowIso = new Date().toISOString();
+    const tempChatId = `temp-chat-${Date.now()}`;
+    const tempMessageId = `temp-msg-${Date.now()}`;
+
+    const optimisticChat = {
+      id: tempChatId,
+      title: target.name,
+      contextType: `direct-${target.kind}`,
+      contextLabel: getTargetKey(target),
+      chatType: 'direct',
+      participants: [{ id: target.id, name: target.name, email: target.email, kind: target.kind }],
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      messages: [{
+        id: tempMessageId,
+        senderId: user.id,
+        senderName: (user as any).name || (user as any).email || 'You',
+        body: firstMessage,
+        createdAt: nowIso,
+      }],
+    };
+
+    // Render the new direct thread instantly so the first message bubble is visible.
+    setInternalChats((prevChats) => [optimisticChat, ...prevChats]);
+    setSelectedChatId(tempChatId);
+    setSelectedConversationType('internal');
+    setPendingDirectTarget(null);
+    setPendingMessage('');
+
     setSending(true);
     try {
       const accessToken = await getAccessToken();
       const result = await createInternalChat(
         {
-          title: pendingDirectTarget.name,
-          contextType: `direct-${pendingDirectTarget.kind}`,
-          contextLabel: getTargetKey(pendingDirectTarget),
+          title: target.name,
+          contextType: `direct-${target.kind}`,
+          contextLabel: getTargetKey(target),
           chatType: 'direct',
-          participants: [{ id: pendingDirectTarget.id, name: pendingDirectTarget.name, email: pendingDirectTarget.email, kind: pendingDirectTarget.kind }],
-          initialMessage: pendingMessage.trim(),
+          participants: [{ id: target.id, name: target.name, email: target.email, kind: target.kind }],
+          initialMessage: firstMessage,
         },
         accessToken
       );
-      setPendingDirectTarget(null);
-      setPendingMessage('');
-      await loadData();
+
       if (result?.chat?.id) {
+        setInternalChats((prevChats) =>
+          prevChats.map((chat) => (chat.id === tempChatId ? result.chat : chat))
+        );
         setSelectedChatId(result.chat.id);
         setSelectedConversationType('internal');
+      } else {
+        await loadData(undefined, tempChatId);
       }
     } catch (err: any) {
+      setInternalChats((prevChats) => prevChats.filter((chat) => chat.id !== tempChatId));
+      setSelectedChatId(null);
+      setPendingDirectTarget(target);
+      setPendingMessage(firstMessage);
       toast.error(err.message || 'Failed to start chat');
     } finally {
       setSending(false);
@@ -387,14 +588,55 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
   const handleSendInternalChatMessage = async () => {
     if (!selectedChat || !internalChatMessage.trim()) return;
+    const messageText = internalChatMessage.trim();
+    const tempMessageId = `temp-msg-${Date.now()}`;
+    const nowIso = new Date().toISOString();
+
+    // Optimistic append so send feels instant even if API round-trip is slow.
+    setInternalChatMessage('');
+    setInternalChats((prevChats) =>
+      prevChats.map((chat) => {
+        if (chat.id !== selectedChat.id) return chat;
+        const existing = Array.isArray(chat.messages) ? chat.messages : [];
+        return {
+          ...chat,
+          updatedAt: nowIso,
+          messages: [
+            ...existing,
+            {
+              id: tempMessageId,
+              senderId: user.id,
+              senderName: (user as any).name || (user as any).email || 'You',
+              body: messageText,
+              createdAt: nowIso,
+            },
+          ],
+        };
+      })
+    );
+
     setSending(true);
     try {
       const accessToken = await getAccessToken();
-      await sendInternalChatMessage(selectedChat.id, internalChatMessage.trim(), accessToken);
+      const result = await sendInternalChatMessage(selectedChat.id, messageText, accessToken);
       toast.success('Internal message sent');
-      setInternalChatMessage('');
-      await loadData();
+      
+      if (result.chat) {
+        setInternalChats((prevChats) =>
+          prevChats.map((chat) => (chat.id === selectedChat.id ? result.chat : chat))
+        );
+      }
     } catch (err: any) {
+      setInternalChats((prevChats) =>
+        prevChats.map((chat) => {
+          if (chat.id !== selectedChat.id) return chat;
+          return {
+            ...chat,
+            messages: (chat.messages || []).filter((message: any) => message.id !== tempMessageId),
+          };
+        })
+      );
+      setInternalChatMessage(messageText);
       toast.error(err.message || 'Failed to send internal chat message');
     } finally {
       setSending(false);
@@ -406,6 +648,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
         {
           from: selectedMessage.from,
           body: selectedMessage.body,
+          attachments: selectedMessage.attachments || [],
           createdAt: selectedMessage.createdAt,
           senderName: selectedMessage.contactName || selectedMessage.senderEmail || 'Customer',
         },
@@ -433,7 +676,29 @@ export function MessagingHub({ user }: MessagingHubProps) {
       })
     : null;
 
-  const selectedConversation = selectedConversationType === 'customer' ? selectedMessage : selectedChat;
+  const effectiveSelectedConversationType =
+    selectedConversationType === 'customer'
+      ? (selectedMessage ? 'customer' : selectedChat ? 'internal' : 'customer')
+      : (selectedChat ? 'internal' : selectedMessage ? 'customer' : 'internal');
+
+  const selectedConversation = effectiveSelectedConversationType === 'customer' ? selectedMessage : selectedChat;
+
+  const customerSlaById = useMemo(() => {
+    const byId: Record<string, any> = {};
+    messages.forEach((message: any) => {
+      byId[message.id] = getCustomerSlaState(message);
+    });
+    return byId;
+  }, [messages]);
+
+  const escalatedCustomerCount = useMemo(() => {
+    return messages.filter((message: any) => {
+      const state = customerSlaById[message.id];
+      return state?.waitingForTeam && (state?.level === 'warning' || state?.level === 'critical');
+    }).length;
+  }, [messages, customerSlaById]);
+
+  const selectedCustomerSla = selectedMessage ? customerSlaById[selectedMessage.id] : null;
 
   const chatTargets = useMemo(() => {
     const staffTargets = staffUsers
@@ -478,6 +743,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
   const unifiedChats = useMemo(() => {
     const customerItems = messages.map((message: any) => {
       const latestReply = message.replies?.length ? message.replies[message.replies.length - 1] : null;
+      const slaState = customerSlaById[message.id] || { waitingForTeam: false, level: 'none', label: '' };
       const portalUser = activePortalUsers.find((portal: any) => {
         return (
           (portal.contactId && portal.contactId === message.contactId) ||
@@ -494,7 +760,15 @@ export function MessagingHub({ user }: MessagingHubProps) {
         updatedAt: latestReply?.createdAt || message.createdAt,
         unread: !!message.customerUnread,
         online: !!(portalUser?.online || isRecentlyActive(portalUser?.lastActiveAt || portalUser?.lastLogin, 30)),
-        badge: message.status === 'resolved' ? 'Resolved' : 'Customer',
+        escalationLevel: slaState.level,
+        escalationLabel: slaState.label,
+        badge: message.status === 'resolved'
+          ? 'Resolved'
+          : slaState.level === 'critical'
+            ? 'Urgent'
+            : slaState.level === 'warning'
+              ? 'SLA'
+              : 'Customer',
       };
     });
 
@@ -516,20 +790,37 @@ export function MessagingHub({ user }: MessagingHubProps) {
       };
     });
 
-    return [...internalItems, ...customerItems].sort((a, b) =>
-      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
-  }, [internalChats, messages, activePortalUsers]);
+    const urgencyScore = (item: any) => {
+      if (item.kind !== 'customer') return 0;
+      if (item.escalationLevel === 'critical') return 2;
+      if (item.escalationLevel === 'warning') return 1;
+      return 0;
+    };
+
+    return [...internalItems, ...customerItems].sort((a, b) => {
+      const urgencyDiff = urgencyScore(b) - urgencyScore(a);
+      if (urgencyDiff !== 0) return urgencyDiff;
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+  }, [internalChats, messages, activePortalUsers, customerSlaById]);
+
+  const visibleUnifiedChats = useMemo(() => {
+    if (!showOnlySlaAlerts) return unifiedChats;
+
+    return unifiedChats.filter((chat: any) => {
+      return chat.kind === 'customer' && (chat.escalationLevel === 'warning' || chat.escalationLevel === 'critical');
+    });
+  }, [unifiedChats, showOnlySlaAlerts]);
 
   return (
-    <div className="flex h-[calc(100vh-80px)] min-h-0 overflow-hidden border bg-background shadow-md md:rounded-2xl md:mx-4 md:mb-4">
+    <div className="flex h-[calc(100vh-80px)] min-h-0 overflow-hidden bg-slate-100 shadow-sm md:rounded-[32px] md:mx-4 md:mb-4">
 
       {/* ── LEFT SIDEBAR ── */}
-      <div className={`relative flex w-full md:w-[300px] shrink-0 flex-col border-r bg-background ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`relative flex w-full md:w-[300px] shrink-0 flex-col border-r border-slate-200 bg-white ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
 
         {/* Sidebar header */}
-        <div className="flex items-center justify-between border-b px-4 py-3.5">
-          <h1 className="text-lg font-bold text-foreground">Message Space</h1>
+        <div className="flex items-center justify-between border-b-2 border-slate-200 bg-white px-5 py-5">
+          <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
           <div className="flex items-center gap-1">
             <Button
               size="icon"
@@ -554,15 +845,26 @@ export function MessagingHub({ user }: MessagingHubProps) {
         </div>
 
         {/* Search */}
-        <div className="px-3 py-2.5">
+        <div className="px-4 py-3">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               value={chatSearch}
               onChange={(e) => setChatSearch(e.target.value)}
-              placeholder="Search"
-              className="rounded-full border-transparent bg-muted/60 pl-9 focus-visible:ring-0 focus-visible:border-blue-400"
+              placeholder="Search messages..."
+              className="rounded-full border-2 border-slate-200 bg-white pl-11 py-2 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-200"
             />
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <Badge variant="outline" className="text-[11px]">{unreadCustomerCount} unread</Badge>
+            <Badge
+              variant="outline"
+              onClick={() => setShowOnlySlaAlerts((prev) => !prev)}
+              role="button"
+              className={`text-[11px] ${escalatedCustomerCount > 0 ? 'border-amber-300 bg-amber-50 text-amber-700' : ''}`}
+            >
+              {showOnlySlaAlerts ? 'Showing SLA alerts' : `${escalatedCustomerCount} SLA alerts`}
+            </Badge>
           </div>
         </div>
 
@@ -570,19 +872,17 @@ export function MessagingHub({ user }: MessagingHubProps) {
         <div className="flex-1 overflow-y-auto pb-14">
 
           {/* Loading skeleton */}
-          {loading && unifiedChats.length === 0 && (
+          {loading && visibleUnifiedChats.length === 0 && (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           )}
 
           {/* Recent chats */}
-          {unifiedChats.map((conv) => {
+          {visibleUnifiedChats.map((conv) => {
             const isSelected =
-              conv.kind === selectedConversationType &&
-              (conv.kind === 'customer'
-                ? selectedMessageId === conv.id
-                : selectedChatId === conv.id);
+              conv.kind === effectiveSelectedConversationType &&
+              (conv.kind === 'customer' ? selectedMessageId === conv.id : selectedChatId === conv.id);
 
             return (
               <button
@@ -597,12 +897,13 @@ export function MessagingHub({ user }: MessagingHubProps) {
                   }
                   setMobileView('chat');
                 }}
-                className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60 ${
-                  isSelected ? 'bg-muted/80' : ''
+                className={`mx-2 flex w-full items-center gap-3 rounded-3xl px-3 py-2.5 text-left transition-all ${
+                  isSelected ? 'bg-blue-500 text-white shadow-md' : 'bg-slate-50 text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 <div className="relative shrink-0">
                   <Avatar className="h-8 w-8">
+                    <AvatarImage src={conv.avatar_url || undefined} alt={conv.title} />
                     <AvatarFallback>{getAvatarFallback(conv.title, conv.subtitle)}</AvatarFallback>
                   </Avatar>
                   {conv.online && (
@@ -610,13 +911,31 @@ export function MessagingHub({ user }: MessagingHubProps) {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-1">
-                    <p className="truncate text-sm font-semibold text-foreground">{conv.title}</p>
-                    <p className="shrink-0 text-[11px] text-muted-foreground">{formatTimeAgo(conv.updatedAt)}</p>
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <p className={`truncate text-sm font-semibold ${isSelected ? 'text-white' : 'text-slate-900'}`}>{conv.title}</p>
+                    {conv.badge && (
+                      <Badge
+                        variant="outline"
+                        className={`shrink-0 px-1.5 py-0 text-[10px] ${
+                          isSelected
+                            ? 'border-white/30 bg-white/10 text-white'
+                            : conv.badge === 'Urgent'
+                              ? 'border-red-300 bg-red-50 text-red-700'
+                              : conv.badge === 'SLA'
+                                ? 'border-amber-300 bg-amber-50 text-amber-700'
+                                : ''
+                        }`}
+                      >
+                        {conv.badge}
+                      </Badge>
+                    )}
+                    <p className={`shrink-0 text-[11px] ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>{formatTimeAgo(conv.updatedAt)}</p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <p className="truncate text-xs text-muted-foreground flex-1">{conv.preview || 'send a message'}</p>
-                    {conv.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />}
+                    <p className={`flex-1 truncate text-xs ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}>
+                      {conv.escalationLabel || conv.preview || 'Send a message'}
+                    </p>
+                    {conv.unread && <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${isSelected ? 'bg-white' : 'bg-blue-500'}`} />}
                   </div>
                 </div>
               </button>
@@ -624,12 +943,12 @@ export function MessagingHub({ user }: MessagingHubProps) {
           })}
 
           {/* Divider between chats and people */}
-          {unifiedChats.length > 0 && chatTargets.length > 0 && (
+          {visibleUnifiedChats.length > 0 && chatTargets.length > 0 && !showOnlySlaAlerts && (
             <div className="mx-3 my-1 border-t" />
           )}
 
           {/* People section */}
-          {chatTargets.length > 0 && (
+          {chatTargets.length > 0 && !showOnlySlaAlerts && (
             <>
               <div className="px-4 pb-1 pt-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">People</p>
@@ -637,21 +956,24 @@ export function MessagingHub({ user }: MessagingHubProps) {
               {chatTargets.map((target) => (
                 <button
                   key={getTargetKey(target)}
-                  onClick={() => { handleStartDirectChat(target); setMobileView('chat'); }}
-                  className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/60"
+                  onClick={() => {
+                    handleStartDirectChat(target);
+                    setMobileView('chat');
+                  }}
+                  className="mx-2 flex w-full items-center gap-2 rounded-lg border-2 border-blue-300 bg-gradient-to-r from-blue-50 to-purple-50 px-3 py-2 text-left transition-all hover:border-blue-500 hover:from-blue-100 hover:to-purple-100 hover:shadow-md"
                 >
                   <div className="relative shrink-0">
-                    <Avatar className="h-8 w-8">
+                    <Avatar className="h-9 w-9">
                       <AvatarImage src={target.avatar_url || undefined} alt={target.name} />
-                      <AvatarFallback>{getAvatarFallback(target.name, target.email)}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{getAvatarFallback(target.name, target.email)}</AvatarFallback>
                     </Avatar>
                     {target.online && (
-                      <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background bg-emerald-500" />
+                      <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{target.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">send a message</p>
+                    <p className="truncate text-sm font-bold text-slate-900">{target.name}</p>
+                    <p className="truncate text-xs text-slate-600">Tap to message</p>
                   </div>
                 </button>
               ))}
@@ -659,19 +981,24 @@ export function MessagingHub({ user }: MessagingHubProps) {
           )}
 
           {/* Empty state */}
-          {!loading && unifiedChats.length === 0 && chatTargets.length === 0 && (
+          {!loading && visibleUnifiedChats.length === 0 && chatTargets.length === 0 && !showOnlySlaAlerts && (
             <div className="flex flex-col items-center justify-center gap-2 py-16 px-4 text-center">
               <MessageSquare className="h-8 w-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">No conversations yet.</p>
             </div>
           )}
+          {!loading && visibleUnifiedChats.length === 0 && showOnlySlaAlerts && (
+            <div className="flex flex-col items-center justify-center gap-2 py-16 px-4 text-center">
+              <MessageSquare className="h-8 w-8 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">No customer conversations currently breaching SLA.</p>
+            </div>
+          )}
         </div>
 
         {/* New Group button — pinned at bottom of left pane */}
-        <div className="absolute bottom-0 left-0 right-0 border-t bg-background px-3 py-2.5">
+        <div className="absolute bottom-0 left-0 right-0 border-t border-slate-100 bg-gradient-to-t from-white to-slate-50 px-3 py-3">
           <Button
-            variant="outline"
-            className="w-full gap-2 rounded-full"
+            className="w-full gap-2 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-md"
             onClick={() => { setNewChatMembers([]); setNewChatTitle(''); setNewChatMessage(''); setShowNewChat(true); }}
           >
             <Users className="h-4 w-4" />
@@ -681,12 +1008,12 @@ export function MessagingHub({ user }: MessagingHubProps) {
       </div>
 
       {/* ── RIGHT CHAT AREA ── */}
-      <div className={`min-w-0 flex-1 flex-col bg-background ${mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`min-w-0 flex-1 flex-col bg-gradient-to-br from-slate-100 via-blue-50/50 to-indigo-100/40 md:p-3 ${mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'}`}>
 
         {/* Pending new DM — person selected but no existing chat */}
         {pendingDirectTarget && !selectedConversation ? (
           <>
-            <div className="flex shrink-0 items-center gap-3 border-b bg-background px-4 py-3">
+            <div className="flex shrink-0 items-center gap-3 border-b bg-white px-4 py-3">
               <Button
                 size="icon"
                 variant="ghost"
@@ -695,62 +1022,86 @@ export function MessagingHub({ user }: MessagingHubProps) {
               >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
-              <Avatar className="h-8 w-8 shrink-0">
-                <AvatarImage src={pendingDirectTarget.avatar_url || undefined} alt={pendingDirectTarget.name} />
-                <AvatarFallback>{getAvatarFallback(pendingDirectTarget.name, pendingDirectTarget.email)}</AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="h-10 w-10 shrink-0">
+                  <AvatarImage src={pendingDirectTarget.avatar_url || undefined} alt={pendingDirectTarget.name} />
+                  <AvatarFallback className="text-sm">{getAvatarFallback(pendingDirectTarget.name, pendingDirectTarget.email)}</AvatarFallback>
+                </Avatar>
+                {pendingDirectTarget.online && (
+                  <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" />
+                )}
+              </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-foreground">{pendingDirectTarget.name}</p>
-                <p className="text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-base font-semibold text-slate-900">{pendingDirectTarget.name}</p>
+                  {pendingDirectTarget.online && (
+                    <span className="shrink-0 text-xs text-emerald-600 font-medium">Online</span>
+                  )}
+                </div>
+                <p className="text-sm text-slate-500">
                   {pendingDirectTarget.online ? 'Active now' : pendingDirectTarget.subtitle}
                 </p>
               </div>
             </div>
             <div className="flex-1 bg-muted/10" />
-            <div className="shrink-0 border-t bg-background px-3 py-3">
-              <div className="flex items-center gap-2">
-                <div className="flex flex-1 items-center gap-2 rounded-[24px] border bg-background px-4 py-2.5">
-                  <input
-                    type="text"
-                    placeholder={`Message ${pendingDirectTarget.name}...`}
-                    value={pendingMessage}
-                    onChange={(e) => setPendingMessage(e.target.value)}
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendToPendingTarget();
-                      }
-                    }}
-                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                  />
-                  <Smile className="h-5 w-5 shrink-0 text-muted-foreground" />
+            <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-4">
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <div className="relative rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400/20">
+                    <input
+                      type="text"
+                      placeholder={`Message ${pendingDirectTarget.name}...`}
+                      value={pendingMessage}
+                      onChange={(e) => setPendingMessage(e.target.value)}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendToPendingTarget();
+                        }
+                      }}
+                      className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Smile className="h-5 w-5 text-slate-400 hover:text-slate-600 cursor-pointer" />
+                    </div>
+                  </div>
                 </div>
                 <Button
                   onClick={handleSendToPendingTarget}
                   disabled={sending || !pendingMessage.trim()}
-                  className="shrink-0 gap-1.5 rounded-full px-4"
+                  size="sm"
+                  className="shrink-0 h-11 w-11 rounded-full bg-blue-500 hover:bg-blue-600 p-0"
                 >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  Send
                 </Button>
               </div>
             </div>
           </>
         ) : !selectedConversation ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-muted/10">
-            <div className="rounded-full bg-muted p-6">
-              <MessageSquare className="h-12 w-12 text-muted-foreground" />
+          <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
+            <div className="max-w-md rounded-[32px] border border-slate-200 bg-white p-10 shadow-sm">
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                <MessageSquare className="h-8 w-8" />
+              </div>
+              <p className="text-xl font-semibold text-slate-900">Your Messages</p>
+              <p className="mt-3 text-sm leading-6 text-slate-500">
+                Select a person or group from the left to start chatting. Once you choose a conversation, the new messenger-style chat view will appear here.
+              </p>
+              <div className="mt-6 rounded-3xl bg-slate-50 p-4 text-left text-sm text-slate-500">
+                <p className="font-medium text-slate-900">Try selecting one of these:</p>
+                <ul className="mt-2 list-disc space-y-2 pl-4">
+                  <li>Contact a customer</li>
+                  <li>Start a direct team message</li>
+                  <li>Create a new group chat</li>
+                </ul>
+              </div>
             </div>
-            <p className="text-base font-semibold text-foreground">Your Messages</p>
-            <p className="max-w-xs text-center text-sm text-muted-foreground">
-              Select a person or group from the left to start chatting.
-            </p>
           </div>
         ) : (
-          <>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/95 shadow-[0_20px_60px_-25px_rgba(30,58,138,0.35)] backdrop-blur-sm">
             {/* Chat header */}
-            <div className="flex shrink-0 items-center gap-3 border-b bg-background px-4 py-3">
+            <div className="flex shrink-0 items-center gap-3 border-b border-slate-200/70 bg-gradient-to-r from-white via-blue-50/50 to-indigo-50/60 px-4 py-4 shadow-sm">
               <Button
                 size="icon"
                 variant="ghost"
@@ -759,29 +1110,46 @@ export function MessagingHub({ user }: MessagingHubProps) {
               >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
-              <Avatar className="h-8 w-8 shrink-0">
-                <AvatarFallback>
-                  {selectedConversationType === 'customer' && selectedMessage
-                    ? getAvatarFallback(selectedMessage.contactName, selectedMessage.contactEmail)
-                    : selectedChat
-                      ? getAvatarFallback(selectedChat.title)
-                      : '?'}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="h-10 w-10 shrink-0">
+                  <AvatarFallback className="text-sm">
+                    {effectiveSelectedConversationType === 'customer' && selectedMessage
+                      ? getAvatarFallback(selectedMessage.contactName, selectedMessage.contactEmail)
+                      : selectedChat
+                        ? getAvatarFallback(selectedChat.title)
+                        : '?'}
+                  </AvatarFallback>
+                </Avatar>
+                {effectiveSelectedConversationType === 'customer' && selectedPortalUser?.online && (
+                  <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" />
+                )}
+              </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-foreground">
-                  {selectedConversationType === 'customer' && selectedMessage
-                    ? selectedMessage.contactName || selectedMessage.contactEmail || 'Customer'
-                    : selectedChat?.title || ''}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {selectedConversationType === 'customer' && selectedPortalUser?.online
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-base font-semibold text-slate-900">
+                    {effectiveSelectedConversationType === 'customer' && selectedMessage
+                      ? selectedMessage.contactName || selectedMessage.contactEmail || 'Customer'
+                      : selectedChat?.title || ''}
+                  </p>
+                  {effectiveSelectedConversationType === 'customer' && selectedCustomerSla?.waitingForTeam && (
+                    <Badge
+                      className={`border-0 text-[11px] ${selectedCustomerSla.level === 'critical' ? 'bg-red-100 text-red-700' : selectedCustomerSla.level === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}
+                    >
+                      {selectedCustomerSla.label}
+                    </Badge>
+                  )}
+                  {effectiveSelectedConversationType === 'customer' && selectedPortalUser?.online && (
+                    <span className="shrink-0 text-xs text-emerald-600 font-medium">Online</span>
+                  )}
+                </div>
+                <p className="text-sm text-slate-500">
+                  {effectiveSelectedConversationType === 'customer' && selectedPortalUser?.online
                     ? 'Active now'
-                    : selectedConversationType === 'customer' && selectedMessage
+                    : effectiveSelectedConversationType === 'customer' && selectedMessage
                       ? `Last active ${formatTimeAgo(selectedPortalUser?.lastLogin || selectedMessage.createdAt)}`
                       : selectedChat
                         ? selectedChat.chatType === 'group' || selectedChat.contextType === 'group'
-                          ? 'Saved group'
+                          ? `${selectedChat.participants?.length || 0} members`
                           : (selectedChat.contextType || '').startsWith('direct')
                             ? 'Direct message'
                             : 'Team chat'
@@ -789,7 +1157,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                 </p>
               </div>
               {/* Customer message actions */}
-              {selectedConversationType === 'customer' && selectedMessage && (
+              {effectiveSelectedConversationType === 'customer' && selectedMessage && (
                 <div className="flex shrink-0 items-center gap-1.5">
                   <Button
                     size="sm"
@@ -801,6 +1169,18 @@ export function MessagingHub({ user }: MessagingHubProps) {
                     <FileText className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Task</span>
                   </Button>
+                  {selectedCustomerSla?.waitingForTeam && (selectedCustomerSla.level === 'warning' || selectedCustomerSla.level === 'critical') && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleCreateEscalationTask}
+                      className={`gap-1.5 rounded-full text-xs px-2 sm:px-3 ${selectedCustomerSla.level === 'critical' ? 'border-red-300 text-red-700 hover:bg-red-50' : 'border-amber-300 text-amber-700 hover:bg-amber-50'}`}
+                      title="Create SLA escalation task"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Escalate</span>
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant={selectedMessage.status === 'resolved' ? 'default' : 'outline'}
@@ -817,8 +1197,8 @@ export function MessagingHub({ user }: MessagingHubProps) {
             </div>
 
             {/* Message bubbles */}
-            <div className="flex-1 overflow-y-auto bg-muted/10 px-4 py-4 space-y-3">
-              {selectedConversationType === 'customer' && selectedMessage ? (
+            <div className="chat-scroll flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.25),_rgba(255,255,255,0.92)_40%),linear-gradient(to_bottom,_#f8fafc,_#ffffff)] px-4 py-6 space-y-4">
+              {effectiveSelectedConversationType === 'customer' && selectedMessage ? (
                 customerTimeline.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground py-12">No messages yet.</p>
                 ) : (
@@ -827,16 +1207,32 @@ export function MessagingHub({ user }: MessagingHubProps) {
                     return (
                       <div key={`${post.createdAt}-${index}`} className={`flex ${isCustomer ? 'justify-start' : 'justify-end'}`}>
                         <div
-                          className={`max-w-[75%] rounded-[20px] px-4 py-2.5 shadow-sm ${
+                          className={`max-w-[75%] rounded-[24px] px-4 py-3 shadow-md ${
                             isCustomer
-                              ? 'rounded-tl-sm border bg-background text-foreground'
-                              : 'rounded-tr-sm bg-blue-600 text-white'
+                              ? 'rounded-tl-sm rounded-tr-3xl rounded-br-3xl rounded-bl-3xl border border-slate-200 bg-white text-slate-900'
+                              : 'rounded-tr-sm rounded-tl-3xl rounded-br-3xl rounded-bl-3xl bg-blue-500 text-white'
                           }`}
                         >
                           <p className={`mb-0.5 text-[11px] font-medium ${isCustomer ? 'text-muted-foreground' : 'text-blue-200'}`}>
                             {isCustomer ? post.senderName || 'Customer' : post.senderName || 'Team'}
                           </p>
                           <p className="whitespace-pre-wrap text-sm leading-5">{post.body}</p>
+                          {!!post.attachments?.length && (
+                            <div className="mt-2 space-y-1.5">
+                              {post.attachments.map((attachment: any, attachmentIdx: number) => (
+                                <a
+                                  key={`${attachment.filePath || attachment.name}-${attachmentIdx}`}
+                                  href={attachment.url || '#'}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${isCustomer ? 'border-slate-200/40 text-blue-100 hover:bg-blue-400/30' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                                >
+                                  <Paperclip className="h-3.5 w-3.5" />
+                                  <span className="truncate">{attachment.fileName || attachment.name || 'Attachment'}</span>
+                                </a>
+                              ))}
+                            </div>
+                          )}
                           <p className={`mt-1 text-right text-[11px] ${isCustomer ? 'text-muted-foreground' : 'text-blue-200'}`}>
                             {formatDate(post.createdAt)}
                           </p>
@@ -854,17 +1250,21 @@ export function MessagingHub({ user }: MessagingHubProps) {
                     return (
                       <div key={message.id} className={`flex ${ownMessage ? 'justify-end' : 'justify-start'}`}>
                         <div
-                          className={`max-w-[75%] rounded-[20px] px-4 py-2.5 shadow-sm ${
+                          className={`max-w-[75%] rounded-[24px] px-4 py-3 shadow-md ${
                             ownMessage
-                              ? 'rounded-tr-sm bg-slate-800 text-white'
-                              : 'rounded-tl-sm border bg-background text-foreground'
+                              ? 'rounded-tr-sm rounded-tl-3xl rounded-br-3xl rounded-bl-3xl bg-blue-500 text-white'
+                              : 'rounded-tl-sm rounded-tr-3xl rounded-br-3xl rounded-bl-3xl border border-slate-200 bg-white text-slate-900'
                           }`}
                         >
-                          <p className={`mb-0.5 text-[11px] font-medium ${ownMessage ? 'text-slate-300' : 'text-muted-foreground'}`}>
+                          <p className={`mb-0.5 text-[11px] font-medium ${
+                            ownMessage ? 'text-slate-300' : 'text-slate-500'
+                          }`}>
                             {message.senderName || 'Staff'}
                           </p>
                           <p className="whitespace-pre-wrap text-sm leading-5">{message.body}</p>
-                          <p className={`mt-1 text-right text-[11px] ${ownMessage ? 'text-slate-300' : 'text-muted-foreground'}`}>
+                          <p className={`mt-1 text-right text-[11px] ${
+                            ownMessage ? 'text-slate-300' : 'text-slate-400'
+                          }`}>
                             {formatDate(message.createdAt)}
                           </p>
                         </div>
@@ -876,33 +1276,68 @@ export function MessagingHub({ user }: MessagingHubProps) {
             </div>
 
             {/* Composer */}
-            <div className="shrink-0 border-t bg-background px-3 py-3">
-              {selectedConversationType === 'customer' && selectedMessage ? (
+            <div className="shrink-0 border-t border-slate-200/80 bg-gradient-to-t from-white via-slate-50/90 to-blue-50/70 px-4 py-4 shadow-[0_-10px_30px_-20px_rgba(30,58,138,0.45)]">
+              {effectiveSelectedConversationType === 'customer' && selectedMessage ? (
                 <>
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-1 items-center gap-2 rounded-[24px] border bg-background px-4 py-2.5">
-                      <input
-                        type="text"
-                        placeholder="Message..."
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendReply();
-                          }
-                        }}
-                        className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                      />
-                      <Smile className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  <div className="flex items-end gap-3">
+                    <div className="flex-1">
+                      <div className="relative rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400/20">
+                        <input
+                          type="text"
+                          placeholder="Message..."
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendReply();
+                            }
+                          }}
+                          className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <Smile className="h-5 w-5 text-slate-400 hover:text-slate-600 cursor-pointer" />
+                        </div>
+                      </div>
+                      {replyAttachments.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {replyAttachments.map((attachment: any, idx: number) => (
+                            <span key={`${attachment.filePath || attachment.name}-${idx}`} className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600">
+                              <Paperclip className="h-3 w-3" />
+                              <span className="max-w-[180px] truncate">{attachment.fileName || attachment.name || 'Attachment'}</span>
+                              <button
+                                type="button"
+                                onClick={() => setReplyAttachments((prev) => prev.filter((_: any, i: number) => i !== idx))}
+                                className="text-slate-400 hover:text-slate-700"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="shrink-0">
+                      <label className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50">
+                        <Paperclip className="h-4 w-4" />
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            void handleReplyAttachmentPick(file);
+                            e.currentTarget.value = '';
+                          }}
+                        />
+                      </label>
                     </div>
                     <Button
                       onClick={handleSendReply}
-                      disabled={sending || !replyText.trim()}
-                      className="shrink-0 gap-1.5 rounded-full px-4"
+                      disabled={sending || (!replyText.trim() && replyAttachments.length === 0)}
+                      size="sm"
+                      className="shrink-0 h-11 w-11 rounded-full bg-blue-500 hover:bg-blue-600 p-0"
                     >
                       {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      Send
                     </Button>
                   </div>
                   {/* Private notes — collapsible */}
@@ -946,35 +1381,39 @@ export function MessagingHub({ user }: MessagingHubProps) {
                   </details>
                 </>
               ) : selectedChat ? (
-                <div className="flex items-center gap-2">
-                  <div className="flex flex-1 items-center gap-2 rounded-[24px] border bg-background px-4 py-2.5">
-                    <input
-                      type="text"
-                      placeholder="Message..."
-                      value={internalChatMessage}
-                      onChange={(e) => setInternalChatMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendInternalChatMessage();
-                        }
-                      }}
-                      className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                    />
-                    <Smile className="h-5 w-5 shrink-0 text-muted-foreground" />
+                <div className="flex items-end gap-3">
+                  <div className="flex-1">
+                    <div className="relative rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-400/20">
+                      <input
+                        type="text"
+                        placeholder="Message..."
+                        value={internalChatMessage}
+                        onChange={(e) => setInternalChatMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendInternalChatMessage();
+                          }
+                        }}
+                        className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Smile className="h-5 w-5 text-slate-400 hover:text-slate-600 cursor-pointer" />
+                      </div>
+                    </div>
                   </div>
                   <Button
                     onClick={handleSendInternalChatMessage}
                     disabled={sending || !internalChatMessage.trim()}
-                    className="shrink-0 gap-1.5 rounded-full px-4"
+                    size="sm"
+                    className="shrink-0 h-11 w-11 rounded-full bg-blue-500 hover:bg-blue-600 p-0"
                   >
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    Send
                   </Button>
                 </div>
               ) : null}
             </div>
-          </>
+          </div>
         )}
       </div>
 
