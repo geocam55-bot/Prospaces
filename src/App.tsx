@@ -667,7 +667,7 @@ const router = createBrowserRouter([
 
 import logoAsset from "figma:asset/09aa6b9a364cd19b8e73e23401db6a6a0b182a0e.png";
 
-import { registerServiceWorker } from './utils/pwa';
+import { registerServiceWorker, unregisterServiceWorker } from './utils/pwa';
 
 // Default export: RouterProvider wrapper (required by Figma Make diagnostic)
 export default function App() {
@@ -687,10 +687,17 @@ export default function App() {
     appleLink.href = logoAsset;
     document.head.appendChild(appleLink);
 
-    // Register service worker to enable iOS push notifications and offline features
-    registerServiceWorker().catch(() => {
-      // Intentionally swallow errors as per zero-console rules
-    });
+    if (import.meta.env.DEV) {
+      // Prevent stale service worker caching during local development.
+      unregisterServiceWorker().catch(() => {
+        // Ignore failures in development.
+      });
+    } else {
+      // Register service worker to enable PWA features in production.
+      registerServiceWorker().catch(() => {
+        // Intentionally swallow errors as per zero-console rules
+      });
+    }
   }, []);
 
   return <RouterProvider router={router} />;

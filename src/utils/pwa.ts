@@ -31,7 +31,10 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   try {
     const registration = await navigator.serviceWorker.register('/service-worker.js', {
       scope: '/',
+      updateViaCache: 'none',
     });
+
+    await registration.update();
 
     // Service Worker registered
 
@@ -52,7 +55,10 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
           // Notify user about update
           if (confirm('A new version of ProSpaces CRM is available. Reload to update?')) {
             newWorker.postMessage({ type: 'SKIP_WAITING' });
-            window.location.reload();
+            const reloadOnce = () => {
+              window.location.reload();
+            };
+            navigator.serviceWorker.addEventListener('controllerchange', reloadOnce, { once: true });
           }
         }
       });

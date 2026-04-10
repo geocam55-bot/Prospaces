@@ -17,8 +17,10 @@ import {
   Loader2,
   CheckCircle2,
   Mail,
+  Paperclip,
+  X,
 } from 'lucide-react';
-import { sendPortalMessage, markMessageRead } from '../../utils/portal-client';
+import { sendPortalMessage, markMessageRead, uploadPortalAttachment } from '../../utils/portal-client';
 import { toast } from 'sonner';
 
 interface PortalMessagesProps {
@@ -31,6 +33,7 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
   const [selectedMessage, setSelectedMessage] = useState<any | null>(null);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [attachments, setAttachments] = useState<any[]>([]);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
@@ -59,7 +62,7 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
   };
 
   const handleSend = async () => {
-    if (!body.trim()) {
+    if (!body.trim() && attachments.length === 0) {
       toast.error('Please enter a message');
       return;
     }
@@ -72,7 +75,7 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
     setSending(true);
     try {
       if (selectedMessage) {
-        await sendPortalMessage(selectedMessage.subject || 'Portal Chat', body.trim(), selectedMessage.id);
+        await sendPortalMessage(selectedMessage.subject || 'Portal Chat', body.trim(), selectedMessage.id, undefined, attachments);
         toast.success('Reply sent');
         setSelectedMessage({
           ...selectedMessage,
@@ -83,21 +86,39 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
               from: 'customer',
               senderName: 'You',
               body: body.trim(),
+              attachments,
               createdAt: new Date().toISOString(),
             },
           ],
         });
       } else {
-        await sendPortalMessage(subject.trim(), body.trim());
+        await sendPortalMessage(subject.trim(), body.trim(), undefined, undefined, attachments);
         toast.success('Message sent!');
         setSubject('');
         setShowNewMessage(false);
       }
 
       setBody('');
+      setAttachments([]);
       onRefresh();
     } catch (err: any) {
       toast.error(err.message || 'Failed to send message');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleAttachmentPick = async (file: File | null, contactId?: string) => {
+    if (!file) return;
+    try {
+      setSending(true);
+      const result = await uploadPortalAttachment(file, { contactId });
+      if (result?.attachment) {
+        setAttachments((prev) => [...prev, result.attachment]);
+        toast.success('Attachment added');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to upload attachment');
     } finally {
       setSending(false);
     }
@@ -118,7 +139,13 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
 
   if (selectedMessage) {
     const allPosts = [
-      { from: selectedMessage.from, body: selectedMessage.body, createdAt: selectedMessage.createdAt, senderEmail: selectedMessage.senderEmail },
+      {
+        from: selectedMessage.from,
+        body: selectedMessage.body,
+        createdAt: selectedMessage.createdAt,
+        senderEmail: selectedMessage.senderEmail,
+        attachments: selectedMessage.attachments || [],
+      },
       ...(selectedMessage.replies || []),
     ];
 
@@ -159,6 +186,22 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
                       <p className="mb-1 text-[11px] font-semibold text-slate-500">{post.senderName}</p>
                     )}
                     <p className="whitespace-pre-wrap text-sm leading-5">{post.body}</p>
+                    {!!post.attachments?.length && (
+                      <div className="mt-2 space-y-1">
+                        {post.attachments.map((attachment: any, index: number) => (
+                          <a
+                            key={`${attachment.filePath || attachment.name}-${index}`}
+                            href={attachment.url || '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs ${post.from === 'customer' ? 'border-blue-300 text-blue-100 hover:bg-blue-500/20' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                          >
+                            <Paperclip className="h-3.5 w-3.5" />
+                            <span className="truncate">{attachment.fileName || attachment.name || 'Attachment'}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
                     <p className={`mt-1 text-[11px] ${post.from === 'customer' ? 'text-blue-100' : 'text-slate-500'}`}>
                       {formatDate(post.createdAt)}
                     </p>
@@ -180,8 +223,37 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
                   className="min-h-[88px] border-0 bg-transparent shadow-none focus-visible:ring-0"
                   placeholder="Type your reply..."
                 />
+                {attachments.length > 0 && (
+                  <div className="mb-2 flex flex-wrap gap-2 px-2">
+                    {attachments.map((attachment: any, idx: number) => (
+                      <span key={`${attachment.filePath || attachment.name}-${idx}`} className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-1 text-xs text-slate-600">
+                        <Paperclip className="h-3 w-3" />
+                        <span className="max-w-[180px] truncate">{attachment.fileName || attachment.name || 'Attachment'}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAttachments((prev) => prev.filter((_: any, i: number) => i !== idx))}
+                          className="text-slate-400 hover:text-slate-700"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="mt-2 flex justify-end">
-                  <Button onClick={handleSend} disabled={sending || !body.trim()} className="gap-2 rounded-full px-4">
+                  <label className="mr-2 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border bg-background text-slate-600 hover:bg-muted">
+                    <Paperclip className="h-4 w-4" />
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        void handleAttachmentPick(file, selectedMessage.contactId);
+                        e.currentTarget.value = '';
+                      }}
+                    />
+                  </label>
+                  <Button onClick={handleSend} disabled={sending || (!body.trim() && attachments.length === 0)} className="gap-2 rounded-full px-4">
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     Send Reply
                   </Button>
@@ -308,7 +380,37 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
                 rows={5}
               />
             </div>
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {attachments.map((attachment: any, idx: number) => (
+                  <span key={`${attachment.filePath || attachment.name}-${idx}`} className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs text-slate-600">
+                    <Paperclip className="h-3 w-3" />
+                    <span className="max-w-[180px] truncate">{attachment.fileName || attachment.name || 'Attachment'}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAttachments((prev) => prev.filter((_: any, i: number) => i !== idx))}
+                      className="text-slate-400 hover:text-slate-700"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="flex gap-3 justify-end">
+              <label className="inline-flex cursor-pointer items-center gap-1 rounded-full border px-3 py-2 text-xs text-slate-600 hover:bg-muted">
+                <Paperclip className="h-3.5 w-3.5" />
+                Attach
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    void handleAttachmentPick(file);
+                    e.currentTarget.value = '';
+                  }}
+                />
+              </label>
               <Button variant="outline" onClick={() => setShowNewMessage(false)}>
                 Cancel
               </Button>

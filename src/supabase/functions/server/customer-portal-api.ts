@@ -43,6 +43,77 @@ function generateInviteCode(): string {
   return hexEncode(bytes.buffer).toUpperCase();
 }
 
+const ATTACHMENT_BUCKET = 'documents';
+
+function sanitizeFileName(name: string): string {
+  return (name || 'attachment').replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+function normalizeIncomingAttachments(input: any): any[] {
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .map((attachment: any) => ({
+      id: attachment?.id || crypto.randomUUID(),
+      name: attachment?.name || attachment?.fileName || 'Attachment',
+      fileName: attachment?.fileName || attachment?.name || 'Attachment',
+      filePath: attachment?.filePath,
+      contentType: attachment?.contentType || attachment?.type || '',
+      size: attachment?.size || 0,
+      uploadedAt: attachment?.uploadedAt || new Date().toISOString(),
+    }))
+    .filter((attachment: any) => !!attachment.filePath);
+}
+
+async function signAttachments(supabase: any, attachments: any[]): Promise<any[]> {
+  if (!attachments?.length) return [];
+
+  const signed = await Promise.all(attachments.map(async (attachment: any) => {
+    try {
+      const { data } = await supabase.storage
+        .from(ATTACHMENT_BUCKET)
+        .createSignedUrl(attachment.filePath, 60 * 60 * 24 * 7);
+
+      return {
+        ...attachment,
+        url: data?.signedUrl || null,
+      };
+    } catch {
+      return {
+        ...attachment,
+        url: null,
+      };
+    }
+  }));
+
+  return signed;
+}
+
+async function hydrateMessageAttachments(supabase: any, message: any): Promise<any> {
+  if (!message) return message;
+
+  const hydrated = {
+    ...message,
+    attachments: await signAttachments(supabase, message.attachments || []),
+  };
+
+  if (Array.isArray(hydrated.replies)) {
+    hydrated.replies = await Promise.all(hydrated.replies.map(async (reply: any) => ({
+      ...reply,
+      attachments: await signAttachments(supabase, reply.attachments || []),
+    })));
+  }
+
+  if (Array.isArray(hydrated.internalNotes)) {
+    hydrated.internalNotes = await Promise.all(hydrated.internalNotes.map(async (note: any) => ({
+      ...note,
+      attachments: await signAttachments(supabase, note.attachments || []),
+    })));
+  }
+
+  return hydrated;
+}
+
 export function customerPortalAPI(app: Hono) {
   const PREFIX = '/make-server-8405be07/portal';
 
@@ -399,6 +470,87 @@ export function customerPortalAPI(app: Hono) {
     return session;
   }
 
+  // ── POST /portal/attachments — Upload attachment for portal/customer conversations ──
+  app.post(`${PREFIX}/attachments`, async (c) => {
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const formData = await c.req.formData();
+      const file = formData.get('file');
+      const requestedContactId = (formData.get('contactId') || '').toString() || null;
+
+      if (!(file instanceof File)) {
+        return c.json({ error: 'file is required' }, 400);
+      }
+
+      if (file.size > 15 * 1024 * 1024) {
+        return c.json({ error: 'File too large. Maximum size is 15MB.' }, 400);
+      }
+
+      let orgId: string | null = null;
+      let contactId: string | null = requestedContactId;
+
+      const accessToken = extractUserToken(c);
+      if (accessToken) {
+        const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+        if (authError || !user) return c.json({ error: 'Unauthorized' }, 401);
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id')
+          .eq('id', user.id)
+          .single();
+
+        if (!profile?.organization_id) return c.json({ error: 'Profile not found' }, 404);
+        orgId = profile.organization_id;
+      } else {
+        const session = await validateSession(c);
+        if (!session) return c.json({ error: 'Unauthorized' }, 401);
+        orgId = session.orgId;
+        contactId = session.contactId;
+      }
+
+      const now = Date.now();
+      const safeName = sanitizeFileName(file.name || 'attachment');
+      const targetContact = contactId || 'general';
+      const filePath = `portal-messages/${orgId}/${targetContact}/${now}_${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(ATTACHMENT_BUCKET)
+        .upload(filePath, file, {
+          upsert: false,
+          contentType: file.type || 'application/octet-stream',
+        });
+
+      if (uploadError) {
+        return c.json({ error: 'Failed to upload attachment: ' + uploadError.message }, 500);
+      }
+
+      const { data: signed } = await supabase.storage
+        .from(ATTACHMENT_BUCKET)
+        .createSignedUrl(filePath, 60 * 60 * 24 * 7);
+
+      return c.json({
+        success: true,
+        attachment: {
+          id: crypto.randomUUID(),
+          name: file.name || safeName,
+          fileName: file.name || safeName,
+          filePath,
+          contentType: file.type || 'application/octet-stream',
+          size: file.size || 0,
+          uploadedAt: new Date().toISOString(),
+          url: signed?.signedUrl || null,
+        },
+      });
+    } catch (err: any) {
+      return c.json({ error: 'Failed to upload attachment: ' + err.message }, 500);
+    }
+  });
+
   // ── GET /portal/dashboard — Customer dashboard data ──
   app.get(`${PREFIX}/dashboard`, async (c) => {
     try {
@@ -579,6 +731,11 @@ export function customerPortalAPI(app: Hono) {
       const session = await validateSession(c);
       if (!session) return c.json({ error: 'Unauthorized' }, 401);
 
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
       const messages = await kv.getByPrefix(`portal_message:${session.orgId}:${session.contactId}:`);
 
       // Sort by last activity, newest first
@@ -595,7 +752,9 @@ export function customerPortalAPI(app: Hono) {
         internalNotes: undefined,
       }));
 
-      return c.json({ messages: publicMessages });
+      const signedMessages = await Promise.all(publicMessages.map((msg: any) => hydrateMessageAttachments(supabase, msg)));
+
+      return c.json({ messages: signedMessages });
     } catch (err: any) {
       console.error('[portal] Messages error:', err);
       return c.json({ error: 'Failed to load messages: ' + err.message }, 500);
@@ -609,10 +768,12 @@ export function customerPortalAPI(app: Hono) {
       if (!session) return c.json({ error: 'Unauthorized' }, 401);
 
       const body = await c.req.json();
-      const { subject, message, messageId, contextType, contextLabel } = body;
+      const { subject, message, messageId, contextType, contextLabel, attachments } = body;
 
-      if (!message) {
-        return c.json({ error: 'Message is required' }, 400);
+      const normalizedAttachments = normalizeIncomingAttachments(attachments);
+      const hasText = !!(message && String(message).trim().length > 0);
+      if (!hasText && normalizedAttachments.length === 0) {
+        return c.json({ error: 'Message text or attachment is required' }, 400);
       }
 
       const now = new Date().toISOString();
@@ -630,6 +791,7 @@ export function customerPortalAPI(app: Hono) {
           from: 'customer',
           senderName: session.email,
           body: message,
+          attachments: normalizedAttachments,
           createdAt: now,
         });
         existing.read = false;
@@ -657,9 +819,10 @@ export function customerPortalAPI(app: Hono) {
         from: 'customer',
         senderEmail: session.email,
         subject,
-        body: message,
+        body: message || '',
         contextType: contextType || null,
         contextLabel: contextLabel || null,
+        attachments: normalizedAttachments,
         status: 'open',
         createdAt: now,
         updatedAt: now,
@@ -1014,16 +1177,18 @@ export function customerPortalAPI(app: Hono) {
         contactEmail: contactMap[msg.contactId]?.email || msg.senderEmail || '',
       }));
 
+      const signedMessages = await Promise.all(enrichedMessages.map((msg: any) => hydrateMessageAttachments(supabase, msg)));
+
       // Sort newest first
-      enrichedMessages.sort((a: any, b: any) => {
+      signedMessages.sort((a: any, b: any) => {
         const aLatest = a.replies?.length > 0 ? a.replies[a.replies.length - 1].createdAt : a.createdAt;
         const bLatest = b.replies?.length > 0 ? b.replies[b.replies.length - 1].createdAt : b.createdAt;
         return new Date(bLatest).getTime() - new Date(aLatest).getTime();
       });
 
-      console.log(`[portal] CRM messages loaded for org ${orgId}: ${enrichedMessages.length} messages`);
+      console.log(`[portal] CRM messages loaded for org ${orgId}: ${signedMessages.length} messages`);
 
-      return c.json({ messages: enrichedMessages });
+      return c.json({ messages: signedMessages });
     } catch (err: any) {
       console.error('[portal] CRM messages error:', err);
       return c.json({ error: 'Failed to load portal messages: ' + err.message }, 500);
@@ -1053,10 +1218,13 @@ export function customerPortalAPI(app: Hono) {
       if (!profile) return c.json({ error: 'Profile not found' }, 404);
 
       const body = await c.req.json();
-      const { messageId, contactId, reply } = body;
+      const { messageId, contactId, reply, attachments } = body;
 
-      if (!messageId || !contactId || !reply) {
-        return c.json({ error: 'messageId, contactId, and reply are required' }, 400);
+      const normalizedAttachments = normalizeIncomingAttachments(attachments);
+      const hasReplyText = !!(reply && String(reply).trim().length > 0);
+
+      if (!messageId || !contactId || (!hasReplyText && normalizedAttachments.length === 0)) {
+        return c.json({ error: 'messageId, contactId, and a reply text or attachment are required' }, 400);
       }
 
       const orgId = profile.organization_id;
@@ -1071,7 +1239,8 @@ export function customerPortalAPI(app: Hono) {
       msg.replies.push({
         from: 'team',
         senderName: profile.name || profile.email,
-        body: reply,
+        body: reply || '',
+        attachments: normalizedAttachments,
         createdAt: new Date().toISOString(),
       });
       msg.read = true;           // CRM side: mark as read (team has seen it)

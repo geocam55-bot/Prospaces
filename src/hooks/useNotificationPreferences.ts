@@ -35,9 +35,10 @@ export function useNotificationPreferences(user: User) {
           .from('user_preferences')
           .select('notifications_email, notifications_push, notifications_task_assignments, notifications_appointments, notifications_bids')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error) {
+          setPreferences(DEFAULT_PREFERENCES);
         } else if (data) {
           setPreferences({
             email: data.notifications_email ?? true,
@@ -46,6 +47,8 @@ export function useNotificationPreferences(user: User) {
             appointments: data.notifications_appointments ?? true,
             bids: data.notifications_bids ?? true,
           });
+        } else {
+          setPreferences(DEFAULT_PREFERENCES);
         }
       } catch (err) {
         setPreferences(DEFAULT_PREFERENCES);
