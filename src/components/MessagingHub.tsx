@@ -312,6 +312,26 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
   const getTargetKey = (target: any) => `${target.kind}:${target.id || target.email || target.name}`;
 
+  const getDirectStaffContextLabel = (targetUserId: string) => {
+    return `direct:staff:${[user.id, targetUserId].sort().join('|')}`;
+  };
+
+  const getInternalChatTitle = (chat: any) => {
+    if (!chat) return 'Chat';
+    const isDirectChat = (chat.chatType === 'direct') || (chat.contextType || '').startsWith('direct');
+    if (!isDirectChat) return chat.title || 'Team chat';
+
+    const participants = Array.isArray(chat.participants) ? chat.participants : [];
+    const counterpart = participants.find((participant: any) => {
+      if (!participant) return false;
+      if (participant.id && participant.id !== user.id) return true;
+      if (participant.email && user.email && participant.email !== user.email) return true;
+      return false;
+    });
+
+    return counterpart?.name || counterpart?.email || chat.title || 'Direct message';
+  };
+
   const handleSendReply = async () => {
     if (!selectedMessage || (!replyText.trim() && replyAttachments.length === 0)) return;
     setSending(true);
@@ -513,10 +533,24 @@ export function MessagingHub({ user }: MessagingHubProps) {
     }
 
     const targetKey = getTargetKey(target);
+    const expectedDirectStaffLabel = target.kind === 'staff' && target.id
+      ? getDirectStaffContextLabel(target.id)
+      : null;
     const existingChat = internalChats.find((chat: any) => {
+      const participants = Array.isArray(chat.participants) ? chat.participants : [];
+      const hasBothParticipants = target.id
+        ? participants.some((participant: any) => participant?.id === user.id)
+          && participants.some((participant: any) => participant?.id === target.id)
+        : false;
+
       return (
         (chat.contextType || '').startsWith('direct')
-        && (chat.contextLabel === targetKey || chat.title === target.name)
+        && (
+          chat.contextLabel === targetKey
+          || (expectedDirectStaffLabel ? chat.contextLabel === expectedDirectStaffLabel : false)
+          || hasBothParticipants
+          || chat.title === target.name
+        )
       );
     });
 
@@ -547,9 +581,12 @@ export function MessagingHub({ user }: MessagingHubProps) {
       id: tempChatId,
       title: target.name,
       contextType: `direct-${target.kind}`,
-      contextLabel: getTargetKey(target),
+      contextLabel: target.kind === 'staff' && target.id ? getDirectStaffContextLabel(target.id) : getTargetKey(target),
       chatType: 'direct',
-      participants: [{ id: target.id, name: target.name, email: target.email, kind: target.kind }],
+      participants: [
+        { id: user.id, name: (user as any).name || (user as any).email || 'You', email: (user as any).email || '', kind: 'staff' },
+        { id: target.id, name: target.name, email: target.email, kind: target.kind },
+      ],
       createdAt: nowIso,
       updatedAt: nowIso,
       messages: [{
@@ -575,9 +612,12 @@ export function MessagingHub({ user }: MessagingHubProps) {
         {
           title: target.name,
           contextType: `direct-${target.kind}`,
-          contextLabel: getTargetKey(target),
+          contextLabel: target.kind === 'staff' && target.id ? getDirectStaffContextLabel(target.id) : getTargetKey(target),
           chatType: 'direct',
-          participants: [{ id: target.id, name: target.name, email: target.email, kind: target.kind }],
+          participants: [
+            { id: user.id, name: (user as any).name || (user as any).email || 'You', email: (user as any).email || '', kind: 'staff' },
+            { id: target.id, name: target.name, email: target.email, kind: target.kind },
+          ],
           initialMessage: firstMessage,
         },
         accessToken
@@ -792,11 +832,12 @@ export function MessagingHub({ user }: MessagingHubProps) {
       const lastMessage = chat.messages?.length ? chat.messages[chat.messages.length - 1] : null;
       const isGroupChat = chat.chatType === 'group' || chat.contextType === 'group';
       const isDirectChat = (chat.chatType === 'direct') || (chat.contextType || '').startsWith('direct');
+      const derivedTitle = getInternalChatTitle(chat);
 
       return {
         kind: 'internal' as const,
         id: chat.id,
-        title: chat.title,
+        title: derivedTitle,
         subtitle: isGroupChat ? 'Saved group' : isDirectChat ? 'Direct message' : 'Team chat',
         preview: lastMessage?.body || chat.contextLabel || 'No messages yet',
         updatedAt: chat.updatedAt || chat.createdAt,
@@ -1164,7 +1205,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                   <p className="truncate text-base font-semibold text-slate-900">
                     {effectiveSelectedConversationType === 'customer' && selectedMessage
                       ? selectedMessage.contactName || selectedMessage.contactEmail || 'Customer'
-                      : selectedChat?.title || ''}
+                      : getInternalChatTitle(selectedChat) || ''}
                   </p>
                   {effectiveSelectedConversationType === 'customer' && selectedCustomerSla?.waitingForTeam && (
                     <Badge
@@ -1285,7 +1326,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                       variant="outline"
                       size="sm"
                       className="mt-3 rounded-full"
-                      onClick={() => setInternalChatMessage(`Hi ${selectedChat.title}, `)}
+                      onClick={() => setInternalChatMessage(`Hi ${getInternalChatTitle(selectedChat)}, `)}
                     >
                       Write a quick hello
                     </Button>
