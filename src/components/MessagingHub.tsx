@@ -495,6 +495,23 @@ export function MessagingHub({ user }: MessagingHubProps) {
   };
 
   const handleStartDirectChat = (target: any) => {
+    if (target.kind === 'portal') {
+      const existingCustomerConversation = messages.find((message: any) => (
+        (target.id && message.contactId && message.contactId === target.id)
+        || (target.email && (message.contactEmail === target.email || message.senderEmail === target.email))
+      ));
+
+      if (existingCustomerConversation?.id) {
+        setSelectedMessageId(existingCustomerConversation.id);
+        setSelectedConversationType('customer');
+        setPendingDirectTarget(null);
+        toast.info('Opened customer conversation. Use this thread to message portal users.');
+      } else {
+        toast.error('Portal users receive messages through customer conversations. Ask them to message first or invite portal access.');
+      }
+      return;
+    }
+
     const targetKey = getTargetKey(target);
     const existingChat = internalChats.find((chat: any) => {
       return (
@@ -588,6 +605,12 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
   const handleSendInternalChatMessage = async () => {
     if (!selectedChat || !internalChatMessage.trim()) return;
+
+    if ((selectedChat.contextType || '').startsWith('direct-portal')) {
+      toast.error('Portal users do not receive internal chats. Use the customer conversation thread instead.');
+      return;
+    }
+
     const messageText = internalChatMessage.trim();
     const tempMessageId = `temp-msg-${Date.now()}`;
     const nowIso = new Date().toISOString();
@@ -713,24 +736,17 @@ export function MessagingHub({ user }: MessagingHubProps) {
         online: isRecentlyActive(staff.last_login || staff.lastLogin, 30),
       }));
 
-    const portalTargets = activePortalUsers.map((portalUser: any) => ({
-      id: portalUser.contactId || portalUser.email,
-      name: portalUser.name || portalUser.email || 'Portal User',
-      email: portalUser.email || '',
-      subtitle: portalUser.company || 'Customer Portal',
-      kind: 'portal' as const,
-      avatar_url: '',
-      online: portalUser.online || isRecentlyActive(portalUser.lastActiveAt || portalUser.lastLogin, 30),
-    }));
-
-    const allTargets = [...staffTargets, ...portalTargets];
+    const allTargets = [...staffTargets];
     const query = chatSearch.trim().toLowerCase();
 
     return allTargets.filter((target) => {
       if (!query) return true;
       return `${target.name} ${target.email} ${target.subtitle}`.toLowerCase().includes(query);
+    }).sort((a, b) => {
+      if (a.online !== b.online) return a.online ? -1 : 1;
+      return a.name.localeCompare(b.name);
     });
-  }, [staffUsers, activePortalUsers, chatSearch, user.id]);
+  }, [staffUsers, chatSearch, user.id]);
 
   const filteredInternalChats = useMemo(() => {
     const query = chatSearch.trim().toLowerCase();
@@ -851,7 +867,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
             <Input
               value={chatSearch}
               onChange={(e) => setChatSearch(e.target.value)}
-              placeholder="Search messages..."
+              placeholder="Search chats or people..."
               className="rounded-full border-2 border-slate-200 bg-white pl-11 py-2 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-200"
             />
           </div>
@@ -950,8 +966,12 @@ export function MessagingHub({ user }: MessagingHubProps) {
           {/* People section */}
           {chatTargets.length > 0 && !showOnlySlaAlerts && (
             <>
-              <div className="px-4 pb-1 pt-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">People</p>
+              <div className="px-4 pb-2 pt-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">People</p>
+                  <p className="text-[11px] text-slate-500">{chatTargets.length} available</p>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-500">Tap a person to start a direct message.</p>
               </div>
               {chatTargets.map((target) => (
                 <button
@@ -960,7 +980,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                     handleStartDirectChat(target);
                     setMobileView('chat');
                   }}
-                  className="mx-2 flex w-full items-center gap-2 rounded-lg border-2 border-blue-300 bg-gradient-to-r from-blue-50 to-purple-50 px-3 py-2 text-left transition-all hover:border-blue-500 hover:from-blue-100 hover:to-purple-100 hover:shadow-md"
+                  className="mx-2 mb-1 flex w-full items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left transition-all hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-sm"
                 >
                   <div className="relative shrink-0">
                     <Avatar className="h-9 w-9">
@@ -972,12 +992,27 @@ export function MessagingHub({ user }: MessagingHubProps) {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-slate-900">{target.name}</p>
-                    <p className="truncate text-xs text-slate-600">Tap to message</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-semibold text-slate-900">{target.name}</p>
+                      <Badge variant="outline" className="h-5 rounded-full px-1.5 text-[10px]">
+                        {target.kind === 'staff' ? 'Team' : 'Portal'}
+                      </Badge>
+                    </div>
+                    <p className="truncate text-xs text-slate-600">{target.subtitle || (target.online ? 'Online now' : 'Available to chat')}</p>
                   </div>
+                  <p className={`shrink-0 text-[11px] font-medium ${target.online ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {target.online ? 'Online' : 'Offline'}
+                  </p>
                 </button>
               ))}
             </>
+          )}
+
+          {!loading && chatSearch.trim() && visibleUnifiedChats.length === 0 && chatTargets.length === 0 && !showOnlySlaAlerts && (
+            <div className="flex flex-col items-center justify-center gap-2 py-10 px-4 text-center">
+              <Search className="h-7 w-7 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">No chats or people match "{chatSearch.trim()}".</p>
+            </div>
           )}
 
           {/* Empty state */}
@@ -1243,7 +1278,18 @@ export function MessagingHub({ user }: MessagingHubProps) {
                 )
               ) : selectedChat ? (
                 (selectedChat.messages || []).length === 0 ? (
-                  <p className="py-12 text-center text-sm text-muted-foreground">No messages yet. Start the conversation.</p>
+                  <div className="mx-auto my-12 max-w-sm rounded-2xl border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
+                    <p className="text-sm font-semibold text-slate-900">No messages yet</p>
+                    <p className="mt-1 text-sm text-slate-500">Start the conversation with a quick hello.</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 rounded-full"
+                      onClick={() => setInternalChatMessage(`Hi ${selectedChat.title}, `)}
+                    >
+                      Write a quick hello
+                    </Button>
+                  </div>
                 ) : (
                   (selectedChat.messages || []).map((message: any) => {
                     const ownMessage = message.senderId === user.id;
