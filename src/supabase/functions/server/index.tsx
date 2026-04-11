@@ -16,6 +16,7 @@ import { tenantsAPI as tenantsAPIRoutes } from './tenants-api.ts';
 import { debugSubscriptions } from './debug-subscriptions.ts';
 import { backgroundJobs } from './background-jobs.ts';
 import { modelsAPI } from './models-api.ts';
+import { customerPortalAPI } from './customer-portal-api.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -3087,6 +3088,9 @@ app.route('/', apiKeys);
 
 // ── PUBLIC REST API (Enterprise, API-key auth) ──────────────────────────
 app.route('/', publicApi);
+
+// ── CUSTOMER PORTAL API (includes internal staff chats) ─────────────────
+customerPortalAPI(app);
 
 // ── BACKGROUND IMPORT JOBS ──────────────────────────────────────────────
 backgroundJobs(app);
