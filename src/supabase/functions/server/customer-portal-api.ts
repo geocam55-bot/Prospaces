@@ -470,6 +470,83 @@ export function customerPortalAPI(app: Hono) {
     return session;
   }
 
+  function normalizeEmail(email?: string | null): string {
+    return String(email || '').trim().toLowerCase();
+  }
+
+  function internalChatParticipantKey(participant: any): string {
+    if (participant?.id) return `id:${participant.id}`;
+    const email = normalizeEmail(participant?.email);
+    if (email) return `email:${email}`;
+    return `name:${String(participant?.name || 'member').trim().toLowerCase()}`;
+  }
+
+  function ensureCurrentUserParticipant(participants: any[], userId: string, userEmail?: string | null, userName?: string | null): any[] {
+    const normalized = Array.isArray(participants)
+      ? participants
+          .filter((participant: any) => participant && (participant.id || participant.email || participant.name))
+          .map((participant: any) => ({
+            id: participant.id || null,
+            name: participant.name || participant.email || 'Member',
+            email: participant.email || null,
+            kind: participant.kind === 'portal' ? 'portal' : 'staff',
+          }))
+      : [];
+
+    normalized.push({
+      id: userId,
+      name: userName || userEmail || 'You',
+      email: userEmail || null,
+      kind: 'staff',
+    });
+
+    const deduped: any[] = [];
+    const seen = new Set<string>();
+    normalized.forEach((participant: any) => {
+      const key = internalChatParticipantKey(participant);
+      if (seen.has(key)) return;
+      seen.add(key);
+      deduped.push(participant);
+    });
+
+    return deduped;
+  }
+
+  function canAccessInternalChat(chat: any, userId: string, userEmail?: string | null): boolean {
+    if (!chat) return false;
+    if (chat.createdBy === userId) return true;
+
+    const participants = Array.isArray(chat.participants) ? chat.participants : [];
+    const normalizedUserEmail = normalizeEmail(userEmail);
+
+    return participants.some((participant: any) => {
+      if (!participant) return false;
+      if (participant.id && participant.id === userId) return true;
+      if (normalizedUserEmail && normalizeEmail(participant.email) === normalizedUserEmail) return true;
+      return false;
+    });
+  }
+
+  function areSameDirectParticipantSet(a: any[], b: any[]): boolean {
+    const left = new Set((Array.isArray(a) ? a : []).map(internalChatParticipantKey));
+    const right = new Set((Array.isArray(b) ? b : []).map(internalChatParticipantKey));
+
+    if (left.size !== right.size) return false;
+    for (const key of left) {
+      if (!right.has(key)) return false;
+    }
+    return true;
+  }
+
+  async function resolveInternalChatByIdForUser(chatId: string, userId: string, userEmail?: string | null): Promise<{ key: string; chat: any } | null> {
+    const allChats = await kv.getByPrefix('internal_chat:');
+    const found = (allChats || []).find((chat: any) => chat?.id === chatId && canAccessInternalChat(chat, userId, userEmail));
+    if (!found) return null;
+
+    const key = `internal_chat:${found.orgId || 'global'}:${found.id}`;
+    return { key, chat: found };
+  }
+
   // ── POST /portal/attachments — Upload attachment for portal/customer conversations ──
   app.post(`${PREFIX}/attachments`, async (c) => {
     try {
@@ -1381,10 +1458,12 @@ export function customerPortalAPI(app: Hono) {
         .eq('id', user.id)
         .single();
 
-      if (!profile?.organization_id) return c.json({ chats: [] });
+      const allChats = await kv.getByPrefix('internal_chat:');
+      const visibleChats = (allChats || []).filter((chat: any) =>
+        canAccessInternalChat(chat, user.id, profile.email)
+      );
 
-      const chats = await kv.getByPrefix(`internal_chat:${profile.organization_id}:`);
-      const sorted = (chats || []).sort((a: any, b: any) =>
+      const sorted = visibleChats.sort((a: any, b: any) =>
         new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
       );
 
@@ -1414,8 +1493,6 @@ export function customerPortalAPI(app: Hono) {
         .eq('id', user.id)
         .single();
 
-      if (!profile?.organization_id) return c.json({ error: 'No organization found' }, 400);
-
       const body = await c.req.json();
       const { title, contextType, contextLabel, initialMessage, chatType, participants } = body;
 
@@ -1423,23 +1500,52 @@ export function customerPortalAPI(app: Hono) {
         return c.json({ error: 'title is required' }, 400);
       }
 
-      const normalizedParticipants = Array.isArray(participants)
-        ? participants.map((participant: any) => ({
-            id: participant?.id || null,
-            name: participant?.name || participant?.email || 'Member',
-            email: participant?.email || null,
-            kind: participant?.kind === 'portal' ? 'portal' : 'staff',
-          }))
-        : [];
+      const normalizedParticipants = ensureCurrentUserParticipant(
+        participants,
+        user.id,
+        profile.email,
+        profile.name,
+      );
+
+      const effectiveContextType = contextType || 'general';
+      const effectiveChatType = chatType || (normalizedParticipants.length > 2 ? 'group' : normalizedParticipants.length >= 2 ? 'direct' : 'general');
+      const orgIdForStorage = profile.organization_id || 'global';
+
+      if (effectiveChatType === 'direct' || effectiveContextType.startsWith('direct')) {
+        const existingChats = await kv.getByPrefix('internal_chat:');
+        const existingDirect = (existingChats || []).find((chat: any) => {
+          if (!chat) return false;
+          const chatIsDirect = chat.chatType === 'direct' || String(chat.contextType || '').startsWith('direct');
+          if (!chatIsDirect) return false;
+          return areSameDirectParticipantSet(chat.participants || [], normalizedParticipants);
+        });
+
+        if (existingDirect) {
+          if (initialMessage && String(initialMessage).trim().length > 0) {
+            if (!existingDirect.messages) existingDirect.messages = [];
+            existingDirect.messages.push({
+              id: crypto.randomUUID(),
+              senderId: user.id,
+              senderName: profile.name || profile.email,
+              body: String(initialMessage).trim(),
+              createdAt: new Date().toISOString(),
+            });
+            existingDirect.updatedAt = new Date().toISOString();
+            await kv.set(`internal_chat:${existingDirect.orgId || 'global'}:${existingDirect.id}`, existingDirect);
+          }
+
+          return c.json({ success: true, chat: existingDirect });
+        }
+      }
 
       const now = new Date().toISOString();
       const chatId = crypto.randomUUID();
       const chat = {
         id: chatId,
-        orgId: profile.organization_id,
+        orgId: orgIdForStorage,
         title,
-        chatType: chatType || (normalizedParticipants.length > 1 ? 'group' : normalizedParticipants.length === 1 ? 'direct' : 'general'),
-        contextType: contextType || 'general',
+        chatType: effectiveChatType,
+        contextType: effectiveContextType,
         contextLabel: contextLabel || '',
         participants: normalizedParticipants,
         status: 'open',
@@ -1458,7 +1564,7 @@ export function customerPortalAPI(app: Hono) {
           : [],
       };
 
-      await kv.set(`internal_chat:${profile.organization_id}:${chatId}`, chat);
+      await kv.set(`internal_chat:${orgIdForStorage}:${chatId}`, chat);
       return c.json({ success: true, chat });
     } catch (err: any) {
       return c.json({ error: 'Failed to create internal chat: ' + err.message }, 500);
@@ -1485,8 +1591,6 @@ export function customerPortalAPI(app: Hono) {
         .eq('id', user.id)
         .single();
 
-      if (!profile?.organization_id) return c.json({ error: 'No organization found' }, 400);
-
       const chatId = c.req.param('id');
       const body = await c.req.json();
       const { message } = body;
@@ -1495,11 +1599,12 @@ export function customerPortalAPI(app: Hono) {
         return c.json({ error: 'message is required' }, 400);
       }
 
-      const key = `internal_chat:${profile.organization_id}:${chatId}`;
-      const chat = await kv.get(key);
-      if (!chat) {
+      const resolvedChat = await resolveInternalChatByIdForUser(chatId, user.id, profile.email);
+      if (!resolvedChat?.chat) {
         return c.json({ error: 'Chat not found' }, 404);
       }
+
+      const { key, chat } = resolvedChat;
 
       if (!chat.messages) chat.messages = [];
       chat.messages.push({
