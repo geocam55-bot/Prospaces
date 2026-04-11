@@ -1084,7 +1084,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
       </div>
 
       {/* ── RIGHT CHAT AREA ── */}
-      <div className={`min-w-0 flex-1 flex-col bg-gradient-to-br from-slate-100 via-blue-50/50 to-indigo-100/40 md:p-3 ${mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`min-w-0 flex-1 flex-col bg-gradient-to-br from-slate-100 via-blue-50/50 to-indigo-100/40 p-2 sm:p-3 md:p-3 ${mobileView === 'sidebar' ? 'hidden md:flex' : 'flex'}`}>
 
         {/* Pending new DM — person selected but no existing chat */}
         {pendingDirectTarget && !selectedConversation ? (
@@ -1136,7 +1136,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                           handleSendToPendingTarget();
                         }
                       }}
-                      className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                      className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       <Smile className="h-5 w-5 text-slate-400 hover:text-slate-600 cursor-pointer" />
@@ -1363,7 +1363,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
             </div>
 
             {/* Composer */}
-            <div className="shrink-0 border-t border-slate-200/80 bg-gradient-to-t from-white via-slate-50/90 to-blue-50/70 px-4 py-4 shadow-[0_-10px_30px_-20px_rgba(30,58,138,0.45)]">
+            <div className="shrink-0 border-t border-slate-200/80 bg-gradient-to-t from-white via-slate-50/90 to-blue-50/70 px-3 sm:px-4 py-3 sm:py-4 shadow-[0_-10px_30px_-20px_rgba(30,58,138,0.45)]">
               {effectiveSelectedConversationType === 'customer' && selectedMessage ? (
                 <>
                   <div className="flex items-end gap-3">
@@ -1380,7 +1380,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                               handleSendReply();
                             }
                           }}
-                          className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                          className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                         />
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
                           <Smile className="h-5 w-5 text-slate-400 hover:text-slate-600 cursor-pointer" />
@@ -1482,7 +1482,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
                             handleSendInternalChatMessage();
                           }
                         }}
-                        className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                        className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">
                         <Smile className="h-5 w-5 text-slate-400 hover:text-slate-600 cursor-pointer" />
