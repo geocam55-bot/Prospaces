@@ -316,6 +316,37 @@ export function MessagingHub({ user }: MessagingHubProps) {
     return `direct:staff:${[user.id, targetUserId].sort().join('|')}`;
   };
 
+  const isMatchingDirectTarget = (chat: any, target: any) => {
+    const contextType = String(chat?.contextType || '');
+    const contextLabel = String(chat?.contextLabel || '');
+    const participants = Array.isArray(chat?.participants) ? chat.participants : [];
+    const targetKey = getTargetKey(target);
+
+    if (!contextType.startsWith('direct')) return false;
+
+    // Primary match path: canonical direct context labels.
+    if (contextLabel === targetKey) return true;
+
+    // Legacy direct staff chats used a normalized user-pair context label.
+    if (target.kind === 'staff' && target.id) {
+      if (contextLabel === getDirectStaffContextLabel(target.id)) return true;
+    }
+
+    // Fallback: match on participant identity, never on display name.
+    const hasCurrentUser = participants.some((participant: any) => participant?.id === user.id);
+    if (!hasCurrentUser) return false;
+
+    const hasTargetId = target.id
+      ? participants.some((participant: any) => participant?.id === target.id)
+      : false;
+
+    const hasTargetEmail = target.email
+      ? participants.some((participant: any) => participant?.email === target.email)
+      : false;
+
+    return hasTargetId || hasTargetEmail;
+  };
+
   const getInternalChatTitle = (chat: any) => {
     if (!chat) return 'Chat';
     const isDirectChat = (chat.chatType === 'direct') || (chat.contextType || '').startsWith('direct');
@@ -532,27 +563,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
       return;
     }
 
-    const targetKey = getTargetKey(target);
-    const expectedDirectStaffLabel = target.kind === 'staff' && target.id
-      ? getDirectStaffContextLabel(target.id)
-      : null;
-    const existingChat = internalChats.find((chat: any) => {
-      const participants = Array.isArray(chat.participants) ? chat.participants : [];
-      const hasBothParticipants = target.id
-        ? participants.some((participant: any) => participant?.id === user.id)
-          && participants.some((participant: any) => participant?.id === target.id)
-        : false;
-
-      return (
-        (chat.contextType || '').startsWith('direct')
-        && (
-          chat.contextLabel === targetKey
-          || (expectedDirectStaffLabel ? chat.contextLabel === expectedDirectStaffLabel : false)
-          || hasBothParticipants
-          || chat.title === target.name
-        )
-      );
-    });
+    const existingChat = internalChats.find((chat: any) => isMatchingDirectTarget(chat, target));
 
     if (existingChat?.id) {
       setSelectedChatId(existingChat.id);
