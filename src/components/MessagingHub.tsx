@@ -495,6 +495,23 @@ export function MessagingHub({ user }: MessagingHubProps) {
   };
 
   const handleStartDirectChat = (target: any) => {
+    if (target.kind === 'portal') {
+      const existingCustomerConversation = messages.find((message: any) => (
+        (target.id && message.contactId && message.contactId === target.id)
+        || (target.email && (message.contactEmail === target.email || message.senderEmail === target.email))
+      ));
+
+      if (existingCustomerConversation?.id) {
+        setSelectedMessageId(existingCustomerConversation.id);
+        setSelectedConversationType('customer');
+        setPendingDirectTarget(null);
+        toast.info('Opened customer conversation. Use this thread to message portal users.');
+      } else {
+        toast.error('Portal users receive messages through customer conversations. Ask them to message first or invite portal access.');
+      }
+      return;
+    }
+
     const targetKey = getTargetKey(target);
     const existingChat = internalChats.find((chat: any) => {
       return (
@@ -588,6 +605,12 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
   const handleSendInternalChatMessage = async () => {
     if (!selectedChat || !internalChatMessage.trim()) return;
+
+    if ((selectedChat.contextType || '').startsWith('direct-portal')) {
+      toast.error('Portal users do not receive internal chats. Use the customer conversation thread instead.');
+      return;
+    }
+
     const messageText = internalChatMessage.trim();
     const tempMessageId = `temp-msg-${Date.now()}`;
     const nowIso = new Date().toISOString();
@@ -713,17 +736,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
         online: isRecentlyActive(staff.last_login || staff.lastLogin, 30),
       }));
 
-    const portalTargets = activePortalUsers.map((portalUser: any) => ({
-      id: portalUser.contactId || portalUser.email,
-      name: portalUser.name || portalUser.email || 'Portal User',
-      email: portalUser.email || '',
-      subtitle: portalUser.company || 'Customer Portal',
-      kind: 'portal' as const,
-      avatar_url: '',
-      online: portalUser.online || isRecentlyActive(portalUser.lastActiveAt || portalUser.lastLogin, 30),
-    }));
-
-    const allTargets = [...staffTargets, ...portalTargets];
+    const allTargets = [...staffTargets];
     const query = chatSearch.trim().toLowerCase();
 
     return allTargets.filter((target) => {
@@ -733,7 +746,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
       if (a.online !== b.online) return a.online ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-  }, [staffUsers, activePortalUsers, chatSearch, user.id]);
+  }, [staffUsers, chatSearch, user.id]);
 
   const filteredInternalChats = useMemo(() => {
     const query = chatSearch.trim().toLowerCase();
