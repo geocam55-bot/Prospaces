@@ -170,9 +170,11 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
       avatar_url: user.user_metadata?.avatar_url,
     };
 
-    // Check permissions
-    if (currentUserRole !== 'super_admin' && currentUserRole !== 'admin' && currentUserRole !== 'director' && currentUserRole !== 'manager') {
-      // Insufficient permissions — returning current user only
+    // Standard users can still view teammates in their own organization for
+    // collaboration features like messaging. Mutating actions stay protected
+    // in their own endpoints/permission checks.
+    if (currentUserRole !== 'super_admin' && !currentUserOrgId) {
+      // Missing org context for non-super-admin users — safest fallback
       return { users: [currentUserData] };
     }
 

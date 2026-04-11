@@ -40,10 +40,9 @@ export function profilesAPI(app: Hono) {
 
       console.log(`[profiles-api] User ${user.email}, role=${effectiveRole}, org=${orgId}`);
 
-      // Permission check — only admin, manager, director, super_admin can list users
-      const allowedRoles = ['super_admin', 'admin', 'manager', 'director'];
-      if (!allowedRoles.includes(effectiveRole)) {
-        // Return only the caller's own profile
+      // Any authenticated user can view people in their own organization for
+      // collaboration features. Cross-org listing remains restricted.
+      if (effectiveRole !== 'super_admin' && !orgId) {
         const { data: ownProfile } = await supabase
           .from('profiles')
           .select('*')
