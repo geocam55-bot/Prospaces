@@ -460,14 +460,24 @@ export function customerPortalAPI(app: Hono) {
   // ── Helper: validate portal session ──
   async function validateSession(c: any): Promise<{ contactId: string; orgId: string; email: string; lastActiveAt?: string } | null> {
     const token = c.req.header('X-Portal-Token');
-    if (!token) return null;
+      if (!token) {
+        console.log(`[portal] validateSession: No X-Portal-Token header provided`);
+        return null;
+      }
+      console.log(`[portal] validateSession: Checking token ${token.substring(0, 8)}...`);
 
     const session = await kv.get(`portal_session:${token}`);
-    if (!session) return null;
+    if (!session) {
+      console.log(`[portal] validateSession: Session not found in KV for token`);
+      return null;
+    }
+    console.log(`[portal] validateSession: Session found - email: ${session.email}, contactId: ${session.contactId}, orgId: ${session.orgId}`);
 
     if (new Date(session.expiresAt) < new Date()) {
       await kv.del(`portal_session:${token}`);
+      console.log(`[portal] validateSession: Session expired`);
       return null;
+    }
     }
 
     session.lastActiveAt = new Date().toISOString();
@@ -818,14 +828,22 @@ export function customerPortalAPI(app: Hono) {
   app.get(`${PREFIX}/messages`, async (c) => {
     try {
       const session = await validateSession(c);
-      if (!session) return c.json({ error: 'Unauthorized' }, 401);
+      if (!session) {
+        console.log(`[portal] GET /messages: Session validation failed`);
+        return c.json({ error: 'Unauthorized' }, 401);
+      }
+      
+      console.log(`[portal] GET /messages: Customer ${session.email} querying messages`);
 
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       );
 
-      const messages = await kv.getByPrefix(`portal_message:${session.orgId}:${session.contactId}:`);
+      const messagePrefix = `portal_message:${session.orgId}:${session.contactId}:`;
+      console.log(`[portal] GET /messages: Querying KV with prefix: ${messagePrefix}`);
+      const messages = await kv.getByPrefix(messagePrefix);
+      console.log(`[portal] GET /messages: Found ${messages?.length || 0} messages for prefix ${messagePrefix}`);
 
       // Sort by last activity, newest first
       const sorted = (messages || []).sort((a: any, b: any) => {
@@ -930,6 +948,7 @@ export function customerPortalAPI(app: Hono) {
     } catch (err: any) {
       console.error('[portal] Send message error:', err);
       return c.json({ error: 'Failed to send message: ' + err.message }, 500);
+    }
     }
   });
 
