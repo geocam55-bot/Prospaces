@@ -478,7 +478,6 @@ export function customerPortalAPI(app: Hono) {
       console.log(`[portal] validateSession: Session expired`);
       return null;
     }
-    }
 
     session.lastActiveAt = new Date().toISOString();
     await kv.set(`portal_session:${token}`, session);
@@ -948,7 +947,6 @@ export function customerPortalAPI(app: Hono) {
     } catch (err: any) {
       console.error('[portal] Send message error:', err);
       return c.json({ error: 'Failed to send message: ' + err.message }, 500);
-    }
     }
   });
 
