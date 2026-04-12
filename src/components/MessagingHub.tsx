@@ -66,6 +66,11 @@ export function MessagingHub({ user }: MessagingHubProps) {
   selectedConversationTypeRef.current = selectedConversationType;
   // Stable ref so the polling interval always invokes the freshest loadData.
   const loadDataRef = useRef<() => Promise<void>>(async () => {});
+  // Track previous messages to detect new arrivals
+  const prevMessagesRef = useRef<any[]>([]);
+  const prevChatsRef = useRef<any[]>([]);
+  const notifiedMessageIdsRef = useRef<Set<string>>(new Set());
+  const notifiedChatIdsRef = useRef<Set<string>>(new Set());
   const [replyText, setReplyText] = useState('');
   const [replyAttachments, setReplyAttachments] = useState<any[]>([]);
   const [internalNoteText, setInternalNoteText] = useState('');
@@ -112,6 +117,16 @@ export function MessagingHub({ user }: MessagingHubProps) {
         .eq('id', sessionUser.id);
     } catch {
       // Presence sync is best-effort only
+    }
+  };
+
+  // Helper to show browser notification if available and page not focused
+  const showBrowserNotification = (title: string, options?: NotificationOptions) => {
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, {
+        icon: '/favicon.ico',
+        ...options,
+      });
     }
   };
 
@@ -202,6 +217,90 @@ export function MessagingHub({ user }: MessagingHubProps) {
       if (nextChats.length === 0 && nextMessages.length > 0) {
         setSelectedConversationType('customer');
       }
+
+      // ── Notification Logic ──
+      // Check for new customer messages
+      const newMessages = nextMessages.filter(
+        (msg: any) => !prevMessagesRef.current.find((p: any) => p.id === msg.id)
+      );
+
+      newMessages.forEach((msg: any) => {
+        if (!notifiedMessageIdsRef.current.has(msg.id)) {
+          const contactName = msg.contactName || msg.senderEmail || 'Customer';
+          const subject = msg.subject || msg.body?.substring(0, 50) || '(no subject)';
+          const notificationText = `📩 New message from ${contactName}`;
+          
+          toast.info(`${notificationText}: "${subject}"`, {
+            duration: 5000,
+          });
+          showBrowserNotification(notificationText, {
+            body: subject,
+            tag: `message-${msg.id}`,
+          });
+          notifiedMessageIdsRef.current.add(msg.id);
+        }
+      });
+
+      // Check for new replies on existing messages
+      nextMessages.forEach((msg: any) => {
+        const prevMsg = prevMessagesRef.current.find((p: any) => p.id === msg.id);
+        if (prevMsg && msg.replies?.length > (prevMsg.replies?.length || 0)) {
+          const newReplyCount = msg.replies.length - (prevMsg.replies?.length || 0);
+          if (!notifiedMessageIdsRef.current.has(`reply-${msg.id}`)) {
+            const contactName = msg.contactName || msg.senderEmail || 'Customer';
+            const notificationText = `💬 ${newReplyCount} new ${newReplyCount === 1 ? 'reply' : 'replies'} from ${contactName}`;
+            
+            toast.info(notificationText, { duration: 4000 });
+            showBrowserNotification('New Message Reply', {
+              body: notificationText,
+              tag: `reply-${msg.id}`,
+            });
+            notifiedMessageIdsRef.current.add(`reply-${msg.id}`);
+          }
+        }
+      });
+
+      // Check for new internal chat messages
+      const newChats = nextChats.filter(
+        (chat: any) => !prevChatsRef.current.find((p: any) => p.id === chat.id)
+      );
+
+      newChats.forEach((chat: any) => {
+        if (!notifiedChatIdsRef.current.has(chat.id)) {
+          const notificationText = `💭 New chat: ${chat.title}`;
+          
+          toast.info(notificationText, { duration: 4000 });
+          showBrowserNotification('New Chat', {
+            body: chat.title,
+            tag: `chat-${chat.id}`,
+          });
+          notifiedChatIdsRef.current.add(chat.id);
+        }
+      });
+
+      // Check for new messages in existing chats
+      nextChats.forEach((chat: any) => {
+        const prevChat = prevChatsRef.current.find((p: any) => p.id === chat.id);
+        if (prevChat && chat.messages?.length > (prevChat.messages?.length || 0)) {
+          const newMsgCount = chat.messages.length - (prevChat.messages?.length || 0);
+          if (!notifiedChatIdsRef.current.has(`msg-${chat.id}`)) {
+            const lastMessage = chat.messages[chat.messages.length - 1];
+            const senderName = lastMessage?.senderName || 'Team member';
+            const notificationText = `💬 ${newMsgCount} new ${newMsgCount === 1 ? 'message' : 'messages'} in ${chat.title}`;
+            
+            toast.info(`${notificationText} from ${senderName}`, { duration: 4000 });
+            showBrowserNotification(chat.title, {
+              body: `${senderName}: ${lastMessage?.body?.substring(0, 50) || '(no message)'}`,
+              tag: `msg-${chat.id}`,
+            });
+            notifiedChatIdsRef.current.add(`msg-${chat.id}`);
+          }
+        }
+      });
+
+      // Update refs for next cycle
+      prevMessagesRef.current = nextMessages;
+      prevChatsRef.current = nextChats;
     } catch (err: any) {
       toast.error(err.message || 'Failed to load messaging hub');
     } finally {
@@ -221,6 +320,11 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
     refreshPresence();
     const interval = window.setInterval(refreshPresence, 30000);
+
+    // Request notification permission for browser notifications
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
 
     return () => window.clearInterval(interval);
   }, []);
