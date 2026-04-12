@@ -4,6 +4,12 @@ import { getServerHeaders } from './server-headers';
 
 const BASE_URL = buildServerFunctionUrl('/portal');
 
+function assertRouteMatched(data: any, path: string): void {
+  if (data && data.matched === false) {
+    throw new Error(`Portal API route not deployed for ${path}. Please deploy latest server function.`);
+  }
+}
+
 // ── Session management ──
 const PORTAL_TOKEN_KEY = 'portal_session_token';
 const PORTAL_USER_KEY = 'portal_user';
@@ -65,6 +71,8 @@ async function portalFetch(path: string, options: RequestInit = {}): Promise<any
   });
 
   const data = await response.json();
+
+  assertRouteMatched(data, path);
 
   if (!response.ok) {
     throw new Error(data.error || `Request failed: ${response.statusText}`);
@@ -175,6 +183,7 @@ export async function uploadPortalAttachment(file: File, opts?: { contactId?: st
   });
 
   const data = await response.json();
+  assertRouteMatched(data, '/attachments');
   if (!response.ok) throw new Error(data.error || 'Failed to upload attachment');
   return data;
 }
@@ -200,19 +209,28 @@ export async function rejectQuote(quoteId: string) {
 
 // ── CRM-side functions (use CRM auth) ──
 
+async function getCrmHeaders(accessToken: string): Promise<Record<string, string>> {
+  if (!accessToken) {
+    throw new Error('Missing CRM access token. Please sign in again.');
+  }
+
+  return getServerHeaders({ 'X-User-Token': accessToken });
+}
+
 export async function getCrmPortalMessages(accessToken: string) {
-  const headers = await getServerHeaders();
+  const headers = await getCrmHeaders(accessToken);
   const response = await fetch(`${BASE_URL}/crm-messages`, {
     headers,
   });
 
   const data = await response.json();
+  assertRouteMatched(data, '/crm-messages');
   if (!response.ok) throw new Error(data.error || 'Failed to load portal messages');
   return data;
 }
 
 export async function createPortalInvite(contactId: string, accessToken: string) {
-  const headers = await getServerHeaders();
+  const headers = await getCrmHeaders(accessToken);
   const response = await fetch(`${BASE_URL}/invite`, {
     method: 'POST',
     headers,
@@ -220,29 +238,32 @@ export async function createPortalInvite(contactId: string, accessToken: string)
   });
 
   const data = await response.json();
+  assertRouteMatched(data, '/invite');
   if (!response.ok) throw new Error(data.error || 'Failed to create invite');
   return data;
 }
 
 export async function getPortalUsers(accessToken: string) {
-  const headers = await getServerHeaders();
+  const headers = await getCrmHeaders(accessToken);
   const response = await fetch(`${BASE_URL}/portal-users`, {
     headers,
   });
 
   const data = await response.json();
+  assertRouteMatched(data, '/portal-users');
   if (!response.ok) throw new Error(data.error || 'Failed to list portal users');
   return data;
 }
 
 export async function revokePortalAccess(contactId: string, accessToken: string) {
-  const headers = await getServerHeaders();
+  const headers = await getCrmHeaders(accessToken);
   const response = await fetch(`${BASE_URL}/revoke/${contactId}`, {
     method: 'DELETE',
     headers,
   });
 
   const data = await response.json();
+  assertRouteMatched(data, `/revoke/${contactId}`);
   if (!response.ok) throw new Error(data.error || 'Failed to revoke access');
   return data;
 }
@@ -254,7 +275,7 @@ export async function replyToPortalMessage(
   accessToken: string,
   attachments?: PortalAttachment[]
 ) {
-  const headers = await getServerHeaders();
+  const headers = await getCrmHeaders(accessToken);
   const response = await fetch(`${BASE_URL}/reply`, {
     method: 'POST',
     headers,
@@ -262,12 +283,13 @@ export async function replyToPortalMessage(
   });
 
   const data = await response.json();
+  assertRouteMatched(data, '/reply');
   if (!response.ok) throw new Error(data.error || 'Failed to send reply');
   return data;
 }
 
 export async function addPortalInternalNote(messageId: string, contactId: string, note: string, accessToken: string) {
-  const headers = await getServerHeaders();
+  const headers = await getCrmHeaders(accessToken);
   const response = await fetch(`${BASE_URL}/internal-note`, {
     method: 'POST',
     headers,
@@ -275,12 +297,13 @@ export async function addPortalInternalNote(messageId: string, contactId: string
   });
 
   const data = await response.json();
+  assertRouteMatched(data, '/internal-note');
   if (!response.ok) throw new Error(data.error || 'Failed to save internal note');
   return data;
 }
 
 export async function updatePortalThreadStatus(messageId: string, contactId: string, status: 'open' | 'resolved', accessToken: string) {
-  const headers = await getServerHeaders();
+  const headers = await getCrmHeaders(accessToken);
   const response = await fetch(`${BASE_URL}/status`, {
     method: 'POST',
     headers,
@@ -288,17 +311,19 @@ export async function updatePortalThreadStatus(messageId: string, contactId: str
   });
 
   const data = await response.json();
+  assertRouteMatched(data, '/status');
   if (!response.ok) throw new Error(data.error || 'Failed to update conversation status');
   return data;
 }
 
 export async function getInternalChats(accessToken: string) {
-  const headers = await getServerHeaders();
+  const headers = await getCrmHeaders(accessToken);
   const response = await fetch(`${BASE_URL}/internal-chats`, {
     headers,
   });
 
   const data = await response.json();
+  assertRouteMatched(data, '/internal-chats');
   if (!response.ok) throw new Error(data.error || 'Failed to load internal chats');
   return data;
 }
@@ -311,7 +336,7 @@ export async function createInternalChat(payload: {
   chatType?: 'general' | 'direct' | 'group';
   participants?: Array<{ id?: string; name: string; email?: string; kind?: 'staff' | 'portal' }>;
 }, accessToken: string) {
-  const headers = await getServerHeaders();
+  const headers = await getCrmHeaders(accessToken);
   const response = await fetch(`${BASE_URL}/internal-chats`, {
     method: 'POST',
     headers,
@@ -319,12 +344,13 @@ export async function createInternalChat(payload: {
   });
 
   const data = await response.json();
+  assertRouteMatched(data, '/internal-chats');
   if (!response.ok) throw new Error(data.error || 'Failed to create internal chat');
   return data;
 }
 
 export async function sendInternalChatMessage(chatId: string, message: string, accessToken: string) {
-  const headers = await getServerHeaders();
+  const headers = await getCrmHeaders(accessToken);
   const response = await fetch(`${BASE_URL}/internal-chats/${chatId}/message`, {
     method: 'POST',
     headers,
@@ -332,6 +358,7 @@ export async function sendInternalChatMessage(chatId: string, message: string, a
   });
 
   const data = await response.json();
+  assertRouteMatched(data, `/internal-chats/${chatId}/message`);
   if (!response.ok) throw new Error(data.error || 'Failed to send internal chat message');
   return data;
 }

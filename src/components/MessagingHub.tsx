@@ -39,6 +39,7 @@ import {
   sendInternalChatMessage,
   updatePortalThreadStatus,
 } from '../utils/portal-client';
+import { getUserAccessToken } from '../utils/server-headers';
 import { tasksAPI, usersAPI } from '../utils/api';
 import type { User as CrmUser } from '../App';
 
@@ -96,6 +97,10 @@ export function MessagingHub({ user }: MessagingHubProps) {
   );
 
   const getAccessToken = async () => {
+    const token = await getUserAccessToken();
+    if (token) return token;
+
+    // Fallback in case shared helper returns null during edge hydration timing.
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) throw new Error('Not authenticated');
