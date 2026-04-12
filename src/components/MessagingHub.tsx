@@ -835,6 +835,15 @@ export function MessagingHub({ user }: MessagingHubProps) {
     : [];
 
   const unreadCustomerCount = messages.filter((message) => !message.read || message.customerUnread).length;
+  const unreadInternalCount = internalChats.filter((chat: any) => {
+    const lastMessage = Array.isArray(chat.messages) && chat.messages.length > 0
+      ? chat.messages[chat.messages.length - 1]
+      : null;
+    if (!lastMessage) return false;
+    // Heuristic: if the latest message was sent by someone else, surface as unread.
+    return !!lastMessage.senderId && lastMessage.senderId !== user.id;
+  }).length;
+  const unreadTotalCount = unreadCustomerCount + unreadInternalCount;
   const activePortalUsers = portalUsers.filter((portalUser: any) => portalUser.enabled !== false);
   const onlineStaffUsers = staffUsers.filter((staff: any) => {
     if (!staff?.id) return false;
@@ -1028,7 +1037,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
             />
           </div>
           <div className="mt-2 flex items-center gap-2">
-            <Badge variant="outline" className="text-[11px]">{unreadCustomerCount} unread</Badge>
+            <Badge variant="outline" className="text-[11px]">{unreadTotalCount} unread</Badge>
             <Badge
               variant="outline"
               onClick={() => setShowOnlySlaAlerts((prev) => !prev)}
