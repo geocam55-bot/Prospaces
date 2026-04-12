@@ -163,6 +163,12 @@ export function customerPortalAPI(app: Hono) {
       const orgId = profile.organization_id || contact.organization_id;
       const inviteCode = generateInviteCode();
 
+      console.log(`[portal] Creating invite - CRM user orgId: ${profile.organization_id}, Contact orgId: ${contact.organization_id}, Final orgId: ${orgId}, contactId: ${contactId}`);
+
+      if (!orgId) {
+        return c.json({ error: 'Organization ID not found for profile or contact' }, 400);
+      }
+
       // Store the invite (expires in 7 days)
       await kv.set(`portal_invite:${inviteCode}`, {
         contactId,
@@ -538,8 +544,14 @@ export function customerPortalAPI(app: Hono) {
     return true;
   }
 
-  async function resolveInternalChatByIdForUser(chatId: string, userId: string, userEmail?: string | null): Promise<{ key: string; chat: any } | null> {
-    const allChats = await kv.getByPrefix('internal_chat:');
+  async function resolveInternalChatByIdForUser(chatId: string, userId: string, userEmail?: string | null, orgId?: string): Promise<{ key: string; chat: any } | null> {
+    // If orgId provided, search only within that organization
+    let searchPrefix = 'internal_chat:';
+    if (orgId) {
+      searchPrefix = `internal_chat:${orgId}:`;
+    }
+    
+    const allChats = await kv.getByPrefix(searchPrefix);
     const found = (allChats || []).find((chat: any) => chat?.id === chatId && canAccessInternalChat(chat, userId, userEmail));
     if (!found) return null;
 
@@ -857,6 +869,7 @@ export function customerPortalAPI(app: Hono) {
 
       if (messageId) {
         const existingKey = `portal_message:${session.orgId}:${session.contactId}:${messageId}`;
+        console.log(`[portal] Customer reply - session email: ${session.email}, orgId: ${session.orgId}, contactId: ${session.contactId}, msgId: ${messageId}`);
         const existing = await kv.get(existingKey);
 
         if (!existing) {
@@ -908,9 +921,10 @@ export function customerPortalAPI(app: Hono) {
         internalNotes: [],
       };
 
-      await kv.set(`portal_message:${session.orgId}:${session.contactId}:${msgId}`, msgData);
+      const kvKey = `portal_message:${session.orgId}:${session.contactId}:${msgId}`;
+      await kv.set(kvKey, msgData);
 
-      console.log(`[portal] Message sent by ${session.email}: ${subject}`);
+      console.log(`[portal] NEW message sent - session email: ${session.email}, orgId: ${session.orgId}, contactId: ${session.contactId}, msgId: ${msgId}, kvKey: ${kvKey}, subject: ${subject}`);
 
       return c.json({ success: true, message: msgData });
     } catch (err: any) {
@@ -1227,12 +1241,35 @@ export function customerPortalAPI(app: Hono) {
 
       if (!profile) return c.json({ error: 'Profile not found' }, 404);
 
-      const orgId = profile.organization_id;
-      if (!orgId) return c.json({ error: 'No organization found' }, 400);
+      let orgId = profile.organization_id;
+      
+      // CRITICAL FIX: If profile doesn't have organization_id, try to find it from contacts
+      if (!orgId) {
+        console.warn(`[portal] Profile ${user.id} (${user.email}) has no organization_id, attempting to find from contacts`);
+        
+        // Look for contacts created by or assigned to this user
+        const { data: relatedContacts } = await supabase
+          .from('contacts')
+          .select('organization_id')
+          .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
+          .limit(1);
+        
+        if (relatedContacts && relatedContacts.length > 0 && relatedContacts[0].organization_id) {
+          orgId = relatedContacts[0].organization_id;
+          console.log(`[portal] Found organization_id from contact: ${orgId}`);
+        }
+      }
+      
+      if (!orgId) return c.json({ error: 'No organization found for user or their contacts' }, 400);
+
+      const searchPrefix = `portal_message:${orgId}:`;
+      console.log(`[portal] CRM querying messages - user: ${user.email}, profileOrgId: ${profile.organization_id}, resolvedOrgId: ${orgId}, searchPrefix: ${searchPrefix}`);
 
       // Fetch all portal messages for this org using the KV prefix pattern:
       // portal_message:{orgId}:{contactId}:{msgId}
-      const allMessages = await kv.getByPrefix(`portal_message:${orgId}:`);
+      const allMessages = await kv.getByPrefix(searchPrefix);
+      
+      console.log(`[portal] CRM messages found: ${allMessages?.length || 0} messages with prefix ${searchPrefix}`);
 
       // Enrich with contact names if available
       const contactIds = [...new Set((allMessages || []).map((m: any) => m.contactId).filter(Boolean))];
@@ -1304,8 +1341,28 @@ export function customerPortalAPI(app: Hono) {
         return c.json({ error: 'messageId, contactId, and a reply text or attachment are required' }, 400);
       }
 
-      const orgId = profile.organization_id;
+      let orgId = profile.organization_id;
+      
+      // CRITICAL FIX: If profile doesn't have organization_id, try to find it from contacts
+      if (!orgId) {
+        console.warn(`[portal] Profile ${user.id} (${user.email}) has no organization_id in reply endpoint, attempting to find from contacts`);
+        
+        const { data: relatedContacts } = await supabase
+          .from('contacts')
+          .select('organization_id')
+          .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
+          .limit(1);
+        
+        if (relatedContacts && relatedContacts.length > 0 && relatedContacts[0].organization_id) {
+          orgId = relatedContacts[0].organization_id;
+          console.log(`[portal] Found organization_id from contact in reply: ${orgId}`);
+        }
+      }
+      
+      if (!orgId) return c.json({ error: 'No organization found' }, 400);
+      
       const key = `portal_message:${orgId}:${contactId}:${messageId}`;
+      console.log(`[portal] CRM replying to message - user: ${user.email}, orgId: ${orgId}, contactId: ${contactId}, msgId: ${messageId}, kvKey: ${key}`);
       const msg = await kv.get(key);
 
       if (!msg) {
@@ -1364,7 +1421,23 @@ export function customerPortalAPI(app: Hono) {
         return c.json({ error: 'messageId, contactId, and note are required' }, 400);
       }
 
-      const orgId = profile.organization_id;
+      let orgId = profile.organization_id;
+      
+      // CRITICAL FIX: If profile doesn't have organization_id, try to find it from contacts
+      if (!orgId) {
+        const { data: relatedContacts } = await supabase
+          .from('contacts')
+          .select('organization_id')
+          .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
+          .limit(1);
+        
+        if (relatedContacts && relatedContacts.length > 0 && relatedContacts[0].organization_id) {
+          orgId = relatedContacts[0].organization_id;
+        }
+      }
+      
+      if (!orgId) return c.json({ error: 'No organization found' }, 400);
+      
       const key = `portal_message:${orgId}:${contactId}:${messageId}`;
       const msg = await kv.get(key);
 
@@ -1419,7 +1492,23 @@ export function customerPortalAPI(app: Hono) {
       }
 
       const normalizedStatus = status === 'resolved' ? 'resolved' : 'open';
-      const orgId = profile.organization_id;
+      let orgId = profile.organization_id;
+      
+      // CRITICAL FIX: If profile doesn't have organization_id, try to find it from contacts
+      if (!orgId) {
+        const { data: relatedContacts } = await supabase
+          .from('contacts')
+          .select('organization_id')
+          .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
+          .limit(1);
+        
+        if (relatedContacts && relatedContacts.length > 0 && relatedContacts[0].organization_id) {
+          orgId = relatedContacts[0].organization_id;
+        }
+      }
+      
+      if (!orgId) return c.json({ error: 'No organization found' }, 400);
+      
       const key = `portal_message:${orgId}:${contactId}:${messageId}`;
       const msg = await kv.get(key);
 
@@ -1458,14 +1547,37 @@ export function customerPortalAPI(app: Hono) {
         .eq('id', user.id)
         .single();
 
-      const allChats = await kv.getByPrefix('internal_chat:');
+      let orgId = profile?.organization_id;
+      
+      // CRITICAL FIX: If profile doesn't have organization_id, try to find it from contacts
+      if (!orgId) {
+        console.warn(`[portal] Profile ${user.id} (${user.email}) has no organization_id in internal-chats, attempting to find from contacts`);
+        
+        const { data: relatedContacts } = await supabase
+          .from('contacts')
+          .select('organization_id')
+          .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
+          .limit(1);
+        
+        if (relatedContacts && relatedContacts.length > 0 && relatedContacts[0].organization_id) {
+          orgId = relatedContacts[0].organization_id;
+          console.log(`[portal] Found organization_id from contact in internal-chats: ${orgId}`);
+        }
+      }
+      
+      if (!orgId) return c.json({ error: 'No organization found' }, 400);
+
+      // SECURITY FIX: Only fetch chats for this specific organization, not all chats
+      const allChats = await kv.getByPrefix(`internal_chat:${orgId}:`);
       const visibleChats = (allChats || []).filter((chat: any) =>
-        canAccessInternalChat(chat, user.id, profile.email)
+        canAccessInternalChat(chat, user.id, profile?.email)
       );
 
       const sorted = visibleChats.sort((a: any, b: any) =>
         new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
       );
+
+      console.log(`[portal] Internal chats loaded for org ${orgId}: ${sorted.length} visible chats for user ${user.email}`);
 
       return c.json({ chats: sorted });
     } catch (err: any) {
@@ -1500,19 +1612,39 @@ export function customerPortalAPI(app: Hono) {
         return c.json({ error: 'title is required' }, 400);
       }
 
+      let orgId = profile?.organization_id;
+      
+      // CRITICAL FIX: If profile doesn't have organization_id, try to find it from contacts
+      if (!orgId) {
+        console.warn(`[portal] Profile ${user.id} (${user.email}) has no organization_id in create-chat, attempting to find from contacts`);
+        
+        const { data: relatedContacts } = await supabase
+          .from('contacts')
+          .select('organization_id')
+          .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
+          .limit(1);
+        
+        if (relatedContacts && relatedContacts.length > 0 && relatedContacts[0].organization_id) {
+          orgId = relatedContacts[0].organization_id;
+          console.log(`[portal] Found organization_id from contact in create-chat: ${orgId}`);
+        }
+      }
+      
+      if (!orgId) return c.json({ error: 'No organization found' }, 400);
+
       const normalizedParticipants = ensureCurrentUserParticipant(
         participants,
         user.id,
-        profile.email,
-        profile.name,
+        profile?.email,
+        profile?.name,
       );
 
       const effectiveContextType = contextType || 'general';
       const effectiveChatType = chatType || (normalizedParticipants.length > 2 ? 'group' : normalizedParticipants.length >= 2 ? 'direct' : 'general');
-      const orgIdForStorage = profile.organization_id || 'global';
 
       if (effectiveChatType === 'direct' || effectiveContextType.startsWith('direct')) {
-        const existingChats = await kv.getByPrefix('internal_chat:');
+        // SECURITY FIX: Only search for existing chats in this organization
+        const existingChats = await kv.getByPrefix(`internal_chat:${orgId}:`);
         const existingDirect = (existingChats || []).find((chat: any) => {
           if (!chat) return false;
           const chatIsDirect = chat.chatType === 'direct' || String(chat.contextType || '').startsWith('direct');
@@ -1526,12 +1658,12 @@ export function customerPortalAPI(app: Hono) {
             existingDirect.messages.push({
               id: crypto.randomUUID(),
               senderId: user.id,
-              senderName: profile.name || profile.email,
+              senderName: profile?.name || profile?.email,
               body: String(initialMessage).trim(),
               createdAt: new Date().toISOString(),
             });
             existingDirect.updatedAt = new Date().toISOString();
-            await kv.set(`internal_chat:${existingDirect.orgId || 'global'}:${existingDirect.id}`, existingDirect);
+            await kv.set(`internal_chat:${orgId}:${existingDirect.id}`, existingDirect);
           }
 
           return c.json({ success: true, chat: existingDirect });
@@ -1542,7 +1674,7 @@ export function customerPortalAPI(app: Hono) {
       const chatId = crypto.randomUUID();
       const chat = {
         id: chatId,
-        orgId: orgIdForStorage,
+        orgId,
         title,
         chatType: effectiveChatType,
         contextType: effectiveContextType,
@@ -1550,21 +1682,21 @@ export function customerPortalAPI(app: Hono) {
         participants: normalizedParticipants,
         status: 'open',
         createdBy: user.id,
-        createdByName: profile.name || profile.email,
+        createdByName: profile?.name || profile?.email,
         createdAt: now,
         updatedAt: now,
         messages: initialMessage
           ? [{
               id: crypto.randomUUID(),
               senderId: user.id,
-              senderName: profile.name || profile.email,
+              senderName: profile?.name || profile?.email,
               body: initialMessage,
               createdAt: now,
             }]
           : [],
       };
 
-      await kv.set(`internal_chat:${orgIdForStorage}:${chatId}`, chat);
+      await kv.set(`internal_chat:${orgId}:${chatId}`, chat);
       return c.json({ success: true, chat });
     } catch (err: any) {
       return c.json({ error: 'Failed to create internal chat: ' + err.message }, 500);
@@ -1599,7 +1731,24 @@ export function customerPortalAPI(app: Hono) {
         return c.json({ error: 'message is required' }, 400);
       }
 
-      const resolvedChat = await resolveInternalChatByIdForUser(chatId, user.id, profile.email);
+      let orgId = profile?.organization_id;
+      
+      // CRITICAL FIX: If profile doesn't have organization_id, try to find it from contacts
+      if (!orgId) {
+        const { data: relatedContacts } = await supabase
+          .from('contacts')
+          .select('organization_id')
+          .or(`created_by.eq.${user.id},assigned_to.eq.${user.id}`)
+          .limit(1);
+        
+        if (relatedContacts && relatedContacts.length > 0 && relatedContacts[0].organization_id) {
+          orgId = relatedContacts[0].organization_id;
+        }
+      }
+      
+      if (!orgId) return c.json({ error: 'No organization found' }, 400);
+
+      const resolvedChat = await resolveInternalChatByIdForUser(chatId, user.id, profile?.email, orgId);
       if (!resolvedChat?.chat) {
         return c.json({ error: 'Chat not found' }, 404);
       }
@@ -1610,7 +1759,7 @@ export function customerPortalAPI(app: Hono) {
       chat.messages.push({
         id: crypto.randomUUID(),
         senderId: user.id,
-        senderName: profile.name || profile.email,
+        senderName: profile?.name || profile?.email,
         body: message,
         createdAt: new Date().toISOString(),
       });
