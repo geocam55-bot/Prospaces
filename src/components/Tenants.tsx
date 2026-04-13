@@ -881,10 +881,10 @@ export function Tenants({ user, organization }: TenantsProps) {
                           )}
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {user?.role === 'SUPERADMIN' && (
+                          {user?.role === 'super_admin' && (
                             <DropdownMenuItem onClick={() => setViewingAgreement(tenant)} disabled={isDeleting === tenant.id}>
                               <FileText className="h-4 w-4 mr-2" />
-                              View Agreement
+                              Subscription Agreement
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem onClick={() => handleViewBilling(tenant)} disabled={isDeleting === tenant.id}>
