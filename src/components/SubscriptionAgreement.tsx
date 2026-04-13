@@ -31,6 +31,105 @@ interface SubscriptionAgreementProps {
   onBack?: () => void;
 }
 
+const AGREEMENT_TERMS = [
+  {
+    title: '1. Service Description',
+    body: 'ProSpaces CRM agrees to provide the Client with access to a cloud-based Customer Relationship Management platform, including the modules and services selected below. The software is provided as a subscription service (SaaS) hosted on secure servers.',
+  },
+  {
+    title: '2. Subscription Term',
+    body: 'This agreement shall commence on the Start Date specified below and continue for the Duration period selected. The subscription will automatically renew for successive periods of equal length unless either party provides written notice of non-renewal at least 30 days prior to the end of the current term.',
+  },
+  {
+    title: '3. Fees and Payment',
+    body: 'The Client agrees to pay the fees specified in the Pricing section below. Monthly recurring fees are due on the first day of each month. One-time fees (setup, onboarding, etc.) are due within 15 days of invoice. All fees are non-refundable except as required by law.',
+  },
+  {
+    title: '4. Data Security and Privacy',
+    body: 'ProSpaces CRM employs industry-standard security measures to protect Client data. All data is encrypted in transit and at rest. Client retains ownership of all data entered into the system. ProSpaces CRM will not share, sell, or disclose Client data to third parties without explicit consent, except as required by law.',
+  },
+  {
+    title: '5. Support and Maintenance',
+    body: 'Standard support includes email support during business hours (9 AM - 5 PM EST, Monday-Friday) with response within 24 business hours. The system includes regular updates, security patches, and feature enhancements at no additional cost.',
+  },
+  {
+    title: '6. User Licenses',
+    body: 'Pricing includes user licenses as specified. Additional users may be added at the then-current rate. The Client is responsible for maintaining the security of user credentials and for all activities under user accounts.',
+  },
+  {
+    title: '7. Service Level Agreement (SLA)',
+    body: 'ProSpaces CRM guarantees 99.5% uptime on an annual basis, excluding scheduled maintenance windows. Scheduled maintenance will be announced at least 48 hours in advance.',
+  },
+  {
+    title: '8. Data Rights and Ownership',
+    body: 'The Client retains full ownership and all rights to their data at all times, including after subscription cancellation or termination. Upon request after termination, ProSpaces CRM will provide the Client with a complete export of all data in standard formats (CSV, JSON, or PDF) within 30 days. Client data will be securely stored for 90 days following termination to allow for data retrieval. After 90 days, unless otherwise agreed in writing, all Client data will be permanently deleted from ProSpaces CRM servers. The Client may request early deletion of their data at any time.',
+  },
+  {
+    title: '9. Termination',
+    body: 'Either party may terminate this agreement with 30 days written notice. Upon termination, Client will have 30 days to export all data from the system. ProSpaces CRM may suspend service immediately for non-payment or violation of terms. All data export and retention rights specified in Section 8 (Data Rights and Ownership) remain in effect after termination.',
+  },
+  {
+    title: '10. Limitation of Liability',
+    body: "ProSpaces CRM's total liability under this agreement shall not exceed the total fees paid by Client in the 12 months preceding the claim. ProSpaces CRM is not liable for indirect, incidental, or consequential damages.",
+  },
+  {
+    title: '11. Modifications',
+    body: 'ProSpaces CRM may modify these terms with 30 days notice. Continued use of the service after notification constitutes acceptance of modified terms.',
+  },
+];
+
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatCurrencyValue(value: number) {
+  return `$${value.toFixed(2)}`;
+}
+
+function formatDisplayDate(value: string) {
+  if (!value) return 'Not specified';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Not specified';
+
+  return date.toLocaleDateString();
+}
+
+function getAgreementEndDate(startDate: string, durationMonths: string) {
+  if (!startDate) return 'Not specified';
+
+  const date = new Date(startDate);
+  if (Number.isNaN(date.getTime())) return 'Not specified';
+
+  const months = parseInt(durationMonths, 10);
+  date.setMonth(date.getMonth() + (Number.isNaN(months) ? 0 : months));
+  return date.toLocaleDateString();
+}
+
+function getDurationLabel(durationMonths: string) {
+  const months = parseInt(durationMonths, 10);
+
+  if (Number.isNaN(months) || months <= 0) {
+    return 'Not specified';
+  }
+
+  if (months === 1) {
+    return '1 Month';
+  }
+
+  if (months % 12 === 0) {
+    const years = months / 12;
+    return `${years} Year${years === 1 ? '' : 's'}`;
+  }
+
+  return `${months} Months`;
+}
+
 export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgreementProps) {
   const [agreementData, setAgreementData] = useState({
     clientName: '',
@@ -226,11 +325,306 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
     };
   };
 
-  const handlePrint = () => {
-    window.print();
+  const totals = calculateTotal();
+  const selectedModuleDetails = modules
+    .filter((module) => selectedModules.includes(module.id))
+    .map((module) => ({
+      ...module,
+      displayPrice: moduleOverrides[module.id]?.price ?? module.price ?? 0,
+      displayDescription: moduleOverrides[module.id]?.description || module.description,
+    }));
+
+  const selectedServiceDetails = services
+    .filter((service) => selectedServices.includes(service.id))
+    .map((service) => ({
+      ...service,
+      displayPrice: serviceOverrides[service.id]?.price ?? service.price ?? 0,
+      displayDescription: serviceOverrides[service.id]?.description || service.description,
+    }));
+
+  const openPrintPreview = (autoPrint: boolean) => {
+    try {
+      const printWindow = window.open('', '_blank', 'noopener,noreferrer');
+
+      const agreementDate = new Date().toLocaleDateString();
+      const firstPaymentDue = totals.monthlyTotalWithTax + totals.setup + totals.setupTax + totals.services + totals.servicesTax;
+      const monthlyTaxRows = totals.monthlyTax > 0
+        ? `
+          <div class="totals-row">
+            <span>Monthly Tax</span>
+            <span>${escapeHtml(formatCurrencyValue(totals.monthlyTax))}/month</span>
+          </div>
+          <div class="totals-row emphasis">
+            <span>Total Monthly (w/ Tax)</span>
+            <span>${escapeHtml(formatCurrencyValue(totals.monthlyTotalWithTax))}/month</span>
+          </div>
+        `
+        : '';
+
+      const modulesMarkup = selectedModuleDetails.length > 0
+        ? selectedModuleDetails.map((module) => `
+          <tr>
+            <td>
+              <strong>${escapeHtml(module.name)}</strong>
+              <div class="subcopy">${escapeHtml(module.displayDescription)}</div>
+            </td>
+            <td>${module.displayPrice === 0 ? 'Included' : `${escapeHtml(formatCurrencyValue(module.displayPrice))}/mo per user`}</td>
+          </tr>
+        `).join('')
+        : '<tr><td colspan="2" class="empty-state">No modules selected.</td></tr>';
+
+      const servicesMarkup = selectedServiceDetails.length > 0
+        ? selectedServiceDetails.map((service) => `
+          <tr>
+            <td>
+              <strong>${escapeHtml(service.name)}</strong>
+              <div class="subcopy">${escapeHtml(service.displayDescription)}</div>
+            </td>
+            <td>${service.id === 'support-priority' ? `${escapeHtml(formatCurrencyValue(service.displayPrice))}/mo` : `${escapeHtml(formatCurrencyValue(service.displayPrice))} one-time`}</td>
+          </tr>
+        `).join('')
+        : '<tr><td colspan="2" class="empty-state">No additional services selected.</td></tr>';
+
+      const termsMarkup = AGREEMENT_TERMS.map((term) => `
+        <section class="term-block">
+          <h4>${escapeHtml(term.title)}</h4>
+          <p>${escapeHtml(term.body)}</p>
+        </section>
+      `).join('');
+
+      const autoPrintScript = autoPrint
+        ? `
+          <script>
+            window.addEventListener('load', function () {
+              window.focus();
+              window.print();
+            });
+          <\/script>
+        `
+        : '';
+
+      const printableHtml = `
+        <!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>Subscription Agreement - ${escapeHtml(agreementData.clientCompany || organization?.name || 'ProSpaces CRM')}</title>
+            <style>
+              :root { color-scheme: light; }
+              * { box-sizing: border-box; }
+              body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; background: #e2e8f0; line-height: 1.5; }
+              .page { max-width: 900px; margin: 32px auto; background: #ffffff; padding: 40px; box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12); }
+              .toolbar { display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 24px; }
+              .toolbar button { border: none; border-radius: 999px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; background: #0f172a; color: #ffffff; }
+              .toolbar .secondary { background: #e2e8f0; color: #0f172a; }
+              .header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 24px; }
+              .eyebrow { display: inline-block; text-transform: uppercase; letter-spacing: 0.12em; font-size: 12px; color: #475569; margin-bottom: 8px; }
+              h1 { margin: 0; font-size: 32px; line-height: 1.1; }
+              h2 { margin: 0 0 12px; font-size: 18px; }
+              h4 { margin: 0 0 6px; font-size: 14px; }
+              p { margin: 0; }
+              .meta { text-align: right; font-size: 14px; color: #475569; }
+              .panel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+              .panel { border: 1px solid #cbd5e1; border-radius: 16px; padding: 18px; background: #f8fafc; }
+              .details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
+              .label { display: block; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
+              .value { font-size: 15px; color: #0f172a; word-break: break-word; }
+              .section { margin-top: 28px; }
+              .section-intro { margin-bottom: 12px; color: #475569; font-size: 14px; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { padding: 12px 0; border-bottom: 1px solid #e2e8f0; vertical-align: top; font-size: 14px; }
+              th { text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; }
+              td:last-child, th:last-child { text-align: right; white-space: nowrap; }
+              .subcopy { color: #475569; font-size: 12px; margin-top: 4px; white-space: pre-wrap; }
+              .empty-state { color: #64748b; font-style: italic; }
+              .totals { margin-top: 16px; border: 1px solid #cbd5e1; border-radius: 16px; padding: 18px; background: #f8fafc; }
+              .totals-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 14px; }
+              .totals-row.emphasis { font-weight: 700; color: #1d4ed8; }
+              .totals-row.grand-total { margin-top: 8px; padding-top: 12px; border-top: 2px solid #cbd5e1; font-size: 18px; font-weight: 700; color: #1d4ed8; }
+              .term-block { margin-bottom: 16px; }
+              .term-block p { color: #334155; font-size: 14px; }
+              .signatures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+              .signature-box { border: 1px solid #cbd5e1; border-radius: 16px; padding: 18px; min-height: 150px; background: #f8fafc; }
+              .signature-value { min-height: 52px; margin: 12px 0; font-size: 24px; font-family: 'Times New Roman', serif; color: #0f172a; border-bottom: 2px solid #cbd5e1; }
+              .footer { margin-top: 28px; padding-top: 16px; border-top: 1px solid #cbd5e1; text-align: center; font-size: 12px; color: #64748b; }
+              @media print {
+                body { background: #ffffff; }
+                .page { margin: 0; max-width: none; box-shadow: none; padding: 0; }
+                .toolbar { display: none; }
+                @page { size: letter; margin: 0.6in; }
+              }
+              @media (max-width: 720px) {
+                .page { margin: 0; padding: 20px; }
+                .header, .panel-grid, .details-grid, .signatures { grid-template-columns: 1fr; display: grid; }
+                .meta { text-align: left; }
+                td:last-child, th:last-child { text-align: left; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="page">
+              <div class="toolbar">
+                <button class="secondary" type="button" onclick="window.close()">Close</button>
+                <button type="button" onclick="window.print()">Print / Save as PDF</button>
+              </div>
+              <div class="header">
+                <div>
+                  <span class="eyebrow">ProSpaces CRM</span>
+                  <h1>Software Subscription Agreement</h1>
+                  <p style="margin-top: 10px; color: #475569; max-width: 540px;">This document summarizes the selected subscription, pricing, and signatures for the client agreement.</p>
+                </div>
+                <div class="meta">
+                  <div><strong>Agreement Date:</strong> ${escapeHtml(agreementDate)}</div>
+                  <div><strong>Organization:</strong> ${escapeHtml(agreementData.clientCompany || organization?.name || 'Not specified')}</div>
+                </div>
+              </div>
+              <div class="panel-grid">
+                <section class="panel">
+                  <h2>Provider</h2>
+                  <p>ProSpaces CRM</p>
+                  <p class="subcopy">Software as a Service Provider</p>
+                </section>
+                <section class="panel">
+                  <h2>Client</h2>
+                  <div class="details-grid">
+                    <div><span class="label">Contact Person</span><span class="value">${escapeHtml(agreementData.clientName || 'Not specified')}</span></div>
+                    <div><span class="label">Company</span><span class="value">${escapeHtml(agreementData.clientCompany || 'Not specified')}</span></div>
+                    <div><span class="label">Address</span><span class="value">${escapeHtml(agreementData.clientAddress || 'Not specified')}</span></div>
+                    <div><span class="label">Email</span><span class="value">${escapeHtml(agreementData.clientEmail || 'Not specified')}</span></div>
+                  </div>
+                </section>
+              </div>
+              <section class="section">
+                <h2>Subscription Period</h2>
+                <div class="panel details-grid">
+                  <div><span class="label">Start Date</span><span class="value">${escapeHtml(formatDisplayDate(agreementData.startDate))}</span></div>
+                  <div><span class="label">Duration</span><span class="value">${escapeHtml(getDurationLabel(agreementData.duration))}</span></div>
+                  <div><span class="label">Agreement End Date</span><span class="value">${escapeHtml(getAgreementEndDate(agreementData.startDate, agreementData.duration))}</span></div>
+                  <div><span class="label">Licensed Users</span><span class="value">${escapeHtml(totals.numberOfUsers)} user${totals.numberOfUsers === 1 ? '' : 's'}</span></div>
+                </div>
+              </section>
+              <section class="section">
+                <h2>Included Modules</h2>
+                <p class="section-intro">Selected modules included in this subscription.</p>
+                <table>
+                  <thead><tr><th>Module</th><th>Price</th></tr></thead>
+                  <tbody>${modulesMarkup}</tbody>
+                </table>
+              </section>
+              <section class="section">
+                <h2>Additional Services</h2>
+                <p class="section-intro">One-time and recurring services attached to this agreement.</p>
+                <table>
+                  <thead><tr><th>Service</th><th>Price</th></tr></thead>
+                  <tbody>${servicesMarkup}</tbody>
+                </table>
+              </section>
+              <section class="section">
+                <h2>Pricing Details</h2>
+                <div class="totals">
+                  <div class="totals-row"><span>Base Platform Fee (per user)</span><span>${escapeHtml(formatCurrencyValue(totals.base))}/month</span></div>
+                  <div class="totals-row"><span>Selected Modules (per user)</span><span>${escapeHtml(formatCurrencyValue(totals.modules))}/month</span></div>
+                  <div class="totals-row"><span>Base Platform Total</span><span>${escapeHtml(formatCurrencyValue(totals.baseTotal))}/month</span></div>
+                  <div class="totals-row"><span>Modules Total</span><span>${escapeHtml(formatCurrencyValue(totals.modulesTotal))}/month</span></div>
+                  <div class="totals-row"><span>Additional Services</span><span>${escapeHtml(formatCurrencyValue(totals.services))}</span></div>
+                  <div class="totals-row"><span>Setup Fee</span><span>${escapeHtml(formatCurrencyValue(totals.setup))}</span></div>
+                  <div class="totals-row emphasis"><span>Monthly Recurring Total</span><span>${escapeHtml(formatCurrencyValue(totals.monthlyRecurring))}/month</span></div>
+                  ${monthlyTaxRows}
+                  <div class="totals-row grand-total"><span>First Payment Due</span><span>${escapeHtml(formatCurrencyValue(firstPaymentDue))}</span></div>
+                </div>
+                <div class="panel" style="margin-top: 16px;">
+                  <span class="label">Additional Notes / Special Terms</span>
+                  <div class="value" style="white-space: pre-wrap;">${escapeHtml(agreementData.additionalNotes || 'None provided.')}</div>
+                </div>
+              </section>
+              <section class="section">
+                <h2>Terms and Conditions</h2>
+                ${termsMarkup}
+              </section>
+              <section class="section">
+                <h2>Signatures</h2>
+                <div class="signatures">
+                  <div class="signature-box">
+                    <span class="label">Client Signature</span>
+                    <div class="signature-value">${escapeHtml(agreementData.clientSignature || '')}</div>
+                    <div class="details-grid">
+                      <div><span class="label">Name</span><span class="value">${escapeHtml(agreementData.clientName || 'Not specified')}</span></div>
+                      <div><span class="label">Date</span><span class="value">${escapeHtml(formatDisplayDate(agreementData.clientSignDate))}</span></div>
+                    </div>
+                  </div>
+                  <div class="signature-box">
+                    <span class="label">Provider Signature</span>
+                    <div class="signature-value">${escapeHtml(agreementData.providerSignature || '')}</div>
+                    <div class="details-grid">
+                      <div><span class="label">Provider</span><span class="value">ProSpaces CRM</span></div>
+                      <div><span class="label">Date</span><span class="value">${escapeHtml(formatDisplayDate(agreementData.providerSignDate))}</span></div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+              <div class="footer">
+                <p>This is a legally binding agreement. Please read carefully before signing.</p>
+                <p style="margin-top: 6px;">For questions or concerns, please contact support@prospaces-crm.com</p>
+                <p style="margin-top: 10px;">© ${new Date().getFullYear()} ProSpaces CRM. All rights reserved.</p>
+              </div>
+            </div>
+            ${autoPrintScript}
+          </body>
+        </html>
+      `;
+
+      if (!printWindow) {
+        // Popup blockers are common in admin panels; print from a hidden iframe as a fallback.
+        const frame = document.createElement('iframe');
+        frame.style.position = 'fixed';
+        frame.style.right = '0';
+        frame.style.bottom = '0';
+        frame.style.width = '0';
+        frame.style.height = '0';
+        frame.style.border = '0';
+        document.body.appendChild(frame);
+
+        const frameWindow = frame.contentWindow;
+        if (!frameWindow) {
+          document.body.removeChild(frame);
+          toast.error('Unable to create PDF preview in this browser session.');
+          return;
+        }
+
+        frameWindow.document.open();
+        frameWindow.document.write(printableHtml);
+        frameWindow.document.close();
+
+        const cleanup = () => {
+          setTimeout(() => {
+            if (document.body.contains(frame)) {
+              document.body.removeChild(frame);
+            }
+          }, 1000);
+        };
+
+        frameWindow.onafterprint = cleanup;
+        frameWindow.focus();
+        frameWindow.print();
+        return;
+      }
+
+      printWindow.document.open();
+      printWindow.document.write(printableHtml);
+      printWindow.document.close();
+    } catch (error) {
+      toast.error('Failed to create PDF');
+    }
   };
 
-  const totals = calculateTotal();
+  const handlePrint = () => {
+    openPrintPreview(true);
+  };
+
+  const handleDownloadPdf = () => {
+    openPrintPreview(true);
+  };
 
   if (isLoading) {
     return (
@@ -268,7 +662,7 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
             <Printer className="h-4 w-4" />
             Print Agreement
           </Button>
-          <Button variant="outline" className="flex items-center gap-2">
+          <Button onClick={handleDownloadPdf} variant="outline" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
             Download PDF
           </Button>
@@ -374,60 +768,12 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
               <h3 className="font-semibold text-lg mb-4">TERMS AND CONDITIONS</h3>
               
               <div className="space-y-4 text-sm text-foreground">
-                <div>
-                  <h4 className="font-semibold mb-2">1. Service Description</h4>
-                  <p>ProSpaces CRM agrees to provide the Client with access to a cloud-based Customer Relationship Management platform, including the modules and services selected below. The software is provided as a subscription service (SaaS) hosted on secure servers.</p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-2">2. Subscription Term</h4>
-                  <p>This agreement shall commence on the Start Date specified below and continue for the Duration period selected. The subscription will automatically renew for successive periods of equal length unless either party provides written notice of non-renewal at least 30 days prior to the end of the current term.</p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-2">3. Fees and Payment</h4>
-                  <p>The Client agrees to pay the fees specified in the Pricing section below. Monthly recurring fees are due on the first day of each month. One-time fees (setup, onboarding, etc.) are due within 15 days of invoice. All fees are non-refundable except as required by law.</p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-2">4. Data Security and Privacy</h4>
-                  <p>ProSpaces CRM employs industry-standard security measures to protect Client data. All data is encrypted in transit and at rest. Client retains ownership of all data entered into the system. ProSpaces CRM will not share, sell, or disclose Client data to third parties without explicit consent, except as required by law.</p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-2">5. Support and Maintenance</h4>
-                  <p>Standard support includes email support during business hours (9 AM - 5 PM EST, Monday-Friday) with response within 24 business hours. The system includes regular updates, security patches, and feature enhancements at no additional cost.</p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-2">6. User Licenses</h4>
-                  <p>Pricing includes user licenses as specified. Additional users may be added at the then-current rate. The Client is responsible for maintaining the security of user credentials and for all activities under user accounts.</p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-2">7. Service Level Agreement (SLA)</h4>
-                  <p>ProSpaces CRM guarantees 99.5% uptime on an annual basis, excluding scheduled maintenance windows. Scheduled maintenance will be announced at least 48 hours in advance.</p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-2">8. Data Rights and Ownership</h4>
-                  <p>The Client retains full ownership and all rights to their data at all times, including after subscription cancellation or termination. Upon request after termination, ProSpaces CRM will provide the Client with a complete export of all data in standard formats (CSV, JSON, or PDF) within 30 days. Client data will be securely stored for 90 days following termination to allow for data retrieval. After 90 days, unless otherwise agreed in writing, all Client data will be permanently deleted from ProSpaces CRM servers. The Client may request early deletion of their data at any time.</p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-2">9. Termination</h4>
-                  <p>Either party may terminate this agreement with 30 days written notice. Upon termination, Client will have 30 days to export all data from the system. ProSpaces CRM may suspend service immediately for non-payment or violation of terms. All data export and retention rights specified in Section 8 (Data Rights and Ownership) remain in effect after termination.</p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-2">10. Limitation of Liability</h4>
-                  <p>ProSpaces CRM's total liability under this agreement shall not exceed the total fees paid by Client in the 12 months preceding the claim. ProSpaces CRM is not liable for indirect, incidental, or consequential damages.</p>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-2">11. Modifications</h4>
-                  <p>ProSpaces CRM may modify these terms with 30 days notice. Continued use of the service after notification constitutes acceptance of modified terms.</p>
-                </div>
+                {AGREEMENT_TERMS.map((term) => (
+                  <div key={term.title}>
+                    <h4 className="font-semibold mb-2">{term.title}</h4>
+                    <p>{term.body}</p>
+                  </div>
+                ))}
               </div>
             </div>
 
