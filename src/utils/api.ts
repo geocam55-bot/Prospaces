@@ -1,7 +1,7 @@
 import { createClient } from './supabase/client';
 import { getAllCampaignsClient, createCampaignClient, updateCampaignClient, deleteCampaignClient, sendCampaignClient } from './campaigns-client';
 import { getAllQuotesClient, getQuotesByOpportunityClient, createQuoteClient, updateQuoteClient, deleteQuoteClient, getQuoteTrackingStatusClient, fixQuoteOrganizationIds } from './quotes-client';
-import { getAllInventoryClient, createInventoryClient, updateInventoryClient, deleteInventoryClient, upsertInventoryBySKUClient, bulkUpsertInventoryBySKUClient, searchInventoryClient } from './inventory-client';
+import { getAllInventoryClient, createInventoryClient, updateInventoryClient, deleteInventoryClient, upsertInventoryBySKUClient, bulkUpsertInventoryBySKUClient, searchInventoryClient, regenerateInventoryKeywordsClient } from './inventory-client';
 import { getAllProjectManagersClient, getProjectManagersByCustomerClient, createProjectManagerClient, updateProjectManagerClient, deleteProjectManagerClient } from './project-managers-client';
 import { getAllContactsClient, createContactClient, updateContactClient, deleteContactClient, claimUnassignedContactsClient, upsertContactByLegacyNumberClient, getSegmentsClient } from './contacts-client';
 import { diagnoseContactsRLS } from './contacts-diagnostic';
@@ -371,6 +371,7 @@ export const inventoryAPI = {
   delete: (id: string) => deleteInventoryClient(id),
   upsertBySKU: (data: any) => upsertInventoryBySKUClient(data),
   bulkUpsertBySKU: (data: any) => bulkUpsertInventoryBySKUClient(data),
+  regenerateKeywords: (id: string) => regenerateInventoryKeywordsClient(id),
   search: (filters?: { search?: string; category?: string; status?: string; organizationId?: string }) => searchInventoryClient(filters),
 };
 

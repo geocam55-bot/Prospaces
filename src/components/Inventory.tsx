@@ -30,6 +30,7 @@ import {
   X,
   Loader2,
   Download,
+  RefreshCw,
 } from 'lucide-react';
 import { inventoryAPI } from '../utils/api';
 import type { User } from '../App';
@@ -586,6 +587,16 @@ export function Inventory({ user }: InventoryProps) {
       loadInventory();
     } catch (error) {
       showAlert('error', 'Failed to delete item');
+    }
+  };
+
+  const handleRegenerateKeywords = async (id: string, itemName: string) => {
+    try {
+      await inventoryAPI.regenerateKeywords(id);
+      showAlert('success', `Keywords regenerated for ${itemName}`);
+      await loadInventory();
+    } catch (error: any) {
+      showAlert('error', error?.message || 'Failed to regenerate keywords');
     }
   };
 
@@ -1333,6 +1344,17 @@ export function Inventory({ user }: InventoryProps) {
                           <div className="flex items-start justify-between gap-2">
                             <h3 className="text-base sm:text-lg text-foreground font-medium truncate">{item.name}</h3>
                             <div className="flex gap-1 shrink-0">
+                                {canChange('inventory', user.role) && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  onClick={() => handleRegenerateKeywords(item.id, item.name)}
+                                  title="Regenerate Search Keywords"
+                                >
+                                  <RefreshCw className="h-4 w-4" />
+                                </Button>
+                                )}
                               {canChange('inventory', user.role) && (
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleOpenDialog(item)}>
                                 <Edit className="h-4 w-4" />
@@ -1430,6 +1452,16 @@ export function Inventory({ user }: InventoryProps) {
                             )}
                           </div>
                           <div className="flex gap-2">
+                            {canChange('inventory', user.role) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRegenerateKeywords(item.id, item.name)}
+                              title="Regenerate Search Keywords"
+                            >
+                              <RefreshCw className="h-4 w-4 text-blue-600" />
+                            </Button>
+                            )}
                             {canChange('inventory', user.role) && (
                             <Button variant="outline" size="sm" onClick={() => handleOpenDialog(item)}>
                               <Edit className="h-4 w-4" />
