@@ -61,6 +61,15 @@ export function InteractiveModuleHelp({
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
 
+  const shouldMaximizeOnOpen = () =>
+    typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches;
+
+  const openHelp = () => {
+    setIsMinimized(false);
+    setIsMaximized(shouldMaximizeOnOpen());
+    setIsOpen(true);
+  };
+
   const stepStorageKey = useMemo(
     () => `prospaces.${moduleKey}.help.step.${userId}`,
     [moduleKey, userId]
@@ -73,6 +82,8 @@ export function InteractiveModuleHelp({
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
+      setIsMinimized(false);
+      setIsMaximized(shouldMaximizeOnOpen());
       localStorage.setItem(seenStorageKey, 'true');
     } else {
       setIsMinimized(false);
@@ -93,18 +104,7 @@ export function InteractiveModuleHelp({
         setActiveStep(Math.max(0, Math.min(parsed, steps.length - 1)));
       }
     }
-
-    const hasSeenHelp = localStorage.getItem(seenStorageKey) === 'true';
-    if (!hasSeenHelp) {
-      const frame = window.requestAnimationFrame(() => {
-        setIsOpen(true);
-      });
-
-      return () => {
-        window.cancelAnimationFrame(frame);
-      };
-    }
-  }, [seenStorageKey, stepStorageKey, steps.length]);
+  }, [stepStorageKey, steps.length]);
 
   useEffect(() => {
     localStorage.setItem(stepStorageKey, String(activeStep));
@@ -115,7 +115,7 @@ export function InteractiveModuleHelp({
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setIsOpen(true)}
+        onClick={openHelp}
         title={triggerLabel}
         className="flex shrink-0 items-center gap-2 px-2 sm:px-3"
       >
@@ -131,7 +131,7 @@ export function InteractiveModuleHelp({
               ? '!inset-0 !top-0 !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 !h-[100dvh] !max-h-[100dvh] !w-screen !max-w-none sm:!max-w-none rounded-none'
               : isMinimized
                 ? 'w-[calc(100vw-0.75rem)] max-w-[1200px] max-h-[180px] sm:w-[98vw] overflow-hidden'
-                : 'w-[calc(100vw-0.75rem)] max-w-[1200px] max-h-[92dvh] sm:w-[98vw]'
+                : '!inset-0 !top-0 !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 !h-[100dvh] !max-h-[100dvh] !w-screen !max-w-none rounded-none sm:!inset-auto sm:!top-1/2 sm:!left-1/2 sm:!right-auto sm:!bottom-auto sm:!translate-x-[-50%] sm:!translate-y-[-50%] sm:!h-auto sm:!max-h-[92dvh] sm:!w-[98vw] sm:!max-w-[1200px] sm:rounded-lg'
           }`}
         >
           <DialogHeader>
@@ -144,8 +144,11 @@ export function InteractiveModuleHelp({
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-8 w-11 rounded-none text-slate-700 hover:bg-slate-200/80 hover:text-slate-900"
+                  className="hidden h-8 w-11 rounded-none text-slate-700 hover:bg-slate-200/80 hover:text-slate-900 sm:inline-flex"
                   onClick={() => {
+                    if (!shouldMaximizeOnOpen()) {
+                      return;
+                    }
                     setIsMinimized((prev) => {
                       const next = !prev;
                       if (next) {
