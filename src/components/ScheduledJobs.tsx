@@ -23,6 +23,8 @@ import { contactsAPI, inventoryAPI, bidsAPI } from '../utils/api';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { getPriceTierLabel } from '../lib/global-settings';
+import { ScheduledJobsModuleHelp } from './ScheduledJobsModuleHelp';
+import { BackgroundProcessingModuleHelp } from './BackgroundProcessingModuleHelp';
 
 interface ScheduledJobsProps {
   user: User;
@@ -456,9 +458,29 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
             <p className="text-sm text-muted-foreground">View and manage scheduled import/export jobs</p>
           </div>
         </div>
-        <Button variant="outline" onClick={loadJobs} disabled={isLoading}>
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <History className="h-4 w-4" />}
-        </Button>
+        <div className="flex items-center gap-2">
+          <BackgroundProcessingModuleHelp
+            userId={user.id}
+            onRefreshStatus={loadJobs}
+            onOpenScheduledJobs={() => onNavigate?.('scheduled-jobs')}
+            onOpenBackgroundImports={() => onNavigate?.('background-imports')}
+            onShowProcessingCadence={() => toast.info('Due jobs are checked every 60 seconds in this view.')}
+            onRunDueJobsCheck={checkAndProcessDueJobs}
+          />
+          <ScheduledJobsModuleHelp
+            userId={user.id}
+            pendingJobs={pendingJobs.length}
+            completedJobs={completedJobs.length}
+            onOpenImportExport={() => onNavigate?.('import-export')}
+            onRefreshJobs={loadJobs}
+            onProcessDueJobs={checkAndProcessDueJobs}
+            onShowPendingGuidance={() => toast.info(`Pending jobs: ${pendingJobs.length}`)}
+            onShowHistoryGuidance={() => toast.info(`History entries: ${completedJobs.length}`)}
+          />
+          <Button variant="outline" onClick={loadJobs} disabled={isLoading}>
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <History className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
 
       {/* Info Alert */}

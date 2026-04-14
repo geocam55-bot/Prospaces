@@ -40,7 +40,7 @@ import { toast } from 'sonner@2.0.3';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { getServerHeaders } from '../utils/server-headers';
 import { advancedSearch, getSearchSuggestions } from '../utils/advanced-search';
-import { InventorySearchHelp } from './InventorySearchHelp';
+import { InventoryModuleHelp } from './InventoryModuleHelp';
 import { useDebounce } from '../utils/useDebounce';
 import { createClient } from '../utils/supabase/client';
 import { ensureUserProfile } from '../utils/ensure-profile';
@@ -1122,9 +1122,37 @@ export function Inventory({ user }: InventoryProps) {
                     )}
                   </div>
                   <div className="flex items-center gap-2 self-start sm:self-auto">
-                    {useAdvancedSearch && (
-                      <InventorySearchHelp onExampleClick={(query) => setSearchQuery(query)} />
-                    )}
+                    <InventoryModuleHelp
+                      userId={user.id}
+                      totalItems={totalCount}
+                      lowStockItems={displayLowStockCount}
+                      onSearchExample={(query) => {
+                        setUseAdvancedSearch(true);
+                        setSearchQuery(query);
+                        setCurrentPage(1);
+                        setActiveTab('items');
+                      }}
+                      onFilterByStatus={(status) => {
+                        setStatusFilter(status);
+                        setCurrentPage(1);
+                        setActiveTab('items');
+                      }}
+                      onShowOutOfStock={() => {
+                        setActiveTab('low-stock');
+                        setCurrentPage(1);
+                      }}
+                      onClearFilters={() => {
+                        setSearchQuery('');
+                        setCategoryFilter('all');
+                        setStatusFilter('all');
+                        setCurrentPage(1);
+                        setActiveTab('items');
+                      }}
+                      onOpenAddItem={() => {
+                        setActiveTab('items');
+                        handleOpenDialog();
+                      }}
+                    />
                     <Button
                       variant="outline"
                       size="sm"

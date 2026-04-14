@@ -53,6 +53,7 @@ import {
 } from '../utils/documents-client';
 import { contactsAPI } from '../utils/api';
 import { DocumentsSetup } from './DocumentsSetup';
+import { DocumentsModuleHelp } from './DocumentsModuleHelp';
 
 interface DocumentsProps {
   user: UserType;
@@ -351,6 +352,29 @@ export function Documents({ user }: DocumentsProps) {
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex justify-end items-center">
+        <DocumentsModuleHelp
+          userId={user.id}
+          totalDocuments={documents.length}
+          onOpenSearchExample={(query) => {
+            setSearchQuery(query);
+            setCurrentPage(1);
+          }}
+          onShowAllCategories={() => {
+            setCategoryFilter('all');
+            setCurrentPage(1);
+          }}
+          onShowAllContacts={() => {
+            setContactFilter('all');
+            setCurrentPage(1);
+          }}
+          onClearFilters={() => {
+            setSearchQuery('');
+            setCategoryFilter('all');
+            setContactFilter('all');
+            setCurrentPage(1);
+          }}
+          onOpenUploadForm={() => setIsUploadDialogOpen(true)}
+        />
         <PermissionButton module="documents" action="add" userRole={user.role}>
           <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
             <DialogTrigger asChild>

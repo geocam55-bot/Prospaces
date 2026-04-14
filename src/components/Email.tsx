@@ -56,6 +56,7 @@ import { Badge } from './ui/badge';
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
 import { EmailAccountSetup } from './EmailAccountSetup';
+import { EmailModuleHelp } from './EmailModuleHelp';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { canAdd, canDelete } from '../utils/permissions';
@@ -1265,6 +1266,18 @@ export function Email({ user }: EmailProps) {
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center justify-end gap-2">
+          <EmailModuleHelp
+            userId={user.id}
+            totalEmails={filteredEmails.length}
+            connectedAccounts={accounts.length}
+            onOpenInbox={() => setCurrentFolder('inbox')}
+            onOpenStarred={() => setCurrentFolder('important')}
+            onOpenSearchExample={(query) => setSearchQuery(query)}
+            onClearSearch={() => setSearchQuery('')}
+            onSync={handleSync}
+            onOpenAccountSetup={() => setIsSettingsOpen(true)}
+            onOpenCompose={() => setIsComposeOpen(true)}
+          />
           <Button variant="outline" onClick={() => setIsSettingsOpen(true)} className="text-xs sm:text-sm">
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Add Account</span>

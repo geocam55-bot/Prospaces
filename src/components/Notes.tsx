@@ -25,6 +25,7 @@ import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { useDebounce } from '../utils/useDebounce';
 import { notesAPI, contactsAPI } from '../utils/api';
 import { toast } from 'sonner@2.0.3';
+import { NotesModuleHelp } from './NotesModuleHelp';
 
 interface Note {
   id: string;
@@ -204,6 +205,13 @@ export function Notes({ user }: NotesProps) {
     <PermissionGate user={user} module="notes" action="view">
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
+        <NotesModuleHelp
+          userId={user.id}
+          totalNotes={notes.length}
+          onOpenSearchExample={(query) => setSearchQuery(query)}
+          onClearSearch={() => setSearchQuery('')}
+          onOpenAddNote={() => setIsAddDialogOpen(true)}
+        />
         {canAdd('notes', user.role) && (
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>

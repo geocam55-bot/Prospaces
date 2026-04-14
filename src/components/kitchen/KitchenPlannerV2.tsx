@@ -40,6 +40,7 @@ import {
 import type { User } from '../../App';
 import { toast } from 'sonner@2.0.3';
 import { ChefHat } from 'lucide-react';
+import { PlannerWorkflowHelp } from '../planners/PlannerWorkflowHelp';
 import { 
   BaseCabinetIcon, 
   WallCabinetIcon, 
@@ -393,6 +394,13 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
     app.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const handlePrintPlan = () => {
+    if (kitchen3DRendererRef.current && config.viewMode === '3D') {
+      kitchen3DRendererRef.current.captureSnapshot();
+    }
+    setTimeout(() => window.print(), 500);
+  };
+
   if (!isDesktop) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center bg-muted rounded-lg m-4 border border-border">
@@ -499,19 +507,30 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
             </button>
           </div>
 
-          {/* Print Plan Button */}
-          <Button 
-            className="bg-red-600 hover:bg-red-700 text-white print:hidden"
-            onClick={() => {
-              if (kitchen3DRendererRef.current && config.viewMode === '3D') {
-                kitchen3DRendererRef.current.captureSnapshot();
-              }
-              setTimeout(() => window.print(), 500);
-            }}
-          >
-            <Printer className="w-4 h-4 mr-2" />
-            Print Plan
-          </Button>
+          <div className="flex items-center gap-2">
+            <PlannerWorkflowHelp
+              plannerType="kitchen"
+              userId={user.id}
+              onOpenDesign={() => setActiveTab('design')}
+              onOpenMaterials={() => setActiveTab('materials')}
+              onOpenTemplates={() => setActiveTab('templates')}
+              onOpenSaved={() => setActiveTab('saved-designs')}
+              onOpenDefaults={() => setActiveTab('defaults')}
+              onOpenDiagnostics={() => setActiveTab('diagnostics')}
+              onOpenModelLibrary={() => setActiveTab('model-library')}
+              onSwitch2D={() => setConfig((prev) => ({ ...prev, viewMode: '2D' }))}
+              onSwitch3D={() => setConfig((prev) => ({ ...prev, viewMode: '3D' }))}
+              onPrint={handlePrintPlan}
+            />
+            {/* Print Plan Button */}
+            <Button 
+              className="bg-red-600 hover:bg-red-700 text-white print:hidden"
+              onClick={handlePrintPlan}
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Print Plan
+            </Button>
+          </div>
         </div>
       </div>
       

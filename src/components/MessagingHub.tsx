@@ -41,6 +41,7 @@ import {
 } from '../utils/portal-client';
 import { tasksAPI, usersAPI } from '../utils/api';
 import type { User as CrmUser } from '../App';
+import { MessagingModuleHelp } from './MessagingModuleHelp';
 
 interface MessagingHubProps {
   user: CrmUser;
@@ -1002,7 +1003,33 @@ export function MessagingHub({ user }: MessagingHubProps) {
         {/* Sidebar header */}
         <div className="flex items-center justify-between border-b-2 border-slate-200 bg-white px-5 py-5">
           <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            <MessagingModuleHelp
+              userId={user.id}
+              customerConversations={messages.length}
+              internalConversations={internalChats.length}
+              unreadCount={unreadTotalCount}
+              onRefresh={loadData}
+              onOpenNewChat={() => {
+                setChatSearch('');
+                setShowOnlySlaAlerts(false);
+                setShowNewChat(true);
+              }}
+              onOpenSearchExample={(query) => {
+                setShowOnlySlaAlerts(false);
+                setChatSearch(query);
+              }}
+              onClearSearchAndFilters={() => {
+                setChatSearch('');
+                setShowOnlySlaAlerts(false);
+              }}
+              onShowSlaAlerts={() => {
+                setShowOnlySlaAlerts(true);
+                setSelectedConversationType('customer');
+              }}
+              onShowAllConversations={() => setShowOnlySlaAlerts(false)}
+            />
+            <div className="flex items-center gap-1">
             <Button
               size="icon"
               variant="ghost"
@@ -1022,6 +1049,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
             >
               <Plus className="h-4 w-4" />
             </Button>
+            </div>
           </div>
         </div>
 
