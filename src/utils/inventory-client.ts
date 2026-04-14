@@ -904,6 +904,71 @@ export async function regenerateInventoryKeywordsClient(id: string) {
   return { success: true, keywordCount: payload.search_keywords.length };
 }
 
+export async function regenerateAllInventoryKeywordsClient() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) throw new Error('Not authenticated');
+
+  const profile = await ensureUserProfile(user.id);
+  const organizationId = profile.organization_id;
+  if (!organizationId) throw new Error('No organization ID found for user');
+
+  const PAGE_SIZE = 300;
+  let offset = 0;
+  let updated = 0;
+  let failed = 0;
+
+  while (true) {
+    const { data: batch, error: batchError } = await supabase
+      .from('inventory')
+      .select(INVENTORY_SELECT)
+      .eq('organization_id', organizationId)
+      .order('id', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (batchError) {
+      throw batchError;
+    }
+
+    if (!batch || batch.length === 0) {
+      break;
+    }
+
+    for (const item of batch) {
+      const payload = {
+        search_keywords: buildSearchKeywords(item),
+        keyword_version: KEYWORD_VERSION,
+        keywords_generated_at: new Date().toISOString(),
+      };
+
+      let { error: updateError } = await supabase
+        .from('inventory')
+        .update(payload)
+        .eq('id', item.id)
+        .eq('organization_id', organizationId);
+
+      if (updateError && isMissingSearchKeywordsColumnError(updateError)) {
+        throw new Error('Database migration required: search keyword columns are missing.');
+      }
+
+      if (updateError) {
+        failed += 1;
+      } else {
+        updated += 1;
+      }
+    }
+
+    if (batch.length < PAGE_SIZE) {
+      break;
+    }
+
+    offset += batch.length;
+  }
+
+  return { success: true, updated, failed };
+}
+
 // Helper function to convert snake_case to camelCase
 function snakeToCamel(obj: any): any {
   if (Array.isArray(obj)) {

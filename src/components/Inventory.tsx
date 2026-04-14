@@ -136,6 +136,7 @@ export function Inventory({ user }: InventoryProps) {
     found: boolean;
   } | null>(null);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [isRegeneratingAllKeywords, setIsRegeneratingAllKeywords] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -693,6 +694,21 @@ export function Inventory({ user }: InventoryProps) {
       showAlert('error', 'Processing failed: ' + err.message);
     } finally {
       setIsRecovering(false);
+    }
+  };
+
+  const handleRegenerateAllKeywords = async () => {
+    if (!confirm('Regenerate search keywords for all SKUs in your organization? This may take a few minutes.')) return;
+
+    setIsRegeneratingAllKeywords(true);
+    try {
+      const result = await inventoryAPI.regenerateAllKeywords();
+      showAlert('success', `Regenerated keywords for ${result.updated} SKUs${result.failed > 0 ? ` (${result.failed} failed)` : ''}`);
+      await loadInventory();
+    } catch (error: any) {
+      showAlert('error', error?.message || 'Failed to regenerate keywords for all SKUs');
+    } finally {
+      setIsRegeneratingAllKeywords(false);
     }
   };
 
@@ -1796,6 +1812,33 @@ export function Inventory({ user }: InventoryProps) {
 
         {(user.role === 'admin' || user.role === 'super_admin') && (
           <TabsContent value="diagnostic" className="space-y-4 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Admin Keyword Tools</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Rebuild AI search keywords for all inventory SKUs in your organization.
+                </p>
+                <Button
+                  onClick={handleRegenerateAllKeywords}
+                  disabled={isRegeneratingAllKeywords}
+                  className="w-full sm:w-auto"
+                >
+                  {isRegeneratingAllKeywords ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Regenerating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Regenerate Keywords for All SKUs
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
             <InventoryDiagnostic user={user} />
           </TabsContent>
         )}
