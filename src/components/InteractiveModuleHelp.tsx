@@ -135,16 +135,16 @@ export function InteractiveModuleHelp({
           }`}
         >
           <DialogHeader>
-            <div className="-mx-4 -mt-4 mb-3 flex items-center justify-between border-b border-slate-200/80 bg-slate-100/90 px-3 py-2 sm:-mx-6 sm:-mt-6">
-              <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
-                <ModuleIcon className="h-4 w-4 text-sky-700" />
+            <div className="-mx-4 -mt-4 mb-3 flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-1.5 sm:-mx-6 sm:-mt-6">
+              <DialogTitle className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <ModuleIcon className="h-4 w-4 text-slate-600" />
                 <span className="truncate">{title}</span>
               </DialogTitle>
-              <div className="ml-3 flex shrink-0 items-center overflow-hidden rounded-sm border border-slate-300/90 bg-white/80 shadow-sm">
+              <div className="-mr-3 -my-1.5 ml-3 flex shrink-0 items-center">
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-8 w-10 rounded-none border-l border-slate-300/80 first:border-l-0 text-slate-700 hover:bg-slate-200 hover:text-slate-900"
+                  className="h-8 w-11 rounded-none text-slate-700 hover:bg-slate-200/80 hover:text-slate-900"
                   onClick={() => {
                     setIsMinimized((prev) => {
                       const next = !prev;
@@ -161,7 +161,7 @@ export function InteractiveModuleHelp({
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-8 w-10 rounded-none border-l border-slate-300/80 text-slate-700 hover:bg-slate-200 hover:text-slate-900"
+                  className="h-8 w-11 rounded-none text-slate-700 hover:bg-slate-200/80 hover:text-slate-900"
                   onClick={() => {
                     setIsMaximized((prev) => {
                       const next = !prev;
@@ -178,7 +178,7 @@ export function InteractiveModuleHelp({
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-8 w-10 rounded-none border-l border-slate-300/80 text-slate-700 hover:bg-[#e81123] hover:text-white"
+                  className="h-8 w-11 rounded-none text-slate-700 hover:bg-[#e81123] hover:text-white"
                   onClick={() => setIsOpen(false)}
                   title="Close Help"
                 >
