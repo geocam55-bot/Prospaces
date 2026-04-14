@@ -1,6 +1,7 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
 import { isTierActive } from '../lib/global-settings';
+import { buildInventoryOrSearchClause, expandInventorySearchTerms } from './inventory-keywords';
 
 // ✅ Use select('*') to avoid errors when optional columns (price_tier_*, department_code, unit_of_measure) haven't been added yet.
 // The mapping function handles missing fields with defaults.
@@ -138,8 +139,11 @@ export async function searchInventoryClient(filters?: {
     // Apply search filter - use ILIKE for case-insensitive pattern matching
     // This uses the trigram indexes we created
     if (filters?.search && filters.search.trim()) {
-      const searchTerm = `%${filters.search.trim()}%`;
-      query = query.or(`name.ilike.${searchTerm},sku.ilike.${searchTerm},description.ilike.${searchTerm}`);
+      const expandedTerms = expandInventorySearchTerms(filters.search.trim());
+      const orClause = buildInventoryOrSearchClause(expandedTerms);
+      if (orClause) {
+        query = query.or(orClause);
+      }
     }
 
     // Order by name

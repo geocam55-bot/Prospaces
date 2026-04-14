@@ -1,3 +1,5 @@
+import { generateInventoryKeywords } from './inventory-keywords';
+
 /**
  * HELPER FUNCTIONS
  */
@@ -341,6 +343,15 @@ export function advancedSearch<T extends SearchableItem>(
     const matchedFields: string[] = [];
     let bestMatchType: 'exact' | 'fuzzy' | 'semantic' | 'partial' = 'partial';
     
+    const generatedKeywords = generateInventoryKeywords({
+      productName: item.name,
+      productDescription: item.description,
+      category: item.category,
+      sku: item.sku,
+      supplierName: item.supplier,
+      existingTags: item.tags,
+    });
+
     // Fields to search with their weights
     const searchFields = [
       { field: 'name', weight: 10, value: item.name },
@@ -352,6 +363,7 @@ export function advancedSearch<T extends SearchableItem>(
       { field: 'barcode', weight: 5, value: item.barcode },
       { field: 'location', weight: 3, value: item.location },
       { field: 'tags', weight: 5, value: item.tags?.join(' ') },
+      { field: 'ai_keywords', weight: 6, value: generatedKeywords.all.join(' ') },
     ];
     
     // For multi-word queries, check if ALL search terms appear somewhere in the item
@@ -719,6 +731,15 @@ export function getSearchSuggestions<T extends SearchableItem>(
   for (const item of items) {
     if (suggestions.size >= maxSuggestions) break;
     
+    const generatedKeywords = generateInventoryKeywords({
+      productName: item.name,
+      productDescription: item.description,
+      category: item.category,
+      sku: item.sku,
+      supplierName: item.supplier,
+      existingTags: item.tags,
+    });
+
     if (item.name.toLowerCase().startsWith(queryLower)) {
       suggestions.add(item.name);
     } else if (item.sku.toLowerCase().startsWith(queryLower)) {
@@ -727,6 +748,11 @@ export function getSearchSuggestions<T extends SearchableItem>(
       suggestions.add((item as any).item_number);
     } else if (item.category.toLowerCase().startsWith(queryLower)) {
       suggestions.add(item.category);
+    } else {
+      const keywordMatch = generatedKeywords.all.find((kw) => kw.startsWith(queryLower));
+      if (keywordMatch) {
+        suggestions.add(keywordMatch);
+      }
     }
   }
   
