@@ -208,24 +208,24 @@ export function PlannerWorkflowHelp({
       ]}
       badges={[
         { label: 'Planner', value: meta.colorLabel },
-        { label: 'Workflow', value: 'Design -> Materials -> Handoff', variant: 'outline' },
+        { label: 'Workflow', value: PROCESS_STAGES, variant: 'outline' },
       ]}
       actions={[
         {
-        { label: 'Workflow', value: PROCESS_STAGES, variant: 'outline' },
+          label: 'Open Design',
           icon: Layers,
           variant: 'outline',
           onClick: onOpenDesign,
-          title: 'Discovery and Scope Lock',
-          body: 'Capture requirements, then lock geometry and key options before moving into pricing decisions.',
-          label: 'Open Materials',
-          icon: Package,
-          title: 'Estimate and Validate',
-          body: 'Review material outputs, defaults, and conversion assumptions together to prevent pricing drift.',
         },
         {
-          title: 'Approval and Handoff',
-          body: 'Capture revisions in Saved Designs, finalize approval-ready output, and hand off printable plans to execution teams.',
+          label: 'Open Materials',
+          icon: Package,
+          variant: 'outline',
+          onClick: onOpenMaterials,
+        },
+        {
+          label: 'Open Templates',
+          icon: LayoutTemplate,
           variant: 'outline',
           onClick: onOpenTemplates,
         },

@@ -9,7 +9,7 @@ import grainOverlay from '../assets/landing/backgrounds/grain-overlay.svg';
 let environmentBg: string | null = null;
 try {
   // @ts-ignore
-  environmentBg = new URL('../assets/landing/backgrounds/environment-bg.webp', import.meta.url).href;
+  environmentBg = new URL(/* @vite-ignore */ '../assets/landing/backgrounds/environment-bg.webp', import.meta.url).href;
 } catch { /* no-op */ }
 
 interface SpaceChooserProps {
