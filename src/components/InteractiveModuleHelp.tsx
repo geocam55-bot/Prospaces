@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { BookOpen, CheckCircle2 } from 'lucide-react';
+import { BookOpen, CheckCircle2, Copy, Minimize2, Square, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -57,6 +57,8 @@ export function InteractiveModuleHelp({
 }: InteractiveModuleHelpProps) {
   const helpOnboardingVersion = 'v1';
   const [isOpen, setIsOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
 
   const stepStorageKey = useMemo(
@@ -72,6 +74,9 @@ export function InteractiveModuleHelp({
     setIsOpen(open);
     if (open) {
       localStorage.setItem(seenStorageKey, 'true');
+    } else {
+      setIsMinimized(false);
+      setIsMaximized(false);
     }
   };
 
@@ -120,16 +125,72 @@ export function InteractiveModuleHelp({
       </Button>
 
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent className="w-[calc(100vw-0.75rem)] max-w-[1200px] max-h-[92dvh] overflow-y-auto p-4 sm:w-[98vw] sm:p-6">
+        <DialogContent
+          className={`[&>button]:hidden overflow-y-auto p-4 sm:p-6 ${
+            isMaximized
+              ? '!inset-0 !top-0 !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 !h-[100dvh] !max-h-[100dvh] !w-screen !max-w-none sm:!max-w-none rounded-none'
+              : isMinimized
+                ? 'w-[calc(100vw-0.75rem)] max-w-[1200px] max-h-[180px] sm:w-[98vw] overflow-hidden'
+                : 'w-[calc(100vw-0.75rem)] max-w-[1200px] max-h-[92dvh] sm:w-[98vw]'
+          }`}
+        >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ModuleIcon className="h-5 w-5 text-sky-600" />
-              {title}
-            </DialogTitle>
+            <div className="-mx-4 -mt-4 mb-3 flex items-center justify-between border-b border-slate-200/80 bg-slate-100/90 px-3 py-2 sm:-mx-6 sm:-mt-6">
+              <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
+                <ModuleIcon className="h-4 w-4 text-sky-700" />
+                <span className="truncate">{title}</span>
+              </DialogTitle>
+              <div className="ml-3 flex shrink-0 items-center overflow-hidden rounded-sm border border-slate-300/90 bg-white/80 shadow-sm">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-10 rounded-none border-l border-slate-300/80 first:border-l-0 text-slate-700 hover:bg-slate-200 hover:text-slate-900"
+                  onClick={() => {
+                    setIsMinimized((prev) => {
+                      const next = !prev;
+                      if (next) {
+                        setIsMaximized(false);
+                      }
+                      return next;
+                    });
+                  }}
+                  title={isMinimized ? 'Restore Help' : 'Minimize Help'}
+                >
+                  <Minimize2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-10 rounded-none border-l border-slate-300/80 text-slate-700 hover:bg-slate-200 hover:text-slate-900"
+                  onClick={() => {
+                    setIsMaximized((prev) => {
+                      const next = !prev;
+                      if (next) {
+                        setIsMinimized(false);
+                      }
+                      return next;
+                    });
+                  }}
+                  title={isMaximized ? 'Restore Help Window' : 'Maximize Help Window'}
+                >
+                  {isMaximized ? <Copy className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-10 rounded-none border-l border-slate-300/80 text-slate-700 hover:bg-[#e81123] hover:text-white"
+                  onClick={() => setIsOpen(false)}
+                  title="Close Help"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+          {!isMinimized && (
+            <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm">Guided Steps</CardTitle>
@@ -214,7 +275,8 @@ export function InteractiveModuleHelp({
                 </Card>
               )}
             </div>
-          </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
