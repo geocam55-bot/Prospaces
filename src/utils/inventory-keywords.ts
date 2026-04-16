@@ -7,7 +7,7 @@ export interface InventoryKeywordInput {
   sku?: string;
   modelNumber?: string;
   supplierName?: string;
-  existingTags?: string[];
+  existingTags?: string[] | string | Record<string, unknown> | null;
 }
 
 export interface GeneratedInventoryKeywords {
@@ -66,6 +66,43 @@ function safeSplit(text: string): string[] {
     .filter((t) => t.length >= 2 && !STOP_WORDS.has(t));
 }
 
+function normalizeTextValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  return '';
+}
+
+function normalizeExistingTags(tags: InventoryKeywordInput['existingTags']): string[] {
+  const normalized = new Set<string>();
+
+  const visit = (value: unknown): void => {
+    if (!value) return;
+
+    if (typeof value === 'string') {
+      for (const token of safeSplit(value)) {
+        normalized.add(token);
+      }
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        visit(entry);
+      }
+      return;
+    }
+
+    if (typeof value === 'object') {
+      for (const entry of Object.values(value as Record<string, unknown>)) {
+        visit(entry);
+      }
+    }
+  };
+
+  visit(tags);
+  return Array.from(normalized);
+}
+
 function uniqueSorted(values: Iterable<string>): string[] {
   return Array.from(new Set(Array.from(values).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 }
@@ -93,16 +130,18 @@ function deriveVariants(tokens: string[]): string[] {
 }
 
 export function generateInventoryKeywords(input: InventoryKeywordInput): GeneratedInventoryKeywords {
+  const normalizedExistingTags = normalizeExistingTags(input.existingTags);
+
   const textParts = [
-    input.productName || '',
-    input.productDescription || '',
-    input.category || '',
-    input.subcategory || '',
-    input.brand || '',
-    input.sku || '',
-    input.modelNumber || '',
-    input.supplierName || '',
-    ...(input.existingTags || []),
+    normalizeTextValue(input.productName),
+    normalizeTextValue(input.productDescription),
+    normalizeTextValue(input.category),
+    normalizeTextValue(input.subcategory),
+    normalizeTextValue(input.brand),
+    normalizeTextValue(input.sku),
+    normalizeTextValue(input.modelNumber),
+    normalizeTextValue(input.supplierName),
+    ...normalizedExistingTags,
   ]
     .join(' ')
     .trim();
@@ -139,7 +178,7 @@ export function generateInventoryKeywords(input: InventoryKeywordInput): Generat
     }
   }
 
-  const variants = deriveVariants([...core, ...attributes, ...(input.existingTags || [])]);
+  const variants = deriveVariants([...core, ...attributes, ...normalizedExistingTags]);
   const all = uniqueSorted([...core, ...attributes, ...useCase, ...variants]);
 
   return {

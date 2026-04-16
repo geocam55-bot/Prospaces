@@ -116,6 +116,26 @@ function expandSemanticQuery(query: string): string[] {
   return synonyms;
 }
 
+function normalizeTagList(tags: unknown): string[] {
+  if (!tags) return [];
+
+  if (Array.isArray(tags)) {
+    return tags.filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0);
+  }
+
+  if (typeof tags === 'string') {
+    return tags.split(/[\s,]+/).map(tag => tag.trim()).filter(Boolean);
+  }
+
+  if (typeof tags === 'object') {
+    return Object.values(tags as Record<string, unknown>)
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map(value => value.trim());
+  }
+
+  return [];
+}
+
 const fuzzyMemo = new Map<string, number>();
 
 function advancedFuzzyMatch(str1: string, str2: string): number {
@@ -342,6 +362,7 @@ export function advancedSearch<T extends SearchableItem>(
     let matchCount = 0;
     const matchedFields: string[] = [];
     let bestMatchType: 'exact' | 'fuzzy' | 'semantic' | 'partial' = 'partial';
+    const normalizedTags = normalizeTagList(item.tags);
     
     const generatedKeywords = generateInventoryKeywords({
       productName: item.name,
@@ -349,7 +370,7 @@ export function advancedSearch<T extends SearchableItem>(
       category: item.category,
       sku: item.sku,
       supplierName: item.supplier,
-      existingTags: item.tags,
+      existingTags: normalizedTags,
     });
 
     // Fields to search with their weights
@@ -362,7 +383,7 @@ export function advancedSearch<T extends SearchableItem>(
       { field: 'supplier', weight: 4, value: item.supplier },
       { field: 'barcode', weight: 5, value: item.barcode },
       { field: 'location', weight: 3, value: item.location },
-      { field: 'tags', weight: 5, value: item.tags?.join(' ') },
+      { field: 'tags', weight: 5, value: normalizedTags.join(' ') },
       { field: 'ai_keywords', weight: 6, value: generatedKeywords.all.join(' ') },
     ];
     

@@ -43,30 +43,15 @@ export function InventoryCombobox({
 
   // AI-Powered search with advanced-search.ts engine
   const filteredItems = useMemo(() => {
-    
     if (!debouncedSearch.trim()) {
       // Show first 100 items when search is empty (prevents rendering thousands of items)
       return items.slice(0, 100);
     }
 
-    if (useAdvancedSearch) {
-      // Use AI-powered advanced search engine
-      
-      const results = advancedSearch(items, debouncedSearch, {
-        fuzzyThreshold: 0.7,  // Match Inventory Module settings
-        minScore: 0.3,        // Match Inventory Module settings
-        maxResults: 100,
-        sortBy: 'relevance',
-      });
-      
-      // Advanced search found matches
-      
-      return results.map(r => r.item);
-    } else {
-      // Fallback: Simple multi-word search
+    const runBasicSearch = () => {
       const searchLower = debouncedSearch.toLowerCase().trim();
       const searchWords = searchLower.split(/\s+/).filter(word => word.length > 0);
-      
+
       const matches = items.filter(item => {
         const searchableText = [
           item.name || '',
@@ -74,18 +59,15 @@ export function InventoryCombobox({
           item.category || '',
           item.description || ''
         ].join(' ').toLowerCase();
-        
+
         return searchWords.every(word => searchableText.includes(word));
       });
 
-      // Basic search found matches
-      
-      // Sort by relevance score
       const scoredMatches = matches.map(item => {
         let score = 0;
         const itemName = (item.name || '').toLowerCase();
         const itemSKU = (item.sku || '').toLowerCase();
-        
+
         searchWords.forEach(word => {
           if (itemName === word) score += 1000;
           if (itemSKU === word) score += 900;
@@ -96,11 +78,11 @@ export function InventoryCombobox({
           if ((item.category || '').toLowerCase().includes(word)) score += 50;
           if ((item.description || '').toLowerCase().includes(word)) score += 30;
         });
-        
+
         if (searchWords.every(word => itemName.includes(word))) {
           score += 200;
         }
-        
+
         return { item, score };
       });
 
@@ -111,7 +93,24 @@ export function InventoryCombobox({
         })
         .slice(0, 100)
         .map(x => x.item);
+    };
+
+    if (useAdvancedSearch) {
+      try {
+        const results = advancedSearch(items as any, debouncedSearch, {
+          fuzzyThreshold: 0.7,
+          minScore: 0.3,
+          maxResults: 100,
+          sortBy: 'relevance',
+        });
+
+        return results.map(r => r.item);
+      } catch (error) {
+        console.error('Advanced inventory search failed. Falling back to basic search.', error);
+      }
     }
+
+    return runBasicSearch();
   }, [debouncedSearch, items, useAdvancedSearch]);
 
   // Find the selected item
