@@ -1,4 +1,5 @@
 import { createClient } from './supabase/client';
+import { buildInventoryOrSearchClause, expandInventorySearchTerms } from './inventory-keywords';
 
 const supabase = createClient();
 
@@ -104,17 +105,10 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
       
       // Apply text search if there are search terms
       if (searchTerms) {
-        // Handle both singular and plural forms by searching for stemmed version
-        const stemmedSearch = stem(searchTerms);
-        
-        // Search for both original and stemmed versions
-        if (stemmedSearch !== searchTerms) {
-          query = query.or(
-            `name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%,` +
-            `name.ilike.%${stemmedSearch}%,sku.ilike.%${stemmedSearch}%,description.ilike.%${stemmedSearch}%,category.ilike.%${stemmedSearch}%`
-          );
-        } else {
-          query = query.or(`name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%`);
+        const expandedTerms = expandInventorySearchTerms(searchTerms);
+        const orClause = buildInventoryOrSearchClause(expandedTerms);
+        if (orClause) {
+          query = query.or(orClause);
         }
       }
       
@@ -176,14 +170,10 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
         if (searchQuery && searchQuery.trim()) {
           const { searchTerms, priceFilter } = parseSearchQuery(searchQuery);
           if (searchTerms) {
-            const stemmedSearch = stem(searchTerms);
-            if (stemmedSearch !== searchTerms) {
-              aggQuery = aggQuery.or(
-                `name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%,` +
-                `name.ilike.%${stemmedSearch}%,sku.ilike.%${stemmedSearch}%,description.ilike.%${stemmedSearch}%,category.ilike.%${stemmedSearch}%`
-              );
-            } else {
-              aggQuery = aggQuery.or(`name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%`);
+            const expandedTerms = expandInventorySearchTerms(searchTerms);
+            const orClause = buildInventoryOrSearchClause(expandedTerms);
+            if (orClause) {
+              aggQuery = aggQuery.or(orClause);
             }
           }
           if (priceFilter) {
@@ -255,14 +245,10 @@ export async function loadInventoryPage(options: LoadInventoryOptions): Promise<
     if (searchQuery && searchQuery.trim()) {
       const { searchTerms, priceFilter } = parseSearchQuery(searchQuery);
       if (searchTerms) {
-        const stemmedSearch = stem(searchTerms);
-        if (stemmedSearch !== searchTerms) {
-          lowStockQuery = lowStockQuery.or(
-            `name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%,` +
-            `name.ilike.%${stemmedSearch}%,sku.ilike.%${stemmedSearch}%,description.ilike.%${stemmedSearch}%,category.ilike.%${stemmedSearch}%`
-          );
-        } else {
-          lowStockQuery = lowStockQuery.or(`name.ilike.%${searchTerms}%,sku.ilike.%${searchTerms}%,description.ilike.%${searchTerms}%,category.ilike.%${searchTerms}%`);
+        const expandedTerms = expandInventorySearchTerms(searchTerms);
+        const orClause = buildInventoryOrSearchClause(expandedTerms);
+        if (orClause) {
+          lowStockQuery = lowStockQuery.or(orClause);
         }
       }
       if (priceFilter) {

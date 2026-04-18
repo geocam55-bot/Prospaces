@@ -28,6 +28,7 @@ import { useAudienceSegments } from '../hooks/useAudienceSegments';
 import { TagSelector } from './TagSelector';
 import { CustomFieldsRenderer } from './CustomFieldsRenderer';
 import { toast } from 'sonner@2.0.3';
+import { CustomerModuleHelp } from './CustomerModuleHelp';
 
 interface Contact {
   id: string;
@@ -321,6 +322,43 @@ export function Contacts({ user }: ContactsProps) {
       // Filter by search query
       const query = debouncedSearchQuery.toLowerCase().trim();
       if (query) {
+        const statusAliases: Record<string, string> = {
+          active: 'active',
+          prospect: 'prospect',
+          prospects: 'prospect',
+          inactive: 'inactive',
+        };
+        const ignoredTokens = new Set([
+          'show',
+          'me',
+          'all',
+          'the',
+          'a',
+          'an',
+          'and',
+          'or',
+          'with',
+          'of',
+          'for',
+          'to',
+          'customer',
+          'customers',
+          'client',
+          'clients',
+          'contact',
+          'contacts',
+          'high',
+          'value',
+          'values',
+          'best',
+        ]);
+
+        const tokens = query
+          .replace(/[^a-z0-9@.\-\s]/g, ' ')
+          .split(/\s+/)
+          .map((token) => token.trim())
+          .filter((token) => token.length > 0 && !ignoredTokens.has(token));
+
         filtered = filtered.filter(contact => {
           // Standard text search
           const basicMatch = (
@@ -331,15 +369,45 @@ export function Contacts({ user }: ContactsProps) {
             (contact?.status || '').toLowerCase().includes(query) ||
             (contact?.tags || []).some(tag => tag.toLowerCase().includes(query))
           );
+
+          if (basicMatch) return true;
+
+          // Token-based matching supports natural-language searches from help examples.
+          if (tokens.length > 0) {
+            const searchableValues = [
+              contact?.name,
+              contact?.email,
+              contact?.company,
+              contact?.phone,
+              contact?.status,
+              contact?.legacyNumber,
+              contact?.accountOwnerNumber,
+              ...(contact?.tags || []),
+              ...Object.values(contact?.customFields || {}).map((val) => String(val)),
+            ]
+              .filter(Boolean)
+              .map((val) => String(val).toLowerCase());
+
+            const status = (contact?.status || '').toLowerCase();
+            const tokenMatch = tokens.every((token) => {
+              const mappedStatus = statusAliases[token];
+              if (mappedStatus) {
+                return status === mappedStatus;
+              }
+              return searchableValues.some((value) => value.includes(token));
+            });
+
+            if (tokenMatch) return true;
+          }
           
           // Search in custom fields if not matched in basic fields
-          if (!basicMatch && contact?.customFields) {
+          if (contact?.customFields) {
             return Object.values(contact.customFields).some(val => 
               String(val).toLowerCase().includes(query)
             );
           }
           
-          return basicMatch;
+          return false;
         });
       }
       
@@ -626,6 +694,24 @@ export function Contacts({ user }: ContactsProps) {
             </p>
 
             <div className="flex gap-3 flex-wrap justify-center">
+              <CustomerModuleHelp
+                userId={user.id}
+                totalContacts={contacts.length}
+                onSearchExample={(query) => {
+                  setSearchQuery(query);
+                  setSelectedTagFilter('all');
+                }}
+                onFilterByStatus={(status) => {
+                  setSelectedTagFilter(`status:${status}`);
+                  setSearchQuery('');
+                }}
+                onClearFilters={() => {
+                  setSearchQuery('');
+                  setSelectedTagFilter('all');
+                }}
+                onOpenAddContact={() => setIsAddDialogOpen(true)}
+              />
+
               <Button
                 onClick={diagnoseAndFixOwnership}
                 disabled={isFixingOwnership}
@@ -1017,6 +1103,24 @@ export function Contacts({ user }: ContactsProps) {
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
+          <CustomerModuleHelp
+            userId={user.id}
+            totalContacts={contacts.length}
+            onSearchExample={(query) => {
+              setSearchQuery(query);
+              setSelectedTagFilter('all');
+            }}
+            onFilterByStatus={(status) => {
+              setSelectedTagFilter(`status:${status}`);
+              setSearchQuery('');
+            }}
+            onClearFilters={() => {
+              setSearchQuery('');
+              setSelectedTagFilter('all');
+            }}
+            onOpenAddContact={() => setIsAddDialogOpen(true)}
+          />
+
           {canAdd('contacts', user.role) && (
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>

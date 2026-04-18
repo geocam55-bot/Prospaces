@@ -21,6 +21,7 @@ import { PermissionGate } from './PermissionGate';
 import { canAdd, canDelete } from '../utils/permissions';
 import { canChange } from '../utils/permissions';
 import { contactsAPI } from '../utils/api';
+import { AppointmentsModuleHelp } from './AppointmentsModuleHelp';
 
 interface Appointment {
   id: string;
@@ -540,6 +541,17 @@ export function Appointments({ user }: AppointmentsProps) {
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2">
+            <AppointmentsModuleHelp
+              userId={user.id}
+              totalAppointments={appointments.length}
+              connectedCalendars={calendarAccounts.length}
+              onShowList={() => setViewMode('list')}
+              onShowWeek={() => setViewMode('week')}
+              onShowMonth={() => setViewMode('month')}
+              onOpenCalendarSetup={() => setIsCalendarSetupOpen(true)}
+              onSyncCalendar={handleSyncCalendar}
+              onOpenAddAppointment={() => setIsAddDialogOpen(true)}
+            />
             {calendarAccounts.length > 0 && (
               <Button variant="outline" size="sm" onClick={handleSyncCalendar} disabled={isSyncing}>
                 {isSyncing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Syncing...</> : <><RefreshCw className="h-4 w-4 mr-2" />Sync Calendar</>}

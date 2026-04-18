@@ -1,6 +1,7 @@
 import { ChevronRight, Users, FileText, CheckCircle2, Calendar, StickyNote, Folder, LayoutDashboard, MessageSquare } from 'lucide-react';
 import type { User, Organization } from '../App';
 import { canView } from '../utils/permissions';
+import { MainPanelsModuleHelp } from './MainPanelsModuleHelp';
 
 interface MainPanelsProps {
   user: User;
@@ -100,6 +101,20 @@ export function MainPanels({ user, organization, onNavigate }: MainPanelsProps) 
             Welcome back, {user.full_name?.split(' ')[0] || 'there'}
           </h1>
           <p className="mt-3 text-xl text-slate-500">Choose a panel to start working.</p>
+        </div>
+
+        <div className="flex justify-end">
+          <MainPanelsModuleHelp
+            userId={user.id}
+            availablePanels={modulePanels.length}
+            onOpenDashboard={() => onNavigate?.('dashboard')}
+            onOpenContacts={() => onNavigate?.('contacts')}
+            onOpenDeals={() => onNavigate?.('bids')}
+            onOpenTasks={() => onNavigate?.('tasks')}
+            onOpenAppointments={() => onNavigate?.('appointments')}
+            onOpenNotes={() => onNavigate?.('notes')}
+            onOpenMessages={() => onNavigate?.('messages')}
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">

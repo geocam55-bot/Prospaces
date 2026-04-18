@@ -19,6 +19,7 @@ import { Button } from '../ui/button';
 import { toast } from 'sonner@2.0.3';
 import type { User } from '../../App';
 import { PermissionGate } from '../PermissionGate';
+import { PlannerWorkflowHelp } from './PlannerWorkflowHelp';
 
 interface DeckPlannerProps {
   user: User;
@@ -241,13 +242,27 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
                 Defaults
               </button>
             </nav>
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
-            >
-              <Printer className="w-4 h-4" />
-              <span className="hidden sm:inline">Print Plan</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <PlannerWorkflowHelp
+                plannerType="deck"
+                userId={user.id}
+                onOpenDesign={() => setActiveTab('design')}
+                onOpenMaterials={() => setActiveTab('materials')}
+                onOpenTemplates={() => setActiveTab('templates')}
+                onOpenSaved={() => setActiveTab('saved')}
+                onOpenDefaults={() => setActiveTab('defaults')}
+                onSwitch2D={() => setViewMode('2d')}
+                onSwitch3D={() => setViewMode('3d')}
+                onPrint={handlePrint}
+              />
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base"
+              >
+                <Printer className="w-4 h-4" />
+                <span className="hidden sm:inline">Print Plan</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -34,6 +34,7 @@ import type { User } from '../App';
 import { projectId } from '../utils/supabase/info';
 import { getServerHeaders } from '../utils/server-headers';
 import { useDebounce } from '../utils/useDebounce';
+import { AuditLogModuleHelp } from './AuditLogModuleHelp';
 
 const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
@@ -368,6 +369,26 @@ export function AuditLog({ user, embedded = false }: AuditLogProps) {
             </div>
 
             <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
+              <AuditLogModuleHelp
+                userId={user.id}
+                totalEvents={pagination.totalCount}
+                last24hEvents={stats?.last24h || 0}
+                onRefreshLogs={fetchLogs}
+                onExportCsv={handleExport}
+                onClearFilters={clearFilters}
+                onShowPermissionChanges={() => {
+                  setFilterAction('permission_change');
+                  setCurrentPage(1);
+                }}
+                onShowUserEvents={() => {
+                  setFilterResourceType('user');
+                  setCurrentPage(1);
+                }}
+                onOpenSearchExample={(query) => {
+                  setSearchQuery(query);
+                  setCurrentPage(1);
+                }}
+              />
               {hasActiveFilters && (
                 <Button variant="ghost" size="sm" onClick={clearFilters}>
                   Clear Filters

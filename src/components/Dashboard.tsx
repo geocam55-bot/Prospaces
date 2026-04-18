@@ -43,6 +43,7 @@ import { PermissionGate } from './PermissionGate';
 import { DailyBriefingPopup } from './DailyBriefingPopup';
 import { useTheme } from './ThemeProvider';
 import { MetricCard } from './MetricCard';
+import { DashboardModuleHelp } from './DashboardModuleHelp';
 
 interface DashboardProps {
   user: User;
@@ -330,6 +331,17 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         </div>
         <div className="flex items-center space-x-2">
+          <DashboardModuleHelp
+            userId={user.id}
+            openDeals={metrics.openDeals}
+            pipelineValue={metrics.pipelineValue}
+            taskCount={tasks.length}
+            appointmentCount={appointments.length}
+            onRefresh={loadDashboardData}
+            onOpenDeals={() => onNavigate?.('bids')}
+            onOpenTasks={() => onNavigate?.('tasks')}
+            onOpenAppointments={() => onNavigate?.('appointments')}
+          />
           <Button variant="outline" size="sm" onClick={loadDashboardData} disabled={isLoading}>
             <Activity className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh

@@ -13,6 +13,7 @@ import { DashboardFilters } from './dashboard/DashboardFilters';
 import { OverviewTab } from './dashboard/OverviewTab';
 import { AgentsTab } from './dashboard/AgentsTab';
 import { DealsTab } from './dashboard/DealsTab';
+import { TeamDashboardModuleHelp } from './TeamDashboardModuleHelp';
 
 interface ManagerDashboardProps {
   user: User;
@@ -270,6 +271,17 @@ export function ManagerDashboard({ user, organization, onNavigate }: ManagerDash
         <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
         
         <div className="flex gap-2">
+          <TeamDashboardModuleHelp
+            userId={user.id}
+            activeTab={activeTab}
+            opportunities={opportunities.length}
+            teamMembers={userProfiles.length}
+            onRefresh={loadDashboardData}
+            onOpenOverview={() => setActiveTab('overview')}
+            onOpenAgents={() => setActiveTab('agents')}
+            onOpenDealsTab={() => setActiveTab('deals')}
+            onOpenDealsModule={() => onNavigate?.('bids')}
+          />
           <Button 
             variant="outline" 
             size="sm" 

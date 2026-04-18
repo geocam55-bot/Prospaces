@@ -32,6 +32,7 @@ import { toast } from 'sonner@2.0.3';
 import { useDebounce } from '../utils/useDebounce';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { createSubscription, updateSubscription, getOrgSubscriptions, type PlanId } from '../utils/subscription-client';
+import { UsersModuleHelp } from './UsersModuleHelp';
 
 const supabase = createClient();
 
@@ -55,6 +56,7 @@ interface Tenant {
 }
 
 export function Users({ user, organization, onOrganizationUpdate }: UsersProps) {
+  const [activeTab, setActiveTab] = useState('users');
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -767,7 +769,28 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
   return (
     <PermissionGate user={user} module="users" action="view">
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-      <Tabs defaultValue="users" className="space-y-6">
+      <div className="flex justify-end">
+        <UsersModuleHelp
+          userId={user.id}
+          totalUsers={users.length}
+          canManageUsers={canManageUsers}
+          onOpenUsersTab={() => setActiveTab('users')}
+          onOpenPermissionsTab={() => setActiveTab('permissions')}
+          onOpenRecoveryTab={() => setActiveTab('recovery')}
+          onRefreshUsers={loadUsers}
+          onFindMissingUsers={() => {
+            if (canManageAllUsers) {
+              handleSyncMissingUsers();
+            }
+          }}
+          onOpenInviteUser={() => {
+            if (canManageUsers) {
+              setIsAddDialogOpen(true);
+            }
+          }}
+        />
+      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-3">
             <TabsTrigger value="users" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">User Management</TabsTrigger>

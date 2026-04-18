@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 
 import { getPriceTierLabel } from '../lib/global-settings';
+import { ImportExportModuleHelp } from './ImportExportModuleHelp';
 
 interface ImportExportProps {
   user: User;
@@ -113,6 +114,7 @@ const DATABASE_FIELDS = {
 };
 
 export function ImportExport({ user, onNavigate }: ImportExportProps) {
+  const [activeTab, setActiveTab] = useState('import');
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -1331,6 +1333,23 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     <PermissionGate user={user} module="import-export" action="view">
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex items-center justify-end gap-3">
+        <ImportExportModuleHelp
+          userId={user.id}
+          activeTab={activeTab}
+          isImporting={isImporting}
+          isExporting={isExporting}
+          onOpenImportTab={() => setActiveTab('import')}
+          onOpenExportTab={() => setActiveTab('export')}
+          onOpenBackgroundImports={() => onNavigate ? onNavigate('background-imports') : window.location.hash = '#background-imports'}
+          onOpenScheduledJobs={() => onNavigate ? onNavigate('scheduled-jobs') : window.location.hash = '#scheduled-jobs'}
+          onOpenScheduleDialog={() => {
+            setScheduleJobType('export');
+            setScheduleDataType('contacts');
+            setScheduleFileName(`contacts_export_${new Date().toISOString().split('T')[0]}.csv`);
+            setScheduleFileData(null);
+            setShowScheduleDialog(true);
+          }}
+        />
         <Button
           variant="outline"
           onClick={() => onNavigate ? onNavigate('background-imports') : window.location.hash = '#background-imports'}
@@ -1387,7 +1406,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       {/* Column Mapping UI */}
       {mappingState && renderMappingUI()}
 
-      <Tabs defaultValue="import" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="import">Import Data</TabsTrigger>
           <TabsTrigger value="export">Export Data</TabsTrigger>
