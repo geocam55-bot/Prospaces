@@ -1671,18 +1671,26 @@ export function Contacts({ user }: ContactsProps) {
                     <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Accounts</th>
                     <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Deal value</th>
                     <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Phone</th>
-                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Type</th>
-                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Priority</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Price Level</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Status</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Activity Timeline</th>
                     <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Comments</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedContacts.map((contact) => {
-                    const contactType = getContactType(contact);
-                    const priorityLabel = getContactPriority(contact);
+                    const displayPriceLevel = (contact.priceLevel || getPriceTierLabel(1) || 'Tier 1').replace(/tier/gi, 'Tier ');
                     const notePreview = contact.notes?.trim()
                       ? `${contact.notes.trim().slice(0, 52)}${contact.notes.trim().length > 52 ? '…' : ''}`
                       : 'No notes added';
+                    const activityTimeline = [
+                      Boolean(contact.createdAt),
+                      Boolean(contact.notes?.trim()),
+                      Boolean(contact.tags && contact.tags.length > 0),
+                      contact.status === 'Active',
+                      Number(contact.ptdSales || contact.ytdSales || 0) > 0,
+                      Number(contact.lyrSales || 0) > 0,
+                    ];
 
                     return (
                       <tr
@@ -1746,26 +1754,45 @@ export function Contacts({ user }: ContactsProps) {
                         </td>
                         <td className="border-b border-slate-200 px-2.5 py-1.5 text-[14px] text-blue-600 whitespace-nowrap">{contact.phone || '—'}</td>
                         <td className="border-b border-slate-200 px-2.5 py-1.5">
-                          <span className={`inline-flex min-w-[78px] justify-center rounded-md px-2 py-0.5 text-[13px] font-medium ${
-                            contactType === 'Partner'
-                              ? 'bg-amber-100 text-amber-700'
-                              : contactType === 'Lead'
-                                ? 'bg-violet-100 text-violet-700'
-                                : 'bg-sky-100 text-sky-700'
-                          }`}>
-                            {contactType}
+                          <span className="inline-flex min-w-[88px] justify-center rounded-md bg-violet-100 px-2 py-0.5 text-[13px] font-medium text-violet-700">
+                            {displayPriceLevel}
                           </span>
                         </td>
                         <td className="border-b border-slate-200 px-2.5 py-1.5">
                           <span className={`inline-flex min-w-[78px] justify-center rounded-md px-2 py-0.5 text-[13px] font-medium ${
-                            priorityLabel === 'High'
-                              ? 'bg-orange-500 text-white'
-                              : priorityLabel === 'Medium'
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-emerald-100 text-emerald-700'
+                            contact.status === 'Active'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : contact.status === 'Inactive'
+                                ? 'bg-slate-200 text-slate-700'
+                                : 'bg-amber-100 text-amber-700'
                           }`}>
-                            {priorityLabel}
+                            {contact.status || 'Prospect'}
                           </span>
+                        </td>
+                        <td className="border-b border-slate-200 px-2.5 py-1.5">
+                          <div className="min-w-[120px]">
+                            <div className="flex items-center gap-1">
+                              {activityTimeline.map((isActive, index) => (
+                                <span
+                                  key={`${contact.id}-activity-${index}`}
+                                  className={`h-6 w-1.5 rounded-full ${
+                                    isActive
+                                      ? index < 2
+                                        ? 'bg-cyan-400'
+                                        : index < 4
+                                          ? 'bg-violet-400'
+                                          : 'bg-emerald-400'
+                                      : 'bg-slate-200'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <div className="mt-1 text-[11px] text-slate-500 whitespace-nowrap">
+                              {contact.createdAt
+                                ? new Date(contact.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                : 'No activity'}
+                            </div>
+                          </div>
                         </td>
                         <td className="border-b border-slate-200 px-2.5 py-1.5 text-[14px] text-slate-700">
                           <div className="max-w-[240px] truncate leading-4">{notePreview}</div>

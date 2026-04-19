@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -46,7 +46,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { projectManagersAPI, bidsAPI, quotesAPI, inventoryAPI, settingsAPI, notesAPI } from '../utils/api';
+import { projectManagersAPI, bidsAPI, quotesAPI, inventoryAPI, settingsAPI, notesAPI, emailAPI } from '../utils/api';
 import type { User } from '../App';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
 // BidLineItems no longer needed — Add Deal now uses the same inline dialog as the Deals module
@@ -63,6 +63,8 @@ import {
 import { toast } from 'sonner@2.0.3';
 import { appointmentsAPI } from '../utils/api';
 import { CustomerModuleHelp } from './CustomerModuleHelp';
+import { buildServerFunctionUrl } from '../utils/server-function-url';
+import { getServerHeaders } from '../utils/server-headers';
 
 interface Contact {
   id: string;
@@ -206,6 +208,16 @@ export function ContactDetail({
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
   const [linkedAppointments, setLinkedAppointments] = useState<any[]>([]);
   const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
+  const emailEditorRef = useRef<HTMLDivElement | null>(null);
+  const [isComposeEmailOpen, setIsComposeEmailOpen] = useState(false);
+  const [composeEmailTo, setComposeEmailTo] = useState('');
+  const [composeEmailSubject, setComposeEmailSubject] = useState('');
+  const [composeEmailBody, setComposeEmailBody] = useState('');
+  const [selectedEmailQuoteId, setSelectedEmailQuoteId] = useState('none');
+  const [emailAccounts, setEmailAccounts] = useState<any[]>([]);
+  const [selectedEmailAccount, setSelectedEmailAccount] = useState('');
+  const [isLoadingEmailAccounts, setIsLoadingEmailAccounts] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   
   // Bids management state
   const [isBidsDialogOpen, setIsBidsDialogOpen] = useState(false);
@@ -1132,12 +1144,6 @@ export function ContactDetail({
   const userDisplayName = (user as any)?.name || user.email || 'Team member';
   const contactType = contact.status === 'Prospect' ? 'Lead' : 'Customer';
   const totalDealValue = bids.reduce((sum, bid) => sum + Number(bid.amount || bid.total || 0), 0);
-  const contactPriority =
-    /vip|urgent|priority/i.test(contact.notes || '') || totalDealValue >= 100000
-      ? 'High'
-      : contact.status === 'Prospect'
-        ? 'Medium'
-        : 'Normal';
   const contactTitle =
     contact.title ||
     (typeof contact.customFields?.title === 'string' ? contact.customFields.title : '') ||
@@ -1161,6 +1167,9 @@ export function ContactDetail({
   const displayCompany = normalizeDisplayText(contact.company || 'Customer workspace overview');
   const displayTitle = normalizeDisplayText(contactTitle);
   const displayEmail = contact.email?.trim() ? contact.email.trim().toLowerCase() : '—';
+  const displayPriceLevel = normalizeDisplayText(
+    contact.priceLevel?.replace(/tier/gi, 'Tier ') || getPriceTierLabel(1)
+  );
   const companyDomain = contact.email?.includes('@') ? `https://${contact.email.split('@')[1].toLowerCase()}` : '—';
 
   const formatMoney = (value?: number) => {
@@ -1222,6 +1231,150 @@ export function ContactDetail({
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 6);
 
+  const hasFinancialData =
+    contact.ptdSales != null ||
+    contact.ptdGpPercent != null ||
+    contact.ytdSales != null ||
+    contact.ytdGpPercent != null ||
+    contact.lyrSales != null ||
+    contact.lyrGpPercent != null;
+
+  const scrollToSection = (sectionId: string) => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const loadEmailAccounts = async () => {
+    setIsLoadingEmailAccounts(true);
+    try {
+      const { accounts } = await emailAPI.getAccounts();
+      const availableAccounts = accounts || [];
+      setEmailAccounts(availableAccounts);
+
+      if (availableAccounts.length > 0) {
+        const persisted = localStorage.getItem('prospaces_selected_email_account') || '';
+        const preferred = availableAccounts.find((account: any) => account.id === persisted);
+        setSelectedEmailAccount(preferred ? preferred.id : availableAccounts[0].id);
+      } else {
+        setSelectedEmailAccount('');
+      }
+    } catch (error) {
+      toast.error('Unable to load Email module accounts.');
+      setEmailAccounts([]);
+      setSelectedEmailAccount('');
+    } finally {
+      setIsLoadingEmailAccounts(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!contact.email?.trim()) {
+      toast.error('This contact does not have an email address yet.');
+      return;
+    }
+
+    const defaultBody = `<p></p>`;
+    setComposeEmailTo(contact.email.trim());
+    setComposeEmailSubject(`Hello ${displayName}`);
+    setComposeEmailBody(defaultBody);
+    setSelectedEmailQuoteId('none');
+    setIsComposeEmailOpen(true);
+    await loadEmailAccounts();
+
+    requestAnimationFrame(() => {
+      if (emailEditorRef.current) {
+        emailEditorRef.current.innerHTML = defaultBody;
+      }
+    });
+  };
+
+  const syncComposeEmailBody = () => {
+    if (emailEditorRef.current) {
+      setComposeEmailBody(emailEditorRef.current.innerHTML);
+    }
+  };
+
+  const applyEmailFormat = (command: 'bold' | 'italic' | 'underline' | 'insertUnorderedList') => {
+    emailEditorRef.current?.focus();
+    document.execCommand(command, false);
+    syncComposeEmailBody();
+  };
+
+  const handleAttachQuoteToEmail = (quoteId: string) => {
+    setSelectedEmailQuoteId(quoteId);
+
+    if (quoteId === 'none') {
+      return;
+    }
+
+    const selectedQuote = bids.find((bid) => bid.id === quoteId);
+    if (!selectedQuote) {
+      return;
+    }
+
+    const quoteSummary = `<p><strong>Attached Quote:</strong> ${selectedQuote.title} — ${formatMoney(Number(selectedQuote.amount || selectedQuote.total || 0))}</p>`;
+    emailEditorRef.current?.focus();
+    document.execCommand('insertHTML', false, quoteSummary);
+    syncComposeEmailBody();
+  };
+
+  const handleCreateEmailDraft = async () => {
+    if (!selectedEmailAccount) {
+      toast.error('Please connect or select an email account from the Email module first.');
+      return;
+    }
+
+    if (!composeEmailTo.trim()) {
+      toast.error('Please enter a recipient email address.');
+      return;
+    }
+
+    if (!composeEmailSubject.trim()) {
+      toast.error('Please enter a subject.');
+      return;
+    }
+
+    const editorHtml = emailEditorRef.current?.innerHTML || composeEmailBody;
+    const selectedQuote = bids.find((bid) => bid.id === selectedEmailQuoteId);
+    const quoteHtml = selectedQuote
+      ? `<hr/><p><strong>Attached Quote:</strong> ${selectedQuote.title} — ${formatMoney(Number(selectedQuote.amount || selectedQuote.total || 0))}</p>`
+      : '';
+
+    setIsSendingEmail(true);
+    try {
+      const headers = await getServerHeaders();
+      const response = await fetch(buildServerFunctionUrl('/email-send'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          accountId: selectedEmailAccount,
+          to: composeEmailTo.trim(),
+          subject: composeEmailSubject.trim(),
+          body: `${editorHtml}${quoteHtml}`,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || `Send failed with status ${response.status}`);
+      }
+
+      toast.success('Email sent successfully.');
+      setIsComposeEmailOpen(false);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to send email using the Email module setup.');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const handleCallContact = () => {
+    if (!contact.phone?.trim()) {
+      toast.error('This contact does not have a phone number yet.');
+      return;
+    }
+    window.location.href = `tel:${contact.phone.trim()}`;
+  };
+
   return (
     <div className="min-h-screen w-full bg-slate-100 px-3 py-3 sm:px-4 sm:py-4 lg:px-5">
       <div className="mx-auto max-w-[1720px] space-y-4">
@@ -1259,49 +1412,72 @@ export function ContactDetail({
                   onOpenAddContact={onOpenAddContact}
                 />
               )}
-              {canChange('contacts', user.role) && (
-                <Button onClick={() => onEdit(contact)} className="h-10 rounded-md bg-cyan-700 px-4 text-[15px] font-medium text-white hover:bg-cyan-800">
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit Contact
-                </Button>
-              )}
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-[15px] text-slate-600 sm:px-6 lg:px-8">
-            <span className="border-b-2 border-cyan-700 pb-2 font-semibold text-slate-900">Overview</span>
-            <span className="px-3 py-1">Updates</span>
-            <span className="px-3 py-1">Quotes & Invoices</span>
-            <span className="px-3 py-1">More</span>
-            <span className="px-2 text-xl leading-none">+</span>
+            <span className="mr-1 font-semibold text-slate-900">Quick Jumps:</span>
+            <a href="#contact-activity" className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-700 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-800">Activity</a>
+            <a href="#contact-overview" className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-700 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-800">Contact Info</a>
+            {hasFinancialData && (
+              <a href="#contact-financials" className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-700 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-800">Financials</a>
+            )}
+            <a href="#contact-project-managers" className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-700 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-800">Project Managers</a>
+            <a href="#contact-deals" className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-700 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-800">Deals</a>
+            <a href="#contact-documents" className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm text-slate-700 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-800">Documents</a>
           </div>
         </div>
 
       {tableNotFound && <ProjectManagersTableSetup />}
 
       <div className="grid gap-4 2xl:grid-cols-[minmax(0,2.1fr)_430px] xl:grid-cols-[minmax(0,1.85fr)_380px]">
-        <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+        <div id="contact-activity" className="scroll-mt-24 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3 sm:px-5">
-            <Button className="h-10 rounded-md bg-cyan-700 px-4 text-[15px] font-medium text-white hover:bg-cyan-800">
-              <Mail className="mr-2 h-4 w-4" />
-              New email
-            </Button>
-            <Button variant="ghost" className="h-10 gap-2 px-3 text-[15px] text-slate-700">
-              <Plus className="h-4 w-4" />
-              Add activity
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-10 gap-2 px-3 text-[15px] text-slate-700">
+                  <Plus className="h-4 w-4" />
+                  Add activity
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem onClick={handleSendEmail}>
+                  <Mail className="mr-2 h-4 w-4" />
+                  Send Email
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCallContact}>
+                  <Phone className="mr-2 h-4 w-4" />
+                  Call Contact
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => scrollToSection('contact-notes')}>
+                  <StickyNote className="mr-2 h-4 w-4" />
+                  Open Notes
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => scrollToSection('contact-appointments')}>
+                  <Calendar className="mr-2 h-4 w-4" />
+                  View Appointments
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsAddPMDialogOpen(true)}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add Project Manager
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleOpenAddDeal}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Create Deal
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => document.getElementById('document-upload')?.click()}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload Document
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onEdit(contact)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Contact
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="ghost" className="h-10 gap-2 px-3 text-[15px] text-slate-700">
               <TrendingUp className="h-4 w-4" />
               Summarize
-            </Button>
-            <span className="hidden h-7 w-px bg-slate-200 sm:block" />
-            <Button variant="ghost" className="h-10 gap-2 px-3 text-[15px] text-slate-700">
-              <Target className="h-4 w-4" />
-              Filters
-            </Button>
-            <Button variant="ghost" className="h-10 gap-2 px-3 text-[15px] text-slate-700">
-              <Search className="h-4 w-4" />
-              Search
             </Button>
           </div>
 
@@ -1344,7 +1520,7 @@ export function ContactDetail({
           </div>
         </div>
 
-        <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:p-5 xl:sticky xl:top-4 xl:self-start">
+        <div id="contact-overview" className="scroll-mt-24 rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:p-5 xl:sticky xl:top-4 xl:self-start">
           <div className="space-y-4 rounded-2xl bg-white p-4 shadow-sm">
             <div>
               <p className="mb-2 text-[14px] font-semibold text-slate-700">Name</p>
@@ -1355,7 +1531,7 @@ export function ContactDetail({
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] text-blue-600">{displayEmail}</div>
             </div>
             <div>
-              <p className="mb-2 text-[14px] font-semibold text-slate-700">Activities timeline</p>
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Activity Timeline</p>
               <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
                 {Array.from({ length: 18 }).map((_, index) => {
                   const activity = activityFeed[index];
@@ -1404,15 +1580,15 @@ export function ContactDetail({
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-[15px] text-slate-800">{displayTitle}</div>
             </div>
             <div>
-              <p className="mb-2 text-[14px] font-semibold text-slate-700">Type</p>
-              <div className={`rounded-xl px-4 py-3 text-center text-[15px] font-medium ${contactType === 'Lead' ? 'bg-violet-100 text-violet-700' : 'bg-sky-400 text-white'}`}>
-                {contactType}
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Price Level</p>
+              <div className="rounded-xl bg-violet-100 px-4 py-3 text-center text-[15px] font-medium text-violet-700">
+                {displayPriceLevel}
               </div>
             </div>
             <div>
-              <p className="mb-2 text-[14px] font-semibold text-slate-700">Priority</p>
-              <div className={`rounded-xl px-4 py-3 text-center text-[15px] font-medium ${contactPriority === 'High' ? 'bg-orange-500 text-white' : contactPriority === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                {contactPriority}
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Status</p>
+              <div className={`rounded-xl px-4 py-3 text-center text-[15px] font-medium ${contact.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : contact.status === 'Inactive' ? 'bg-slate-200 text-slate-700' : 'bg-amber-100 text-amber-700'}`}>
+                {normalizeDisplayText(contact.status || 'Prospect')}
               </div>
             </div>
             <div>
@@ -1426,8 +1602,8 @@ export function ContactDetail({
       </div>
 
       {/* Sales & Financial Data */}
-      {(contact.ptdSales != null || contact.ptdGpPercent != null || contact.ytdSales != null || contact.ytdGpPercent != null || contact.lyrSales != null || contact.lyrGpPercent != null) && (
-        <Card>
+      {hasFinancialData && (
+        <Card id="contact-financials" className="scroll-mt-24">
           <CardHeader>
             <CardTitle>Sales & Financial Data</CardTitle>
           </CardHeader>
@@ -1496,7 +1672,7 @@ export function ContactDetail({
       )}
 
       {/* Project Managers */}
-      <Card>
+      <Card id="contact-project-managers" className="scroll-mt-24">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Project Managers</CardTitle>
@@ -1668,7 +1844,7 @@ export function ContactDetail({
       </Card>
 
       {/* Bids */}
-      <Card>
+      <Card id="contact-deals" className="scroll-mt-24">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Deals & Proposals</CardTitle>
@@ -1801,7 +1977,7 @@ export function ContactDetail({
       </Card>
 
       {/* Documents */}
-      <Card>
+      <Card id="contact-documents" className="scroll-mt-24">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Documents</CardTitle>
@@ -1886,7 +2062,7 @@ export function ContactDetail({
       </Card>
 
       {/* Linked Notes */}
-      <Card>
+      <Card id="contact-notes" className="scroll-mt-24">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Linked Notes</CardTitle>
@@ -1931,7 +2107,7 @@ export function ContactDetail({
       </Card>
 
       {/* Linked Appointments */}
-      <Card>
+      <Card id="contact-appointments" className="scroll-mt-24">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Linked Appointments</CardTitle>
@@ -1992,6 +2168,116 @@ export function ContactDetail({
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isComposeEmailOpen} onOpenChange={setIsComposeEmailOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-[760px] h-[85vh] max-h-[90vh] overflow-hidden bg-background p-0">
+          <div className="flex h-full min-h-0 flex-col">
+            <DialogHeader className="border-b border-slate-200 px-4 py-4 sm:px-6">
+              <DialogTitle>Create Email</DialogTitle>
+              <DialogDescription>
+                Send email to this contact.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-scroll px-4 py-4 pr-3 sm:px-6 sm:pr-5 [scrollbar-width:auto] [scrollbar-color:#94a3b8_#f1f5f9] [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-400 hover:[&::-webkit-scrollbar-thumb]:bg-slate-500">
+              <div className="space-y-2">
+                <Label htmlFor="compose-account">From Account</Label>
+                <Select value={selectedEmailAccount} onValueChange={setSelectedEmailAccount}>
+                  <SelectTrigger id="compose-account">
+                    <SelectValue placeholder={isLoadingEmailAccounts ? 'Loading accounts...' : 'Select connected email account'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {emailAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.email} ({account.provider})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!isLoadingEmailAccounts && emailAccounts.length === 0 && (
+                  <p className="text-sm text-amber-600">No email accounts are connected. Set one up in the Email module first.</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="compose-to">To</Label>
+                <Input
+                  id="compose-to"
+                  value={composeEmailTo}
+                  onChange={(e) => setComposeEmailTo(e.target.value)}
+                  placeholder="customer@example.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="compose-subject">Subject</Label>
+                <Input
+                  id="compose-subject"
+                  value={composeEmailSubject}
+                  onChange={(e) => setComposeEmailSubject(e.target.value)}
+                  placeholder="Subject"
+                />
+              </div>
+
+              {bids.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="compose-quote">Attach Quote / Proposal</Label>
+                  <Select value={selectedEmailQuoteId} onValueChange={handleAttachQuoteToEmail}>
+                    <SelectTrigger id="compose-quote">
+                      <SelectValue placeholder="Select a quote or proposal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No attachment</SelectItem>
+                      {bids.map((bid) => (
+                        <SelectItem key={bid.id} value={bid.id}>
+                          {bid.title} — {formatMoney(Number(bid.amount || bid.total || 0))}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Body</Label>
+                <div className="flex flex-wrap gap-2 rounded-md border border-slate-200 bg-slate-50 p-2">
+                  <Button type="button" variant="outline" size="sm" onMouseDown={(e) => e.preventDefault()} onClick={() => applyEmailFormat('bold')}>
+                    <span className="font-bold">B</span>
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onMouseDown={(e) => e.preventDefault()} onClick={() => applyEmailFormat('italic')}>
+                    <span className="italic">I</span>
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onMouseDown={(e) => e.preventDefault()} onClick={() => applyEmailFormat('underline')}>
+                    <span className="underline">U</span>
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onMouseDown={(e) => e.preventDefault()} onClick={() => applyEmailFormat('insertUnorderedList')}>
+                    • List
+                  </Button>
+                </div>
+
+                <div
+                  ref={emailEditorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={syncComposeEmailBody}
+                  className="min-h-[180px] rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200 bg-background px-4 py-3 sm:px-6">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => setIsComposeEmailOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="button" onClick={handleCreateEmailDraft} disabled={isSendingEmail || isLoadingEmailAccounts}>
+                  {isSendingEmail ? 'Sending...' : 'Send Email'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Project Manager Dialog */}
       <Dialog open={isEditPMDialogOpen} onOpenChange={setIsEditPMDialogOpen}>
