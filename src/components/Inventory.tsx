@@ -30,6 +30,7 @@ import {
   X,
   Loader2,
   Download,
+  RefreshCw,
 } from 'lucide-react';
 import { inventoryAPI } from '../utils/api';
 import type { User } from '../App';
@@ -40,7 +41,7 @@ import { toast } from 'sonner@2.0.3';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { getServerHeaders } from '../utils/server-headers';
 import { advancedSearch, getSearchSuggestions } from '../utils/advanced-search';
-import { InventorySearchHelp } from './InventorySearchHelp';
+import { InventoryModuleHelp } from './InventoryModuleHelp';
 import { useDebounce } from '../utils/useDebounce';
 import { createClient } from '../utils/supabase/client';
 import { ensureUserProfile } from '../utils/ensure-profile';
@@ -135,6 +136,7 @@ export function Inventory({ user }: InventoryProps) {
     found: boolean;
   } | null>(null);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [isRegeneratingAllKeywords, setIsRegeneratingAllKeywords] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -589,6 +591,16 @@ export function Inventory({ user }: InventoryProps) {
     }
   };
 
+  const handleRegenerateKeywords = async (id: string, itemName: string) => {
+    try {
+      await inventoryAPI.regenerateKeywords(id);
+      showAlert('success', `Keywords regenerated for ${itemName}`);
+      await loadInventory();
+    } catch (error: any) {
+      showAlert('error', error?.message || 'Failed to regenerate keywords');
+    }
+  };
+
   const categories = [...new Set(items.map(item => item.category))].filter(Boolean);
   
   // Server-side filtering now, so filteredItems = items
@@ -682,6 +694,21 @@ export function Inventory({ user }: InventoryProps) {
       showAlert('error', 'Processing failed: ' + err.message);
     } finally {
       setIsRecovering(false);
+    }
+  };
+
+  const handleRegenerateAllKeywords = async () => {
+    if (!confirm('Regenerate search keywords for all SKUs in your organization? This may take a few minutes.')) return;
+
+    setIsRegeneratingAllKeywords(true);
+    try {
+      const result = await inventoryAPI.regenerateAllKeywords();
+      showAlert('success', `Regenerated keywords for ${result.updated} SKUs${result.failed > 0 ? ` (${result.failed} failed)` : ''}`);
+      await loadInventory();
+    } catch (error: any) {
+      showAlert('error', error?.message || 'Failed to regenerate keywords for all SKUs');
+    } finally {
+      setIsRegeneratingAllKeywords(false);
     }
   };
 
@@ -1122,9 +1149,37 @@ export function Inventory({ user }: InventoryProps) {
                     )}
                   </div>
                   <div className="flex items-center gap-2 self-start sm:self-auto">
-                    {useAdvancedSearch && (
-                      <InventorySearchHelp onExampleClick={(query) => setSearchQuery(query)} />
-                    )}
+                    <InventoryModuleHelp
+                      userId={user.id}
+                      totalItems={totalCount}
+                      lowStockItems={displayLowStockCount}
+                      onSearchExample={(query) => {
+                        setUseAdvancedSearch(true);
+                        setSearchQuery(query);
+                        setCurrentPage(1);
+                        setActiveTab('items');
+                      }}
+                      onFilterByStatus={(status) => {
+                        setStatusFilter(status);
+                        setCurrentPage(1);
+                        setActiveTab('items');
+                      }}
+                      onShowOutOfStock={() => {
+                        setActiveTab('low-stock');
+                        setCurrentPage(1);
+                      }}
+                      onClearFilters={() => {
+                        setSearchQuery('');
+                        setCategoryFilter('all');
+                        setStatusFilter('all');
+                        setCurrentPage(1);
+                        setActiveTab('items');
+                      }}
+                      onOpenAddItem={() => {
+                        setActiveTab('items');
+                        handleOpenDialog();
+                      }}
+                    />
                     <Button
                       variant="outline"
                       size="sm"
@@ -1305,6 +1360,17 @@ export function Inventory({ user }: InventoryProps) {
                           <div className="flex items-start justify-between gap-2">
                             <h3 className="text-base sm:text-lg text-foreground font-medium truncate">{item.name}</h3>
                             <div className="flex gap-1 shrink-0">
+                                {canChange('inventory', user.role) && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  onClick={() => handleRegenerateKeywords(item.id, item.name)}
+                                  title="Regenerate Search Keywords"
+                                >
+                                  <RefreshCw className="h-4 w-4" />
+                                </Button>
+                                )}
                               {canChange('inventory', user.role) && (
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleOpenDialog(item)}>
                                 <Edit className="h-4 w-4" />
@@ -1402,6 +1468,16 @@ export function Inventory({ user }: InventoryProps) {
                             )}
                           </div>
                           <div className="flex gap-2">
+                            {canChange('inventory', user.role) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRegenerateKeywords(item.id, item.name)}
+                              title="Regenerate Search Keywords"
+                            >
+                              <RefreshCw className="h-4 w-4 text-blue-600" />
+                            </Button>
+                            )}
                             {canChange('inventory', user.role) && (
                             <Button variant="outline" size="sm" onClick={() => handleOpenDialog(item)}>
                               <Edit className="h-4 w-4" />
@@ -1736,6 +1812,33 @@ export function Inventory({ user }: InventoryProps) {
 
         {(user.role === 'admin' || user.role === 'super_admin') && (
           <TabsContent value="diagnostic" className="space-y-4 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Admin Keyword Tools</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Rebuild AI search keywords for all inventory SKUs in your organization.
+                </p>
+                <Button
+                  onClick={handleRegenerateAllKeywords}
+                  disabled={isRegeneratingAllKeywords}
+                  className="w-full sm:w-auto"
+                >
+                  {isRegeneratingAllKeywords ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Regenerating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Regenerate Keywords for All SKUs
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
             <InventoryDiagnostic user={user} />
           </TabsContent>
         )}

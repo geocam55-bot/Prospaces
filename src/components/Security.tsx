@@ -39,6 +39,7 @@ import { projectId } from '../utils/supabase/info';
 import { getServerHeaders } from '../utils/server-headers';
 import { AuditLog as AuditLogViewer } from './AuditLog';
 import { logAuditEvent } from '../utils/audit';
+import { SecurityModuleHelp } from './SecurityModuleHelp';
 
 const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
@@ -62,6 +63,7 @@ const MODULE_ACCESS_OPTIONS: Array<{ value: ModuleAccessChoice; label: string; i
 ];
 
 export function Security({ user }: SecurityProps) {
+  const [activeTab, setActiveTab] = useState('permissions');
   const [permissions, setPermissions] = useState<PermissionRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpace, setSelectedSpace] = useState<string>('all');
@@ -342,6 +344,20 @@ export function Security({ user }: SecurityProps) {
             </p>
           </div>
           <div className="flex items-center justify-end gap-2">
+            <SecurityModuleHelp
+              userId={user.id}
+              selectedSpace={selectedSpace}
+              hasChanges={hasChanges}
+              canEditSecurity={canEditSecurity}
+              onOpenPermissionsTab={() => setActiveTab('permissions')}
+              onOpenBulkTab={() => setActiveTab('bulk')}
+              onOpenAuditTab={() => setActiveTab('audit')}
+              onShowAllSpaces={() => setSelectedSpace('all')}
+              onClearSearch={() => setSearchQuery('')}
+              onReset={handleReset}
+              onSave={handleSave}
+              onCopyRoleAccess={copyAccessBetweenRoles}
+            />
             {hasChanges && (
               <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
                 Unsaved Changes
@@ -373,7 +389,7 @@ export function Security({ user }: SecurityProps) {
           </Alert>
         )}
 
-        <Tabs defaultValue="permissions">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
             <TabsList className="inline-flex w-auto min-w-full">
               <TabsTrigger value="permissions" className="whitespace-nowrap">Hierarchy Matrix</TabsTrigger>

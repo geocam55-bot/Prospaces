@@ -14,6 +14,7 @@ import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { BidProposalReports } from './reports/BidProposalReports';
 import { ManagerSummaryReports } from './reports/ManagerSummaryReports';
+import { ReportsModuleHelp } from './ReportsModuleHelp';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 
@@ -29,6 +30,13 @@ export function Reports({ user }: ReportsProps) {
     <PermissionGate user={user} module="reports" action="view">
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
+        <ReportsModuleHelp
+          userId={user.id}
+          onOpenSummary={() => setActiveTab('summary')}
+          onOpenDeals={() => setActiveTab('bids')}
+          onShowSellingPrice={() => setShowCost(false)}
+          onShowCost={() => setShowCost(true)}
+        />
         {/* Price/Cost Toggle Switch */}
         <div className="flex items-center gap-3 bg-background border border-border rounded-lg px-4 py-2.5 shadow-sm">
           <DollarSign className="h-4 w-4 text-muted-foreground" />

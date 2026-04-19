@@ -79,6 +79,7 @@ import type { OrgUserMode } from '../utils/settings-client';
 import { WorkflowSettingsDialog } from './settings/WorkflowSettingsDialog';
 import { useTheme, type ThemeMode } from './ThemeProvider';
 import { CustomFieldsDialog } from './settings/CustomFieldsDialog';
+import { SettingsModuleHelp } from './SettingsModuleHelp';
 
 function ThemeModeCard() {
   const { themeMode, setThemeMode, theme } = useTheme();
@@ -177,6 +178,7 @@ function ThemeModeCard() {
 }
 
 export function Settings({ user, organization, onUserUpdate, onOrganizationUpdate }: SettingsProps) {
+  const [activeTab, setActiveTab] = useState('profile');
   const [orgName, setOrgName] = useState('ProSpaces Organization');
   const [profileData, setProfileData] = useState({
     name: user.full_name || user.email || '',
@@ -193,6 +195,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   const [showLayoutDialog, setShowLayoutDialog] = useState(false);
   const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
   const [showCustomFieldsDialog, setShowCustomFieldsDialog] = useState(false);
+  const [isResettingHelpTours, setIsResettingHelpTours] = useState(false);
   const [planRefreshKey, setPlanRefreshKey] = useState(0);
   const [notifications, setNotifications] = useState({
     email: true,
@@ -697,6 +700,41 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
     toast.success('Appearance settings saved! Theme changes are applied automatically.');
   };
 
+  const handleResetModuleHelpTours = () => {
+    setIsResettingHelpTours(true);
+
+    try {
+      const userSuffix = `.${user.id}`;
+      const keysToRemove: string[] = [];
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+
+        const isHelpKey = key.startsWith('prospaces.') && key.includes('help');
+        const isLegacyHelpKey =
+          key.startsWith('prospaces.customer-help.') ||
+          key.startsWith('prospaces.deals-help.');
+
+        if ((isHelpKey || isLegacyHelpKey) && key.endsWith(userSuffix)) {
+          keysToRemove.push(key);
+        }
+      }
+
+      keysToRemove.forEach((key) => localStorage.removeItem(key));
+
+      if (keysToRemove.length > 0) {
+        toast.success(`Reset ${keysToRemove.length} module help tour setting(s).`);
+      } else {
+        toast.info('No module help tour settings were found for your account.');
+      }
+    } catch {
+      toast.error('Failed to reset module help tours.');
+    } finally {
+      setIsResettingHelpTours(false);
+    }
+  };
+
   const canManageSettings = user.role === 'super_admin' || user.role === 'admin';
   const isSuperAdmin = user.role === 'super_admin';
 
@@ -762,7 +800,22 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         </Alert>
       )}
 
-      <Tabs defaultValue="profile" className="w-full">
+      <div className="flex justify-end">
+        <SettingsModuleHelp
+          userId={user.id}
+          onOpenProfileTab={() => setActiveTab('profile')}
+          onOpenOrganizationTab={() => setActiveTab(canManageSettings ? 'organization' : 'profile')}
+          onOpenModuleDefaultsTab={() => setActiveTab(canManageSettings ? 'module-settings' : 'profile')}
+          onOpenAppearanceTab={() => setActiveTab('appearance')}
+          onOpenDiagnosticsTab={() => setActiveTab(canManageSettings ? 'diagnostics' : 'profile')}
+          onOpenWorkflowDialog={() => setShowWorkflowDialog(true)}
+          onOpenCustomFieldsDialog={() => setShowCustomFieldsDialog(true)}
+          onResetHelpTours={handleResetModuleHelpTours}
+          onSaveAppearanceSettings={handleSaveAppearanceSettings}
+        />
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className="inline-flex w-auto min-w-full">
             <TabsTrigger value="profile" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Profile</TabsTrigger>
@@ -1424,6 +1477,21 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                 <Label>Layout</Label>
                 <p className="text-sm text-muted-foreground">Configure your dashboard layout</p>
                 <Button type="button" variant="outline" onClick={() => setShowLayoutDialog(true)}>Configure Layout</Button>
+              </div>
+              <div className="space-y-2">
+                <Label>Interactive Help Tours</Label>
+                <p className="text-sm text-muted-foreground">
+                  Reset first-time help popups and step progress for all module guides on this account.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleResetModuleHelpTours}
+                  disabled={isResettingHelpTours}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {isResettingHelpTours ? 'Resetting...' : 'Reset Help Tours'}
+                </Button>
               </div>
               <Button 
                 type="button"

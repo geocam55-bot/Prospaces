@@ -1,10 +1,55 @@
 import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
 import { isTierActive } from '../lib/global-settings';
+import { buildInventoryOrSearchClause, expandInventorySearchTerms } from './inventory-keywords';
+import { generateInventoryKeywords } from './inventory-keywords';
 
 // ✅ Use select('*') to avoid errors when optional columns (price_tier_*, department_code, unit_of_measure) haven't been added yet.
 // The mapping function handles missing fields with defaults.
 const INVENTORY_SELECT = '*';
+const KEYWORD_VERSION = 'kw_v1';
+
+function isMissingSearchKeywordsColumnError(error: any): boolean {
+  const message = String(error?.message || '').toLowerCase();
+  return error?.code === '42703' || message.includes('search_keywords') || message.includes('keywords_generated_at') || message.includes('keyword_version');
+}
+
+function buildSearchKeywords(itemData: any): string[] {
+  const existingTags = Array.isArray(itemData?.tags)
+    ? itemData.tags.filter(Boolean)
+    : typeof itemData?.tags === 'string'
+      ? itemData.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+      : [];
+
+  const generated = generateInventoryKeywords({
+    productName: itemData?.name || '',
+    productDescription: itemData?.description || '',
+    category: itemData?.category || '',
+    brand: itemData?.brand || itemData?.manufacturer || '',
+    sku: itemData?.sku || '',
+    modelNumber: itemData?.model_number || itemData?.modelNumber || '',
+    supplierName: itemData?.supplier || itemData?.supplier_name || '',
+    existingTags,
+  });
+
+  return generated.all.slice(0, 96);
+}
+
+function attachKeywordColumns(cleanData: any, sourceData: any): any {
+  const next = { ...cleanData };
+  next.search_keywords = buildSearchKeywords(sourceData);
+  next.keyword_version = KEYWORD_VERSION;
+  next.keywords_generated_at = new Date().toISOString();
+  return next;
+}
+
+function removeKeywordColumns(data: any): any {
+  const next = { ...data };
+  delete next.search_keywords;
+  delete next.keyword_version;
+  delete next.keywords_generated_at;
+  return next;
+}
 
 export async function getAllInventoryClient() {
   try {
@@ -138,8 +183,11 @@ export async function searchInventoryClient(filters?: {
     // Apply search filter - use ILIKE for case-insensitive pattern matching
     // This uses the trigram indexes we created
     if (filters?.search && filters.search.trim()) {
-      const searchTerm = `%${filters.search.trim()}%`;
-      query = query.or(`name.ilike.${searchTerm},sku.ilike.${searchTerm},description.ilike.${searchTerm}`);
+      const expandedTerms = expandInventorySearchTerms(filters.search.trim());
+      const orClause = buildInventoryOrSearchClause(expandedTerms);
+      if (orClause) {
+        query = query.or(orClause);
+      }
     }
 
     // Order by name
@@ -253,11 +301,21 @@ export async function createInventoryClient(itemData: any) {
 
     // Creating inventory item with clean data
 
-    const { data, error } = await supabase
+    const keywordData = attachKeywordColumns(cleanData, itemData);
+
+    let { data, error } = await supabase
       .from('inventory')
-      .insert([cleanData])
+      .insert([keywordData])
       .select()
       .single();
+
+    if (error && isMissingSearchKeywordsColumnError(error)) {
+      ({ data, error } = await supabase
+        .from('inventory')
+        .insert([removeKeywordColumns(keywordData)])
+        .select()
+        .single());
+    }
 
     if (error) throw error;
 
@@ -338,12 +396,23 @@ export async function updateInventoryClient(id: string, itemData: any) {
 
     // Updating inventory item with clean data
 
-    const { data, error } = await supabase
+    const keywordData = attachKeywordColumns(cleanData, itemData);
+
+    let { data, error } = await supabase
       .from('inventory')
-      .update(cleanData)
+      .update(keywordData)
       .eq('id', id)
       .select()
       .single();
+
+    if (error && isMissingSearchKeywordsColumnError(error)) {
+      ({ data, error } = await supabase
+        .from('inventory')
+        .update(removeKeywordColumns(keywordData))
+        .eq('id', id)
+        .select()
+        .single());
+    }
 
     if (error) throw error;
     
@@ -467,6 +536,8 @@ export async function upsertInventoryBySKUClient(itemData: any) {
     // Note: Cost field temporarily removed from upsert to avoid PGRST204 error
     // Will be re-enabled after database migration
 
+    const keywordData = attachKeywordColumns(cleanData, itemData);
+
     // Clean data prepared for database
 
     // Check if item with this SKU already exists in this organization
@@ -494,18 +565,27 @@ export async function upsertInventoryBySKUClient(itemData: any) {
 
     if (existingItems.length > 0) {
       // Update ALL existing items with this SKU to ensure consistency
-      const updateData = { ...cleanData };
+      const updateData = { ...keywordData };
       delete updateData.organization_id;
       
       // Updating existing item(s)
       
       // Update all records with this SKU
-      const { data: updatedItems, error: updateError } = await supabase
+      let { data: updatedItems, error: updateError } = await supabase
         .from('inventory')
         .update(updateData)
         .eq('sku', itemData.sku)
         .eq('organization_id', organizationId)
         .select();
+
+      if (updateError && isMissingSearchKeywordsColumnError(updateError)) {
+        ({ data: updatedItems, error: updateError } = await supabase
+          .from('inventory')
+          .update(removeKeywordColumns(updateData))
+          .eq('sku', itemData.sku)
+          .eq('organization_id', organizationId)
+          .select());
+      }
       
       if (updateError) {
         // Error updating inventory items
@@ -523,11 +603,19 @@ export async function upsertInventoryBySKUClient(itemData: any) {
       // Create new item
       // Creating new item
       
-      const { data: createdItem, error: createError } = await supabase
+      let { data: createdItem, error: createError } = await supabase
         .from('inventory')
-        .insert([cleanData])
+        .insert([keywordData])
         .select()
         .single();
+
+      if (createError && isMissingSearchKeywordsColumnError(createError)) {
+        ({ data: createdItem, error: createError } = await supabase
+          .from('inventory')
+          .insert([removeKeywordColumns(keywordData)])
+          .select()
+          .single());
+      }
       
       if (createError) {
         // Error creating inventory item
@@ -636,7 +724,7 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
       if (itemData.department_code !== undefined) cleanData.department_code = itemData.department_code;
       if (itemData.unit_of_measure !== undefined) cleanData.unit_of_measure = itemData.unit_of_measure;
 
-      return cleanData;
+      return attachKeywordColumns(cleanData, itemData);
     });
 
     // Sample cleaned item ready
@@ -706,10 +794,18 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
         // Creating items using direct insert
         
         // Direct insert without RPC to avoid schema cache issues
-        const { data: createdData, error: createError } = await supabase
+        let { data: createdData, error: createError } = await supabase
           .from('inventory')
           .insert(itemsToCreate)
           .select();
+
+        if (createError && isMissingSearchKeywordsColumnError(createError)) {
+          const fallbackItems = itemsToCreate.map(removeKeywordColumns);
+          ({ data: createdData, error: createError } = await supabase
+            .from('inventory')
+            .insert(fallbackItems)
+            .select());
+        }
 
         if (createError) {
           // Error bulk creating inventory
@@ -731,10 +827,17 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
       for (const { ids, data: updateData, sku } of itemsToUpdate) {
         try {
           for (const id of ids) {
-            const { error: updateError } = await supabase
+            let { error: updateError } = await supabase
               .from('inventory')
               .update(updateData)
               .eq('id', id);
+
+            if (updateError && isMissingSearchKeywordsColumnError(updateError)) {
+              ({ error: updateError } = await supabase
+                .from('inventory')
+                .update(removeKeywordColumns(updateData))
+                .eq('id', id));
+            }
 
             if (updateError) {
               throw updateError;
@@ -755,6 +858,115 @@ export async function bulkUpsertInventoryBySKUClient(itemsData: any[]) {
     // Error bulk upserting inventory
     throw error;
   }
+}
+
+export async function regenerateInventoryKeywordsClient(id: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) throw new Error('Not authenticated');
+
+  const profile = await ensureUserProfile(user.id);
+  const organizationId = profile.organization_id;
+  if (!organizationId) throw new Error('No organization ID found for user');
+
+  const { data: item, error: fetchError } = await supabase
+    .from('inventory')
+    .select(INVENTORY_SELECT)
+    .eq('id', id)
+    .eq('organization_id', organizationId)
+    .single();
+
+  if (fetchError || !item) {
+    throw new Error('Inventory item not found');
+  }
+
+  const payload = {
+    search_keywords: buildSearchKeywords(item),
+    keyword_version: KEYWORD_VERSION,
+    keywords_generated_at: new Date().toISOString(),
+  };
+
+  let { error: updateError } = await supabase
+    .from('inventory')
+    .update(payload)
+    .eq('id', id)
+    .eq('organization_id', organizationId);
+
+  if (updateError && isMissingSearchKeywordsColumnError(updateError)) {
+    throw new Error('Database migration required: search keyword columns are missing.');
+  }
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  return { success: true, keywordCount: payload.search_keywords.length };
+}
+
+export async function regenerateAllInventoryKeywordsClient() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) throw new Error('Not authenticated');
+
+  const profile = await ensureUserProfile(user.id);
+  const organizationId = profile.organization_id;
+  if (!organizationId) throw new Error('No organization ID found for user');
+
+  const PAGE_SIZE = 300;
+  let offset = 0;
+  let updated = 0;
+  let failed = 0;
+
+  while (true) {
+    const { data: batch, error: batchError } = await supabase
+      .from('inventory')
+      .select(INVENTORY_SELECT)
+      .eq('organization_id', organizationId)
+      .order('id', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (batchError) {
+      throw batchError;
+    }
+
+    if (!batch || batch.length === 0) {
+      break;
+    }
+
+    for (const item of batch) {
+      const payload = {
+        search_keywords: buildSearchKeywords(item),
+        keyword_version: KEYWORD_VERSION,
+        keywords_generated_at: new Date().toISOString(),
+      };
+
+      let { error: updateError } = await supabase
+        .from('inventory')
+        .update(payload)
+        .eq('id', item.id)
+        .eq('organization_id', organizationId);
+
+      if (updateError && isMissingSearchKeywordsColumnError(updateError)) {
+        throw new Error('Database migration required: search keyword columns are missing.');
+      }
+
+      if (updateError) {
+        failed += 1;
+      } else {
+        updated += 1;
+      }
+    }
+
+    if (batch.length < PAGE_SIZE) {
+      break;
+    }
+
+    offset += batch.length;
+  }
+
+  return { success: true, updated, failed };
 }
 
 // Helper function to convert snake_case to camelCase
@@ -824,5 +1036,8 @@ function mapInventoryItem(dbItem: any): any {
     maxStock: 0,
     status: 'active',
     tags: [],
+    searchKeywords: Array.isArray(dbItem.search_keywords) ? dbItem.search_keywords : [],
+    keywordVersion: dbItem.keyword_version || null,
+    keywordsGeneratedAt: dbItem.keywords_generated_at || null,
   };
 }

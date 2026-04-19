@@ -261,3 +261,31 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Chrome, Safari and Opera */
 }
+
+/* Mobile contrast safeguards for controls and dropdowns */
+@media (max-width: 639px) {
+  input,
+  textarea,
+  select,
+  [data-slot="input"],
+  [data-slot="textarea"],
+  [data-slot="select-trigger"],
+  [data-slot="select-content"] {
+    background-color: var(--mobile-control-background, hsl(var(--card))) !important;
+    color: var(--mobile-control-foreground, hsl(var(--card-foreground))) !important;
+    border-color: hsl(var(--border)) !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder,
+  [data-slot="input"]::placeholder,
+  [data-slot="textarea"]::placeholder {
+    color: var(--mobile-control-placeholder, hsl(var(--muted-foreground))) !important;
+    opacity: 1;
+  }
+
+  select option {
+    background-color: var(--mobile-control-background, hsl(var(--card)));
+    color: var(--mobile-control-foreground, hsl(var(--card-foreground)));
+  }
+}

@@ -19,6 +19,7 @@ import { createClient } from '../utils/supabase/client';
 import { SubscriptionAgreement, Organization } from './SubscriptionAgreement';
 import { getPriceTierLabel, getActivePriceLevels, priceLevelToTier } from '../lib/global-settings';
 import { toast } from 'sonner@2.0.3';
+import { DealsModuleHelp } from './DealsModuleHelp';
 
 interface User {
   id: string;
@@ -336,6 +337,8 @@ export function Bids({ user }: BidsProps) {
     return matchesSearch && matchesStatus;
   });
 
+  const dealsHelpSearchExample = allQuotes[0]?.contactName || allQuotes[0]?.title || 'Quote';
+
   const handleStatusChange = async (quote: Quote, newStatus: Quote['status']) => {
     try {
       if (quote._source === 'bids') {
@@ -600,10 +603,34 @@ export function Bids({ user }: BidsProps) {
               Manage your quotes, proposals, and deals
             </p>
           </div>
-          <Button onClick={() => { setSelectedQuote(null); setIsDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Quote
-          </Button>
+          <div className="flex items-center gap-2">
+            <DealsModuleHelp
+              userId={user.id}
+              totalDeals={allQuotes.length}
+              totalValue={allQuotes.reduce((sum, q) => sum + q.total, 0)}
+              searchExample={dealsHelpSearchExample}
+              onSearchExample={(query) => {
+                setSearchTerm(query);
+                setStatusFilter('all');
+              }}
+              onFilterByStatus={(status) => {
+                setStatusFilter(status);
+                setSearchTerm('');
+              }}
+              onClearFilters={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+              }}
+              onOpenNewQuote={() => {
+                setSelectedQuote(null);
+                setIsDialogOpen(true);
+              }}
+            />
+            <Button onClick={() => { setSelectedQuote(null); setIsDialogOpen(true); }}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Quote
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">

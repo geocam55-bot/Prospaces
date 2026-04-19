@@ -29,6 +29,7 @@ import {
 } from '../ui/dropdown-menu';
 import { Button } from '../ui/button';
 import { ChangePasswordDialog } from '../ChangePasswordDialog';
+import { ProjectWizardsModuleHelp } from './ProjectWizardsModuleHelp';
 import { createClient } from '../../utils/supabase/client';
 import { canView, onPermissionsChanged } from '../../utils/permissions';
 import type { User } from '../../App';
@@ -496,16 +497,43 @@ function HomeView({
     (card) => (!card.adminOnly || isAdmin) && (!card.module || canView(card.module, user.role))
   );
 
+  const visiblePlannerCount = visibleCards.filter((card) =>
+    [
+      'deck-planner',
+      'garage-planner',
+      'shed-planner',
+      'roof-planner',
+      'kitchen-planner',
+      'interior-finishing',
+    ].includes(card.id)
+  ).length;
+
   return (
     <div className="p-8 lg:p-12 max-w-7xl mx-auto">
       {/* Welcome header */}
-      <div className="mb-10">
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-          Welcome back, {user.full_name?.split(' ')[0] || 'Designer'}
-        </h1>
-        <p className="mt-2 text-slate-500 text-lg">
-          Choose a planner or open contacts to start your next project.
-        </p>
+      <div className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+            Welcome back, {user.full_name?.split(' ')[0] || 'Designer'}
+          </h1>
+          <p className="mt-2 text-slate-500 text-lg">
+            Choose a planner or open contacts to start your next project.
+          </p>
+        </div>
+        <ProjectWizardsModuleHelp
+          userId={user.id}
+          plannerCount={visiblePlannerCount}
+          hasFinishingPlanner={isAdmin}
+          onOpenContacts={() => onNavigate('contacts')}
+          onOpenMessages={() => onNavigate('messages')}
+          onOpenDeckPlanner={() => onNavigate('deck-planner')}
+          onOpenGaragePlanner={() => onNavigate('garage-planner')}
+          onOpenShedPlanner={() => onNavigate('shed-planner')}
+          onOpenRoofPlanner={() => onNavigate('roof-planner')}
+          onOpenKitchenPlanner={() => onNavigate('kitchen-planner')}
+          onOpenFinishingPlanner={() => onNavigate('interior-finishing')}
+          onOpenSettings={() => onNavigate('profile')}
+        />
       </div>
 
       {/* Planner grid — wide cards for desktop */}

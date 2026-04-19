@@ -59,6 +59,96 @@ function hexToHSL(hex: string): string {
   return `${h} ${s}% ${l}%`;
 }
 
+function normalizeHex(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('#')) return null;
+  const raw = trimmed.slice(1);
+  if (!/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(raw)) return null;
+  if (raw.length === 3) {
+    return `#${raw
+      .split('')
+      .map((ch) => `${ch}${ch}`)
+      .join('')
+      .toLowerCase()}`;
+  }
+  return `#${raw.toLowerCase()}`;
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const normalized = normalizeHex(hex);
+  if (!normalized) return null;
+  return {
+    r: parseInt(normalized.slice(1, 3), 16),
+    g: parseInt(normalized.slice(3, 5), 16),
+    b: parseInt(normalized.slice(5, 7), 16),
+  };
+}
+
+function relativeLuminance(channel: number): number {
+  const srgb = channel / 255;
+  return srgb <= 0.03928 ? srgb / 12.92 : Math.pow((srgb + 0.055) / 1.055, 2.4);
+}
+
+function getContrastRatio(foreground: string, background: string): number | null {
+  const fg = hexToRgb(foreground);
+  const bg = hexToRgb(background);
+  if (!fg || !bg) return null;
+
+  const fgLum =
+    0.2126 * relativeLuminance(fg.r) +
+    0.7152 * relativeLuminance(fg.g) +
+    0.0722 * relativeLuminance(fg.b);
+  const bgLum =
+    0.2126 * relativeLuminance(bg.r) +
+    0.7152 * relativeLuminance(bg.g) +
+    0.0722 * relativeLuminance(bg.b);
+
+  const lighter = Math.max(fgLum, bgLum);
+  const darker = Math.min(fgLum, bgLum);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function ensureMinContrast(
+  foreground: string,
+  background: string,
+  minRatio: number,
+  fallbacks: string[]
+): string {
+  const directRatio = getContrastRatio(foreground, background);
+  if (directRatio !== null && directRatio >= minRatio) {
+    return foreground;
+  }
+
+  let bestColor = foreground;
+  let bestRatio = directRatio ?? 0;
+  const candidates = [...fallbacks, '#111111', '#ffffff'];
+
+  for (const candidate of candidates) {
+    const ratio = getContrastRatio(candidate, background);
+    if (ratio !== null && ratio > bestRatio) {
+      bestRatio = ratio;
+      bestColor = candidate;
+    }
+  }
+
+  return bestColor;
+}
+
+function getContrastSafeColors(colors: Theme['colors']): Theme['colors'] {
+  return {
+    ...colors,
+    text: ensureMinContrast(colors.text, colors.background, 4.5, [colors.textSecondary]),
+    textSecondary: ensureMinContrast(colors.textSecondary, colors.background, 4.5, [colors.text, colors.cardText]),
+    textMuted: ensureMinContrast(colors.textMuted, colors.background, 3, [colors.textSecondary, colors.text]),
+    cardText: ensureMinContrast(colors.cardText, colors.card, 4.5, [colors.text, colors.textSecondary]),
+    primaryText: ensureMinContrast(colors.primaryText, colors.primary, 4.5, [colors.text, '#111111', '#ffffff']),
+    secondaryText: ensureMinContrast(colors.secondaryText, colors.secondary, 4.5, [colors.text, colors.cardText]),
+    accentText: ensureMinContrast(colors.accentText, colors.accent, 4.5, [colors.text, '#111111', '#ffffff']),
+    destructiveText: ensureMinContrast(colors.destructiveText, colors.destructive, 4.5, [colors.text, '#111111', '#ffffff']),
+    topBarText: ensureMinContrast(colors.topBarText, colors.topBarBackground, 4.5, [colors.text, '#111111', '#ffffff']),
+  };
+}
+
 export function ThemeProvider({ children, userId }: { children: ReactNode; userId?: string }) {
   const [themeMode, setThemeModeState] = useState<ThemeMode>(loadThemeMode());
   const [themeId, setThemeId] = useState<string>(loadTheme());
@@ -224,6 +314,7 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
     setThemeState(newTheme);
     saveTheme(themeId);
     // Applying theme
+    const safeColors = getContrastSafeColors(newTheme.colors);
     
     // Apply theme colors to CSS variables
     const root = document.documentElement;
@@ -236,76 +327,81 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
     }
     
     // ─── Set hex color variables (for direct use) ───
-    root.style.setProperty('--color-background', newTheme.colors.background);
-    root.style.setProperty('--color-background-secondary', newTheme.colors.backgroundSecondary);
-    root.style.setProperty('--color-background-tertiary', newTheme.colors.backgroundTertiary);
-    root.style.setProperty('--color-text', newTheme.colors.text);
-    root.style.setProperty('--color-text-secondary', newTheme.colors.textSecondary);
-    root.style.setProperty('--color-text-muted', newTheme.colors.textMuted);
-    root.style.setProperty('--color-primary', newTheme.colors.primary);
-    root.style.setProperty('--color-primary-hover', newTheme.colors.primaryHover);
-    root.style.setProperty('--color-primary-text', newTheme.colors.primaryText);
-    root.style.setProperty('--color-accent', newTheme.colors.accent);
-    root.style.setProperty('--color-accent-hover', newTheme.colors.accentHover);
-    root.style.setProperty('--color-border', newTheme.colors.border);
-    root.style.setProperty('--color-border-light', newTheme.colors.borderLight);
-    root.style.setProperty('--color-card', newTheme.colors.card);
-    root.style.setProperty('--color-card-hover', newTheme.colors.cardHover);
-    root.style.setProperty('--color-success', newTheme.colors.success);
-    root.style.setProperty('--color-warning', newTheme.colors.warning);
-    root.style.setProperty('--color-error', newTheme.colors.error);
-    root.style.setProperty('--color-info', newTheme.colors.info);
-    root.style.setProperty('--color-nav-background', newTheme.colors.navBackground);
-    root.style.setProperty('--color-nav-text', newTheme.colors.navText);
-    root.style.setProperty('--color-nav-hover', newTheme.colors.navHover);
-    root.style.setProperty('--color-nav-active', newTheme.colors.navActive);
-    root.style.setProperty('--color-topbar-background', newTheme.colors.topBarBackground);
-    root.style.setProperty('--color-topbar-text', newTheme.colors.topBarText);
-    root.style.setProperty('--shadow', newTheme.colors.shadow);
+    root.style.setProperty('--color-background', safeColors.background);
+    root.style.setProperty('--color-background-secondary', safeColors.backgroundSecondary);
+    root.style.setProperty('--color-background-tertiary', safeColors.backgroundTertiary);
+    root.style.setProperty('--color-text', safeColors.text);
+    root.style.setProperty('--color-text-secondary', safeColors.textSecondary);
+    root.style.setProperty('--color-text-muted', safeColors.textMuted);
+    root.style.setProperty('--color-primary', safeColors.primary);
+    root.style.setProperty('--color-primary-hover', safeColors.primaryHover);
+    root.style.setProperty('--color-primary-text', safeColors.primaryText);
+    root.style.setProperty('--color-accent', safeColors.accent);
+    root.style.setProperty('--color-accent-hover', safeColors.accentHover);
+    root.style.setProperty('--color-border', safeColors.border);
+    root.style.setProperty('--color-border-light', safeColors.borderLight);
+    root.style.setProperty('--color-card', safeColors.card);
+    root.style.setProperty('--color-card-hover', safeColors.cardHover);
+    root.style.setProperty('--color-success', safeColors.success);
+    root.style.setProperty('--color-warning', safeColors.warning);
+    root.style.setProperty('--color-error', safeColors.error);
+    root.style.setProperty('--color-info', safeColors.info);
+    root.style.setProperty('--color-nav-background', safeColors.navBackground);
+    root.style.setProperty('--color-nav-text', safeColors.navText);
+    root.style.setProperty('--color-nav-hover', safeColors.navHover);
+    root.style.setProperty('--color-nav-active', safeColors.navActive);
+    root.style.setProperty('--color-topbar-background', safeColors.topBarBackground);
+    root.style.setProperty('--color-topbar-text', safeColors.topBarText);
+    root.style.setProperty('--shadow', safeColors.shadow);
     
-    if (newTheme.colors.gradient) {
-      root.style.setProperty('--gradient', newTheme.colors.gradient);
+    if (safeColors.gradient) {
+      root.style.setProperty('--gradient', safeColors.gradient);
     }
     
     // ─── Set ALL Tailwind HSL variables consumed by UI components ───
     // Background / Foreground
-    root.style.setProperty('--background', hexToHSL(newTheme.colors.background));
-    root.style.setProperty('--foreground', hexToHSL(newTheme.colors.text));
+    root.style.setProperty('--background', hexToHSL(safeColors.background));
+    root.style.setProperty('--foreground', hexToHSL(safeColors.text));
     
     // Card
-    root.style.setProperty('--card', hexToHSL(newTheme.colors.card));
-    root.style.setProperty('--card-foreground', hexToHSL(newTheme.colors.cardText));
+    root.style.setProperty('--card', hexToHSL(safeColors.card));
+    root.style.setProperty('--card-foreground', hexToHSL(safeColors.cardText));
     
     // Popover (same as card)
-    root.style.setProperty('--popover', hexToHSL(newTheme.colors.card));
-    root.style.setProperty('--popover-foreground', hexToHSL(newTheme.colors.cardText));
+    root.style.setProperty('--popover', hexToHSL(safeColors.card));
+    root.style.setProperty('--popover-foreground', hexToHSL(safeColors.cardText));
     
     // Primary
-    root.style.setProperty('--primary', hexToHSL(newTheme.colors.primary));
-    root.style.setProperty('--primary-foreground', hexToHSL(newTheme.colors.primaryText));
+    root.style.setProperty('--primary', hexToHSL(safeColors.primary));
+    root.style.setProperty('--primary-foreground', hexToHSL(safeColors.primaryText));
     
     // Secondary (PREVIOUSLY MISSING - caused light buttons on dark themes)
-    root.style.setProperty('--secondary', hexToHSL(newTheme.colors.secondary));
-    root.style.setProperty('--secondary-foreground', hexToHSL(newTheme.colors.secondaryText));
+    root.style.setProperty('--secondary', hexToHSL(safeColors.secondary));
+    root.style.setProperty('--secondary-foreground', hexToHSL(safeColors.secondaryText));
     
     // Muted
-    root.style.setProperty('--muted', hexToHSL(newTheme.colors.backgroundTertiary));
-    root.style.setProperty('--muted-foreground', hexToHSL(newTheme.colors.textMuted));
+    root.style.setProperty('--muted', hexToHSL(safeColors.backgroundTertiary));
+    root.style.setProperty('--muted-foreground', hexToHSL(safeColors.textMuted));
     
     // Accent (ACCENT-FOREGROUND PREVIOUSLY MISSING - caused dark hover text on dark themes)
-    root.style.setProperty('--accent', hexToHSL(newTheme.colors.accent));
-    root.style.setProperty('--accent-foreground', hexToHSL(newTheme.colors.accentText));
+    root.style.setProperty('--accent', hexToHSL(safeColors.accent));
+    root.style.setProperty('--accent-foreground', hexToHSL(safeColors.accentText));
     
     // Destructive (PREVIOUSLY MISSING)
-    root.style.setProperty('--destructive', hexToHSL(newTheme.colors.destructive));
-    root.style.setProperty('--destructive-foreground', hexToHSL(newTheme.colors.destructiveText));
+    root.style.setProperty('--destructive', hexToHSL(safeColors.destructive));
+    root.style.setProperty('--destructive-foreground', hexToHSL(safeColors.destructiveText));
     
     // Border & Input
-    root.style.setProperty('--border', hexToHSL(newTheme.colors.border));
-    root.style.setProperty('--input', hexToHSL(newTheme.colors.input));
+    root.style.setProperty('--border', hexToHSL(safeColors.border));
+    root.style.setProperty('--input', hexToHSL(safeColors.input));
     
     // Ring
-    root.style.setProperty('--ring', hexToHSL(newTheme.colors.primary));
+    root.style.setProperty('--ring', hexToHSL(safeColors.primary));
+
+    // Mobile control vars keep form controls readable even for custom themes.
+    root.style.setProperty('--mobile-control-background', safeColors.card);
+    root.style.setProperty('--mobile-control-foreground', ensureMinContrast(safeColors.cardText, safeColors.card, 4.5, [safeColors.text, safeColors.textSecondary]));
+    root.style.setProperty('--mobile-control-placeholder', ensureMinContrast(safeColors.textMuted, safeColors.card, 3, [safeColors.textSecondary, safeColors.text]));
   }, [themeId, customColorsVersion]);
 
   const handleSetTheme = async (newThemeId: string) => {

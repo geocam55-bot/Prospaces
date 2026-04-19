@@ -18,6 +18,7 @@ import { tasksAPI } from '../utils/api';
 import { PermissionGate } from './PermissionGate';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { useDebounce } from '../utils/useDebounce';
+import { TasksModuleHelp } from './TasksModuleHelp';
 
 interface Task {
   id: string;
@@ -60,6 +61,8 @@ export function Tasks({ user }: TasksProps) {
       task.priority.toLowerCase().includes(query) ||
       task.assignedTo.toLowerCase().includes(query);
   });
+
+  const completedTasksCount = tasks.filter((task) => task.status === 'completed').length;
 
   // Load tasks on mount
   useEffect(() => {
@@ -144,6 +147,16 @@ export function Tasks({ user }: TasksProps) {
     <PermissionGate user={user} module="tasks" action="view">
       <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
+          <TasksModuleHelp
+            userId={user.id}
+            totalTasks={tasks.length}
+            completedTasks={completedTasksCount}
+            onSearchExample={(query) => setSearchQuery(query)}
+            onShowPending={() => setSearchQuery('pending')}
+            onShowCompleted={() => setSearchQuery('completed')}
+            onClearSearch={() => setSearchQuery('')}
+            onOpenAddTask={() => setIsAddDialogOpen(true)}
+          />
           {canAdd('tasks', user.role) && (
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>

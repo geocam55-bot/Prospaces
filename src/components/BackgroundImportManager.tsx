@@ -19,6 +19,8 @@ import { toast } from 'sonner@2.0.3';
 import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
+import { BackgroundImportsModuleHelp } from './BackgroundImportsModuleHelp';
+import { BackgroundProcessingModuleHelp } from './BackgroundProcessingModuleHelp';
 
 interface BackgroundImportManagerProps {
   user: User;
@@ -255,15 +257,35 @@ export function BackgroundImportManager({ user, onNavigate }: BackgroundImportMa
             Monitor data imports (contacts, inventory, bids) running in the background
           </p>
         </div>
-        
-        <Button
-          onClick={enableNotifications}
-          variant={notificationsEnabled ? 'default' : 'outline'}
-          className="gap-2"
-        >
-          {notificationsEnabled ? <BellRing className="size-4" /> : <Bell className="size-4" />}
-          {notificationsEnabled ? 'Notifications On' : 'Enable Notifications'}
-        </Button>
+
+        <div className="flex items-center gap-2">
+          <BackgroundProcessingModuleHelp
+            userId={user.id}
+            onRefreshStatus={loadJobs}
+            onOpenScheduledJobs={() => onNavigate?.('scheduled-jobs')}
+            onOpenBackgroundImports={() => onNavigate?.('background-imports')}
+            onShowProcessingCadence={() => toast.info('Background imports sync every 10 seconds with real-time updates enabled.')}
+          />
+          <BackgroundImportsModuleHelp
+            userId={user.id}
+            activeJobs={activeJobs.length}
+            completedJobs={completedJobs.length}
+            notificationsEnabled={notificationsEnabled}
+            onRefreshJobs={loadJobs}
+            onEnableNotifications={enableNotifications}
+            onOpenImportExport={() => onNavigate?.('import-export')}
+            onOpenScheduledJobs={() => onNavigate?.('scheduled-jobs')}
+            onOpenInventory={() => onNavigate?.('inventory')}
+          />
+          <Button
+            onClick={enableNotifications}
+            variant={notificationsEnabled ? 'default' : 'outline'}
+            className="gap-2"
+          >
+            {notificationsEnabled ? <BellRing className="size-4" /> : <Bell className="size-4" />}
+            {notificationsEnabled ? 'Notifications On' : 'Enable Notifications'}
+          </Button>
+        </div>
       </div>
 
       {activeJobs.length === 0 && completedJobs.length === 0 && (

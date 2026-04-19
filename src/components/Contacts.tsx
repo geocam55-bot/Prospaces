@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type FormEvent, type KeyboardEvent } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
@@ -14,8 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { MetricCard } from './MetricCard';
-import { contactsAPI, projectManagersAPI } from '../utils/api';
+import { contactsAPI, projectManagersAPI, bidsAPI, quotesAPI } from '../utils/api';
 import { projectId } from '../utils/supabase/info';
 import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
@@ -27,7 +25,8 @@ import { getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings'
 import { useAudienceSegments } from '../hooks/useAudienceSegments';
 import { TagSelector } from './TagSelector';
 import { CustomFieldsRenderer } from './CustomFieldsRenderer';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
+import { CustomerModuleHelp } from './CustomerModuleHelp';
 
 interface Contact {
   id: string;
@@ -76,6 +75,7 @@ export function Contacts({ user }: ContactsProps) {
   const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [dealValueByContactId, setDealValueByContactId] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -144,9 +144,49 @@ export function Contacts({ user }: ContactsProps) {
   const loadContacts = async () => {
     try {
       setIsLoading(true);
-      const { contacts: loadedContacts } = await contactsAPI.getAll();
+      const [{ contacts: loadedContacts }, bidsResult, quotesResult] = await Promise.all([
+        contactsAPI.getAll(),
+        bidsAPI.getAll(),
+        quotesAPI.getAll(),
+      ]);
+
       const validContacts = (loadedContacts || []).filter(Boolean);
+      const normalizeLookup = (value?: string | null) => value?.trim().toLowerCase() || '';
+      const combinedDeals = [...(bidsResult?.bids || []), ...(quotesResult?.quotes || [])];
+
+      const nextDealValueMap = validContacts.reduce((acc, contact) => {
+        const contactId = normalizeLookup(contact.id);
+        const contactEmail = normalizeLookup(contact.email);
+        const contactName = normalizeLookup(contact.name);
+
+        const total = combinedDeals.reduce((sum, record: any) => {
+          const linkedIds = [record.contactId, record.contact_id, record.customerId, record.customer_id]
+            .map(normalizeLookup)
+            .filter(Boolean);
+          const linkedNames = [record.contactName, record.contact_name, record.customerName, record.customer_name]
+            .map(normalizeLookup)
+            .filter(Boolean);
+          const linkedEmails = [record.contactEmail, record.contact_email, record.email]
+            .map(normalizeLookup)
+            .filter(Boolean);
+
+          const matchesContact =
+            (contactId && linkedIds.includes(contactId)) ||
+            (contactEmail && linkedEmails.includes(contactEmail)) ||
+            (contactName && linkedNames.includes(contactName));
+
+          if (!matchesContact) return sum;
+
+          const numericValue = Number(record.total ?? record.amount ?? 0);
+          return sum + (Number.isFinite(numericValue) ? numericValue : 0);
+        }, 0);
+
+        acc[contact.id] = total;
+        return acc;
+      }, {} as Record<string, number>);
+
       setContacts(validContacts);
+      setDealValueByContactId(nextDealValueMap);
       
       // Also update selectedContact if it's in the loaded data
       // (prevents stale data when re-opening the edit dialog after save)
@@ -178,6 +218,73 @@ export function Contacts({ user }: ContactsProps) {
 
     return { total, active, prospects, newContacts };
   }, [contacts]);
+
+  const getContactType = (contact: Contact) => {
+    const tags = (contact.tags || []).map((tag) => tag.toLowerCase());
+    if (tags.some((tag) => tag.includes('partner') || tag.includes('vendor') || tag.includes('supplier'))) {
+      return 'Partner';
+    }
+    if (contact.status === 'Prospect') {
+      return 'Lead';
+    }
+    return 'Customer';
+  };
+
+  const getContactPriority = (contact: Contact) => {
+    const notes = (contact.notes || '').toLowerCase();
+    const tags = (contact.tags || []).map((tag) => tag.toLowerCase());
+    const salesValue = Number(contact.ytdSales ?? contact.ptdSales ?? 0);
+
+    if (notes.includes('vip') || tags.some((tag) => tag.includes('vip')) || salesValue >= 100000) {
+      return 'High';
+    }
+    if (contact.status === 'Prospect' || salesValue >= 25000) {
+      return 'Medium';
+    }
+    return 'Normal';
+  };
+
+  const formatCurrencyCompact = (value?: number) => {
+    if (typeof value !== 'number' || Number.isNaN(value)) return '—';
+
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  const getDisplayedDealValue = (contact: Contact) => {
+    const rawValue =
+      contact.customFields?.dealValue ??
+      contact.customFields?.dealsValue ??
+      contact.customFields?.deals_value;
+
+    const customFieldValue = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+    const liveDealValue = dealValueByContactId[contact.id] ?? 0;
+    const resolvedValue = Math.max(Number.isFinite(customFieldValue) ? customFieldValue : 0, liveDealValue);
+
+    return resolvedValue > 0 ? formatCurrencyCompact(resolvedValue) : '$0';
+  };
+
+
+  const openContactDetail = (contact: Contact) => {
+    setSelectedContact(contact);
+    setShowContactDetail(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const openEditContact = (contact: Partial<Contact> | null) => {
+    if (!contact) return;
+    setEditingContact(contact as Contact);
+    setIsEditDialogOpen(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const closeEditContact = () => {
+    setEditingContact(null);
+    setIsEditDialogOpen(false);
+  };
 
   // Diagnose and fix contact ownership via server endpoint (bypasses RLS)
   const diagnoseAndFixOwnership = async () => {
@@ -321,6 +428,43 @@ export function Contacts({ user }: ContactsProps) {
       // Filter by search query
       const query = debouncedSearchQuery.toLowerCase().trim();
       if (query) {
+        const statusAliases: Record<string, string> = {
+          active: 'active',
+          prospect: 'prospect',
+          prospects: 'prospect',
+          inactive: 'inactive',
+        };
+        const ignoredTokens = new Set([
+          'show',
+          'me',
+          'all',
+          'the',
+          'a',
+          'an',
+          'and',
+          'or',
+          'with',
+          'of',
+          'for',
+          'to',
+          'customer',
+          'customers',
+          'client',
+          'clients',
+          'contact',
+          'contacts',
+          'high',
+          'value',
+          'values',
+          'best',
+        ]);
+
+        const tokens = query
+          .replace(/[^a-z0-9@.\-\s]/g, ' ')
+          .split(/\s+/)
+          .map((token) => token.trim())
+          .filter((token) => token.length > 0 && !ignoredTokens.has(token));
+
         filtered = filtered.filter(contact => {
           // Standard text search
           const basicMatch = (
@@ -331,15 +475,45 @@ export function Contacts({ user }: ContactsProps) {
             (contact?.status || '').toLowerCase().includes(query) ||
             (contact?.tags || []).some(tag => tag.toLowerCase().includes(query))
           );
+
+          if (basicMatch) return true;
+
+          // Token-based matching supports natural-language searches from help examples.
+          if (tokens.length > 0) {
+            const searchableValues = [
+              contact?.name,
+              contact?.email,
+              contact?.company,
+              contact?.phone,
+              contact?.status,
+              contact?.legacyNumber,
+              contact?.accountOwnerNumber,
+              ...(contact?.tags || []),
+              ...Object.values(contact?.customFields || {}).map((val) => String(val)),
+            ]
+              .filter(Boolean)
+              .map((val) => String(val).toLowerCase());
+
+            const status = (contact?.status || '').toLowerCase();
+            const tokenMatch = tokens.every((token) => {
+              const mappedStatus = statusAliases[token];
+              if (mappedStatus) {
+                return status === mappedStatus;
+              }
+              return searchableValues.some((value) => value.includes(token));
+            });
+
+            if (tokenMatch) return true;
+          }
           
           // Search in custom fields if not matched in basic fields
-          if (!basicMatch && contact?.customFields) {
+          if (contact?.customFields) {
             return Object.values(contact.customFields).some(val => 
               String(val).toLowerCase().includes(query)
             );
           }
           
-          return basicMatch;
+          return false;
         });
       }
       
@@ -367,7 +541,7 @@ export function Contacts({ user }: ContactsProps) {
   }, [contacts]);
   
   // Tag management functions
-  const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleAddTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && tagInput.trim()) {
       e.preventDefault();
       const trimmedTag = tagInput.trim();
@@ -382,7 +556,7 @@ export function Contacts({ user }: ContactsProps) {
     setNewContact({ ...newContact, tags: newContact.tags.filter(tag => tag !== tagToRemove) });
   };
   
-  const handleAddEditTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleAddEditTag = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && editTagInput.trim() && editingContact) {
       e.preventDefault();
       const trimmedTag = editTagInput.trim();
@@ -408,7 +582,7 @@ export function Contacts({ user }: ContactsProps) {
     setCurrentPage(1);
   }, [debouncedSearchQuery]);
 
-  const handleAddContact = async (e: React.FormEvent) => {
+  const handleAddContact = async (e: FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
@@ -468,7 +642,7 @@ export function Contacts({ user }: ContactsProps) {
     }
   };
 
-  const handleEditContact = async (e: React.FormEvent) => {
+  const handleEditContact = async (e: FormEvent) => {
     e.preventDefault();
     if (!editingContact) return;
     setIsSaving(true);
@@ -517,8 +691,7 @@ export function Contacts({ user }: ContactsProps) {
       } else {
         toast.warning('Update returned empty response — please verify changes');
       }
-      setEditingContact(null);
-      setIsEditDialogOpen(false);
+      closeEditContact();
 
       // ── POST-SAVE VERIFICATION: re-read from DB directly to confirm ──
       try {
@@ -532,9 +705,10 @@ export function Contacts({ user }: ContactsProps) {
         if (verifyErr) {
           toast.error(`DB verification failed: ${verifyErr.message}`);
         } else if (verifyRow) {
-          const nameMatch = verifyRow.name === updateData.name;
-          const emailMatch = verifyRow.email === updateData.email;
-          const statusMatch = verifyRow.status === updateData.status;
+          const dbRow = verifyRow as { name?: string; email?: string; status?: string } | null;
+          const nameMatch = dbRow?.name === updateData.name;
+          const emailMatch = dbRow?.email === updateData.email;
+          const statusMatch = dbRow?.status === updateData.status;
           if (!nameMatch || !emailMatch || !statusMatch) {
             toast.error(`DB verification MISMATCH — changes may not have persisted!`);
           }
@@ -552,7 +726,7 @@ export function Contacts({ user }: ContactsProps) {
     }
   };
 
-  const handleAddProjectManager = async (e: React.FormEvent) => {
+  const handleAddProjectManager = async (e: FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
@@ -582,7 +756,7 @@ export function Contacts({ user }: ContactsProps) {
     }
   };
 
-  const handleEditProjectManager = async (e: React.FormEvent) => {
+  const handleEditProjectManager = async (e: FormEvent) => {
     e.preventDefault();
     if (!editingPM) return;
     setIsSaving(true);
@@ -612,6 +786,355 @@ export function Contacts({ user }: ContactsProps) {
     );
   }
 
+  const editFieldClassName = 'h-11 rounded-xl border-slate-200 bg-slate-50 text-[15px] text-slate-700 shadow-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-cyan-500';
+  const editSelectClassName = 'flex h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[15px] text-slate-700 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50';
+  const editLabelClassName = 'text-[13px] font-semibold uppercase tracking-[0.16em] text-slate-500';
+
+  const renderEditContactDialog = () => {
+    if (!isEditDialogOpen || !editingContact) return null;
+
+    const currentStatus = editingContact.status || 'Prospect';
+    const statusClass =
+      currentStatus === 'Active'
+        ? 'bg-emerald-100 text-emerald-700'
+        : currentStatus === 'Inactive'
+          ? 'bg-slate-200 text-slate-700'
+          : 'bg-amber-100 text-amber-700';
+
+    return (
+      <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-100">
+        <div className="min-h-screen w-full bg-slate-100 px-3 py-3 sm:px-4 sm:py-4 lg:px-5">
+          <div className="mx-auto max-w-[1720px] space-y-4">
+            <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
+              <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6 lg:px-8">
+                <div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={closeEditContact}
+                    className="mb-3 -ml-2 h-9 px-2 text-[15px] font-medium text-slate-600 hover:bg-slate-100"
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back
+                  </Button>
+                  <h1 className="text-[24px] font-semibold tracking-tight text-slate-800 sm:text-[28px]">Edit Contact</h1>
+                  <p className="mt-1 text-sm text-slate-500 sm:text-base">
+                    Update customer details in the same full-page workspace used by the contact detail view.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
+                    {editingContact.name || 'Contact record'}
+                  </span>
+                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600">
+                    {editingContact.company || 'No account assigned'}
+                  </span>
+                  <span className={`rounded-full px-3 py-1 text-sm font-semibold ${statusClass}`}>
+                    {currentStatus}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleEditContact} className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <Mail className="h-4 w-4 text-cyan-700" />
+                <h3 className="text-base font-semibold text-slate-800">Basic details</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name" className={editLabelClassName}>Name</Label>
+                  <Input
+                    id="edit-name"
+                    className={editFieldClassName}
+                    value={editingContact?.name || ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, name: e.target.value } : null)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email" className={editLabelClassName}>Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    className={editFieldClassName}
+                    value={editingContact?.email || ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, email: e.target.value } : null)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone" className={editLabelClassName}>Phone</Label>
+                  <Input
+                    id="edit-phone"
+                    className={editFieldClassName}
+                    value={editingContact?.phone || ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, phone: e.target.value } : null)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-company" className={editLabelClassName}>Company</Label>
+                  <Input
+                    id="edit-company"
+                    className={editFieldClassName}
+                    value={editingContact?.company || ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, company: e.target.value } : null)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-status" className={editLabelClassName}>Status</Label>
+                  <select
+                    id="edit-status"
+                    value={editingContact?.status || 'Prospect'}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, status: e.target.value } : null)}
+                    className={editSelectClassName}
+                  >
+                    <option value="Prospect">Prospect</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-priceLevel" className={editLabelClassName}>Price Level</Label>
+                  <select
+                    id="edit-priceLevel"
+                    value={editingContact?.priceLevel || getPriceTierLabel(1)}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, priceLevel: e.target.value } : null)}
+                    className={editSelectClassName}
+                  >
+                    {[1, 2, 3, 4, 5].map((t) => {
+                      const label = getPriceTierLabel(t);
+                      if (!label || label.trim() === '' || label.trim() === '0') return null;
+                      return <option key={t} value={label}>T{t} — {label}</option>;
+                    })}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-cyan-700" />
+                <h3 className="text-base font-semibold text-slate-800">Account and location</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-legacyNumber" className={editLabelClassName}>Legacy #</Label>
+                  <Input
+                    id="edit-legacyNumber"
+                    className={editFieldClassName}
+                    value={editingContact?.legacyNumber || ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, legacyNumber: e.target.value } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-accountOwnerNumber" className={editLabelClassName}>Account Owner #</Label>
+                  <Input
+                    id="edit-accountOwnerNumber"
+                    className={editFieldClassName}
+                    value={editingContact?.accountOwnerNumber || ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, accountOwnerNumber: e.target.value } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="edit-address" className={editLabelClassName}>Address</Label>
+                  <Input
+                    id="edit-address"
+                    className={editFieldClassName}
+                    value={editingContact?.address || ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, address: e.target.value } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-city-2" className={editLabelClassName}>City</Label>
+                  <Input
+                    id="edit-city-2"
+                    className={editFieldClassName}
+                    value={editingContact?.city || ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, city: e.target.value } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-province-2" className={editLabelClassName}>Province / State</Label>
+                  <Input
+                    id="edit-province-2"
+                    className={editFieldClassName}
+                    value={editingContact?.province || ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, province: e.target.value } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="edit-postalCode-2" className={editLabelClassName}>Postal / Zip Code</Label>
+                  <Input
+                    id="edit-postalCode-2"
+                    className={editFieldClassName}
+                    value={editingContact?.postalCode || ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, postalCode: e.target.value } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <Tag className="h-4 w-4 text-cyan-700" />
+                <h3 className="text-base font-semibold text-slate-800">Notes and segmentation</h3>
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-notes" className={editLabelClassName}>Notes</Label>
+                  <Textarea
+                    id="edit-notes"
+                    className="min-h-[120px] rounded-xl border-slate-200 bg-slate-50 text-[15px] text-slate-700 shadow-none placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-cyan-500"
+                    value={editingContact?.notes || ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, notes: e.target.value } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div>
+                  <CustomFieldsRenderer
+                    entityType="contact"
+                    organizationId={user.organizationId}
+                    values={editingContact?.customFields || {}}
+                    onChange={(key, value) => {
+                      if (editingContact) {
+                        setEditingContact({
+                          ...editingContact,
+                          customFields: { ...(editingContact.customFields || {}), [key]: value }
+                        });
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <TagSelector
+                    label="Tags (for segmentation)"
+                    tags={editingContact?.tags || []}
+                    availableTags={audienceSegments}
+                    onTagsChange={(tags) => setEditingContact(editingContact ? { ...editingContact, tags } : null)}
+                    htmlFor="edit-tags-2"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-cyan-700" />
+                <h3 className="text-base font-semibold text-slate-800">Sales snapshot</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-ptdSales" className={editLabelClassName}>PTD Sales</Label>
+                  <Input
+                    id="edit-ptdSales"
+                    type="number"
+                    step="0.01"
+                    className={editFieldClassName}
+                    value={editingContact?.ptdSales ?? ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ptdSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-ptdGpPercent" className={editLabelClassName}>PTD GP%</Label>
+                  <Input
+                    id="edit-ptdGpPercent"
+                    type="number"
+                    step="0.01"
+                    className={editFieldClassName}
+                    value={editingContact?.ptdGpPercent ?? ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ptdGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-ytdSales" className={editLabelClassName}>YTD Sales</Label>
+                  <Input
+                    id="edit-ytdSales"
+                    type="number"
+                    step="0.01"
+                    className={editFieldClassName}
+                    value={editingContact?.ytdSales ?? ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ytdSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-ytdGpPercent" className={editLabelClassName}>YTD GP%</Label>
+                  <Input
+                    id="edit-ytdGpPercent"
+                    type="number"
+                    step="0.01"
+                    className={editFieldClassName}
+                    value={editingContact?.ytdGpPercent ?? ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ytdGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lyrSales" className={editLabelClassName}>LYR Sales</Label>
+                  <Input
+                    id="edit-lyrSales"
+                    type="number"
+                    step="0.01"
+                    className={editFieldClassName}
+                    value={editingContact?.lyrSales ?? ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, lyrSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-lyrGpPercent" className={editLabelClassName}>LYR GP%</Label>
+                  <Input
+                    id="edit-lyrGpPercent"
+                    type="number"
+                    step="0.01"
+                    className={editFieldClassName}
+                    value={editingContact?.lyrGpPercent ?? ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, lyrGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="sticky bottom-0 z-10 rounded-[24px] border border-slate-200 bg-slate-50/95 p-3 shadow-sm backdrop-blur">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={closeEditContact}
+                  className="h-11 rounded-xl border-slate-200 bg-white px-5 text-slate-700 hover:bg-slate-100"
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="h-11 rounded-xl bg-cyan-700 px-5 text-white hover:bg-cyan-800"
+                  disabled={isSaving}
+                >
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </div>
+          </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Show empty-state with ownership fix when user has 0 contacts
   if (contacts.length === 0 && !selectedContact) {
     return (
@@ -626,6 +1149,24 @@ export function Contacts({ user }: ContactsProps) {
             </p>
 
             <div className="flex gap-3 flex-wrap justify-center">
+              <CustomerModuleHelp
+                userId={user.id}
+                totalContacts={contacts.length}
+                onSearchExample={(query) => {
+                  setSearchQuery(query);
+                  setSelectedTagFilter('all');
+                }}
+                onFilterByStatus={(status) => {
+                  setSelectedTagFilter(`status:${status}`);
+                  setSearchQuery('');
+                }}
+                onClearFilters={() => {
+                  setSearchQuery('');
+                  setSelectedTagFilter('all');
+                }}
+                onOpenAddContact={() => setIsAddDialogOpen(true)}
+              />
+
               <Button
                 onClick={diagnoseAndFixOwnership}
                 disabled={isFixingOwnership}
@@ -728,727 +1269,553 @@ export function Contacts({ user }: ContactsProps) {
     );
   }
 
+  const contactsHeading = (() => {
+    if (selectedTagFilter === 'status:Active') return 'Active Contacts';
+    if (selectedTagFilter === 'status:Inactive') return 'Inactive Contacts';
+    if (selectedTagFilter === 'status:Prospect') return 'Prospects';
+    if (selectedTagFilter.startsWith('tag:')) return `${selectedTagFilter.replace('tag:', '')} Contacts`;
+    return 'All Contacts';
+  })();
+
   // Show contact detail view if a contact is selected
-  if (selectedContact) {
+  if (showContactDetail && selectedContact) {
     return (
       <>
-        <ContactDetail
-          contact={selectedContact}
-          user={user}
-          onBack={() => setSelectedContact(null)}
-          onEdit={(contact) => {
-            // Use selectedContact directly instead of the contact parameter
-            // to ensure we have the latest data after save + reload
-            setEditingContact(selectedContact);
-            setIsEditDialogOpen(true);
-          }}
-        />
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-100">
+          <div className="min-h-screen w-full">
+            <ContactDetail
+              contact={selectedContact}
+              user={user}
+              totalContacts={contacts.length}
+              onBack={() => {
+                setShowContactDetail(false);
+                setSelectedContact(null);
+              }}
+              onEdit={(contact) => {
+                openEditContact(contact);
+              }}
+              onSearchExample={(query) => {
+                setShowContactDetail(false);
+                setSelectedContact(null);
+                setSearchQuery(query);
+                setSelectedTagFilter('all');
+              }}
+              onFilterByStatus={(status) => {
+                setShowContactDetail(false);
+                setSelectedContact(null);
+                setSelectedTagFilter(`status:${status}`);
+                setSearchQuery('');
+              }}
+              onClearFilters={() => {
+                setShowContactDetail(false);
+                setSelectedContact(null);
+                setSearchQuery('');
+                setSelectedTagFilter('all');
+              }}
+              onOpenAddContact={() => {
+                setShowContactDetail(false);
+                setSelectedContact(null);
+                setIsAddDialogOpen(true);
+              }}
+            />
+          </div>
+        </div>
         
-        {/* Edit Contact Dialog - Available from Detail View */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-background !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
-            <DialogHeader>
-              <DialogTitle>Edit Contact</DialogTitle>
-              <DialogDescription>
-                Update the contact's information and settings.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleEditContact} className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">Name</Label>
-                <Input
-                  id="edit-name"
-                  value={editingContact?.name || ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, name: e.target.value } : null)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-email">Email</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={editingContact?.email || ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, email: e.target.value } : null)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-phone">Phone</Label>
-                <Input
-                  id="edit-phone"
-                  value={editingContact?.phone || ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, phone: e.target.value } : null)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-company">Company</Label>
-                <Input
-                  id="edit-company"
-                  value={editingContact?.company || ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, company: e.target.value } : null)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-status">Status</Label>
-                <select
-                  id="edit-status"
-                  value={editingContact?.status || 'Prospect'}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, status: e.target.value } : null)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="Prospect">Prospect</option>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-priceLevel">Price Level</Label>
-                <select
-                  id="edit-priceLevel"
-                  value={editingContact?.priceLevel || getPriceTierLabel(1)}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, priceLevel: e.target.value } : null)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {[1,2,3,4,5].map(t => {
-                    const label = getPriceTierLabel(t);
-                    if (!label || label.trim() === '' || label.trim() === '0') return null;
-                    return <option key={t} value={label}>T{t} — {label}</option>;
-                  })}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-legacyNumber">Legacy #</Label>
-                <Input
-                  id="edit-legacyNumber"
-                  value={editingContact?.legacyNumber || ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, legacyNumber: e.target.value } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-accountOwnerNumber">Account Owner #</Label>
-                <Input
-                  id="edit-accountOwnerNumber"
-                  value={editingContact?.accountOwnerNumber || ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, accountOwnerNumber: e.target.value } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-address">Address</Label>
-                <Input
-                  id="edit-address"
-                  value={editingContact?.address || ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, address: e.target.value } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-city">City</Label>
-                <Input
-                  id="edit-city"
-                  value={editingContact?.city || ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, city: e.target.value } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-province">Province / State</Label>
-                <Input
-                  id="edit-province"
-                  value={editingContact?.province || ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, province: e.target.value } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-postalCode">Postal / Zip Code</Label>
-                <Input
-                  id="edit-postalCode"
-                  value={editingContact?.postalCode || ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, postalCode: e.target.value } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="edit-notes">Notes</Label>
-                <Textarea
-                  id="edit-notes"
-                  value={editingContact?.notes || ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, notes: e.target.value } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <TagSelector
-                  label="Tags (for segmentation)"
-                  tags={editingContact?.tags || []}
-                  availableTags={audienceSegments}
-                  onTagsChange={(tags) => setEditingContact(editingContact ? { ...editingContact, tags } : null)}
-                  htmlFor="edit-tags"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-ptdSales">PTD Sales</Label>
-                <Input
-                  id="edit-ptdSales"
-                  type="number"
-                  step="0.01"
-                  value={editingContact?.ptdSales ?? ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ptdSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-ptdGpPercent">PTD GP%</Label>
-                <Input
-                  id="edit-ptdGpPercent"
-                  type="number"
-                  step="0.01"
-                  value={editingContact?.ptdGpPercent ?? ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ptdGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-ytdSales">YTD Sales</Label>
-                <Input
-                  id="edit-ytdSales"
-                  type="number"
-                  step="0.01"
-                  value={editingContact?.ytdSales ?? ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ytdSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-ytdGpPercent">YTD GP%</Label>
-                <Input
-                  id="edit-ytdGpPercent"
-                  type="number"
-                  step="0.01"
-                  value={editingContact?.ytdGpPercent ?? ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ytdGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-lyrSales">LYR Sales</Label>
-                <Input
-                  id="edit-lyrSales"
-                  type="number"
-                  step="0.01"
-                  value={editingContact?.lyrSales ?? ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, lyrSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-lyrGpPercent">LYR GP%</Label>
-                <Input
-                  id="edit-lyrGpPercent"
-                  type="number"
-                  step="0.01"
-                  value={editingContact?.lyrGpPercent ?? ''}
-                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, lyrGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="flex gap-2 pt-4 md:col-span-2">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => {
-                    setEditingContact(null);
-                    setIsEditDialogOpen(false);
-                  }} 
-                  className="flex-1" 
-                  disabled={isSaving}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" className="flex-1" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {renderEditContactDialog()}
       </>
     );
   }
 
   return (
     <PermissionGate user={user} module="contacts" action="view">
-      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard 
-            title="Total Contacts" 
-            value={metrics.total.toString()} 
-            icon={<Users className="h-4 w-4" />} 
-            description="All contacts in database"
-            className="bg-indigo-600 text-white"
-          />
-          <MetricCard 
-            title="Active Clients" 
-            value={metrics.active.toString()} 
-            icon={<UserCheck className="h-4 w-4" />} 
-            description="Currently active customers"
-            className="bg-blue-900 text-white"
-          />
-          <MetricCard 
-            title="Prospects" 
-            value={metrics.prospects.toString()} 
-            icon={<Target className="h-4 w-4" />} 
-            description="Potential opportunities"
-            className="bg-sky-600 text-white"
-          />
-          <MetricCard 
-            title="New This Month" 
-            value={metrics.newContacts.toString()} 
-            icon={<UserPlus className="h-4 w-4" />} 
-            description="Added in current month"
-            className="bg-teal-500 text-white"
-          />
+      <div className="space-y-4 rounded-[28px] bg-slate-50/80 p-3 sm:space-y-5 sm:p-5">
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="space-y-4 p-4 sm:p-6">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Customer Module</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <h2 className="text-2xl font-semibold text-emerald-700">{contactsHeading}</h2>
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                    {filteredContacts.length}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-slate-500">
+                  A cleaner spreadsheet-style customer list with vertical scrolling and faster scanning.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
+                  {metrics.total} total
+                </span>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
+                  {metrics.active} active
+                </span>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
+                  {metrics.prospects} prospects
+                </span>
+                <CustomerModuleHelp
+                  userId={user.id}
+                  totalContacts={contacts.length}
+                  onSearchExample={(query) => {
+                    setSearchQuery(query);
+                    setSelectedTagFilter('all');
+                  }}
+                  onFilterByStatus={(status) => {
+                    setSelectedTagFilter(`status:${status}`);
+                    setSearchQuery('');
+                  }}
+                  onClearFilters={() => {
+                    setSearchQuery('');
+                    setSelectedTagFilter('all');
+                  }}
+                  onOpenAddContact={() => setIsAddDialogOpen(true)}
+                />
+
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
-          {canAdd('contacts', user.role) && (
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Contact
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-background !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
-                <DialogHeader>
-                  <DialogTitle>Add New Contact</DialogTitle>
-                  <DialogDescription>
-                    Create a new contact with their information and assigned price level.
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleAddContact} className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      value={newContact.name}
-                      onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newContact.email}
-                      onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      value={newContact.phone}
-                      onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company">Company</Label>
-                    <Input
-                      id="company"
-                      value={newContact.company}
-                      onChange={(e) => setNewContact({ ...newContact, company: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="priceLevel">Price Level</Label>
-                    <select
-                      id="priceLevel"
-                      value={newContact.priceLevel}
-                      onChange={(e) => setNewContact({ ...newContact, priceLevel: e.target.value })}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {[1,2,3,4,5].map(t => {
-                        const label = getPriceTierLabel(t);
-                        if (!label || label.trim() === '' || label.trim() === '0') return null;
-                        return <option key={t} value={label}>T{t} — {label}</option>;
-                      })}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="legacyNumber">Legacy #</Label>
-                    <Input
-                      id="legacyNumber"
-                      value={newContact.legacyNumber}
-                      onChange={(e) => setNewContact({ ...newContact, legacyNumber: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="accountOwnerNumber">Account Owner #</Label>
-                    <Input
-                      id="accountOwnerNumber"
-                      value={newContact.accountOwnerNumber}
-                      onChange={(e) => setNewContact({ ...newContact, accountOwnerNumber: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Input
-                      id="address"
-                      value={newContact.address}
-                      onChange={(e) => setNewContact({ ...newContact, address: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="city">City</Label>
-                    <Input
-                      id="city"
-                      value={newContact.city}
-                      onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="province">Province / State</Label>
-                    <Input
-                      id="province"
-                      value={newContact.province}
-                      onChange={(e) => setNewContact({ ...newContact, province: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="postalCode">Postal / Zip Code</Label>
-                    <Input
-                      id="postalCode"
-                      value={newContact.postalCode}
-                      onChange={(e) => setNewContact({ ...newContact, postalCode: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="notes">Notes</Label>
-                    <Textarea
-                      id="notes"
-                      value={newContact.notes}
-                      onChange={(e) => setNewContact({ ...newContact, notes: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <TagSelector
-                      label="Tags (for segmentation)"
-                      tags={newContact.tags}
-                      availableTags={audienceSegments}
-                      onTagsChange={(tags) => setNewContact({ ...newContact, tags })}
-                      htmlFor="tags"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ptdSales">PTD Sales</Label>
-                    <Input
-                      id="ptdSales"
-                      type="number"
-                      step="0.01"
-                      value={newContact.ptdSales}
-                      onChange={(e) => setNewContact({ ...newContact, ptdSales: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ptdGpPercent">PTD GP%</Label>
-                    <Input
-                      id="ptdGpPercent"
-                      type="number"
-                      step="0.01"
-                      value={newContact.ptdGpPercent}
-                      onChange={(e) => setNewContact({ ...newContact, ptdGpPercent: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ytdSales">YTD Sales</Label>
-                    <Input
-                      id="ytdSales"
-                      type="number"
-                      step="0.01"
-                      value={newContact.ytdSales}
-                      onChange={(e) => setNewContact({ ...newContact, ytdSales: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ytdGpPercent">YTD GP%</Label>
-                    <Input
-                      id="ytdGpPercent"
-                      type="number"
-                      step="0.01"
-                      value={newContact.ytdGpPercent}
-                      onChange={(e) => setNewContact({ ...newContact, ytdGpPercent: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lyrSales">LYR Sales</Label>
-                    <Input
-                      id="lyrSales"
-                      type="number"
-                      step="0.01"
-                      value={newContact.lyrSales}
-                      onChange={(e) => setNewContact({ ...newContact, lyrSales: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lyrGpPercent">LYR GP%</Label>
-                    <Input
-                      id="lyrGpPercent"
-                      type="number"
-                      step="0.01"
-                      value={newContact.lyrGpPercent}
-                      onChange={(e) => setNewContact({ ...newContact, lyrGpPercent: e.target.value })}
-                      placeholder="Optional"
-                    />
-                  </div>
-                  <div className="flex gap-2 pt-4 md:col-span-2">
-                    <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1" disabled={isSaving}>
-                      Cancel
-                    </Button>
-                    <Button type="submit" className="flex-1" disabled={isSaving}>
-                      {isSaving ? 'Adding...' : 'Add Contact'}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-          )}
-        </div>
-
-        <Card>
-          <CardHeader>
-            <div className="space-y-3">
-              <div className="flex gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-200 px-4 py-3 sm:px-6">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="relative min-w-0 flex-1 lg:max-w-md">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
                     placeholder="Search contacts by name, email, company, phone, or status..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="h-11 border-slate-200 bg-white pl-10"
                   />
                 </div>
-                <Select value={selectedTagFilter} onValueChange={setSelectedTagFilter}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Filter..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Contacts</SelectItem>
-                    <SelectGroup>
-                      <SelectItem value="status:Active">Active</SelectItem>
-                      <SelectItem value="status:Inactive">Inactive</SelectItem>
-                      <SelectItem value="status:Prospect">Prospects</SelectItem>
-                    </SelectGroup>
-                    {allTags.length > 0 && (
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <Select value={selectedTagFilter} onValueChange={setSelectedTagFilter}>
+                    <SelectTrigger className="h-11 w-full border-slate-200 bg-white sm:w-[190px]">
+                      <SelectValue placeholder="Filter..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Contacts</SelectItem>
                       <SelectGroup>
-                        <SelectLabel>Tags</SelectLabel>
-                        {allTags.map((tag) => (
-                          <SelectItem key={`tag:${tag}`} value={`tag:${tag}`}>
-                            {tag}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="status:Active">Active</SelectItem>
+                        <SelectItem value="status:Inactive">Inactive</SelectItem>
+                        <SelectItem value="status:Prospect">Prospects</SelectItem>
                       </SelectGroup>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              {selectedTagFilter && selectedTagFilter !== 'all' && (
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="flex items-center gap-1">
-                    <Tag className="h-3 w-3" />
-                    Filtered by: {selectedTagFilter.startsWith('status:') ? selectedTagFilter.replace('status:', '') : selectedTagFilter.replace('tag:', '')}
-                    <button
-                      onClick={() => setSelectedTagFilter('all')}
-                      className="ml-1 hover:text-red-600"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
+                      {allTags.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel>Tags</SelectLabel>
+                          {allTags.map((tag) => (
+                            <SelectItem key={`tag:${tag}`} value={`tag:${tag}`}>
+                              {tag}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
+                    </SelectContent>
+                  </Select>
+
+                  {canAdd('contacts', user.role) && (
+                    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="group h-11 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 px-4 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:from-cyan-700 hover:to-cyan-800 hover:shadow-md">
+                          <Plus className="mr-2 h-4 w-4 transition-transform group-hover:rotate-90" />
+                          Add Contact
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-background !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
+                        <DialogHeader>
+                          <DialogTitle>Add New Contact</DialogTitle>
+                          <DialogDescription>
+                            Create a new contact with their information and assigned price level.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleAddContact} className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="name">Name</Label>
+                            <Input
+                              id="name"
+                              value={newContact.name}
+                              onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="email">Email</Label>
+                            <Input
+                              id="email"
+                              type="email"
+                              value={newContact.email}
+                              onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="phone">Phone</Label>
+                            <Input
+                              id="phone"
+                              value={newContact.phone}
+                              onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="company">Company</Label>
+                            <Input
+                              id="company"
+                              value={newContact.company}
+                              onChange={(e) => setNewContact({ ...newContact, company: e.target.value })}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="priceLevel">Price Level</Label>
+                            <select
+                              id="priceLevel"
+                              value={newContact.priceLevel}
+                              onChange={(e) => setNewContact({ ...newContact, priceLevel: e.target.value })}
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {[1,2,3,4,5].map(t => {
+                                const label = getPriceTierLabel(t);
+                                if (!label || label.trim() === '' || label.trim() === '0') return null;
+                                return <option key={t} value={label}>T{t} — {label}</option>;
+                              })}
+                            </select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="legacyNumber">Legacy #</Label>
+                            <Input
+                              id="legacyNumber"
+                              value={newContact.legacyNumber}
+                              onChange={(e) => setNewContact({ ...newContact, legacyNumber: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="accountOwnerNumber">Account Owner #</Label>
+                            <Input
+                              id="accountOwnerNumber"
+                              value={newContact.accountOwnerNumber}
+                              onChange={(e) => setNewContact({ ...newContact, accountOwnerNumber: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="address">Address</Label>
+                            <Input
+                              id="address"
+                              value={newContact.address}
+                              onChange={(e) => setNewContact({ ...newContact, address: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="city">City</Label>
+                            <Input
+                              id="city"
+                              value={newContact.city}
+                              onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="province">Province / State</Label>
+                            <Input
+                              id="province"
+                              value={newContact.province}
+                              onChange={(e) => setNewContact({ ...newContact, province: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="postalCode">Postal / Zip Code</Label>
+                            <Input
+                              id="postalCode"
+                              value={newContact.postalCode}
+                              onChange={(e) => setNewContact({ ...newContact, postalCode: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <Label htmlFor="notes">Notes</Label>
+                            <Textarea
+                              id="notes"
+                              value={newContact.notes}
+                              onChange={(e) => setNewContact({ ...newContact, notes: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <TagSelector
+                              label="Tags (for segmentation)"
+                              tags={newContact.tags}
+                              availableTags={audienceSegments}
+                              onTagsChange={(tags) => setNewContact({ ...newContact, tags })}
+                              htmlFor="tags"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="ptdSales">PTD Sales</Label>
+                            <Input
+                              id="ptdSales"
+                              type="number"
+                              step="0.01"
+                              value={newContact.ptdSales}
+                              onChange={(e) => setNewContact({ ...newContact, ptdSales: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="ptdGpPercent">PTD GP%</Label>
+                            <Input
+                              id="ptdGpPercent"
+                              type="number"
+                              step="0.01"
+                              value={newContact.ptdGpPercent}
+                              onChange={(e) => setNewContact({ ...newContact, ptdGpPercent: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="ytdSales">YTD Sales</Label>
+                            <Input
+                              id="ytdSales"
+                              type="number"
+                              step="0.01"
+                              value={newContact.ytdSales}
+                              onChange={(e) => setNewContact({ ...newContact, ytdSales: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="ytdGpPercent">YTD GP%</Label>
+                            <Input
+                              id="ytdGpPercent"
+                              type="number"
+                              step="0.01"
+                              value={newContact.ytdGpPercent}
+                              onChange={(e) => setNewContact({ ...newContact, ytdGpPercent: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="lyrSales">LYR Sales</Label>
+                            <Input
+                              id="lyrSales"
+                              type="number"
+                              step="0.01"
+                              value={newContact.lyrSales}
+                              onChange={(e) => setNewContact({ ...newContact, lyrSales: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="lyrGpPercent">LYR GP%</Label>
+                            <Input
+                              id="lyrGpPercent"
+                              type="number"
+                              step="0.01"
+                              value={newContact.lyrGpPercent}
+                              onChange={(e) => setNewContact({ ...newContact, lyrGpPercent: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="flex gap-2 pt-4 md:col-span-2">
+                            <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1" disabled={isSaving}>
+                              Cancel
+                            </Button>
+                            <Button type="submit" className="flex-1" disabled={isSaving}>
+                              {isSaving ? 'Adding...' : 'Add Contact'}
+                            </Button>
+                          </div>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-3 sm:px-4 text-sm text-muted-foreground">Actions</th>
-                    <th className="text-left py-3 px-3 sm:px-4 text-sm text-muted-foreground">Name</th>
-                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden md:table-cell">Email</th>
-                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden lg:table-cell">Phone</th>
-                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden lg:table-cell">Company</th>
-                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden xl:table-cell">Account Owner</th>
-                    <th className="text-left py-3 px-3 sm:px-4 text-sm text-muted-foreground">Status</th>
-                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden xl:table-cell">Price Level</th>
-                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden xl:table-cell">Tags</th>
-                    <th className="text-left py-3 px-4 text-sm text-muted-foreground hidden md:table-cell">Created</th>
+
+            {selectedTagFilter && selectedTagFilter !== 'all' && (
+              <div className="mt-3 flex items-center gap-2">
+                <Badge variant="secondary" className="flex items-center gap-1 bg-slate-100 text-slate-700">
+                  <Tag className="h-3 w-3" />
+                  Filtered by: {selectedTagFilter.startsWith('status:') ? selectedTagFilter.replace('status:', '') : selectedTagFilter.replace('tag:', '')}
+                  <button
+                    onClick={() => setSelectedTagFilter('all')}
+                    className="ml-1 hover:text-red-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              </div>
+            )}
+          </div>
+
+          <div className="border-l-4 border-emerald-600 bg-white">
+            <div
+              className="overflow-x-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400"
+              style={{ scrollbarGutter: 'stable' }}
+            >
+              <div className="max-h-[62vh] overflow-y-auto">
+                <table className="min-w-[1200px] w-full border-separate border-spacing-0">
+                  <thead className="sticky top-0 z-10 bg-slate-50">
+                  <tr className="text-left text-[13px] text-slate-700">
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium"><input type="checkbox" className="h-4 w-4 rounded border-slate-300" /></th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Actions</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Contact</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Email</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Accounts</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Deal value</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Phone</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Price Level</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Status</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Activity Timeline</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Comments</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedContacts.map((contact) => (
-                    <tr 
-                      key={contact.id} 
-                      className="border-b border-border hover:bg-muted cursor-pointer"
-                      onClick={() => setSelectedContact(contact)}
-                    >
-                      <td className="py-3 px-3 sm:px-4" onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start">
-                            {canChange('contacts', user.role) && (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={() => setSelectedContact(contact)}
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Details & Project Managers
+                  {paginatedContacts.map((contact) => {
+                    const displayPriceLevel = (contact.priceLevel || getPriceTierLabel(1) || 'Tier 1').replace(/tier/gi, 'Tier ');
+                    const notePreview = contact.notes?.trim()
+                      ? `${contact.notes.trim().slice(0, 52)}${contact.notes.trim().length > 52 ? '…' : ''}`
+                      : 'No notes added';
+                    const activityTimeline = [
+                      Boolean(contact.createdAt),
+                      Boolean(contact.notes?.trim()),
+                      Boolean(contact.tags && contact.tags.length > 0),
+                      contact.status === 'Active',
+                      Number(contact.ptdSales || contact.ytdSales || 0) > 0,
+                      Number(contact.lyrSales || 0) > 0,
+                    ];
+
+                    return (
+                      <tr
+                        key={contact.id}
+                        className="cursor-pointer bg-white align-middle transition-colors hover:bg-sky-50/60"
+                        onClick={() => openContactDetail(contact)}
+                      >
+                        <td className="border-b border-slate-200 px-2.5 py-1.5" onClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox" className="h-4 w-4 rounded border-slate-300" />
+                        </td>
+                        <td className="border-b border-slate-200 px-2.5 py-1.5" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full p-0 text-slate-500 hover:bg-slate-100">
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              {canChange('contacts', user.role) && (
+                                <>
+                                  <DropdownMenuItem onClick={() => openContactDetail(contact)}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    View Details & Project Managers
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      openEditContact(contact);
+                                    }}
+                                  >
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {canDelete('contacts', user.role) && (
+                                <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteContact(contact.id)}>
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setEditingContact(contact);
-                                    setIsEditDialogOpen(true);
-                                  }}
-                                >
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            {canDelete('contacts', user.role) && (
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={() => handleDeleteContact(contact.id)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                      <td className="py-3 px-3 sm:px-4">
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
-                            {(contact.name || '?').charAt(0)}
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                        <td className="border-b border-slate-200 px-2.5 py-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-100 text-[11px] font-semibold text-cyan-700">
+                              {(contact.name || '?').charAt(0)}
+                            </div>
+                            <div className="min-w-0 truncate text-[14px] font-medium leading-5 text-slate-800">{contact.name || 'Unknown'}</div>
                           </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-medium text-foreground truncate">{contact.name || 'Unknown'}</span>
-                            <span className="text-xs text-muted-foreground truncate md:hidden">{contact.email}</span>
+                        </td>
+                        <td className="border-b border-slate-200 px-2.5 py-1.5 text-[14px] text-blue-600 whitespace-nowrap">{contact.email || '—'}</td>
+                        <td className="border-b border-slate-200 px-2.5 py-1.5">
+                          <span className="inline-flex items-center gap-1.5 rounded-md bg-cyan-50 px-2 py-0.5 text-[14px] text-slate-700">
+                            <Building className="h-3 w-3 text-slate-500" />
+                            <span className="max-w-[160px] truncate">{contact.company || 'Unassigned'}</span>
+                          </span>
+                        </td>
+                        <td className="border-b border-slate-200 px-2.5 py-1.5 text-[14px] text-slate-700 whitespace-nowrap">
+                          {getDisplayedDealValue(contact)}
+                        </td>
+                        <td className="border-b border-slate-200 px-2.5 py-1.5 text-[14px] text-blue-600 whitespace-nowrap">{contact.phone || '—'}</td>
+                        <td className="border-b border-slate-200 px-2.5 py-1.5">
+                          <span className="inline-flex min-w-[88px] justify-center rounded-md bg-violet-100 px-2 py-0.5 text-[13px] font-medium text-violet-700">
+                            {displayPriceLevel}
+                          </span>
+                        </td>
+                        <td className="border-b border-slate-200 px-2.5 py-1.5">
+                          <span className={`inline-flex min-w-[78px] justify-center rounded-md px-2 py-0.5 text-[13px] font-medium ${
+                            contact.status === 'Active'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : contact.status === 'Inactive'
+                                ? 'bg-slate-200 text-slate-700'
+                                : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {contact.status || 'Prospect'}
+                          </span>
+                        </td>
+                        <td className="border-b border-slate-200 px-2.5 py-1.5">
+                          <div className="min-w-[120px]">
+                            <div className="flex items-center gap-1">
+                              {activityTimeline.map((isActive, index) => (
+                                <span
+                                  key={`${contact.id}-activity-${index}`}
+                                  className={`h-6 w-1.5 rounded-full ${
+                                    isActive
+                                      ? index < 2
+                                        ? 'bg-cyan-400'
+                                        : index < 4
+                                          ? 'bg-violet-400'
+                                          : 'bg-emerald-400'
+                                      : 'bg-slate-200'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <div className="mt-1 text-[11px] text-slate-500 whitespace-nowrap">
+                              {contact.createdAt
+                                ? new Date(contact.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                : 'No activity'}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 hidden md:table-cell">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Mail className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate">{contact.email}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 hidden lg:table-cell">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Phone className="h-4 w-4 flex-shrink-0" />
-                          {contact.phone}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 hidden lg:table-cell">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Building className="h-4 w-4 flex-shrink-0" />
-                          {contact.company}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 hidden xl:table-cell">
-                        <span className="text-sm text-muted-foreground">
-                          {contact.accountOwnerNumber || '-'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 sm:px-4">
-                        <span className={`inline-block px-2 py-1 text-xs rounded ${
-                          contact.status === 'Active'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {contact.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 hidden xl:table-cell">
-                        <span className="inline-block px-2 py-1 text-xs rounded bg-purple-100 text-purple-700">
-                          {contact.priceLevel ? contact.priceLevel.replace('tier', 'Tier ') : 'Tier 1'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 hidden xl:table-cell">
-                        <div className="flex flex-wrap gap-1">
-                          {contact.tags && contact.tags.length > 0 ? (
-                            contact.tags.map((tag) => (
-                              <Badge key={tag} variant="outline" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))
-                          ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 hidden xl:table-cell">
-                        <CustomFieldsRenderer
-                          entityType="contact"
-                          organizationId={user.organizationId}
-                          values={contact.customFields || {}}
-                          onChange={() => {}} // Read-only in table
-                          className="mt-0 border-0 pt-0"
-                        />
-                      </td>
-                      <td className="py-3 px-4 hidden md:table-cell">
-                        <span className="text-sm text-muted-foreground">
-                          {contact.createdAt ? new Date(contact.createdAt).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric'
-                          }) : 'N/A'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="border-b border-slate-200 px-2.5 py-1.5 text-[14px] text-slate-700">
+                          <div className="max-w-[240px] truncate leading-4">{notePreview}</div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
                   {filteredContacts.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
                         No contacts found
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
-            
-            {/* ⚡ Pagination Controls */}
+
             {filteredContacts.length > itemsPerPage && (
-              <div className="flex items-center justify-between border-t pt-4 mt-4">
-                <div className="text-sm text-muted-foreground">
+              <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-slate-500">
                   Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredContacts.length)} of {filteredContacts.length} contacts
                 </div>
                 <div className="flex items-center gap-2">
@@ -1462,7 +1829,6 @@ export function Contacts({ user }: ContactsProps) {
                   </Button>
                   <div className="flex items-center gap-1">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      // Show first page, last page, current page, and pages around current
                       let pageNum;
                       if (totalPages <= 5) {
                         pageNum = i + 1;
@@ -1473,11 +1839,11 @@ export function Contacts({ user }: ContactsProps) {
                       } else {
                         pageNum = currentPage - 2 + i;
                       }
-                      
+
                       return (
                         <Button
                           key={pageNum}
-                          variant={currentPage === pageNum ? "default" : "outline"}
+                          variant={currentPage === pageNum ? 'default' : 'outline'}
                           size="sm"
                           onClick={() => setCurrentPage(pageNum)}
                           className="w-9"
@@ -1498,258 +1864,11 @@ export function Contacts({ user }: ContactsProps) {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
-      {/* Edit Contact Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-background !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
-          <DialogHeader>
-            <DialogTitle>Edit Contact</DialogTitle>
-            <DialogDescription>
-              Update the contact's information and settings.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleEditContact} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Name</Label>
-              <Input
-                id="edit-name"
-                value={editingContact?.name || ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, name: e.target.value } : null)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={editingContact?.email || ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, email: e.target.value } : null)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-phone">Phone</Label>
-              <Input
-                id="edit-phone"
-                value={editingContact?.phone || ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, phone: e.target.value } : null)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-company">Company</Label>
-              <Input
-                id="edit-company"
-                value={editingContact?.company || ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, company: e.target.value } : null)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-status">Status</Label>
-              <select
-                id="edit-status"
-                value={editingContact?.status || 'Prospect'}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, status: e.target.value } : null)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="Prospect">Prospect</option>
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-priceLevel">Price Level</Label>
-              <select
-                id="edit-priceLevel"
-                value={editingContact?.priceLevel || getPriceTierLabel(1)}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, priceLevel: e.target.value } : null)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {[1,2,3,4,5].map(t => {
-                  const label = getPriceTierLabel(t);
-                  if (!label || label.trim() === '' || label.trim() === '0') return null;
-                  return <option key={t} value={label}>T{t} — {label}</option>;
-                })}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-legacyNumber">Legacy #</Label>
-              <Input
-                id="edit-legacyNumber"
-                value={editingContact?.legacyNumber || ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, legacyNumber: e.target.value } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-accountOwnerNumber">Account Owner #</Label>
-              <Input
-                id="edit-accountOwnerNumber"
-                value={editingContact?.accountOwnerNumber || ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, accountOwnerNumber: e.target.value } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-address">Address</Label>
-              <Input
-                id="edit-address"
-                value={editingContact?.address || ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, address: e.target.value } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-city-2">City</Label>
-              <Input
-                id="edit-city-2"
-                value={editingContact?.city || ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, city: e.target.value } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-province-2">Province / State</Label>
-              <Input
-                id="edit-province-2"
-                value={editingContact?.province || ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, province: e.target.value } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-postalCode-2">Postal / Zip Code</Label>
-              <Input
-                id="edit-postalCode-2"
-                value={editingContact?.postalCode || ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, postalCode: e.target.value } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2 col-span-2">
-              <Label htmlFor="edit-notes">Notes</Label>
-              <Textarea
-                id="edit-notes"
-                value={editingContact?.notes || ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, notes: e.target.value } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="col-span-2">
-              <CustomFieldsRenderer
-                entityType="contact"
-                organizationId={user.organizationId}
-                values={editingContact?.customFields || {}}
-                onChange={(key, value) => {
-                  if (editingContact) {
-                    setEditingContact({
-                      ...editingContact,
-                      customFields: { ...(editingContact.customFields || {}), [key]: value }
-                    });
-                  }
-                }}
-              />
-            </div>
-            <div className="col-span-2">
-              <TagSelector
-                label="Tags (for segmentation)"
-                tags={editingContact?.tags || []}
-                availableTags={audienceSegments}
-                onTagsChange={(tags) => setEditingContact(editingContact ? { ...editingContact, tags } : null)}
-                htmlFor="edit-tags-2"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-ptdSales">PTD Sales</Label>
-              <Input
-                id="edit-ptdSales"
-                type="number"
-                step="0.01"
-                value={editingContact?.ptdSales ?? ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ptdSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-ptdGpPercent">PTD GP%</Label>
-              <Input
-                id="edit-ptdGpPercent"
-                type="number"
-                step="0.01"
-                value={editingContact?.ptdGpPercent ?? ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ptdGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-ytdSales">YTD Sales</Label>
-              <Input
-                id="edit-ytdSales"
-                type="number"
-                step="0.01"
-                value={editingContact?.ytdSales ?? ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ytdSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-ytdGpPercent">YTD GP%</Label>
-              <Input
-                id="edit-ytdGpPercent"
-                type="number"
-                step="0.01"
-                value={editingContact?.ytdGpPercent ?? ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, ytdGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-lyrSales">LYR Sales</Label>
-              <Input
-                id="edit-lyrSales"
-                type="number"
-                step="0.01"
-                value={editingContact?.lyrSales ?? ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, lyrSales: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-lyrGpPercent">LYR GP%</Label>
-              <Input
-                id="edit-lyrGpPercent"
-                type="number"
-                step="0.01"
-                value={editingContact?.lyrGpPercent ?? ''}
-                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, lyrGpPercent: e.target.value ? parseFloat(e.target.value) : undefined } : null)}
-                placeholder="Optional"
-              />
-            </div>
-            <div className="flex gap-2 pt-4 col-span-2">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => {
-                  setEditingContact(null);
-                  setIsEditDialogOpen(false);
-                }} 
-                className="flex-1" 
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" className="flex-1" disabled={isSaving}>
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {renderEditContactDialog()}
 
       {/* Add Project Manager Dialog */}
       <Dialog open={isAddPMDialogOpen} onOpenChange={setIsAddPMDialogOpen}>

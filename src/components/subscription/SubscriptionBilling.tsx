@@ -13,6 +13,7 @@ import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, CreditCard, Receipt, LayoutGrid, AlertTriangle, Sparkles, Users } from 'lucide-react';
 import type { User } from '../../App';
+import { SubscriptionBillingModuleHelp } from './SubscriptionBillingModuleHelp';
 import {
   getCurrentSubscription,
   getBillingHistory,
@@ -192,6 +193,30 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex justify-end">
+          <SubscriptionBillingModuleHelp
+            userId={user.id}
+            activeTab={activeTab}
+            eventCount={billingEvents.length}
+            teamSubscriptions={orgSubscriptions.length}
+            isAdmin={isAdmin}
+            onRefreshBilling={loadData}
+            onOpenOverview={() => setActiveTab('overview')}
+            onOpenPlans={() => setActiveTab('plans')}
+            onOpenPayment={() => setActiveTab('payment')}
+            onOpenHistory={() => setActiveTab('history')}
+            onOpenTeam={() => {
+              if (isAdmin) {
+                setActiveTab('team');
+              }
+            }}
+            onStartPlanSelection={() => {
+              if (isAdmin) {
+                setActiveTab('plans');
+              }
+            }}
+          />
+        </div>
         <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
           <TabsTrigger value="overview" className="gap-2">
             <LayoutGrid className="h-4 w-4" />

@@ -22,6 +22,7 @@ import { MarketingAnalytics } from './marketing/MarketingAnalytics';
 import { ReferralsTab } from './marketing/referrals/ReferralsTab';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
+import { MarketingModuleHelp } from './MarketingModuleHelp';
 
 interface MarketingProps {
   user: User;
@@ -35,6 +36,18 @@ export function Marketing({ user, accessToken }: MarketingProps) {
     <PermissionGate user={user} module="marketing" action="view">
     <div className="p-6 space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex justify-end">
+          <MarketingModuleHelp
+            userId={user.id}
+            activeTab={activeTab}
+            onOpenDashboard={() => setActiveTab('dashboard')}
+            onOpenCampaigns={() => setActiveTab('campaigns')}
+            onOpenLeads={() => setActiveTab('leads')}
+            onOpenJourneys={() => setActiveTab('journeys')}
+            onOpenLandingPages={() => setActiveTab('pages')}
+            onOpenAnalytics={() => setActiveTab('analytics')}
+          />
+        </div>
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-7">
             <TabsTrigger value="dashboard" className="flex items-center gap-1.5 whitespace-nowrap px-3 sm:px-4">

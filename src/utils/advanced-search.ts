@@ -1,3 +1,5 @@
+import { generateInventoryKeywords } from './inventory-keywords';
+
 /**
  * HELPER FUNCTIONS
  */
@@ -112,6 +114,26 @@ function expandSemanticQuery(query: string): string[] {
   }
   
   return synonyms;
+}
+
+function normalizeTagList(tags: unknown): string[] {
+  if (!tags) return [];
+
+  if (Array.isArray(tags)) {
+    return tags.filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0);
+  }
+
+  if (typeof tags === 'string') {
+    return tags.split(/[\s,]+/).map(tag => tag.trim()).filter(Boolean);
+  }
+
+  if (typeof tags === 'object') {
+    return Object.values(tags as Record<string, unknown>)
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map(value => value.trim());
+  }
+
+  return [];
 }
 
 const fuzzyMemo = new Map<string, number>();
@@ -340,7 +362,17 @@ export function advancedSearch<T extends SearchableItem>(
     let matchCount = 0;
     const matchedFields: string[] = [];
     let bestMatchType: 'exact' | 'fuzzy' | 'semantic' | 'partial' = 'partial';
+    const normalizedTags = normalizeTagList(item.tags);
     
+    const generatedKeywords = generateInventoryKeywords({
+      productName: item.name,
+      productDescription: item.description,
+      category: item.category,
+      sku: item.sku,
+      supplierName: item.supplier,
+      existingTags: normalizedTags,
+    });
+
     // Fields to search with their weights
     const searchFields = [
       { field: 'name', weight: 10, value: item.name },
@@ -351,7 +383,8 @@ export function advancedSearch<T extends SearchableItem>(
       { field: 'supplier', weight: 4, value: item.supplier },
       { field: 'barcode', weight: 5, value: item.barcode },
       { field: 'location', weight: 3, value: item.location },
-      { field: 'tags', weight: 5, value: item.tags?.join(' ') },
+      { field: 'tags', weight: 5, value: normalizedTags.join(' ') },
+      { field: 'ai_keywords', weight: 6, value: generatedKeywords.all.join(' ') },
     ];
     
     // For multi-word queries, check if ALL search terms appear somewhere in the item
@@ -719,6 +752,15 @@ export function getSearchSuggestions<T extends SearchableItem>(
   for (const item of items) {
     if (suggestions.size >= maxSuggestions) break;
     
+    const generatedKeywords = generateInventoryKeywords({
+      productName: item.name,
+      productDescription: item.description,
+      category: item.category,
+      sku: item.sku,
+      supplierName: item.supplier,
+      existingTags: item.tags,
+    });
+
     if (item.name.toLowerCase().startsWith(queryLower)) {
       suggestions.add(item.name);
     } else if (item.sku.toLowerCase().startsWith(queryLower)) {
@@ -727,6 +769,11 @@ export function getSearchSuggestions<T extends SearchableItem>(
       suggestions.add((item as any).item_number);
     } else if (item.category.toLowerCase().startsWith(queryLower)) {
       suggestions.add(item.category);
+    } else {
+      const keywordMatch = generatedKeywords.all.find((kw) => kw.startsWith(queryLower));
+      if (keywordMatch) {
+        suggestions.add(keywordMatch);
+      }
     }
   }
   

@@ -62,6 +62,7 @@ import {
 } from './ui/select';
 import { AIToggleSwitch } from './AIToggleSwitch';
 import { Switch } from './ui/switch';
+import { TenantsModuleHelp } from './TenantsModuleHelp';
 
 interface Tenant {
   id: string;
@@ -699,6 +700,27 @@ export function Tenants({ user, organization }: TenantsProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
         <div className="flex gap-2">
+          <TenantsModuleHelp
+            userId={user.id}
+            totalOrganizations={stats.total}
+            activeOrganizations={stats.active}
+            onRefreshOrganizations={loadTenants}
+            onOpenAddOrganization={() => handleOpenDialog()}
+            onOpenSearchExample={(query) => {
+              setStatusFilter('all');
+              setSearchQuery(query);
+            }}
+            onClearSearchAndFilters={() => {
+              setSearchQuery('');
+              setStatusFilter('all');
+            }}
+            onShowActiveOnly={() => setStatusFilter('active')}
+            onOpenAgreementView={() => {
+              if (filteredTenants.length > 0) {
+                setViewingAgreement(filteredTenants[0]);
+              }
+            }}
+          />
           <Button variant="outline" onClick={() => loadTenants()} title="Refresh data">
             Refresh
           </Button>

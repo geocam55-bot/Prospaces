@@ -25,6 +25,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 import { Label } from './ui/label';
+import { OrganizationModuleManagerHelp } from './OrganizationModuleManagerHelp';
 
 interface TenantOrg {
   id: string;
@@ -200,6 +201,23 @@ export function OrganizationModuleManager({ user }: OrganizationModuleManagerPro
             </div>
 
             <div className="flex items-center gap-3">
+              <OrganizationModuleManagerHelp
+                userId={user.id}
+                totalOrganizations={organizations.length}
+                selectedOrganizationName={selectedOrg?.name || ''}
+                enabledModules={enabledCount}
+                totalModules={availableModules.length}
+                onRefreshOrganizations={loadOrganizations}
+                onSelectFirstOrganization={() => {
+                  if (organizations.length > 0) {
+                    setSelectedOrgId(organizations[0].id);
+                  }
+                }}
+                onSelectNoOrganization={() => setSelectedOrgId('')}
+                onShowEnabledModulesSummary={() => {
+                  showAlert('success', `${enabledCount} of ${availableModules.length} modules enabled for ${selectedOrg?.name || 'selected organization'}`);
+                }}
+              />
               <div className="min-w-[280px]">
                 <select
                   value={selectedOrgId}
