@@ -1269,6 +1269,14 @@ export function Contacts({ user }: ContactsProps) {
     );
   }
 
+  const contactsHeading = (() => {
+    if (selectedTagFilter === 'status:Active') return 'Active Contacts';
+    if (selectedTagFilter === 'status:Inactive') return 'Inactive Contacts';
+    if (selectedTagFilter === 'status:Prospect') return 'Prospects';
+    if (selectedTagFilter.startsWith('tag:')) return `${selectedTagFilter.replace('tag:', '')} Contacts`;
+    return 'All Contacts';
+  })();
+
   // Show contact detail view if a contact is selected
   if (showContactDetail && selectedContact) {
     return (
@@ -1278,12 +1286,36 @@ export function Contacts({ user }: ContactsProps) {
             <ContactDetail
               contact={selectedContact}
               user={user}
+              totalContacts={contacts.length}
               onBack={() => {
                 setShowContactDetail(false);
                 setSelectedContact(null);
               }}
               onEdit={(contact) => {
                 openEditContact(contact);
+              }}
+              onSearchExample={(query) => {
+                setShowContactDetail(false);
+                setSelectedContact(null);
+                setSearchQuery(query);
+                setSelectedTagFilter('all');
+              }}
+              onFilterByStatus={(status) => {
+                setShowContactDetail(false);
+                setSelectedContact(null);
+                setSelectedTagFilter(`status:${status}`);
+                setSearchQuery('');
+              }}
+              onClearFilters={() => {
+                setShowContactDetail(false);
+                setSelectedContact(null);
+                setSearchQuery('');
+                setSelectedTagFilter('all');
+              }}
+              onOpenAddContact={() => {
+                setShowContactDetail(false);
+                setSelectedContact(null);
+                setIsAddDialogOpen(true);
               }}
             />
           </div>
@@ -1303,7 +1335,7 @@ export function Contacts({ user }: ContactsProps) {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Customer Module</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <h2 className="text-2xl font-semibold text-emerald-700">Active Contacts</h2>
+                  <h2 className="text-2xl font-semibold text-emerald-700">{contactsHeading}</h2>
                   <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                     {filteredContacts.length}
                   </span>

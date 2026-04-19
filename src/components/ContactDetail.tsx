@@ -62,6 +62,7 @@ import {
 } from '../utils/documents-client';
 import { toast } from 'sonner@2.0.3';
 import { appointmentsAPI } from '../utils/api';
+import { CustomerModuleHelp } from './CustomerModuleHelp';
 
 interface Contact {
   id: string;
@@ -81,7 +82,13 @@ interface Contact {
   lyrSales?: number;
   lyrGpPercent?: number;
   address?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
   notes?: string;
+  tags?: string[];
+  title?: string;
+  customFields?: Record<string, any>;
 }
 
 interface ProjectManager {
@@ -163,9 +170,24 @@ interface ContactDetailProps {
   user: User;
   onBack: () => void;
   onEdit: (contact: Contact) => void;
+  totalContacts?: number;
+  onSearchExample?: (query: string) => void;
+  onFilterByStatus?: (status: 'Active' | 'Prospect' | 'Inactive') => void;
+  onClearFilters?: () => void;
+  onOpenAddContact?: () => void;
 }
 
-export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailProps) {
+export function ContactDetail({
+  contact,
+  user,
+  onBack,
+  onEdit,
+  totalContacts = 1,
+  onSearchExample,
+  onFilterByStatus,
+  onClearFilters,
+  onOpenAddContact,
+}: ContactDetailProps) {
   const [projectManagers, setProjectManagers] = useState<ProjectManager[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -1107,109 +1129,301 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     }
   };
 
-  return (
-    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <Button
-            variant="ghost"
-            onClick={onBack}
-            className="mb-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Contacts
-          </Button>
-          <h1 className="text-3xl font-bold">{contact.name}</h1>
-          <p className="text-muted-foreground mt-1">{contact.company}</p>
-        </div>
-        {canChange('contacts', user.role) && (
-          <Button onClick={() => onEdit(contact)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Contact
-          </Button>
-        )}
-      </div>
+  const userDisplayName = (user as any)?.name || user.email || 'Team member';
+  const contactType = contact.status === 'Prospect' ? 'Lead' : 'Customer';
+  const totalDealValue = bids.reduce((sum, bid) => sum + Number(bid.amount || bid.total || 0), 0);
+  const contactPriority =
+    /vip|urgent|priority/i.test(contact.notes || '') || totalDealValue >= 100000
+      ? 'High'
+      : contact.status === 'Prospect'
+        ? 'Medium'
+        : 'Normal';
+  const contactTitle =
+    contact.title ||
+    (typeof contact.customFields?.title === 'string' ? contact.customFields.title : '') ||
+    contact.tags?.find((tag) => /ceo|coo|cfo|cio|director|manager|owner/i.test(tag)) ||
+    'Primary Contact';
 
-      {/* Table Setup Warning */}
+  const normalizeDisplayText = (value?: string) => {
+    if (!value) return '—';
+    const trimmed = value.trim();
+    if (!trimmed) return '—';
+
+    const isMostlyUppercase = /[A-Z]/.test(trimmed) && !/[a-z]/.test(trimmed);
+    if (!isMostlyUppercase) return trimmed;
+
+    return trimmed
+      .toLowerCase()
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
+  const displayName = normalizeDisplayText(contact.name);
+  const displayCompany = normalizeDisplayText(contact.company || 'Customer workspace overview');
+  const displayTitle = normalizeDisplayText(contactTitle);
+  const displayEmail = contact.email?.trim() ? contact.email.trim().toLowerCase() : '—';
+  const companyDomain = contact.email?.includes('@') ? `https://${contact.email.split('@')[1].toLowerCase()}` : '—';
+
+  const formatMoney = (value?: number) => {
+    if (typeof value !== 'number' || Number.isNaN(value)) return '—';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  const formatDateTime = (value?: string) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  const activityFeed = [
+    {
+      id: `created-${contact.id}`,
+      kind: 'created',
+      heading: 'Item created',
+      date: contact.createdAt,
+      title: `${userDisplayName} added ${contact.name}`,
+      body: contact.company || 'Customer record created',
+    },
+    ...linkedAppointments.map((apt: any) => ({
+      id: `apt-${apt.id}`,
+      kind: 'appointment',
+      heading: apt.title || 'Meeting',
+      date: apt.start_time,
+      title: apt.title || 'Scheduled appointment',
+      body: apt.description || apt.location || 'Follow-up activity scheduled.',
+    })),
+    ...linkedNotes.map((note: any) => ({
+      id: `note-${note.id}`,
+      kind: 'note',
+      heading: note.title || 'Note',
+      date: note.created_at,
+      title: note.title || 'Linked note',
+      body: note.content || 'No note content available.',
+    })),
+    ...bids.slice(0, 3).map((bid) => ({
+      id: `deal-${bid.id}`,
+      kind: 'deal',
+      heading: bid._source === 'quotes' ? 'Quote' : 'Deal',
+      date: bid.created_at,
+      title: bid.title,
+      body: `${formatMoney(Number(bid.amount || bid.total || 0))} • ${(bid.status || 'draft').toUpperCase()}`,
+    })),
+  ]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 6);
+
+  return (
+    <div className="min-h-screen w-full bg-slate-100 px-3 py-3 sm:px-4 sm:py-4 lg:px-5">
+      <div className="mx-auto max-w-[1720px] space-y-4">
+        <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6 lg:px-8">
+            <div>
+              <Button
+                variant="ghost"
+                onClick={onBack}
+                className="mb-3 -ml-2 h-9 px-2 text-[15px] font-medium text-slate-600 hover:bg-slate-100"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Contacts
+              </Button>
+              <h1 className="text-[24px] font-semibold tracking-tight text-slate-800 sm:text-[28px]">{displayName}</h1>
+              <p className="mt-1 text-sm text-slate-500 sm:text-base">{displayCompany}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
+                {bids.length} deals
+              </span>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
+                {formatMoney(totalDealValue)} value
+              </span>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
+                {contactType}
+              </span>
+              {onSearchExample && onFilterByStatus && onClearFilters && onOpenAddContact && (
+                <CustomerModuleHelp
+                  userId={user.id}
+                  totalContacts={totalContacts}
+                  onSearchExample={onSearchExample}
+                  onFilterByStatus={onFilterByStatus}
+                  onClearFilters={onClearFilters}
+                  onOpenAddContact={onOpenAddContact}
+                />
+              )}
+              {canChange('contacts', user.role) && (
+                <Button onClick={() => onEdit(contact)} className="h-10 rounded-md bg-cyan-700 px-4 text-[15px] font-medium text-white hover:bg-cyan-800">
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Contact
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-[15px] text-slate-600 sm:px-6 lg:px-8">
+            <span className="border-b-2 border-cyan-700 pb-2 font-semibold text-slate-900">Overview</span>
+            <span className="px-3 py-1">Updates</span>
+            <span className="px-3 py-1">Quotes & Invoices</span>
+            <span className="px-3 py-1">More</span>
+            <span className="px-2 text-xl leading-none">+</span>
+          </div>
+        </div>
+
       {tableNotFound && <ProjectManagersTableSetup />}
 
-      {/* Contact Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Contact Information</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Mail className="h-4 w-4" />
-              <span className="text-sm">Email</span>
-            </div>
-            <p className="text-foreground">{contact.email}</p>
+      <div className="grid gap-4 2xl:grid-cols-[minmax(0,2.1fr)_430px] xl:grid-cols-[minmax(0,1.85fr)_380px]">
+        <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3 sm:px-5">
+            <Button className="h-10 rounded-md bg-cyan-700 px-4 text-[15px] font-medium text-white hover:bg-cyan-800">
+              <Mail className="mr-2 h-4 w-4" />
+              New email
+            </Button>
+            <Button variant="ghost" className="h-10 gap-2 px-3 text-[15px] text-slate-700">
+              <Plus className="h-4 w-4" />
+              Add activity
+            </Button>
+            <Button variant="ghost" className="h-10 gap-2 px-3 text-[15px] text-slate-700">
+              <TrendingUp className="h-4 w-4" />
+              Summarize
+            </Button>
+            <span className="hidden h-7 w-px bg-slate-200 sm:block" />
+            <Button variant="ghost" className="h-10 gap-2 px-3 text-[15px] text-slate-700">
+              <Target className="h-4 w-4" />
+              Filters
+            </Button>
+            <Button variant="ghost" className="h-10 gap-2 px-3 text-[15px] text-slate-700">
+              <Search className="h-4 w-4" />
+              Search
+            </Button>
           </div>
-          <div>
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Phone className="h-4 w-4" />
-              <span className="text-sm">Phone</span>
-            </div>
-            <p className="text-foreground">{contact.phone}</p>
+
+          <div className="space-y-4 bg-slate-50/70 p-4 sm:p-5">
+            {activityFeed.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">
+                No recent customer activity yet.
+              </div>
+            ) : (
+              activityFeed.map((activity) => {
+                const accentClass =
+                  activity.kind === 'appointment'
+                    ? 'bg-violet-500'
+                    : activity.kind === 'deal'
+                      ? 'bg-emerald-500'
+                      : activity.kind === 'note'
+                        ? 'bg-amber-500'
+                        : 'bg-cyan-500';
+
+                return (
+                  <div key={activity.id} className="grid grid-cols-[30px_1fr] gap-3">
+                    <div className="flex flex-col items-center">
+                      <div className={`mt-1 h-8 w-8 rounded-lg ${accentClass}`} />
+                      <div className="mt-2 h-full w-px bg-slate-200" />
+                    </div>
+                    <div>
+                      <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm font-medium text-slate-700">{activity.heading}</p>
+                        <p className="text-sm text-slate-500">{formatDateTime(activity.date)}</p>
+                      </div>
+                      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                        <p className="text-[18px] font-semibold leading-6 text-slate-800">{normalizeDisplayText(activity.title)}</p>
+                        <p className="mt-2 text-[15px] leading-6 text-slate-600">{activity.body}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
-          <div>
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Building className="h-4 w-4" />
-              <span className="text-sm">Company</span>
-            </div>
-            <p className="text-foreground">{contact.company}</p>
-          </div>
-          <div>
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <DollarSign className="h-4 w-4" />
-              <span className="text-sm">Price Level</span>
-            </div>
-            <span className="inline-block px-3 py-1 text-sm rounded bg-purple-100 text-purple-700">
-              {contact.priceLevel ? contact.priceLevel.replace('tier', 'Tier ') : 'Not Set'}
-            </span>
-          </div>
-          {contact.legacyNumber && (
+        </div>
+
+        <div className="rounded-[24px] border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:p-5 xl:sticky xl:top-4 xl:self-start">
+          <div className="space-y-4 rounded-2xl bg-white p-4 shadow-sm">
             <div>
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <span className="text-sm">Legacy #</span>
-              </div>
-              <p className="text-foreground">{contact.legacyNumber}</p>
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Name</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] text-slate-800">{displayName}</div>
             </div>
-          )}
-          {contact.accountOwnerNumber && (
             <div>
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <span className="text-sm">Account Owner #</span>
-              </div>
-              <p className="text-foreground">{contact.accountOwnerNumber}</p>
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Email</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] text-blue-600">{displayEmail}</div>
             </div>
-          )}
-          {(contact.address || contact.city || contact.province || contact.postalCode) && (
-            <div className="md:col-span-2">
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <MapPin className="h-4 w-4" />
-                <span className="text-sm">Address</span>
+            <div>
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Activities timeline</p>
+              <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                {Array.from({ length: 18 }).map((_, index) => {
+                  const activity = activityFeed[index];
+                  const color = !activity
+                    ? 'bg-slate-200'
+                    : activity.kind === 'appointment'
+                      ? 'bg-sky-400'
+                      : activity.kind === 'note'
+                        ? 'bg-pink-500'
+                        : activity.kind === 'deal'
+                          ? 'bg-emerald-400'
+                          : 'bg-cyan-400';
+
+                  return <span key={index} className={`h-8 w-2.5 rounded-full ${color} opacity-90`} />;
+                })}
               </div>
-              <p className="text-foreground whitespace-pre-line">
-                {[
-                  contact.address,
-                  [contact.city, contact.province].filter(Boolean).join(', '),
-                  contact.postalCode
-                ].filter(Boolean).join('\n')}
-              </p>
             </div>
-          )}
-          {contact.notes && (
-            <div className="md:col-span-2">
-              <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                <span className="text-sm">Notes</span>
+            <div>
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Accounts</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] text-slate-800">{displayCompany}</div>
+            </div>
+            <div>
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Deals</p>
+              <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                {bids.length > 0 ? (
+                  bids.slice(0, 2).map((bid) => (
+                    <Badge key={bid.id} className="bg-cyan-100 text-slate-700 hover:bg-cyan-100">
+                      {bid.title}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-[15px] text-slate-500">No deals yet</span>
+                )}
               </div>
-              <p className="text-foreground">{contact.notes}</p>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div>
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Deals value</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-[17px] font-medium text-slate-800">{formatMoney(totalDealValue)}</div>
+            </div>
+            <div>
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Phone</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] text-blue-600">{contact.phone || '—'}</div>
+            </div>
+            <div>
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Title</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center text-[15px] text-slate-800">{displayTitle}</div>
+            </div>
+            <div>
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Type</p>
+              <div className={`rounded-xl px-4 py-3 text-center text-[15px] font-medium ${contactType === 'Lead' ? 'bg-violet-100 text-violet-700' : 'bg-sky-400 text-white'}`}>
+                {contactType}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Priority</p>
+              <div className={`rounded-xl px-4 py-3 text-center text-[15px] font-medium ${contactPriority === 'High' ? 'bg-orange-500 text-white' : contactPriority === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                {contactPriority}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-[14px] font-semibold text-slate-700">Comments</p>
+              <div className="min-h-[96px] rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] text-slate-700">
+                {contact.notes || 'No comments added yet.'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Sales & Financial Data */}
       {(contact.ptdSales != null || contact.ptdGpPercent != null || contact.ytdSales != null || contact.ytdGpPercent != null || contact.lyrSales != null || contact.lyrGpPercent != null) && (
@@ -2819,7 +3033,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
           </div>
         </DialogContent>
       </Dialog>
-
+      </div>
     </div>
   );
 }

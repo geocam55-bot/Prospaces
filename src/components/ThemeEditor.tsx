@@ -7,10 +7,14 @@ import { useTheme } from './ThemeProvider';
 import { Theme, getTheme, themes } from '../utils/themes';
 import { sendSystemNotification } from '../utils/notifications';
 
-type ContrastIssue = {
+export type ContrastIssue = {
   label: string;
   ratio: number;
   threshold: number;
+  fgKey: string;
+  bgKey: string;
+  fgColor: string;
+  bgColor: string;
 };
 
 function normalizeHex(value: string): string | null {
@@ -62,7 +66,7 @@ function getContrastRatio(foreground: string, background: string): number | null
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-function getContrastIssues(colors: Record<string, string>): ContrastIssue[] {
+export function getContrastIssues(colors: Record<string, string>): ContrastIssue[] {
   const checks: Array<{ fg: string; bg: string; threshold: number; label: string }> = [
     { fg: 'text', bg: 'background', threshold: 4.5, label: 'Text on Background' },
     { fg: 'textSecondary', bg: 'background', threshold: 4.5, label: 'Secondary Text on Background' },
@@ -82,12 +86,18 @@ function getContrastIssues(colors: Record<string, string>): ContrastIssue[] {
     const bg = colors[check.bg];
     if (!fg || !bg) return;
 
-    const ratio = getContrastRatio(fg, bg);
+    const normalizedFg = normalizeHex(fg) ?? fg;
+    const normalizedBg = normalizeHex(bg) ?? bg;
+    const ratio = getContrastRatio(normalizedFg, normalizedBg);
     if (ratio !== null && ratio < check.threshold) {
       issues.push({
         label: check.label,
         ratio,
         threshold: check.threshold,
+        fgKey: check.fg,
+        bgKey: check.bg,
+        fgColor: normalizedFg,
+        bgColor: normalizedBg,
       });
     }
   });
@@ -214,6 +224,30 @@ export function ThemeEditor({ themeId, open, onOpenChange }: ThemeEditorProps) {
                     <div className="font-medium text-amber-900">{issue.label}</div>
                     <div className="text-amber-700">
                       Ratio {issue.ratio.toFixed(2)}:1 (target {issue.threshold.toFixed(1)}:1)
+                    </div>
+                    <div className="mt-2 space-y-1.5">
+                      <div className="flex items-center gap-2 text-amber-900">
+                        <span
+                          className="h-3 w-3 rounded border border-slate-300"
+                          style={{ backgroundColor: issue.fgColor }}
+                        />
+                        <span className="font-mono">{issue.fgKey}</span>
+                        <span className="text-amber-700">{issue.fgColor}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-amber-900">
+                        <span
+                          className="h-3 w-3 rounded border border-slate-300"
+                          style={{ backgroundColor: issue.bgColor }}
+                        />
+                        <span className="font-mono">{issue.bgKey}</span>
+                        <span className="text-amber-700">{issue.bgColor}</span>
+                      </div>
+                      <div
+                        className="mt-2 rounded border border-slate-200 px-2 py-1.5 text-center font-semibold"
+                        style={{ color: issue.fgColor, backgroundColor: issue.bgColor }}
+                      >
+                        Preview of the conflict
+                      </div>
                     </div>
                   </div>
                 ))}
