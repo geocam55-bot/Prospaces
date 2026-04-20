@@ -890,12 +890,9 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         return { action: 'skipped' as const };
       }
       // Try to derive a name from other fields before giving up
-      const fallbackCompany = contact.company ? String(contact.company).trim() : '';
       const fallbackEmail = contact.email ? String(contact.email).trim() : '';
       const fallbackLegacy = contact.legacyNumber ? String(contact.legacyNumber).trim() : '';
-      if (fallbackCompany) {
-        contactName = fallbackCompany;
-      } else if (fallbackEmail) {
+      if (fallbackEmail) {
         contactName = fallbackEmail;
       } else if (fallbackLegacy) {
         contactName = `Legacy #${fallbackLegacy}`;
