@@ -119,7 +119,7 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
               };
 
               const stringFields = [
-                'email', 'phone', 'company', 'status', 'priceLevel', 'address', 'city', 
+                'email', 'phone', 'company', 'trade', 'status', 'priceLevel', 'address', 'city', 
                 'province', 'postalCode', 'notes', 'legacyNumber', 'accountOwnerNumber'
               ];
               

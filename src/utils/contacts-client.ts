@@ -94,6 +94,7 @@ async function getExistingContactColumns(supabase: any): Promise<Set<string>> {
   const advancedGroups: string[][] = [
     ['legacy_number', 'account_owner_number'],
     ['address', 'notes'],
+    ['trade'],
     ['tags'],
     ['price_level'],
     ['ptd_sales', 'ptd_gp_percent', 'ytd_sales', 'ytd_gp_percent', 'lyr_sales', 'lyr_gp_percent'],
@@ -658,7 +659,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
       }
     }
     // Location fields — stored as strings, not numbers
-    const locationFields = ['city', 'province', 'postal_code', 'price_level', 'legacy_number', 'company', 'status'];
+    const locationFields = ['city', 'province', 'postal_code', 'price_level', 'legacy_number', 'company', 'status', 'trade'];
     for (const f of locationFields) {
       if (transformedData[f] !== undefined && transformedData[f] !== null) {
         financialExtras[f] = String(transformedData[f]).trim();
