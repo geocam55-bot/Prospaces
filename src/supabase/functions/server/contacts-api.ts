@@ -29,6 +29,19 @@ let _hasNotesCol: boolean | null = null;
 let _notesColCheckTime = 0;
 let _hasTagsCol: boolean | null = null;
 let _tagsColCheckTime = 0;
+let _hasTradeCol: boolean | null = null;
+let _tradeColCheckTime = 0;
+
+async function hasTradeColumn(supabase: any): Promise<boolean> {
+  if (_hasTradeCol === true) return true;
+  if (_hasTradeCol === false && Date.now() - _tradeColCheckTime < AOCOL_TTL) return false;
+  const { error } = await supabase.from('contacts').select('trade').limit(0);
+  _hasTradeCol = !error;
+  _tradeColCheckTime = Date.now();
+  if (error) {}
+  else {}
+  return _hasTradeCol;
+}
 
 async function hasAddressColumn(supabase: any): Promise<boolean> {
   if (_hasAddressCol === true) return true;
@@ -321,6 +334,7 @@ export function contactsAPI(app: Hono) {
                 if (overlay.legacy_number !== undefined && !enrichedContacts[i].legacy_number) enrichedContacts[i].legacy_number = overlay.legacy_number;
                 if (overlay.company !== undefined && !enrichedContacts[i].company) enrichedContacts[i].company = overlay.company;
                 if (overlay.status !== undefined && !enrichedContacts[i].status) enrichedContacts[i].status = overlay.status;
+                if (overlay.trade !== undefined && !enrichedContacts[i].trade) enrichedContacts[i].trade = overlay.trade;
                 
                 updated = true;
               }
@@ -422,6 +436,7 @@ export function contactsAPI(app: Hono) {
       const hasAddrCol = await hasAddressColumn(supabase);
       const hasNotCol = await hasNotesColumn(supabase);
       const hasTagCol = await hasTagsColumn(supabase);
+      const hasTradeCol = await hasTradeColumn(supabase);
 
       // Build the update payload with only columns that exist
       const updatePayload: any = {};
@@ -431,6 +446,7 @@ export function contactsAPI(app: Hono) {
       if (body.email !== undefined) updatePayload.email = body.email;
       if (body.phone !== undefined) updatePayload.phone = body.phone;
       if (body.company !== undefined) updatePayload.company = body.company;
+      if (hasTradeCol && body.trade !== undefined) updatePayload.trade = body.trade;
       if (body.status !== undefined) updatePayload.status = body.status;
 
       // Conditional columns that might not exist yet
@@ -549,6 +565,7 @@ export function contactsAPI(app: Hono) {
         if (body.legacy_number !== undefined) kvExtras.legacy_number = body.legacy_number;
         if (body.company !== undefined) kvExtras.company = body.company;
         if (body.status !== undefined) kvExtras.status = body.status;
+        if (body.trade !== undefined) kvExtras.trade = body.trade;
         
         if (Object.keys(kvExtras).length > 0) {
           // Merge with any existing overlay to preserve fields not in this update
@@ -596,6 +613,7 @@ export function contactsAPI(app: Hono) {
       if (body.legacy_number !== undefined) enrichedContact.legacy_number = body.legacy_number;
       if (body.company !== undefined) enrichedContact.company = body.company;
       if (body.status !== undefined) enrichedContact.status = body.status;
+      if (body.trade !== undefined) enrichedContact.trade = body.trade;
 
       return c.json({ contact: enrichedContact });
     } catch (error: any) {
@@ -645,6 +663,7 @@ export function contactsAPI(app: Hono) {
       const hasAddrCol = await hasAddressColumn(supabase);
       const hasNotCol = await hasNotesColumn(supabase);
       const hasTagCol = await hasTagsColumn(supabase);
+      const hasTradeCol = await hasTradeColumn(supabase);
 
       // Build the insert payload with only columns that exist
       const insertPayload: any = {
@@ -659,6 +678,7 @@ export function contactsAPI(app: Hono) {
       if (body.email !== undefined) insertPayload.email = body.email;
       if (body.phone !== undefined) insertPayload.phone = body.phone;
       if (body.company !== undefined) insertPayload.company = body.company;
+      if (hasTradeCol && body.trade !== undefined) insertPayload.trade = body.trade;
       if (body.status !== undefined) insertPayload.status = body.status;
 
       // Conditional columns that might not exist yet
@@ -767,6 +787,7 @@ export function contactsAPI(app: Hono) {
           if (body.legacy_number !== undefined) kvExtras.legacy_number = body.legacy_number;
           if (body.company !== undefined) kvExtras.company = body.company;
           if (body.status !== undefined) kvExtras.status = body.status;
+          if (body.trade !== undefined) kvExtras.trade = body.trade;
           if (Object.keys(kvExtras).length > 0) {
             await kv.set(`contact_extras:${newContact.id}`, kvExtras);
             // Also reflect in the response

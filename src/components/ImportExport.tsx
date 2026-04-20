@@ -66,6 +66,7 @@ const DATABASE_FIELDS = {
     { value: 'email', label: 'Email', required: false },
     { value: 'phone', label: 'Phone', required: false },
     { value: 'company', label: 'Company', required: false },
+    { value: 'trade', label: 'Trade', required: false },
     { value: 'status', label: 'Status', required: false },
     { value: 'priceLevel', label: 'Price Level', required: false },
     { value: 'address', label: 'Address', required: false },
@@ -480,6 +481,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       'email': ['email address', 'e-mail', 'e-mail address', 'contact email', 'customer email'],
       'phone': ['phone number', 'telephone', 'tel', 'mobile', 'cell', 'cell phone', 'contact phone', 'customer phone', 'phone #'],
       'company': ['company name', 'business', 'business name', 'organization', 'firm', 'employer', 'account', 'customer account', 'company/account', 'client company', 'customer', 'client', 'account name', 'vendor'],
+      'trade': ['trade', 'specialty', 'speciality', 'industry', 'segment', 'business type', 'construction trade', 'service trade'],
       'status': ['contact status', 'customer status', 'account status', 'customer type', 'state'],
       'priceLevel': ['price level', 'pricing level', 'pricing tier', 'customer tier', 'discount level', 'price group', 'pricing group', 'price leve', 'price tier', 'tier', 'level'],
       'address': ['street address', 'mailing address', 'billing address', 'street', 'addr', 'location', 'full address', 'address line', 'address 1', 'address1', 'street address 1'],
@@ -513,34 +515,34 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
     fileColumns.forEach(fileCol => {
       const normalized = fileCol.toLowerCase().trim().replace(/[_\s-]/g, '');
-      
-      // Try to find a matching database field
-      const match = dbFields.find(dbField => {
+      const fileColLower = fileCol.toLowerCase().trim();
+
+      // Pass 1: exact match and synonym match across all fields (prevents partial match
+      // from stealing columns - e.g. "Company Name" must not map to 'name' via substring)
+      let match = dbFields.find(dbField => {
         const dbNormalized = dbField.value.toLowerCase().replace(/[_\s-]/g, '');
         const labelNormalized = dbField.label.toLowerCase().replace(/[_\s-]/g, '');
-        const fileColLower = fileCol.toLowerCase().trim();
         const dbFieldLower = dbField.value.toLowerCase();
         const labelLower = dbField.label.toLowerCase();
-        
+
         // Try exact match first (case-insensitive)
-        if (fileColLower === dbFieldLower || fileColLower === labelLower) {
-          return true;
-        }
-        
+        if (fileColLower === dbFieldLower || fileColLower === labelLower) return true;
+
         // Try normalized match
-        if (normalized === dbNormalized || normalized === labelNormalized) {
-          return true;
-        }
-        
+        if (normalized === dbNormalized || normalized === labelNormalized) return true;
+
         // Try synonym match
         const synonyms = fieldSynonyms[dbField.value] || [];
-        if (synonyms.some(syn => fileColLower === syn || normalized === syn.replace(/[_\s-]/g, ''))) {
-          return true;
-        }
-        
-        // Try partial match
-        return normalized.includes(dbNormalized) || dbNormalized.includes(normalized);
+        return synonyms.some(syn => fileColLower === syn || normalized === syn.replace(/[_\s-]/g, ''));
       });
+
+      // Pass 2: partial match only if no exact/synonym match found
+      if (!match) {
+        match = dbFields.find(dbField => {
+          const dbNormalized = dbField.value.toLowerCase().replace(/[_\s-]/g, '');
+          return normalized.includes(dbNormalized) || dbNormalized.includes(normalized);
+        });
+      }
 
       if (match) {
         mapping[fileCol] = match.value;
@@ -909,7 +911,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     };
 
     const stringFields = [
-      'email', 'phone', 'company', 'status', 'priceLevel', 'address', 'city', 
+      'email', 'phone', 'company', 'trade', 'status', 'priceLevel', 'address', 'city', 
       'province', 'postalCode', 'notes', 'legacyNumber', 'accountOwnerNumber'
     ];
     
@@ -1074,9 +1076,9 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const contacts = response.contacts || [];
 
       const csvContent = [
-        'name,email,phone,company,address,city,province,postalCode,status,priceLevel,notes,legacyNumber,accountOwnerNumber,ptdSales,ptdGpPercent,ytdSales,ytdGpPercent,lyrSales,lyrGpPercent',
+        'name,email,phone,company,trade,address,city,province,postalCode,status,priceLevel,notes,legacyNumber,accountOwnerNumber,ptdSales,ptdGpPercent,ytdSales,ytdGpPercent,lyrSales,lyrGpPercent',
         ...contacts.map((c: any) => 
-          `"${c.name}","${c.email}","${c.phone || ''}","${c.company || ''}","${c.address || ''}","${c.city || ''}","${c.province || ''}","${c.postalCode || ''}","${c.status || ''}","${c.priceLevel || ''}","${c.notes || ''}","${c.legacyNumber || ''}","${c.accountOwnerNumber || ''}","${c.ptdSales || ''}","${c.ptdGpPercent || ''}","${c.ytdSales || ''}","${c.ytdGpPercent || ''}","${c.lyrSales || ''}","${c.lyrGpPercent || ''}"`
+          `"${c.name}","${c.email}","${c.phone || ''}","${c.company || ''}","${c.trade || ''}","${c.address || ''}","${c.city || ''}","${c.province || ''}","${c.postalCode || ''}","${c.status || ''}","${c.priceLevel || ''}","${c.notes || ''}","${c.legacyNumber || ''}","${c.accountOwnerNumber || ''}","${c.ptdSales || ''}","${c.ptdGpPercent || ''}","${c.ytdSales || ''}","${c.ytdGpPercent || ''}","${c.lyrSales || ''}","${c.lyrGpPercent || ''}"`
         )
       ].join('\n');
 
@@ -1156,8 +1158,8 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     switch (type) {
       case 'contacts':
         lines = [
-          'name,email,phone,company,address,status,priceLevel,notes,legacyNumber,accountOwnerNumber,ptdSales,ptdGpPercent,ytdSales,ytdGpPercent,lyrSales,lyrGpPercent',
-          'John Doe,john@example.com,555-1234,Acme Corp,123 Main St New York NY 10001,Prospect,Retail,Sample contact notes,LEG-12345,AO-67890,1000,20,2000,30,3000,40',
+          'name,email,phone,company,trade,address,status,priceLevel,notes,legacyNumber,accountOwnerNumber,ptdSales,ptdGpPercent,ytdSales,ytdGpPercent,lyrSales,lyrGpPercent',
+          'John Doe,john@example.com,555-1234,Acme Corp,Electrical,123 Main St New York NY 10001,Prospect,Retail,Sample contact notes,LEG-12345,AO-67890,1000,20,2000,30,3000,40',
         ];
         filename = 'contacts_template.csv';
         break;

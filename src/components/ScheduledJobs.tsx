@@ -157,9 +157,9 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
       const response = await contactsAPI.getAll('team');
       data = response.contacts || [];
       csvContent = [
-        'name,email,phone,company,address,status,priceLevel,notes,legacyNumber,accountOwnerNumber,ptdSales,ptdGpPercent,ytdSales,ytdGpPercent,lyrSales,lyrGpPercent',
+        'name,email,phone,company,trade,address,status,priceLevel,notes,legacyNumber,accountOwnerNumber,ptdSales,ptdGpPercent,ytdSales,ytdGpPercent,lyrSales,lyrGpPercent',
         ...data.map((c: any) => 
-          `"${c.name}","${c.email}","${c.phone || ''}","${c.company || ''}","${c.address || ''}","${c.status || ''}","${c.priceLevel || ''}","${c.notes || ''}","${c.legacyNumber || ''}","${c.accountOwnerNumber || ''}","${c.ptdSales || ''}","${c.ptdGpPercent || ''}","${c.ytdSales || ''}","${c.ytdGpPercent || ''}","${c.lyrSales || ''}","${c.lyrGpPercent || ''}"`
+          `"${c.name}","${c.email}","${c.phone || ''}","${c.company || ''}","${c.trade || ''}","${c.address || ''}","${c.status || ''}","${c.priceLevel || ''}","${c.notes || ''}","${c.legacyNumber || ''}","${c.accountOwnerNumber || ''}","${c.ptdSales || ''}","${c.ptdGpPercent || ''}","${c.ytdSales || ''}","${c.ytdGpPercent || ''}","${c.lyrSales || ''}","${c.lyrGpPercent || ''}"`
         )
       ].join('\n');
     } else if (dataType === 'inventory') {
@@ -224,7 +224,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
           };
 
           const stringFields = [
-            'email', 'phone', 'company', 'status', 'priceLevel', 'address', 'city', 
+            'email', 'phone', 'company', 'trade', 'status', 'priceLevel', 'address', 'city', 
             'province', 'postalCode', 'notes', 'legacyNumber', 'accountOwnerNumber'
           ];
           

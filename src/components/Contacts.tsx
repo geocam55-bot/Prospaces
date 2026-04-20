@@ -34,6 +34,7 @@ interface Contact {
   email: string;
   phone: string;
   company: string;
+  trade?: string;
   status: string;
   ownerId: string;
   createdAt: string;
@@ -106,6 +107,7 @@ export function Contacts({ user }: ContactsProps) {
     email: '',
     phone: '',
     company: '',
+    trade: '',
     status: 'Prospect',
     priceLevel: getPriceTierLabel(1),
     legacyNumber: '',
@@ -471,6 +473,7 @@ export function Contacts({ user }: ContactsProps) {
             (contact?.name || '').toLowerCase().includes(query) ||
             (contact?.email || '').toLowerCase().includes(query) ||
             (contact?.company || '').toLowerCase().includes(query) ||
+            (contact?.trade || '').toLowerCase().includes(query) ||
             (contact?.phone || '').includes(query) ||
             (contact?.status || '').toLowerCase().includes(query) ||
             (contact?.tags || []).some(tag => tag.toLowerCase().includes(query))
@@ -484,6 +487,7 @@ export function Contacts({ user }: ContactsProps) {
               contact?.name,
               contact?.email,
               contact?.company,
+              contact?.trade,
               contact?.phone,
               contact?.status,
               contact?.legacyNumber,
@@ -592,6 +596,7 @@ export function Contacts({ user }: ContactsProps) {
         email: newContact.email,
         phone: newContact.phone,
         company: newContact.company,
+        trade: newContact.trade,
         status: newContact.status,
         priceLevel: newContact.priceLevel,
         legacyNumber: newContact.legacyNumber,
@@ -620,7 +625,7 @@ export function Contacts({ user }: ContactsProps) {
         // Contact was likely created but response was unexpected — reload to be safe
         await loadContacts();
       }
-      setNewContact({ name: '', email: '', phone: '', company: '', status: 'Prospect', priceLevel: getPriceTierLabel(1), legacyNumber: '', accountOwnerNumber: user.email || '', address: '', city: '', province: '', postalCode: '', notes: '', tags: [], customFields: {}, ptdSales: '', ptdGpPercent: '', ytdSales: '', ytdGpPercent: '', lyrSales: '', lyrGpPercent: '' });
+      setNewContact({ name: '', email: '', phone: '', company: '', trade: '', status: 'Prospect', priceLevel: getPriceTierLabel(1), legacyNumber: '', accountOwnerNumber: user.email || '', address: '', city: '', province: '', postalCode: '', notes: '', tags: [], customFields: {}, ptdSales: '', ptdGpPercent: '', ytdSales: '', ytdGpPercent: '', lyrSales: '', lyrGpPercent: '' });
       setTagInput('');
       setIsAddDialogOpen(false);
     } catch (error: any) {
@@ -656,6 +661,7 @@ export function Contacts({ user }: ContactsProps) {
         email: editingContact.email,
         phone: editingContact.phone,
         company: editingContact.company,
+        trade: editingContact.trade,
         status: editingContact.status,
         priceLevel: editingContact.priceLevel,
         legacyNumber: editingContact.legacyNumber,
@@ -882,6 +888,16 @@ export function Contacts({ user }: ContactsProps) {
                     value={editingContact?.company || ''}
                     onChange={(e) => setEditingContact(editingContact ? { ...editingContact, company: e.target.value } : null)}
                     required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-trade" className={editLabelClassName}>Trade</Label>
+                  <Input
+                    id="edit-trade"
+                    className={editFieldClassName}
+                    value={editingContact?.trade || ''}
+                    onChange={(e) => setEditingContact(editingContact ? { ...editingContact, trade: e.target.value } : null)}
+                    placeholder="Optional"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1471,6 +1487,15 @@ export function Contacts({ user }: ContactsProps) {
                             />
                           </div>
                           <div className="space-y-2">
+                            <Label htmlFor="trade">Trade</Label>
+                            <Input
+                              id="trade"
+                              value={newContact.trade}
+                              onChange={(e) => setNewContact({ ...newContact, trade: e.target.value })}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div className="space-y-2">
                             <Label htmlFor="priceLevel">Price Level</Label>
                             <select
                               id="priceLevel"
@@ -1666,9 +1691,10 @@ export function Contacts({ user }: ContactsProps) {
                   <tr className="text-left text-[13px] text-slate-700">
                     <th className="border-b border-slate-200 px-2.5 py-2 font-medium"><input type="checkbox" className="h-4 w-4 rounded border-slate-300" /></th>
                     <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Actions</th>
-                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Contact</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Name</th>
                     <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Email</th>
-                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Accounts</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Company</th>
+                    <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Trade</th>
                     <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Deal value</th>
                     <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Phone</th>
                     <th className="border-b border-slate-200 px-2.5 py-2 font-medium">Price Level</th>
@@ -1750,6 +1776,9 @@ export function Contacts({ user }: ContactsProps) {
                           </span>
                         </td>
                         <td className="border-b border-slate-200 px-2.5 py-1.5 text-[14px] text-slate-700 whitespace-nowrap">
+                          {contact.trade || '—'}
+                        </td>
+                        <td className="border-b border-slate-200 px-2.5 py-1.5 text-[14px] text-slate-700 whitespace-nowrap">
                           {getDisplayedDealValue(contact)}
                         </td>
                         <td className="border-b border-slate-200 px-2.5 py-1.5 text-[14px] text-blue-600 whitespace-nowrap">{contact.phone || '—'}</td>
@@ -1803,7 +1832,7 @@ export function Contacts({ user }: ContactsProps) {
 
                   {filteredContacts.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
+                      <td colSpan={12} className="px-4 py-10 text-center text-slate-500">
                         No contacts found
                       </td>
                     </tr>
