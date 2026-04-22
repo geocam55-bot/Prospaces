@@ -428,13 +428,16 @@ function HomeView({
               >
                 <Icon className="h-6 w-6 text-white" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-1.5">
+              <h3 className="mb-1.5 text-lg font-semibold" style={{ color: theme.colors.text }}>
                 {item.label}
               </h3>
               <p className="text-sm leading-relaxed" style={{ color: theme.colors.textMuted }}>
                 {meta.description}
               </p>
-              <div className="mt-4 flex items-center gap-1.5 text-sm font-medium text-violet-600 group-hover:gap-3 transition-all">
+              <div
+                className="mt-4 flex items-center gap-1.5 text-sm font-medium transition-all group-hover:gap-3"
+                style={{ color: theme.colors.primary }}
+              >
                 Open module
                 <ChevronRight className="h-4 w-4" />
               </div>

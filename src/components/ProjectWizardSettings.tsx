@@ -23,6 +23,21 @@ interface ProjectWizardSettingsProps {
   onSave: (type: 'success' | 'error', message: string) => void;
 }
 
+const normalizePart = (value: string | null | undefined): string =>
+  (value || '').trim().toLowerCase();
+
+const makeDefaultsKey = (
+  plannerType: string,
+  materialType: string | null | undefined,
+  category: string | null | undefined
+): string => `${normalizePart(plannerType)}-${normalizePart(materialType || 'default')}-${normalizePart(category)}`;
+
+const normalizeStoredKey = (key: string): string => {
+  const [plannerType, materialType, ...categoryParts] = key.split('-');
+  if (!plannerType || !materialType || categoryParts.length === 0) return key;
+  return makeDefaultsKey(plannerType, materialType, categoryParts.join('-'));
+};
+
 // Helper: generate length-specific entries for a lumber category
 const lumberLengthEntries = (baseName: string): string[] =>
   STANDARD_LUMBER_LENGTHS.map((len) => `${baseName} (${len}')`);
@@ -178,8 +193,29 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   const [orgCFs, setOrgCFs] = useState<Record<string, string>>({});
   const [selectedDeckType, setSelectedDeckType] = useState<'spruce' | 'treated' | 'composite' | 'cedar'>('treated');
   const [selectedFinishingType, setSelectedFinishingType] = useState<'mdf' | 'finger_joint' | 'pine'>('mdf');
+  const [deckSectionBulkSelections, setDeckSectionBulkSelections] = useState<Record<string, string>>({});
   // Local string state for CF inputs so users can clear & type decimals freely
   const [cfEditValues, setCfEditValues] = useState<Record<string, string>>({});
+
+  const getDeckDiagnostics = () => {
+    const selectedType = selectedDeckType;
+    const currentTypePrefix = `deck-${selectedType}-`;
+    const defaultTypePrefix = 'deck-default-';
+
+    const deckCurrentEntries = Object.entries(defaults).filter(([key]) => key.startsWith(currentTypePrefix));
+    const deckDefaultEntries = Object.entries(defaults).filter(([key]) => key.startsWith(defaultTypePrefix));
+
+    const inventoryIdSet = new Set(inventoryItems.map((item) => item.id));
+    const unresolvedCurrent = deckCurrentEntries.filter(([, itemId]) => !!itemId && !inventoryIdSet.has(itemId));
+    const unresolvedDefault = deckDefaultEntries.filter(([, itemId]) => !!itemId && !inventoryIdSet.has(itemId));
+
+    return {
+      currentCount: deckCurrentEntries.length,
+      defaultCount: deckDefaultEntries.length,
+      unresolvedCurrentCount: unresolvedCurrent.length,
+      unresolvedDefaultCount: unresolvedDefault.length,
+    };
+  };
 
   // Refs for scrolling to each planner section
   const deckRef = React.useRef<HTMLDivElement>(null);
@@ -248,7 +284,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
       const itemIdsToFetch: string[] = [];
       
       wizardDefaults.forEach((def) => {
-        const key = `${def.planner_type}-${def.material_type || 'default'}-${def.material_category}`;
+        const key = makeDefaultsKey(def.planner_type, def.material_type || 'default', def.material_category);
         if (def.inventory_item_id) {
           defaultsMap[key] = def.inventory_item_id;
           itemIdsToFetch.push(def.inventory_item_id);
@@ -274,7 +310,11 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
       
       // Step 4: Load organization conversion factors from KV
       const cfData = await getOrgConversionFactors(organizationId);
-      setOrgCFs(cfData);
+      const normalizedCFData: Record<string, string> = {};
+      Object.entries(cfData || {}).forEach(([key, value]) => {
+        normalizedCFData[normalizeStoredKey(key)] = value;
+      });
+      setOrgCFs(normalizedCFData);
       
     } catch (error) {
       // Error loading project wizard settings
@@ -288,7 +328,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   };
 
   const handleDefaultChange = (plannerType: string, materialType: string | null, category: string, itemId: string) => {
-    const key = `${plannerType}-${materialType || 'default'}-${category}`;
+    const key = makeDefaultsKey(plannerType, materialType || 'default', category);
     // If "none" is selected, remove the entry; otherwise set it
     if (itemId === 'none') {
       setDefaults((prev) => {
@@ -303,11 +343,39 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     }
   };
 
+  const getDeckSectionKey = (deckType: string, sectionName: string): string => `${deckType}::${sectionName}`;
+
+  const handleApplyDeckSection = (sectionName: string, categories: string[]) => {
+    const sectionKey = getDeckSectionKey(selectedDeckType, sectionName);
+    const selectedItemId = deckSectionBulkSelections[sectionKey];
+
+    if (!selectedItemId) return;
+
+    setDefaults((prev) => {
+      const next = { ...prev };
+
+      categories.forEach((category) => {
+        const key = makeDefaultsKey('deck', selectedDeckType, category);
+        if (selectedItemId === 'none') {
+          delete next[key];
+        } else {
+          next[key] = selectedItemId;
+        }
+      });
+
+      return next;
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      const validInventoryIds = new Set(inventoryItems.map((item) => item.id));
+
       // Convert defaults to array format for batch upsert
-      const defaultConfigs: ProjectWizardDefault[] = Object.entries(defaults).map(([key, inventoryItemId]) => {
+      const defaultConfigs: ProjectWizardDefault[] = Object.entries(defaults)
+        .filter(([, inventoryItemId]) => !!inventoryItemId && validInventoryIds.has(inventoryItemId))
+        .map(([key, inventoryItemId]) => {
         const [plannerType, materialType, ...categoryParts] = key.split('-');
         const category = categoryParts.join('-');
 
@@ -343,18 +411,20 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   };
 
   const getDefaultValue = (plannerType: string, materialType: string | null, category: string): string => {
-    const key = `${plannerType}-${materialType || 'default'}-${category}`;
-    return defaults[key] || 'none';
+    const key = makeDefaultsKey(plannerType, materialType || 'default', category);
+    const fallbackKey = makeDefaultsKey(plannerType, 'default', category);
+    return defaults[key] || defaults[fallbackKey] || 'none';
   };
 
   // Conversion Factor helpers for org-level CFs
   const getCFKey = (plannerType: string, materialType: string | null, category: string): string => {
-    return `${plannerType}-${materialType || 'default'}-${category}`;
+    return makeDefaultsKey(plannerType, materialType || 'default', category);
   };
 
   const getOrgCF = (plannerType: string, materialType: string | null, category: string): number => {
     const key = getCFKey(plannerType, materialType, category);
-    const val = orgCFs[key];
+    const fallbackKey = getCFKey(plannerType, 'default', category);
+    const val = orgCFs[key] ?? orgCFs[fallbackKey];
     return val ? parseFloat(val) || 1 : 1;
   };
 
@@ -499,8 +569,18 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
             </div>
 
             <div className="space-y-6 p-4 bg-background rounded-lg border border-purple-100">
+              {(() => {
+                const diag = getDeckDiagnostics();
+                return (
+                  <div className="text-xs bg-slate-50 border border-slate-200 rounded p-2 text-slate-700">
+                    Deck defaults diagnostics: selected type mappings={diag.currentCount}, default mappings={diag.defaultCount}, unresolved selected={diag.unresolvedCurrentCount}, unresolved default={diag.unresolvedDefaultCount}
+                  </div>
+                );
+              })()}
               {Object.entries(PLANNER_CATEGORIES.deck[selectedDeckType]).map(([sectionName, categories]) => {
                 const showCF = !isLumberGroup(sectionName);
+                const sectionKey = getDeckSectionKey(selectedDeckType, sectionName);
+                const bulkSelection = deckSectionBulkSelections[sectionKey] || '';
                 return (
                   <div key={sectionName} className="space-y-3">
                     <div className="flex items-center gap-2 border-b border-purple-200 pb-1">
@@ -512,6 +592,33 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                         </span>
                       )}
                     </div>
+
+                    <div className="flex flex-col md:flex-row gap-2 md:items-center bg-slate-50 border border-slate-200 rounded p-2">
+                      <div className="flex-1">
+                        <InventoryCombobox
+                          id={`deck-bulk-${selectedDeckType}-${sectionName}`}
+                          items={inventoryItems}
+                          value={bulkSelection}
+                          onChange={(value) => {
+                            setDeckSectionBulkSelections((prev) => ({
+                              ...prev,
+                              [sectionKey]: value,
+                            }));
+                          }}
+                          placeholder={`Bulk apply item to ${sectionName}...`}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleApplyDeckSection(sectionName, categories)}
+                        disabled={!bulkSelection}
+                        className="md:w-auto w-full"
+                      >
+                        {bulkSelection === 'none' ? 'Clear Section' : 'Apply To Section'}
+                      </Button>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {categories.map((category) => {
                         const cfValue = showCF ? getOrgCF('deck', selectedDeckType, category) : 1;

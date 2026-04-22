@@ -26,6 +26,9 @@ const _authReadyPromise = new Promise((resolve) => {
 
 // ── Proactive token cache via auth state listener ──────────────────────
 let _cachedToken: string | null = null;
+let _tokenRequestInFlight: Promise<string | null> | null = null;
+let _lastRefreshAttemptMs = 0;
+const REFRESH_COOLDOWN_MS = 30_000;
 
 // Keep the cache fresh whenever auth state changes (login, logout, refresh).
 // The very first event Supabase fires is INITIAL_SESSION — resolve the gate.
@@ -47,6 +50,11 @@ setTimeout(() => _authReady(), 2000);
  * Returns null if no session is available.
  */
 export async function getUserAccessToken(): Promise<string | null> {
+  if (_tokenRequestInFlight) {
+    return _tokenRequestInFlight;
+  }
+
+  _tokenRequestInFlight = (async () => {
   // Wait for the auth layer to have delivered at least one session event
   await _authReadyPromise;
 
@@ -56,14 +64,18 @@ export async function getUserAccessToken(): Promise<string | null> {
     
     // If there's a session error, try refreshing immediately
     if (sessionError) {
-      try {
-        const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
-        if (!refreshError && refreshed?.access_token) {
-          _cachedToken = refreshed.access_token;
-          return refreshed.access_token;
+      const now = Date.now();
+      if (now - _lastRefreshAttemptMs >= REFRESH_COOLDOWN_MS) {
+        _lastRefreshAttemptMs = now;
+        try {
+          const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
+          if (!refreshError && refreshed?.access_token) {
+            _cachedToken = refreshed.access_token;
+            return refreshed.access_token;
+          }
+        } catch (refreshErr) {
+          // Ignored
         }
-      } catch (refreshErr) {
-        // Ignored
       }
       // Fall through to check cached token
     }
@@ -76,14 +88,18 @@ export async function getUserAccessToken(): Promise<string | null> {
         && session.expires_at * 1000 <= Date.now() + 5 * 60_000;
 
       if (isExpiredOrStale) {
-        try {
-          const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
-          if (!refreshError && refreshed?.access_token) {
-            _cachedToken = refreshed.access_token;
-            return refreshed.access_token;
+        const now = Date.now();
+        if (now - _lastRefreshAttemptMs >= REFRESH_COOLDOWN_MS) {
+          _lastRefreshAttemptMs = now;
+          try {
+            const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
+            if (!refreshError && refreshed?.access_token) {
+              _cachedToken = refreshed.access_token;
+              return refreshed.access_token;
+            }
+          } catch (refreshErr) {
+            // Refresh failed — fall through; the old token might still work for a few seconds
           }
-        } catch (refreshErr) {
-          // Refresh failed — fall through; the old token might still work for a few seconds
         }
       }
 
@@ -100,6 +116,13 @@ export async function getUserAccessToken(): Promise<string | null> {
   }
 
   return null; // user truly isn't logged in
+  })();
+
+  try {
+    return await _tokenRequestInFlight;
+  } finally {
+    _tokenRequestInFlight = null;
+  }
 }
 
 /**

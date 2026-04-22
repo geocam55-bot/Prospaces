@@ -137,6 +137,11 @@ export function InventoryCombobox({
                 )}
                 <span className="text-xs text-muted-foreground">SKU: {selectedItem.sku}</span>
               </>
+            ) : value ? (
+              <>
+                <span className="truncate w-full font-medium text-amber-700">Saved item not found</span>
+                <span className="text-xs text-amber-600 truncate w-full">ID: {value}</span>
+              </>
             ) : (
               <span className="truncate text-foreground">{placeholder}</span>
             )}

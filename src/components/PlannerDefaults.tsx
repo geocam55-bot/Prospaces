@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
@@ -26,7 +26,27 @@ interface PlannerDefaultsProps {
   userId: string;
   plannerType: 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen';
   materialTypes?: string[]; // Optional for planners like deck that have multiple material types
+  initialMaterialType?: string;
+  onDefaultsSaved?: () => void;
 }
+
+const normalizeMaterialType = (materialType: string | null | undefined): string =>
+  (materialType || 'default').toLowerCase();
+
+const normalizeCategoryKey = (category: string | null | undefined): string =>
+  (category || '').trim().toLowerCase();
+
+const makeDefaultsKey = (
+  plannerType: string,
+  materialType: string | null | undefined,
+  category: string | null | undefined
+): string => `${plannerType}-${normalizeMaterialType(materialType)}-${normalizeCategoryKey(category)}`;
+
+const normalizeDefaultsKey = (key: string): string => {
+  const [planner, materialType, ...rest] = key.split('-');
+  if (!planner || !materialType || rest.length === 0) return key;
+  return makeDefaultsKey(planner, materialType, rest.join('-'));
+};
 
 // Category groups that contain lumber items (no conversion factor needed)
 const LUMBER_CATEGORY_GROUPS = new Set([
@@ -186,16 +206,33 @@ const PLANNER_CATEGORIES: Record<string, Record<string, Record<string, string[]>
   }
 };
 
-export function PlannerDefaults({ organizationId, userId, plannerType, materialTypes }: PlannerDefaultsProps) {
+export function PlannerDefaults({ organizationId, userId, plannerType, materialTypes, initialMaterialType, onDefaultsSaved }: PlannerDefaultsProps) {
+  const draftStorageKey = `planner_defaults_draft_${organizationId}_${userId}_${plannerType}`;
+  const hasInitializedDefaults = useRef(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [userDefaults, setUserDefaults] = useState<Record<string, string>>({});
   const [orgDefaults, setOrgDefaults] = useState<Record<string, string>>({});
   const [orgCFs, setOrgCFs] = useState<Record<string, string>>({});
-  const [selectedMaterialType, setSelectedMaterialType] = useState<string>(
-    materialTypes && materialTypes.length > 0 ? materialTypes[0] : 'default'
-  );
+  const getInitialMaterialType = () => {
+    if (!materialTypes || materialTypes.length === 0) return 'default';
+
+    const storageKey = `planner_defaults_selected_type_${plannerType}_${organizationId}_${userId}`;
+    const savedType = localStorage.getItem(storageKey);
+    if (savedType && materialTypes.includes(savedType)) {
+      return savedType;
+    }
+
+    const normalizedInitial = initialMaterialType?.toLowerCase();
+    if (normalizedInitial && materialTypes.includes(normalizedInitial)) {
+      return normalizedInitial;
+    }
+
+    return materialTypes[0];
+  };
+
+  const [selectedMaterialType, setSelectedMaterialType] = useState<string>(getInitialMaterialType);
   // Local string state for CF inputs so users can clear & type freely (e.g. "0.04")
   const [cfEditValues, setCfEditValues] = useState<Record<string, string>>({});
 
@@ -204,6 +241,13 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
       loadData();
     }
   }, [organizationId, userId]);
+
+  useEffect(() => {
+    if (materialTypes && materialTypes.length > 0) {
+      const storageKey = `planner_defaults_selected_type_${plannerType}_${organizationId}_${userId}`;
+      localStorage.setItem(storageKey, selectedMaterialType);
+    }
+  }, [selectedMaterialType, materialTypes, plannerType, organizationId, userId]);
 
   const loadData = async () => {
     setLoading(true);
@@ -219,7 +263,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
 
       // Organization defaults loaded
       orgDefaultsData.forEach((def) => {
-        const key = `${def.planner_type}-${def.material_type || 'default'}-${def.material_category}`;
+        const key = makeDefaultsKey(def.planner_type, def.material_type, def.material_category);
         if (def.inventory_item_id) {
           orgDefaultsMap[key] = def.inventory_item_id;
           itemIdsToFetch.push(def.inventory_item_id);
@@ -229,12 +273,33 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
       // Org defaults map set
 
       // Load user-specific defaults from database
-      const userDefaultsMap = await getUserDefaults(userId, organizationId);
-      setUserDefaults(userDefaultsMap);
+      const userDefaultsMapRaw = await getUserDefaults(userId, organizationId);
+      const userDefaultsMap: Record<string, string> = {};
+      Object.entries(userDefaultsMapRaw).forEach(([key, value]) => {
+        userDefaultsMap[normalizeDefaultsKey(key)] = value;
+      });
+      let draftDefaultsMap: Record<string, string> = {};
+      try {
+        const draftRaw = localStorage.getItem(draftStorageKey);
+        if (draftRaw) {
+          const parsedDraft = JSON.parse(draftRaw);
+          if (parsedDraft && typeof parsedDraft === 'object') {
+            Object.entries(parsedDraft).forEach(([key, value]) => {
+              if (typeof value === 'string') {
+                draftDefaultsMap[normalizeDefaultsKey(key)] = value;
+              }
+            });
+          }
+        }
+      } catch {
+        // Ignore malformed draft defaults
+      }
+
+      setUserDefaults({ ...userDefaultsMap, ...draftDefaultsMap });
       // User defaults map set
 
       // Add user default item IDs to fetch list
-      Object.values(userDefaultsMap).forEach((itemId) => {
+      Object.values({ ...userDefaultsMap, ...draftDefaultsMap }).forEach((itemId) => {
         if (itemId && !itemIdsToFetch.includes(itemId)) {
           itemIdsToFetch.push(itemId);
         }
@@ -272,8 +337,25 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
     }
   };
 
+  useEffect(() => {
+    if (loading) return;
+
+    try {
+      localStorage.setItem(draftStorageKey, JSON.stringify(userDefaults));
+    } catch {
+      // Best-effort draft cache only
+    }
+
+    if (!hasInitializedDefaults.current) {
+      hasInitializedDefaults.current = true;
+      return;
+    }
+
+    onDefaultsSaved?.();
+  }, [userDefaults, loading, draftStorageKey, onDefaultsSaved]);
+
   const handleDefaultChange = (materialType: string | null, category: string, itemId: string) => {
-    const key = `${plannerType}-${materialType || 'default'}-${category}`;
+    const key = makeDefaultsKey(plannerType, materialType, category);
     if (itemId === 'none') {
       setUserDefaults((prev) => {
         const { [key]: _, ...rest } = prev;
@@ -296,8 +378,17 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
       if (success) {
         toast.success('Defaults saved successfully');
       } else {
-        toast.error('Failed to save defaults');
+        toast.success('Defaults saved locally');
       }
+
+      try {
+        localStorage.removeItem(draftStorageKey);
+      } catch {
+        // Ignore draft cleanup failures
+      }
+
+      // Always notify so pricing re-enriches from the fresh localStorage cache
+      onDefaultsSaved?.();
     } catch (error) {
       // Error saving defaults
       toast.error('Failed to save defaults');
@@ -321,6 +412,14 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
           }
         });
         setUserDefaults(filteredOrgDefaults);
+
+        try {
+          localStorage.removeItem(draftStorageKey);
+        } catch {
+          // Ignore draft cleanup failures
+        }
+
+        onDefaultsSaved?.();
         toast.success('Defaults restored from organization settings');
       } else {
         toast.error('Failed to restore defaults');
@@ -334,24 +433,27 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
   };
 
   const getDefaultValue = (materialType: string | null, category: string): string => {
-    const key = `${plannerType}-${materialType || 'default'}-${category}`;
-    // First check user defaults, then fall back to org defaults
-    return userDefaults[key] || orgDefaults[key] || 'none';
+    const key = makeDefaultsKey(plannerType, materialType, category);
+    const fallbackKey = makeDefaultsKey(plannerType, 'default', category);
+    // First check user defaults, then fall back to org defaults.
+    // If the selected material type has no explicit value, inherit "default".
+    return userDefaults[key] || userDefaults[fallbackKey] || orgDefaults[key] || orgDefaults[fallbackKey] || 'none';
   };
 
   const getOrgDefaultValue = (materialType: string | null, category: string): string => {
-    const key = `${plannerType}-${materialType || 'default'}-${category}`;
-    return orgDefaults[key] || 'none';
+    const key = makeDefaultsKey(plannerType, materialType, category);
+    const fallbackKey = makeDefaultsKey(plannerType, 'default', category);
+    return orgDefaults[key] || orgDefaults[fallbackKey] || 'none';
   };
 
   // Conversion Factor helpers — stored in userDefaults with `-cf` suffix
   const getCFKey = (materialType: string | null, category: string): string => {
-    return `${plannerType}-${materialType || 'default'}-${category}-cf`;
+    return `${makeDefaultsKey(plannerType, materialType, category)}-cf`;
   };
 
   // Org CF key format (no `-cf` suffix, matches ProjectWizardSettings format)
   const getOrgCFKey = (materialType: string | null, category: string): string => {
-    return `${plannerType}-${materialType || 'default'}-${category}`;
+    return makeDefaultsKey(plannerType, materialType, category);
   };
 
   /** Get the effective CF: user override > org default > 1 */

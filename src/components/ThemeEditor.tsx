@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
+import { AlertTriangle } from 'lucide-react';
 import { useTheme } from './ThemeProvider';
 import { Theme, getTheme, themes } from '../utils/themes';
 import { sendSystemNotification } from '../utils/notifications';
@@ -15,6 +16,10 @@ export type ContrastIssue = {
   bgKey: string;
   fgColor: string;
   bgColor: string;
+  suggestion?: {
+    key: string;
+    color: string;
+  };
 };
 
 function normalizeHex(value: string): string | null {
@@ -66,6 +71,101 @@ function getContrastRatio(foreground: string, background: string): number | null
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+function blendHex(from: string, to: string, amount: number): string | null {
+  const fromRgb = hexToRgb(from);
+  const toRgb = hexToRgb(to);
+  if (!fromRgb || !toRgb) return null;
+
+  const blendChannel = (start: number, end: number) =>
+    Math.round(start + (end - start) * amount)
+      .toString(16)
+      .padStart(2, '0');
+
+  return `#${blendChannel(fromRgb.r, toRgb.r)}${blendChannel(fromRgb.g, toRgb.g)}${blendChannel(fromRgb.b, toRgb.b)}`;
+}
+
+function colorDistance(a: string, b: string): number {
+  const aRgb = hexToRgb(a);
+  const bRgb = hexToRgb(b);
+  if (!aRgb || !bRgb) return Number.MAX_SAFE_INTEGER;
+
+  return Math.sqrt(
+    Math.pow(aRgb.r - bRgb.r, 2) +
+    Math.pow(aRgb.g - bRgb.g, 2) +
+    Math.pow(aRgb.b - bRgb.b, 2)
+  );
+}
+
+function findNearestAccessibleColor(
+  adjustableColor: string,
+  fixedColor: string,
+  threshold: number,
+  adjustRole: 'fg' | 'bg'
+): string | null {
+  const normalizedAdjustable = normalizeHex(adjustableColor);
+  const normalizedFixed = normalizeHex(fixedColor);
+  if (!normalizedAdjustable || !normalizedFixed) return null;
+
+  let bestCandidate: string | null = null;
+  let bestDistance = Number.MAX_SAFE_INTEGER;
+
+  ['#000000', '#ffffff'].forEach((targetColor) => {
+    for (let step = 1; step <= 100; step += 1) {
+      const candidate = blendHex(normalizedAdjustable, targetColor, step / 100);
+      if (!candidate) continue;
+
+      const ratio = adjustRole === 'fg'
+        ? getContrastRatio(candidate, normalizedFixed)
+        : getContrastRatio(normalizedFixed, candidate);
+
+      if (ratio !== null && ratio >= threshold) {
+        const distance = colorDistance(normalizedAdjustable, candidate);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestCandidate = candidate;
+        }
+        break;
+      }
+    }
+  });
+
+  return bestCandidate;
+}
+
+function getSuggestedFix(
+  fgKey: string,
+  bgKey: string,
+  fgColor: string,
+  bgColor: string,
+  threshold: number
+): { key: string; color: string } | undefined {
+  const preferBackgroundAdjustment = [
+    'primaryText',
+    'accentText',
+    'destructiveText',
+    'topBarText',
+  ].includes(fgKey) && (normalizeHex(fgColor) === '#ffffff');
+
+  if (preferBackgroundAdjustment) {
+    const bgSuggestion = findNearestAccessibleColor(bgColor, fgColor, threshold, 'bg');
+    if (bgSuggestion) {
+      return { key: bgKey, color: bgSuggestion };
+    }
+  }
+
+  const fgSuggestion = findNearestAccessibleColor(fgColor, bgColor, threshold, 'fg');
+  if (fgSuggestion) {
+    return { key: fgKey, color: fgSuggestion };
+  }
+
+  const bgSuggestion = findNearestAccessibleColor(bgColor, fgColor, threshold, 'bg');
+  if (bgSuggestion) {
+    return { key: bgKey, color: bgSuggestion };
+  }
+
+  return undefined;
+}
+
 export function getContrastIssues(colors: Record<string, string>): ContrastIssue[] {
   const checks: Array<{ fg: string; bg: string; threshold: number; label: string }> = [
     { fg: 'text', bg: 'background', threshold: 4.5, label: 'Text on Background' },
@@ -98,6 +198,7 @@ export function getContrastIssues(colors: Record<string, string>): ContrastIssue
         bgKey: check.bg,
         fgColor: normalizedFg,
         bgColor: normalizedBg,
+        suggestion: getSuggestedFix(check.fg, check.bg, normalizedFg, normalizedBg, check.threshold),
       });
     }
   });
@@ -166,6 +267,12 @@ export function ThemeEditor({ themeId, open, onOpenChange }: ThemeEditorProps) {
   const { theme, updateThemeColors } = useTheme();
   const [colors, setColors] = useState<Record<string, string>>({});
   const contrastIssues = getContrastIssues(colors);
+  const contrastIssueByKey = new Map(
+    contrastIssues.flatMap((issue) => [
+      [issue.fgKey, issue],
+      [issue.bgKey, issue],
+    ])
+  );
 
   useEffect(() => {
     if (open && themeId) {
@@ -207,7 +314,10 @@ export function ThemeEditor({ themeId, open, onOpenChange }: ThemeEditorProps) {
           {contrastIssues.length > 0 && (
             <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900">
               <div className="flex items-center justify-between gap-2">
-                <h4 className="text-sm font-semibold">Contrast Warning</h4>
+                <h4 className="flex items-center gap-2 text-sm font-semibold">
+                  <AlertTriangle className="h-4 w-4" />
+                  Contrast Warning
+                </h4>
                 <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold">
                   {contrastIssues.length} issue{contrastIssues.length === 1 ? '' : 's'}
                 </span>
@@ -248,6 +358,33 @@ export function ThemeEditor({ themeId, open, onOpenChange }: ThemeEditorProps) {
                       >
                         Preview of the conflict
                       </div>
+                      {issue.suggestion && (
+                        <div className="mt-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-2 text-emerald-900">
+                          <div className="text-xs font-semibold">
+                            Suggested fix: <span className="font-mono">{issue.suggestion.key}</span> {'->'} <span className="font-mono">{issue.suggestion.color}</span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <div
+                              className="rounded border border-emerald-200 px-2 py-1 text-center text-xs font-semibold"
+                              style={{
+                                color: issue.suggestion.key === issue.fgKey ? issue.suggestion.color : issue.fgColor,
+                                backgroundColor: issue.suggestion.key === issue.bgKey ? issue.suggestion.color : issue.bgColor,
+                              }}
+                            >
+                              Preview with suggestion
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleChange(issue.suggestion!.key, issue.suggestion!.color)}
+                              className="h-7 border-emerald-300 text-emerald-900 hover:bg-emerald-100"
+                            >
+                              Apply
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -266,10 +403,19 @@ export function ThemeEditor({ themeId, open, onOpenChange }: ThemeEditorProps) {
                     const value = colors[key] || '';
                     const isColor = value.startsWith('#') || value.startsWith('rgb');
                     const isComplex = !value.startsWith('#') && value.length > 0;
+                    const contrastIssue = contrastIssueByKey.get(key);
                     
                     return (
                       <div key={key} className="flex flex-col gap-1.5">
-                        <Label className="text-xs font-medium">{key}</Label>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs font-medium">{key}</Label>
+                          {contrastIssue && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                              <AlertTriangle className="h-3 w-3" />
+                              Contrast
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
                           {!isComplex && (
                             <div className="relative w-8 h-8 rounded border shadow-sm overflow-hidden flex-shrink-0">

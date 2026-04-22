@@ -1,1 +1,0 @@
-import{j as e}from"./index-rqgJcUOB.js";const t="/assets/09aa6b9a364cd19b8e73e23401db6a6a0b182a0e-6hf3wE5Q.png";function n({size:s="md",className:a=""}){const o={sm:"h-8 w-8",md:"h-10 w-10",lg:"h-14 w-14",xl:"h-16 w-16"};return e.jsx("img",{src:t,alt:"ProSpaces CRM Logo",className:`${o[s]} ${a} object-contain z-50 relative`})}export{n as L,t as l};
