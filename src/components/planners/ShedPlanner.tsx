@@ -70,6 +70,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
+  const [defaultsVersion, setDefaultsVersion] = useState(0);
   const [loadedDesignInfo, setLoadedDesignInfo] = useState<{
     name?: string;
     description?: string;
@@ -117,14 +118,15 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
           user.organizationId,
           'shed',
           undefined,
-          cfMap
+          cfMap,
+          user.id
         );
         setEnrichedMaterials(enriched);
         setTotalT1Price(total);
       }
     };
     enrichMaterials();
-  }, [config, user.organizationId]);
+  }, [config, user.organizationId, defaultsVersion]);
 
   // Create enriched materials structure for display
   const getEnrichedMaterialsStructure = () => {
@@ -396,6 +398,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
             organizationId={user.organizationId}
             userId={user.id}
             plannerType="shed"
+            onDefaultsSaved={() => setDefaultsVersion(v => v + 1)}
           />
         )}
       </div>

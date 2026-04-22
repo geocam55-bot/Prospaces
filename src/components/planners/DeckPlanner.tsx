@@ -28,6 +28,25 @@ interface DeckPlannerProps {
 export function DeckPlanner({ user }: DeckPlannerProps) {
   const deck3DRendererRef = useRef<Deck3DRendererRef>(null);
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
+  const [pricingContext, setPricingContext] = useState<{
+    cfMap: Record<string, number>;
+    mergedUserDefaults: Record<string, string>;
+  }>({
+    cfMap: {},
+    mergedUserDefaults: {},
+  });
+  const draftDefaultsStorageKey = `planner_defaults_draft_${user.organizationId}_${user.id}_deck`;
+
+  const getDraftDefaults = (): Record<string, string> => {
+    try {
+      const raw = localStorage.getItem(draftDefaultsStorageKey);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
   
   const [config, setConfig] = useState<DeckConfig>({
     width: 12,
@@ -49,6 +68,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
+  const [defaultsVersion, setDefaultsVersion] = useState(0);
   const [loadedDesignInfo, setLoadedDesignInfo] = useState<{
     name?: string;
     description?: string;
@@ -66,31 +86,64 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     ...materials.hardware,
   ];
 
+  // Load defaults and conversion factors when defaults/material type context changes,
+  // not on every dimension tweak.
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPricingContext = async () => {
+      const draftUserDefs = getDraftDefaults();
+      let mergedUserDefs: Record<string, string> = draftUserDefs;
+      let cfMap: Record<string, number> = {};
+
+      try {
+        const orgCFs = await getOrgConversionFactors(user.organizationId);
+        cfMap = extractOrgConversionFactors(orgCFs, 'deck', config.deckingType);
+      } catch {
+        // Best-effort: continue with user-level/default CFs.
+      }
+
+      try {
+        const persistedUserDefs = await getUserDefaults(user.id, user.organizationId);
+        mergedUserDefs = { ...persistedUserDefs, ...draftUserDefs };
+      } catch {
+        // Best-effort: use draft/local values.
+      }
+
+      const userCFMap = extractConversionFactors(mergedUserDefs, 'deck', config.deckingType);
+      cfMap = { ...cfMap, ...userCFMap };
+
+      if (!cancelled) {
+        setPricingContext({
+          cfMap,
+          mergedUserDefaults: mergedUserDefs,
+        });
+      }
+    };
+
+    loadPricingContext();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    user.organizationId,
+    user.id,
+    config.deckingType,
+    defaultsVersion,
+  ]);
+
   // Enrich materials with T1 pricing whenever config changes
   useEffect(() => {
     const enrichMaterials = async () => {
       if (user.organizationId && flatMaterials.length > 0) {
-        // Load conversion factors: user-level first, then fall back to org-level
-        let cfMap: Record<string, number> = {};
-        try {
-          // Start with org-level CFs as baseline
-          const orgCFs = await getOrgConversionFactors(user.organizationId);
-          cfMap = extractOrgConversionFactors(orgCFs, 'deck', config.deckingType);
-
-          // Overlay user-level CFs (user overrides take priority per-category)
-          const userDefs = await getUserDefaults(user.id, user.organizationId);
-          const userCFMap = extractConversionFactors(userDefs, 'deck', config.deckingType);
-          cfMap = { ...cfMap, ...userCFMap };
-        } catch (err) {
-          // Could not load conversion factors
-        }
-
         const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(
           flatMaterials,
           user.organizationId,
           'deck',
           config.deckingType,
-          cfMap
+          pricingContext.cfMap,
+          user.id,
+          pricingContext.mergedUserDefaults
         );
         setEnrichedMaterials(enriched);
         setTotalT1Price(total);
@@ -114,7 +167,11 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     config.deckingType,
     config.deckingPattern,
     user.organizationId,
-    flatMaterials.length
+    user.id,
+    flatMaterials.length,
+    pricingContext.cfMap,
+    pricingContext.mergedUserDefaults,
+    defaultsVersion,
   ]);
 
   // Create enriched materials structure for display
@@ -409,7 +466,9 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
             organizationId={user.organizationId}
             userId={user.id}
             plannerType="deck"
-            materialTypes={['spruce', 'treated', 'composite', 'cedar']}
+            materialTypes={[config.deckingType.toLowerCase()]}
+            initialMaterialType={config.deckingType.toLowerCase()}
+            onDefaultsSaved={() => setDefaultsVersion(v => v + 1)}
           />
         )}
       </div>

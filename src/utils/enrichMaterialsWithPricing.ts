@@ -1,5 +1,5 @@
 import { createClient } from './supabase/client';
-import { getProjectWizardDefaults } from './project-wizard-defaults-client';
+import { getProjectWizardDefaults, getUserDefaults } from './project-wizard-defaults-client';
 
 interface MaterialItem {
   category: string;
@@ -34,6 +34,94 @@ interface InventoryItemWithPricing {
   sku?: string;
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function getDescriptionSearchTerms(description: string): string[] {
+  const d = description.toLowerCase();
+
+  if (d.includes('ledger flashing')) return ['ledger', 'flashing'];
+  if (d.includes('ledger board') || d.includes('ledger')) return ['ledger', 'board'];
+  if (d.includes('rim joist')) return ['rim', 'joist'];
+  if (d.includes('joist hanger')) return ['joist', 'hanger'];
+  if (d.includes('joist')) return ['joist'];
+  if (d.includes('beam')) return ['beam'];
+  if (d.includes('post anchor')) return ['post', 'anchor'];
+  if (d.includes('post')) return ['post'];
+  if (d.includes('decking') || d.includes('deck board')) return ['deck', 'board'];
+  if (d.includes('stair stringer') || d.includes('stringer')) return ['stringer'];
+  if (d.includes('stair tread') || (d.includes('stair') && d.includes('tread'))) return ['stair', 'tread'];
+  if (d.includes('railing post')) return ['railing', 'post'];
+  if (d.includes('top rail')) return ['top', 'rail'];
+  if (d.includes('bottom rail')) return ['bottom', 'rail'];
+  if (d.includes('baluster') || d.includes('spindle')) return ['baluster'];
+  if (d.includes('railing bracket')) return ['railing', 'bracket'];
+  if (d.includes('deck screw')) return ['deck', 'screw'];
+  if (d.includes('structural screw')) return ['structural', 'screw'];
+  if (d.includes('lag screw') || d.includes('lag bolt')) return ['lag', 'screw'];
+  if (d.includes('concrete mix')) return ['concrete', 'mix'];
+
+  return d.split(/\s+/).filter(Boolean);
+}
+
+function fallbackMatchInventoryByDescription(
+  material: MaterialItem,
+  inventoryItems: InventoryItemWithPricing[]
+): InventoryItemWithPricing | undefined {
+  if (inventoryItems.length === 0) return undefined;
+
+  const terms = getDescriptionSearchTerms(material.description);
+  const needsLength = material.lumberLength != null;
+
+  let best: { item: InventoryItemWithPricing; score: number } | undefined;
+
+  inventoryItems.forEach((item) => {
+    const name = (item.name || '').toLowerCase();
+    if (!name) return;
+
+    let score = 0;
+    terms.forEach((term) => {
+      if (name.includes(term)) score += 15;
+    });
+
+    const matchedAllTerms = terms.length > 0 && terms.every((term) => name.includes(term));
+    if (matchedAllTerms) score += 40;
+
+    if (needsLength) {
+      const len = material.lumberLength;
+      const lengthTokens = [
+        `(${len}')`,
+        `${len}ft`,
+        `${len} ft`,
+        `${len}-ft`,
+      ];
+
+      if (lengthTokens.some((token) => name.includes(token))) {
+        score += 40;
+      } else {
+        score -= 15;
+      }
+    }
+
+    if (score < 35) return;
+
+    if (!best || score > best.score) {
+      best = { item, score };
+    }
+  });
+
+  return best?.item;
+}
+
 /**
  * Enrich materials with T1 pricing from inventory based on project wizard defaults
  */
@@ -42,49 +130,132 @@ export async function enrichMaterialsWithT1Pricing(
   organizationId: string,
   plannerType: 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen',
   materialType?: string,
-  conversionFactors?: Record<string, number>
+  conversionFactors?: Record<string, number>,
+  userId?: string,
+  userDefaultsOverride?: Record<string, string>
 ): Promise<{ materials: MaterialItem[]; totalT1Price: number }> {
   // Enriching materials with pricing
 
   try {
     const supabase = createClient();
+    const normalizedMaterialType = materialType?.toLowerCase();
     
-    // Get project wizard defaults
-    const defaults = await getProjectWizardDefaults(organizationId);
+    // Get project wizard defaults and optional user-level overrides.
+    const [defaults, userDefaults] = await Promise.all([
+      getProjectWizardDefaults(organizationId),
+      userDefaultsOverride
+        ? Promise.resolve(userDefaultsOverride)
+        : userId
+          ? getUserDefaults(userId, organizationId)
+          : Promise.resolve({}),
+    ]);
 
 
     // Build a lookup map: material_category -> inventory_item_id
     const defaultsMap = new Map<string, string>();
+    const anyTypeDefaultsMap = new Map<string, string>();
     defaults.forEach(def => {
       if (def.planner_type === plannerType && def.inventory_item_id) {
+        const categoryKey = def.material_category.toLowerCase();
+        const defMaterialType = def.material_type?.toLowerCase();
+
+        // Keep a planner-wide fallback map regardless of material type.
+        if (!anyTypeDefaultsMap.has(categoryKey)) {
+          anyTypeDefaultsMap.set(categoryKey, def.inventory_item_id);
+        }
+
         // Match on material_type if both are provided
-        if (materialType && def.material_type) {
-          if (def.material_type.toLowerCase() === materialType.toLowerCase()) {
-            defaultsMap.set(def.material_category.toLowerCase(), def.inventory_item_id);
+        if (normalizedMaterialType) {
+          // Exact type match (highest priority)
+          if (defMaterialType === normalizedMaterialType) {
+            defaultsMap.set(categoryKey, def.inventory_item_id);
           }
-        } else if (!def.material_type || !materialType) {
-          // Include defaults without material_type (they apply to all material types)
-          // OR when no materialType is provided in the function call
-          defaultsMap.set(def.material_category.toLowerCase(), def.inventory_item_id);
+          // Fallback for generic/default entries (only if exact not already set)
+          else if (!defMaterialType || defMaterialType === 'default') {
+            if (!defaultsMap.has(categoryKey)) {
+              defaultsMap.set(categoryKey, def.inventory_item_id);
+            }
+          }
+        } else {
+          // No material type requested: use generic/default entries
+          if (!defMaterialType || defMaterialType === 'default') {
+            defaultsMap.set(categoryKey, def.inventory_item_id);
+          }
         }
       }
     });
 
-    // Get unique inventory item IDs
-    const inventoryItemIds = Array.from(new Set(defaultsMap.values()));
-    
-    if (inventoryItemIds.length === 0) {
-      return { materials, totalT1Price: 0 };
+    // If no defaults matched the current material type, fall back to any planner defaults.
+    if (defaultsMap.size === 0 && anyTypeDefaultsMap.size > 0) {
+      anyTypeDefaultsMap.forEach((itemId, categoryKey) => {
+        defaultsMap.set(categoryKey, itemId);
+      });
     }
 
-    // Fetch inventory items with pricing
-    const { data: inventoryItems, error } = await supabase
-      .from('inventory')
-      .select('id, name, unit_price, cost, sku')
-      .in('id', inventoryItemIds)
-      .eq('organization_id', organizationId);
+    Object.entries(userDefaults).forEach(([key, itemId]) => {
+      if (!itemId || key.endsWith('-cf')) {
+        return;
+      }
 
-    if (error) {
+      const [storedPlannerType, storedMaterialType, ...categoryParts] = key.split('-');
+      if (!storedPlannerType || !storedMaterialType || categoryParts.length === 0) {
+        return;
+      }
+
+      if (storedPlannerType.toLowerCase() !== plannerType) {
+        return;
+      }
+
+      const storedType = storedMaterialType.toLowerCase();
+      const effectiveMaterialType = normalizedMaterialType || 'default';
+      if (storedType !== effectiveMaterialType && storedType !== 'default') {
+        return;
+      }
+
+      const userCategoryKey = categoryParts.join('-').toLowerCase();
+      // Exact material-type user overrides win over generic/default user overrides.
+      if (storedType === effectiveMaterialType) {
+        defaultsMap.set(userCategoryKey, itemId);
+      } else if (!defaultsMap.has(userCategoryKey)) {
+        defaultsMap.set(userCategoryKey, itemId);
+      }
+    });
+
+    // Get unique valid inventory item IDs.
+    const inventoryItemIds = Array.from(new Set(defaultsMap.values())).filter(isUuid);
+    
+    let inventoryItems: Array<{ id: string; name: string; unit_price: number; cost: number; sku?: string }> = [];
+    if (inventoryItemIds.length > 0) {
+      // Fetch defaults-mapped inventory in chunks to avoid large id.in(...) filters.
+      const idChunks = chunkArray(inventoryItemIds, 50);
+
+      for (const idChunk of idChunks) {
+        const { data, error } = await supabase
+          .from('inventory')
+          .select('id, name, unit_price, cost, sku')
+          .in('id', idChunk)
+          .eq('organization_id', organizationId);
+
+        if (!error && data) {
+          inventoryItems = [...inventoryItems, ...data];
+        }
+      }
+    }
+
+    // Fallback: if defaults are missing/stale, load organization inventory for description-based matching.
+    if (inventoryItems.length === 0) {
+      const { data } = await supabase
+        .from('inventory')
+        .select('id, name, unit_price, cost, sku')
+        .eq('organization_id', organizationId)
+        .limit(2500);
+
+      if (data) {
+        inventoryItems = data;
+      }
+    }
+
+    if (inventoryItems.length === 0) {
       return { materials, totalT1Price: 0 };
     }
 
@@ -356,6 +527,14 @@ export async function enrichMaterialsWithT1Pricing(
         }
       }
       
+      // STRATEGY 3: Fallback fuzzy match directly against inventory names.
+      if (!inventoryItem) {
+        inventoryItem = fallbackMatchInventoryByDescription(material, Array.from(inventoryMapById.values()));
+        if (inventoryItem) {
+          matchMethod = 'Fallback name match';
+        }
+      }
+
       if (inventoryItem) {
         // Convert from cents to dollars for T1 pricing (unit_price)
         const t1Price = inventoryItem.unit_price / 100;

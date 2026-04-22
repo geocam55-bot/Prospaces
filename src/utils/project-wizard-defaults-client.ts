@@ -21,6 +21,39 @@ export interface InventoryItem {
   description: string;
 }
 
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function getPlannerDefaultsStorageKey(organizationId: string, userId: string): string {
+  return `planner_defaults_${organizationId}_${userId}`;
+}
+
+function readPlannerDefaultsFromLocalStorage(organizationId: string, userId: string): Record<string, string> {
+  try {
+    const key = getPlannerDefaultsStorageKey(organizationId, userId);
+    const raw = localStorage.getItem(key);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writePlannerDefaultsToLocalStorage(organizationId: string, userId: string, defaults: Record<string, string>): void {
+  try {
+    const key = getPlannerDefaultsStorageKey(organizationId, userId);
+    localStorage.setItem(key, JSON.stringify(defaults));
+  } catch {
+    // best-effort cache only
+  }
+}
+
 /**
  * Get all project wizard defaults for an organization (organization-level only)
  * Routes through the Edge Function server to bypass RLS.
@@ -64,8 +97,8 @@ export async function getUserDefaults(userId: string, organizationId: string): P
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      // No session, returning empty user defaults
-      return {};
+      // No session, fall back to local cache
+      return readPlannerDefaultsFromLocalStorage(organizationId, userId);
     }
 
     const response = await fetch(
@@ -78,19 +111,21 @@ export async function getUserDefaults(userId: string, organizationId: string): P
 
     if (!response.ok) {
       if (response.status === 404 || response.status === 500) {
-        // No defaults found, return empty object
-        return {};
+        // Server has no defaults (or not reachable); use local cache fallback
+        return readPlannerDefaultsFromLocalStorage(organizationId, userId);
       }
       // Error fetching user defaults
-      return {};
+      return readPlannerDefaultsFromLocalStorage(organizationId, userId);
     }
 
     const data = await response.json();
     // User defaults fetched successfully
-    return data.defaults || {};
+    const defaults = data.defaults || {};
+    writePlannerDefaultsToLocalStorage(organizationId, userId, defaults);
+    return defaults;
   } catch (error) {
     // Unexpected error loading user defaults
-    return {};
+    return readPlannerDefaultsFromLocalStorage(organizationId, userId);
   }
 }
 
@@ -99,6 +134,9 @@ export async function getUserDefaults(userId: string, organizationId: string): P
  */
 export async function saveUserDefaults(userId: string, organizationId: string, defaults: Record<string, string>): Promise<boolean> {
   // Saving user defaults
+
+  // Keep a local cache so planner pricing can still resolve defaults if API read fails.
+  writePlannerDefaultsToLocalStorage(organizationId, userId, defaults);
   
   try {
     const supabase = createClient();
@@ -162,6 +200,11 @@ export async function deleteUserDefaults(userId: string, organizationId: string)
     }
 
     // User defaults deleted successfully
+    try {
+      localStorage.removeItem(getPlannerDefaultsStorageKey(organizationId, userId));
+    } catch {
+      // ignore cache cleanup errors
+    }
     return true;
   } catch (error) {
     // Unexpected error deleting user defaults
@@ -348,24 +391,36 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
     // If specific item IDs are provided, fetch only those items
     if (itemIds && itemIds.length > 0) {
       // Fetching specific items
-      
-      const { data, error } = await supabase
-        .from('inventory')
-        .select('id, name, sku, category, description')
-        .eq('organization_id', organizationId)
-        .in('id', itemIds);
 
-      if (error) {
-        if (error.code === 'PGRST205' || error.code === '42P01') {
-          // inventory table does not exist
-          return [];
+      // Large id lists can exceed URL/query limits in PostgREST.
+      // Query in chunks and merge results.
+      const uniqueIds = Array.from(new Set(itemIds.filter(Boolean)));
+      const idChunks = chunkArray(uniqueIds, 50);
+      let allMatchedItems: InventoryItem[] = [];
+
+      for (const idChunk of idChunks) {
+        const { data, error } = await supabase
+          .from('inventory')
+          .select('id, name, sku, category, description')
+          .eq('organization_id', organizationId)
+          .in('id', idChunk);
+
+        if (error) {
+          if (error.code === 'PGRST205' || error.code === '42P01') {
+            // inventory table does not exist
+            return [];
+          }
+          // Continue; partial data is better than blank UI.
+          continue;
         }
-        // Error fetching inventory items
-        return [];
+
+        if (data?.length) {
+          allMatchedItems = [...allMatchedItems, ...data];
+        }
       }
 
       // Fetched specific items
-      return data || [];
+      return allMatchedItems;
     }
 
     // Otherwise, fetch ALL items using pagination

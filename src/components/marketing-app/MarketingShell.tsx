@@ -4,6 +4,7 @@ import {
   BarChart3,
   LayoutDashboard,
   Mail,
+  PenTool,
   MessageSquare,
   Target,
   Zap,
@@ -58,6 +59,10 @@ const LandingPageBuilder = lazyNamed(
   () => import('../marketing/LandingPageBuilder'),
   'LandingPageBuilder'
 );
+const EmailDesignStudio = lazyNamed(
+  () => import('../marketing/EmailDesignStudio'),
+  'EmailDesignStudio'
+);
 const MarketingAnalytics = lazyNamed(
   () => import('../marketing/MarketingAnalytics'),
   'MarketingAnalytics'
@@ -82,6 +87,7 @@ type MarketingView =
   | 'leads'
   | 'journeys'
   | 'pages'
+  | 'email-design'
   | 'referrals'
   | 'analytics'
   | 'profile';
@@ -104,6 +110,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'leads', label: 'Lead Scoring', icon: Target, color: 'text-amber-600', bgColor: 'bg-amber-50' },
   { id: 'journeys', label: 'Journeys', icon: Zap, color: 'text-cyan-600', bgColor: 'bg-cyan-50' },
   { id: 'pages', label: 'Landing Pages', icon: Globe, color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+  { id: 'email-design', label: 'Email Design', icon: PenTool, color: 'text-rose-600', bgColor: 'bg-rose-50' },
   { id: 'referrals', label: 'Referrals', icon: Users, color: 'text-violet-600', bgColor: 'bg-violet-50' },
   { id: 'analytics', label: 'Analytics', icon: TrendingUp, color: 'text-orange-600', bgColor: 'bg-orange-50' },
 ];
@@ -306,6 +313,7 @@ export function MarketingShell({ user, accessToken, onLogout }: MarketingShellPr
           {currentView === 'leads' && <LeadScoring user={currentUser} />}
           {currentView === 'journeys' && <JourneyBuilder user={currentUser} />}
           {currentView === 'pages' && <LandingPageBuilder user={currentUser} accessToken={accessToken} />}
+          {currentView === 'email-design' && <EmailDesignStudio user={currentUser} />}
           {currentView === 'referrals' && <ReferralsTab user={currentUser} />}
           {currentView === 'analytics' && <MarketingAnalytics user={currentUser} />}
           {currentView === 'profile' && (
@@ -386,6 +394,14 @@ function HomeView({
       icon: Globe,
       gradient: 'from-emerald-500 to-teal-600',
       shadow: 'shadow-emerald-500/20',
+    },
+    {
+      id: 'email-design',
+      label: 'Email Design',
+      description: 'Lifecycle Composer with live CRM preview, conditional blocks, MJML-ready output, and campaign draft tracking.',
+      icon: PenTool,
+      gradient: 'from-rose-500 to-orange-600',
+      shadow: 'shadow-rose-500/20',
     },
     {
       id: 'referrals',

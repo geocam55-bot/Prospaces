@@ -3083,6 +3083,57 @@ app.post(`${PREFIX}/org-conversion-factors/:organizationId`, async (c) => {
   }
 });
 
+// ── USER PLANNER DEFAULTS (KV-backed, per-user) ─────────────────────────
+// GET user-level planner defaults
+app.get(`${PREFIX}/user-planner-defaults/:organizationId/:userId`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+
+    const orgId = c.req.param('organizationId');
+    const userId = c.req.param('userId');
+
+    const data = await kv.get(`user_planner_defaults:${orgId}:${userId}`);
+    return c.json({ defaults: data || {} });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// POST (save) user-level planner defaults
+app.post(`${PREFIX}/user-planner-defaults/:organizationId/:userId`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+
+    const orgId = c.req.param('organizationId');
+    const userId = c.req.param('userId');
+    const body = await c.req.json();
+    const defaults = body.defaults || {};
+
+    await kv.set(`user_planner_defaults:${orgId}:${userId}`, defaults);
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// DELETE user-level planner defaults (restore to org defaults)
+app.delete(`${PREFIX}/user-planner-defaults/:organizationId/:userId`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+
+    const orgId = c.req.param('organizationId');
+    const userId = c.req.param('userId');
+
+    await kv.del(`user_planner_defaults:${orgId}:${userId}`);
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ── API KEY MANAGEMENT (Enterprise) ─────────────────────────────────────
 app.route('/', apiKeys);
 
