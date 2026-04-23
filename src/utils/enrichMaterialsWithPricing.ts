@@ -419,6 +419,18 @@ export async function enrichMaterialsWithT1Pricing(
               inventoryItemId = tryMatch('insulation (walls)');
             } else if (description.includes('insulation') && description.includes('ceiling')) {
               inventoryItemId = tryMatch('insulation (ceiling)');
+            } else if (description.includes('drywall board') || (description.includes('drywall') && description.includes('sheet'))) {
+              inventoryItemId = tryMatch('drywall board');
+            } else if (description.includes('joint compound') || description.includes('all-purpose joint compound')) {
+              inventoryItemId = tryMatch('joint compound');
+            } else if (description.includes('drywall tape')) {
+              inventoryItemId = tryMatch('drywall tape');
+            } else if (description.includes('drywall screw')) {
+              inventoryItemId = tryMatch('drywall screws');
+            } else if (description.includes('corner bead')) {
+              inventoryItemId = tryMatch('corner bead');
+            } else if (description.includes('sanding sponge') || description.includes('sanding supplies') || description.includes('sanding sponges/paper')) {
+              inventoryItemId = tryMatch('sanding supplies');
             } else if (description.includes('anchor bolt')) {
               inventoryItemId = tryMatch('anchor bolts');
             } else if (description.includes('hurricane')) {

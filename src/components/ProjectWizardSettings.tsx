@@ -109,6 +109,7 @@ const PLANNER_CATEGORIES = {
       'Hardware': ['16d Common Nails', '8d Common Nails', 'Joist Hangers', 'Hurricane Ties', 'Construction Adhesive', 'Anchor Bolts'],
       'Electrical': ['Sub-Panel', 'Romex Wire', 'LED Shop Lights', 'Outlets (GFCI)', 'Light Switches', 'Junction Boxes'],
       'Insulation': ['Insulation (Walls)', 'Insulation (Ceiling)', 'Vapor Barrier (Insulation)'],
+      'Drywall & Accessories': ['Drywall Board', 'Joint Compound', 'Drywall Tape', 'Drywall Screws', 'Corner Bead', 'Sanding Supplies'],
     },
   },
   shed: {
