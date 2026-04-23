@@ -15,6 +15,7 @@ export function calculateMaterials(config: GarageConfig): GarageMaterials {
   const hardware = calculateHardware(config);
   const electrical = config.hasElectrical ? calculateElectrical(config) : [];
   const insulation = config.isInsulated ? calculateInsulation(config) : [];
+  const drywallAccessories = config.hasDrywallAccessories ? calculateDrywallAccessories(config) : [];
 
   return {
     foundation,
@@ -26,6 +27,7 @@ export function calculateMaterials(config: GarageConfig): GarageMaterials {
     hardware,
     electrical: electrical.length > 0 ? electrical : undefined,
     insulation: insulation.length > 0 ? insulation : undefined,
+    drywallAccessories: drywallAccessories.length > 0 ? drywallAccessories : undefined,
   };
 }
 
@@ -565,6 +567,67 @@ function calculateInsulation(config: GarageConfig): MaterialItem[] {
       quantity: Math.ceil((wallArea + roofArea) / 200),
       unit: 'roll',
       notes: '200 sq ft per roll',
+    },
+  ];
+}
+
+function calculateDrywallAccessories(config: GarageConfig): MaterialItem[] {
+  const { width, length, height } = config;
+  const wallArea = (width + length) * 2 * height;
+  const ceilingArea = width * length;
+
+  // Subtract rough opening area from wall drywall quantity.
+  const openingArea =
+    config.doors.reduce((sum, door) => sum + (door.width * door.height), 0) +
+    config.windows.reduce((sum, window) => sum + (window.width * window.height), 0) +
+    (config.hasWalkDoor ? 21 : 0); // Approx. 3' x 7' walk door opening
+
+  const netWallArea = Math.max(wallArea - openingArea, 0);
+  const totalDrywallArea = netWallArea + ceilingArea;
+  const drywallSheets = Math.ceil((totalDrywallArea * 1.1) / 32); // 10% waste, 4x8 sheets
+
+  return [
+    {
+      category: 'Drywall',
+      description: '1/2" Drywall Board (4x8)',
+      quantity: drywallSheets,
+      unit: 'sheet',
+      notes: `Square Footage for Ceilings: ${Math.ceil(ceilingArea)} sq ft\nSquare Footage for Walls: ${Math.ceil(netWallArea)} sq ft`,
+    },
+    {
+      category: 'Drywall',
+      description: 'All-Purpose Joint Compound (4.5 gal)',
+      quantity: Math.max(1, Math.ceil(drywallSheets / 12)),
+      unit: 'bucket',
+      notes: 'For taping and finish coats',
+    },
+    {
+      category: 'Drywall',
+      description: 'Drywall Tape (250 ft roll)',
+      quantity: Math.max(1, Math.ceil(drywallSheets / 10)),
+      unit: 'roll',
+      notes: 'Paper or fiberglass mesh',
+    },
+    {
+      category: 'Drywall',
+      description: 'Drywall Screws (1-1/4")',
+      quantity: Math.max(1, Math.ceil(drywallSheets / 6)),
+      unit: 'box',
+      notes: 'Coarse thread, approx. 1,000/box',
+    },
+    {
+      category: 'Drywall',
+      description: 'Corner Bead (8 ft)',
+      quantity: Math.max(4, Math.ceil((height * 4) / 8)),
+      unit: 'piece',
+      notes: 'Outside corners',
+    },
+    {
+      category: 'Drywall',
+      description: 'Sanding Sponges/Paper Pack',
+      quantity: Math.max(1, Math.ceil(drywallSheets / 20)),
+      unit: 'pack',
+      notes: 'Finishing prep',
     },
   ];
 }

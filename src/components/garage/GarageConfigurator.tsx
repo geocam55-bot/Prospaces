@@ -5,7 +5,7 @@ import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
-import { Ruler, Home, Hammer, Paintbrush, Zap, Info } from 'lucide-react';
+import { Ruler, Home, Hammer, Paintbrush, Zap, Info, Package } from 'lucide-react';
 import {
   selectLumberLength,
   getLumberLengthDescription,
@@ -272,6 +272,22 @@ export function GarageConfigurator({ config, onChange }: GarageConfiguratorProps
             <Label htmlFor="hasElectrical" className="text-sm font-normal cursor-pointer flex-1 flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5" />
               Electrical (lights & outlets)
+            </Label>
+          </div>
+
+          <div className={`flex items-center space-x-2 px-3 py-2 border-2 rounded-lg cursor-pointer transition-colors ${
+            config.hasDrywallAccessories
+              ? 'border-blue-600 bg-blue-50'
+              : 'border-border hover:border-slate-400 hover:bg-muted'
+          }`}>
+            <Checkbox
+              id="hasDrywallAccessories"
+              checked={Boolean(config.hasDrywallAccessories)}
+              onCheckedChange={(checked) => updateConfig({ hasDrywallAccessories: checked as boolean })}
+            />
+            <Label htmlFor="hasDrywallAccessories" className="text-sm font-normal cursor-pointer flex-1 flex items-center gap-1.5">
+              <Package className="w-3.5 h-3.5" />
+              Drywall and Accessories
             </Label>
           </div>
         </CardContent>
