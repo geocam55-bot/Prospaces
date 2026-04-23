@@ -807,7 +807,9 @@ async function hashPassword(p: string): Promise<string> { return hexEncode(await
 function genToken(): string { const b = new Uint8Array(32); crypto.getRandomValues(b); return hexEncode(b.buffer); }
 function genInvite(): string { const b = new Uint8Array(6); crypto.getRandomValues(b); return hexEncode(b.buffer).toUpperCase(); }
 
-const P = `${PREFIX}/portal`;
+// Legacy portal handlers remain for reference only.
+// Canonical active portal routes are registered via customerPortalAPI(app).
+const P = `${PREFIX}/portal-legacy-disabled`;
 
 app.get(`${P}/crm-messages`, async (c) => {
   try {

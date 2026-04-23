@@ -691,7 +691,7 @@ export function Bids({ user }: BidsProps) {
                 onPreview={handlePreview}
                 onDelete={handleDelete}
                 onEmail={handleEmail}
-                onViewAgreement={user?.role === 'SUPERADMIN' ? handleViewAgreement : undefined}
+                onViewAgreement={user?.role === 'super_admin' ? handleViewAgreement : undefined}
               />
             )}
           </div>
@@ -744,7 +744,7 @@ export function Bids({ user }: BidsProps) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {user?.role === 'SUPERADMIN' && (
+                            {user?.role === 'super_admin' && (
                               <>
                                 <DropdownMenuItem onClick={() => handleViewAgreement(quote)}>
                                   <FileText className="h-4 w-4 mr-2" />
