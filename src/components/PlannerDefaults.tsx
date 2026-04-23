@@ -133,7 +133,7 @@ const PLANNER_CATEGORIES: Record<string, Record<string, Record<string, string[]>
       'Framing - Plates by Length': lumberLengthEntries('Plates'),
       'Framing - Headers by Length': lumberLengthEntries('Headers'),
       'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
-      'Siding': ['House Wrap', 'Siding', 'Trim Boards', 'Fascia Boards'],
+      'Siding': ['House Wrap', 'Siding', 'Outside Corner', 'Inside Corner', 'Starter Strip', 'Undersill', 'F-Trim', 'Soffit', 'Trim Boards', 'Fascia Boards'],
       'Siding - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
       'Doors': ['Garage Door', 'Garage Door Opener', 'Entry Door'],
       'Windows': ['Windows'],

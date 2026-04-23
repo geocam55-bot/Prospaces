@@ -389,6 +389,18 @@ export async function enrichMaterialsWithT1Pricing(
               inventoryItemId = tryMatch('wall sheathing');
             } else if (description.includes('roof sheathing')) {
               inventoryItemId = tryMatch('roof sheathing');
+            } else if (description.includes('outside') && description.includes('corner')) {
+              inventoryItemId = tryMatch('outside corner');
+            } else if (description.includes('inside') && description.includes('corner')) {
+              inventoryItemId = tryMatch('inside corner');
+            } else if (description.includes('starter strip')) {
+              inventoryItemId = tryMatch('starter strip');
+            } else if (description.includes('undersill')) {
+              inventoryItemId = tryMatch('undersill');
+            } else if (description.includes('f-trim') || description.includes('f trim')) {
+              inventoryItemId = tryMatch('f-trim');
+            } else if (description.includes('soffit')) {
+              inventoryItemId = tryMatch('soffit');
             } else if (description.includes('fascia')) {
               inventoryItemId = tryLengthFirst('fascia boards');
             } else if (description.includes('trim')) {
