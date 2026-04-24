@@ -42,6 +42,23 @@ const normalizeStoredKey = (key: string): string => {
 const lumberLengthEntries = (baseName: string): string[] =>
   STANDARD_LUMBER_LENGTHS.map((len) => `${baseName} (${len}')`);
 
+const GARAGE_DEFAULT_CATEGORIES = {
+  'Foundation': ['Concrete Slab', 'Vapor Barrier', 'Gravel Base', 'Rebar', 'Wire Mesh'],
+  'Framing': ['Wall Studs', 'Plates', 'Headers', 'Blocking/Bracing', 'Roof Trusses', 'Wall Sheathing', 'Roof Sheathing'],
+  'Framing - Wall Studs by Length': lumberLengthEntries('Wall Studs'),
+  'Framing - Plates by Length': lumberLengthEntries('Plates'),
+  'Framing - Headers by Length': lumberLengthEntries('Headers'),
+  'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
+  'Siding': ['House Wrap', 'Siding', 'Outside Corner', 'Inside Corner', 'Starter Strip', 'Undersill', 'F-Trim', 'Soffit', 'Trim Boards', 'Fascia Boards'],
+  'Siding - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
+  'Doors': ['Garage Door', 'Garage Door Opener', 'Entry Door'],
+  'Windows': ['Windows'],
+  'Hardware': ['16d Common Nails', '8d Common Nails', 'Joist Hangers', 'Hurricane Ties', 'Construction Adhesive', 'Anchor Bolts'],
+  'Electrical': ['Sub-Panel', 'Romex Wire', 'LED Shop Lights', 'Outlets (GFCI)', 'Light Switches', 'Junction Boxes'],
+  'Insulation': ['Insulation (Walls)', 'Insulation (Ceiling)', 'Vapor Barrier (Insulation)'],
+  'Drywall & Accessories': ['Drywall Board', 'Joint Compound', 'Drywall Tape', 'Drywall Screws', 'Corner Bead', 'Sanding Supplies'],
+};
+
 // Define material categories for each planner type - organized by category sections
 const PLANNER_CATEGORIES = {
   deck: {
@@ -95,21 +112,9 @@ const PLANNER_CATEGORIES = {
     },
   },
   garage: {
-    default: {
-      'Foundation': ['Concrete Slab', 'Vapor Barrier', 'Gravel Base', 'Rebar', 'Wire Mesh'],
-      'Framing': ['Wall Studs', 'Plates', 'Headers', 'Blocking/Bracing', 'Roof Trusses', 'Wall Sheathing', 'Roof Sheathing'],
-      'Framing - Wall Studs by Length': lumberLengthEntries('Wall Studs'),
-      'Framing - Plates by Length': lumberLengthEntries('Plates'),
-      'Framing - Headers by Length': lumberLengthEntries('Headers'),
-      'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
-      'Siding': ['House Wrap', 'Siding', 'Trim Boards', 'Fascia Boards'],
-      'Siding - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
-      'Doors': ['Garage Door', 'Garage Door Opener', 'Entry Door'],
-      'Windows': ['Windows'],
-      'Hardware': ['16d Common Nails', '8d Common Nails', 'Joist Hangers', 'Hurricane Ties', 'Construction Adhesive', 'Anchor Bolts'],
-      'Electrical': ['Sub-Panel', 'Romex Wire', 'LED Shop Lights', 'Outlets (GFCI)', 'Light Switches', 'Junction Boxes'],
-      'Insulation': ['Insulation (Walls)', 'Insulation (Ceiling)', 'Vapor Barrier (Insulation)'],
-    },
+    default: GARAGE_DEFAULT_CATEGORIES,
+    '2x4': GARAGE_DEFAULT_CATEGORIES,
+    '2x6': GARAGE_DEFAULT_CATEGORIES,
   },
   shed: {
     default: {
@@ -192,6 +197,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [orgCFs, setOrgCFs] = useState<Record<string, string>>({});
   const [selectedDeckType, setSelectedDeckType] = useState<'spruce' | 'treated' | 'composite' | 'cedar'>('treated');
+  const [selectedGarageType, setSelectedGarageType] = useState<'2x4' | '2x6'>('2x4');
   const [selectedFinishingType, setSelectedFinishingType] = useState<'mdf' | 'finger_joint' | 'pine'>('mdf');
   const [deckSectionBulkSelections, setDeckSectionBulkSelections] = useState<Record<string, string>>({});
   // Local string state for CF inputs so users can clear & type decimals freely
@@ -279,16 +285,31 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
       // Step 1: Load wizard defaults
       const wizardDefaults = await getProjectWizardDefaults(organizationId);
 
-      // Convert defaults array to lookup object
-      const defaultsMap: Record<string, string> = {};
-      const itemIdsToFetch: string[] = [];
-      
+      // Convert defaults array to lookup object.
+      // If historical duplicates exist (case variants, etc.), keep the newest row.
+      const latestByKey = new Map<string, { inventoryItemId: string; updatedAtTs: number }>();
+
       wizardDefaults.forEach((def) => {
         const key = makeDefaultsKey(def.planner_type, def.material_type || 'default', def.material_category);
-        if (def.inventory_item_id) {
-          defaultsMap[key] = def.inventory_item_id;
-          itemIdsToFetch.push(def.inventory_item_id);
+        if (!def.inventory_item_id) return;
+
+        const updatedAtRaw = (def as unknown as { updated_at?: string }).updated_at;
+        const updatedAtTs = updatedAtRaw ? Date.parse(updatedAtRaw) : 0;
+        const existing = latestByKey.get(key);
+
+        if (!existing || updatedAtTs >= existing.updatedAtTs) {
+          latestByKey.set(key, {
+            inventoryItemId: def.inventory_item_id,
+            updatedAtTs: isNaN(updatedAtTs) ? 0 : updatedAtTs,
+          });
         }
+      });
+
+      const defaultsMap: Record<string, string> = {};
+      const itemIdsToFetch: string[] = [];
+      latestByKey.forEach(({ inventoryItemId }, key) => {
+        defaultsMap[key] = inventoryItemId;
+        itemIdsToFetch.push(inventoryItemId);
       });
       
       setDefaults(defaultsMap);
@@ -410,10 +431,18 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     }
   };
 
+  const shouldFallbackToDefaultForType = (plannerType: string, materialType: string | null): boolean => {
+    if (!materialType) return true;
+    // Keep garage framing-specific defaults independent (2x4 vs 2x6).
+    if (plannerType === 'garage') return false;
+    return true;
+  };
+
   const getDefaultValue = (plannerType: string, materialType: string | null, category: string): string => {
     const key = makeDefaultsKey(plannerType, materialType || 'default', category);
     const fallbackKey = makeDefaultsKey(plannerType, 'default', category);
-    return defaults[key] || defaults[fallbackKey] || 'none';
+    const useFallback = shouldFallbackToDefaultForType(plannerType, materialType);
+    return defaults[key] || (useFallback ? defaults[fallbackKey] : undefined) || 'none';
   };
 
   // Conversion Factor helpers for org-level CFs
@@ -424,7 +453,8 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   const getOrgCF = (plannerType: string, materialType: string | null, category: string): number => {
     const key = getCFKey(plannerType, materialType, category);
     const fallbackKey = getCFKey(plannerType, 'default', category);
-    const val = orgCFs[key] ?? orgCFs[fallbackKey];
+    const useFallback = shouldFallbackToDefaultForType(plannerType, materialType);
+    const val = useFallback ? (orgCFs[key] ?? orgCFs[fallbackKey]) : orgCFs[key];
     return val ? parseFloat(val) || 1 : 1;
   };
 
@@ -676,7 +706,25 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               Garage Planner
             </h3>
             <div className="space-y-6 p-4 bg-background rounded-lg border border-blue-100">
-              {Object.entries(PLANNER_CATEGORIES.garage.default).map(([sectionName, categories]) => {
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                  <div className="space-y-2">
+                    <Label htmlFor="garage-framing-type" className="text-foreground">Garage Framing Type</Label>
+                    <Select value={selectedGarageType} onValueChange={(value: '2x4' | '2x6') => setSelectedGarageType(value)}>
+                      <SelectTrigger id="garage-framing-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2x4">2x4 (Standard)</SelectItem>
+                        <SelectItem value="2x6">2x6 (Better Insulation)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Set inventory defaults for the selected framing type (2x4 or 2x6).
+                    </p>
+                  </div>
+                </div>
+
+                {Object.entries(PLANNER_CATEGORIES.garage[selectedGarageType]).map(([sectionName, categories]) => {
                 const showCF = !isLumberGroup(sectionName);
                 return (
                   <div key={sectionName} className="space-y-3">
@@ -691,22 +739,22 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {categories.map((category) => {
-                        const cfValue = showCF ? getOrgCF('garage', null, category) : 1;
+                        const cfValue = showCF ? getOrgCF('garage', selectedGarageType, category) : 1;
                         return (
                           <div key={category} className="space-y-2">
-                            <Label htmlFor={`garage-${category}`} className="text-foreground">{category}</Label>
+                            <Label htmlFor={`garage-${selectedGarageType}-${category}`} className="text-foreground">{category}</Label>
                             <InventoryCombobox
-                              id={`garage-${category}`}
+                              id={`garage-${selectedGarageType}-${category}`}
                               items={inventoryItems}
-                              value={getDefaultValue('garage', null, category)}
-                              onChange={(value) => handleDefaultChange('garage', null, category, value)}
+                              value={getDefaultValue('garage', selectedGarageType, category)}
+                              onChange={(value) => handleDefaultChange('garage', selectedGarageType, category, value)}
                               placeholder="Select inventory item..."
                             />
                             {showCF && (
                               <div className="flex items-center gap-2">
                                 <Label className="text-xs text-muted-foreground whitespace-nowrap">CF:</Label>
                                 {(() => {
-                                  const cfKey = getCFKey('garage', null, category);
+                                  const cfKey = getCFKey('garage', selectedGarageType, category);
                                   const editVal = cfEditValues[cfKey];
                                   const displayVal = editVal !== undefined ? editVal : (cfValue === 1 ? '' : String(cfValue));
                                   return (
@@ -715,8 +763,8 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         type="text"
                                         inputMode="decimal"
                                         value={displayVal}
-                                        onChange={(e) => handleCFInputChange('garage', null, category, e.target.value)}
-                                        onBlur={() => handleCFInputBlur('garage', null, category)}
+                                        onChange={(e) => handleCFInputChange('garage', selectedGarageType, category, e.target.value)}
+                                        onBlur={() => handleCFInputBlur('garage', selectedGarageType, category)}
                                         placeholder="1"
                                         className="h-7 w-24 text-xs text-foreground"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."

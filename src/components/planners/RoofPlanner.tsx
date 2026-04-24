@@ -312,13 +312,13 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
             <div className="bg-background rounded-lg shadow-sm border border-border p-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 {enrichedMaterials.length > 0 && totalT1Price > 0 ? (
-                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg flex-1 w-full sm:w-auto">
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg flex-1 w-full sm:w-auto">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-orange-700">Total Estimated Cost (Tier 1 Pricing)</p>
-                        <p className="text-xs text-orange-600 mt-1">Based on your organization's default pricing</p>
+                        <p className="text-sm text-purple-700">Total Estimated Cost (Tier 1 Pricing)</p>
+                        <p className="text-xs text-purple-600 mt-1">Based on your organization's default pricing</p>
                       </div>
-                      <p className="text-2xl font-semibold text-orange-900">${totalT1Price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="text-2xl font-semibold text-purple-900">${totalT1Price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                   </div>
                 ) : <div className="flex-1"></div>}

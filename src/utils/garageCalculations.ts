@@ -5,6 +5,9 @@ import {
   getLumberLengthDescription,
 } from './lumberLengths';
 
+const WALK_DOOR_WIDTH_FEET = 3;
+const WALK_DOOR_HEIGHT_FEET = 6 + 8 / 12;
+
 export function calculateMaterials(config: GarageConfig): GarageMaterials {
   const foundation = calculateFoundation(config);
   const framing = calculateFraming(config);
@@ -15,6 +18,7 @@ export function calculateMaterials(config: GarageConfig): GarageMaterials {
   const hardware = calculateHardware(config);
   const electrical = config.hasElectrical ? calculateElectrical(config) : [];
   const insulation = config.isInsulated ? calculateInsulation(config) : [];
+  const drywallAccessories = config.hasDrywallAccessories ? calculateDrywallAccessories(config) : [];
 
   return {
     foundation,
@@ -26,6 +30,7 @@ export function calculateMaterials(config: GarageConfig): GarageMaterials {
     hardware,
     electrical: electrical.length > 0 ? electrical : undefined,
     insulation: insulation.length > 0 ? insulation : undefined,
+    drywallAccessories: drywallAccessories.length > 0 ? drywallAccessories : undefined,
   };
 }
 
@@ -143,7 +148,7 @@ function calculateFraming(config: GarageConfig): MaterialItem[] {
   const blockingLength = selectLumberLength(Math.min(height, 8));
   materials.push({
     category: 'Framing',
-    description: `2x4 x ${blockingLength}' Blocking/Bracing`,
+    description: `${wallFraming} x ${blockingLength}' Blocking/Bracing`,
     quantity: Math.ceil(perimeterFeet / 4),
     unit: 'piece',
     notes: 'Fire blocking and lateral bracing',
@@ -222,6 +227,7 @@ function calculateRoofing(config: GarageConfig): MaterialItem[] {
   const { roofingMaterial } = config;
   const roofArea = calculateRoofArea(config);
   const squares = roofArea / 100; // roofing is sold by the square (100 sq ft)
+  const shingleBundles = roofArea / 32.3;
 
   const materials: MaterialItem[] = [];
 
@@ -230,7 +236,7 @@ function calculateRoofing(config: GarageConfig): MaterialItem[] {
     category: 'Roofing',
     description: '15# Felt Underlayment',
     quantity: Math.ceil(roofArea / 400),
-    unit: 'roll',
+    unit: 'Roll',
     notes: '400 sq ft per roll',
   });
 
@@ -240,9 +246,9 @@ function calculateRoofing(config: GarageConfig): MaterialItem[] {
       materials.push({
         category: 'Roofing',
         description: 'Architectural Shingles',
-        quantity: Math.ceil(squares),
-        unit: 'square',
-        notes: `${roofArea.toFixed(0)} sq ft total`,
+        quantity: Math.ceil(shingleBundles),
+        unit: 'Bdl.',
+        notes: `${roofArea.toFixed(0)} sq ft total (${squares.toFixed(1)} squares @ 32.3 sq ft per bundle)`,
       });
       break;
     case 'metal':
@@ -269,7 +275,7 @@ function calculateRoofing(config: GarageConfig): MaterialItem[] {
     category: 'Roofing',
     description: 'Ridge Cap',
     quantity: Math.ceil(config.length / 3),
-    unit: 'bundle',
+    unit: 'Bdl.',
     notes: '3 ft coverage per bundle',
   });
 
@@ -278,7 +284,7 @@ function calculateRoofing(config: GarageConfig): MaterialItem[] {
     category: 'Roofing',
     description: 'Drip Edge',
     quantity: Math.ceil((config.width + config.length) * 2 / 10),
-    unit: 'piece',
+    unit: 'Each',
     notes: '10 ft lengths',
   });
 
@@ -287,7 +293,7 @@ function calculateRoofing(config: GarageConfig): MaterialItem[] {
     category: 'Roofing',
     description: 'Roofing Nails (1-1/4")',
     quantity: Math.ceil(squares),
-    unit: 'box',
+    unit: 'Box',
     notes: '1 box per square',
   });
 
@@ -298,9 +304,13 @@ function calculateSiding(config: GarageConfig): MaterialItem[] {
   const { width, length, height, sidingType } = config;
   const perimeterFeet = (width + length) * 2;
   const wallArea = perimeterFeet * height;
+  const walkDoorArea = config.hasWalkDoor ? WALK_DOOR_WIDTH_FEET * WALK_DOOR_HEIGHT_FEET : 0;
+  const walkDoorLinearFeet = config.hasWalkDoor ? WALK_DOOR_WIDTH_FEET : 0;
+  const doorAndWindowWidths = config.doors.reduce((total, door) => total + door.width, walkDoorLinearFeet) +
+    config.windows.reduce((total, window) => total + window.width, 0);
   
   // Subtract door and window areas
-  let openingArea = 0;
+  let openingArea = walkDoorArea;
   config.doors.forEach(door => {
     openingArea += door.width * door.height;
   });
@@ -317,7 +327,7 @@ function calculateSiding(config: GarageConfig): MaterialItem[] {
     category: 'Siding',
     description: 'House Wrap (Tyvek)',
     quantity: Math.ceil(wallArea / 200),
-    unit: 'roll',
+    unit: 'Roll',
     notes: '200 sq ft per roll',
   });
 
@@ -327,10 +337,48 @@ function calculateSiding(config: GarageConfig): MaterialItem[] {
       materials.push({
         category: 'Siding',
         description: 'Vinyl Siding',
-        quantity: Math.ceil(netWallArea / 100),
-        unit: 'square',
-        notes: `${netWallArea.toFixed(0)} sq ft`,
+        quantity: Math.ceil(netWallArea / 200),
+        unit: 'Box',
+        notes: `${netWallArea.toFixed(0)} sq ft net wall area (2 squares per box)`,
       });
+
+      materials.push(
+        {
+          category: 'Siding',
+          description: 'Outside Corner Board',
+          quantity: 4 * Math.ceil(height / 10),
+          unit: 'Each',
+          notes: '10 ft lengths for exterior corners',
+        },
+        {
+          category: 'Siding',
+          description: 'Starter Strip',
+          quantity: Math.ceil(perimeterFeet / 12),
+          unit: 'Each',
+          notes: `${Math.round(perimeterFeet)} linear feet at base of walls (12 ft lengths)`,
+        },
+        {
+          category: 'Siding',
+          description: 'Undersill',
+          quantity: Math.ceil(doorAndWindowWidths / 12),
+          unit: 'Each',
+          notes: `${doorAndWindowWidths.toFixed(1)} linear feet under windows and doors (12 ft lengths)`,
+        },
+        {
+          category: 'Siding',
+          description: 'F-Trim',
+          quantity: Math.ceil((perimeterFeet * 2) / 12),
+          unit: 'Each',
+          notes: `${Math.round(perimeterFeet * 2)} linear feet for inside and outside soffit edges (12 ft lengths)`,
+        },
+        {
+          category: 'Siding',
+          description: 'Soffit',
+          quantity: Math.ceil(perimeterFeet / 12),
+          unit: 'Each',
+          notes: `${(perimeterFeet * (16 / 12)).toFixed(0)} sq ft of soffit coverage (16 sq ft per 12 ft piece)`,
+        }
+      );
       break;
     case 'wood':
       materials.push({
@@ -540,17 +588,18 @@ function calculateElectrical(config: GarageConfig): MaterialItem[] {
 }
 
 function calculateInsulation(config: GarageConfig): MaterialItem[] {
-  const { width, length, height } = config;
+  const { width, length, height, wallFraming } = config;
   const wallArea = (width + length) * 2 * height;
   const roofArea = calculateRoofArea(config);
+  const wallInsulationRValue = wallFraming === '2x6' ? 'R-19' : 'R-13';
 
   return [
     {
       category: 'Insulation',
-      description: 'R-13 Fiberglass Batts (Walls)',
+      description: `${wallInsulationRValue} Fiberglass Batts (Walls)`,
       quantity: Math.ceil(wallArea / 100),
       unit: 'bag',
-      notes: '100 sq ft per bag',
+      notes: `100 sq ft per bag (${wallFraming} wall cavity)`,
     },
     {
       category: 'Insulation',
@@ -565,6 +614,67 @@ function calculateInsulation(config: GarageConfig): MaterialItem[] {
       quantity: Math.ceil((wallArea + roofArea) / 200),
       unit: 'roll',
       notes: '200 sq ft per roll',
+    },
+  ];
+}
+
+function calculateDrywallAccessories(config: GarageConfig): MaterialItem[] {
+  const { width, length, height } = config;
+  const wallArea = (width + length) * 2 * height;
+  const ceilingArea = width * length;
+
+  // Subtract rough opening area from wall drywall quantity.
+  const openingArea =
+    config.doors.reduce((sum, door) => sum + (door.width * door.height), 0) +
+    config.windows.reduce((sum, window) => sum + (window.width * window.height), 0) +
+    (config.hasWalkDoor ? 21 : 0); // Approx. 3' x 7' walk door opening
+
+  const netWallArea = Math.max(wallArea - openingArea, 0);
+  const totalDrywallArea = netWallArea + ceilingArea;
+  const drywallSheets = Math.ceil((totalDrywallArea * 1.1) / 32); // 10% waste, 4x8 sheets
+
+  return [
+    {
+      category: 'Drywall',
+      description: '1/2" Drywall Board (4x8)',
+      quantity: drywallSheets,
+      unit: 'sheet',
+      notes: `Square Footage for Ceilings: ${Math.ceil(ceilingArea)} sq ft\nSquare Footage for Walls: ${Math.ceil(netWallArea)} sq ft`,
+    },
+    {
+      category: 'Drywall',
+      description: 'All-Purpose Joint Compound (4.5 gal)',
+      quantity: Math.max(1, Math.ceil(drywallSheets / 12)),
+      unit: 'bucket',
+      notes: 'For taping and finish coats',
+    },
+    {
+      category: 'Drywall',
+      description: 'Drywall Tape (250 ft roll)',
+      quantity: Math.max(1, Math.ceil(drywallSheets / 10)),
+      unit: 'roll',
+      notes: 'Paper or fiberglass mesh',
+    },
+    {
+      category: 'Drywall',
+      description: 'Drywall Screws (1-1/4")',
+      quantity: Math.max(1, Math.ceil(drywallSheets / 6)),
+      unit: 'box',
+      notes: 'Coarse thread, approx. 1,000/box',
+    },
+    {
+      category: 'Drywall',
+      description: 'Corner Bead (8 ft)',
+      quantity: Math.max(4, Math.ceil((height * 4) / 8)),
+      unit: 'piece',
+      notes: 'Outside corners',
+    },
+    {
+      category: 'Drywall',
+      description: 'Sanding Sponges/Paper Pack',
+      quantity: Math.max(1, Math.ceil(drywallSheets / 20)),
+      unit: 'pack',
+      notes: 'Finishing prep',
     },
   ];
 }

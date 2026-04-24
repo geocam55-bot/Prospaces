@@ -1,21 +1,21 @@
 import React from 'react';
 import { RoofMaterials } from '../../types/roof';
+import { Square, Layers, Home, Triangle, ShieldAlert, Wind, Wrench } from 'lucide-react';
 
 interface RoofMaterialsListProps {
   materials: RoofMaterials;
   compact?: boolean;
 }
 
-/** Format quantity display with conversion factor info */
-function formatQty(item: any): React.ReactNode {
+/** Render quantity with conversion context when applicable */
+function QtyCell({ item }: { item: any }) {
   if (item.conversionFactor && item.conversionFactor !== 1 && item.convertedQuantity != null) {
     const displayQty = item.convertedQuantity < 1
       ? item.convertedQuantity.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')
       : item.convertedQuantity.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
     return (
-      <>
+      <div className="text-right">
         <span className="text-amber-700 font-semibold">{displayQty}</span>{' '}
-        <span className="text-amber-700">{item.convertedUnit || 'units'}</span>
         {item.orderQuantity != null && item.orderQuantity !== item.convertedQuantity && (
           <span className="block text-xs text-muted-foreground">
             Order: {item.orderQuantity} {item.convertedUnit || 'units'}
@@ -24,113 +24,125 @@ function formatQty(item: any): React.ReactNode {
         <span className="block text-xs text-amber-600">
           ({item.quantity} {item.unit} × {item.conversionFactor})
         </span>
-      </>
+      </div>
     );
   }
-  return <>{item.quantity} {item.unit}</>;
+  return <span>{item.quantity}</span>;
+}
+
+/** Render unit cell with converted unit when conversion is applied */
+function UnitCell({ item }: { item: any }) {
+  if (item.conversionFactor && item.conversionFactor !== 1 && item.convertedUnit) {
+    return <span className="text-amber-700 font-medium">{item.convertedUnit}</span>;
+  }
+  return <span>{item.unit}</span>;
 }
 
 export function RoofMaterialsList({ materials, compact = false }: RoofMaterialsListProps) {
-  const renderMaterialSection = (title: string, items: any[], colorClass: string) => {
-    // Filter out items with zero quantity
-    const nonZeroItems = items.filter(item => item.quantity > 0);
-    if (nonZeroItems.length === 0) return null;
+  const categories = [
+    { key: 'roofDeck', label: 'Roof Deck', icon: Square, accent: 'text-blue-600', card: 'bg-blue-50 border-blue-200', items: materials.roofDeck || [] },
+    { key: 'underlayment', label: 'Underlayment', icon: Layers, accent: 'text-purple-600', card: 'bg-purple-50 border-purple-200', items: materials.underlayment || [] },
+    { key: 'shingles', label: 'Shingles', icon: Home, accent: 'text-orange-600', card: 'bg-orange-50 border-orange-200', items: materials.shingles || [] },
+    { key: 'ridgeAndHip', label: 'Ridge & Hip', icon: Triangle, accent: 'text-red-600', card: 'bg-red-50 border-red-200', items: materials.ridgeAndHip || [] },
+    { key: 'flashing', label: 'Flashing', icon: ShieldAlert, accent: 'text-yellow-600', card: 'bg-yellow-50 border-yellow-200', items: materials.flashing || [] },
+    { key: 'ventilation', label: 'Ventilation', icon: Wind, accent: 'text-green-600', card: 'bg-green-50 border-green-200', items: materials.ventilation || [] },
+    { key: 'hardware', label: 'Hardware & Accessories', icon: Wrench, accent: 'text-amber-600', card: 'bg-amber-50 border-amber-200', items: materials.hardware || [] },
+  ];
 
+  const allItems = categories.flatMap(category => category.items || []);
+
+  if (compact) {
     return (
-      <div className="mb-6 last:mb-0">
-        <h3 className={`text-sm font-semibold mb-3 pb-2 border-b-2 ${colorClass}`}>
-          {title}
-        </h3>
-        <div className="space-y-2">
-          {nonZeroItems.map((item, index) => (
-            <div
-              key={index}
-              className={`${compact ? 'py-1' : 'p-3'} bg-muted rounded-lg border border-border`}
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="text-sm text-foreground">
-                    {item.description}
-                  </div>
-                  {item.notes && !compact && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {item.notes}
-                    </div>
-                  )}
-                  {item.sku && !compact && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      SKU: {item.sku}
-                    </div>
-                  )}
+      <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {categories.map((category) => {
+            const nonZeroItems = category.items.filter(item => item.quantity > 0);
+            if (nonZeroItems.length === 0) return null;
+
+            const Icon = category.icon;
+            return (
+              <div key={category.key} className={`${category.card} border rounded-lg p-3`}>
+                <div className="flex items-center gap-2 text-foreground mb-1">
+                  <Icon className="w-4 h-4" />
+                  <span className="text-xs">{category.label}</span>
                 </div>
-                <div className="text-right ml-4">
-                  {formatQty(item)}
-                  {item.unitPrice && !compact && (
-                    <div className="text-xs text-muted-foreground">
-                      ${item.unitPrice.toFixed(2)} / {item.conversionFactor && item.conversionFactor !== 1 ? (item.convertedUnit || 'box') : item.unit}
-                    </div>
-                  )}
-                  {item.totalCost && (
-                    <div className="text-sm font-semibold text-orange-600 mt-1">
-                      ${item.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                  )}
-                </div>
+                <div className="text-foreground">{nonZeroItems.length} items</div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+        </div>
+
+        <div className="bg-muted border border-border rounded-lg p-3">
+          <div className="flex justify-between items-center">
+            <span className="text-foreground text-sm">Total Material Items:</span>
+            <span className="text-foreground">{allItems.length}</span>
+          </div>
         </div>
       </div>
     );
-  };
-
-  // Calculate total cost if available
-  const totalCost = [...materials.roofDeck, ...materials.underlayment, ...materials.shingles, ...materials.ridgeAndHip, ...materials.flashing, ...materials.ventilation, ...materials.hardware]
-    .reduce((sum, item) => sum + (item.totalCost || 0), 0);
+  }
 
   return (
-    <div className={compact ? "max-h-[600px] overflow-y-auto pr-2" : ""}>
-      {totalCost > 0 && (
-        <div className="mb-6 p-4 bg-orange-50 border-2 border-orange-300 rounded-lg">
-          <div className="flex justify-between items-center">
-            <div>
-              <div className="text-sm text-orange-700">Total Materials Cost</div>
-              {!compact && (
-                <div className="text-xs text-orange-600 mt-1">
-                  Based on current pricing
-                </div>
-              )}
+    <div className="space-y-6 print:space-y-4">
+      <div className="flex items-center justify-between print:hidden">
+        <h2 className="text-foreground">Bill of Materials</h2>
+        <span className="text-sm text-muted-foreground">{allItems.length} total items</span>
+      </div>
+
+      {categories.map((category) => {
+        const nonZeroItems = category.items.filter(item => item.quantity > 0);
+        if (nonZeroItems.length === 0) return null;
+
+        const Icon = category.icon;
+        return (
+          <div key={category.key}>
+            <div className="flex items-center gap-2 mb-3">
+              <Icon className={`w-5 h-5 ${category.accent}`} />
+              <h3 className="text-foreground">{category.label}</h3>
             </div>
-            <div className="text-2xl font-bold text-orange-900">
-              ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div className="overflow-x-auto print:overflow-visible">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2 px-3 text-sm text-muted-foreground">SKU</th>
+                    <th className="text-left py-2 px-3 text-sm text-muted-foreground">Description</th>
+                    <th className="text-right py-2 px-3 text-sm text-muted-foreground">Qty</th>
+                    <th className="text-left py-2 px-3 text-sm text-muted-foreground">Unit</th>
+                    <th className="text-right py-2 px-3 text-sm text-muted-foreground">Unit Price</th>
+                    <th className="text-right py-2 px-3 text-sm text-muted-foreground">Total</th>
+                    <th className="text-left py-2 px-3 text-sm text-muted-foreground">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nonZeroItems.map((item, index) => (
+                    <tr key={index} className="border-b border-border hover:bg-muted">
+                      <td className="py-2 px-3 text-muted-foreground text-sm">{item.sku || '—'}</td>
+                      <td className="py-2 px-3 text-foreground">{item.description}</td>
+                      <td className="py-2 px-3 text-foreground text-right"><QtyCell item={item} /></td>
+                      <td className="py-2 px-3 text-muted-foreground"><UnitCell item={item} /></td>
+                      <td className="py-2 px-3 text-foreground text-right">{item.unitPrice != null ? `$${item.unitPrice.toFixed(2)}` : '—'}</td>
+                      <td className="py-2 px-3 text-foreground text-right">{item.totalCost != null ? `$${item.totalCost.toFixed(2)}` : '—'}</td>
+                      <td className="py-2 px-3 text-muted-foreground text-sm">{item.notes || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })}
 
-      {renderMaterialSection('1. Roof Deck', materials.roofDeck, 'border-blue-300 text-blue-900')}
-      {renderMaterialSection('2. Underlayment', materials.underlayment, 'border-purple-300 text-purple-900')}
-      {renderMaterialSection('3. Shingles', materials.shingles, 'border-orange-300 text-orange-900')}
-      {renderMaterialSection('4. Ridge & Hip', materials.ridgeAndHip, 'border-red-300 text-red-900')}
-      {renderMaterialSection('5. Flashing', materials.flashing, 'border-yellow-300 text-yellow-900')}
-      {renderMaterialSection('6. Ventilation', materials.ventilation, 'border-green-300 text-green-900')}
-      {renderMaterialSection('7. Hardware & Accessories', materials.hardware, 'border-border text-foreground')}
-
-      {!compact && (
-        <div className="mt-6 p-4 bg-muted rounded-lg border border-border">
-          <h4 className="text-sm font-semibold text-foreground mb-2">
-            Important Notes
-          </h4>
-          <ul className="text-xs text-foreground space-y-1">
-            <li>• Material calculations include waste factor as configured</li>
-            <li>• Verify all measurements before ordering materials</li>
-            <li>• Check local building codes for specific requirements</li>
-            <li>• Consider weather conditions and roof accessibility</li>
-            <li>• Professional installation recommended for safety</li>
-            <li>• Additional materials may be needed for repairs or special conditions</li>
-          </ul>
-        </div>
-      )}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 print:border-2 print:border-amber-600">
+        <h4 className="text-amber-900 mb-2">Important Notes</h4>
+        <ul className="text-amber-800 text-sm space-y-1 list-disc list-inside">
+          <li>Material calculations include waste factor as configured</li>
+          <li>Verify all measurements before ordering materials</li>
+          <li>Check local building codes for specific requirements</li>
+          <li>Consider weather conditions and roof accessibility</li>
+          <li>Professional installation recommended for safety</li>
+          <li>Additional materials may be needed for repairs or special conditions</li>
+        </ul>
+      </div>
     </div>
   );
 }

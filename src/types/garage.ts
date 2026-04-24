@@ -49,6 +49,7 @@ export interface GarageConfig {
   hasAtticTrusses: boolean; // storage space above
   isInsulated: boolean;
   hasElectrical: boolean;
+  hasDrywallAccessories: boolean;
   
   // Unit
   unit: Unit;
@@ -84,6 +85,7 @@ export interface GarageMaterials {
   hardware: MaterialItem[];
   electrical?: MaterialItem[];
   insulation?: MaterialItem[];
+  drywallAccessories?: MaterialItem[];
   totalEstimatedCost?: number;
 }
 

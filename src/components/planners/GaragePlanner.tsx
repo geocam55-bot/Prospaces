@@ -76,6 +76,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
     hasAtticTrusses: false,
     isInsulated: true,
     hasElectrical: true,
+    hasDrywallAccessories: true,
     unit: 'feet',
   });
 
@@ -104,6 +105,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
     ...materials.windows,
     ...(materials.insulation || []),
     ...(materials.electrical || []),
+    ...(materials.drywallAccessories || []),
   ];
 
   // Auto-sync garage doors with bay count
@@ -140,11 +142,11 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
         try {
           // Start with org-level CFs as baseline
           const orgCFs = await getOrgConversionFactors(user.organizationId);
-          cfMap = extractOrgConversionFactors(orgCFs, 'garage');
+          cfMap = extractOrgConversionFactors(orgCFs, 'garage', config.wallFraming);
 
           // Overlay user-level CFs (user overrides take priority per-category)
           const userDefs = await getUserDefaults(user.id, user.organizationId);
-          const userCFMap = extractConversionFactors(userDefs, 'garage');
+          const userCFMap = extractConversionFactors(userDefs, 'garage', config.wallFraming);
           cfMap = { ...cfMap, ...userCFMap };
         } catch (err) {
           // Could not load conversion factors
@@ -154,7 +156,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
           flatMaterials,
           user.organizationId,
           'garage',
-          undefined,
+          config.wallFraming,
           cfMap,
           user.id
         );
@@ -187,6 +189,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
       windows: materials.windows.map(item => enrichedMap.get(item.description) || item),
       insulation: (materials.insulation || []).map(item => enrichedMap.get(item.description) || item),
       electrical: (materials.electrical || []).map(item => enrichedMap.get(item.description) || item),
+      drywallAccessories: (materials.drywallAccessories || []).map(item => enrichedMap.get(item.description) || item),
     };
   };
 
@@ -378,13 +381,13 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
             <div className="bg-background rounded-lg shadow-sm border border-border p-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 {enrichedMaterials.length > 0 && totalT1Price > 0 ? (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex-1 w-full sm:w-auto">
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg flex-1 w-full sm:w-auto">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-blue-700">Total Estimated Cost (Tier 1 Pricing)</p>
-                        <p className="text-xs text-blue-600 mt-1">Based on your organization's default pricing</p>
+                        <p className="text-sm text-purple-700">Total Estimated Cost (Tier 1 Pricing)</p>
+                        <p className="text-xs text-purple-600 mt-1">Based on your organization's default pricing</p>
                       </div>
-                      <p className="text-2xl font-semibold text-blue-900">${totalT1Price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="text-2xl font-semibold text-purple-900">${totalT1Price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                   </div>
                 ) : <div className="flex-1"></div>}
@@ -432,6 +435,8 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
             organizationId={user.organizationId}
             userId={user.id}
             plannerType="garage"
+            materialTypes={['2x4', '2x6']}
+            initialMaterialType={config.wallFraming}
             onDefaultsSaved={() => setDefaultsVersion(v => v + 1)}
           />
         )}
