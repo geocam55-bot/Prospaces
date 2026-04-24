@@ -142,11 +142,11 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
         try {
           // Start with org-level CFs as baseline
           const orgCFs = await getOrgConversionFactors(user.organizationId);
-          cfMap = extractOrgConversionFactors(orgCFs, 'garage');
+          cfMap = extractOrgConversionFactors(orgCFs, 'garage', config.wallFraming);
 
           // Overlay user-level CFs (user overrides take priority per-category)
           const userDefs = await getUserDefaults(user.id, user.organizationId);
-          const userCFMap = extractConversionFactors(userDefs, 'garage');
+          const userCFMap = extractConversionFactors(userDefs, 'garage', config.wallFraming);
           cfMap = { ...cfMap, ...userCFMap };
         } catch (err) {
           // Could not load conversion factors
@@ -156,7 +156,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
           flatMaterials,
           user.organizationId,
           'garage',
-          undefined,
+          config.wallFraming,
           cfMap,
           user.id
         );
@@ -435,6 +435,8 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
             organizationId={user.organizationId}
             userId={user.id}
             plannerType="garage"
+            materialTypes={['2x4', '2x6']}
+            initialMaterialType={config.wallFraming}
             onDefaultsSaved={() => setDefaultsVersion(v => v + 1)}
           />
         )}

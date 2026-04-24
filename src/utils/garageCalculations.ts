@@ -148,7 +148,7 @@ function calculateFraming(config: GarageConfig): MaterialItem[] {
   const blockingLength = selectLumberLength(Math.min(height, 8));
   materials.push({
     category: 'Framing',
-    description: `2x4 x ${blockingLength}' Blocking/Bracing`,
+    description: `${wallFraming} x ${blockingLength}' Blocking/Bracing`,
     quantity: Math.ceil(perimeterFeet / 4),
     unit: 'piece',
     notes: 'Fire blocking and lateral bracing',
@@ -588,17 +588,18 @@ function calculateElectrical(config: GarageConfig): MaterialItem[] {
 }
 
 function calculateInsulation(config: GarageConfig): MaterialItem[] {
-  const { width, length, height } = config;
+  const { width, length, height, wallFraming } = config;
   const wallArea = (width + length) * 2 * height;
   const roofArea = calculateRoofArea(config);
+  const wallInsulationRValue = wallFraming === '2x6' ? 'R-19' : 'R-13';
 
   return [
     {
       category: 'Insulation',
-      description: 'R-13 Fiberglass Batts (Walls)',
+      description: `${wallInsulationRValue} Fiberglass Batts (Walls)`,
       quantity: Math.ceil(wallArea / 100),
       unit: 'bag',
-      notes: '100 sq ft per bag',
+      notes: `100 sq ft per bag (${wallFraming} wall cavity)`,
     },
     {
       category: 'Insulation',

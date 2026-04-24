@@ -73,6 +73,23 @@ const isLumberGroup = (groupName: string): boolean => {
 const lumberLengthEntries = (baseName: string): string[] =>
   STANDARD_LUMBER_LENGTHS.map((len) => `${baseName} (${len}')`);
 
+const GARAGE_DEFAULT_CATEGORIES = {
+  'Foundation': ['Concrete Slab', 'Vapor Barrier', 'Gravel Base', 'Rebar', 'Wire Mesh'],
+  'Framing': ['Wall Studs', 'Plates', 'Headers', 'Blocking/Bracing', 'Roof Trusses', 'Wall Sheathing', 'Roof Sheathing'],
+  'Framing - Wall Studs by Length': lumberLengthEntries('Wall Studs'),
+  'Framing - Plates by Length': lumberLengthEntries('Plates'),
+  'Framing - Headers by Length': lumberLengthEntries('Headers'),
+  'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
+  'Siding': ['House Wrap', 'Siding', 'Outside Corner', 'Inside Corner', 'Starter Strip', 'Undersill', 'F-Trim', 'Soffit', 'Trim Boards', 'Fascia Boards'],
+  'Siding - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
+  'Doors': ['Garage Door', 'Garage Door Opener', 'Entry Door'],
+  'Windows': ['Windows'],
+  'Hardware': ['16d Common Nails', '8d Common Nails', 'Joist Hangers', 'Hurricane Ties', 'Construction Adhesive', 'Anchor Bolts'],
+  'Electrical': ['Sub-Panel', 'Romex Wire', 'LED Shop Lights', 'Outlets (GFCI)', 'Light Switches', 'Junction Boxes'],
+  'Insulation': ['Insulation (Walls)', 'Insulation (Ceiling)', 'Vapor Barrier (Insulation)'],
+  'Drywall & Accessories': ['Drywall Board', 'Joint Compound', 'Drywall Tape', 'Drywall Screws', 'Corner Bead', 'Sanding Supplies'],
+};
+
 // Define material categories for each planner type
 const PLANNER_CATEGORIES: Record<string, Record<string, Record<string, string[]>>> = {
   deck: {
@@ -126,22 +143,9 @@ const PLANNER_CATEGORIES: Record<string, Record<string, Record<string, string[]>
     },
   },
   garage: {
-    default: {
-      'Foundation': ['Concrete Slab', 'Vapor Barrier', 'Gravel Base', 'Rebar', 'Wire Mesh'],
-      'Framing': ['Wall Studs', 'Plates', 'Headers', 'Blocking/Bracing', 'Roof Trusses', 'Wall Sheathing', 'Roof Sheathing'],
-      'Framing - Wall Studs by Length': lumberLengthEntries('Wall Studs'),
-      'Framing - Plates by Length': lumberLengthEntries('Plates'),
-      'Framing - Headers by Length': lumberLengthEntries('Headers'),
-      'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
-      'Siding': ['House Wrap', 'Siding', 'Outside Corner', 'Inside Corner', 'Starter Strip', 'Undersill', 'F-Trim', 'Soffit', 'Trim Boards', 'Fascia Boards'],
-      'Siding - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
-      'Doors': ['Garage Door', 'Garage Door Opener', 'Entry Door'],
-      'Windows': ['Windows'],
-      'Hardware': ['16d Common Nails', '8d Common Nails', 'Joist Hangers', 'Hurricane Ties', 'Construction Adhesive', 'Anchor Bolts'],
-      'Electrical': ['Sub-Panel', 'Romex Wire', 'LED Shop Lights', 'Outlets (GFCI)', 'Light Switches', 'Junction Boxes'],
-      'Insulation': ['Insulation (Walls)', 'Insulation (Ceiling)', 'Vapor Barrier (Insulation)'],
-      'Drywall & Accessories': ['Drywall Board', 'Joint Compound', 'Drywall Tape', 'Drywall Screws', 'Corner Bead', 'Sanding Supplies'],
-    },
+    default: GARAGE_DEFAULT_CATEGORIES,
+    '2x4': GARAGE_DEFAULT_CATEGORIES,
+    '2x6': GARAGE_DEFAULT_CATEGORIES,
   },
   shed: {
     default: {
@@ -237,6 +241,24 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
   // Local string state for CF inputs so users can clear & type freely (e.g. "0.04")
   const [cfEditValues, setCfEditValues] = useState<Record<string, string>>({});
 
+  const shouldFallbackToDefaultForType = (materialType: string | null): boolean => {
+    if (!materialType) return true;
+    // Keep garage framing-specific defaults independent (2x4 vs 2x6).
+    if (plannerType === 'garage') return false;
+    return true;
+  };
+
+  const getMaterialTypeLabel = (type: string): string => {
+    const normalizedType = type.toLowerCase();
+
+    if (plannerType === 'garage') {
+      if (normalizedType === '2x4') return '2x4 (Standard)';
+      if (normalizedType === '2x6') return '2x6 (Better Insulation)';
+    }
+
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
   useEffect(() => {
     if (organizationId) {
       loadData();
@@ -259,16 +281,31 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
 
       // Load organization defaults from database
       const orgDefaultsData = await getProjectWizardDefaults(organizationId);
-      const orgDefaultsMap: Record<string, string> = {};
       const itemIdsToFetch: string[] = [];
 
       // Organization defaults loaded
+      // If historical duplicates exist (case variants, etc.), keep the newest row.
+      const latestOrgDefaultsByKey = new Map<string, { inventoryItemId: string; updatedAtTs: number }>();
       orgDefaultsData.forEach((def) => {
         const key = makeDefaultsKey(def.planner_type, def.material_type, def.material_category);
-        if (def.inventory_item_id) {
-          orgDefaultsMap[key] = def.inventory_item_id;
-          itemIdsToFetch.push(def.inventory_item_id);
+        if (!def.inventory_item_id) return;
+
+        const updatedAtRaw = (def as unknown as { updated_at?: string }).updated_at;
+        const updatedAtTs = updatedAtRaw ? Date.parse(updatedAtRaw) : 0;
+        const existing = latestOrgDefaultsByKey.get(key);
+
+        if (!existing || updatedAtTs >= existing.updatedAtTs) {
+          latestOrgDefaultsByKey.set(key, {
+            inventoryItemId: def.inventory_item_id,
+            updatedAtTs: isNaN(updatedAtTs) ? 0 : updatedAtTs,
+          });
         }
+      });
+
+      const orgDefaultsMap: Record<string, string> = {};
+      latestOrgDefaultsByKey.forEach(({ inventoryItemId }, key) => {
+        orgDefaultsMap[key] = inventoryItemId;
+        itemIdsToFetch.push(inventoryItemId);
       });
       setOrgDefaults(orgDefaultsMap);
       // Org defaults map set
@@ -436,15 +473,16 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
   const getDefaultValue = (materialType: string | null, category: string): string => {
     const key = makeDefaultsKey(plannerType, materialType, category);
     const fallbackKey = makeDefaultsKey(plannerType, 'default', category);
+    const useFallback = shouldFallbackToDefaultForType(materialType);
     // First check user defaults, then fall back to org defaults.
-    // If the selected material type has no explicit value, inherit "default".
-    return userDefaults[key] || userDefaults[fallbackKey] || orgDefaults[key] || orgDefaults[fallbackKey] || 'none';
+    return userDefaults[key] || (useFallback ? userDefaults[fallbackKey] : undefined) || orgDefaults[key] || (useFallback ? orgDefaults[fallbackKey] : undefined) || 'none';
   };
 
   const getOrgDefaultValue = (materialType: string | null, category: string): string => {
     const key = makeDefaultsKey(plannerType, materialType, category);
     const fallbackKey = makeDefaultsKey(plannerType, 'default', category);
-    return orgDefaults[key] || orgDefaults[fallbackKey] || 'none';
+    const useFallback = shouldFallbackToDefaultForType(materialType);
+    return orgDefaults[key] || (useFallback ? orgDefaults[fallbackKey] : undefined) || 'none';
   };
 
   // Conversion Factor helpers — stored in userDefaults with `-cf` suffix
@@ -473,6 +511,14 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
       const parsed = parseFloat(orgVal);
       if (!isNaN(parsed) && parsed > 0) return parsed;
     }
+    if (shouldFallbackToDefaultForType(materialType)) {
+      const fallbackOrgKey = getOrgCFKey('default', category);
+      const fallbackOrgVal = orgCFs[fallbackOrgKey];
+      if (fallbackOrgVal) {
+        const parsed = parseFloat(fallbackOrgVal);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+    }
     return 1;
   };
 
@@ -492,6 +538,14 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
     if (orgVal) {
       const parsed = parseFloat(orgVal);
       if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    if (shouldFallbackToDefaultForType(materialType)) {
+      const fallbackOrgKey = getOrgCFKey('default', category);
+      const fallbackOrgVal = orgCFs[fallbackOrgKey];
+      if (fallbackOrgVal) {
+        const parsed = parseFloat(fallbackOrgVal);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
     }
     return 1;
   };
@@ -591,11 +645,16 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
                 <SelectContent>
                   {materialTypes.map((type) => (
                     <SelectItem key={type} value={type}>
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                      {getMaterialTypeLabel(type)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {plannerType === 'garage' && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Inventory selections below are saved separately for the selected garage framing type.
+                </p>
+              )}
             </div>
           )}
 
