@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Checkbox } from './ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Separator } from './ui/separator';
 import { Calendar, Download, Printer, FileText, ArrowLeft, Save, Edit2, Check, X } from 'lucide-react';
@@ -32,6 +33,7 @@ interface SubscriptionAgreementProps {
 }
 
 export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgreementProps) {
+  const agreementRef = useRef<HTMLDivElement>(null);
   const [agreementData, setAgreementData] = useState({
     clientName: '',
     clientCompany: '',
@@ -57,6 +59,8 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
   const [editingService, setEditingService] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [taxRate, setTaxRate] = useState<number>(0);
   const [taxRate2, setTaxRate2] = useState<number>(0);
 
@@ -226,8 +230,93 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
     };
   };
 
+  const buildPrintDocument = () => {
+    const agreementElement = agreementRef.current;
+    if (!agreementElement) {
+      return null;
+    }
+
+    const styles = Array.from(document.querySelectorAll('style'))
+      .map((style) => style.outerHTML)
+      .join('\n');
+
+    const styleLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+      .map((link) => link.outerHTML)
+      .join('\n');
+
+    return `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Subscription Agreement</title>
+          ${styleLinks}
+          ${styles}
+          <style>
+            html, body { background: white !important; }
+            .print\\:hidden { display: none !important; }
+            @page { margin: 1cm; size: letter; }
+          </style>
+        </head>
+        <body>
+          ${agreementElement.outerHTML}
+        </body>
+      </html>
+    `;
+  };
+
   const handlePrint = () => {
-    window.print();
+    const printHtml = buildPrintDocument();
+    if (!printHtml) {
+      toast.error('Agreement content not ready for printing');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=1024,height=768');
+    if (!printWindow) {
+      toast.error('Popup blocked. Please allow popups to print the agreement.');
+      return;
+    }
+
+    printWindow.document.write(printHtml);
+    printWindow.document.close();
+
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    };
+  };
+
+  const previewHtml = buildPrintDocument();
+
+  const handleDownloadPdf = async () => {
+    const agreementElement = agreementRef.current;
+    if (!agreementElement) {
+      toast.error('Agreement content not ready for PDF export');
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const company = agreementData.clientCompany?.trim() || organization?.name || 'client';
+      const safeCompany = company.replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
+      const options = {
+        margin: [10, 10, 10, 10],
+        filename: `subscription-agreement-${safeCompany}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'pt', format: 'letter', orientation: 'portrait' },
+      };
+
+      await html2pdf().set(options).from(agreementElement).save();
+      toast.success('PDF downloaded successfully');
+    } catch (error) {
+      toast.error('Failed to generate PDF');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const totals = calculateTotal();
@@ -264,18 +353,24 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
               {isSaving ? 'Saving...' : 'Save Agreement'}
             </Button>
           )}
-          <Button onClick={handlePrint} variant="outline" className="flex items-center gap-2">
+          <Button onClick={() => setIsPrintPreviewOpen(true)} variant="outline" className="flex items-center gap-2">
             <Printer className="h-4 w-4" />
-            Print Agreement
+            Print Preview
           </Button>
-          <Button variant="outline" className="flex items-center gap-2">
+          <Button
+            onClick={handleDownloadPdf}
+            disabled={isGeneratingPdf}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
-            Download PDF
+            {isGeneratingPdf ? 'Generating PDF...' : 'Download PDF'}
           </Button>
         </div>
 
         {/* Agreement Document */}
-        <Card className="shadow-lg print:shadow-none">
+        <div ref={agreementRef}>
+          <Card className="shadow-lg print:shadow-none">
           <CardContent className="p-8 sm:p-12">
             {/* Header */}
             <div className="flex items-start justify-between mb-8">
@@ -890,8 +985,42 @@ export function SubscriptionAgreement({ organization, onBack }: SubscriptionAgre
               <p className="mt-2">© {new Date().getFullYear()} ProSpaces CRM. All rights reserved.</p>
             </div>
           </CardContent>
-        </Card>
+          </Card>
+        </div>
       </div>
+
+      <Dialog open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen}>
+        <DialogContent className="w-[95vw] max-w-6xl h-[90vh] overflow-hidden bg-background">
+          <DialogHeader>
+            <DialogTitle>Print Preview</DialogTitle>
+            <DialogDescription>
+              Review the agreement layout before printing. Only the subscription agreement will be printed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="h-[calc(90vh-11rem)] border border-border rounded-md overflow-hidden bg-white">
+            {previewHtml ? (
+              <iframe
+                title="Subscription Agreement Print Preview"
+                className="w-full h-full"
+                srcDoc={previewHtml}
+              />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center text-sm text-muted-foreground">
+                Agreement preview is not available yet. Please try again in a moment.
+              </div>
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsPrintPreviewOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={handlePrint} className="flex items-center gap-2">
+              <Printer className="h-4 w-4" />
+              Print Now
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Print Styles */}
       <style>{`

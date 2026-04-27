@@ -45,6 +45,7 @@
     "esbuild": "*",
     "fs": "*",
     "hono": "*",
+    "html2pdf.js": "^0.14.0",
     "input-otp": "*",
     "jszip": "*",
     "lucide-react": "*",
