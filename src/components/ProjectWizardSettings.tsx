@@ -42,6 +42,44 @@ const normalizeStoredKey = (key: string): string => {
 const lumberLengthEntries = (baseName: string): string[] =>
   STANDARD_LUMBER_LENGTHS.map((len) => `${baseName} (${len}')`);
 
+const aluminumGlassPanelEntries = (): string[] => [
+  'Tempered Glass Panel (6")',
+  'Tempered Glass Panel (9")',
+  'Tempered Glass Panel (12")',
+  'Tempered Glass Panel (15")',
+  'Tempered Glass Panel (18")',
+  'Tempered Glass Panel (21")',
+  'Tempered Glass Panel (24")',
+  'Tempered Glass Panel (27")',
+  'Tempered Glass Panel (30")',
+  'Tempered Glass Panel (33")',
+  'Tempered Glass Panel (36")',
+  'Tempered Glass Panel (39")',
+  'Tempered Glass Panel (42")',
+  'Tempered Glass Panel (45")',
+  'Tempered Glass Panel (48")',
+  'Tempered Glass Panel (51")',
+  'Tempered Glass Panel (54")',
+  'Tempered Glass Panel (57")',
+  'Tempered Glass Panel (60")',
+  'Tempered Glass Panel (63")',
+  'Tempered Glass Panel (66")',
+];
+
+const aluminumDeckCategories = {
+  'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+  'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
+  'Framing - Joists by Length': lumberLengthEntries('Joists'),
+  'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+  'Framing - Beams by Length': lumberLengthEntries('Beams'),
+  'Framing - Posts by Length': lumberLengthEntries('Posts'),
+  'Decking': ['Decking Boards', 'Stair Treads'],
+  'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
+  'Railing': ['Aluminum Top & Bottom Rail', 'Picket Packages', 'Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'Aluminum Posts', 'Aluminum Stair Posts'],
+  'Railing - Tempered Glass Panels by Size': aluminumGlassPanelEntries(),
+  'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws', 'Post Base Plate Cover', 'Decorative Post Cap', 'Universal Angle Bracket (UAB)', 'Vinyl Insert for Glass (GVI)', 'Rubber Blocks for Glass (GRB-10)', 'Rail Support Legs (SRSL)', 'Lag Bolts (post mounting)', 'Self Drilling Screws'],
+};
+
 // Define material categories for each planner type - organized by category sections
 const PLANNER_CATEGORIES = {
   deck: {
@@ -93,6 +131,9 @@ const PLANNER_CATEGORIES = {
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
+    aluminum: aluminumDeckCategories,
+    'aluminum-white': aluminumDeckCategories,
+    'aluminum-black': aluminumDeckCategories,
   },
   garage: {
     default: {
@@ -191,7 +232,8 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [orgCFs, setOrgCFs] = useState<Record<string, string>>({});
-  const [selectedDeckType, setSelectedDeckType] = useState<'spruce' | 'treated' | 'composite' | 'cedar'>('treated');
+  const [selectedDeckType, setSelectedDeckType] = useState<'spruce' | 'treated' | 'composite' | 'cedar' | 'aluminum'>('treated');
+  const [selectedAluminumColorProfile, setSelectedAluminumColorProfile] = useState<'white' | 'black'>('white');
   const [selectedFinishingType, setSelectedFinishingType] = useState<'mdf' | 'finger_joint' | 'pine'>('mdf');
   const [deckSectionBulkSelections, setDeckSectionBulkSelections] = useState<Record<string, string>>({});
   // Local string state for CF inputs so users can clear & type decimals freely
@@ -345,8 +387,15 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
 
   const getDeckSectionKey = (deckType: string, sectionName: string): string => `${deckType}::${sectionName}`;
 
+  const getDeckEffectiveMaterialType = (sectionName: string): string => {
+    if (selectedDeckType === 'aluminum' && sectionName === 'Railing') {
+      return `aluminum-${selectedAluminumColorProfile}`;
+    }
+    return selectedDeckType;
+  };
+
   const handleApplyDeckSection = (sectionName: string, categories: string[]) => {
-    const sectionKey = getDeckSectionKey(selectedDeckType, sectionName);
+    const sectionKey = getDeckSectionKey(getDeckEffectiveMaterialType(sectionName), sectionName);
     const selectedItemId = deckSectionBulkSelections[sectionKey];
 
     if (!selectedItemId) return;
@@ -355,7 +404,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
       const next = { ...prev };
 
       categories.forEach((category) => {
-        const key = makeDefaultsKey('deck', selectedDeckType, category);
+        const key = makeDefaultsKey('deck', getDeckEffectiveMaterialType(sectionName), category);
         if (selectedItemId === 'none') {
           delete next[key];
         } else {
@@ -412,8 +461,11 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
 
   const getDefaultValue = (plannerType: string, materialType: string | null, category: string): string => {
     const key = makeDefaultsKey(plannerType, materialType || 'default', category);
+    const aluminumFallbackKey = materialType?.startsWith('aluminum-')
+      ? makeDefaultsKey(plannerType, 'aluminum', category)
+      : null;
     const fallbackKey = makeDefaultsKey(plannerType, 'default', category);
-    return defaults[key] || defaults[fallbackKey] || 'none';
+    return defaults[key] || (aluminumFallbackKey ? defaults[aluminumFallbackKey] : undefined) || defaults[fallbackKey] || 'none';
   };
 
   // Conversion Factor helpers for org-level CFs
@@ -423,8 +475,11 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
 
   const getOrgCF = (plannerType: string, materialType: string | null, category: string): number => {
     const key = getCFKey(plannerType, materialType, category);
+    const aluminumFallbackKey = materialType?.startsWith('aluminum-')
+      ? getCFKey(plannerType, 'aluminum', category)
+      : null;
     const fallbackKey = getCFKey(plannerType, 'default', category);
-    const val = orgCFs[key] ?? orgCFs[fallbackKey];
+    const val = orgCFs[key] ?? (aluminumFallbackKey ? orgCFs[aluminumFallbackKey] : undefined) ?? orgCFs[fallbackKey];
     return val ? parseFloat(val) || 1 : 1;
   };
 
@@ -564,9 +619,25 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                   <SelectItem value="treated">Treated</SelectItem>
                   <SelectItem value="composite">Composite</SelectItem>
                   <SelectItem value="cedar">Cedar</SelectItem>
+                  <SelectItem value="aluminum">Aluminum</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {selectedDeckType === 'aluminum' && (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-purple-900 font-medium">Railing color defaults</span>
+                <Select value={selectedAluminumColorProfile} onValueChange={(value: 'white' | 'black') => setSelectedAluminumColorProfile(value)}>
+                  <SelectTrigger className="w-[180px] bg-background">
+                    <SelectValue placeholder="Select color" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="white">White</SelectItem>
+                    <SelectItem value="black">Black</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-6 p-4 bg-background rounded-lg border border-purple-100">
               {(() => {
@@ -579,7 +650,8 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               })()}
               {Object.entries(PLANNER_CATEGORIES.deck[selectedDeckType]).map(([sectionName, categories]) => {
                 const showCF = !isLumberGroup(sectionName);
-                const sectionKey = getDeckSectionKey(selectedDeckType, sectionName);
+                const effectiveMaterialType = getDeckEffectiveMaterialType(sectionName);
+                const sectionKey = getDeckSectionKey(effectiveMaterialType, sectionName);
                 const bulkSelection = deckSectionBulkSelections[sectionKey] || '';
                 return (
                   <div key={sectionName} className="space-y-3">
@@ -621,22 +693,22 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {categories.map((category) => {
-                        const cfValue = showCF ? getOrgCF('deck', selectedDeckType, category) : 1;
+                        const cfValue = showCF ? getOrgCF('deck', effectiveMaterialType, category) : 1;
                         return (
                           <div key={category} className="space-y-2">
                             <Label htmlFor={`deck-${selectedDeckType}-${category}`} className="text-foreground">{category}</Label>
                             <InventoryCombobox
                               id={`deck-${selectedDeckType}-${category}`}
                               items={inventoryItems}
-                              value={getDefaultValue('deck', selectedDeckType, category)}
-                              onChange={(value) => handleDefaultChange('deck', selectedDeckType, category, value)}
+                              value={getDefaultValue('deck', effectiveMaterialType, category)}
+                              onChange={(value) => handleDefaultChange('deck', effectiveMaterialType, category, value)}
                               placeholder="Select inventory item..."
                             />
                             {showCF && (
                               <div className="flex items-center gap-2">
                                 <Label className="text-xs text-muted-foreground whitespace-nowrap">CF:</Label>
                                 {(() => {
-                                  const cfKey = getCFKey('deck', selectedDeckType, category);
+                                  const cfKey = getCFKey('deck', effectiveMaterialType, category);
                                   const editVal = cfEditValues[cfKey];
                                   const displayVal = editVal !== undefined ? editVal : (cfValue === 1 ? '' : String(cfValue));
                                   return (
@@ -645,8 +717,8 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         type="text"
                                         inputMode="decimal"
                                         value={displayVal}
-                                        onChange={(e) => handleCFInputChange('deck', selectedDeckType, category, e.target.value)}
-                                        onBlur={() => handleCFInputBlur('deck', selectedDeckType, category)}
+                                        onChange={(e) => handleCFInputChange('deck', effectiveMaterialType, category, e.target.value)}
+                                        onBlur={() => handleCFInputBlur('deck', effectiveMaterialType, category)}
                                         placeholder="1"
                                         className="h-7 w-24 text-xs text-foreground"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."

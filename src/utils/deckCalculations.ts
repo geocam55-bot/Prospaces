@@ -87,6 +87,101 @@ export function calculateRailingLength(config: DeckConfig): number {
   return totalLength;
 }
 
+const ALUMINUM_RAIL_LENGTHS_FT = [6, 8, 10, 12] as const;
+const STAIR_PICKET_LENGTHS_FT = [3, 6] as const;
+const TEMPERED_GLASS_PANEL_SIZES_IN = [6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66] as const;
+
+function formatFeetLabel(lengthFt: number): string {
+  return Number.isInteger(lengthFt) ? `${lengthFt}` : `${lengthFt.toFixed(1)}`;
+}
+
+function getRailPackageCounts(
+  totalLengthFt: number,
+  optionsFt: readonly number[] = ALUMINUM_RAIL_LENGTHS_FT
+): Map<number, number> {
+  const result = new Map<number, number>();
+  if (totalLengthFt <= 0) return result;
+
+  const lengthsIn = [...optionsFt].sort((a, b) => a - b).map((ft) => Math.round(ft * 12));
+  const targetIn = Math.max(1, Math.round(totalLengthFt * 12));
+  const maxLenIn = lengthsIn[lengthsIn.length - 1];
+  const maxIn = targetIn + maxLenIn;
+
+  const inf = Number.POSITIVE_INFINITY;
+  const minPieces = new Array<number>(maxIn + 1).fill(inf);
+  const prev = new Array<number>(maxIn + 1).fill(-1);
+  const used = new Array<number>(maxIn + 1).fill(-1);
+  minPieces[0] = 0;
+
+  for (let i = 0; i <= maxIn; i++) {
+    if (!Number.isFinite(minPieces[i])) continue;
+    for (const len of lengthsIn) {
+      const next = i + len;
+      if (next > maxIn) continue;
+      const candidate = minPieces[i] + 1;
+      if (candidate < minPieces[next]) {
+        minPieces[next] = candidate;
+        prev[next] = i;
+        used[next] = len;
+      }
+    }
+  }
+
+  let best = -1;
+  for (let total = targetIn; total <= maxIn; total++) {
+    if (!Number.isFinite(minPieces[total])) continue;
+    if (best === -1) {
+      best = total;
+      continue;
+    }
+    const overage = total - targetIn;
+    const bestOverage = best - targetIn;
+    if (overage < bestOverage || (overage === bestOverage && minPieces[total] < minPieces[best])) {
+      best = total;
+    }
+  }
+
+  if (best === -1) return result;
+
+  let cursor = best;
+  while (cursor > 0 && prev[cursor] >= 0 && used[cursor] > 0) {
+    const ft = used[cursor] / 12;
+    result.set(ft, (result.get(ft) || 0) + 1);
+    cursor = prev[cursor];
+  }
+
+  return result;
+}
+
+function getTemperedGlassPanelSizeForOpening(openingLengthFt: number): number {
+  const targetPanelWidthIn = Math.max(6, Math.round(openingLengthFt * 12) - 6);
+  let best = TEMPERED_GLASS_PANEL_SIZES_IN[0];
+
+  for (const size of TEMPERED_GLASS_PANEL_SIZES_IN) {
+    if (size <= targetPanelWidthIn) {
+      best = size;
+    } else {
+      break;
+    }
+  }
+
+  return best;
+}
+
+function getTemperedGlassPanelCounts(totalLengthFt: number): Map<number, number> {
+  const counts = new Map<number, number>();
+  let remaining = totalLengthFt;
+
+  while (remaining > 0.01) {
+    const opening = Math.min(remaining, 6);
+    const panelSize = getTemperedGlassPanelSizeForOpening(opening);
+    counts.set(panelSize, (counts.get(panelSize) || 0) + 1);
+    remaining -= opening;
+  }
+
+  return counts;
+}
+
 // ---------------------------------------------------------------------------
 // Helper: consolidate lumber pieces by length into a Map<length, totalCount>
 // ---------------------------------------------------------------------------
@@ -267,74 +362,120 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
     const slopeLength = Math.sqrt(Math.pow(stairHeight, 2) + Math.pow(totalRun, 2));
     stairRailingLength = slopeLength * 2; // Both sides
   }
+  const aluminumColor = config.aluminumRailingColor || 'White';
+  const aluminumInfill = config.aluminumInfillType || 'Pickets';
   
   if (config.railingStyle === 'Aluminum') {
-    // ALUMINUM RAILING SYSTEM
+    // ALUMINUM RAILING SYSTEM (Regal-style component groups)
+    const picketProfile = 'Narrow/Wide';
+    const deckRailPackages = getRailPackageCounts(railingLength, ALUMINUM_RAIL_LENGTHS_FT);
+    const stairRailPackages = getRailPackageCounts(stairRailingLength, ALUMINUM_RAIL_LENGTHS_FT);
+    const allRailPackages = new Map<number, number>();
+
+    Array.from(deckRailPackages.entries()).forEach(([length, qty]) => {
+      allRailPackages.set(length, (allRailPackages.get(length) || 0) + qty);
+    });
+    Array.from(stairRailPackages.entries()).forEach(([length, qty]) => {
+      allRailPackages.set(length, (allRailPackages.get(length) || 0) + qty);
+    });
+
+    let deckRailSectionCount = 0;
+    let stairRailSectionCount = 0;
+    let totalGlassPanels = 0;
+
+    Array.from(deckRailPackages.entries())
+      .sort((a, b) => a[0] - b[0])
+      .forEach(([length, qty]) => {
+        deckRailSectionCount += qty;
+        railing.push({
+          category: 'Railing',
+          description: `${aluminumColor} Aluminum Top & Bottom Rail (${formatFeetLabel(length)} ft set)`,
+          quantity: qty,
+          unit: 'sets',
+          notes: `Cut-to-fit rail pair; nominal part family TBR${Math.round(length)}`,
+        });
+      });
     
     // Deck Railing
-    if (railingLength > 0) {
-      const railSections = Math.ceil(railingLength / 6); // 6' standard sections for aluminum often
+    if (deckRailSectionCount > 0) {
+      if (aluminumInfill === 'Glass') {
+        const deckGlassPanels = getTemperedGlassPanelCounts(railingLength);
+        totalGlassPanels += Array.from(deckGlassPanels.values()).reduce((sum, qty) => sum + qty, 0);
+
+        Array.from(deckGlassPanels.entries())
+          .sort((a, b) => a[0] - b[0])
+          .forEach(([size, qty]) => {
+            railing.push({
+              category: 'Railing',
+              description: `Tempered Glass Panel (${size}")`,
+              quantity: qty,
+              unit: 'pcs',
+              notes: `${aluminumColor} frame panel size from Regal worksheet range`,
+            });
+          });
+
+        railing.push({
+          category: 'Railing',
+          description: 'Clear Glass Pickets (CDG-6)',
+          quantity: deckRailSectionCount,
+          unit: 'packs',
+          notes: 'Worksheet glass picket component for glass railing system',
+        });
+      } else {
+        railing.push({
+          category: 'Railing',
+          description: `${aluminumColor} ${picketProfile} Picket Packages`,
+          quantity: deckRailSectionCount,
+          unit: 'packs',
+          notes: 'One pack per straight rail opening (field-cut rail system)',
+        });
+      }
+      
+      // Estimated posts for planning use (line + corner/end/stair mix to be finalized onsite)
+      const railingPostCount = Math.max(2, Math.ceil(railingLength / 6) + 1);
       
       railing.push({
         category: 'Railing',
-        description: 'Aluminum Top Rail (6\')',
-        quantity: railSections,
-        unit: 'pcs',
-        notes: `${railingLength.toFixed(0)} linear feet total`,
-      });
-      
-      railing.push({
-        category: 'Railing',
-        description: 'Aluminum Bottom Rail (6\')',
-        quantity: railSections,
-        unit: 'pcs',
-      });
-      
-      // Balusters - typically come in packs or pre-assembled panels, but calculating individual for now
-      // 15 balusters per 6' section is typical (4" spacing)
-      const balusterCount = railSections * 15;
-      
-      railing.push({
-        category: 'Railing',
-        description: 'Aluminum Balusters',
-        quantity: balusterCount,
-        unit: 'pcs',
-        notes: 'Round or square aluminum balusters',
-      });
-      
-      // Railing posts
-      const railingPostCount = Math.ceil(railingLength / 6) + 1; // +1 for the end post
-      
-      railing.push({
-        category: 'Railing',
-        description: 'Aluminum Railing Posts (3")',
+        description: `${aluminumColor} Aluminum Posts (Corner/Line/End/Stair mix)`,
         quantity: railingPostCount,
         unit: 'pcs',
-        notes: 'Surface mount aluminum posts',
+        notes: 'Planner estimate; final post type split is layout dependent',
       });
     }
     
     // Stair Railing
     if (stairRailingLength > 0) {
-      const oneSideLength = stairRailingLength / 2;
-      const sectionsPerSide = Math.ceil(oneSideLength / 6);
-      const totalStairSections = sectionsPerSide * 2;
-      
+      stairRailSectionCount = Array.from(stairRailPackages.values()).reduce((sum, qty) => sum + qty, 0);
+
+      if (aluminumInfill === 'Glass') {
+        railing.push({
+          category: 'Railing',
+          description: 'Angled Stair Glass Pickets (CAG-6)',
+          quantity: stairRailSectionCount,
+          unit: 'packs',
+          notes: 'Worksheet angled stair glass picket component',
+        });
+      } else {
+        const stairPicketPackages = getRailPackageCounts(stairRailingLength, STAIR_PICKET_LENGTHS_FT);
+        Array.from(stairPicketPackages.entries())
+          .sort((a, b) => a[0] - b[0])
+          .forEach(([length, qty]) => {
+            railing.push({
+              category: 'Railing',
+              description: `${aluminumColor} Stair ${picketProfile} Picket Package (${formatFeetLabel(length)} ft)`,
+              quantity: qty,
+              unit: 'packs',
+              notes: 'Stair picket package family (SPS6/WPS3 equivalents)',
+            });
+          });
+      }
+
       railing.push({
         category: 'Railing',
-        description: 'Aluminum Stair Rail Kit (6\')',
-        quantity: totalStairSections,
-        unit: 'pcs',
-        notes: 'Includes rails and balusters for stairs',
-      });
-      
-      // 2 posts for bottom of stairs (top connects to deck post)
-      railing.push({
-        category: 'Railing',
-        description: 'Aluminum Railing Posts (Stair/Bottom)',
+        description: `${aluminumColor} Aluminum Stair Posts`,
         quantity: 2,
         unit: 'pcs',
-        notes: 'Bottom stair posts',
+        notes: 'Bottom stair posts; top is typically shared with deck post',
       });
     }
 
@@ -510,22 +651,27 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
   });
   
   if (config.railingStyle === 'Aluminum') {
+    const deckRailPackages = getRailPackageCounts(railingLength, ALUMINUM_RAIL_LENGTHS_FT);
+    const stairRailPackages = getRailPackageCounts(stairRailingLength, ALUMINUM_RAIL_LENGTHS_FT);
+    const deckRailSections = Array.from(deckRailPackages.values()).reduce((sum, qty) => sum + qty, 0);
+    const stairRailSections = Array.from(stairRailPackages.values()).reduce((sum, qty) => sum + qty, 0);
+    const totalRailSections = deckRailSections + stairRailSections;
+
     // Deck Railing Hardware
     if (railingLength > 0) {
-      const railingPostCount = Math.ceil(railingLength / 6) + 1;
-      const railSections = Math.ceil(railingLength / 6);
+      const railingPostCount = Math.max(2, Math.ceil(railingLength / 6) + 1);
 
       hardware.push({
         category: 'Hardware',
-        description: 'Aluminum Post Base',
+        description: `${aluminumColor} Post Base Plate Cover`,
         quantity: railingPostCount,
         unit: 'pcs',
-        notes: 'For surface mounting posts',
+        notes: 'Covers exposed lag bolts and gives finished look',
       });
 
       hardware.push({
         category: 'Hardware',
-        description: 'Aluminum Post Cap',
+        description: `${aluminumColor} Decorative Post Cap`,
         quantity: railingPostCount,
         unit: 'pcs',
         notes: 'Decorative post finish',
@@ -533,27 +679,52 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
       
       hardware.push({
         category: 'Hardware',
-        description: 'Aluminum Rail Connectors',
-        quantity: railSections * 4,
+        description: 'Universal Angle Bracket (UAB)',
+        quantity: deckRailSections * 4,
         unit: 'pcs',
-        notes: 'Connects rails to posts',
+        notes: 'Connects rail ends to posts (horizontal or custom angle)',
+      });
+
+      if (aluminumInfill === 'Glass') {
+        hardware.push({
+          category: 'Hardware',
+          description: 'Vinyl Insert for Glass (GVI)',
+          quantity: deckRailSections * 2,
+          unit: 'pcs',
+          notes: 'Glass panel retention channel inserts',
+        });
+
+        hardware.push({
+          category: 'Hardware',
+          description: 'Rubber Blocks for Glass (GRB-10)',
+          quantity: Math.max(1, Math.ceil(deckRailSections / 10)),
+          unit: 'packs',
+          notes: 'One pack contains blocks for up to 10 glass panels',
+        });
+      }
+
+      hardware.push({
+        category: 'Hardware',
+        description: 'Lag Bolts (post mounting)',
+        quantity: Math.max(1, Math.ceil((railingPostCount * 4) / 6)),
+        unit: 'packs',
+        notes: 'Approx one pack per 6 posts (4 lag bolts each)',
       });
 
       hardware.push({
         category: 'Hardware',
-        description: 'Structural Screws (Railing)',
-        quantity: railingPostCount * 4,
-        unit: 'pcs',
-        notes: 'For mounting post bases',
+        description: 'Self Drilling Screws',
+        quantity: Math.max(1, Math.ceil(deckRailSections / 5)),
+        unit: 'packs',
+        notes: 'Approx one pack per 4-5 rail sections',
       });
     }
 
     // Stair Railing Hardware
     if (stairRailingLength > 0) {
-      // 2 posts at bottom
       hardware.push({
         category: 'Hardware',
-        description: 'Aluminum Post Base',
+        description: `${aluminumColor} Post Base Plate Cover`,
         quantity: 2,
         unit: 'pcs',
         notes: 'For stair bottom posts',
@@ -561,7 +732,7 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
 
       hardware.push({
         category: 'Hardware',
-        description: 'Aluminum Post Cap',
+        description: `${aluminumColor} Decorative Post Cap`,
         quantity: 2,
         unit: 'pcs',
         notes: 'For stair bottom posts',
@@ -569,23 +740,54 @@ export function calculateMaterials(config: DeckConfig): DeckMaterials {
 
       hardware.push({
         category: 'Hardware',
-        description: 'Structural Screws (Railing)',
-        quantity: 2 * 4,
-        unit: 'pcs',
-        notes: 'For mounting stair post bases',
-      });
-
-      // Stair connectors
-      const oneSideLength = stairRailingLength / 2;
-      const sectionsPerSide = Math.ceil(oneSideLength / 6);
-      const totalStairSections = sectionsPerSide * 2;
-
-      hardware.push({
-        category: 'Hardware',
-        description: 'Aluminum Stair Rail Connectors',
-        quantity: totalStairSections * 4,
+        description: 'Universal Angle Bracket (UAB)',
+        quantity: stairRailSections * 4,
         unit: 'pcs',
         notes: 'Angled connectors for stairs',
+      });
+
+      if (aluminumInfill === 'Glass') {
+        hardware.push({
+          category: 'Hardware',
+          description: 'Vinyl Insert for Glass (GVI)',
+          quantity: stairRailSections * 2,
+          unit: 'pcs',
+          notes: 'Glass panel retention channel inserts for stair sections',
+        });
+
+        hardware.push({
+          category: 'Hardware',
+          description: 'Rubber Blocks for Glass (GRB-10)',
+          quantity: Math.max(1, Math.ceil(stairRailSections / 10)),
+          unit: 'packs',
+          notes: 'One pack contains blocks for up to 10 glass panels',
+        });
+      }
+
+      hardware.push({
+        category: 'Hardware',
+        description: 'Lag Bolts (post mounting)',
+        quantity: Math.max(1, Math.ceil((2 * 4) / 6)),
+        unit: 'packs',
+        notes: 'Approx one pack per 6 posts (4 lag bolts each)',
+      });
+
+      hardware.push({
+        category: 'Hardware',
+        description: 'Self Drilling Screws',
+        quantity: Math.max(1, Math.ceil(stairRailSections / 5)),
+        unit: 'packs',
+        notes: 'Approx one pack per 4-5 rail sections',
+      });
+    }
+
+    if (totalRailSections > 0) {
+      hardware.push({
+        category: 'Hardware',
+        description: 'Rail Support Legs (SRSL)',
+        quantity: Math.max(1, Math.ceil(totalRailSections / 2)),
+        unit: 'pcs',
+        notes: 'Support legs for longer rail runs where required',
       });
     }
   } else {
