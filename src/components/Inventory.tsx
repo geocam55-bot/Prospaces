@@ -1,4 +1,4 @@
-import { useState, useEffect, useDeferredValue } from 'react';
+import { useState, useEffect, useDeferredValue, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -145,6 +145,7 @@ export function Inventory({ user }: InventoryProps) {
     failed: number;
     percent: number;
   } | null>(null);
+  const notificationTimeoutRef = useRef<number | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -390,10 +391,28 @@ export function Inventory({ user }: InventoryProps) {
     }
   };
 
-  const showAlert = (type: 'success' | 'error', message: string) => {
+  const showAlert = (type: 'success' | 'error', message: string, durationMs?: number) => {
+    if (notificationTimeoutRef.current) {
+      window.clearTimeout(notificationTimeoutRef.current);
+      notificationTimeoutRef.current = null;
+    }
+
     setNotification({ type, message });
-    setTimeout(() => setNotification(null), 3000);
+
+    const timeoutMs = durationMs ?? (type === 'error' ? 12000 : 3000);
+    notificationTimeoutRef.current = window.setTimeout(() => {
+      setNotification(null);
+      notificationTimeoutRef.current = null;
+    }, timeoutMs);
   };
+
+  useEffect(() => {
+    return () => {
+      if (notificationTimeoutRef.current) {
+        window.clearTimeout(notificationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleOpenDialog = (item?: InventoryItem) => {
     if (item) {
@@ -714,10 +733,17 @@ export function Inventory({ user }: InventoryProps) {
       const result = await inventoryAPI.regenerateAllKeywords((progress) => {
         setKeywordRegenProgress(progress);
       });
-      showAlert('success', `Regenerated keywords for ${result.updated} SKUs${result.failed > 0 ? ` (${result.failed} failed)` : ''}`);
+      if (result.failed > 0) {
+        const failureSummary = result.failureDetails?.length
+          ? ` First issues: ${result.failureDetails.join(' | ')}`
+          : '';
+        showAlert('error', `Regenerated keywords for ${result.updated} SKUs, but ${result.failed} failed.${failureSummary}`, 15000);
+      } else {
+        showAlert('success', `Regenerated keywords for ${result.updated} SKUs`);
+      }
       await loadInventory();
     } catch (error: any) {
-      showAlert('error', error?.message || 'Failed to regenerate keywords for all SKUs');
+      showAlert('error', error?.message || 'Failed to regenerate keywords for all SKUs', 15000);
     } finally {
       setIsRegeneratingAllKeywords(false);
       setKeywordRegenProgress(null);
@@ -974,12 +1000,28 @@ export function Inventory({ user }: InventoryProps) {
       {/* Notification Alert */}
       {notification && (
         <Alert variant={notification.type === 'error' ? 'destructive' : 'default'}>
-          {notification.type === 'success' ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
-          )}
-          <AlertDescription>{notification.message}</AlertDescription>
+          <div className="flex w-full items-start gap-3">
+            {notification.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 mt-0.5" />
+            ) : (
+              <AlertCircle className="h-4 w-4 mt-0.5" />
+            )}
+            <AlertDescription className="flex-1">{notification.message}</AlertDescription>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0"
+              onClick={() => {
+                if (notificationTimeoutRef.current) {
+                  window.clearTimeout(notificationTimeoutRef.current);
+                  notificationTimeoutRef.current = null;
+                }
+                setNotification(null);
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </Alert>
       )}
 

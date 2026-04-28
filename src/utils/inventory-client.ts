@@ -17,6 +17,15 @@ export interface RegenerateAllKeywordsProgress {
   percent: number;
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message?: unknown }).message || 'Unknown error');
+  }
+  return 'Unknown error';
+}
+
 function isMissingSearchKeywordsColumnError(error: any): boolean {
   const message = String(error?.message || '').toLowerCase();
   return error?.code === '42703' || message.includes('search_keywords') || message.includes('keywords_generated_at') || message.includes('keyword_version');
@@ -29,18 +38,23 @@ function buildSearchKeywords(itemData: any): string[] {
       ? itemData.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
       : [];
 
-  const generated = generateInventoryKeywords({
-    productName: itemData?.name || '',
-    productDescription: itemData?.description || '',
-    category: itemData?.category || '',
-    brand: itemData?.brand || itemData?.manufacturer || '',
-    sku: itemData?.sku || '',
-    modelNumber: itemData?.model_number || itemData?.modelNumber || '',
-    supplierName: itemData?.supplier || itemData?.supplier_name || '',
-    existingTags,
-  });
+  try {
+    const generated = generateInventoryKeywords({
+      productName: itemData?.name || '',
+      productDescription: itemData?.description || '',
+      category: itemData?.category || '',
+      brand: itemData?.brand || itemData?.manufacturer || '',
+      sku: itemData?.sku || '',
+      modelNumber: itemData?.model_number || itemData?.modelNumber || '',
+      supplierName: itemData?.supplier || itemData?.supplier_name || '',
+      existingTags,
+    });
 
-  return generated.all.slice(0, 96);
+    return generated.all.slice(0, 96);
+  } catch (error) {
+    const sku = itemData?.sku || 'unknown-sku';
+    throw new Error(`Keyword generation failed for SKU ${sku}: ${getErrorMessage(error)}`);
+  }
 }
 
 function attachKeywordColumns(cleanData: any, sourceData: any): any {
@@ -939,6 +953,7 @@ export async function regenerateAllInventoryKeywordsClient(
   let offset = 0;
   let updated = 0;
   let failed = 0;
+  const failureDetails: string[] = [];
 
   const emitProgress = () => {
     if (!onProgress) return;
@@ -972,11 +987,21 @@ export async function regenerateAllInventoryKeywordsClient(
     }
 
     for (const item of batch) {
-      const payload = {
-        search_keywords: buildSearchKeywords(item),
-        keyword_version: KEYWORD_VERSION,
-        keywords_generated_at: new Date().toISOString(),
-      };
+      let payload;
+      try {
+        payload = {
+          search_keywords: buildSearchKeywords(item),
+          keyword_version: KEYWORD_VERSION,
+          keywords_generated_at: new Date().toISOString(),
+        };
+      } catch (error) {
+        failed += 1;
+        if (failureDetails.length < 5) {
+          failureDetails.push(getErrorMessage(error));
+        }
+        emitProgress();
+        continue;
+      }
 
       let { error: updateError } = await supabase
         .from('inventory')
@@ -990,6 +1015,10 @@ export async function regenerateAllInventoryKeywordsClient(
 
       if (updateError) {
         failed += 1;
+        if (failureDetails.length < 5) {
+          const sku = item?.sku || item?.id || 'unknown-sku';
+          failureDetails.push(`SKU ${sku}: ${getErrorMessage(updateError)}`);
+        }
       } else {
         updated += 1;
       }
@@ -1004,7 +1033,7 @@ export async function regenerateAllInventoryKeywordsClient(
     offset += batch.length;
   }
 
-  return { success: true, updated, failed, total };
+  return { success: true, updated, failed, total, failureDetails };
 }
 
 // Helper function to convert snake_case to camelCase
