@@ -9,6 +9,14 @@ import { generateInventoryKeywords } from './inventory-keywords';
 const INVENTORY_SELECT = '*';
 const KEYWORD_VERSION = 'kw_v1';
 
+export interface RegenerateAllKeywordsProgress {
+  processed: number;
+  total: number;
+  updated: number;
+  failed: number;
+  percent: number;
+}
+
 function isMissingSearchKeywordsColumnError(error: any): boolean {
   const message = String(error?.message || '').toLowerCase();
   return error?.code === '42703' || message.includes('search_keywords') || message.includes('keywords_generated_at') || message.includes('keyword_version');
@@ -904,7 +912,9 @@ export async function regenerateInventoryKeywordsClient(id: string) {
   return { success: true, keywordCount: payload.search_keywords.length };
 }
 
-export async function regenerateAllInventoryKeywordsClient() {
+export async function regenerateAllInventoryKeywordsClient(
+  onProgress?: (progress: RegenerateAllKeywordsProgress) => void,
+) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -914,10 +924,36 @@ export async function regenerateAllInventoryKeywordsClient() {
   const organizationId = profile.organization_id;
   if (!organizationId) throw new Error('No organization ID found for user');
 
+  const { count, error: countError } = await supabase
+    .from('inventory')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', organizationId);
+
+  if (countError) {
+    throw countError;
+  }
+
+  const total = count || 0;
+
   const PAGE_SIZE = 300;
   let offset = 0;
   let updated = 0;
   let failed = 0;
+
+  const emitProgress = () => {
+    if (!onProgress) return;
+    const processed = updated + failed;
+    const percent = total > 0 ? Math.round((processed / total) * 100) : 100;
+    onProgress({
+      processed,
+      total,
+      updated,
+      failed,
+      percent,
+    });
+  };
+
+  emitProgress();
 
   while (true) {
     const { data: batch, error: batchError } = await supabase
@@ -957,6 +993,8 @@ export async function regenerateAllInventoryKeywordsClient() {
       } else {
         updated += 1;
       }
+
+      emitProgress();
     }
 
     if (batch.length < PAGE_SIZE) {
@@ -966,7 +1004,7 @@ export async function regenerateAllInventoryKeywordsClient() {
     offset += batch.length;
   }
 
-  return { success: true, updated, failed };
+  return { success: true, updated, failed, total };
 }
 
 // Helper function to convert snake_case to camelCase

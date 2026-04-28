@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
+import { Progress } from './ui/progress';
 import {
   Package,
   Plus,
@@ -137,6 +138,13 @@ export function Inventory({ user }: InventoryProps) {
   } | null>(null);
   const [isRecovering, setIsRecovering] = useState(false);
   const [isRegeneratingAllKeywords, setIsRegeneratingAllKeywords] = useState(false);
+  const [keywordRegenProgress, setKeywordRegenProgress] = useState<{
+    processed: number;
+    total: number;
+    updated: number;
+    failed: number;
+    percent: number;
+  } | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -701,14 +709,18 @@ export function Inventory({ user }: InventoryProps) {
     if (!confirm('Regenerate search keywords for all SKUs in your organization? This may take a few minutes.')) return;
 
     setIsRegeneratingAllKeywords(true);
+    setKeywordRegenProgress({ processed: 0, total: 0, updated: 0, failed: 0, percent: 0 });
     try {
-      const result = await inventoryAPI.regenerateAllKeywords();
+      const result = await inventoryAPI.regenerateAllKeywords((progress) => {
+        setKeywordRegenProgress(progress);
+      });
       showAlert('success', `Regenerated keywords for ${result.updated} SKUs${result.failed > 0 ? ` (${result.failed} failed)` : ''}`);
       await loadInventory();
     } catch (error: any) {
       showAlert('error', error?.message || 'Failed to regenerate keywords for all SKUs');
     } finally {
       setIsRegeneratingAllKeywords(false);
+      setKeywordRegenProgress(null);
     }
   };
 
@@ -1816,27 +1828,45 @@ export function Inventory({ user }: InventoryProps) {
               <CardHeader>
                 <CardTitle className="text-base">Admin Keyword Tools</CardTitle>
               </CardHeader>
-              <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  Rebuild AI search keywords for all inventory SKUs in your organization.
-                </p>
-                <Button
-                  onClick={handleRegenerateAllKeywords}
-                  disabled={isRegeneratingAllKeywords}
-                  className="w-full sm:w-auto"
-                >
-                  {isRegeneratingAllKeywords ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Regenerating...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Regenerate Keywords for All SKUs
-                    </>
-                  )}
-                </Button>
+              <CardContent className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    Rebuild AI search keywords for all inventory SKUs in your organization.
+                  </p>
+                  <Button
+                    onClick={handleRegenerateAllKeywords}
+                    disabled={isRegeneratingAllKeywords}
+                    className="w-full sm:w-auto"
+                  >
+                    {isRegeneratingAllKeywords ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Regenerating...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Regenerate Keywords for All SKUs
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {isRegeneratingAllKeywords && keywordRegenProgress && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {keywordRegenProgress.processed.toLocaleString()} / {keywordRegenProgress.total.toLocaleString()} SKUs processed
+                      </span>
+                      <span>{keywordRegenProgress.percent}%</span>
+                    </div>
+                    <Progress value={keywordRegenProgress.percent} className="h-2" />
+                    <p className="text-xs text-muted-foreground">
+                      Updated: {keywordRegenProgress.updated.toLocaleString()}
+                      {keywordRegenProgress.failed > 0 ? ` • Failed: ${keywordRegenProgress.failed.toLocaleString()}` : ''}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
             <InventoryDiagnostic user={user} />
