@@ -26,6 +26,7 @@ const _authReadyPromise = new Promise((resolve) => {
 
 // ── Proactive token cache via auth state listener ──────────────────────
 let _cachedToken: string | null = null;
+let _cachedTokenExpiresAtMs: number | null = null;
 let _tokenRequestInFlight: Promise<string | null> | null = null;
 let _lastRefreshAttemptMs = 0;
 const REFRESH_COOLDOWN_MS = 30_000;
@@ -35,6 +36,7 @@ const REFRESH_COOLDOWN_MS = 30_000;
 const { data: { subscription: _authSub } } = supabase.auth.onAuthStateChange(
   (event, session) => {
     _cachedToken = session?.access_token ?? null;
+    _cachedTokenExpiresAtMs = session?.expires_at ? session.expires_at * 1000 : null;
     // Resolve the gate on any first event (INITIAL_SESSION, SIGNED_IN, etc.)
     _authReady();
   },
@@ -45,8 +47,8 @@ setTimeout(() => _authReady(), 2000);
 
 /**
  * Get the current user's access token (session JWT).
- * Always queries the Supabase client for the latest session to avoid stale
- * cached tokens that cause "Auth session missing!" 401 errors.
+ * Uses the cached auth state from Supabase's auth listener and refreshes only
+ * when the cached token is missing or close to expiry.
  * Returns null if no session is available.
  */
 export async function getUserAccessToken(): Promise<string | null> {
@@ -55,67 +57,32 @@ export async function getUserAccessToken(): Promise<string | null> {
   }
 
   _tokenRequestInFlight = (async () => {
-  // Wait for the auth layer to have delivered at least one session event
-  await _authReadyPromise;
+    // Wait for the auth layer to have delivered at least one session event.
+    await _authReadyPromise;
 
-  // Always get the latest session from the Supabase client.
-  try {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    // If there's a session error, try refreshing immediately
-    if (sessionError) {
-      const now = Date.now();
-      if (now - _lastRefreshAttemptMs >= REFRESH_COOLDOWN_MS) {
-        _lastRefreshAttemptMs = now;
-        try {
-          const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
-          if (!refreshError && refreshed?.access_token) {
-            _cachedToken = refreshed.access_token;
-            return refreshed.access_token;
-          }
-        } catch (refreshErr) {
-          // Ignored
-        }
-      }
-      // Fall through to check cached token
+    const now = Date.now();
+    const isExpiredOrStale = _cachedTokenExpiresAtMs !== null
+      && _cachedTokenExpiresAtMs <= now + 5 * 60_000;
+
+    if (_cachedToken && !isExpiredOrStale) {
+      return _cachedToken;
     }
-    
-    if (session?.access_token) {
-      // Check if the token is expired or about to expire (within 5 minutes).
-      // getSession() returns the cached session without auto-refreshing in v2,
-      // so we must explicitly refresh stale tokens to prevent server-side 401s.
-      const isExpiredOrStale = session.expires_at
-        && session.expires_at * 1000 <= Date.now() + 5 * 60_000;
 
-      if (isExpiredOrStale) {
-        const now = Date.now();
-        if (now - _lastRefreshAttemptMs >= REFRESH_COOLDOWN_MS) {
-          _lastRefreshAttemptMs = now;
-          try {
-            const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
-            if (!refreshError && refreshed?.access_token) {
-              _cachedToken = refreshed.access_token;
-              return refreshed.access_token;
-            }
-          } catch (refreshErr) {
-            // Refresh failed — fall through; the old token might still work for a few seconds
-          }
+    if (now - _lastRefreshAttemptMs >= REFRESH_COOLDOWN_MS) {
+      _lastRefreshAttemptMs = now;
+      try {
+        const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
+        if (!refreshError && refreshed?.access_token) {
+          _cachedToken = refreshed.access_token;
+          _cachedTokenExpiresAtMs = refreshed.expires_at ? refreshed.expires_at * 1000 : null;
+          return refreshed.access_token;
         }
+      } catch {
+        // Refresh failed — fall through to cached token.
       }
-
-      _cachedToken = session.access_token;
-      return session.access_token;
     }
-  } catch (err) {
-    // getSession failed — fall through to cached token
-  }
 
-  // Fallback: return cached token if getSession() failed (e.g. network hiccup)
-  if (_cachedToken) {
     return _cachedToken;
-  }
-
-  return null; // user truly isn't logged in
   })();
 
   try {

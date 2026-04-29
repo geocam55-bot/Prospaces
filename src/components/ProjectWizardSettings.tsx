@@ -42,6 +42,72 @@ const normalizeStoredKey = (key: string): string => {
 const lumberLengthEntries = (baseName: string): string[] =>
   STANDARD_LUMBER_LENGTHS.map((len) => `${baseName} (${len}')`);
 
+const aluminumGlassPanelEntries = (): string[] => [
+  'Tempered Glass Panel (6")',
+  'Tempered Glass Panel (9")',
+  'Tempered Glass Panel (12")',
+  'Tempered Glass Panel (15")',
+  'Tempered Glass Panel (18")',
+  'Tempered Glass Panel (21")',
+  'Tempered Glass Panel (24")',
+  'Tempered Glass Panel (27")',
+  'Tempered Glass Panel (30")',
+  'Tempered Glass Panel (33")',
+  'Tempered Glass Panel (36")',
+  'Tempered Glass Panel (39")',
+  'Tempered Glass Panel (42")',
+  'Tempered Glass Panel (45")',
+  'Tempered Glass Panel (48")',
+  'Tempered Glass Panel (51")',
+  'Tempered Glass Panel (54")',
+  'Tempered Glass Panel (57")',
+  'Tempered Glass Panel (60")',
+  'Tempered Glass Panel (63")',
+  'Tempered Glass Panel (66")',
+];
+
+const aluminumDeckCategories = {
+  'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+  'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
+  'Framing - Joists by Length': lumberLengthEntries('Joists'),
+  'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+  'Framing - Beams by Length': lumberLengthEntries('Beams'),
+  'Framing - Posts by Length': lumberLengthEntries('Posts'),
+  'Decking': ['Decking Boards', 'Stair Treads'],
+  'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
+  'Railing': ['Aluminum Top & Bottom Rail', 'Picket Packages', 'Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'Aluminum Posts', 'Aluminum Stair Posts'],
+  'Railing - Tempered Glass Panels by Size': aluminumGlassPanelEntries(),
+  'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws', 'Post Base Plate Cover', 'Decorative Post Cap', 'Universal Angle Bracket (UAB)', 'Vinyl Insert for Glass (GVI)', 'Rubber Blocks for Glass (GRB-10)', 'Rail Support Legs (SRSL)', 'Lag Bolts (post mounting)', 'Self Drilling Screws'],
+};
+
+const ALUMINUM_ONLY_HARDWARE_CATEGORIES = new Set([
+  'Post Base Plate Cover',
+  'Decorative Post Cap',
+  'Universal Angle Bracket (UAB)',
+  'Vinyl Insert for Glass (GVI)',
+  'Rubber Blocks for Glass (GRB-10)',
+  'Rail Support Legs (SRSL)',
+  'Lag Bolts (post mounting)',
+  'Self Drilling Screws',
+]);
+
+/** Industry-standard suggested conversion factors for vinyl siding accessories. */
+const SYSTEM_CF_SUGGESTIONS: Record<string, number> = {
+  'Starter Strip': 1 / 12.5,
+  'Finish Trim': 1 / 12,
+  'Finish Trim (Soffit)': 1 / 12,
+  'J-Channel': 1 / 12,
+  'J-Channel (Soffit)': 1 / 12,
+  'Outside Corner': 1 / 10,
+  'Inside Corner': 1 / 10,
+  'Trim Coil': 1 / 50,
+  'Aluminum Trim Coil': 1 / 50,
+  'F-Channel': 1 / 12,
+  'Vinyl or Aluminum Fascia': 1 / 12,
+  'Flashing': 1 / 10,
+  'Furring Strip': 1 / 8,
+};
+
 // Define material categories for each planner type - organized by category sections
 const PLANNER_CATEGORIES = {
   deck: {
@@ -93,6 +159,9 @@ const PLANNER_CATEGORIES = {
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
+    aluminum: aluminumDeckCategories,
+    'aluminum-white': aluminumDeckCategories,
+    'aluminum-black': aluminumDeckCategories,
   },
   garage: {
     default: {
@@ -104,6 +173,24 @@ const PLANNER_CATEGORIES = {
       'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
       'Siding': ['House Wrap', 'Siding', 'Trim Boards', 'Fascia Boards'],
       'Siding - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
+      'Doors': ['Garage Door', 'Garage Door Opener', 'Entry Door'],
+      'Windows': ['Windows'],
+      'Hardware': ['16d Common Nails', '8d Common Nails', 'Joist Hangers', 'Hurricane Ties', 'Construction Adhesive', 'Anchor Bolts'],
+      'Electrical': ['Sub-Panel', 'Romex Wire', 'LED Shop Lights', 'Outlets (GFCI)', 'Light Switches', 'Junction Boxes'],
+      'Insulation': ['Insulation (Walls)', 'Insulation (Ceiling)', 'Vapor Barrier (Insulation)'],
+    },
+    vinyl: {
+      'Foundation': ['Concrete Slab', 'Vapor Barrier', 'Gravel Base', 'Rebar', 'Wire Mesh'],
+      'Framing': ['Wall Studs', 'Plates', 'Headers', 'Blocking/Bracing', 'Roof Trusses', 'Wall Sheathing', 'Roof Sheathing'],
+      'Framing - Wall Studs by Length': lumberLengthEntries('Wall Studs'),
+      'Framing - Plates by Length': lumberLengthEntries('Plates'),
+      'Framing - Headers by Length': lumberLengthEntries('Headers'),
+      'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
+      'Siding - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
+      'Siding Accessories': ['Starter Strip', 'Finish Trim', 'J-Channel', 'Outside Corner', 'Inside Corner', 'Trim Coil', 'Trim Nails'],
+      'Soffit Accessories': ['F-Channel', 'J-Channel (Soffit)', 'Vinyl or Aluminum Fascia', 'Aluminum Trim Coil', 'Finish Trim (Soffit)'],
+      'Miscellaneous': ['Backer Board / House Wrap', 'Flashing', 'Caulk', 'Sealing Tape (Windows/Doors)', 'Siding Nails', 'Furring Strip'],
+      'Finishing Touches': ['Mounting Blocks', 'Surface Mounts', 'Dryerhood', 'Exhaust Vents', 'Gable Vents', 'Gutters'],
       'Doors': ['Garage Door', 'Garage Door Opener', 'Entry Door'],
       'Windows': ['Windows'],
       'Hardware': ['16d Common Nails', '8d Common Nails', 'Joist Hangers', 'Hurricane Ties', 'Construction Adhesive', 'Anchor Bolts'],
@@ -191,31 +278,13 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [orgCFs, setOrgCFs] = useState<Record<string, string>>({});
-  const [selectedDeckType, setSelectedDeckType] = useState<'spruce' | 'treated' | 'composite' | 'cedar'>('treated');
+  const [selectedDeckType, setSelectedDeckType] = useState<'spruce' | 'treated' | 'composite' | 'cedar' | 'aluminum'>('treated');
+  const [selectedDeckRailingType, setSelectedDeckRailingType] = useState<'treated' | 'aluminum'>('treated');
+  const [selectedGarageType, setSelectedGarageType] = useState<'vinyl' | 'wood' | 'fiber-cement' | 'aluminum'>('vinyl');
+  const [selectedAluminumColorProfile, setSelectedAluminumColorProfile] = useState<'white' | 'black'>('white');
   const [selectedFinishingType, setSelectedFinishingType] = useState<'mdf' | 'finger_joint' | 'pine'>('mdf');
-  const [deckSectionBulkSelections, setDeckSectionBulkSelections] = useState<Record<string, string>>({});
   // Local string state for CF inputs so users can clear & type decimals freely
   const [cfEditValues, setCfEditValues] = useState<Record<string, string>>({});
-
-  const getDeckDiagnostics = () => {
-    const selectedType = selectedDeckType;
-    const currentTypePrefix = `deck-${selectedType}-`;
-    const defaultTypePrefix = 'deck-default-';
-
-    const deckCurrentEntries = Object.entries(defaults).filter(([key]) => key.startsWith(currentTypePrefix));
-    const deckDefaultEntries = Object.entries(defaults).filter(([key]) => key.startsWith(defaultTypePrefix));
-
-    const inventoryIdSet = new Set(inventoryItems.map((item) => item.id));
-    const unresolvedCurrent = deckCurrentEntries.filter(([, itemId]) => !!itemId && !inventoryIdSet.has(itemId));
-    const unresolvedDefault = deckDefaultEntries.filter(([, itemId]) => !!itemId && !inventoryIdSet.has(itemId));
-
-    return {
-      currentCount: deckCurrentEntries.length,
-      defaultCount: deckDefaultEntries.length,
-      unresolvedCurrentCount: unresolvedCurrent.length,
-      unresolvedDefaultCount: unresolvedDefault.length,
-    };
-  };
 
   // Refs for scrolling to each planner section
   const deckRef = React.useRef<HTMLDivElement>(null);
@@ -274,6 +343,8 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     }
 
     setLoading(true);
+    // Safety net: always clear the spinner after 12s even if a fetch hangs
+    const safetyTimer = setTimeout(() => setLoading(false), 12000);
     
     try {
       // Step 1: Load wizard defaults
@@ -323,6 +394,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
         onSave('error', 'Failed to load project wizard settings');
       }
     } finally {
+      clearTimeout(safetyTimer);
       setLoading(false);
     }
   };
@@ -343,28 +415,39 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     }
   };
 
-  const getDeckSectionKey = (deckType: string, sectionName: string): string => `${deckType}::${sectionName}`;
+  const isAluminumColorSensitiveCategory = (sectionName: string, category: string): boolean => {
+    return selectedDeckRailingType === 'aluminum' && (
+      sectionName === 'Railing'
+      || sectionName === 'Railing - Tempered Glass Panels by Size'
+      || (sectionName === 'Hardware' && ALUMINUM_ONLY_HARDWARE_CATEGORIES.has(category))
+    );
+  };
 
-  const handleApplyDeckSection = (sectionName: string, categories: string[]) => {
-    const sectionKey = getDeckSectionKey(selectedDeckType, sectionName);
-    const selectedItemId = deckSectionBulkSelections[sectionKey];
+  const getDeckEffectiveMaterialType = (sectionName: string, category: string): string => {
+    if (isAluminumColorSensitiveCategory(sectionName, category)) {
+      return `aluminum-${selectedAluminumColorProfile}`;
+    }
+    return selectedDeckType;
+  };
 
-    if (!selectedItemId) return;
+  const getDeckDisplayCategories = (): Record<string, string[]> => {
+    const baseCategories = PLANNER_CATEGORIES.deck[selectedDeckType] || {};
+    if (selectedDeckRailingType !== 'aluminum') {
+      return baseCategories;
+    }
 
-    setDefaults((prev) => {
-      const next = { ...prev };
+    const merged = { ...baseCategories };
+    merged['Railing'] = aluminumDeckCategories['Railing'];
+    merged['Railing - Tempered Glass Panels by Size'] = aluminumDeckCategories['Railing - Tempered Glass Panels by Size'];
 
-      categories.forEach((category) => {
-        const key = makeDefaultsKey('deck', selectedDeckType, category);
-        if (selectedItemId === 'none') {
-          delete next[key];
-        } else {
-          next[key] = selectedItemId;
-        }
-      });
+    const baseHardware = baseCategories['Hardware'] || [];
+    const mergedHardware = [
+      ...baseHardware.filter((item) => item !== 'Railing Brackets'),
+      ...aluminumDeckCategories['Hardware'].filter((item) => !baseHardware.includes(item)),
+    ];
+    merged['Hardware'] = mergedHardware;
 
-      return next;
-    });
+    return merged;
   };
 
   const handleSave = async () => {
@@ -412,8 +495,11 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
 
   const getDefaultValue = (plannerType: string, materialType: string | null, category: string): string => {
     const key = makeDefaultsKey(plannerType, materialType || 'default', category);
+    const aluminumFallbackKey = materialType?.startsWith('aluminum-')
+      ? makeDefaultsKey(plannerType, 'aluminum', category)
+      : null;
     const fallbackKey = makeDefaultsKey(plannerType, 'default', category);
-    return defaults[key] || defaults[fallbackKey] || 'none';
+    return defaults[key] || (aluminumFallbackKey ? defaults[aluminumFallbackKey] : undefined) || defaults[fallbackKey] || 'none';
   };
 
   // Conversion Factor helpers for org-level CFs
@@ -423,8 +509,11 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
 
   const getOrgCF = (plannerType: string, materialType: string | null, category: string): number => {
     const key = getCFKey(plannerType, materialType, category);
+    const aluminumFallbackKey = materialType?.startsWith('aluminum-')
+      ? getCFKey(plannerType, 'aluminum', category)
+      : null;
     const fallbackKey = getCFKey(plannerType, 'default', category);
-    const val = orgCFs[key] ?? orgCFs[fallbackKey];
+    const val = orgCFs[key] ?? (aluminumFallbackKey ? orgCFs[aluminumFallbackKey] : undefined) ?? orgCFs[fallbackKey];
     return val ? parseFloat(val) || 1 : 1;
   };
 
@@ -550,37 +639,59 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
 
           {/* Deck Planner Settings */}
           <div className="space-y-4 border-2 border-purple-200 rounded-lg p-6 bg-purple-50" ref={deckRef}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
-                <Home className="h-5 w-5 text-purple-600" />
-                Deck Planner
-              </h3>
+            <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
+              <Home className="h-5 w-5 text-purple-600" />
+              Deck Planner
+            </h3>
+
+            <div className="mb-6">
+              <Label>Deck Material Type</Label>
               <Select value={selectedDeckType} onValueChange={(value: any) => setSelectedDeckType(value)}>
-                <SelectTrigger className="w-[180px] bg-background">
-                  <SelectValue placeholder="Select type" />
+                <SelectTrigger className="bg-background">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="spruce">Spruce</SelectItem>
                   <SelectItem value="treated">Treated</SelectItem>
                   <SelectItem value="composite">Composite</SelectItem>
                   <SelectItem value="cedar">Cedar</SelectItem>
+                  <SelectItem value="aluminum">Aluminum</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
+            <div className="mb-6">
+              <Label>Railing Type</Label>
+              <Select value={selectedDeckRailingType} onValueChange={(value: 'treated' | 'aluminum') => setSelectedDeckRailingType(value)}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="treated">Treated</SelectItem>
+                  <SelectItem value="aluminum">Aluminum</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedDeckRailingType === 'aluminum' && (
+              <div className="mb-6">
+                <Label>Aluminum Color</Label>
+                <Select value={selectedAluminumColorProfile} onValueChange={(value: 'white' | 'black') => setSelectedAluminumColorProfile(value)}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="white">White</SelectItem>
+                    <SelectItem value="black">Black</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">Applies only to railing-related aluminum defaults, not framing or decking defaults.</p>
+              </div>
+            )}
+
             <div className="space-y-6 p-4 bg-background rounded-lg border border-purple-100">
-              {(() => {
-                const diag = getDeckDiagnostics();
-                return (
-                  <div className="text-xs bg-slate-50 border border-slate-200 rounded p-2 text-slate-700">
-                    Deck defaults diagnostics: selected type mappings={diag.currentCount}, default mappings={diag.defaultCount}, unresolved selected={diag.unresolvedCurrentCount}, unresolved default={diag.unresolvedDefaultCount}
-                  </div>
-                );
-              })()}
-              {Object.entries(PLANNER_CATEGORIES.deck[selectedDeckType]).map(([sectionName, categories]) => {
+              {Object.entries(getDeckDisplayCategories()).map(([sectionName, categories]) => {
                 const showCF = !isLumberGroup(sectionName);
-                const sectionKey = getDeckSectionKey(selectedDeckType, sectionName);
-                const bulkSelection = deckSectionBulkSelections[sectionKey] || '';
                 return (
                   <div key={sectionName} className="space-y-3">
                     <div className="flex items-center gap-2 border-b border-purple-200 pb-1">
@@ -593,50 +704,25 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                       )}
                     </div>
 
-                    <div className="flex flex-col md:flex-row gap-2 md:items-center bg-slate-50 border border-slate-200 rounded p-2">
-                      <div className="flex-1">
-                        <InventoryCombobox
-                          id={`deck-bulk-${selectedDeckType}-${sectionName}`}
-                          items={inventoryItems}
-                          value={bulkSelection}
-                          onChange={(value) => {
-                            setDeckSectionBulkSelections((prev) => ({
-                              ...prev,
-                              [sectionKey]: value,
-                            }));
-                          }}
-                          placeholder={`Bulk apply item to ${sectionName}...`}
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => handleApplyDeckSection(sectionName, categories)}
-                        disabled={!bulkSelection}
-                        className="md:w-auto w-full"
-                      >
-                        {bulkSelection === 'none' ? 'Clear Section' : 'Apply To Section'}
-                      </Button>
-                    </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {categories.map((category) => {
-                        const cfValue = showCF ? getOrgCF('deck', selectedDeckType, category) : 1;
+                        const effectiveMaterialType = getDeckEffectiveMaterialType(sectionName, category);
+                        const cfValue = showCF ? getOrgCF('deck', effectiveMaterialType, category) : 1;
                         return (
                           <div key={category} className="space-y-2">
                             <Label htmlFor={`deck-${selectedDeckType}-${category}`} className="text-foreground">{category}</Label>
                             <InventoryCombobox
                               id={`deck-${selectedDeckType}-${category}`}
                               items={inventoryItems}
-                              value={getDefaultValue('deck', selectedDeckType, category)}
-                              onChange={(value) => handleDefaultChange('deck', selectedDeckType, category, value)}
+                              value={getDefaultValue('deck', effectiveMaterialType, category)}
+                              onChange={(value) => handleDefaultChange('deck', effectiveMaterialType, category, value)}
                               placeholder="Select inventory item..."
                             />
                             {showCF && (
                               <div className="flex items-center gap-2">
                                 <Label className="text-xs text-muted-foreground whitespace-nowrap">CF:</Label>
                                 {(() => {
-                                  const cfKey = getCFKey('deck', selectedDeckType, category);
+                                  const cfKey = getCFKey('deck', effectiveMaterialType, category);
                                   const editVal = cfEditValues[cfKey];
                                   const displayVal = editVal !== undefined ? editVal : (cfValue === 1 ? '' : String(cfValue));
                                   return (
@@ -645,8 +731,8 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         type="text"
                                         inputMode="decimal"
                                         value={displayVal}
-                                        onChange={(e) => handleCFInputChange('deck', selectedDeckType, category, e.target.value)}
-                                        onBlur={() => handleCFInputBlur('deck', selectedDeckType, category)}
+                                        onChange={(e) => handleCFInputChange('deck', effectiveMaterialType, category, e.target.value)}
+                                        onBlur={() => handleCFInputBlur('deck', effectiveMaterialType, category)}
                                         placeholder="1"
                                         className="h-7 w-24 text-xs text-foreground"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
@@ -675,9 +761,25 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
               <Warehouse className="h-5 w-5 text-blue-600" />
               Garage Planner
             </h3>
+
+            <div className="mb-6">
+              <Label>Siding Type</Label>
+              <Select value={selectedGarageType} onValueChange={(value: 'vinyl' | 'wood' | 'fiber-cement' | 'aluminum') => setSelectedGarageType(value)}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vinyl">Vinyl</SelectItem>
+                  <SelectItem value="wood">Wood / LP SmartSide</SelectItem>
+                  <SelectItem value="fiber-cement">Fiber Cement</SelectItem>
+                  <SelectItem value="aluminum">Metal Panels</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-6 p-4 bg-background rounded-lg border border-blue-100">
-              {Object.entries(PLANNER_CATEGORIES.garage.default).map(([sectionName, categories]) => {
+              {Object.entries(PLANNER_CATEGORIES.garage[selectedGarageType] ?? PLANNER_CATEGORIES.garage.default).map(([sectionName, categories]) => {
                 const showCF = !isLumberGroup(sectionName);
+                const garageMaterialType = selectedGarageType;
                 return (
                   <div key={sectionName} className="space-y-3">
                     <div className="flex items-center gap-2 border-b border-blue-200 pb-1">
@@ -691,38 +793,40 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {categories.map((category) => {
-                        const cfValue = showCF ? getOrgCF('garage', null, category) : 1;
+                        const cfValue = showCF ? (getOrgCF('garage', garageMaterialType, category) || SYSTEM_CF_SUGGESTIONS[category] || 1) : 1;
                         return (
                           <div key={category} className="space-y-2">
-                            <Label htmlFor={`garage-${category}`} className="text-foreground">{category}</Label>
+                            <Label htmlFor={`garage-${selectedGarageType}-${category}`} className="text-foreground">{category}</Label>
                             <InventoryCombobox
-                              id={`garage-${category}`}
+                              id={`garage-${selectedGarageType}-${category}`}
                               items={inventoryItems}
-                              value={getDefaultValue('garage', null, category)}
-                              onChange={(value) => handleDefaultChange('garage', null, category, value)}
+                              value={getDefaultValue('garage', garageMaterialType, category)}
+                              onChange={(value) => handleDefaultChange('garage', garageMaterialType, category, value)}
                               placeholder="Select inventory item..."
                             />
                             {showCF && (
                               <div className="flex items-center gap-2">
                                 <Label className="text-xs text-muted-foreground whitespace-nowrap">CF:</Label>
                                 {(() => {
-                                  const cfKey = getCFKey('garage', null, category);
+                                  const cfKey = getCFKey('garage', garageMaterialType, category);
                                   const editVal = cfEditValues[cfKey];
-                                  const displayVal = editVal !== undefined ? editVal : (cfValue === 1 ? '' : String(cfValue));
+                                  const displayVal = editVal !== undefined ? editVal : (cfValue === 1 ? '' : String(parseFloat(cfValue.toFixed(4))));
+                                  const suggestedCF = SYSTEM_CF_SUGGESTIONS[category];
+                                  const placeholderVal = suggestedCF ? String(parseFloat(suggestedCF.toFixed(4))) : '1';
                                   return (
                                     <>
                                       <Input
                                         type="text"
                                         inputMode="decimal"
                                         value={displayVal}
-                                        onChange={(e) => handleCFInputChange('garage', null, category, e.target.value)}
-                                        onBlur={() => handleCFInputBlur('garage', null, category)}
-                                        placeholder="1"
+                                        onChange={(e) => handleCFInputChange('garage', garageMaterialType, category, e.target.value)}
+                                        onBlur={() => handleCFInputBlur('garage', garageMaterialType, category)}
+                                        placeholder={placeholderVal}
                                         className="h-7 w-24 text-xs text-foreground"
-                                        title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
+                                        title="Conversion Factor: raw qty × CF = purchase qty. E.g., 12ft piece → CF=0.0833. Enter any decimal."
                                       />
                                       {cfValue !== 1 && editVal === undefined && (
-                                        <span className="text-xs text-amber-600 font-medium">×{cfValue}</span>
+                                        <span className="text-xs text-amber-600 font-medium">×{parseFloat(cfValue.toFixed(4))}</span>
                                       )}
                                     </>
                                   );

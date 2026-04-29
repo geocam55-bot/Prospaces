@@ -61,6 +61,7 @@ function ITApp() {
   }, []);
 
   const loadProfile = async (session: Session) => {
+    const safetyTimer = setTimeout(() => setLoading(false), 8000);
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -97,6 +98,7 @@ function ITApp() {
     } catch {
       // Profile load failed
     } finally {
+      clearTimeout(safetyTimer);
       setLoading(false);
     }
   };

@@ -4,6 +4,8 @@ export type DeckingPattern = 'perpendicular' | 'parallel' | 'diagonal';
 export type Unit = 'feet' | 'meters';
 export type DeckingMaterialType = 'Spruce' | 'Treated' | 'Cedar' | 'Composite';
 export type RailingStyle = 'Treated' | 'Aluminum';
+export type AluminumInfillType = 'Pickets' | 'Glass';
+export type AluminumRailingColor = 'White' | 'Black';
 
 export interface DeckConfig {
   // Basic dimensions
@@ -35,6 +37,8 @@ export interface DeckConfig {
   // Railings
   railingSides: DeckingSide[];
   railingStyle?: RailingStyle; // defaults to 'Treated'
+  aluminumInfillType?: AluminumInfillType; // only applies when railingStyle is 'Aluminum'
+  aluminumRailingColor?: AluminumRailingColor; // only applies when railingStyle is 'Aluminum'
   railingHeight?: number; // defaults to 42 inches
   
   // Construction details

@@ -1,4 +1,4 @@
-import { useState, useEffect, useDeferredValue } from 'react';
+import { useState, useEffect, useDeferredValue, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
+import { Progress } from './ui/progress';
 import {
   Package,
   Plus,
@@ -137,6 +138,14 @@ export function Inventory({ user }: InventoryProps) {
   } | null>(null);
   const [isRecovering, setIsRecovering] = useState(false);
   const [isRegeneratingAllKeywords, setIsRegeneratingAllKeywords] = useState(false);
+  const [keywordRegenProgress, setKeywordRegenProgress] = useState<{
+    processed: number;
+    total: number;
+    updated: number;
+    failed: number;
+    percent: number;
+  } | null>(null);
+  const notificationTimeoutRef = useRef<number | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -382,10 +391,28 @@ export function Inventory({ user }: InventoryProps) {
     }
   };
 
-  const showAlert = (type: 'success' | 'error', message: string) => {
+  const showAlert = (type: 'success' | 'error', message: string, durationMs?: number) => {
+    if (notificationTimeoutRef.current) {
+      window.clearTimeout(notificationTimeoutRef.current);
+      notificationTimeoutRef.current = null;
+    }
+
     setNotification({ type, message });
-    setTimeout(() => setNotification(null), 3000);
+
+    const timeoutMs = durationMs ?? (type === 'error' ? 12000 : 3000);
+    notificationTimeoutRef.current = window.setTimeout(() => {
+      setNotification(null);
+      notificationTimeoutRef.current = null;
+    }, timeoutMs);
   };
+
+  useEffect(() => {
+    return () => {
+      if (notificationTimeoutRef.current) {
+        window.clearTimeout(notificationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleOpenDialog = (item?: InventoryItem) => {
     if (item) {
@@ -701,14 +728,25 @@ export function Inventory({ user }: InventoryProps) {
     if (!confirm('Regenerate search keywords for all SKUs in your organization? This may take a few minutes.')) return;
 
     setIsRegeneratingAllKeywords(true);
+    setKeywordRegenProgress({ processed: 0, total: 0, updated: 0, failed: 0, percent: 0 });
     try {
-      const result = await inventoryAPI.regenerateAllKeywords();
-      showAlert('success', `Regenerated keywords for ${result.updated} SKUs${result.failed > 0 ? ` (${result.failed} failed)` : ''}`);
+      const result = await inventoryAPI.regenerateAllKeywords((progress) => {
+        setKeywordRegenProgress(progress);
+      });
+      if (result.failed > 0) {
+        const failureSummary = result.failureDetails?.length
+          ? ` First issues: ${result.failureDetails.join(' | ')}`
+          : '';
+        showAlert('error', `Regenerated keywords for ${result.updated} SKUs, but ${result.failed} failed.${failureSummary}`, 15000);
+      } else {
+        showAlert('success', `Regenerated keywords for ${result.updated} SKUs`);
+      }
       await loadInventory();
     } catch (error: any) {
-      showAlert('error', error?.message || 'Failed to regenerate keywords for all SKUs');
+      showAlert('error', error?.message || 'Failed to regenerate keywords for all SKUs', 15000);
     } finally {
       setIsRegeneratingAllKeywords(false);
+      setKeywordRegenProgress(null);
     }
   };
 
@@ -962,12 +1000,28 @@ export function Inventory({ user }: InventoryProps) {
       {/* Notification Alert */}
       {notification && (
         <Alert variant={notification.type === 'error' ? 'destructive' : 'default'}>
-          {notification.type === 'success' ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
-          )}
-          <AlertDescription>{notification.message}</AlertDescription>
+          <div className="flex w-full items-start gap-3">
+            {notification.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 mt-0.5" />
+            ) : (
+              <AlertCircle className="h-4 w-4 mt-0.5" />
+            )}
+            <AlertDescription className="flex-1">{notification.message}</AlertDescription>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0"
+              onClick={() => {
+                if (notificationTimeoutRef.current) {
+                  window.clearTimeout(notificationTimeoutRef.current);
+                  notificationTimeoutRef.current = null;
+                }
+                setNotification(null);
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </Alert>
       )}
 
@@ -1816,27 +1870,45 @@ export function Inventory({ user }: InventoryProps) {
               <CardHeader>
                 <CardTitle className="text-base">Admin Keyword Tools</CardTitle>
               </CardHeader>
-              <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  Rebuild AI search keywords for all inventory SKUs in your organization.
-                </p>
-                <Button
-                  onClick={handleRegenerateAllKeywords}
-                  disabled={isRegeneratingAllKeywords}
-                  className="w-full sm:w-auto"
-                >
-                  {isRegeneratingAllKeywords ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Regenerating...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Regenerate Keywords for All SKUs
-                    </>
-                  )}
-                </Button>
+              <CardContent className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    Rebuild AI search keywords for all inventory SKUs in your organization.
+                  </p>
+                  <Button
+                    onClick={handleRegenerateAllKeywords}
+                    disabled={isRegeneratingAllKeywords}
+                    className="w-full sm:w-auto"
+                  >
+                    {isRegeneratingAllKeywords ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Regenerating...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Regenerate Keywords for All SKUs
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {isRegeneratingAllKeywords && keywordRegenProgress && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {keywordRegenProgress.processed.toLocaleString()} / {keywordRegenProgress.total.toLocaleString()} SKUs processed
+                      </span>
+                      <span>{keywordRegenProgress.percent}%</span>
+                    </div>
+                    <Progress value={keywordRegenProgress.percent} className="h-2" />
+                    <p className="text-xs text-muted-foreground">
+                      Updated: {keywordRegenProgress.updated.toLocaleString()}
+                      {keywordRegenProgress.failed > 0 ? ` • Failed: ${keywordRegenProgress.failed.toLocaleString()}` : ''}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
             <InventoryDiagnostic user={user} />

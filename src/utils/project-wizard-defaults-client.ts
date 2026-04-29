@@ -1,6 +1,6 @@
 import { createClient } from './supabase/client';
 import { projectId, publicAnonKey } from './supabase/info';
-import { getServerHeaders } from './server-headers';
+import { getServerHeaders, getUserAccessToken } from './server-headers';
 
 export interface ProjectWizardDefault {
   id?: string;
@@ -93,10 +93,9 @@ export async function getUserDefaults(userId: string, organizationId: string): P
   // Fetching user defaults
   
   try {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
+    const token = await getUserAccessToken();
+
+    if (!token) {
       // No session, fall back to local cache
       return readPlannerDefaultsFromLocalStorage(organizationId, userId);
     }
@@ -139,10 +138,9 @@ export async function saveUserDefaults(userId: string, organizationId: string, d
   writePlannerDefaultsToLocalStorage(organizationId, userId, defaults);
   
   try {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
+    const token = await getUserAccessToken();
+
+    if (!token) {
       // No session, cannot save user defaults
       return false;
     }
@@ -177,10 +175,9 @@ export async function deleteUserDefaults(userId: string, organizationId: string)
   // Deleting user defaults
   
   try {
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
+    const token = await getUserAccessToken();
+
+    if (!token) {
       // No session, cannot delete user defaults
       return false;
     }
@@ -376,14 +373,19 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
     
     if (!user) {
       // Fallback: check if there's a session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        authUser = session.user;
-        // Using session user for inventory (getUser failed)
-      } else {
+      const token = await getUserAccessToken();
+      if (!token) {
         // User not authenticated, returning empty inventory
         return [];
       }
+
+      const { data: { user: fallbackUser } } = await supabase.auth.getUser();
+      if (!fallbackUser) {
+        return [];
+      }
+
+      authUser = fallbackUser;
+      // Using refreshed auth state for inventory lookup
     } else {
       authUser = user;
     }
@@ -482,15 +484,19 @@ export function extractConversionFactors(
   materialType?: string
 ): Record<string, number> {
   const cfMap: Record<string, number> = {};
-  // Lowercase the prefix so 'Treated' matches 'treated', etc.
-  const prefix = `${plannerType}-${(materialType || 'default').toLowerCase()}-`;
+  const normalizedMaterialType = (materialType || 'default').toLowerCase();
+  const prefixes = [`${plannerType}-${normalizedMaterialType}-`];
+
+  if (normalizedMaterialType.startsWith('aluminum-')) {
+    prefixes.push(`${plannerType}-aluminum-`);
+  }
 
   Object.entries(userDefaults).forEach(([key, value]) => {
-    if (key.toLowerCase().startsWith(prefix) && key.endsWith('-cf')) {
-      // Extract category name: remove prefix and '-cf' suffix
-      const categoryName = key.slice(prefix.length, -3); // remove prefix and "-cf"
+    const matchingPrefix = prefixes.find((prefix) => key.toLowerCase().startsWith(prefix));
+    if (matchingPrefix && key.endsWith('-cf')) {
+      const categoryName = key.slice(matchingPrefix.length, -3);
       const numVal = parseFloat(value);
-      if (!isNaN(numVal) && numVal > 0 && numVal !== 1) {
+      if (!isNaN(numVal) && numVal > 0 && numVal !== 1 && cfMap[categoryName.toLowerCase()] === undefined) {
         cfMap[categoryName.toLowerCase()] = numVal;
       }
     }
@@ -570,14 +576,19 @@ export function extractOrgConversionFactors(
   materialType?: string
 ): Record<string, number> {
   const cfMap: Record<string, number> = {};
-  // Lowercase the prefix so 'Treated' matches 'treated', etc.
-  const prefix = `${plannerType}-${(materialType || 'default').toLowerCase()}-`;
+  const normalizedMaterialType = (materialType || 'default').toLowerCase();
+  const prefixes = [`${plannerType}-${normalizedMaterialType}-`];
+
+  if (normalizedMaterialType.startsWith('aluminum-')) {
+    prefixes.push(`${plannerType}-aluminum-`);
+  }
 
   Object.entries(orgCFs).forEach(([key, value]) => {
-    if (key.toLowerCase().startsWith(prefix)) {
-      const categoryName = key.slice(prefix.length);
+    const matchingPrefix = prefixes.find((prefix) => key.toLowerCase().startsWith(prefix));
+    if (matchingPrefix) {
+      const categoryName = key.slice(matchingPrefix.length);
       const numVal = parseFloat(value);
-      if (!isNaN(numVal) && numVal > 0 && numVal !== 1) {
+      if (!isNaN(numVal) && numVal > 0 && numVal !== 1 && cfMap[categoryName.toLowerCase()] === undefined) {
         cfMap[categoryName.toLowerCase()] = numVal;
       }
     }

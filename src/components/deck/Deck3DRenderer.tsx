@@ -714,18 +714,31 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
       const postExtraHeight = (2 / 12) * scale;
       const postHeight = railingHeight + postExtraHeight;
       const postY = postHeight / 2 + deckSurfaceY;
+      const isAluminumRailing = config.railingStyle === 'Aluminum';
+      const aluminumColor = config.aluminumRailingColor || 'White';
+      const useGlassInfill = isAluminumRailing && (config.aluminumInfillType || 'Pickets') === 'Glass';
+      const frameColor = isAluminumRailing
+        ? (aluminumColor === 'Black' ? 0x1f2937 : 0xf8fafc)
+        : 0x8b6f47;
       
       const railingMaterial = new MeshStandardMaterial({ 
-        color: 0xffffff,
-        roughness: 0.3,
-        metalness: 0.2
+        color: frameColor,
+        roughness: isAluminumRailing ? 0.3 : 0.7,
+        metalness: isAluminumRailing ? 0.35 : 0.05
       });
 
       const postGeometry = new BoxGeometry(postSize, postHeight, postSize);
       const postMaterial = new MeshStandardMaterial({ 
-        color: 0xe8e8e8,
-        roughness: 0.4,
-        metalness: 0.1
+        color: frameColor,
+        roughness: isAluminumRailing ? 0.4 : 0.75,
+        metalness: isAluminumRailing ? 0.15 : 0.05
+      });
+      const glassPanelMaterial = new MeshStandardMaterial({
+        color: 0xbfe7f7,
+        roughness: 0.05,
+        metalness: 0.0,
+        transparent: true,
+        opacity: 0.45,
       });
 
       // Define complete outer perimeter segments
@@ -796,18 +809,29 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
               bottomRail.rotation.y = angle;
               scene.add(bottomRail);
 
-              // Balusters for left section
-              const balusterSpacing = 0.15;
-              const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
-              const numBalusters = Math.floor(leftLength / balusterSpacing);
+              if (useGlassInfill) {
+                const panelLength = Math.max(leftLength - 0.12, 0.12);
+                const panelHeight = Math.max(balusterLength - 0.06, 0.12);
+                const glassPanel = new Mesh(
+                  new BoxGeometry(panelLength, panelHeight, 0.02),
+                  glassPanelMaterial
+                );
+                glassPanel.position.set(leftCenterX, balusterCenterY, leftCenterZ);
+                glassPanel.rotation.y = angle;
+                scene.add(glassPanel);
+              } else {
+                const balusterSpacing = 0.15;
+                const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
+                const numBalusters = Math.floor(leftLength / balusterSpacing);
 
-              for (let i = 0; i < numBalusters; i++) {
-                const t = i / (numBalusters - 1 || 1);
-                const balX = seg.x1 + (leftEndPt.x - seg.x1) * t;
-                const balZ = seg.z1 + (leftEndPt.z - seg.z1) * t;
-                const baluster = new Mesh(balusterGeometry, railingMaterial);
-                baluster.position.set(balX, balusterCenterY, balZ);
-                scene.add(baluster);
+                for (let i = 0; i < numBalusters; i++) {
+                  const t = i / (numBalusters - 1 || 1);
+                  const balX = seg.x1 + (leftEndPt.x - seg.x1) * t;
+                  const balZ = seg.z1 + (leftEndPt.z - seg.z1) * t;
+                  const baluster = new Mesh(balusterGeometry, railingMaterial);
+                  baluster.position.set(balX, balusterCenterY, balZ);
+                  scene.add(baluster);
+                }
               }
 
               // Posts for left section (including end post at gap)
@@ -843,18 +867,29 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
               bottomRail.rotation.y = angle;
               scene.add(bottomRail);
 
-              // Balusters for right section
-              const balusterSpacing = 0.15;
-              const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
-              const numBalusters = Math.floor(rightLength / balusterSpacing);
+              if (useGlassInfill) {
+                const panelLength = Math.max(rightLength - 0.12, 0.12);
+                const panelHeight = Math.max(balusterLength - 0.06, 0.12);
+                const glassPanel = new Mesh(
+                  new BoxGeometry(panelLength, panelHeight, 0.02),
+                  glassPanelMaterial
+                );
+                glassPanel.position.set(rightCenterX, balusterCenterY, rightCenterZ);
+                glassPanel.rotation.y = angle;
+                scene.add(glassPanel);
+              } else {
+                const balusterSpacing = 0.15;
+                const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
+                const numBalusters = Math.floor(rightLength / balusterSpacing);
 
-              for (let i = 0; i < numBalusters; i++) {
-                const t = i / (numBalusters - 1 || 1);
-                const balX = rightStartPt.x + (seg.x2 - rightStartPt.x) * t;
-                const balZ = rightStartPt.z + (seg.z2 - rightStartPt.z) * t;
-                const baluster = new Mesh(balusterGeometry, railingMaterial);
-                baluster.position.set(balX, balusterCenterY, balZ);
-                scene.add(baluster);
+                for (let i = 0; i < numBalusters; i++) {
+                  const t = i / (numBalusters - 1 || 1);
+                  const balX = rightStartPt.x + (seg.x2 - rightStartPt.x) * t;
+                  const balZ = rightStartPt.z + (seg.z2 - rightStartPt.z) * t;
+                  const baluster = new Mesh(balusterGeometry, railingMaterial);
+                  baluster.position.set(balX, balusterCenterY, balZ);
+                  scene.add(baluster);
+                }
               }
 
               // Posts for right section (including start post at gap)
@@ -888,18 +923,29 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
             bottomRail.rotation.y = angle;
             scene.add(bottomRail);
 
-            // Balusters
-            const balusterSpacing = 0.15;
-            const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
-            const numBalusters = Math.floor(segLength / balusterSpacing);
+            if (useGlassInfill) {
+              const panelLength = Math.max(segLength - 0.12, 0.12);
+              const panelHeight = Math.max(balusterLength - 0.06, 0.12);
+              const glassPanel = new Mesh(
+                new BoxGeometry(panelLength, panelHeight, 0.02),
+                glassPanelMaterial
+              );
+              glassPanel.position.set(centerX, balusterCenterY, centerZ);
+              glassPanel.rotation.y = angle;
+              scene.add(glassPanel);
+            } else {
+              const balusterSpacing = 0.15;
+              const balusterGeometry = new BoxGeometry(0.04, balusterLength, 0.04);
+              const numBalusters = Math.floor(segLength / balusterSpacing);
 
-            for (let i = 0; i < numBalusters; i++) {
-              const t = i / (numBalusters - 1 || 1);
-              const balX = seg.x1 + (seg.x2 - seg.x1) * t;
-              const balZ = seg.z1 + (seg.z2 - seg.z1) * t;
-              const baluster = new Mesh(balusterGeometry, railingMaterial);
-              baluster.position.set(balX, balusterCenterY, balZ);
-              scene.add(baluster);
+              for (let i = 0; i < numBalusters; i++) {
+                const t = i / (numBalusters - 1 || 1);
+                const balX = seg.x1 + (seg.x2 - seg.x1) * t;
+                const balZ = seg.z1 + (seg.z2 - seg.z1) * t;
+                const baluster = new Mesh(balusterGeometry, railingMaterial);
+                baluster.position.set(balX, balusterCenterY, balZ);
+                scene.add(baluster);
+              }
             }
 
             // Posts along segment
@@ -1006,16 +1052,21 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
          const railingHeight = (config.railingHeight || 42) / 12 * scale;
          const railingOffset = 0.05; // inset from edge
          const w = stairWidth/2 - railingOffset;
+        const isAluminumRailing = config.railingStyle === 'Aluminum';
+        const aluminumColor = config.aluminumRailingColor || 'White';
+        const stairFrameColor = isAluminumRailing
+          ? (aluminumColor === 'Black' ? 0x1f2937 : 0xf8fafc)
+          : 0x8b6f47;
          
          const railingMaterial = new MeshStandardMaterial({ 
-            color: 0xffffff,
-            roughness: 0.3,
-            metalness: 0.2
+          color: stairFrameColor,
+          roughness: isAluminumRailing ? 0.3 : 0.7,
+          metalness: isAluminumRailing ? 0.35 : 0.05
          });
          const postMaterial = new MeshStandardMaterial({ 
-            color: 0xe8e8e8,
-            roughness: 0.4,
-            metalness: 0.1
+          color: stairFrameColor,
+          roughness: isAluminumRailing ? 0.4 : 0.75,
+          metalness: isAluminumRailing ? 0.15 : 0.05
          });
          const postSize = 0.089;
 

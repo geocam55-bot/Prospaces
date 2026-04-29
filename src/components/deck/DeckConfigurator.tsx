@@ -380,12 +380,55 @@ export function DeckConfigurator({ config, onChange }: DeckConfiguratorProps) {
           </label>
           <select
             value={config.railingStyle || 'Treated'}
-            onChange={(e) => updateConfig({ railingStyle: e.target.value as any })}
+            onChange={(e) => {
+              const nextStyle = e.target.value as any;
+              updateConfig({
+                railingStyle: nextStyle,
+                ...(nextStyle === 'Aluminum'
+                  ? {
+                      aluminumInfillType: config.aluminumInfillType || 'Pickets',
+                      aluminumRailingColor: config.aluminumRailingColor || 'White',
+                    }
+                  : {}),
+              });
+            }}
             className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground mb-4"
           >
             <option value="Treated">Treated Wood</option>
             <option value="Aluminum">Aluminum</option>
           </select>
+
+          {config.railingStyle === 'Aluminum' && (
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="block text-foreground text-sm mb-1">
+                  Aluminum Infill Style
+                </label>
+                <select
+                  value={config.aluminumInfillType || 'Pickets'}
+                  onChange={(e) => updateConfig({ aluminumInfillType: e.target.value as any })}
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
+                >
+                  <option value="Pickets">Pickets (Balusters)</option>
+                  <option value="Glass">Glass</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-foreground text-sm mb-1">
+                  Aluminum System Color
+                </label>
+                <select
+                  value={config.aluminumRailingColor || 'White'}
+                  onChange={(e) => updateConfig({ aluminumRailingColor: e.target.value as any })}
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
+                >
+                  <option value="White">White</option>
+                  <option value="Black">Black</option>
+                </select>
+              </div>
+            </div>
+          )}
 
           <label className="block text-foreground text-sm mb-2">
             Railing Sides

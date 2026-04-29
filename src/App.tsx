@@ -386,6 +386,7 @@ export function AppContent() {
   }, [user?.id, !!session]);
 
   const loadUserData = async (supabaseUser: SupabaseUser, isInitialLoad = true) => {
+    const safetyTimer = setTimeout(() => setLoading(false), 8000);
     try {
       // Load user profile with needs_password_change field
       const { data: profile } = await supabase
@@ -459,6 +460,7 @@ export function AppContent() {
       }
     } catch (error) {
     } finally {
+      clearTimeout(safetyTimer);
       setLoading(false);
     }
   };

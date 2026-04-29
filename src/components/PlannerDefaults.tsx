@@ -27,6 +27,8 @@ interface PlannerDefaultsProps {
   plannerType: 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen';
   materialTypes?: string[]; // Optional for planners like deck that have multiple material types
   initialMaterialType?: string;
+  initialRailingType?: string;
+  initialAluminumColor?: string;
   onDefaultsSaved?: () => void;
 }
 
@@ -72,6 +74,92 @@ const isLumberGroup = (groupName: string): boolean => {
 // Helper: generate length-specific entries for a lumber category
 const lumberLengthEntries = (baseName: string): string[] =>
   STANDARD_LUMBER_LENGTHS.map((len) => `${baseName} (${len}')`);
+
+const aluminumGlassPanelEntries = (): string[] => [
+  'Tempered Glass Panel (6")',
+  'Tempered Glass Panel (9")',
+  'Tempered Glass Panel (12")',
+  'Tempered Glass Panel (15")',
+  'Tempered Glass Panel (18")',
+  'Tempered Glass Panel (21")',
+  'Tempered Glass Panel (24")',
+  'Tempered Glass Panel (27")',
+  'Tempered Glass Panel (30")',
+  'Tempered Glass Panel (33")',
+  'Tempered Glass Panel (36")',
+  'Tempered Glass Panel (39")',
+  'Tempered Glass Panel (42")',
+  'Tempered Glass Panel (45")',
+  'Tempered Glass Panel (48")',
+  'Tempered Glass Panel (51")',
+  'Tempered Glass Panel (54")',
+  'Tempered Glass Panel (57")',
+  'Tempered Glass Panel (60")',
+  'Tempered Glass Panel (63")',
+  'Tempered Glass Panel (66")',
+];
+
+const aluminumDeckCategories = {
+  'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
+  'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
+  'Framing - Joists by Length': lumberLengthEntries('Joists'),
+  'Framing - Rim Joists by Length': lumberLengthEntries('Rim Joists'),
+  'Framing - Beams by Length': lumberLengthEntries('Beams'),
+  'Framing - Posts by Length': lumberLengthEntries('Posts'),
+  'Decking': ['Decking Boards', 'Stair Treads'],
+  'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
+  'Railing': ['Aluminum Top & Bottom Rail', 'Picket Packages', 'Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'Aluminum Posts', 'Aluminum Stair Posts'],
+  'Railing - Tempered Glass Panels by Size': aluminumGlassPanelEntries(),
+  'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws', 'Post Base Plate Cover', 'Decorative Post Cap', 'Universal Angle Bracket (UAB)', 'Vinyl Insert for Glass (GVI)', 'Rubber Blocks for Glass (GRB-10)', 'Rail Support Legs (SRSL)', 'Lag Bolts (post mounting)', 'Self Drilling Screws'],
+};
+
+const ALUMINUM_ONLY_HARDWARE_CATEGORIES = new Set([
+  'Post Base Plate Cover',
+  'Decorative Post Cap',
+  'Universal Angle Bracket (UAB)',
+  'Vinyl Insert for Glass (GVI)',
+  'Rubber Blocks for Glass (GRB-10)',
+  'Rail Support Legs (SRSL)',
+  'Lag Bolts (post mounting)',
+  'Self Drilling Screws',
+]);
+
+/** Industry-standard suggested conversion factors (ft per piece → CF = 1/length).
+ *  Used as final fallback when no org or user CF is set. */
+const SYSTEM_CF_SUGGESTIONS: Record<string, number> = {
+  // Siding Accessories (feet per piece)
+  'Starter Strip': 1 / 12.5,           // 12.5 ft/piece
+  'Finish Trim': 1 / 12,               // 12 ft/piece
+  'Finish Trim (Soffit)': 1 / 12,
+  'J-Channel': 1 / 12,
+  'J-Channel (Soffit)': 1 / 12,
+  'Outside Corner': 1 / 10,            // 10 ft/piece
+  'Inside Corner': 1 / 10,
+  'Trim Coil': 1 / 50,                 // 50 ft/roll
+  'Aluminum Trim Coil': 1 / 50,
+  // Soffit Accessories
+  'F-Channel': 1 / 12,
+  'Vinyl or Aluminum Fascia': 1 / 12,
+  // Miscellaneous
+  'Flashing': 1 / 10,
+  'Furring Strip': 1 / 8,              // 8 ft/piece
+};
+
+const formatMaterialTypeLabel = (type: string, plannerType?: string): string => {
+  const labels: Record<string, string> = {
+    'aluminum-white': 'Aluminum - White',
+    'aluminum-black': 'Aluminum - Black',
+  };
+  // Garage siding type labels
+  const garageLabels: Record<string, string> = {
+    'vinyl': 'Vinyl',
+    'wood': 'Wood / LP SmartSide',
+    'fiber-cement': 'Fiber Cement',
+    'aluminum': 'Metal Panels',
+  };
+  if (plannerType === 'garage' && garageLabels[type]) return garageLabels[type];
+  return labels[type] || type.charAt(0).toUpperCase() + type.slice(1);
+};
 
 // Define material categories for each planner type
 const PLANNER_CATEGORIES: Record<string, Record<string, Record<string, string[]>>> = {
@@ -124,6 +212,9 @@ const PLANNER_CATEGORIES: Record<string, Record<string, Record<string, string[]>
       'Railing': ['Railing Posts', 'Railing Top Rail', 'Railing Bottom Rail', 'Railing Balusters'],
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
+    aluminum: aluminumDeckCategories,
+    'aluminum-white': aluminumDeckCategories,
+    'aluminum-black': aluminumDeckCategories,
   },
   garage: {
     default: {
@@ -135,6 +226,24 @@ const PLANNER_CATEGORIES: Record<string, Record<string, Record<string, string[]>
       'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
       'Siding': ['House Wrap', 'Siding', 'Trim Boards', 'Fascia Boards'],
       'Siding - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
+      'Doors': ['Garage Door', 'Garage Door Opener', 'Entry Door'],
+      'Windows': ['Windows'],
+      'Hardware': ['16d Common Nails', '8d Common Nails', 'Joist Hangers', 'Hurricane Ties', 'Construction Adhesive', 'Anchor Bolts'],
+      'Electrical': ['Sub-Panel', 'Romex Wire', 'LED Shop Lights', 'Outlets (GFCI)', 'Light Switches', 'Junction Boxes'],
+      'Insulation': ['Insulation (Walls)', 'Insulation (Ceiling)', 'Vapor Barrier (Insulation)'],
+    },
+    vinyl: {
+      'Foundation': ['Concrete Slab', 'Vapor Barrier', 'Gravel Base', 'Rebar', 'Wire Mesh'],
+      'Framing': ['Wall Studs', 'Plates', 'Headers', 'Blocking/Bracing', 'Roof Trusses', 'Wall Sheathing', 'Roof Sheathing'],
+      'Framing - Wall Studs by Length': lumberLengthEntries('Wall Studs'),
+      'Framing - Plates by Length': lumberLengthEntries('Plates'),
+      'Framing - Headers by Length': lumberLengthEntries('Headers'),
+      'Roofing': ['Felt Underlayment', 'Roof Shingles', 'Ridge Cap', 'Drip Edge', 'Roofing Nails'],
+      'Siding - Fascia Boards by Length': lumberLengthEntries('Fascia Boards'),
+      'Siding Accessories': ['Starter Strip', 'Finish Trim', 'J-Channel', 'Outside Corner', 'Inside Corner', 'Trim Coil', 'Trim Nails'],
+      'Soffit Accessories': ['F-Channel', 'J-Channel (Soffit)', 'Vinyl or Aluminum Fascia', 'Aluminum Trim Coil', 'Finish Trim (Soffit)'],
+      'Miscellaneous': ['Backer Board / House Wrap', 'Flashing', 'Caulk', 'Sealing Tape (Windows/Doors)', 'Siding Nails', 'Furring Strip'],
+      'Finishing Touches': ['Mounting Blocks', 'Surface Mounts', 'Dryerhood', 'Exhaust Vents', 'Gable Vents', 'Gutters'],
       'Doors': ['Garage Door', 'Garage Door Opener', 'Entry Door'],
       'Windows': ['Windows'],
       'Hardware': ['16d Common Nails', '8d Common Nails', 'Joist Hangers', 'Hurricane Ties', 'Construction Adhesive', 'Anchor Bolts'],
@@ -206,7 +315,7 @@ const PLANNER_CATEGORIES: Record<string, Record<string, Record<string, string[]>
   }
 };
 
-export function PlannerDefaults({ organizationId, userId, plannerType, materialTypes, initialMaterialType, onDefaultsSaved }: PlannerDefaultsProps) {
+export function PlannerDefaults({ organizationId, userId, plannerType, materialTypes, initialMaterialType, initialRailingType, initialAluminumColor, onDefaultsSaved }: PlannerDefaultsProps) {
   const draftStorageKey = `planner_defaults_draft_${organizationId}_${userId}_${plannerType}`;
   const hasInitializedDefaults = useRef(false);
   const [loading, setLoading] = useState(true);
@@ -233,6 +342,8 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
   };
 
   const [selectedMaterialType, setSelectedMaterialType] = useState<string>(getInitialMaterialType);
+  const [selectedRailingType, setSelectedRailingType] = useState<string>((initialRailingType || 'Treated').toLowerCase());
+  const [selectedAluminumColor, setSelectedAluminumColor] = useState<string>((initialAluminumColor || 'white').toLowerCase());
   // Local string state for CF inputs so users can clear & type freely (e.g. "0.04")
   const [cfEditValues, setCfEditValues] = useState<Record<string, string>>({});
 
@@ -249,12 +360,76 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
     }
   }, [selectedMaterialType, materialTypes, plannerType, organizationId, userId]);
 
+  useEffect(() => {
+    if (!materialTypes || materialTypes.length === 0) return;
+    const normalizedInitial = initialMaterialType?.toLowerCase();
+    if (!normalizedInitial || !materialTypes.includes(normalizedInitial)) return;
+    if (selectedMaterialType !== normalizedInitial) {
+      setSelectedMaterialType(normalizedInitial);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMaterialType, materialTypes]);
+
+  useEffect(() => {
+    const normalized = (initialRailingType || 'Treated').toLowerCase();
+    if (selectedRailingType !== normalized) {
+      setSelectedRailingType(normalized);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRailingType]);
+
+  useEffect(() => {
+    const normalized = (initialAluminumColor || 'white').toLowerCase();
+    if (selectedAluminumColor !== normalized) {
+      setSelectedAluminumColor(normalized);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAluminumColor]);
+
+  const isAluminumRailingColorSensitiveCategory = (materialType: string | null, categoryGroup: string, category: string): boolean => {
+    return plannerType === 'deck'
+      && selectedRailingType === 'aluminum'
+      && (
+        categoryGroup === 'Railing'
+        || categoryGroup === 'Railing - Tempered Glass Panels by Size'
+        || (categoryGroup === 'Hardware' && ALUMINUM_ONLY_HARDWARE_CATEGORIES.has(category))
+      );
+  };
+
+  const getEffectiveMaterialType = (materialType: string | null, categoryGroup: string, category: string): string | null => {
+    if (isAluminumRailingColorSensitiveCategory(materialType, categoryGroup, category)) {
+      return `aluminum-${selectedAluminumColor}`;
+    }
+    return materialType;
+  };
+
+  const getDisplayCategories = (): Record<string, string[]> => {
+    const baseCategories = PLANNER_CATEGORIES[plannerType]?.[selectedMaterialType] || PLANNER_CATEGORIES[plannerType]?.default || {};
+    if (!(plannerType === 'deck' && selectedRailingType === 'aluminum')) {
+      return baseCategories;
+    }
+
+    const merged = { ...baseCategories };
+    merged['Railing'] = aluminumDeckCategories['Railing'];
+    merged['Railing - Tempered Glass Panels by Size'] = aluminumDeckCategories['Railing - Tempered Glass Panels by Size'];
+
+    const baseHardware = baseCategories['Hardware'] || [];
+    const mergedHardware = [
+      ...baseHardware.filter((item) => item !== 'Railing Brackets'),
+      ...aluminumDeckCategories['Hardware'].filter((item) => !baseHardware.includes(item)),
+    ];
+    merged['Hardware'] = mergedHardware;
+
+    return merged;
+  };
+
   const loadData = async () => {
     setLoading(true);
+    // Safety net: always clear the spinner after 12s even if a fetch hangs
+    const safetyTimer = setTimeout(() => setLoading(false), 12000);
     try {
-      // First, attempt migration from localStorage to database
-      // Attempting migration from localStorage
-      await migrateUserDefaultsFromLocalStorage(userId, organizationId);
+      // Fire-and-forget migration — don't let it block the UI
+      migrateUserDefaultsFromLocalStorage(userId, organizationId).catch(() => {});
 
       // Load organization defaults from database
       const orgDefaultsData = await getProjectWizardDefaults(organizationId);
@@ -333,6 +508,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
       // Error loading defaults
       toast.error('Failed to load defaults');
     } finally {
+      clearTimeout(safetyTimer);
       setLoading(false);
     }
   };
@@ -434,16 +610,24 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
 
   const getDefaultValue = (materialType: string | null, category: string): string => {
     const key = makeDefaultsKey(plannerType, materialType, category);
+    const aluminumFallbackKey = materialType?.startsWith('aluminum-') ? makeDefaultsKey(plannerType, 'aluminum', category) : null;
     const fallbackKey = makeDefaultsKey(plannerType, 'default', category);
     // First check user defaults, then fall back to org defaults.
     // If the selected material type has no explicit value, inherit "default".
-    return userDefaults[key] || userDefaults[fallbackKey] || orgDefaults[key] || orgDefaults[fallbackKey] || 'none';
+    return userDefaults[key]
+      || (aluminumFallbackKey ? userDefaults[aluminumFallbackKey] : undefined)
+      || userDefaults[fallbackKey]
+      || orgDefaults[key]
+      || (aluminumFallbackKey ? orgDefaults[aluminumFallbackKey] : undefined)
+      || orgDefaults[fallbackKey]
+      || 'none';
   };
 
   const getOrgDefaultValue = (materialType: string | null, category: string): string => {
     const key = makeDefaultsKey(plannerType, materialType, category);
+    const aluminumFallbackKey = materialType?.startsWith('aluminum-') ? makeDefaultsKey(plannerType, 'aluminum', category) : null;
     const fallbackKey = makeDefaultsKey(plannerType, 'default', category);
-    return orgDefaults[key] || orgDefaults[fallbackKey] || 'none';
+    return orgDefaults[key] || (aluminumFallbackKey ? orgDefaults[aluminumFallbackKey] : undefined) || orgDefaults[fallbackKey] || 'none';
   };
 
   // Conversion Factor helpers — stored in userDefaults with `-cf` suffix
@@ -472,6 +656,16 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
       const parsed = parseFloat(orgVal);
       if (!isNaN(parsed) && parsed > 0) return parsed;
     }
+    if (materialType?.startsWith('aluminum-')) {
+      const fallbackOrgVal = orgCFs[getOrgCFKey('aluminum', category)];
+      if (fallbackOrgVal) {
+        const parsed = parseFloat(fallbackOrgVal);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+    }
+    // 3. Fall back to system-suggested CFs for known items
+    const suggested = SYSTEM_CF_SUGGESTIONS[category];
+    if (suggested) return suggested;
     return 1;
   };
 
@@ -491,6 +685,13 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
     if (orgVal) {
       const parsed = parseFloat(orgVal);
       if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    if (materialType?.startsWith('aluminum-')) {
+      const fallbackOrgVal = orgCFs[getOrgCFKey('aluminum', category)];
+      if (fallbackOrgVal) {
+        const parsed = parseFloat(fallbackOrgVal);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
     }
     return 1;
   };
@@ -533,7 +734,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
     );
   }
 
-  const categories = PLANNER_CATEGORIES[plannerType]?.[selectedMaterialType] || PLANNER_CATEGORIES[plannerType]?.default || {};
+  const categories = getDisplayCategories();
 
   return (
     <div className="space-y-6">
@@ -582,7 +783,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
         <CardContent>
           {materialTypes && materialTypes.length > 0 && (
             <div className="mb-6">
-              <Label>Material Type</Label>
+              <Label>{plannerType === 'garage' ? 'Siding Type' : plannerType === 'deck' ? 'Deck Material Type' : 'Material Type'}</Label>
               <Select value={selectedMaterialType} onValueChange={setSelectedMaterialType}>
                 <SelectTrigger>
                   <SelectValue />
@@ -590,11 +791,42 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
                 <SelectContent>
                   {materialTypes.map((type) => (
                     <SelectItem key={type} value={type}>
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                      {formatMaterialTypeLabel(type, plannerType)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {plannerType === 'deck' && (
+            <div className="mb-6">
+              <Label>Railing Type</Label>
+              <Select value={selectedRailingType} onValueChange={setSelectedRailingType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="treated">Treated</SelectItem>
+                  <SelectItem value="aluminum">Aluminum</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {plannerType === 'deck' && selectedRailingType === 'aluminum' && (
+            <div className="mb-6">
+              <Label>Aluminum Color</Label>
+              <Select value={selectedAluminumColor} onValueChange={setSelectedAluminumColor}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="white">White</SelectItem>
+                  <SelectItem value="black">Black</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Applies only to railing-related aluminum defaults, not framing or decking defaults.</p>
             </div>
           )}
 
@@ -615,7 +847,8 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {items.map((category) => {
-                      const matType = selectedMaterialType === 'default' ? null : selectedMaterialType;
+                      const baseMatType = selectedMaterialType === 'default' ? null : selectedMaterialType;
+                      const matType = getEffectiveMaterialType(baseMatType, categoryGroup, category);
                       const currentValue = getDefaultValue(matType, category);
                       const orgValue = getOrgDefaultValue(matType, category);
                       const isCustomized = currentValue !== orgValue;
