@@ -214,7 +214,8 @@ export async function enrichMaterialsWithT1Pricing(
 
       const storedType = storedMaterialType.toLowerCase();
       const effectiveMaterialType = normalizedMaterialType || 'default';
-      if (storedType !== effectiveMaterialType && storedType !== 'default') {
+      const isGenericAluminumFallback = effectiveMaterialType.startsWith('aluminum-') && storedType === 'aluminum';
+      if (storedType !== effectiveMaterialType && storedType !== 'default' && !isGenericAluminumFallback) {
         return;
       }
 
@@ -222,6 +223,10 @@ export async function enrichMaterialsWithT1Pricing(
       // Exact material-type user overrides win over generic/default user overrides.
       if (storedType === effectiveMaterialType) {
         defaultsMap.set(userCategoryKey, itemId);
+      } else if (isGenericAluminumFallback) {
+        if (!defaultsMap.has(userCategoryKey)) {
+          defaultsMap.set(userCategoryKey, itemId);
+        }
       } else if (!defaultsMap.has(userCategoryKey)) {
         defaultsMap.set(userCategoryKey, itemId);
       }

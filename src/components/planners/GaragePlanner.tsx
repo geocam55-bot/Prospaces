@@ -92,6 +92,12 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
     customerCompany?: string;
   }>({});
 
+  const pricingMaterialType = config.sidingType === 'metal'
+    ? 'aluminum'
+    : (config.sidingType === 'vinyl' || config.sidingType === 'wood' || config.sidingType === 'fiber-cement')
+      ? config.sidingType
+      : undefined;
+
   const materials = calculateMaterials(config);
 
   // Flatten materials for quote generator
@@ -140,11 +146,11 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
         try {
           // Start with org-level CFs as baseline
           const orgCFs = await getOrgConversionFactors(user.organizationId);
-          cfMap = extractOrgConversionFactors(orgCFs, 'garage');
+          cfMap = extractOrgConversionFactors(orgCFs, 'garage', pricingMaterialType);
 
           // Overlay user-level CFs (user overrides take priority per-category)
           const userDefs = await getUserDefaults(user.id, user.organizationId);
-          const userCFMap = extractConversionFactors(userDefs, 'garage');
+          const userCFMap = extractConversionFactors(userDefs, 'garage', pricingMaterialType);
           cfMap = { ...cfMap, ...userCFMap };
         } catch (err) {
           // Could not load conversion factors
@@ -154,7 +160,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
           flatMaterials,
           user.organizationId,
           'garage',
-          undefined,
+          pricingMaterialType,
           cfMap,
           user.id
         );
@@ -163,7 +169,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
       }
     };
     enrichMaterials();
-  }, [config, user.organizationId, defaultsVersion]);
+  }, [config, user.organizationId, defaultsVersion, pricingMaterialType, user.id]);
 
   // Create enriched materials structure for display
   const getEnrichedMaterialsStructure = () => {
@@ -432,6 +438,8 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
             organizationId={user.organizationId}
             userId={user.id}
             plannerType="garage"
+            materialTypes={['vinyl', 'wood', 'fiber-cement', 'aluminum']}
+            initialMaterialType={pricingMaterialType || 'vinyl'}
             onDefaultsSaved={() => setDefaultsVersion(v => v + 1)}
           />
         )}
