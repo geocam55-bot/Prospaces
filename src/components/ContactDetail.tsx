@@ -274,6 +274,8 @@ export function ContactDetail({
   const [lineItemDiscount, setLineItemDiscount] = useState(0);
   const [lineItemUnitPrice, setLineItemUnitPrice] = useState(0);
   const [isSearchingInventory, setIsSearchingInventory] = useState(false);
+  const addLineItemSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const editLineItemSearchInputRef = useRef<HTMLInputElement | null>(null);
 
   // 🚀 Debounce search query (200ms delay for fast typing)
   const debouncedInventorySearch = useDebounce(inventorySearchQuery, 200);
@@ -367,6 +369,26 @@ export function ContactDetail({
       setEditingLineItemId(null);
     }
   }, [showLineItemDialog, editingLineItemId]);
+
+  useEffect(() => {
+    if (!showLineItemDialog) return;
+
+    const frame = requestAnimationFrame(() => {
+      addLineItemSearchInputRef.current?.focus();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [showLineItemDialog]);
+
+  useEffect(() => {
+    if (!isEditLineItemDialogOpen) return;
+
+    const frame = requestAnimationFrame(() => {
+      editLineItemSearchInputRef.current?.focus();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [isEditLineItemDialogOpen]);
 
   const loadProjectManagers = async () => {
     try {
@@ -2652,6 +2674,7 @@ export function ContactDetail({
                   placeholder="Try: 'Hammers under $40', 'Screws', 'Paint red'..."
                   value={inventorySearchQuery}
                   onChange={(e) => setInventorySearchQuery(e.target.value)}
+                  ref={addLineItemSearchInputRef}
                   className="pl-10"
                 />
               </div>
@@ -3175,6 +3198,7 @@ export function ContactDetail({
                   placeholder="Type to search by name, SKU, or item number..."
                   value={inventorySearchQuery}
                   onChange={(e) => setInventorySearchQuery(e.target.value)}
+                  ref={editLineItemSearchInputRef}
                   className="pl-10"
                 />
               </div>

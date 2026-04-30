@@ -9,6 +9,7 @@ import {
   getProjectWizardDefaults,
   upsertProjectWizardDefault,
   batchUpsertProjectWizardDefaults,
+  deleteProjectWizardDefault,
   getInventoryItemsForDropdown,
   getOrgConversionFactors,
   saveOrgConversionFactors,
@@ -36,6 +37,77 @@ const normalizeStoredKey = (key: string): string => {
   const [plannerType, materialType, ...categoryParts] = key.split('-');
   if (!plannerType || !materialType || categoryParts.length === 0) return key;
   return makeDefaultsKey(plannerType, materialType, categoryParts.join('-'));
+};
+
+const PLANNER_MATERIAL_TYPE_VARIANTS: Record<string, string[]> = {
+  deck: ['default', 'spruce', 'treated', 'composite', 'cedar', 'aluminum', 'aluminum-white', 'aluminum-black'],
+  garage: ['default', 'vinyl', 'wood', 'fiber-cement', 'aluminum'],
+  shed: ['default'],
+  roof: ['default'],
+  finishing: ['default', 'mdf', 'finger_joint', 'pine'],
+};
+
+export const getMaterialTypesForPlanner = (plannerType: string): string[] => {
+  const plannerConfig = (PLANNER_CATEGORIES as Record<string, Record<string, Record<string, string[]>>>)[plannerType] || {};
+  const fromConfig = Object.keys(plannerConfig);
+  const fromVariants = PLANNER_MATERIAL_TYPE_VARIANTS[plannerType] || [];
+  const materialTypes = Array.from(new Set([...fromConfig, ...fromVariants]));
+  if (!materialTypes.includes('default')) materialTypes.push('default');
+  return materialTypes.sort((a, b) => b.length - a.length);
+};
+
+export const parseDefaultsKey = (key: string): { plannerType: string; materialType: string; category: string } | null => {
+  const firstDash = key.indexOf('-');
+  if (firstDash === -1) return null;
+
+  const plannerType = key.slice(0, firstDash);
+  const remainder = key.slice(firstDash + 1);
+  if (!plannerType || !remainder) return null;
+
+  const candidates = getMaterialTypesForPlanner(plannerType);
+  const matchedMaterialType = candidates.find((candidate) => {
+    return remainder === candidate || remainder.startsWith(`${candidate}-`);
+  });
+
+  if (!matchedMaterialType) {
+    const secondDash = remainder.indexOf('-');
+    if (secondDash === -1) return null;
+    const fallbackMaterialType = remainder.slice(0, secondDash);
+    const fallbackCategory = remainder.slice(secondDash + 1);
+    if (!fallbackMaterialType || !fallbackCategory) return null;
+    return { plannerType, materialType: fallbackMaterialType, category: fallbackCategory };
+  }
+
+  const category = remainder.slice(matchedMaterialType.length + 1);
+  if (!category) return null;
+
+  return {
+    plannerType,
+    materialType: matchedMaterialType,
+    category,
+  };
+};
+
+export const buildRowsToDelete = (
+  loadedDefaults: ProjectWizardDefault[],
+  defaultConfigs: ProjectWizardDefault[]
+): ProjectWizardDefault[] => {
+  const managedPlanners = new Set(['deck', 'garage', 'shed', 'roof', 'finishing']);
+  const nextKeys = new Set(
+    defaultConfigs.map((config) =>
+      makeDefaultsKey(
+        config.planner_type,
+        config.material_type || 'default',
+        config.material_category
+      )
+    )
+  );
+
+  return loadedDefaults.filter((row) => {
+    if (!managedPlanners.has(row.planner_type)) return false;
+    const rowKey = makeDefaultsKey(row.planner_type, row.material_type || 'default', row.material_category);
+    return !nextKeys.has(rowKey) && !!row.id;
+  });
 };
 
 // Helper: generate length-specific entries for a lumber category
@@ -277,6 +349,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   const [saving, setSaving] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [defaults, setDefaults] = useState<Record<string, string>>({});
+  const [loadedDefaults, setLoadedDefaults] = useState<ProjectWizardDefault[]>([]);
   const [orgCFs, setOrgCFs] = useState<Record<string, string>>({});
   const [selectedDeckType, setSelectedDeckType] = useState<'spruce' | 'treated' | 'composite' | 'cedar' | 'aluminum'>('treated');
   const [selectedDeckRailingType, setSelectedDeckRailingType] = useState<'treated' | 'aluminum'>('treated');
@@ -363,6 +436,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
       });
       
       setDefaults(defaultsMap);
+      setLoadedDefaults(wizardDefaults);
 
       // Step 2: Load only the inventory items that are currently set as defaults
       let items: InventoryItem[] = [];
@@ -459,17 +533,30 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
       const defaultConfigs: ProjectWizardDefault[] = Object.entries(defaults)
         .filter(([, inventoryItemId]) => !!inventoryItemId && validInventoryIds.has(inventoryItemId))
         .map(([key, inventoryItemId]) => {
-        const [plannerType, materialType, ...categoryParts] = key.split('-');
-        const category = categoryParts.join('-');
+        const parsed = parseDefaultsKey(key);
+        if (!parsed) {
+          return null;
+        }
 
         return {
           organization_id: organizationId,
-          planner_type: plannerType as 'deck' | 'garage' | 'shed' | 'roof' | 'finishing',
-          material_type: materialType === 'default' ? undefined : materialType,
-          material_category: category,
+          planner_type: parsed.plannerType as 'deck' | 'garage' | 'shed' | 'roof' | 'finishing',
+          material_type: parsed.materialType === 'default' ? undefined : parsed.materialType,
+          material_category: parsed.category,
           inventory_item_id: inventoryItemId || undefined,
         };
-      });
+      })
+        .filter((config): config is ProjectWizardDefault => config !== null);
+
+      const rowsToDelete = buildRowsToDelete(loadedDefaults, defaultConfigs);
+
+      if (rowsToDelete.length > 0) {
+        const deleteResults = await Promise.all(rowsToDelete.map((row) => deleteProjectWizardDefault(row.id!)));
+        if (deleteResults.some((ok) => !ok)) {
+          onSave('error', 'Failed to remove some cleared defaults. Please retry save.');
+          return;
+        }
+      }
 
       const result = await batchUpsertProjectWizardDefaults(defaultConfigs);
       
@@ -482,8 +569,10 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
       } else if (!cfResult) {
         // CF save failed
         onSave('error', 'Defaults saved but conversion factors failed to save.');
+        await loadData();
       } else {
         onSave('success', 'Project Wizard defaults and conversion factors saved successfully!');
+        await loadData();
       }
     } catch (error) {
       // Error saving project wizard settings

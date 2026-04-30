@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom/vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import { renderWithUser, mockAdminUser, mockBid, mockQuote } from '../utils/test-utils';
 import { Bids } from '../../components/Bids';
 import * as api from '../../utils/api';
@@ -24,6 +25,9 @@ vi.mock('../../utils/api', () => ({
   inventoryAPI: {
     getAll: vi.fn(),
   },
+  settingsAPI: {
+    getOrganizationSettings: vi.fn(),
+  },
 }));
 
 describe('Bids Component', () => {
@@ -31,15 +35,20 @@ describe('Bids Component', () => {
     vi.clearAllMocks();
   });
 
-  it('should render the Bids component', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('should render the Bids component', async () => {
     vi.mocked(api.bidsAPI.getAll).mockResolvedValue({ bids: [] });
     vi.mocked(api.quotesAPI.getAll).mockResolvedValue({ quotes: [] });
     vi.mocked(api.contactsAPI.getAll).mockResolvedValue({ contacts: [] });
     vi.mocked(api.inventoryAPI.getAll).mockResolvedValue({ inventory: [] });
+    vi.mocked(api.settingsAPI.getOrganizationSettings).mockResolvedValue({ tax_rate: 0, tax_rate_2: 0, quote_terms: '' } as any);
 
     renderWithUser(<Bids user={mockAdminUser} />, { user: mockAdminUser });
     
-    expect(screen.getByText('Deals & Quotes')).toBeInTheDocument();
+    expect(await screen.findByText('Deals & Quotes')).toBeInTheDocument();
   });
 
   it('should load bids from BOTH bids and quotes tables', async () => {
@@ -52,6 +61,7 @@ describe('Bids Component', () => {
     });
     vi.mocked(api.contactsAPI.getAll).mockResolvedValue({ contacts: [] });
     vi.mocked(api.inventoryAPI.getAll).mockResolvedValue({ inventory: [] });
+    vi.mocked(api.settingsAPI.getOrganizationSettings).mockResolvedValue({ tax_rate: 0, tax_rate_2: 0, quote_terms: '' } as any);
 
     renderWithUser(<Bids user={mockAdminUser} />, { user: mockAdminUser });
 
@@ -78,6 +88,7 @@ describe('Bids Component', () => {
     });
     vi.mocked(api.contactsAPI.getAll).mockResolvedValue({ contacts: [] });
     vi.mocked(api.inventoryAPI.getAll).mockResolvedValue({ inventory: [] });
+    vi.mocked(api.settingsAPI.getOrganizationSettings).mockResolvedValue({ tax_rate: 0, tax_rate_2: 0, quote_terms: '' } as any);
 
     renderWithUser(<Bids user={mockAdminUser} />, { user: mockAdminUser });
 
@@ -96,6 +107,7 @@ describe('Bids Component', () => {
     vi.mocked(api.quotesAPI.getAll).mockResolvedValue({ quotes: [] });
     vi.mocked(api.contactsAPI.getAll).mockResolvedValue({ contacts: [] });
     vi.mocked(api.inventoryAPI.getAll).mockResolvedValue({ inventory: [] });
+    vi.mocked(api.settingsAPI.getOrganizationSettings).mockResolvedValue({ tax_rate: 0, tax_rate_2: 0, quote_terms: '' } as any);
 
     renderWithUser(<Bids user={mockAdminUser} />, { user: mockAdminUser });
 
@@ -114,6 +126,7 @@ describe('Bids Component', () => {
     vi.mocked(api.quotesAPI.getAll).mockResolvedValue({ quotes: [] });
     vi.mocked(api.contactsAPI.getAll).mockResolvedValue({ contacts: [] });
     vi.mocked(api.inventoryAPI.getAll).mockResolvedValue({ inventory: [] });
+    vi.mocked(api.settingsAPI.getOrganizationSettings).mockResolvedValue({ tax_rate: 0, tax_rate_2: 0, quote_terms: '' } as any);
 
     renderWithUser(<Bids user={mockAdminUser} />, { user: mockAdminUser });
 
