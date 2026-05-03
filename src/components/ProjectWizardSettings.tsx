@@ -13,6 +13,7 @@ import {
   getInventoryItemsForDropdown,
   getOrgConversionFactors,
   saveOrgConversionFactors,
+  purgePlannerDefaultsForOrganization,
   ProjectWizardDefault,
   InventoryItem,
 } from '../utils/project-wizard-defaults-client';
@@ -917,16 +918,11 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     }
 
     setSaving(true);
-        try {
-      const currentRows = await getProjectWizardDefaultsRaw(organizationId);
-      const rowsToDelete = currentRows.filter((row) => !!row.id);
-      const deleteResults = await Promise.all(rowsToDelete.map((row) => deleteProjectWizardDefault(row.id!)));
-      const failedDefaultsDeletes = deleteResults.filter((ok) => !ok).length;
+    try {
+      const result = await purgePlannerDefaultsForOrganization(organizationId);
 
-      const cfWipeSuccess = await saveOrgConversionFactors(organizationId, {});
-
-      if (failedDefaultsDeletes > 0 || !cfWipeSuccess) {
-        const message = `Wipe incomplete. Failed default deletions: ${failedDefaultsDeletes}. Conversion factors wipe: ${cfWipeSuccess ? 'ok' : 'failed'}.`;
+      if (!result.success) {
+        const message = 'Wipe failed. Could not purge organization planner defaults data.';
         toast.error(message);
         onSave('error', message);
         await loadData();
@@ -937,8 +933,11 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
       setLoadedDefaults([]);
       setOrgCFs({});
       setCfEditValues({});
-      toast.success('All organization planner defaults and conversion factors were wiped successfully.');
-      onSave('success', 'All organization planner defaults and conversion factors were wiped successfully.');
+      const deletedRows = result.deletedTableRows || 0;
+      const deletedUserKeys = result.deletedUserDefaultKeys || 0;
+      const message = `Wiped planner defaults data. Deleted ${deletedRows} org defaults row(s) and ${deletedUserKeys} user default key(s).`;
+      toast.success(message);
+      onSave('success', message);
       await loadData();
     } catch {
       toast.error('Failed to wipe organization planner defaults and conversion factors.');

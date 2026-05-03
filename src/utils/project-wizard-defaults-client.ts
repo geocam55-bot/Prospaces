@@ -274,6 +274,45 @@ export async function deleteUserDefaults(userId: string, organizationId: string)
 }
 
 /**
+ * Purge all planner defaults data for an organization.
+ * Removes org defaults rows, org conversion factors, and all user defaults for the org.
+ */
+export async function purgePlannerDefaultsForOrganization(organizationId: string): Promise<{
+  success: boolean;
+  deletedTableRows?: number;
+  deletedUserDefaultKeys?: number;
+}> {
+  try {
+    const token = await getUserAccessToken();
+
+    if (!token) {
+      return { success: false };
+    }
+
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/planner-defaults-purge/${encodeURIComponent(organizationId)}`,
+      {
+        method: 'DELETE',
+        headers: await getServerHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      return { success: false };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      deletedTableRows: Number(data.deletedTableRows || 0),
+      deletedUserDefaultKeys: Number(data.deletedUserDefaultKeys || 0),
+    };
+  } catch {
+    return { success: false };
+  }
+}
+
+/**
  * Migrate user defaults from localStorage to database
  * This should be called once to migrate existing localStorage data
  */

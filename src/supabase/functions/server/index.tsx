@@ -3243,6 +3243,67 @@ app.delete(`${PREFIX}/user-planner-defaults/:organizationId/:userId`, async (c) 
   }
 });
 
+// DELETE all planner defaults data for an organization
+// Removes:
+// 1) project_wizard_defaults table rows for org
+// 2) org conversion factors KV key
+// 3) all user planner defaults KV keys for org
+app.delete(`${PREFIX}/planner-defaults-purge/:organizationId`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (!['admin', 'super_admin'].includes(auth.profile.role)) {
+      return c.json({ error: 'Only admin or super_admin can purge planner defaults data' }, 403);
+    }
+
+    const orgId = c.req.param('organizationId');
+    if (!orgId) return c.json({ error: 'Missing organizationId' }, 400);
+
+    if (auth.profile.role !== 'super_admin' && orgId !== auth.profile.organization_id) {
+      return c.json({ error: 'Cannot purge defaults for a different organization' }, 403);
+    }
+
+    const supabase = getSupabase();
+
+    let deletedTableRows = 0;
+    const { data: deletedRows, error: tableDeleteError } = await supabase
+      .from('project_wizard_defaults')
+      .delete()
+      .eq('organization_id', orgId)
+      .select('id');
+
+    if (tableDeleteError && tableDeleteError.code !== 'PGRST205' && tableDeleteError.code !== '42P01') {
+      return c.json({ error: tableDeleteError.message, code: tableDeleteError.code }, 500);
+    }
+
+    if (Array.isArray(deletedRows)) {
+      deletedTableRows = deletedRows.length;
+    }
+
+    // Clear org-level conversion factors
+    await kv.del(`org_cf:${orgId}`);
+
+    // Clear all user-level defaults for this org
+    const userDefaultRows = await kv.getByPrefix(`user_planner_defaults:${orgId}:`) || [];
+    let deletedUserDefaultKeys = 0;
+    for (const row of userDefaultRows) {
+      if (!row?.key) continue;
+      await kv.del(row.key);
+      deletedUserDefaultKeys += 1;
+    }
+
+    return c.json({
+      success: true,
+      organizationId: orgId,
+      deletedTableRows,
+      deletedUserDefaultKeys,
+      clearedOrgConversionFactors: true,
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ── API KEY MANAGEMENT (Enterprise) ─────────────────────────────────────
 app.route('/', apiKeys);
 
