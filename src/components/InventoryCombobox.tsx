@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronsUpDown, Search, Sparkles, Zap } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -37,6 +37,20 @@ export function InventoryCombobox({
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [useAdvancedSearch, setUseAdvancedSearch] = useState(true);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  const focusSearchInput = () => {
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+
+    focusSearchInput();
+  }, [open]);
 
   // Debounce search query for better performance
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -149,7 +163,14 @@ export function InventoryCombobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0 z-[9999]" align="start">
+      <PopoverContent
+        className="w-[400px] p-0 z-[9999]"
+        align="start"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          focusSearchInput();
+        }}
+      >
         <div className="flex flex-col">
           {/* Search Header with AI Badge and Toggle */}
           <div className="p-2 border-b space-y-2">
@@ -189,6 +210,7 @@ export function InventoryCombobox({
                   : "Search by name, SKU..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                ref={searchInputRef}
                 className="pl-8 text-foreground bg-background"
               />
             </div>

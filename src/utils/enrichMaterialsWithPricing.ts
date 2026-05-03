@@ -170,6 +170,12 @@ export async function enrichMaterialsWithT1Pricing(
           if (defMaterialType === normalizedMaterialType) {
             defaultsMap.set(categoryKey, def.inventory_item_id);
           }
+          // Fallback for generic aluminum entries when using aluminum-white / aluminum-black
+          else if (normalizedMaterialType.startsWith('aluminum-') && defMaterialType === 'aluminum') {
+            if (!defaultsMap.has(categoryKey)) {
+              defaultsMap.set(categoryKey, def.inventory_item_id);
+            }
+          }
           // Fallback for generic/default entries (only if exact not already set)
           else if (!defMaterialType || defMaterialType === 'default') {
             if (!defaultsMap.has(categoryKey)) {
@@ -208,7 +214,8 @@ export async function enrichMaterialsWithT1Pricing(
 
       const storedType = storedMaterialType.toLowerCase();
       const effectiveMaterialType = normalizedMaterialType || 'default';
-      if (storedType !== effectiveMaterialType && storedType !== 'default') {
+      const isGenericAluminumFallback = effectiveMaterialType.startsWith('aluminum-') && storedType === 'aluminum';
+      if (storedType !== effectiveMaterialType && storedType !== 'default' && !isGenericAluminumFallback) {
         return;
       }
 
@@ -216,6 +223,10 @@ export async function enrichMaterialsWithT1Pricing(
       // Exact material-type user overrides win over generic/default user overrides.
       if (storedType === effectiveMaterialType) {
         defaultsMap.set(userCategoryKey, itemId);
+      } else if (isGenericAluminumFallback) {
+        if (!defaultsMap.has(userCategoryKey)) {
+          defaultsMap.set(userCategoryKey, itemId);
+        }
       } else if (!defaultsMap.has(userCategoryKey)) {
         defaultsMap.set(userCategoryKey, itemId);
       }
@@ -349,10 +360,38 @@ export async function enrichMaterialsWithT1Pricing(
             inventoryItemId = tryLengthFirst('decking boards');
           } else if (description.includes('railing post')) {
             inventoryItemId = tryMatch('railing posts');
+          } else if (description.includes('aluminum posts')) {
+            inventoryItemId = tryMatch('aluminum posts');
+          } else if (description.includes('aluminum stair posts')) {
+            inventoryItemId = tryMatch('aluminum stair posts');
+          } else if (description.includes('aluminum top & bottom rail')) {
+            inventoryItemId = tryMatch('aluminum top & bottom rail');
           } else if (description.includes('top rail') || description.includes('cap rail')) {
             inventoryItemId = tryMatch('railing top rail');
           } else if (description.includes('bottom rail')) {
             inventoryItemId = tryMatch('railing bottom rail');
+          } else if (description.includes('tempered glass panel')) {
+            inventoryItemId = tryMatch(description);
+          } else if (description.includes('clear glass pickets (cdg-6)')) {
+            inventoryItemId = tryMatch('clear glass pickets (cdg-6)');
+          } else if (description.includes('angled stair glass pickets (cag-6)')) {
+            inventoryItemId = tryMatch('angled stair glass pickets (cag-6)');
+          } else if (description.includes('picket package')) {
+            inventoryItemId = tryMatch('picket packages');
+          } else if (description.includes('post base plate cover')) {
+            inventoryItemId = tryMatch('post base plate cover');
+          } else if (description.includes('decorative post cap')) {
+            inventoryItemId = tryMatch('decorative post cap');
+          } else if (description.includes('universal angle bracket')) {
+            inventoryItemId = tryMatch('universal angle bracket (uab)');
+          } else if (description.includes('vinyl insert for glass')) {
+            inventoryItemId = tryMatch('vinyl insert for glass (gvi)');
+          } else if (description.includes('rubber blocks for glass')) {
+            inventoryItemId = tryMatch('rubber blocks for glass (grb-10)');
+          } else if (description.includes('rail support legs')) {
+            inventoryItemId = tryMatch('rail support legs (srsl)');
+          } else if (description.includes('self drilling screws')) {
+            inventoryItemId = tryMatch('self drilling screws');
           } else if (description.includes('baluster') || description.includes('spindle')) {
             inventoryItemId = tryMatch('railing balusters');
           } else if (description.includes('railing bracket')) {

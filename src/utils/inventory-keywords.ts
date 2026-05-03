@@ -34,6 +34,21 @@ const SYNONYM_MAP: Record<string, string[]> = {
   battery: ['rechargeable battery', 'power cell'],
 };
 
+function getSynonymsForToken(token: string): string[] {
+  if (!Object.prototype.hasOwnProperty.call(SYNONYM_MAP, token)) {
+    return [];
+  }
+
+  const raw = (SYNONYM_MAP as Record<string, unknown>)[token];
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw
+    .map((value) => (typeof value === 'string' ? normalizeToken(value) : ''))
+    .filter(Boolean);
+}
+
 const USE_CASE_TERMS: Array<[RegExp, string[]]> = [
   [/outdoor|exterior|weather/i, ['outdoor', 'exterior', 'jobsite']],
   [/interior|indoor/i, ['interior', 'indoor', 'home']],
@@ -161,11 +176,9 @@ export function generateInventoryKeywords(input: InventoryKeywordInput): Generat
 
     core.add(token);
 
-    const synonyms = SYNONYM_MAP[token];
-    if (synonyms) {
-      for (const synonym of synonyms) {
-        core.add(synonym);
-      }
+    const synonyms = getSynonymsForToken(token);
+    for (const synonym of synonyms) {
+      core.add(synonym);
     }
   }
 

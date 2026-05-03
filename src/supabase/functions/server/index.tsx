@@ -2896,7 +2896,10 @@ app.get(`${PREFIX}/project-wizard-defaults`, async (c) => {
     const { data, error } = await supabase
       .from('project_wizard_defaults')
       .select('*')
-      .eq('organization_id', orgId);
+      .eq('organization_id', orgId)
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false });
 
     if (error) {
       if (error.code === 'PGRST205' || error.code === '42P01') {
@@ -2930,7 +2933,7 @@ app.post(`${PREFIX}/project-wizard-defaults`, async (c) => {
       return c.json({ error: 'Cannot update defaults for a different organization' }, 403);
     }
 
-    // project-wizard-defaults POST upsert
+    // project-wizard-defaults POST upsert (null-safe: delete then insert)
 
     const supabase = getSupabase(); // service role — bypasses RLS
     const record = {
@@ -2939,12 +2942,29 @@ app.post(`${PREFIX}/project-wizard-defaults`, async (c) => {
       updated_at: new Date().toISOString(),
     };
 
+    // Delete existing row with null-safe key match before inserting
+    let deleteQuery = supabase
+      .from('project_wizard_defaults')
+      .delete()
+      .eq('organization_id', orgId)
+      .ilike('planner_type', record.planner_type)
+      .ilike('material_category', record.material_category);
+
+    if (record.material_type == null || record.material_type === '' || record.material_type.toLowerCase() === 'default') {
+      // Backward compatibility: historical rows may store default material type as literal "default".
+      deleteQuery = deleteQuery.or('material_type.is.null,material_type.ilike.default');
+    } else {
+      deleteQuery = deleteQuery.ilike('material_type', record.material_type);
+    }
+
+    const { error: deleteError } = await deleteQuery;
+    if (deleteError) {
+      return c.json({ error: deleteError.message, code: deleteError.code }, 500);
+    }
+
     const { data, error } = await supabase
       .from('project_wizard_defaults')
-      .upsert(record, {
-        onConflict: 'organization_id,planner_type,material_type,material_category',
-        ignoreDuplicates: false,
-      })
+      .insert(record)
       .select()
       .single();
 
@@ -2981,29 +3001,118 @@ app.post(`${PREFIX}/project-wizard-defaults/batch`, async (c) => {
     }
 
     // project-wizard-defaults BATCH upsert
+    // NOTE: We use DELETE + INSERT instead of Supabase .upsert() because the conflict key
+    // includes `material_type` which can be NULL. Postgres UNIQUE constraints treat
+    // NULL != NULL, so upsert would silently INSERT a duplicate row instead of updating
+    // the existing one, causing stale data to resurface on the next read.
+    //
+    // To avoid one invalid row failing the full batch, process records individually
+    // and return failed tuples to the caller.
 
     const supabase = getSupabase(); // service role — bypasses RLS
-    const records = items.map((item: any) => ({
-      ...item,
-      organization_id: orgId,
-      updated_at: new Date().toISOString(),
-    }));
+    const now = new Date().toISOString();
+    const savedRows: any[] = [];
+    let deletedCount = 0;
+    const failedRows: any[] = [];
+    // Accept any UUID variant/version; database constraints will enforce final validity.
+    const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    const { data, error } = await supabase
-      .from('project_wizard_defaults')
-      .upsert(records, {
-        onConflict: 'organization_id,planner_type,material_type,material_category',
-        ignoreDuplicates: false,
-      })
-      .select();
+    for (const item of items) {
+      const plannerType = String(item?.planner_type || '').trim();
+      const materialCategory = String(item?.material_category || '').trim();
+      const materialType = item?.material_type == null ? null : String(item.material_type).trim();
+      const inventoryItemId = String(item?.inventory_item_id || '').trim();
+      const isDeleteIntent = !inventoryItemId || inventoryItemId === 'none';
 
-    if (error) {
-      // project-wizard-defaults BATCH error
-      return c.json({ error: error.message, code: error.code }, 500);
+      if (!plannerType || !materialCategory) {
+        failedRows.push({
+          planner_type: plannerType || null,
+          material_type: materialType,
+          material_category: materialCategory || null,
+          reason: 'missing required fields',
+        });
+        continue;
+      }
+
+      if (!isDeleteIntent && !uuidLike.test(inventoryItemId)) {
+        failedRows.push({
+          planner_type: plannerType,
+          material_type: materialType,
+          material_category: materialCategory,
+          reason: 'invalid inventory_item_id format',
+        });
+        continue;
+      }
+
+      let deleteQuery = supabase
+        .from('project_wizard_defaults')
+        .delete()
+        .eq('organization_id', orgId)
+        .ilike('planner_type', plannerType)
+        .ilike('material_category', materialCategory);
+
+      if (materialType == null || materialType === '' || materialType.toLowerCase() === 'default') {
+        // Backward compatibility: delete both NULL and literal "default" material type rows.
+        deleteQuery = deleteQuery.or('material_type.is.null,material_type.ilike.default');
+      } else {
+        deleteQuery = deleteQuery.ilike('material_type', materialType);
+      }
+
+      const { error: deleteError } = await deleteQuery;
+      if (deleteError) {
+        failedRows.push({
+          planner_type: plannerType,
+          material_type: materialType,
+          material_category: materialCategory,
+          reason: `delete failed: ${deleteError.message}`,
+          code: deleteError.code,
+        });
+        continue;
+      }
+
+      if (isDeleteIntent) {
+        deletedCount += 1;
+        continue;
+      }
+
+      const record = {
+        organization_id: orgId,
+        planner_type: plannerType,
+        material_type: materialType == null || materialType === '' || materialType.toLowerCase() === 'default' ? null : materialType,
+        material_category: materialCategory,
+        inventory_item_id: inventoryItemId,
+        updated_at: now,
+      };
+
+      const { data, error } = await supabase
+        .from('project_wizard_defaults')
+        .insert(record)
+        .select()
+        .single();
+
+      if (error) {
+        failedRows.push({
+          planner_type: plannerType,
+          material_type: materialType,
+          material_category: materialCategory,
+          reason: `insert failed: ${error.message}`,
+          code: error.code,
+        });
+        continue;
+      }
+
+      savedRows.push(data);
     }
 
-    // project-wizard-defaults BATCH saved
-    return c.json({ defaults: data || [], savedCount: data?.length || 0, source: 'server' });
+    return c.json({
+      defaults: savedRows,
+      savedCount: savedRows.length,
+      deletedCount,
+      failedCount: failedRows.length,
+      failedRows,
+      success: failedRows.length === 0,
+      source: 'server',
+    });
   } catch (err: any) {
     // project-wizard-defaults BATCH exception
     return c.json({ error: err.message }, 500);

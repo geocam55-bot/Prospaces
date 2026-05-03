@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
@@ -59,6 +59,17 @@ export function BidLineItems({ isOpen, onClose, inventoryItems: propsInventoryIt
 
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const frame = requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen]);
 
   // Instant client-side filtering + API fallback
   useEffect(() => {
@@ -178,6 +189,7 @@ export function BidLineItems({ isOpen, onClose, inventoryItems: propsInventoryIt
                 placeholder="Type to search by name, SKU, or description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                ref={searchInputRef}
                 className="pl-10"
               />
             </div>

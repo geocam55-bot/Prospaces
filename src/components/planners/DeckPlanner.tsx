@@ -57,6 +57,8 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     stairSide: 'front',
     railingSides: ['front', 'left', 'right'],
     railingStyle: 'Treated',
+    aluminumInfillType: 'Pickets',
+    aluminumRailingColor: 'White',
     deckingPattern: 'perpendicular',
     joistSpacing: 16,
     deckingType: 'Treated',
@@ -75,6 +77,11 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     customerName?: string;
     customerCompany?: string;
   }>({});
+
+  const pricingMaterialType = config.railingStyle === 'Aluminum'
+    ? `aluminum-${(config.aluminumRailingColor || 'White').toLowerCase()}`
+    : config.deckingType.toLowerCase();
+  const defaultsUiMaterialType = config.deckingType.toLowerCase();
 
   const materials = calculateMaterials(config);
 
@@ -98,7 +105,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
 
       try {
         const orgCFs = await getOrgConversionFactors(user.organizationId);
-        cfMap = extractOrgConversionFactors(orgCFs, 'deck', config.deckingType);
+        cfMap = extractOrgConversionFactors(orgCFs, 'deck', pricingMaterialType);
       } catch {
         // Best-effort: continue with user-level/default CFs.
       }
@@ -110,7 +117,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
         // Best-effort: use draft/local values.
       }
 
-      const userCFMap = extractConversionFactors(mergedUserDefs, 'deck', config.deckingType);
+      const userCFMap = extractConversionFactors(mergedUserDefs, 'deck', pricingMaterialType);
       cfMap = { ...cfMap, ...userCFMap };
 
       if (!cancelled) {
@@ -129,6 +136,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     user.organizationId,
     user.id,
     config.deckingType,
+    pricingMaterialType,
     defaultsVersion,
   ]);
 
@@ -140,7 +148,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
           flatMaterials,
           user.organizationId,
           'deck',
-          config.deckingType,
+          pricingMaterialType,
           pricingContext.cfMap,
           user.id,
           pricingContext.mergedUserDefaults
@@ -163,8 +171,12 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     config.stairWidth,
     config.railingSides,
     config.railingHeight,
+    config.railingStyle,
+    config.aluminumInfillType,
+    config.aluminumRailingColor,
     config.joistSpacing,
     config.deckingType,
+    pricingMaterialType,
     config.deckingPattern,
     user.organizationId,
     user.id,
@@ -440,7 +452,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
             <DiagnosticPanel 
               organizationId={user.organizationId}
               plannerType="deck"
-              materialType={config.deckingType}
+              materialType={pricingMaterialType}
             />
           </div>
         )}
@@ -467,7 +479,9 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
             userId={user.id}
             plannerType="deck"
             materialTypes={[config.deckingType.toLowerCase()]}
-            initialMaterialType={config.deckingType.toLowerCase()}
+            initialMaterialType={defaultsUiMaterialType}
+            initialRailingType={config.railingStyle || 'Treated'}
+            initialAluminumColor={(config.aluminumRailingColor || 'White').toLowerCase()}
             onDefaultsSaved={() => setDefaultsVersion(v => v + 1)}
           />
         )}

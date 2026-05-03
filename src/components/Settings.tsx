@@ -800,20 +800,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         </Alert>
       )}
 
-      <div className="flex justify-end">
-        <SettingsModuleHelp
-          userId={user.id}
-          onOpenProfileTab={() => setActiveTab('profile')}
-          onOpenOrganizationTab={() => setActiveTab(canManageSettings ? 'organization' : 'profile')}
-          onOpenModuleDefaultsTab={() => setActiveTab(canManageSettings ? 'module-settings' : 'profile')}
-          onOpenAppearanceTab={() => setActiveTab('appearance')}
-          onOpenDiagnosticsTab={() => setActiveTab(canManageSettings ? 'diagnostics' : 'profile')}
-          onOpenWorkflowDialog={() => setShowWorkflowDialog(true)}
-          onOpenCustomFieldsDialog={() => setShowCustomFieldsDialog(true)}
-          onResetHelpTours={handleResetModuleHelpTours}
-          onSaveAppearanceSettings={handleSaveAppearanceSettings}
-        />
-      </div>
+
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -1134,14 +1121,28 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
 
         {canManageSettings && (
           <TabsContent value="module-settings" className="space-y-4">
-            <div className="mb-4">
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <LayoutGrid className="h-6 w-6" />
-                Module Defaults
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Configure default settings and options for specific modules like Deals, Contacts, and Inventory
-              </p>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <LayoutGrid className="h-6 w-6" />
+                  Module Defaults
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Configure default settings and options for specific modules like Deals, Contacts, and Inventory
+                </p>
+              </div>
+              <SettingsModuleHelp
+                userId={user.id}
+                onOpenProfileTab={() => setActiveTab('profile')}
+                onOpenOrganizationTab={() => setActiveTab(canManageSettings ? 'organization' : 'profile')}
+                onOpenModuleDefaultsTab={() => setActiveTab(canManageSettings ? 'module-settings' : 'profile')}
+                onOpenAppearanceTab={() => setActiveTab('appearance')}
+                onOpenDiagnosticsTab={() => setActiveTab(canManageSettings ? 'diagnostics' : 'profile')}
+                onOpenWorkflowDialog={() => setShowWorkflowDialog(true)}
+                onOpenCustomFieldsDialog={() => setShowCustomFieldsDialog(true)}
+                onResetHelpTours={handleResetModuleHelpTours}
+                onSaveAppearanceSettings={handleSaveAppearanceSettings}
+              />
             </div>
 
             {(user.role === 'super_admin' || user.role === 'admin') && (
