@@ -833,7 +833,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     if (!confirmed) return;
 
     setSaving(true);
-    try {
+        try {
       const currentRows = await getProjectWizardDefaultsRaw(organizationId);
       const rowsToDelete = currentRows.filter((row) => !!row.id);
 
@@ -917,7 +917,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     }
 
     setSaving(true);
-    try {
+        try {
       const currentRows = await getProjectWizardDefaultsRaw(organizationId);
       const rowsToDelete = currentRows.filter((row) => !!row.id);
       const deleteResults = await Promise.all(rowsToDelete.map((row) => deleteProjectWizardDefault(row.id!)));
