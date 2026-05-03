@@ -24,9 +24,11 @@ import {
 } from 'lucide-react';
 import { formatCurrency, formatDate, type BillingEvent } from '../../utils/subscription-client';
 import { downloadInvoice } from './InvoiceDownload';
+import { FREE_ACCOUNT_BILLING_SUPPORT_EMAIL } from '../../config/scoped-email';
 
 interface BillingHistoryProps {
   events: BillingEvent[];
+  supportEmail?: string;
 }
 
 const EVENT_META: Record<string, { icon: typeof Receipt; color: string; bg: string }> = {
@@ -46,7 +48,9 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   refunded: { label: 'Refunded', className: 'bg-muted text-foreground' },
 };
 
-export function BillingHistory({ events }: BillingHistoryProps) {
+export function BillingHistory({ events, supportEmail }: BillingHistoryProps) {
+  const resolvedSupportEmail = supportEmail || FREE_ACCOUNT_BILLING_SUPPORT_EMAIL;
+
   if (events.length === 0) {
     return (
       <Card>
@@ -56,6 +60,9 @@ export function BillingHistory({ events }: BillingHistoryProps) {
           </div>
           <h3 className="text-lg font-semibold text-foreground mb-1">No Billing History</h3>
           <p className="text-sm text-muted-foreground">Transactions will appear here once you subscribe to a plan.</p>
+          <p className="text-xs text-muted-foreground mt-6">
+            Billing support: <a className="underline" href={`mailto:${resolvedSupportEmail}`}>{resolvedSupportEmail}</a>
+          </p>
         </CardContent>
       </Card>
     );
@@ -177,6 +184,12 @@ export function BillingHistory({ events }: BillingHistoryProps) {
               </div>
             );
           })}
+        </div>
+
+        <div className="mt-6 border-t pt-4">
+          <p className="text-xs text-muted-foreground">
+            Billing support: <a className="underline" href={`mailto:${resolvedSupportEmail}`}>{resolvedSupportEmail}</a>
+          </p>
         </div>
       </CardContent>
     </Card>

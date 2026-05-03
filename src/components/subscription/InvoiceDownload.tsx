@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate, type BillingEvent, type PlanId } from '../../utils/subscription-client';
+import { FREE_ACCOUNT_BILLING_SUPPORT_EMAIL } from '../../config/scoped-email';
 
 const PLAN_NAMES: Record<PlanId, string> = {
   starter: 'Standard User',
@@ -81,7 +82,7 @@ export function downloadInvoice(event: BillingEvent, orgName = 'Your Organizatio
         ProSpaces Inc.<br />
         123 Business Ave, Suite 100<br />
         Austin, TX 78701<br />
-        billing@prospacescrm.com
+        ${FREE_ACCOUNT_BILLING_SUPPORT_EMAIL}
       </p>
     </div>
     <div class="party" style="text-align: right;">

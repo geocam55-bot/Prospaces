@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Wand2, Building2, ChevronRight, TrendingUp, BarChart3, Package, Monitor, MessageSquare } from 'lucide-react';
 import { Logo } from './Logo';
+import { TrialCountdown } from './TrialCountdown';
 
 /* ── Asset imports (shared with LandingPage) ── */
 import grainOverlay from '../assets/landing/backgrounds/grain-overlay.svg';
@@ -116,6 +117,9 @@ export function SpaceChooser({ onSelectSalesSpace, onSelectDesignSpace, onSelect
             </div>
           )}
         </motion.div>
+
+        {/* Trial Countdown Banner */}
+        <TrialCountdown variant="banner" className="mb-6" />
 
         {/* Space cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
