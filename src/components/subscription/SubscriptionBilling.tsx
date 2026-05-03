@@ -16,7 +16,7 @@ import type { User } from '../../App';
 import { SubscriptionBillingModuleHelp } from './SubscriptionBillingModuleHelp';
 import {
   getCurrentSubscription,
-  getBillingHistory,
+  getBillingHistorySummary,
   getPaymentMethod,
   getOrgSubscriptions,
   createSubscription,
@@ -24,6 +24,7 @@ import {
   cancelSubscription,
   reactivateSubscription,
   updatePaymentMethod,
+  sendBillingTestEmail,
   type Subscription,
   type BillingEvent,
   type PaymentMethod,
@@ -46,6 +47,9 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
   const [checkoutInterval, setCheckoutInterval] = useState<'month' | 'year'>('month');
   const [actionLoading, setActionLoading] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [billingSupportEmail, setBillingSupportEmail] = useState<string>('');
+  const [billingSmtpConfig, setBillingSmtpConfig] = useState<{ host?: string; port?: number; security?: string; authRequired?: boolean } | null>(null);
+  const [sendingBillingTestEmail, setSendingBillingTestEmail] = useState(false);
   const [orgSubscriptions, setOrgSubscriptions] = useState<(Subscription & { user_email?: string; user_name?: string; user_role?: string })[]>([]);
 
   const isAdmin = ['admin', 'super_admin'].includes(user.role);
@@ -53,13 +57,15 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [sub, events, pm] = await Promise.all([
+      const [sub, history, pm] = await Promise.all([
         getCurrentSubscription(),
-        getBillingHistory(),
+        getBillingHistorySummary(),
         getPaymentMethod(),
       ]);
       setSubscription(sub);
-      setBillingEvents(events);
+      setBillingEvents(history.events || []);
+      setBillingSupportEmail(history.support_email || '');
+      setBillingSmtpConfig(history.smtp || null);
       setPaymentMethod(pm);
 
       // Load org-wide subscriptions for admins
@@ -158,6 +164,24 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
       toast.error(err.message || 'Failed to update payment method');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleSendBillingTestEmail = async () => {
+    if (!user.email) {
+      toast.error('No user email found for test delivery');
+      return;
+    }
+
+    try {
+      setSendingBillingTestEmail(true);
+      const result = await sendBillingTestEmail(user.email);
+      const senderText = result.sender ? ` from ${result.sender}` : '';
+      toast.success(`Billing test email sent to ${user.email}${senderText}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send billing test email');
+    } finally {
+      setSendingBillingTestEmail(false);
     }
   };
 
@@ -349,7 +373,50 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
 
         {/* Billing History Tab */}
         <TabsContent value="history" className="mt-6">
-          <BillingHistory events={billingEvents} />
+          {isAdmin && (
+            <div className="mb-6 space-y-4">
+              <div className="flex items-start justify-between bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-slate-900 mb-3">Billing System SMTP Sender</h4>
+                  <div className="space-y-2 text-sm text-slate-700">
+                    {billingSupportEmail && (
+                      <div>
+                        <span className="font-medium">Sender:</span> {billingSupportEmail}
+                      </div>
+                    )}
+                    {billingSmtpConfig && (
+                      <>
+                        {billingSmtpConfig.host && (
+                          <div>
+                            <span className="font-medium">Host:</span> {billingSmtpConfig.host}:{billingSmtpConfig.port || 587}
+                          </div>
+                        )}
+                        {billingSmtpConfig.security && (
+                          <div>
+                            <span className="font-medium">Security:</span> {billingSmtpConfig.security.toUpperCase()}
+                          </div>
+                        )}
+                        {billingSmtpConfig.authRequired !== undefined && (
+                          <div>
+                            <span className="font-medium">Auth:</span> {billingSmtpConfig.authRequired ? 'Required' : 'Optional'}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={handleSendBillingTestEmail}
+                  disabled={sendingBillingTestEmail}
+                  className="ml-4"
+                >
+                  {sendingBillingTestEmail ? 'Sending...' : 'Send Test Email'}
+                </Button>
+              </div>
+            </div>
+          )}
+          <BillingHistory events={billingEvents} supportEmail={billingSupportEmail} />
         </TabsContent>
       </Tabs>
 

@@ -340,31 +340,62 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
             transition={{ duration: 0.45, delay: 0.28 }}
             className="flex flex-col items-center gap-3 mt-6"
           >
-            {/* Primary CTA */}
-            <button
-              onClick={onGetStarted}
-              className="transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
-              style={{
-                padding: '14px 36px',
-                borderRadius: 24,
-                border: 'none',
-                color: '#FFFFFF',
-                fontWeight: 600,
-                fontSize: 16,
-                fontFamily: 'inherit',
-                cursor: 'pointer',
-                background: 'linear-gradient(180deg, #1E5FD8 0%, #153F8A 100%)',
-                boxShadow: '0 4px 16px rgba(21,63,138,0.35)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 6px 24px rgba(21,63,138,0.50)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 4px 16px rgba(21,63,138,0.35)';
-              }}
-            >
-              Enter ProSpaces
-            </button>
+            {/* Primary & Secondary CTAs - Side by side */}
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              {/* Enter ProSpaces Button */}
+              <button
+                onClick={() => onMemberLogin ? onMemberLogin() : undefined}
+                className="transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+                style={{
+                  padding: '14px 36px',
+                  borderRadius: 24,
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontWeight: 600,
+                  fontSize: 16,
+                  fontFamily: 'inherit',
+                  cursor: 'pointer',
+                  background: 'linear-gradient(180deg, #1E5FD8 0%, #153F8A 100%)',
+                  boxShadow: '0 4px 16px rgba(21,63,138,0.35)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = '0 6px 24px rgba(21,63,138,0.50)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(21,63,138,0.35)';
+                }}
+              >
+                Enter ProSpaces
+              </button>
+
+              {/* Free Trial Button */}
+              <button
+                onClick={() => onGetStarted()}
+                className="transition-all duration-200 hover:scale-[1.03] active:scale-[0.98]"
+                style={{
+                  padding: '14px 36px',
+                  borderRadius: 24,
+                  border: '2px solid #1E5FD8',
+                  color: '#1E5FD8',
+                  fontWeight: 600,
+                  fontSize: 16,
+                  fontFamily: 'inherit',
+                  cursor: 'pointer',
+                  background: 'transparent',
+                  boxShadow: '0 2px 8px rgba(21,63,138,0.15)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(30,95,216,0.08)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(21,63,138,0.25)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(21,63,138,0.15)';
+                }}
+              >
+                Start Free Trial
+              </button>
+            </div>
 
             {/* Secondary CTA — text link style */}
             <button
@@ -440,10 +471,9 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
         >
           <div className="flex flex-wrap justify-center gap-3">
             {[
-              { label: 'Login',              action: () => onMemberLogin ? onMemberLogin() : onGetStarted() },
-              { label: 'Join Organization',  action: onGetStarted },
-              { label: 'Book a Demo',        action: () => { window.location.href = '?view=promo'; } },
-              { label: 'Start Free Trial',   action: onGetStarted },
+              { label: 'Enter ProSpaces',     action: () => onMemberLogin ? onMemberLogin() : onGetStarted() },
+              { label: 'Start Free Trial',    action: onGetStarted },
+              { label: 'Book a Demo',         action: () => { window.location.href = '?view=promo'; } },
             ].map(({ label, action }, i) => (
               <button
                 key={i}

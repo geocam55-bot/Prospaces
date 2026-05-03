@@ -6,6 +6,8 @@ import { SpaceChooser } from './components/SpaceChooser';
 import { SpaceAccessNotice } from './components/SpaceAccessNotice';
 import { Login } from './components/Login';
 import { MemberLogin } from './components/MemberLogin';
+import { FreeSignup } from './components/FreeSignup';
+import { PlanSelection } from './components/subscription/PlanSelection';
 // ── Eagerly loaded (always needed on auth'd shell) ──
 import { BackgroundJobProcessor } from './components/BackgroundJobProcessor';
 import { ChangePasswordDialog } from './components/ChangePasswordDialog';
@@ -385,6 +387,38 @@ export function AppContent() {
     return () => clearInterval(interval);
   }, [user?.id, !!session]);
 
+  // Check if trial has expired and redirect to plan selection
+  useEffect(() => {
+    if (!user || !session || currentView === 'plan-selection') return;
+
+    const checkTrialExpiration = async () => {
+      try {
+        // Dynamically import to avoid circular dependencies
+        const { getCurrentSubscription } = await import('./utils/subscription-client');
+        const sub = await getCurrentSubscription();
+
+        // If user is on a trial and it has expired, redirect to plan selection
+        if (sub?.status === 'trialing' && sub.trial_end) {
+          const trialEndDate = new Date(sub.trial_end);
+          if (trialEndDate < new Date()) {
+            // Trial has expired - redirect to plan selection
+            setCurrentView('plan-selection');
+          }
+        }
+      } catch (error) {
+        // Silently fail - this is just a background check
+      }
+    };
+
+    // Check immediately on mount
+    checkTrialExpiration();
+
+    // Then check every minute
+    const interval = setInterval(checkTrialExpiration, 60000);
+
+    return () => clearInterval(interval);
+  }, [user?.id, !!session]);
+
   const loadUserData = async (supabaseUser: SupabaseUser, isInitialLoad = true) => {
     const safetyTimer = setTimeout(() => setLoading(false), 8000);
     try {
@@ -529,8 +563,16 @@ export function AppContent() {
             onBack={() => setCurrentView('landing')} 
             onLogin={handleMemberLogin} 
           />
+        ) : currentView === 'free-signup' ? (
+          <FreeSignup
+            onSignupSuccess={() => setCurrentView('member-login')}
+            onBack={() => setCurrentView('landing')}
+          />
         ) : (
-          <LandingPage onGetStarted={() => setCurrentView('member-login')} onMemberLogin={() => setCurrentView('member-login')} />
+          <LandingPage 
+            onGetStarted={() => setCurrentView('free-signup')} 
+            onMemberLogin={() => setCurrentView('member-login')} 
+          />
         )}
       </ErrorBoundary>
     );
@@ -547,6 +589,23 @@ export function AppContent() {
           accentColorClass="bg-blue-600"
           mode="access-denied"
           message="You are signed in, but your account does not currently have access to Sales Space. Please choose another space or contact your administrator if you need access."
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  if (currentView === 'plan-selection') {
+    return (
+      <ErrorBoundary>
+        <Toaster />
+        <PlanSelection
+          onSelectPlan={async (planId) => {
+            // TODO: Handle plan selection - redirect to payment
+            console.log('Selected plan:', planId);
+          }}
+          onContactSupport={() => {
+            window.location.href = 'mailto:support@prospacescrm.ca';
+          }}
         />
       </ErrorBoundary>
     );

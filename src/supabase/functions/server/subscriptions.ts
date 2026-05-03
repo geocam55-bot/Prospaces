@@ -2,6 +2,7 @@ import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import { extractUserToken } from './auth-helper.ts';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
 /**
  * Subscription & Billing routes (KV-backed).
@@ -16,6 +17,70 @@ import { extractUserToken } from './auth-helper.ts';
  */
 
 const PREFIX = '/make-server-8405be07';
+
+const DEFAULT_FREE_ACCOUNT_BILLING_SUPPORT_EMAIL = 'support@prospacescrm.ca';
+
+function getScopedEmailConfig() {
+  const supportEmail = (Deno.env.get('SUPPORT_EMAIL_ADDRESS') || DEFAULT_FREE_ACCOUNT_BILLING_SUPPORT_EMAIL).trim();
+  const smtpHost = (Deno.env.get('SYSTEM_SMTP_HOST') || 'smtp.ionos.com').trim();
+  const smtpPort = Number(Deno.env.get('SYSTEM_SMTP_PORT') || '587');
+  const smtpSecurity = (Deno.env.get('SYSTEM_SMTP_SECURITY') || 'tls').trim().toLowerCase();
+  return {
+    supportEmail,
+    smtp: {
+      host: smtpHost,
+      port: Number.isFinite(smtpPort) ? smtpPort : 587,
+      security: smtpSecurity,
+      authRequired: true,
+    },
+  };
+}
+
+async function sendSystemSmtpEmail(params: {
+  to: string | string[];
+  subject: string;
+  htmlBody: string;
+  textBody?: string;
+}): Promise<{ sender: string }> {
+  const smtpHost = (Deno.env.get('SYSTEM_SMTP_HOST') || 'smtp.ionos.com').trim();
+  const smtpPort = Number(Deno.env.get('SYSTEM_SMTP_PORT') || '587');
+  const smtpUsername = (Deno.env.get('SYSTEM_SMTP_USERNAME') || '').trim();
+  const smtpPassword = Deno.env.get('SYSTEM_SMTP_PASSWORD') || '';
+  const sender = (Deno.env.get('SUPPORT_EMAIL_ADDRESS') || DEFAULT_FREE_ACCOUNT_BILLING_SUPPORT_EMAIL).trim();
+
+  if (!smtpUsername || !smtpPassword) {
+    throw new Error('System SMTP credentials are not configured');
+  }
+
+  const recipients = Array.isArray(params.to) ? params.to : [params.to];
+  const fallbackText = params.htmlBody.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const client = new SMTPClient({
+    connection: {
+      hostname: smtpHost,
+      port: Number.isFinite(smtpPort) ? smtpPort : 587,
+      tls: smtpPort === 465,
+      auth: {
+        username: smtpUsername,
+        password: smtpPassword,
+      },
+    },
+  });
+
+  try {
+    await client.send({
+      from: sender,
+      to: recipients,
+      subject: params.subject,
+      content: params.textBody || fallbackText,
+      html: params.htmlBody,
+    });
+  } finally {
+    await client.close();
+  }
+
+  return { sender };
+}
 
 // ── Plan definitions (demonstration pricing) ────────────────────────────
 export const PLANS = {
@@ -102,6 +167,7 @@ export interface BillingEvent {
   description: string;
   plan_id?: PlanId;
   invoice_number?: string;
+  support_email?: string;
   created_at: string;
 }
 
@@ -192,6 +258,155 @@ function resolveTargetOrg(auth: { orgId: string; role: string }, body: any): str
 
 // ── Register routes ─────────────────────────────────────────────────────
 export function subscriptions(app: Hono) {
+
+  // POST /auth/signup-free — public signup for free 15-day trial
+  app.post(`${PREFIX}/auth/signup-free`, async (c) => {
+    try {
+      const body = await c.req.json();
+      const { email, password, firstName, lastName, organizationName } = body;
+
+      // Validation
+      if (!email || !password || !firstName || !lastName || !organizationName) {
+        return c.json({ error: 'Missing required fields' }, 400);
+      }
+
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      );
+
+      // Create Supabase auth user
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: email.toLowerCase(),
+        password,
+        email_confirm: true, // Auto-confirm email for trial
+        user_metadata: {
+          name: `${firstName} ${lastName}`,
+          role: 'user',
+        },
+      });
+
+      if (authError || !authData.user) {
+        console.error('[auth/signup-free] Auth error:', authError);
+        return c.json({ error: authError?.message || 'Failed to create auth user' }, 400);
+      }
+
+      const userId = authData.user.id;
+      const userEmail = authData.user.email!;
+
+      // Create organization  
+      const orgId = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      await supabase.from('organizations').insert([
+        {
+          id: orgId,
+          name: organizationName,
+          industry: null,
+          created_at: now,
+          updated_at: now,
+          type: 'business',
+          status: 'active',
+        },
+      ]);
+
+      // Create profile
+      await supabase.from('profiles').insert([
+        {
+          id: userId,
+          email: userEmail,
+          name: `${firstName} ${lastName}`,
+          role: 'admin', // First user in org is admin
+          organization_id: orgId,
+          status: 'active',
+          needs_password_change: true,
+          temp_password: password, // Store for verification if needed
+          temp_password_created_at: now,
+          created_at: now,
+          updated_at: now,
+        },
+      ]);
+
+      // Create 15-day trial subscription
+      const subId = crypto.randomUUID();
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 15);
+      const trialEnd = trialEndDate.toISOString();
+
+      const { supportEmail } = getScopedEmailConfig();
+      const starterPlanPrice = await resolvePlanPrice('starter', 'month');
+
+      const subscription: any = {
+        id: subId,
+        organization_id: orgId,
+        user_id: userId,
+        plan_id: 'starter',
+        status: 'trialing',
+        billing_interval: 'month',
+        current_period_start: now,
+        current_period_end: trialEnd,
+        trial_end: trialEnd,
+        cancel_at_period_end: false,
+        amount: 0, // Free trial
+        currency: 'USD',
+        created_at: now,
+        updated_at: now,
+        support_email: supportEmail,
+      };
+
+      await kv.set(`subscription:${orgId}:${userId}`, subscription);
+
+      // Create billing event for trial start
+      const eventId = crypto.randomUUID();
+      const event: any = {
+        id: eventId,
+        organization_id: orgId,
+        user_id: userId,
+        subscription_id: subId,
+        type: 'trial_started',
+        description: `Free 15-day trial started for ${organizationName}`,
+        amount: 0,
+        currency: 'USD',
+        status: 'completed',
+        invoice_number: null,
+        created_at: now,
+        support_email: supportEmail,
+      };
+
+      await kv.set(`billing_event:${orgId}:${eventId}`, event);
+
+      // Send temporary password email via system SMTP
+      try {
+        await sendSystemSmtpEmail({
+          to: userEmail,
+          subject: 'Welcome to ProSpaces - Your Temporary Password',
+          htmlBody: `
+            <h1>Welcome to ProSpaces CRM, ${firstName}!</h1>
+            <p>Your free 15-day trial account has been created.</p>
+            <p><strong>Temporary Password:</strong> ${password}</p>
+            <p><strong>Sign in here:</strong> <a href="${Deno.env.get('VITE_APP_URL') || 'https://app.prospacescrm.ca'}/member-login">ProSpaces Login</a></p>
+            <p>On your first login, you'll be asked to set a permanent password.</p>
+            <p>Your trial expires on ${trialEndDate.toLocaleDateString()}. After that, you'll need to select a plan to continue.</p>
+            <br/>
+            <p style="color: #666; font-size: 12px;">Questions? Contact support@prospacescrm.ca</p>
+          `,
+        });
+      } catch (emailErr: any) {
+        console.error('[auth/signup-free] Email error:', emailErr);
+        // Don't fail signup if email fails
+      }
+
+      return c.json({
+        success: true,
+        message: 'Free trial account created successfully! Check your email for temporary password.',
+        userId,
+        email: userEmail,
+      });
+    } catch (error: any) {
+      console.error('[auth/signup-free] Error:', error);
+      return c.json({ error: error.message || 'Failed to create free trial account' }, 500);
+    }
+  });
 
   // GET /subscriptions/plans — public, no auth required
   app.get(`${PREFIX}/subscriptions/plans`, async (c) => {
@@ -296,6 +511,7 @@ export function subscriptions(app: Hono) {
       }
 
       const amount = await resolvePlanPrice(plan_id as PlanId, billing_interval);
+      const { supportEmail } = getScopedEmailConfig();
 
       const subId = crypto.randomUUID();
       const subscription: Subscription = {
@@ -349,6 +565,7 @@ export function subscriptions(app: Hono) {
           : `Subscribed user ${targetUserId} to ${plan.name} plan (${billing_interval}ly)`,
         plan_id: plan_id as PlanId,
         invoice_number: trial ? undefined : generateInvoiceNumber(),
+        support_email: supportEmail,
         created_at: periodStart,
       };
       await kv.set(`billing_event:${targetOrgId}:${eventId}`, event);
@@ -366,6 +583,7 @@ export function subscriptions(app: Hono) {
           description: `Payment for ${plan.name} plan — ${billing_interval === 'year' ? 'annual' : 'monthly'} billing (user ${targetUserId})`,
           plan_id: plan_id as PlanId,
           invoice_number: generateInvoiceNumber(),
+          support_email: supportEmail,
           created_at: periodStart,
         };
         await kv.set(`billing_event:${targetOrgId}:${paymentId}`, paymentEvent);
@@ -423,6 +641,7 @@ export function subscriptions(app: Hono) {
       }
 
       const amount = await resolvePlanPrice(newPlanId, newInterval);
+      const { supportEmail } = getScopedEmailConfig();
 
       const updated: Subscription = {
         ...existing,
@@ -451,6 +670,7 @@ export function subscriptions(app: Hono) {
         description: `${isUpgrade ? 'Upgraded' : 'Changed'} user ${targetUserId} from ${oldPlan.name} to ${plan.name} plan`,
         plan_id: newPlanId,
         invoice_number: generateInvoiceNumber(),
+        support_email: supportEmail,
         created_at: now,
       };
       await kv.set(`billing_event:${targetOrgId}:${eventId}`, event);
@@ -471,6 +691,7 @@ export function subscriptions(app: Hono) {
             description: `Prorated charge for upgrade to ${plan.name} (user ${targetUserId})`,
             plan_id: newPlanId,
             invoice_number: generateInvoiceNumber(),
+            support_email: supportEmail,
             created_at: now,
           };
           await kv.set(`billing_event:${targetOrgId}:${paymentId}`, paymentEvent);
@@ -517,6 +738,7 @@ export function subscriptions(app: Hono) {
       await kv.set(`subscription:${auth.orgId}:${targetUserId}`, updated);
 
       const plan = PLANS[existing.plan_id];
+      const { supportEmail } = getScopedEmailConfig();
       const eventId = crypto.randomUUID();
       const event: BillingEvent = {
         id: eventId,
@@ -529,6 +751,7 @@ export function subscriptions(app: Hono) {
           ? `${plan.name} plan canceled immediately`
           : `${plan.name} plan set to cancel at end of billing period`,
         plan_id: existing.plan_id,
+        support_email: supportEmail,
         created_at: now,
       };
       await kv.set(`billing_event:${auth.orgId}:${eventId}`, event);
@@ -580,6 +803,7 @@ export function subscriptions(app: Hono) {
 
         // Simulate renewal payment
         const plan = PLANS[existing.plan_id];
+        const { supportEmail } = getScopedEmailConfig();
         const paymentId = crypto.randomUUID();
         const paymentEvent: BillingEvent = {
           id: paymentId,
@@ -591,6 +815,7 @@ export function subscriptions(app: Hono) {
           description: `Renewal payment for ${plan.name} plan`,
           plan_id: existing.plan_id,
           invoice_number: generateInvoiceNumber(),
+          support_email: supportEmail,
           created_at: now,
         };
         await kv.set(`billing_event:${auth.orgId}:${paymentId}`, paymentEvent);
@@ -616,10 +841,47 @@ export function subscriptions(app: Hono) {
       // Sort newest first
       events.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      return c.json({ events });
+      const scopedEmailConfig = getScopedEmailConfig();
+      return c.json({
+        events,
+        support_email: scopedEmailConfig.supportEmail,
+        smtp: scopedEmailConfig.smtp,
+      });
     } catch (error: any) {
       console.error('[subscriptions] Error fetching billing history:', error);
       return c.json({ error: error.message }, 500);
+    }
+  });
+
+  // POST /subscriptions/send-test-email — send a billing SMTP test email
+  app.post(`${PREFIX}/subscriptions/send-test-email`, async (c) => {
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const body = await c.req.json().catch(() => ({}));
+      const to = (body?.to || '').toString().trim();
+      if (!to) return c.json({ error: 'Missing required field: to' }, 400);
+
+      const subject = 'ProSpaces Billing SMTP Test';
+      const htmlBody = '<p>This is a billing SMTP test email from ProSpaces CRM.</p><p>If you received this, the scoped billing sender configuration is working.</p>';
+      const textBody = 'This is a billing SMTP test email from ProSpaces CRM. If you received this, the scoped billing sender configuration is working.';
+
+      const { sender } = await sendSystemSmtpEmail({
+        to,
+        subject,
+        htmlBody,
+        textBody,
+      });
+
+      return c.json({
+        success: true,
+        sender,
+        message: 'System email sent successfully',
+      });
+    } catch (error: any) {
+      console.error('[subscriptions] Error sending billing test email:', error);
+      return c.json({ error: error.message || 'Failed to send billing test email' }, 500);
     }
   });
 
@@ -692,6 +954,7 @@ export function subscriptions(app: Hono) {
 
       const plan = PLANS[sub.plan_id];
       const now = new Date();
+      const { supportEmail } = getScopedEmailConfig();
 
       // Simulate payment
       const paymentId = crypto.randomUUID();
@@ -705,6 +968,7 @@ export function subscriptions(app: Hono) {
         description: `Recurring payment for ${plan.name} plan`,
         plan_id: sub.plan_id,
         invoice_number: generateInvoiceNumber(),
+        support_email: supportEmail,
         created_at: now.toISOString(),
       };
       await kv.set(`billing_event:${auth.orgId}:${paymentId}`, event);

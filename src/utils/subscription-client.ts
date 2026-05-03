@@ -4,7 +4,7 @@
  */
 
 import { projectId } from './supabase/info';
-import { getServerHeaders } from './server-headers';
+import { getServerHeaders, getUserAccessToken } from './server-headers';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
@@ -51,7 +51,19 @@ export interface BillingEvent {
   description: string;
   plan_id?: PlanId;
   invoice_number?: string;
+  support_email?: string;
   created_at: string;
+}
+
+export interface BillingHistoryResponse {
+  events: BillingEvent[];
+  support_email?: string;
+  smtp?: {
+    host?: string;
+    port?: number;
+    security?: string;
+    authRequired?: boolean;
+  };
 }
 
 export interface PaymentMethod {
@@ -214,11 +226,42 @@ export async function reactivateSubscription(): Promise<Subscription> {
 }
 
 export async function getBillingHistory(): Promise<BillingEvent[]> {
+  const data = await getBillingHistorySummary();
+  return data.events;
+}
+
+export async function getBillingHistorySummary(): Promise<BillingHistoryResponse> {
   const headers = await getServerHeaders();
   const res = await fetch(`${BASE_URL}/subscriptions/billing-history`, { headers });
   if (!res.ok) throw new Error('Failed to fetch billing history');
   const data = await res.json();
-  return data.events || [];
+  return {
+    events: data.events || [],
+    support_email: data.support_email,
+    smtp: data.smtp,
+  };
+}
+
+export async function sendBillingTestEmail(toEmail: string): Promise<{ sender?: string; message?: string }> {
+  const headers = await getServerHeaders();
+  const res = await fetch(`${BASE_URL}/subscriptions/send-test-email`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      to: toEmail,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to send billing test email');
+  }
+
+  const data = await res.json().catch(() => ({}));
+  return {
+    sender: data.sender,
+    message: data.message,
+  };
 }
 
 export async function getPaymentMethod(): Promise<PaymentMethod | null> {
@@ -273,6 +316,71 @@ export async function getOrgSubscriptions(orgOverride?: string): Promise<(Subscr
   }
   const data = await res.json();
   return data.subscriptions || [];
+}
+
+/**
+ * Sign up for a free 15-day trial account (public signup).
+ * No authentication required.
+ */
+export async function signupFree(data: {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  organizationName: string;
+}): Promise<{ success: boolean; message: string; userId?: string; email?: string }> {
+  const res = await fetch(`${BASE_URL}/auth/signup-free`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email: data.email.toLowerCase(),
+      password: data.password,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      organizationName: data.organizationName,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to create free trial account');
+  }
+
+  const result = await res.json();
+  return {
+    success: result.success,
+    message: result.message || 'Account created successfully! Check your email for the temporary password.',
+    userId: result.userId,
+    email: result.email,
+  };
+}
+
+/**
+ * Upgrade from trial to a paid plan
+ */
+export async function upgradeFromTrial(planId: string, paymentMethodId?: string): Promise<{ success: boolean; subscription: Subscription }> {
+  const headers = await getServerHeaders();
+  const res = await fetch(`${BASE_URL}/subscriptions/upgrade-from-trial`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      planId,
+      paymentMethodId,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to upgrade subscription');
+  }
+
+  const data = await res.json();
+  return {
+    success: data.success,
+    subscription: data.subscription,
+  };
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────

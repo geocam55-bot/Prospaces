@@ -131,6 +131,7 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         'imap.gmail.com': { host: 'smtp.gmail.com', port: '465' },
         'outlook.office365.com': { host: 'smtp.office365.com', port: '587' },
         'imap.mail.yahoo.com': { host: 'smtp.mail.yahoo.com', port: '465' },
+        'imap.ionos.com': { host: 'smtp.ionos.com', port: '587' },
       };
       
       const smtp = smtpMap[imapHost];

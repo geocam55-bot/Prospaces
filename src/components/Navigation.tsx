@@ -62,6 +62,7 @@ import { useBidNotifications } from '../hooks/useBidNotifications';
 import { useTaskNotifications } from '../hooks/useTaskNotifications';
 import { useAppointmentNotifications } from '../hooks/useAppointmentNotifications';
 import { getCurrentSubscription } from '../utils/subscription-client';
+import { TrialCountdown } from './TrialCountdown';
 
 interface NavigationProps {
   user: UserType;
@@ -627,6 +628,13 @@ export function Navigation({
         </nav>
 
         <div className="p-3 space-y-2 shrink-0" style={{ borderTop: `1px solid ${theme.colors.border}` }}>
+          {/* Trial Countdown Badge */}
+          {!isSidebarCollapsed && (
+            <div className="mb-2">
+              <TrialCountdown variant="badge" className="w-full justify-center" />
+            </div>
+          )}
+          
           <DropdownMenu>
             <DropdownMenuTrigger className="w-full focus:outline-none">
               <div

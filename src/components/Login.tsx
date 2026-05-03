@@ -15,6 +15,7 @@ import { ChangePasswordDialog } from './ChangePasswordDialog';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { setOrgMode } from '../utils/settings-client';
 import { Logo } from './Logo';
+import { FREE_ACCOUNT_BILLING_SUPPORT_EMAIL } from '../config/scoped-email';
 
 interface LoginProps {
   onLogin: (user: User, token: string) => void;
@@ -406,7 +407,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
       
       // Verify invitation token first
       if (!invitationToken.trim()) {
-        throw new Error('Invitation code is required. Please enter the invitation code you received.');
+        throw new Error(`Invitation code is required. Please enter the invitation code you received. Need help? Contact ${FREE_ACCOUNT_BILLING_SUPPORT_EMAIL}.`);
       }
 
       // Check if invitation exists and is valid
@@ -418,12 +419,12 @@ export function Login({ onLogin, onBack }: LoginProps) {
         .single();
 
       if (inviteError || !invitation) {
-        throw new Error('Invalid or expired invitation code. Please check your invitation email and try again.');
+        throw new Error(`Invalid or expired invitation code. Please check your invitation email and try again. Need help? Contact ${FREE_ACCOUNT_BILLING_SUPPORT_EMAIL}.`);
       }
 
       // Verify the invitation email matches
       if (invitation.email.toLowerCase() !== email.toLowerCase()) {
-        throw new Error('This invitation was sent to a different email address. Please use the email address that received the invitation.');
+        throw new Error(`This invitation was sent to a different email address. Please use the email address that received the invitation. Need help? Contact ${FREE_ACCOUNT_BILLING_SUPPORT_EMAIL}.`);
       }
       
       // Use direct Supabase Auth instead of Edge Function
@@ -520,7 +521,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
       if (signInError) {
         // Check if it's an email confirmation error
         if (signInError.message.toLowerCase().includes('email not confirmed')) {
-          setSuccessMessage('✅ Account created! 📧 Please check your email inbox (and spam folder) for a confirmation link. You must click the link before you can sign in.');
+          setSuccessMessage(`✅ Account created! 📧 Please check your email inbox (and spam folder) for a confirmation link. You must click the link before you can sign in. Need help? Contact ${FREE_ACCOUNT_BILLING_SUPPORT_EMAIL}.`);
           setActiveTab('signin');
           setIsLoading(false);
           return;
@@ -528,13 +529,13 @@ export function Login({ onLogin, onBack }: LoginProps) {
         
         // Check if it's invalid credentials (this is the most common case when email confirmation is required)
         if (signInError.message.includes('Invalid login credentials')) {
-          setSuccessMessage('✅ Account created! 📧 IMPORTANT: Your Supabase project requires email confirmation. Check your email inbox (and spam folder) for a confirmation link. You MUST click the link before you can sign in.');
+          setSuccessMessage(`✅ Account created! 📧 IMPORTANT: Your Supabase project requires email confirmation. Check your email inbox (and spam folder) for a confirmation link. You MUST click the link before you can sign in. Need help? Contact ${FREE_ACCOUNT_BILLING_SUPPORT_EMAIL}.`);
           setActiveTab('signin');
           setIsLoading(false);
           return;
         }
         
-        setSuccessMessage('✅ Account created! Please check your email for a confirmation link, then try signing in.');
+        setSuccessMessage(`✅ Account created! Please check your email for a confirmation link, then try signing in. Need help? Contact ${FREE_ACCOUNT_BILLING_SUPPORT_EMAIL}.`);
         setActiveTab('signin');
         setIsLoading(false);
         return;
@@ -608,7 +609,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
             <Alert className="bg-gradient-to-br from-blue-50 to-purple-50 border-purple-200 mb-6">
               <Info className="h-4 w-4 text-purple-600" />
               <AlertDescription className="text-xs text-foreground">
-                <strong>Sign Up:</strong> New user registration requires an invitation code. Contact your organization administrator to receive an invitation.
+                <strong>Sign Up:</strong> New user registration requires an invitation code. Contact your organization administrator to receive an invitation, or contact {FREE_ACCOUNT_BILLING_SUPPORT_EMAIL} for account setup and billing assistance.
               </AlertDescription>
             </Alert>
             
