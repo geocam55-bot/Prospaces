@@ -253,8 +253,9 @@ export async function enrichMaterialsWithT1Pricing(
       }
     }
 
-    // Fallback: if defaults are missing/stale, load organization inventory for description-based matching.
-    if (inventoryItems.length === 0) {
+    // Fallback: only attempt description-based matching when at least one default exists.
+    // If defaults are completely wiped, keep pricing empty instead of re-populating via fuzzy matches.
+    if (inventoryItems.length === 0 && defaultsMap.size > 0) {
       const { data } = await supabase
         .from('inventory')
         .select('id, name, unit_price, cost, sku')
