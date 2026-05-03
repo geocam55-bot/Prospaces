@@ -553,14 +553,13 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
 
       if (success) {
         toast.success('Defaults saved successfully');
+        try {
+          localStorage.removeItem(draftStorageKey);
+        } catch {
+          // Ignore draft cleanup failures
+        }
       } else {
-        toast.success('Defaults saved locally');
-      }
-
-      try {
-        localStorage.removeItem(draftStorageKey);
-      } catch {
-        // Ignore draft cleanup failures
+        toast.error('Could not sync defaults to server. Your changes are kept as a local draft.');
       }
 
       // Always notify so pricing re-enriches from the fresh localStorage cache
@@ -738,46 +737,48 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
 
   return (
     <div className="space-y-6">
-      <PlannerDefaultsQuickHelp />
-      
+      <div className="sticky top-0 z-30 rounded-lg border bg-background/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <PlannerDefaultsQuickHelp />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              onClick={handleRestoreOrgDefaults}
+              variant="outline"
+              disabled={saving}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Restore Organization Defaults
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save My Defaults
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                {plannerType.charAt(0).toUpperCase() + plannerType.slice(1)} Planner Defaults
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Customize your personal defaults for material selections. These will override the organization defaults.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={handleRestoreOrgDefaults}
-                variant="outline"
-                disabled={saving}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Restore Organization Defaults
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save My Defaults
-                  </>
-                )}
-              </Button>
-            </div>
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              {plannerType.charAt(0).toUpperCase() + plannerType.slice(1)} Planner Defaults
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Customize your personal defaults for material selections. These will override the organization defaults.
+            </p>
           </div>
         </CardHeader>
         <CardContent>

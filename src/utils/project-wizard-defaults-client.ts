@@ -21,6 +21,41 @@ export interface InventoryItem {
   description: string;
 }
 
+const normalizeKeyPart = (value: string | null | undefined): string =>
+  (value || '').trim().toLowerCase();
+
+const makeDefaultsRowKey = (row: Pick<ProjectWizardDefault, 'planner_type' | 'material_type' | 'material_category'>): string =>
+  `${normalizeKeyPart(row.planner_type)}-${normalizeKeyPart(row.material_type || 'default')}-${normalizeKeyPart(row.material_category)}`;
+
+function dedupeDefaultsByNewest(defaults: ProjectWizardDefault[]): ProjectWizardDefault[] {
+  const latestByKey = new Map<string, ProjectWizardDefault>();
+
+  defaults.forEach((row) => {
+    const key = makeDefaultsRowKey(row);
+    const prev = latestByKey.get(key);
+    if (!prev) {
+      latestByKey.set(key, row);
+      return;
+    }
+
+    const prevTime = Date.parse(prev.updated_at || prev.created_at || '');
+    const nextTime = Date.parse(row.updated_at || row.created_at || '');
+
+    // Prefer strictly fresher timestamps. On ties, keep the first-seen row;
+    // combined with server-side DESC ordering, this preserves newest row deterministically.
+    // If both timestamps are missing/invalid, keep later-seen row as a fallback.
+    const shouldReplace =
+      (!Number.isNaN(nextTime) && (Number.isNaN(prevTime) || nextTime > prevTime))
+      || (Number.isNaN(nextTime) && Number.isNaN(prevTime));
+
+    if (shouldReplace) {
+      latestByKey.set(key, row);
+    }
+  });
+
+  return Array.from(latestByKey.values());
+}
+
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < arr.length; i += size) {
@@ -64,10 +99,11 @@ export async function getProjectWizardDefaults(organizationId: string): Promise<
   
   try {
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/project-wizard-defaults?organization_id=${encodeURIComponent(organizationId)}`,
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/project-wizard-defaults?organization_id=${encodeURIComponent(organizationId)}&_ts=${Date.now()}`,
       {
         method: 'GET',
         headers: await getServerHeaders(),
+        cache: 'no-store',
       }
     );
 
@@ -78,10 +114,38 @@ export async function getProjectWizardDefaults(organizationId: string): Promise<
     }
 
     const result = await response.json();
-    // Defaults fetched successfully
-    return result.defaults || [];
+    const rawDefaults = result.defaults || [];
+    // Guard against legacy duplicate rows; newest row wins per logical key.
+    return dedupeDefaultsByNewest(rawDefaults);
   } catch (error) {
     // Unexpected error fetching defaults
+    return [];
+  }
+}
+
+/**
+ * Get raw project wizard defaults without client-side dedupe.
+ * Used by admin save flow to identify and clean duplicate rows.
+ */
+export async function getProjectWizardDefaultsRaw(organizationId: string): Promise<ProjectWizardDefault[]> {
+  try {
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/project-wizard-defaults?organization_id=${encodeURIComponent(organizationId)}&_ts=${Date.now()}`,
+      {
+        method: 'GET',
+        headers: await getServerHeaders(),
+        cache: 'no-store',
+      }
+    );
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const result = await response.json();
+    const rawDefaults = result.defaults || [];
+    return Array.isArray(rawDefaults) ? rawDefaults : [];
+  } catch {
     return [];
   }
 }
@@ -300,7 +364,7 @@ export async function upsertProjectWizardDefault(defaultConfig: ProjectWizardDef
  * Batch upsert project wizard defaults via the server (bypasses RLS)
  * More efficient than calling upsertProjectWizardDefault individually.
  */
-export async function batchUpsertProjectWizardDefaults(defaults: ProjectWizardDefault[]): Promise<{ savedCount: number; success: boolean }> {
+export async function batchUpsertProjectWizardDefaults(defaults: ProjectWizardDefault[]): Promise<{ savedCount: number; success: boolean; failedCount?: number; failedRows?: Array<{ planner_type?: string; material_type?: string | null; material_category?: string | null; reason?: string; code?: string }> }> {
   // Batch upserting defaults via server
   
   try {
@@ -321,7 +385,15 @@ export async function batchUpsertProjectWizardDefaults(defaults: ProjectWizardDe
 
     const result = await response.json();
     // Batch saved defaults via server
-    return { savedCount: result.savedCount || 0, success: true };
+    const savedCount = Number(result.savedCount || 0);
+    const failedCount = Number(result.failedCount || 0);
+    const success = typeof result.success === 'boolean' ? result.success : failedCount === 0;
+    return {
+      savedCount,
+      success,
+      failedCount,
+      failedRows: Array.isArray(result.failedRows) ? result.failedRows : [],
+    };
   } catch (error) {
     // Unexpected error in batch upsert
     return { savedCount: 0, success: false };
