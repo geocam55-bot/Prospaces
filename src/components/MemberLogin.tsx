@@ -21,18 +21,20 @@ import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface MemberLoginProps {
   onLogin: (user: User, token: string) => void;
+  initialEmail?: string;
+  initialSuccessMessage?: string;
   onBack?: () => void;
 }
 
-export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
-  const [email, setEmail] = useState('');
+export function MemberLogin({ onLogin, initialEmail = '', initialSuccessMessage = '', onBack }: MemberLoginProps) {
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isResetLoading, setIsResetLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState(initialSuccessMessage);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [pendingUser, setPendingUser] = useState<{ user: User; token: string } | null>(null);
 
@@ -116,7 +118,7 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
             throw new Error('Your email is not confirmed yet. Check your inbox for a confirmation link.');
           }
           if (activeError.message.includes('Invalid login credentials')) {
-            throw new Error('Invalid email or password. Please check your credentials and try again.');
+            throw new Error('Invalid email or password. If you just signed up, confirm your email first and then try again.');
           }
           
           if (activeError.message === 'Failed to fetch') {

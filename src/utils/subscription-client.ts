@@ -351,7 +351,7 @@ export async function signupFree(data: {
   const result = await res.json();
   return {
     success: result.success,
-    message: result.message || 'Account created successfully! Check your email for the temporary password.',
+    message: result.message || 'Account created successfully. Check your email for a confirmation link before signing in.',
     userId: result.userId,
     email: result.email,
   };

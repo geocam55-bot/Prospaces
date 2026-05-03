@@ -232,6 +232,8 @@ export function AppContent() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [memberLoginEmail, setMemberLoginEmail] = useState('');
+  const [memberLoginMessage, setMemberLoginMessage] = useState('');
   const [currentView, setCurrentView] = useState(() => {
     // Restore persisted view on refresh (only if there's a session hint)
     const saved = sessionStorage.getItem('prospaces_current_view');
@@ -534,6 +536,8 @@ export function AppContent() {
   }
 
   const handleMemberLogin = async (user: User, token: string) => {
+    setMemberLoginEmail('');
+    setMemberLoginMessage('');
     await initializePermissions(user.role);
     if (user.organizationId || user.organization_id) {
       const orgId = user.organizationId || user.organization_id;
@@ -555,8 +559,14 @@ export function AppContent() {
         <Toaster />
         {currentView === 'member-login' || currentView === 'space-chooser' ? (
           <MemberLogin
+            initialEmail={memberLoginEmail}
+            initialSuccessMessage={memberLoginMessage}
             onLogin={handleMemberLogin}
-            onBack={() => setCurrentView('landing')}
+            onBack={() => {
+              setMemberLoginEmail('');
+              setMemberLoginMessage('');
+              setCurrentView('landing');
+            }}
           />
         ) : currentView === 'login' ? (
           <Login 
@@ -565,13 +575,25 @@ export function AppContent() {
           />
         ) : currentView === 'free-signup' ? (
           <FreeSignup
-            onSignupSuccess={() => setCurrentView('member-login')}
+            onSignupSuccess={({ email, message }) => {
+              setMemberLoginEmail(email);
+              setMemberLoginMessage(message);
+              setCurrentView('member-login');
+            }}
             onBack={() => setCurrentView('landing')}
           />
         ) : (
           <LandingPage 
-            onGetStarted={() => setCurrentView('free-signup')} 
-            onMemberLogin={() => setCurrentView('member-login')} 
+            onGetStarted={() => {
+              setMemberLoginEmail('');
+              setMemberLoginMessage('');
+              setCurrentView('free-signup');
+            }} 
+            onMemberLogin={() => {
+              setMemberLoginEmail('');
+              setMemberLoginMessage('');
+              setCurrentView('member-login');
+            }} 
           />
         )}
       </ErrorBoundary>

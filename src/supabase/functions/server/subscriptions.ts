@@ -264,25 +264,41 @@ export function subscriptions(app: Hono) {
     try {
       const body = await c.req.json();
       const { email, password, firstName, lastName, organizationName } = body;
+      const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
+      const normalizedFirstName = typeof firstName === 'string' ? firstName.trim() : '';
+      const normalizedLastName = typeof lastName === 'string' ? lastName.trim() : '';
+      const fullName = `${normalizedFirstName} ${normalizedLastName}`.trim();
+      const resolvedOrganizationName = typeof organizationName === 'string' && organizationName.trim()
+        ? organizationName.trim()
+        : fullName;
 
       // Validation
-      if (!email || !password || !firstName || !lastName || !organizationName) {
+      if (!normalizedEmail || !password || !normalizedFirstName || !normalizedLastName || !resolvedOrganizationName) {
         return c.json({ error: 'Missing required fields' }, 400);
       }
+
+      const authSupabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+      );
 
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       );
 
-      // Create Supabase auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: email.toLowerCase(),
+      const appUrl = (Deno.env.get('VITE_APP_URL') || 'https://app.prospacescrm.ca').replace(/\/+$/, '');
+
+      // Create Supabase auth user and send the standard confirmation email.
+      const { data: authData, error: authError } = await authSupabase.auth.signUp({
+        email: normalizedEmail,
         password,
-        email_confirm: true, // Auto-confirm email for trial
-        user_metadata: {
-          name: `${firstName} ${lastName}`,
-          role: 'user',
+        options: {
+          emailRedirectTo: `${appUrl}/`,
+          data: {
+            name: fullName,
+            role: 'admin',
+          },
         },
       });
 
@@ -292,7 +308,7 @@ export function subscriptions(app: Hono) {
       }
 
       const userId = authData.user.id;
-      const userEmail = authData.user.email!;
+  const userEmail = authData.user.email || normalizedEmail;
 
       // Create organization  
       const orgId = crypto.randomUUID();
@@ -301,7 +317,7 @@ export function subscriptions(app: Hono) {
       await supabase.from('organizations').insert([
         {
           id: orgId,
-          name: organizationName,
+          name: resolvedOrganizationName,
           industry: null,
           created_at: now,
           updated_at: now,
@@ -315,13 +331,11 @@ export function subscriptions(app: Hono) {
         {
           id: userId,
           email: userEmail,
-          name: `${firstName} ${lastName}`,
+          name: fullName,
           role: 'admin', // First user in org is admin
           organization_id: orgId,
           status: 'active',
-          needs_password_change: true,
-          temp_password: password, // Store for verification if needed
-          temp_password_created_at: now,
+          needs_password_change: false,
           created_at: now,
           updated_at: now,
         },
@@ -334,7 +348,6 @@ export function subscriptions(app: Hono) {
       const trialEnd = trialEndDate.toISOString();
 
       const { supportEmail } = getScopedEmailConfig();
-      const starterPlanPrice = await resolvePlanPrice('starter', 'month');
 
       const subscription: any = {
         id: subId,
@@ -364,7 +377,7 @@ export function subscriptions(app: Hono) {
         user_id: userId,
         subscription_id: subId,
         type: 'trial_started',
-        description: `Free 15-day trial started for ${organizationName}`,
+        description: `Free 15-day trial started for ${resolvedOrganizationName}`,
         amount: 0,
         currency: 'USD',
         status: 'completed',
@@ -375,30 +388,9 @@ export function subscriptions(app: Hono) {
 
       await kv.set(`billing_event:${orgId}:${eventId}`, event);
 
-      // Send temporary password email via system SMTP
-      try {
-        await sendSystemSmtpEmail({
-          to: userEmail,
-          subject: 'Welcome to ProSpaces - Your Temporary Password',
-          htmlBody: `
-            <h1>Welcome to ProSpaces CRM, ${firstName}!</h1>
-            <p>Your free 15-day trial account has been created.</p>
-            <p><strong>Temporary Password:</strong> ${password}</p>
-            <p><strong>Sign in here:</strong> <a href="${Deno.env.get('VITE_APP_URL') || 'https://app.prospacescrm.ca'}/member-login">ProSpaces Login</a></p>
-            <p>On your first login, you'll be asked to set a permanent password.</p>
-            <p>Your trial expires on ${trialEndDate.toLocaleDateString()}. After that, you'll need to select a plan to continue.</p>
-            <br/>
-            <p style="color: #666; font-size: 12px;">Questions? Contact support@prospacescrm.ca</p>
-          `,
-        });
-      } catch (emailErr: any) {
-        console.error('[auth/signup-free] Email error:', emailErr);
-        // Don't fail signup if email fails
-      }
-
       return c.json({
         success: true,
-        message: 'Free trial account created successfully! Check your email for temporary password.',
+        message: 'Free trial account created successfully! Check your email for a confirmation link before signing in.',
         userId,
         email: userEmail,
       });

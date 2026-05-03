@@ -2328,9 +2328,16 @@ app.post(`${PREFIX}/confirm-email`, async (c) => {
     const { email } = await c.req.json();
     if (!email) return c.json({ error: 'Missing email' }, 400);
     const supabase = getSupabase();
-    // Verify a profile exists for this email (only fix known users, not random requests)
-    const { data: profile } = await supabase.from('profiles').select('id').eq('email', email.toLowerCase()).maybeSingle();
+    // Verify a profile exists for this email and only auto-fix legacy temp-password accounts.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, needs_password_change, temp_password')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
     if (!profile) return c.json({ error: 'No profile found' }, 404);
+    if (!profile.needs_password_change && !profile.temp_password) {
+      return c.json({ error: 'This account must be confirmed from the email link that was sent during signup.' }, 403);
+    }
     // Find the auth user
     const { data: { users } } = await supabase.auth.admin.listUsers();
     const authUser = users?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
