@@ -101,11 +101,21 @@ async function writeBillingEvent(event: BillingEvent): Promise<void> {
   await kv.set(`billing_event:${event.organization_id}:${event.id}`, event);
 }
 
-function toBillingStatus(status: string): 'succeeded' | 'failed' | 'pending' | 'refunded' {
-  if (status === 'paid' || status === 'succeeded') return 'succeeded';
-  if (status === 'refunded') return 'refunded';
-  if (status === 'failed' || status === 'uncollectible') return 'failed';
-  return 'pending';
+function processedEventKey(eventId: string): string {
+  return `stripe_webhook_event:${eventId}`;
+}
+
+async function isEventProcessed(eventId: string): Promise<boolean> {
+  const existing = await kv.get(processedEventKey(eventId));
+  return !!existing;
+}
+
+async function markEventProcessed(eventId: string, eventType: string): Promise<void> {
+  await kv.set(processedEventKey(eventId), {
+    id: eventId,
+    type: eventType,
+    processed_at: new Date().toISOString(),
+  });
 }
 
 /**
@@ -141,6 +151,11 @@ webhooksAPI.post(`${PREFIX}/webhooks/stripe`, async (c) => {
     const event = await stripe.webhooks.constructEvent(body, signature, webhookSecret);
     if (!event) {
       return c.json({ error: 'Invalid signature' }, 401);
+    }
+
+    // Idempotency guard: Stripe may retry deliveries; skip already-processed events.
+    if (await isEventProcessed(event.id)) {
+      return c.json({ received: true, duplicate: true, id: event.id, type: event.type }, 200);
     }
 
     const nowIso = new Date().toISOString();
@@ -306,8 +321,13 @@ webhooksAPI.post(`${PREFIX}/webhooks/stripe`, async (c) => {
         console.log('[Webhook] Unhandled event type:', event.type);
     }
 
+    await markEventProcessed(event.id, event.type);
+
     return c.json({ received: true, type: event.type }, 200);
-  } catch (error) {
+  } catch (error: any) {
+    if (typeof error?.message === 'string' && error.message.toLowerCase().includes('signature')) {
+      return c.json({ error: 'Invalid signature' }, 401);
+    }
     console.error('[Webhook] Error:', error);
     return c.json({ error: 'Internal server error' }, 500);
   }
