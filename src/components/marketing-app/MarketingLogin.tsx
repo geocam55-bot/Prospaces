@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { createClient, getSupabaseUrl } from '../../utils/supabase/client';
 import { publicAnonKey } from '../../utils/supabase/info';
+import { requestPasswordResetEmail } from '../../utils/auth-client';
 import { ChangePasswordDialog } from '../ChangePasswordDialog';
 import type { User, UserRole } from '../../App';
 
@@ -57,12 +58,8 @@ export function MarketingLogin({ onLogin }: MarketingLoginProps) {
     setError('');
     setSuccessMessage('');
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/`,
-      });
-      if (error) throw error;
-      setSuccessMessage('Password reset email sent! Check your inbox.');
+      await requestPasswordResetEmail(email, '/');
+      setSuccessMessage('Password reset email sent from ProSpaces CRM! Check your inbox.');
     } catch (err: any) {
       setError(`Failed to send reset email: ${err.message}`);
     } finally {

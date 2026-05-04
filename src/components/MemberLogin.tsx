@@ -18,6 +18,8 @@ import { ChangePasswordDialog } from './ChangePasswordDialog';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import type { User, UserRole } from '../App';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { getAuthRedirectUrl } from '../utils/auth-redirect';
+import { requestPasswordResetEmail } from '../utils/auth-client';
 
 interface MemberLoginProps {
   onLogin: (user: User, token: string) => void;
@@ -55,12 +57,10 @@ export function MemberLogin({ onLogin, initialEmail = '', initialSuccessMessage 
     setError('');
     setSuccessMessage('');
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/`,
-      });
-      if (error) throw error;
-      setSuccessMessage('Password reset email sent! Check your inbox.');
+      const redirectTo = getAuthRedirectUrl('/');
+      const redirectPath = new URL(redirectTo).pathname || '/';
+      await requestPasswordResetEmail(email, redirectPath);
+      setSuccessMessage('Password reset email sent from ProSpaces CRM! Check your inbox.');
       setShowForgotPassword(false);
     } catch (err: any) {
       setError(`Failed to send reset email: ${err.message}`);

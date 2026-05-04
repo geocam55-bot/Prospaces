@@ -6,6 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { signupFree } from '../utils/subscription-client';
+import { createClient } from '../utils/supabase/client';
+import { getAuthRedirectUrl } from '../utils/auth-redirect';
+import { requestPasswordResetEmail } from '../utils/auth-client';
 import { Logo } from './Logo';
 
 interface FreeSignupProps {
@@ -24,6 +27,7 @@ export function FreeSignup({ onSignupSuccess, onBack }: FreeSignupProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState('');
 
   // Password validation
   const validatePassword = (pwd: string): { valid: boolean; message: string } => {
@@ -81,11 +85,12 @@ export function FreeSignup({ onSignupSuccess, onBack }: FreeSignupProps) {
 
     if (!validateForm()) return;
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     setIsLoading(true);
     setError('');
 
     try {
-      const normalizedEmail = email.toLowerCase().trim();
       const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
       const resolvedOrganizationName = organizationName.trim() || fullName;
 
@@ -97,30 +102,58 @@ export function FreeSignup({ onSignupSuccess, onBack }: FreeSignupProps) {
         organizationName: resolvedOrganizationName,
       });
 
-      if (result.success) {
-        const nextMessage = result.message || 'Account created successfully. Check your email for a confirmation link before signing in.';
+      if (result.success === false) {
+        setError(result.message || 'Failed to create free account. Please try again.');
+        return;
+      }
 
-        // Clear form
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
-        setFirstName('');
-        setLastName('');
-        setOrganizationName('');
+      const nextMessage = result.message || 'Account created successfully. You can sign in now with your email and password.';
+      const nextEmail = result.email?.trim() || normalizedEmail;
 
-        if (onSignupSuccess) {
-          onSignupSuccess({
-            email: normalizedEmail,
-            message: nextMessage,
-          });
-          return;
+      // Clear form
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setFirstName('');
+      setLastName('');
+      setOrganizationName('');
+      setSubmittedEmail(nextEmail);
+
+      if (onSignupSuccess) {
+        onSignupSuccess({
+          email: nextEmail,
+          message: nextMessage,
+        });
+        return;
+      }
+
+      setSuccessMessage(nextMessage);
+      setShowSuccess(true);
+    } catch (err: any) {
+      const nextError = err?.message || 'Failed to create free account. Please try again.';
+
+      // If the account already exists, route to login with context instead of
+      // leaving the user blocked on the signup form.
+      if (onSignupSuccess && /already exists/i.test(nextError)) {
+        let recoveryMessage = 'This email already has an account. Sign in below or reset your password.';
+
+        try {
+          const redirectTo = getAuthRedirectUrl('/');
+          const redirectPath = new URL(redirectTo).pathname || '/';
+          await requestPasswordResetEmail(normalizedEmail, redirectPath);
+          recoveryMessage = 'This email already has an account. We sent a password reset email from ProSpaces CRM, then you can sign in.';
+        } catch {
+          // Keep the fallback guidance message when reset email fails.
         }
 
-        setSuccessMessage(nextMessage);
-        setShowSuccess(true);
+        onSignupSuccess({
+          email: normalizedEmail,
+          message: recoveryMessage,
+        });
+        return;
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to create free account. Please try again.');
+
+      setError(nextError);
     } finally {
       setIsLoading(false);
     }
@@ -145,7 +178,7 @@ export function FreeSignup({ onSignupSuccess, onBack }: FreeSignupProps) {
               <ul className="text-sm text-slate-600 space-y-2">
                 <li className="flex gap-2">
                   <span className="text-blue-600">1.</span>
-                  <span>Check your email at <strong>{email}</strong> for a confirmation link</span>
+                  <span>Check your email at <strong>{submittedEmail}</strong> for a confirmation link</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-blue-600">2.</span>

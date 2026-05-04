@@ -231,8 +231,7 @@ function DesktopOnlyPlanner({ children }: { children: React.ReactNode }) {
 export function AppContent() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [organization, setOrganization] = useState<Organization | null>(null);
-  const [memberLoginEmail, setMemberLoginEmail] = useState('');
+  const [organization, setOrganization] = useState<Organization | null>(null);  const [memberLoginEmail, setMemberLoginEmail] = useState('');
   const [memberLoginMessage, setMemberLoginMessage] = useState('');
   const [currentView, setCurrentView] = useState(() => {
     // Restore persisted view on refresh (only if there's a session hint)

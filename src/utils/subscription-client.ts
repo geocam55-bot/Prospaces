@@ -349,9 +349,15 @@ export async function signupFree(data: {
   }
 
   const result = await res.json();
+  const success = result.success === true || (!!result.userId && !result.error);
+
+  if (!success) {
+    throw new Error(result.error || result.message || 'Failed to create free trial account');
+  }
+
   return {
-    success: result.success,
-    message: result.message || 'Account created successfully. Check your email for a confirmation link before signing in.',
+    success,
+    message: result.message || 'Account created successfully. You can sign in now with your email and password.',
     userId: result.userId,
     email: result.email,
   };

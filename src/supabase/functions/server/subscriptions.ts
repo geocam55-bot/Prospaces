@@ -46,7 +46,9 @@ async function sendSystemSmtpEmail(params: {
   const smtpPort = Number(Deno.env.get('SYSTEM_SMTP_PORT') || '587');
   const smtpUsername = (Deno.env.get('SYSTEM_SMTP_USERNAME') || '').trim();
   const smtpPassword = Deno.env.get('SYSTEM_SMTP_PASSWORD') || '';
-  const sender = (Deno.env.get('SUPPORT_EMAIL_ADDRESS') || DEFAULT_FREE_ACCOUNT_BILLING_SUPPORT_EMAIL).trim();
+  const senderEmail = (Deno.env.get('SUPPORT_EMAIL_ADDRESS') || DEFAULT_FREE_ACCOUNT_BILLING_SUPPORT_EMAIL).trim();
+  const senderName = (Deno.env.get('SUPPORT_EMAIL_NAME') || 'ProSpaces CRM').trim();
+  const sender = `${senderName} <${senderEmail}>`;
 
   if (!smtpUsername || !smtpPassword) {
     throw new Error('System SMTP credentials are not configured');
@@ -277,44 +279,99 @@ export function subscriptions(app: Hono) {
         return c.json({ error: 'Missing required fields' }, 400);
       }
 
-      const authSupabase = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_ANON_KEY')!,
-      );
-
       const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       );
 
-      const appUrl = (Deno.env.get('VITE_APP_URL') || 'https://app.prospacescrm.ca').replace(/\/+$/, '');
+      const { data: existingUsersData, error: existingUsersError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+      if (existingUsersError) {
+        console.error('[auth/signup-free] listUsers error:', existingUsersError);
+        return c.json({ error: 'Failed to validate account uniqueness' }, 500);
+      }
 
-      // Create Supabase auth user and send the standard confirmation email.
-      const { data: authData, error: authError } = await authSupabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: {
-          emailRedirectTo: `${appUrl}/`,
-          data: {
+      const existing = existingUsersData.users?.find((u: any) => (u.email || '').toLowerCase() === normalizedEmail);
+
+      let userId = '';
+      let userEmail = normalizedEmail;
+      let createdAuthUserInThisRequest = false;
+
+      if (existing) {
+        const existingUserId = existing.id;
+
+        const { data: existingProfileById, error: existingProfileByIdError } = await supabase
+          .from('profiles')
+          .select('id, email, organization_id')
+          .eq('id', existingUserId)
+          .maybeSingle();
+
+        if (existingProfileByIdError) {
+          console.error('[auth/signup-free] Existing profile lookup by id error:', existingProfileByIdError);
+          return c.json({ error: 'Failed to validate existing account state' }, 500);
+        }
+
+        const { data: existingProfileByEmail, error: existingProfileByEmailError } = await supabase
+          .from('profiles')
+          .select('id, email, organization_id')
+          .eq('email', normalizedEmail)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingProfileByEmailError) {
+          console.error('[auth/signup-free] Existing profile lookup by email error:', existingProfileByEmailError);
+          return c.json({ error: 'Failed to validate existing account state' }, 500);
+        }
+
+        // If a profile already exists, this is a real existing account.
+        if (existingProfileById || existingProfileByEmail) {
+          return c.json({ error: 'An account with this email already exists. Try signing in or resetting your password.' }, 409);
+        }
+
+        // Recover orphaned auth user from previous failed setup attempts.
+        const { error: updateExistingUserError } = await supabase.auth.admin.updateUserById(existingUserId, {
+          password,
+          email_confirm: true,
+          user_metadata: {
             name: fullName,
             role: 'admin',
           },
-        },
-      });
+        });
 
-      if (authError || !authData.user) {
-        console.error('[auth/signup-free] Auth error:', authError);
-        return c.json({ error: authError?.message || 'Failed to create auth user' }, 400);
+        if (updateExistingUserError) {
+          console.error('[auth/signup-free] Existing auth user recovery error:', updateExistingUserError);
+          return c.json({ error: updateExistingUserError.message || 'Failed to recover existing account' }, 500);
+        }
+
+        userId = existingUserId;
+        userEmail = (existing.email || normalizedEmail).toLowerCase();
+      } else {
+        // Create auth user directly with service role so signup is deterministic
+        // and does not depend on external confirmation email delivery.
+        const { data: createdAuthUser, error: authCreateError } = await supabase.auth.admin.createUser({
+          email: normalizedEmail,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            name: fullName,
+            role: 'admin',
+          },
+        });
+
+        if (authCreateError || !createdAuthUser.user) {
+          console.error('[auth/signup-free] Auth create error:', authCreateError);
+          return c.json({ error: authCreateError?.message || 'Failed to create auth user' }, 400);
+        }
+
+        userId = createdAuthUser.user.id;
+        userEmail = (createdAuthUser.user.email || normalizedEmail).toLowerCase();
+        createdAuthUserInThisRequest = true;
       }
-
-      const userId = authData.user.id;
-  const userEmail = authData.user.email || normalizedEmail;
 
       // Create organization  
       const orgId = crypto.randomUUID();
       const now = new Date().toISOString();
 
-      await supabase.from('organizations').insert([
+      let { error: orgInsertError } = await supabase.from('organizations').insert([
         {
           id: orgId,
           name: resolvedOrganizationName,
@@ -326,8 +383,30 @@ export function subscriptions(app: Hono) {
         },
       ]);
 
+      if (orgInsertError) {
+        // Fallback for projects where organization schema differs.
+        const { error: orgFallbackError } = await supabase.from('organizations').insert([
+          {
+            id: orgId,
+            name: resolvedOrganizationName,
+            created_at: now,
+          },
+        ]);
+        if (!orgFallbackError) {
+          orgInsertError = null;
+        }
+      }
+
+      if (orgInsertError) {
+        console.error('[auth/signup-free] Organization insert error:', orgInsertError);
+        if (createdAuthUserInThisRequest) {
+          await supabase.auth.admin.deleteUser(userId).catch(() => undefined);
+        }
+        return c.json({ error: 'Failed to initialize organization for new account' }, 500);
+      }
+
       // Create profile
-      await supabase.from('profiles').insert([
+      let { error: profileInsertError } = await supabase.from('profiles').insert([
         {
           id: userId,
           email: userEmail,
@@ -340,6 +419,36 @@ export function subscriptions(app: Hono) {
           updated_at: now,
         },
       ]);
+
+      if (profileInsertError) {
+        // Fallback for projects where profile schema differs.
+        const { error: profileFallbackError } = await supabase.from('profiles').insert([
+          {
+            id: userId,
+            email: userEmail,
+            name: fullName,
+            role: 'admin',
+            organization_id: orgId,
+            created_at: now,
+            updated_at: now,
+          },
+        ]);
+        if (!profileFallbackError) {
+          profileInsertError = null;
+        }
+      }
+
+      if (profileInsertError) {
+        console.error('[auth/signup-free] Profile insert error:', profileInsertError);
+        const { error: rollbackOrgDeleteError } = await supabase.from('organizations').delete().eq('id', orgId);
+        if (rollbackOrgDeleteError) {
+          console.warn('[auth/signup-free] Organization rollback delete error:', rollbackOrgDeleteError);
+        }
+        if (createdAuthUserInThisRequest) {
+          await supabase.auth.admin.deleteUser(userId).catch(() => undefined);
+        }
+        return c.json({ error: 'Failed to initialize user profile for new account' }, 500);
+      }
 
       // Create 15-day trial subscription
       const subId = crypto.randomUUID();
@@ -390,13 +499,49 @@ export function subscriptions(app: Hono) {
 
       return c.json({
         success: true,
-        message: 'Free trial account created successfully! Check your email for a confirmation link before signing in.',
+        message: 'Free trial account created successfully! You can sign in now with your email and password.',
         userId,
         email: userEmail,
       });
     } catch (error: any) {
       console.error('[auth/signup-free] Error:', error);
       return c.json({ error: error.message || 'Failed to create free trial account' }, 500);
+    }
+  });
+
+  // POST /auth/request-password-reset — centralized reset flow with controlled redirect
+  app.post(`${PREFIX}/auth/request-password-reset`, async (c) => {
+    try {
+      const body = await c.req.json().catch(() => ({}));
+      const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
+      const redirectPath = typeof body?.redirectPath === 'string' ? body.redirectPath : '/';
+
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return c.json({ error: 'Valid email is required' }, 400);
+      }
+
+      const authSupabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+      );
+
+      const appUrl = (Deno.env.get('VITE_APP_URL') || 'https://app.prospacescrm.ca').replace(/\/+$/, '');
+      const normalizedRedirectPath = redirectPath.startsWith('/') ? redirectPath : `/${redirectPath}`;
+      const redirectTo = `${appUrl}${normalizedRedirectPath}`;
+
+      const { error: resetError } = await authSupabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
+
+      if (resetError) {
+        console.warn('[auth/request-password-reset] reset warning:', resetError.message);
+      }
+
+      // Do not reveal whether an account exists for this email.
+      return c.json({ success: true, message: 'If this email exists, a reset link has been sent.' });
+    } catch (error: any) {
+      console.error('[auth/request-password-reset] Error:', error);
+      return c.json({ error: error.message || 'Failed to send reset email' }, 500);
     }
   });
 

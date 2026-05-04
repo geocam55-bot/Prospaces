@@ -16,6 +16,8 @@ import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { setOrgMode } from '../utils/settings-client';
 import { Logo } from './Logo';
 import { FREE_ACCOUNT_BILLING_SUPPORT_EMAIL } from '../config/scoped-email';
+import { getAuthRedirectUrl } from '../utils/auth-redirect';
+import { requestPasswordResetEmail } from '../utils/auth-client';
 
 interface LoginProps {
   onLogin: (user: User, token: string) => void;
@@ -88,17 +90,11 @@ export function Login({ onLogin, onBack }: LoginProps) {
     setSuccessMessage('');
 
     try {
-      const supabase = createClient();
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/`,
-      });
+      const redirectTo = getAuthRedirectUrl('/');
+      const redirectPath = new URL(redirectTo).pathname || '/';
+      await requestPasswordResetEmail(email, redirectPath);
 
-      if (error) {
-        throw error;
-      }
-
-      setSuccessMessage('✅ Password reset email sent! Please check your inbox (and spam folder) for the reset link.');
+      setSuccessMessage('✅ Password reset email sent from ProSpaces CRM! Please check your inbox (and spam folder) for the reset link.');
       setShowForgotPassword(false);
     } catch (err: any) {
       setError(`Failed to send password reset email: ${err.message}`);
