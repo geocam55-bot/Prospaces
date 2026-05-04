@@ -3,6 +3,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import { extractUserToken } from './auth-helper.ts';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+import { stripe } from './stripe-client.ts';
 
 /**
  * Subscription & Billing routes (KV-backed).
@@ -155,6 +156,9 @@ export interface Subscription {
   amount: number;
   currency: string;
   payment_method_id?: string;
+  storage_backend?: 'kv' | 'stripe';
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -190,6 +194,7 @@ async function authenticateAndGetOrg(c: any): Promise<{
   userId: string;
   orgId: string;
   role: string;
+  email?: string;
 } | null> {
   const accessToken = extractUserToken(c);
   if (!accessToken) return null;
@@ -211,7 +216,7 @@ async function authenticateAndGetOrg(c: any): Promise<{
   const orgId = profile?.organization_id || user.user_metadata?.organizationId;
   if (!orgId) return null;
 
-  return { userId: user.id, orgId, role: profile?.role || 'standard_user' };
+  return { userId: user.id, orgId, role: profile?.role || 'standard_user', email: user.email || undefined };
 }
 
 // ── Helper: generate invoice number ─────────────────────────────────────
@@ -256,6 +261,12 @@ function resolveTargetOrg(auth: { orgId: string; role: string }, body: any): str
     return body.target_org_id;
   }
   return auth.orgId;
+}
+
+function getStripePriceId(planId: PlanId, interval: 'month' | 'year'): string | null {
+  const key = `STRIPE_PRICE_${planId.toUpperCase()}_${interval.toUpperCase()}`;
+  const value = (Deno.env.get(key) || '').trim();
+  return value || null;
 }
 
 // ── Register routes ─────────────────────────────────────────────────────
@@ -650,6 +661,95 @@ export function subscriptions(app: Hono) {
       const amount = await resolvePlanPrice(plan_id as PlanId, billing_interval);
       const { supportEmail } = getScopedEmailConfig();
 
+      // Stripe path (enabled + configured price id)
+      if (stripe.isEnabled()) {
+        const stripePriceId = getStripePriceId(plan_id as PlanId, billing_interval);
+        if (!stripePriceId) {
+          return c.json({
+            error: `Missing Stripe price configuration for ${plan_id}/${billing_interval}. Set env var STRIPE_PRICE_${String(plan_id).toUpperCase()}_${String(billing_interval).toUpperCase()}`,
+          }, 400);
+        }
+
+        const existingForTarget: Subscription | null = await kv.get(`subscription:${targetOrgId}:${targetUserId}`);
+        let stripeCustomerId = existingForTarget?.stripe_customer_id || null;
+
+        if (!stripeCustomerId) {
+          const emailForCustomer = typeof body?.target_user_email === 'string'
+            ? body.target_user_email.trim().toLowerCase()
+            : (auth.email || `user-${targetUserId}@prospaces.local`);
+          const createdCustomer = await stripe.customers.create({
+            email: emailForCustomer,
+            metadata: {
+              organization_id: targetOrgId,
+              user_id: targetUserId,
+            },
+          });
+          stripeCustomerId = createdCustomer.id;
+        }
+
+        const paymentMethodId = body?.payment_method_id || body?.payment_method?.id;
+        if (paymentMethodId) {
+          await stripe.paymentMethods.attach(paymentMethodId, { customer: stripeCustomerId });
+        }
+
+        const stripeSub = await stripe.subscriptions.create({
+          customer: stripeCustomerId,
+          items: [{ price: stripePriceId }],
+          trial_period_days: trial ? 14 : undefined,
+          metadata: {
+            organization_id: targetOrgId,
+            user_id: targetUserId,
+            plan_id: plan_id,
+            billing_interval,
+          },
+        });
+
+        const subscription: Subscription = {
+          id: stripeSub.id,
+          organization_id: targetOrgId,
+          user_id: targetUserId,
+          plan_id: plan_id as PlanId,
+          status: stripeSub.status,
+          billing_interval,
+          current_period_start: new Date(stripeSub.current_period_start * 1000).toISOString(),
+          current_period_end: new Date(stripeSub.current_period_end * 1000).toISOString(),
+          trial_end: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000).toISOString() : undefined,
+          cancel_at_period_end: false,
+          canceled_at: stripeSub.canceled_at ? new Date(stripeSub.canceled_at * 1000).toISOString() : undefined,
+          amount,
+          currency: plan.currency,
+          payment_method_id: paymentMethodId,
+          storage_backend: 'stripe',
+          stripe_customer_id: stripeCustomerId,
+          stripe_subscription_id: stripeSub.id,
+          created_at: periodStart,
+          updated_at: periodStart,
+        };
+
+        await kv.set(`subscription:${targetOrgId}:${targetUserId}`, subscription);
+
+        const eventId = crypto.randomUUID();
+        const event: BillingEvent = {
+          id: eventId,
+          organization_id: targetOrgId,
+          type: trial ? 'trial_started' : 'subscription_created',
+          amount: trial ? 0 : amount,
+          currency: plan.currency,
+          status: 'succeeded',
+          description: trial
+            ? `Started 14-day free trial of ${plan.name} plan for user ${targetUserId} (Stripe)`
+            : `Subscribed user ${targetUserId} to ${plan.name} plan (${billing_interval}ly) via Stripe`,
+          plan_id: plan_id as PlanId,
+          invoice_number: trial ? undefined : generateInvoiceNumber(),
+          support_email: supportEmail,
+          created_at: periodStart,
+        };
+        await kv.set(`billing_event:${targetOrgId}:${eventId}`, event);
+
+        console.log(`[subscriptions] Created ${subscription.status} Stripe subscription for user ${targetUserId} in org ${targetOrgId}: ${plan_id} (${billing_interval})`);
+        return c.json({ subscription });
+      }
+
       const subId = crypto.randomUUID();
       const subscription: Subscription = {
         id: subId,
@@ -664,6 +764,7 @@ export function subscriptions(app: Hono) {
         cancel_at_period_end: false,
         amount,
         currency: plan.currency,
+        storage_backend: 'kv',
         created_at: periodStart,
         updated_at: periodStart,
       };
@@ -780,15 +881,45 @@ export function subscriptions(app: Hono) {
       const amount = await resolvePlanPrice(newPlanId, newInterval);
       const { supportEmail } = getScopedEmailConfig();
 
+      let stripeUpdated: any = null;
+      if (existing.storage_backend === 'stripe' && existing.stripe_subscription_id) {
+        const stripePriceId = getStripePriceId(newPlanId, newInterval);
+        if (!stripePriceId) {
+          return c.json({
+            error: `Missing Stripe price configuration for ${newPlanId}/${newInterval}. Set env var STRIPE_PRICE_${String(newPlanId).toUpperCase()}_${String(newInterval).toUpperCase()}`,
+          }, 400);
+        }
+
+        const stripeCurrent = await stripe.subscriptions.retrieve(existing.stripe_subscription_id);
+        const firstItem = stripeCurrent?.items?.data?.[0];
+        if (!firstItem?.id) {
+          return c.json({ error: 'Unable to update Stripe subscription item' }, 500);
+        }
+
+        stripeUpdated = await stripe.subscriptions.update(existing.stripe_subscription_id, {
+          items: [{ id: firstItem.id, price: stripePriceId }],
+          metadata: {
+            organization_id: targetOrgId,
+            user_id: targetUserId,
+            plan_id: newPlanId,
+            billing_interval: newInterval,
+          },
+        });
+      }
+
       const updated: Subscription = {
         ...existing,
         plan_id: newPlanId,
         billing_interval: newInterval,
         amount,
-        current_period_end: periodEnd,
-        status: 'active',
+        current_period_end: stripeUpdated
+          ? new Date(stripeUpdated.current_period_end * 1000).toISOString()
+          : periodEnd,
+        status: stripeUpdated ? stripeUpdated.status : 'active',
         cancel_at_period_end: false,
-        canceled_at: undefined,
+        canceled_at: stripeUpdated?.canceled_at
+          ? new Date(stripeUpdated.canceled_at * 1000).toISOString()
+          : undefined,
         updated_at: now,
       };
 
@@ -813,7 +944,7 @@ export function subscriptions(app: Hono) {
       await kv.set(`billing_event:${targetOrgId}:${eventId}`, event);
 
       // Simulate prorated payment for upgrades
-      if (isUpgrade) {
+      if (isUpgrade && updated.storage_backend !== 'stripe') {
         const newAmount = newInterval === 'year' ? plan.priceAnnual : plan.price;
         const proratedAmount = Math.round((newAmount - (existing.amount || 0)) * 0.5 * 100) / 100;
         if (proratedAmount > 0) {
@@ -856,7 +987,8 @@ export function subscriptions(app: Hono) {
 
       const body = await c.req.json().catch(() => ({}));
       const targetUserId = resolveTargetUser(auth, body);
-      const existing: Subscription | null = await kv.get(`subscription:${auth.orgId}:${targetUserId}`);
+      const targetOrgId = resolveTargetOrg(auth, body);
+      const existing: Subscription | null = await kv.get(`subscription:${targetOrgId}:${targetUserId}`);
       if (!existing) {
         return c.json({ error: 'No active subscription found for this user' }, 404);
       }
@@ -864,22 +996,31 @@ export function subscriptions(app: Hono) {
       const immediate = body.immediate === true;
       const now = new Date().toISOString();
 
+      let stripeCanceled: any = null;
+      if (existing.storage_backend === 'stripe' && existing.stripe_subscription_id) {
+        stripeCanceled = await stripe.subscriptions.cancel(existing.stripe_subscription_id, {
+          at_period_end: !immediate,
+        });
+      }
+
       const updated: Subscription = {
         ...existing,
-        status: immediate ? 'canceled' : existing.status,
+        status: stripeCanceled ? stripeCanceled.status : (immediate ? 'canceled' : existing.status),
         cancel_at_period_end: !immediate,
-        canceled_at: now,
+        canceled_at: stripeCanceled?.canceled_at
+          ? new Date(stripeCanceled.canceled_at * 1000).toISOString()
+          : now,
         updated_at: now,
       };
 
-      await kv.set(`subscription:${auth.orgId}:${targetUserId}`, updated);
+      await kv.set(`subscription:${targetOrgId}:${targetUserId}`, updated);
 
       const plan = PLANS[existing.plan_id];
       const { supportEmail } = getScopedEmailConfig();
       const eventId = crypto.randomUUID();
       const event: BillingEvent = {
         id: eventId,
-        organization_id: auth.orgId,
+        organization_id: targetOrgId,
         type: 'subscription_canceled',
         amount: 0,
         currency: plan.currency,
@@ -891,9 +1032,9 @@ export function subscriptions(app: Hono) {
         support_email: supportEmail,
         created_at: now,
       };
-      await kv.set(`billing_event:${auth.orgId}:${eventId}`, event);
+      await kv.set(`billing_event:${targetOrgId}:${eventId}`, event);
 
-      console.log(`[subscriptions] Subscription canceled for org ${auth.orgId} (immediate=${immediate})`);
+      console.log(`[subscriptions] Subscription canceled for org ${targetOrgId} (immediate=${immediate})`);
       return c.json({ subscription: updated });
     } catch (error: any) {
       console.error('[subscriptions] Error canceling subscription:', error);

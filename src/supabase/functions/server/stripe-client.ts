@@ -11,6 +11,8 @@
  *   USE_STRIPE_API — "true" | "false" (default: false, uses KV fallback)
  */
 
+type AnyRecord = Record<string, unknown>;
+
 // Type stubs for Stripe SDK (will be imported via npm when available)
 export interface StripeCustomer {
   id: string;
@@ -101,16 +103,16 @@ class StripeClient {
 
     if (this.useStripeApi) {
       try {
-        // Dynamically import Stripe SDK (when available in Deno)
-        // For now, we'll initialize with a mock check
-        this.stripeSDK = {
-          apiKey: stripeKey,
-          configured: true,
-        };
+        const { default: Stripe } = await import('npm:stripe@16.12.0');
+        this.stripeSDK = new Stripe(stripeKey!, {
+          // Keep API version pinned for predictable payload shapes.
+          apiVersion: '2024-06-20',
+        } as any);
         console.log('[Stripe] Using real Stripe API');
       } catch (error) {
         console.warn('[Stripe] SDK not available, falling back to KV:', error);
         this.useStripeApi = false;
+        this.stripeSDK = null;
       }
     } else {
       console.log('[Stripe] Using KV fallback (USE_STRIPE_API=false or STRIPE_API_KEY not set)');
@@ -123,6 +125,10 @@ class StripeClient {
     return this.useStripeApi && !!this.stripeSDK;
   }
 
+  isEnabled(): boolean {
+    return this.isConfigured();
+  }
+
   // ─ Customer Operations ───────────────────────────────────────────
 
   async customers_create(params: {
@@ -133,11 +139,17 @@ class StripeClient {
     await this.initialize();
 
     if (this.useStripeApi && this.stripeSDK) {
-      // TODO: Implement real Stripe API call
-      // const stripe = require('stripe')(this.stripeSDK.apiKey);
-      // return await stripe.customers.create(params);
-      console.log('[Stripe] POST /customers', params);
-      throw new Error('Stripe SDK not yet integrated in Deno runtime');
+      const customer = await this.stripeSDK.customers.create({
+        email: params.email,
+        name: params.name,
+        metadata: params.metadata,
+      });
+      return {
+        id: customer.id,
+        email: customer.email || undefined,
+        metadata: (customer.metadata || {}) as Record<string, string>,
+        created: customer.created,
+      };
     }
 
     // KV fallback
@@ -153,8 +165,19 @@ class StripeClient {
     await this.initialize();
 
     if (this.useStripeApi && this.stripeSDK) {
-      console.log('[Stripe] GET /customers/:id', customerId);
-      throw new Error('Stripe SDK not yet integrated in Deno runtime');
+      try {
+        const customer = await this.stripeSDK.customers.retrieve(customerId);
+        if (!customer || (customer as AnyRecord).deleted) return null;
+        return {
+          id: customer.id,
+          email: customer.email || undefined,
+          metadata: (customer.metadata || {}) as Record<string, string>,
+          created: customer.created,
+        };
+      } catch (error: any) {
+        if (error?.code === 'resource_missing') return null;
+        throw error;
+      }
     }
 
     // KV fallback
@@ -182,8 +205,24 @@ class StripeClient {
     await this.initialize();
 
     if (this.useStripeApi && this.stripeSDK) {
-      console.log('[Stripe] POST /payment_methods', { type: params.type });
-      throw new Error('Stripe SDK not yet integrated in Deno runtime');
+      const paymentMethod = await this.stripeSDK.paymentMethods.create({
+        type: params.type,
+        card: params.card,
+        billing_details: params.billing_details,
+      });
+      return {
+        id: paymentMethod.id,
+        type: 'card',
+        card: paymentMethod.card
+          ? {
+              brand: paymentMethod.card.brand,
+              last4: paymentMethod.card.last4,
+              exp_month: paymentMethod.card.exp_month,
+              exp_year: paymentMethod.card.exp_year,
+            }
+          : undefined,
+        customer: typeof paymentMethod.customer === 'string' ? paymentMethod.customer : undefined,
+      };
     }
 
     // KV fallback - tokenize locally (dev only)
@@ -206,8 +245,20 @@ class StripeClient {
     await this.initialize();
 
     if (this.useStripeApi && this.stripeSDK) {
-      console.log('[Stripe] POST /payment_methods/:id/attach', paymentMethodId, params);
-      throw new Error('Stripe SDK not yet integrated in Deno runtime');
+      const paymentMethod = await this.stripeSDK.paymentMethods.attach(paymentMethodId, params);
+      return {
+        id: paymentMethod.id,
+        type: 'card',
+        card: paymentMethod.card
+          ? {
+              brand: paymentMethod.card.brand,
+              last4: paymentMethod.card.last4,
+              exp_month: paymentMethod.card.exp_month,
+              exp_year: paymentMethod.card.exp_year,
+            }
+          : undefined,
+        customer: typeof paymentMethod.customer === 'string' ? paymentMethod.customer : undefined,
+      };
     }
 
     return {
@@ -228,8 +279,37 @@ class StripeClient {
     await this.initialize();
 
     if (this.useStripeApi && this.stripeSDK) {
-      console.log('[Stripe] POST /subscriptions', params);
-      throw new Error('Stripe SDK not yet integrated in Deno runtime');
+      const subscription = await this.stripeSDK.subscriptions.create({
+        customer: params.customer,
+        items: params.items,
+        trial_period_days: params.trial_period_days,
+        metadata: params.metadata,
+      });
+      return {
+        id: subscription.id,
+        customer: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id,
+        items: {
+          data: subscription.items.data.map((item: any) => ({
+            id: item.id,
+            price: {
+              id: item.price?.id,
+              product: typeof item.price?.product === 'string' ? item.price.product : item.price?.product?.id,
+              recurring: item.price?.recurring
+                ? {
+                    interval: item.price.recurring.interval,
+                    interval_count: item.price.recurring.interval_count,
+                  }
+                : undefined,
+            },
+          })),
+        },
+        status: subscription.status,
+        current_period_start: subscription.current_period_start,
+        current_period_end: subscription.current_period_end,
+        trial_end: subscription.trial_end || undefined,
+        canceled_at: subscription.canceled_at || undefined,
+        metadata: (subscription.metadata || {}) as Record<string, string>,
+      };
     }
 
     // KV fallback
@@ -260,8 +340,37 @@ class StripeClient {
     await this.initialize();
 
     if (this.useStripeApi && this.stripeSDK) {
-      console.log('[Stripe] GET /subscriptions/:id', subscriptionId);
-      throw new Error('Stripe SDK not yet integrated in Deno runtime');
+      try {
+        const subscription = await this.stripeSDK.subscriptions.retrieve(subscriptionId);
+        return {
+          id: subscription.id,
+          customer: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id,
+          items: {
+            data: subscription.items.data.map((item: any) => ({
+              id: item.id,
+              price: {
+                id: item.price?.id,
+                product: typeof item.price?.product === 'string' ? item.price.product : item.price?.product?.id,
+                recurring: item.price?.recurring
+                  ? {
+                      interval: item.price.recurring.interval,
+                      interval_count: item.price.recurring.interval_count,
+                    }
+                  : undefined,
+              },
+            })),
+          },
+          status: subscription.status,
+          current_period_start: subscription.current_period_start,
+          current_period_end: subscription.current_period_end,
+          trial_end: subscription.trial_end || undefined,
+          canceled_at: subscription.canceled_at || undefined,
+          metadata: (subscription.metadata || {}) as Record<string, string>,
+        };
+      } catch (error: any) {
+        if (error?.code === 'resource_missing') return null;
+        throw error;
+      }
     }
 
     // KV fallback
@@ -286,8 +395,36 @@ class StripeClient {
     await this.initialize();
 
     if (this.useStripeApi && this.stripeSDK) {
-      console.log('[Stripe] POST /subscriptions/:id', subscriptionId, params);
-      throw new Error('Stripe SDK not yet integrated in Deno runtime');
+      const subscription = await this.stripeSDK.subscriptions.update(subscriptionId, {
+        items: params.items,
+        trial_end: params.trial_end,
+        metadata: params.metadata,
+      });
+      return {
+        id: subscription.id,
+        customer: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id,
+        items: {
+          data: subscription.items.data.map((item: any) => ({
+            id: item.id,
+            price: {
+              id: item.price?.id,
+              product: typeof item.price?.product === 'string' ? item.price.product : item.price?.product?.id,
+              recurring: item.price?.recurring
+                ? {
+                    interval: item.price.recurring.interval,
+                    interval_count: item.price.recurring.interval_count,
+                  }
+                : undefined,
+            },
+          })),
+        },
+        status: subscription.status,
+        current_period_start: subscription.current_period_start,
+        current_period_end: subscription.current_period_end,
+        trial_end: subscription.trial_end || undefined,
+        canceled_at: subscription.canceled_at || undefined,
+        metadata: (subscription.metadata || {}) as Record<string, string>,
+      };
     }
 
     // KV fallback
@@ -297,13 +434,47 @@ class StripeClient {
 
   async subscriptions_cancel(
     subscriptionId: string,
-    params?: { invoice_now?: boolean; prorate?: boolean }
+    params?: { invoice_now?: boolean; prorate?: boolean; at_period_end?: boolean }
   ): Promise<StripeSubscription> {
     await this.initialize();
 
     if (this.useStripeApi && this.stripeSDK) {
-      console.log('[Stripe] DELETE /subscriptions/:id', subscriptionId, params);
-      throw new Error('Stripe SDK not yet integrated in Deno runtime');
+      let subscription: any;
+      if (params?.at_period_end) {
+        subscription = await this.stripeSDK.subscriptions.update(subscriptionId, {
+          cancel_at_period_end: true,
+        });
+      } else {
+        subscription = await this.stripeSDK.subscriptions.cancel(subscriptionId, {
+          invoice_now: params?.invoice_now,
+          prorate: params?.prorate,
+        });
+      }
+      return {
+        id: subscription.id,
+        customer: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id,
+        items: {
+          data: subscription.items.data.map((item: any) => ({
+            id: item.id,
+            price: {
+              id: item.price?.id,
+              product: typeof item.price?.product === 'string' ? item.price.product : item.price?.product?.id,
+              recurring: item.price?.recurring
+                ? {
+                    interval: item.price.recurring.interval,
+                    interval_count: item.price.recurring.interval_count,
+                  }
+                : undefined,
+            },
+          })),
+        },
+        status: subscription.status,
+        current_period_start: subscription.current_period_start,
+        current_period_end: subscription.current_period_end,
+        trial_end: subscription.trial_end || undefined,
+        canceled_at: subscription.canceled_at || undefined,
+        metadata: (subscription.metadata || {}) as Record<string, string>,
+      };
     }
 
     // KV fallback
@@ -324,8 +495,19 @@ class StripeClient {
     await this.initialize();
 
     if (this.useStripeApi && this.stripeSDK) {
-      console.log('[Stripe] GET /invoices', params);
-      throw new Error('Stripe SDK not yet integrated in Deno runtime');
+      const response = await this.stripeSDK.invoices.list({
+        customer: params.customer,
+        limit: params.limit || 20,
+      });
+      return response.data.map((invoice: any) => ({
+        id: invoice.id,
+        customer: typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id,
+        subscription: typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id,
+        amount_paid: invoice.amount_paid,
+        amount_due: invoice.amount_due,
+        status: invoice.status,
+        pdf: invoice.invoice_pdf || undefined,
+      }));
     }
 
     // KV fallback
@@ -342,8 +524,16 @@ class StripeClient {
     await this.initialize();
 
     if (this.useStripeApi && this.stripeSDK) {
-      console.log('[Stripe] Validating webhook signature');
-      throw new Error('Stripe SDK not yet integrated in Deno runtime');
+      const event = await this.stripeSDK.webhooks.constructEventAsync(body, signature, secret);
+      return {
+        id: event.id,
+        type: event.type,
+        created: event.created,
+        data: {
+          object: event.data.object,
+          previous_attributes: event.data.previous_attributes,
+        },
+      };
     }
 
     console.warn('[Stripe] Webhook validation not available in KV fallback mode');
@@ -365,6 +555,7 @@ export function getStripeClient(): StripeClient {
 }
 
 export const stripe = {
+  isEnabled: () => getStripeClient().isEnabled(),
   customers: {
     create: (params: any) => getStripeClient().customers_create(params),
     retrieve: (customerId: string) => getStripeClient().customers_retrieve(customerId),
