@@ -17,6 +17,7 @@ import { debugSubscriptions } from './debug-subscriptions.ts';
 import { backgroundJobs } from './background-jobs.ts';
 import { modelsAPI } from './models-api.ts';
 import { customerPortalAPI } from './customer-portal-api.ts';
+import webhooksAPI from './webhooks-api.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -3352,6 +3353,9 @@ app.route('/', apiKeys);
 
 // ── PUBLIC REST API (Enterprise, API-key auth) ──────────────────────────
 app.route('/', publicApi);
+
+// ── STRIPE WEBHOOKS (Async Payment Events) ──────────────────────────────
+app.route('/', webhooksAPI);
 
 // ── CUSTOMER PORTAL API (includes internal staff chats) ─────────────────
 customerPortalAPI(app);
