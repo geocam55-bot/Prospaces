@@ -1,6 +1,15 @@
 /**
  * Subscription & Billing client — communicates with the server endpoints.
- * All routes go through the Edge Function (KV-backed).
+ *
+ * Architecture:
+ *   - Default: KV-backed (demo mode, no real payments)
+ *   - Stripe-enabled: Calls real Stripe API when USE_STRIPE_API=true + STRIPE_API_KEY set
+ *   - Fallback: Automatically uses KV if Stripe config missing
+ *
+ * To enable Stripe:
+ *   1. Set STRIPE_API_KEY environment variable (sk_test_* or sk_live_*)
+ *   2. Set USE_STRIPE_API=true
+ *   3. See STRIPE_SETUP.md for full instructions
  */
 
 import { projectId } from './supabase/info';
@@ -11,6 +20,7 @@ const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-8405
 // ── Types ───────────────────────────────────────────────────────────────
 
 export type PlanId = 'starter' | 'professional' | 'enterprise';
+export type StorageBackend = 'kv' | 'stripe';
 
 export interface Plan {
   id: PlanId;
@@ -20,9 +30,11 @@ export interface Plan {
   currency: string;
   interval: string;
   features: string[];
+  stripe_price_id?: string; // Stripe price ID (for Stripe integration)
 }
 
 export interface Subscription {
+  // Local tracking
   id: string;
   organization_id: string;
   user_id: string;
@@ -39,6 +51,12 @@ export interface Subscription {
   payment_method_id?: string;
   created_at: string;
   updated_at: string;
+
+  // Stripe integration
+  storage_backend?: StorageBackend; // 'kv' or 'stripe' (for tracking which system owns this)
+  stripe_customer_id?: string; // Stripe customer ID (cus_*)
+  stripe_subscription_id?: string; // Stripe subscription ID (sub_*)
+  stripe_payment_method_id?: string; // Stripe payment method ID (pm_*)
 }
 
 export interface BillingEvent {
@@ -349,9 +367,15 @@ export async function signupFree(data: {
   }
 
   const result = await res.json();
+  const success = result.success === true || (!!result.userId && !result.error);
+
+  if (!success) {
+    throw new Error(result.error || result.message || 'Failed to create free trial account');
+  }
+
   return {
-    success: result.success,
-    message: result.message || 'Account created successfully! Check your email for the temporary password.',
+    success,
+    message: result.message || 'Account created successfully. You can sign in now with your email and password.',
     userId: result.userId,
     email: result.email,
   };

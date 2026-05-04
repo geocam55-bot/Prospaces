@@ -27,6 +27,7 @@ import { FindMissingUser } from './FindMissingUser';
 import { FixInvalidOrgIds } from './FixInvalidOrgIds';
 import { InvalidOrgIdAlert } from './InvalidOrgIdAlert';
 import { createClient } from '../utils/supabase/client';
+import { requestPasswordResetEmail } from '../utils/auth-client';
 import { getServerHeaders } from '../utils/server-headers';
 import { toast } from 'sonner@2.0.3';
 import { useDebounce } from '../utils/useDebounce';
@@ -689,9 +690,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       
       // Try to send password reset email (optional - not critical)
       try {
-        await supabase.auth.resetPasswordForEmail(orgUser.email, {
-          redirectTo: `${window.location.origin}/reset-password`,
-        });
+        await requestPasswordResetEmail(orgUser.email, '/reset-password');
       } catch (emailError) {
       }
 

@@ -4,6 +4,28 @@ import { getServerHeaders } from './server-headers';
 
 const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 const SPACE_PERMISSION_PREFIX = 'space:';
+type PlanId = 'starter' | 'professional' | 'enterprise';
+
+type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'expired';
+
+const STARTER_ALLOWED_SPACES = new Set<SpaceId>(['sales']);
+
+const STARTER_ALLOWED_MODULES = new Set<string>([
+  'dashboard',
+  'ai-suggestions',
+  'team-dashboard',
+  'contacts',
+  'tasks',
+  'appointments',
+  'opportunities',
+  'bids',
+  'quotes',
+  'messages',
+  'notes',
+  'email',
+  'documents',
+  'settings',
+]);
 
 export interface Permission {
   visible: boolean;
@@ -149,6 +171,9 @@ let permissionsCache: Map<string, Permission> = new Map();
 let spacePermissionsCache: Map<string, Permission> = new Map();
 // Saved second-level option/module overrides used inside each space
 let directPermissionsCache: Map<string, Permission> = new Map();
+// Subscription context used to enforce plan-level access caps.
+let currentPlanId: PlanId | null = null;
+let currentSubscriptionStatus: SubscriptionStatus | null = null;
 
 // Listeners for permission updates
 let permissionListeners: Array<() => void> = [];
@@ -168,6 +193,29 @@ function clonePermission(permission?: Partial<Permission>): Permission {
     change: !!permission?.change,
     delete: !!permission?.delete,
   };
+}
+
+function setSubscriptionContext(planId: PlanId | null, status: SubscriptionStatus | null) {
+  currentPlanId = planId;
+  currentSubscriptionStatus = status;
+}
+
+function isStarterEquivalentPlan(): boolean {
+  return currentSubscriptionStatus === 'trialing' || currentPlanId === 'starter';
+}
+
+function isModuleAllowedByPlan(module: string): boolean {
+  if (!isStarterEquivalentPlan()) {
+    return true;
+  }
+  return STARTER_ALLOWED_MODULES.has(module);
+}
+
+function isSpaceAllowedByPlan(spaceId: SpaceId): boolean {
+  if (!isStarterEquivalentPlan()) {
+    return true;
+  }
+  return STARTER_ALLOWED_SPACES.has(spaceId);
 }
 
 function unionPermissions(a: Permission, b: Permission): Permission {
@@ -535,6 +583,18 @@ export async function initializePermissions(role: UserRole) {
   try {
     loadFromLocalStorage();
 
+    try {
+      const { getCurrentSubscription } = await import('./subscription-client');
+      const subscription = await getCurrentSubscription();
+      setSubscriptionContext(
+        subscription?.plan_id ?? null,
+        (subscription?.status as SubscriptionStatus | undefined) ?? null,
+      );
+    } catch {
+      // Keep permissive default if subscription lookup fails.
+      setSubscriptionContext(null, null);
+    }
+
     const orgId = localStorage.getItem('currentOrgId') || 'org_001';
     const headers = await getServerHeaders();
 
@@ -628,10 +688,17 @@ export function refreshPermissionsFromStorage() {
 }
 
 export function getSpacePermission(spaceId: SpaceId, role: UserRole): Permission {
-  return spacePermissionsCache.get(spaceCacheKey(spaceId, role)) || getDefaultSpacePermission(spaceId, role);
+  const permission = spacePermissionsCache.get(spaceCacheKey(spaceId, role)) || getDefaultSpacePermission(spaceId, role);
+  if (!isSpaceAllowedByPlan(spaceId)) {
+    return { ...EMPTY_PERMISSION };
+  }
+  return permission;
 }
 
 export function canAccessSpace(spaceId: SpaceId, role: UserRole, requiredLevel: 'view' | 'full' = 'view'): boolean {
+  if (!isSpaceAllowedByPlan(spaceId)) {
+    return false;
+  }
   const accessLevel = permissionToAccessLevel(getSpacePermission(spaceId, role));
   return requiredLevel === 'full' ? accessLevel === 'full' : accessLevel !== 'none';
 }
@@ -640,6 +707,9 @@ export function canAccessSpace(spaceId: SpaceId, role: UserRole, requiredLevel: 
  * Check if user can view a module
  */
 export function canView(module: string, role: UserRole): boolean {
+  if (!isModuleAllowedByPlan(module)) {
+    return false;
+  }
   const perm = permissionsCache.get(permissionKey(module, role));
   return perm?.visible ?? false;
 }
@@ -648,6 +718,9 @@ export function canView(module: string, role: UserRole): boolean {
  * Check if user can add to a module
  */
 export function canAdd(module: string, role: UserRole): boolean {
+  if (!isModuleAllowedByPlan(module)) {
+    return false;
+  }
   const perm = permissionsCache.get(permissionKey(module, role));
   return perm?.add ?? false;
 }
@@ -656,6 +729,9 @@ export function canAdd(module: string, role: UserRole): boolean {
  * Check if user can change/edit in a module
  */
 export function canChange(module: string, role: UserRole): boolean {
+  if (!isModuleAllowedByPlan(module)) {
+    return false;
+  }
   const perm = permissionsCache.get(permissionKey(module, role));
   return perm?.change ?? false;
 }
@@ -664,6 +740,9 @@ export function canChange(module: string, role: UserRole): boolean {
  * Check if user can delete in a module
  */
 export function canDelete(module: string, role: UserRole): boolean {
+  if (!isModuleAllowedByPlan(module)) {
+    return false;
+  }
   const perm = permissionsCache.get(permissionKey(module, role));
   return perm?.delete ?? false;
 }
@@ -672,6 +751,9 @@ export function canDelete(module: string, role: UserRole): boolean {
  * Get all permissions for a module and role
  */
 export function getPermissions(module: string, role: UserRole): Permission {
+  if (!isModuleAllowedByPlan(module)) {
+    return { ...EMPTY_PERMISSION };
+  }
   return permissionsCache.get(permissionKey(module, role)) ?? { ...EMPTY_PERMISSION };
 }
 
@@ -695,4 +777,5 @@ export function hasAnyPermission(module: string, role: UserRole): boolean {
  */
 export function clearPermissions() {
   permissionsCache.clear();
+  setSubscriptionContext(null, null);
 }

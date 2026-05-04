@@ -3,6 +3,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import { extractUserToken } from './auth-helper.ts';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+import { stripe } from './stripe-client.ts';
 
 /**
  * Subscription & Billing routes (KV-backed).
@@ -46,7 +47,9 @@ async function sendSystemSmtpEmail(params: {
   const smtpPort = Number(Deno.env.get('SYSTEM_SMTP_PORT') || '587');
   const smtpUsername = (Deno.env.get('SYSTEM_SMTP_USERNAME') || '').trim();
   const smtpPassword = Deno.env.get('SYSTEM_SMTP_PASSWORD') || '';
-  const sender = (Deno.env.get('SUPPORT_EMAIL_ADDRESS') || DEFAULT_FREE_ACCOUNT_BILLING_SUPPORT_EMAIL).trim();
+  const senderEmail = (Deno.env.get('SUPPORT_EMAIL_ADDRESS') || DEFAULT_FREE_ACCOUNT_BILLING_SUPPORT_EMAIL).trim();
+  const senderName = (Deno.env.get('SUPPORT_EMAIL_NAME') || 'ProSpaces CRM').trim();
+  const sender = `${senderName} <${senderEmail}>`;
 
   if (!smtpUsername || !smtpPassword) {
     throw new Error('System SMTP credentials are not configured');
@@ -153,6 +156,9 @@ export interface Subscription {
   amount: number;
   currency: string;
   payment_method_id?: string;
+  storage_backend?: 'kv' | 'stripe';
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -188,6 +194,7 @@ async function authenticateAndGetOrg(c: any): Promise<{
   userId: string;
   orgId: string;
   role: string;
+  email?: string;
 } | null> {
   const accessToken = extractUserToken(c);
   if (!accessToken) return null;
@@ -209,7 +216,7 @@ async function authenticateAndGetOrg(c: any): Promise<{
   const orgId = profile?.organization_id || user.user_metadata?.organizationId;
   if (!orgId) return null;
 
-  return { userId: user.id, orgId, role: profile?.role || 'standard_user' };
+  return { userId: user.id, orgId, role: profile?.role || 'standard_user', email: user.email || undefined };
 }
 
 // ── Helper: generate invoice number ─────────────────────────────────────
@@ -256,6 +263,12 @@ function resolveTargetOrg(auth: { orgId: string; role: string }, body: any): str
   return auth.orgId;
 }
 
+function getStripePriceId(planId: PlanId, interval: 'month' | 'year'): string | null {
+  const key = `STRIPE_PRICE_${planId.toUpperCase()}_${interval.toUpperCase()}`;
+  const value = (Deno.env.get(key) || '').trim();
+  return value || null;
+}
+
 // ── Register routes ─────────────────────────────────────────────────────
 export function subscriptions(app: Hono) {
 
@@ -264,9 +277,16 @@ export function subscriptions(app: Hono) {
     try {
       const body = await c.req.json();
       const { email, password, firstName, lastName, organizationName } = body;
+      const normalizedEmail = typeof email === 'string' ? email.toLowerCase().trim() : '';
+      const normalizedFirstName = typeof firstName === 'string' ? firstName.trim() : '';
+      const normalizedLastName = typeof lastName === 'string' ? lastName.trim() : '';
+      const fullName = `${normalizedFirstName} ${normalizedLastName}`.trim();
+      const resolvedOrganizationName = typeof organizationName === 'string' && organizationName.trim()
+        ? organizationName.trim()
+        : fullName;
 
       // Validation
-      if (!email || !password || !firstName || !lastName || !organizationName) {
+      if (!normalizedEmail || !password || !normalizedFirstName || !normalizedLastName || !resolvedOrganizationName) {
         return c.json({ error: 'Missing required fields' }, 400);
       }
 
@@ -275,33 +295,97 @@ export function subscriptions(app: Hono) {
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
       );
 
-      // Create Supabase auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: email.toLowerCase(),
-        password,
-        email_confirm: true, // Auto-confirm email for trial
-        user_metadata: {
-          name: `${firstName} ${lastName}`,
-          role: 'user',
-        },
-      });
-
-      if (authError || !authData.user) {
-        console.error('[auth/signup-free] Auth error:', authError);
-        return c.json({ error: authError?.message || 'Failed to create auth user' }, 400);
+      const { data: existingUsersData, error: existingUsersError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+      if (existingUsersError) {
+        console.error('[auth/signup-free] listUsers error:', existingUsersError);
+        return c.json({ error: 'Failed to validate account uniqueness' }, 500);
       }
 
-      const userId = authData.user.id;
-      const userEmail = authData.user.email!;
+      const existing = existingUsersData.users?.find((u: any) => (u.email || '').toLowerCase() === normalizedEmail);
+
+      let userId = '';
+      let userEmail = normalizedEmail;
+      let createdAuthUserInThisRequest = false;
+
+      if (existing) {
+        const existingUserId = existing.id;
+
+        const { data: existingProfileById, error: existingProfileByIdError } = await supabase
+          .from('profiles')
+          .select('id, email, organization_id')
+          .eq('id', existingUserId)
+          .maybeSingle();
+
+        if (existingProfileByIdError) {
+          console.error('[auth/signup-free] Existing profile lookup by id error:', existingProfileByIdError);
+          return c.json({ error: 'Failed to validate existing account state' }, 500);
+        }
+
+        const { data: existingProfileByEmail, error: existingProfileByEmailError } = await supabase
+          .from('profiles')
+          .select('id, email, organization_id')
+          .eq('email', normalizedEmail)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingProfileByEmailError) {
+          console.error('[auth/signup-free] Existing profile lookup by email error:', existingProfileByEmailError);
+          return c.json({ error: 'Failed to validate existing account state' }, 500);
+        }
+
+        // If a profile already exists, this is a real existing account.
+        if (existingProfileById || existingProfileByEmail) {
+          return c.json({ error: 'An account with this email already exists. Try signing in or resetting your password.' }, 409);
+        }
+
+        // Recover orphaned auth user from previous failed setup attempts.
+        const { error: updateExistingUserError } = await supabase.auth.admin.updateUserById(existingUserId, {
+          password,
+          email_confirm: true,
+          user_metadata: {
+            name: fullName,
+            role: 'admin',
+          },
+        });
+
+        if (updateExistingUserError) {
+          console.error('[auth/signup-free] Existing auth user recovery error:', updateExistingUserError);
+          return c.json({ error: updateExistingUserError.message || 'Failed to recover existing account' }, 500);
+        }
+
+        userId = existingUserId;
+        userEmail = (existing.email || normalizedEmail).toLowerCase();
+      } else {
+        // Create auth user directly with service role so signup is deterministic
+        // and does not depend on external confirmation email delivery.
+        const { data: createdAuthUser, error: authCreateError } = await supabase.auth.admin.createUser({
+          email: normalizedEmail,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            name: fullName,
+            role: 'admin',
+          },
+        });
+
+        if (authCreateError || !createdAuthUser.user) {
+          console.error('[auth/signup-free] Auth create error:', authCreateError);
+          return c.json({ error: authCreateError?.message || 'Failed to create auth user' }, 400);
+        }
+
+        userId = createdAuthUser.user.id;
+        userEmail = (createdAuthUser.user.email || normalizedEmail).toLowerCase();
+        createdAuthUserInThisRequest = true;
+      }
 
       // Create organization  
       const orgId = crypto.randomUUID();
       const now = new Date().toISOString();
 
-      await supabase.from('organizations').insert([
+      let { error: orgInsertError } = await supabase.from('organizations').insert([
         {
           id: orgId,
-          name: organizationName,
+          name: resolvedOrganizationName,
           industry: null,
           created_at: now,
           updated_at: now,
@@ -310,22 +394,72 @@ export function subscriptions(app: Hono) {
         },
       ]);
 
+      if (orgInsertError) {
+        // Fallback for projects where organization schema differs.
+        const { error: orgFallbackError } = await supabase.from('organizations').insert([
+          {
+            id: orgId,
+            name: resolvedOrganizationName,
+            created_at: now,
+          },
+        ]);
+        if (!orgFallbackError) {
+          orgInsertError = null;
+        }
+      }
+
+      if (orgInsertError) {
+        console.error('[auth/signup-free] Organization insert error:', orgInsertError);
+        if (createdAuthUserInThisRequest) {
+          await supabase.auth.admin.deleteUser(userId).catch(() => undefined);
+        }
+        return c.json({ error: 'Failed to initialize organization for new account' }, 500);
+      }
+
       // Create profile
-      await supabase.from('profiles').insert([
+      let { error: profileInsertError } = await supabase.from('profiles').insert([
         {
           id: userId,
           email: userEmail,
-          name: `${firstName} ${lastName}`,
+          name: fullName,
           role: 'admin', // First user in org is admin
           organization_id: orgId,
           status: 'active',
-          needs_password_change: true,
-          temp_password: password, // Store for verification if needed
-          temp_password_created_at: now,
+          needs_password_change: false,
           created_at: now,
           updated_at: now,
         },
       ]);
+
+      if (profileInsertError) {
+        // Fallback for projects where profile schema differs.
+        const { error: profileFallbackError } = await supabase.from('profiles').insert([
+          {
+            id: userId,
+            email: userEmail,
+            name: fullName,
+            role: 'admin',
+            organization_id: orgId,
+            created_at: now,
+            updated_at: now,
+          },
+        ]);
+        if (!profileFallbackError) {
+          profileInsertError = null;
+        }
+      }
+
+      if (profileInsertError) {
+        console.error('[auth/signup-free] Profile insert error:', profileInsertError);
+        const { error: rollbackOrgDeleteError } = await supabase.from('organizations').delete().eq('id', orgId);
+        if (rollbackOrgDeleteError) {
+          console.warn('[auth/signup-free] Organization rollback delete error:', rollbackOrgDeleteError);
+        }
+        if (createdAuthUserInThisRequest) {
+          await supabase.auth.admin.deleteUser(userId).catch(() => undefined);
+        }
+        return c.json({ error: 'Failed to initialize user profile for new account' }, 500);
+      }
 
       // Create 15-day trial subscription
       const subId = crypto.randomUUID();
@@ -334,7 +468,6 @@ export function subscriptions(app: Hono) {
       const trialEnd = trialEndDate.toISOString();
 
       const { supportEmail } = getScopedEmailConfig();
-      const starterPlanPrice = await resolvePlanPrice('starter', 'month');
 
       const subscription: any = {
         id: subId,
@@ -364,7 +497,7 @@ export function subscriptions(app: Hono) {
         user_id: userId,
         subscription_id: subId,
         type: 'trial_started',
-        description: `Free 15-day trial started for ${organizationName}`,
+        description: `Free 15-day trial started for ${resolvedOrganizationName}`,
         amount: 0,
         currency: 'USD',
         status: 'completed',
@@ -375,36 +508,51 @@ export function subscriptions(app: Hono) {
 
       await kv.set(`billing_event:${orgId}:${eventId}`, event);
 
-      // Send temporary password email via system SMTP
-      try {
-        await sendSystemSmtpEmail({
-          to: userEmail,
-          subject: 'Welcome to ProSpaces - Your Temporary Password',
-          htmlBody: `
-            <h1>Welcome to ProSpaces CRM, ${firstName}!</h1>
-            <p>Your free 15-day trial account has been created.</p>
-            <p><strong>Temporary Password:</strong> ${password}</p>
-            <p><strong>Sign in here:</strong> <a href="${Deno.env.get('VITE_APP_URL') || 'https://app.prospacescrm.ca'}/member-login">ProSpaces Login</a></p>
-            <p>On your first login, you'll be asked to set a permanent password.</p>
-            <p>Your trial expires on ${trialEndDate.toLocaleDateString()}. After that, you'll need to select a plan to continue.</p>
-            <br/>
-            <p style="color: #666; font-size: 12px;">Questions? Contact support@prospacescrm.ca</p>
-          `,
-        });
-      } catch (emailErr: any) {
-        console.error('[auth/signup-free] Email error:', emailErr);
-        // Don't fail signup if email fails
-      }
-
       return c.json({
         success: true,
-        message: 'Free trial account created successfully! Check your email for temporary password.',
+        message: 'Free trial account created successfully! You can sign in now with your email and password.',
         userId,
         email: userEmail,
       });
     } catch (error: any) {
       console.error('[auth/signup-free] Error:', error);
       return c.json({ error: error.message || 'Failed to create free trial account' }, 500);
+    }
+  });
+
+  // POST /auth/request-password-reset — centralized reset flow with controlled redirect
+  app.post(`${PREFIX}/auth/request-password-reset`, async (c) => {
+    try {
+      const body = await c.req.json().catch(() => ({}));
+      const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
+      const redirectPath = typeof body?.redirectPath === 'string' ? body.redirectPath : '/';
+
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return c.json({ error: 'Valid email is required' }, 400);
+      }
+
+      const authSupabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+      );
+
+      const appUrl = (Deno.env.get('VITE_APP_URL') || 'https://app.prospacescrm.ca').replace(/\/+$/, '');
+      const normalizedRedirectPath = redirectPath.startsWith('/') ? redirectPath : `/${redirectPath}`;
+      const redirectTo = `${appUrl}${normalizedRedirectPath}`;
+
+      const { error: resetError } = await authSupabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
+
+      if (resetError) {
+        console.warn('[auth/request-password-reset] reset warning:', resetError.message);
+      }
+
+      // Do not reveal whether an account exists for this email.
+      return c.json({ success: true, message: 'If this email exists, a reset link has been sent.' });
+    } catch (error: any) {
+      console.error('[auth/request-password-reset] Error:', error);
+      return c.json({ error: error.message || 'Failed to send reset email' }, 500);
     }
   });
 
@@ -513,6 +661,95 @@ export function subscriptions(app: Hono) {
       const amount = await resolvePlanPrice(plan_id as PlanId, billing_interval);
       const { supportEmail } = getScopedEmailConfig();
 
+      // Stripe path (enabled + configured price id)
+      if (stripe.isEnabled()) {
+        const stripePriceId = getStripePriceId(plan_id as PlanId, billing_interval);
+        if (!stripePriceId) {
+          return c.json({
+            error: `Missing Stripe price configuration for ${plan_id}/${billing_interval}. Set env var STRIPE_PRICE_${String(plan_id).toUpperCase()}_${String(billing_interval).toUpperCase()}`,
+          }, 400);
+        }
+
+        const existingForTarget: Subscription | null = await kv.get(`subscription:${targetOrgId}:${targetUserId}`);
+        let stripeCustomerId = existingForTarget?.stripe_customer_id || null;
+
+        if (!stripeCustomerId) {
+          const emailForCustomer = typeof body?.target_user_email === 'string'
+            ? body.target_user_email.trim().toLowerCase()
+            : (auth.email || `user-${targetUserId}@prospaces.local`);
+          const createdCustomer = await stripe.customers.create({
+            email: emailForCustomer,
+            metadata: {
+              organization_id: targetOrgId,
+              user_id: targetUserId,
+            },
+          });
+          stripeCustomerId = createdCustomer.id;
+        }
+
+        const paymentMethodId = body?.payment_method_id || body?.payment_method?.id;
+        if (paymentMethodId) {
+          await stripe.paymentMethods.attach(paymentMethodId, { customer: stripeCustomerId });
+        }
+
+        const stripeSub = await stripe.subscriptions.create({
+          customer: stripeCustomerId,
+          items: [{ price: stripePriceId }],
+          trial_period_days: trial ? 14 : undefined,
+          metadata: {
+            organization_id: targetOrgId,
+            user_id: targetUserId,
+            plan_id: plan_id,
+            billing_interval,
+          },
+        });
+
+        const subscription: Subscription = {
+          id: stripeSub.id,
+          organization_id: targetOrgId,
+          user_id: targetUserId,
+          plan_id: plan_id as PlanId,
+          status: stripeSub.status,
+          billing_interval,
+          current_period_start: new Date(stripeSub.current_period_start * 1000).toISOString(),
+          current_period_end: new Date(stripeSub.current_period_end * 1000).toISOString(),
+          trial_end: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000).toISOString() : undefined,
+          cancel_at_period_end: false,
+          canceled_at: stripeSub.canceled_at ? new Date(stripeSub.canceled_at * 1000).toISOString() : undefined,
+          amount,
+          currency: plan.currency,
+          payment_method_id: paymentMethodId,
+          storage_backend: 'stripe',
+          stripe_customer_id: stripeCustomerId,
+          stripe_subscription_id: stripeSub.id,
+          created_at: periodStart,
+          updated_at: periodStart,
+        };
+
+        await kv.set(`subscription:${targetOrgId}:${targetUserId}`, subscription);
+
+        const eventId = crypto.randomUUID();
+        const event: BillingEvent = {
+          id: eventId,
+          organization_id: targetOrgId,
+          type: trial ? 'trial_started' : 'subscription_created',
+          amount: trial ? 0 : amount,
+          currency: plan.currency,
+          status: 'succeeded',
+          description: trial
+            ? `Started 14-day free trial of ${plan.name} plan for user ${targetUserId} (Stripe)`
+            : `Subscribed user ${targetUserId} to ${plan.name} plan (${billing_interval}ly) via Stripe`,
+          plan_id: plan_id as PlanId,
+          invoice_number: trial ? undefined : generateInvoiceNumber(),
+          support_email: supportEmail,
+          created_at: periodStart,
+        };
+        await kv.set(`billing_event:${targetOrgId}:${eventId}`, event);
+
+        console.log(`[subscriptions] Created ${subscription.status} Stripe subscription for user ${targetUserId} in org ${targetOrgId}: ${plan_id} (${billing_interval})`);
+        return c.json({ subscription });
+      }
+
       const subId = crypto.randomUUID();
       const subscription: Subscription = {
         id: subId,
@@ -527,6 +764,7 @@ export function subscriptions(app: Hono) {
         cancel_at_period_end: false,
         amount,
         currency: plan.currency,
+        storage_backend: 'kv',
         created_at: periodStart,
         updated_at: periodStart,
       };
@@ -643,15 +881,45 @@ export function subscriptions(app: Hono) {
       const amount = await resolvePlanPrice(newPlanId, newInterval);
       const { supportEmail } = getScopedEmailConfig();
 
+      let stripeUpdated: any = null;
+      if (existing.storage_backend === 'stripe' && existing.stripe_subscription_id) {
+        const stripePriceId = getStripePriceId(newPlanId, newInterval);
+        if (!stripePriceId) {
+          return c.json({
+            error: `Missing Stripe price configuration for ${newPlanId}/${newInterval}. Set env var STRIPE_PRICE_${String(newPlanId).toUpperCase()}_${String(newInterval).toUpperCase()}`,
+          }, 400);
+        }
+
+        const stripeCurrent = await stripe.subscriptions.retrieve(existing.stripe_subscription_id);
+        const firstItem = stripeCurrent?.items?.data?.[0];
+        if (!firstItem?.id) {
+          return c.json({ error: 'Unable to update Stripe subscription item' }, 500);
+        }
+
+        stripeUpdated = await stripe.subscriptions.update(existing.stripe_subscription_id, {
+          items: [{ id: firstItem.id, price: stripePriceId }],
+          metadata: {
+            organization_id: targetOrgId,
+            user_id: targetUserId,
+            plan_id: newPlanId,
+            billing_interval: newInterval,
+          },
+        });
+      }
+
       const updated: Subscription = {
         ...existing,
         plan_id: newPlanId,
         billing_interval: newInterval,
         amount,
-        current_period_end: periodEnd,
-        status: 'active',
+        current_period_end: stripeUpdated
+          ? new Date(stripeUpdated.current_period_end * 1000).toISOString()
+          : periodEnd,
+        status: stripeUpdated ? stripeUpdated.status : 'active',
         cancel_at_period_end: false,
-        canceled_at: undefined,
+        canceled_at: stripeUpdated?.canceled_at
+          ? new Date(stripeUpdated.canceled_at * 1000).toISOString()
+          : undefined,
         updated_at: now,
       };
 
@@ -676,7 +944,7 @@ export function subscriptions(app: Hono) {
       await kv.set(`billing_event:${targetOrgId}:${eventId}`, event);
 
       // Simulate prorated payment for upgrades
-      if (isUpgrade) {
+      if (isUpgrade && updated.storage_backend !== 'stripe') {
         const newAmount = newInterval === 'year' ? plan.priceAnnual : plan.price;
         const proratedAmount = Math.round((newAmount - (existing.amount || 0)) * 0.5 * 100) / 100;
         if (proratedAmount > 0) {
@@ -719,7 +987,8 @@ export function subscriptions(app: Hono) {
 
       const body = await c.req.json().catch(() => ({}));
       const targetUserId = resolveTargetUser(auth, body);
-      const existing: Subscription | null = await kv.get(`subscription:${auth.orgId}:${targetUserId}`);
+      const targetOrgId = resolveTargetOrg(auth, body);
+      const existing: Subscription | null = await kv.get(`subscription:${targetOrgId}:${targetUserId}`);
       if (!existing) {
         return c.json({ error: 'No active subscription found for this user' }, 404);
       }
@@ -727,22 +996,31 @@ export function subscriptions(app: Hono) {
       const immediate = body.immediate === true;
       const now = new Date().toISOString();
 
+      let stripeCanceled: any = null;
+      if (existing.storage_backend === 'stripe' && existing.stripe_subscription_id) {
+        stripeCanceled = await stripe.subscriptions.cancel(existing.stripe_subscription_id, {
+          at_period_end: !immediate,
+        });
+      }
+
       const updated: Subscription = {
         ...existing,
-        status: immediate ? 'canceled' : existing.status,
+        status: stripeCanceled ? stripeCanceled.status : (immediate ? 'canceled' : existing.status),
         cancel_at_period_end: !immediate,
-        canceled_at: now,
+        canceled_at: stripeCanceled?.canceled_at
+          ? new Date(stripeCanceled.canceled_at * 1000).toISOString()
+          : now,
         updated_at: now,
       };
 
-      await kv.set(`subscription:${auth.orgId}:${targetUserId}`, updated);
+      await kv.set(`subscription:${targetOrgId}:${targetUserId}`, updated);
 
       const plan = PLANS[existing.plan_id];
       const { supportEmail } = getScopedEmailConfig();
       const eventId = crypto.randomUUID();
       const event: BillingEvent = {
         id: eventId,
-        organization_id: auth.orgId,
+        organization_id: targetOrgId,
         type: 'subscription_canceled',
         amount: 0,
         currency: plan.currency,
@@ -754,9 +1032,9 @@ export function subscriptions(app: Hono) {
         support_email: supportEmail,
         created_at: now,
       };
-      await kv.set(`billing_event:${auth.orgId}:${eventId}`, event);
+      await kv.set(`billing_event:${targetOrgId}:${eventId}`, event);
 
-      console.log(`[subscriptions] Subscription canceled for org ${auth.orgId} (immediate=${immediate})`);
+      console.log(`[subscriptions] Subscription canceled for org ${targetOrgId} (immediate=${immediate})`);
       return c.json({ subscription: updated });
     } catch (error: any) {
       console.error('[subscriptions] Error canceling subscription:', error);
@@ -776,17 +1054,49 @@ export function subscriptions(app: Hono) {
 
       const body = await c.req.json().catch(() => ({}));
       const targetUserId = resolveTargetUser(auth, body);
-      const existing: Subscription | null = await kv.get(`subscription:${auth.orgId}:${targetUserId}`);
+      const targetOrgId = resolveTargetOrg(auth, body);
+      const existing: Subscription | null = await kv.get(`subscription:${targetOrgId}:${targetUserId}`);
       if (!existing) {
         return c.json({ error: 'No subscription found for this user' }, 404);
       }
 
       const now = new Date().toISOString();
+      let stripeReactivated: any = null;
+      if (existing.storage_backend === 'stripe' && existing.stripe_subscription_id) {
+        try {
+          stripeReactivated = await stripe.subscriptions.update(existing.stripe_subscription_id, {
+            cancel_at_period_end: false,
+            metadata: {
+              organization_id: targetOrgId,
+              user_id: targetUserId,
+              plan_id: existing.plan_id,
+              billing_interval: existing.billing_interval,
+            },
+          });
+        } catch (error: any) {
+          return c.json({
+            error: 'Stripe subscription cannot be reactivated in place. Create a new subscription for this user.',
+            details: error?.message,
+          }, 400);
+        }
+      }
+
       const updated: Subscription = {
         ...existing,
-        status: 'active',
+        status: stripeReactivated ? stripeReactivated.status : 'active',
         cancel_at_period_end: false,
-        canceled_at: undefined,
+        canceled_at: stripeReactivated?.canceled_at
+          ? new Date(stripeReactivated.canceled_at * 1000).toISOString()
+          : undefined,
+        current_period_start: stripeReactivated?.current_period_start
+          ? new Date(stripeReactivated.current_period_start * 1000).toISOString()
+          : existing.current_period_start,
+        current_period_end: stripeReactivated?.current_period_end
+          ? new Date(stripeReactivated.current_period_end * 1000).toISOString()
+          : existing.current_period_end,
+        trial_end: stripeReactivated?.trial_end
+          ? new Date(stripeReactivated.trial_end * 1000).toISOString()
+          : existing.trial_end,
         updated_at: now,
       };
 
@@ -801,29 +1111,31 @@ export function subscriptions(app: Hono) {
         }
         updated.current_period_end = end.toISOString();
 
-        // Simulate renewal payment
+        // Simulate renewal payment (KV only; Stripe renewals come via webhooks)
         const plan = PLANS[existing.plan_id];
-        const { supportEmail } = getScopedEmailConfig();
-        const paymentId = crypto.randomUUID();
-        const paymentEvent: BillingEvent = {
-          id: paymentId,
-          organization_id: auth.orgId,
-          type: 'payment',
-          amount: existing.amount,
-          currency: plan.currency,
-          status: 'succeeded',
-          description: `Renewal payment for ${plan.name} plan`,
-          plan_id: existing.plan_id,
-          invoice_number: generateInvoiceNumber(),
-          support_email: supportEmail,
-          created_at: now,
-        };
-        await kv.set(`billing_event:${auth.orgId}:${paymentId}`, paymentEvent);
+        if (existing.storage_backend !== 'stripe') {
+          const { supportEmail } = getScopedEmailConfig();
+          const paymentId = crypto.randomUUID();
+          const paymentEvent: BillingEvent = {
+            id: paymentId,
+            organization_id: targetOrgId,
+            type: 'payment',
+            amount: existing.amount,
+            currency: plan.currency,
+            status: 'succeeded',
+            description: `Renewal payment for ${plan.name} plan`,
+            plan_id: existing.plan_id,
+            invoice_number: generateInvoiceNumber(),
+            support_email: supportEmail,
+            created_at: now,
+          };
+          await kv.set(`billing_event:${targetOrgId}:${paymentId}`, paymentEvent);
+        }
       }
 
-      await kv.set(`subscription:${auth.orgId}:${targetUserId}`, updated);
+      await kv.set(`subscription:${targetOrgId}:${targetUserId}`, updated);
 
-      console.log(`[subscriptions] Subscription reactivated for user ${targetUserId} in org ${auth.orgId}`);
+      console.log(`[subscriptions] Subscription reactivated for user ${targetUserId} in org ${targetOrgId}`);
       return c.json({ subscription: updated });
     } catch (error: any) {
       console.error('[subscriptions] Error reactivating subscription:', error);
@@ -911,7 +1223,20 @@ export function subscriptions(app: Hono) {
 
       const body = await c.req.json();
       const now = new Date().toISOString();
-      const pmId = crypto.randomUUID();
+      const providedPmId = typeof body.payment_method_id === 'string' ? body.payment_method_id.trim() : '';
+      const pmId = providedPmId || crypto.randomUUID();
+
+      // Update the user's subscription first so we can attach Stripe PM when applicable.
+      const sub: Subscription | null = await kv.get(`subscription:${auth.orgId}:${auth.userId}`);
+      if (sub?.storage_backend === 'stripe' && sub.stripe_customer_id) {
+        if (!providedPmId) {
+          return c.json({
+            error: 'Stripe-backed subscriptions require payment_method_id (pm_*)',
+          }, 400);
+        }
+        await stripe.paymentMethods.attach(providedPmId, { customer: sub.stripe_customer_id });
+        await stripe.customers.setDefaultPaymentMethod(sub.stripe_customer_id, providedPmId);
+      }
 
       const pm: PaymentMethod = {
         id: pmId,
@@ -928,7 +1253,6 @@ export function subscriptions(app: Hono) {
       await kv.set(`payment_method:${auth.orgId}`, pm);
 
       // Update the user's subscription with new payment method
-      const sub: Subscription | null = await kv.get(`subscription:${auth.orgId}:${auth.userId}`);
       if (sub) {
         sub.payment_method_id = pmId;
         sub.updated_at = now;

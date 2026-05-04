@@ -17,6 +17,7 @@ import { debugSubscriptions } from './debug-subscriptions.ts';
 import { backgroundJobs } from './background-jobs.ts';
 import { modelsAPI } from './models-api.ts';
 import { customerPortalAPI } from './customer-portal-api.ts';
+import webhooksAPI from './webhooks-api.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -407,14 +408,50 @@ app.get(`${PREFIX}/profiles`, async (c) => {
   try {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
+
     let query = auth.supabase.from('profiles').select('*');
     if (auth.profile.role !== 'super_admin' && auth.profile.organization_id) {
       query = query.eq('organization_id', auth.profile.organization_id);
     }
+
     const { data, error } = await query;
     if (error) return c.json({ error: error.message }, 500);
-    // profiles returned
-    return c.json({ profiles: data || [], source: 'server' });
+
+    const profiles = data || [];
+
+    // Super admins should be able to see all auth users even if a profile row
+    // has not been created yet (for example, after partial signup flows).
+    if (auth.profile.role === 'super_admin') {
+      const { data: authUsersData, error: authUsersError } = await auth.supabase.auth.admin.listUsers({ perPage: 1000 });
+      if (!authUsersError) {
+        const profileIds = new Set(profiles.map((p: any) => p.id));
+        const profileEmails = new Set(profiles.map((p: any) => (p.email || '').toLowerCase()).filter(Boolean));
+
+        const authOnlyUsers = (authUsersData.users || [])
+          .filter((au: any) => {
+            const email = (au.email || '').toLowerCase();
+            if (profileIds.has(au.id)) return false;
+            if (email && profileEmails.has(email)) return false;
+            return true;
+          })
+          .map((au: any) => ({
+            id: au.id,
+            email: (au.email || '').toLowerCase(),
+            name: au.user_metadata?.name || au.email || 'Unknown User',
+            role: au.user_metadata?.role || 'standard_user',
+            organization_id: au.user_metadata?.organizationId || null,
+            status: 'active',
+            last_login: au.last_sign_in_at || null,
+            created_at: au.created_at || new Date().toISOString(),
+            updated_at: au.updated_at || au.created_at || new Date().toISOString(),
+            source: 'auth_only',
+          }));
+
+        return c.json({ profiles: [...profiles, ...authOnlyUsers], source: 'server+auth' });
+      }
+    }
+
+    return c.json({ profiles, source: 'server' });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
@@ -2328,9 +2365,16 @@ app.post(`${PREFIX}/confirm-email`, async (c) => {
     const { email } = await c.req.json();
     if (!email) return c.json({ error: 'Missing email' }, 400);
     const supabase = getSupabase();
-    // Verify a profile exists for this email (only fix known users, not random requests)
-    const { data: profile } = await supabase.from('profiles').select('id').eq('email', email.toLowerCase()).maybeSingle();
+    // Verify a profile exists for this email and only auto-fix legacy temp-password accounts.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, needs_password_change, temp_password')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
     if (!profile) return c.json({ error: 'No profile found' }, 404);
+    if (!profile.needs_password_change && !profile.temp_password) {
+      return c.json({ error: 'This account must be confirmed from the email link that was sent during signup.' }, 403);
+    }
     // Find the auth user
     const { data: { users } } = await supabase.auth.admin.listUsers();
     const authUser = users?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
@@ -3309,6 +3353,9 @@ app.route('/', apiKeys);
 
 // ── PUBLIC REST API (Enterprise, API-key auth) ──────────────────────────
 app.route('/', publicApi);
+
+// ── STRIPE WEBHOOKS (Async Payment Events) ──────────────────────────────
+app.route('/', webhooksAPI);
 
 // ── CUSTOMER PORTAL API (includes internal staff chats) ─────────────────
 customerPortalAPI(app);

@@ -6,10 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { signupFree } from '../utils/subscription-client';
+import { createClient } from '../utils/supabase/client';
+import { getAuthRedirectUrl } from '../utils/auth-redirect';
+import { requestPasswordResetEmail } from '../utils/auth-client';
 import { Logo } from './Logo';
 
 interface FreeSignupProps {
-  onSignupSuccess?: () => void;
+  onSignupSuccess?: (result: { email: string; message: string }) => void;
   onBack?: () => void;
 }
 
@@ -24,6 +27,7 @@ export function FreeSignup({ onSignupSuccess, onBack }: FreeSignupProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState('');
 
   // Password validation
   const validatePassword = (pwd: string): { valid: boolean; message: string } => {
@@ -73,11 +77,6 @@ export function FreeSignup({ onSignupSuccess, onBack }: FreeSignupProps) {
       return false;
     }
 
-    if (!organizationName.trim()) {
-      setError('Organization name is required');
-      return false;
-    }
-
     return true;
   };
 
@@ -86,37 +85,75 @@ export function FreeSignup({ onSignupSuccess, onBack }: FreeSignupProps) {
 
     if (!validateForm()) return;
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     setIsLoading(true);
     setError('');
 
     try {
+      const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+      const resolvedOrganizationName = organizationName.trim() || fullName;
+
       const result = await signupFree({
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         password,
-        firstName,
-        lastName,
-        organizationName,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        organizationName: resolvedOrganizationName,
       });
 
-      if (result.success) {
-        setSuccessMessage(result.message || '');
-        setShowSuccess(true);
-
-        // Clear form
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
-        setFirstName('');
-        setLastName('');
-        setOrganizationName('');
-
-        // Callback after success
-        if (onSignupSuccess) {
-          setTimeout(onSignupSuccess, 2000);
-        }
+      if (result.success === false) {
+        setError(result.message || 'Failed to create free account. Please try again.');
+        return;
       }
+
+      const nextMessage = result.message || 'Account created successfully. You can sign in now with your email and password.';
+      const nextEmail = result.email?.trim() || normalizedEmail;
+
+      // Clear form
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setFirstName('');
+      setLastName('');
+      setOrganizationName('');
+      setSubmittedEmail(nextEmail);
+
+      if (onSignupSuccess) {
+        onSignupSuccess({
+          email: nextEmail,
+          message: nextMessage,
+        });
+        return;
+      }
+
+      setSuccessMessage(nextMessage);
+      setShowSuccess(true);
     } catch (err: any) {
-      setError(err.message || 'Failed to create free account. Please try again.');
+      const nextError = err?.message || 'Failed to create free account. Please try again.';
+
+      // If the account already exists, route to login with context instead of
+      // leaving the user blocked on the signup form.
+      if (onSignupSuccess && /already exists/i.test(nextError)) {
+        let recoveryMessage = 'This email already has an account. Sign in below or reset your password.';
+
+        try {
+          const redirectTo = getAuthRedirectUrl('/');
+          const redirectPath = new URL(redirectTo).pathname || '/';
+          await requestPasswordResetEmail(normalizedEmail, redirectPath);
+          recoveryMessage = 'This email already has an account. We sent a password reset email from ProSpaces CRM, then you can sign in.';
+        } catch {
+          // Keep the fallback guidance message when reset email fails.
+        }
+
+        onSignupSuccess({
+          email: normalizedEmail,
+          message: recoveryMessage,
+        });
+        return;
+      }
+
+      setError(nextError);
     } finally {
       setIsLoading(false);
     }
@@ -141,15 +178,15 @@ export function FreeSignup({ onSignupSuccess, onBack }: FreeSignupProps) {
               <ul className="text-sm text-slate-600 space-y-2">
                 <li className="flex gap-2">
                   <span className="text-blue-600">1.</span>
-                  <span>Check your email at <strong>{email}</strong> for a temporary password</span>
+                  <span>Check your email at <strong>{submittedEmail}</strong> for a confirmation link</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-blue-600">2.</span>
-                  <span>Sign in with your email and the password from the email</span>
+                  <span>Click the confirmation link to activate your account</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-blue-600">3.</span>
-                  <span>Set your permanent password on first login</span>
+                  <span>Return to the sign-in page and use the password you created</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-blue-600">4.</span>
@@ -159,6 +196,9 @@ export function FreeSignup({ onSignupSuccess, onBack }: FreeSignupProps) {
             </div>
 
             <div className="pt-4 space-y-2">
+              {successMessage && (
+                <p className="text-sm text-center text-slate-600">{successMessage}</p>
+              )}
               <p className="text-xs text-slate-500 text-center">
                 After 15 days, you'll be able to choose a permanent plan.
               </p>
@@ -216,7 +256,7 @@ export function FreeSignup({ onSignupSuccess, onBack }: FreeSignupProps) {
                 disabled={isLoading}
                 autoComplete="email"
               />
-              <p className="text-xs text-slate-500">We'll send your temporary password here</p>
+              <p className="text-xs text-slate-500">We'll send your confirmation email here</p>
             </div>
 
             {/* First & Last Name */}
@@ -247,7 +287,7 @@ export function FreeSignup({ onSignupSuccess, onBack }: FreeSignupProps) {
 
             {/* Organization Name */}
             <div className="space-y-2">
-              <Label htmlFor="orgName">Organization name</Label>
+              <Label htmlFor="orgName">Organization name (optional)</Label>
               <Input
                 id="orgName"
                 placeholder="Acme Contractors"
@@ -256,6 +296,7 @@ export function FreeSignup({ onSignupSuccess, onBack }: FreeSignupProps) {
                 disabled={isLoading}
                 autoComplete="organization"
               />
+              <p className="text-xs text-slate-500">If left blank, we&apos;ll use your name.</p>
             </div>
 
             {/* Password */}
