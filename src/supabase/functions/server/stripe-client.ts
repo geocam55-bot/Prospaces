@@ -389,6 +389,7 @@ class StripeClient {
     params: {
       items?: Array<{ id: string; price?: string }>;
       trial_end?: number | 'now';
+      cancel_at_period_end?: boolean;
       metadata?: Record<string, string>;
     }
   ): Promise<StripeSubscription> {
@@ -398,6 +399,7 @@ class StripeClient {
       const subscription = await this.stripeSDK.subscriptions.update(subscriptionId, {
         items: params.items,
         trial_end: params.trial_end,
+        cancel_at_period_end: params.cancel_at_period_end,
         metadata: params.metadata,
       });
       return {

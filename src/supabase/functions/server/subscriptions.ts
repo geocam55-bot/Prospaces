@@ -1054,17 +1054,49 @@ export function subscriptions(app: Hono) {
 
       const body = await c.req.json().catch(() => ({}));
       const targetUserId = resolveTargetUser(auth, body);
-      const existing: Subscription | null = await kv.get(`subscription:${auth.orgId}:${targetUserId}`);
+      const targetOrgId = resolveTargetOrg(auth, body);
+      const existing: Subscription | null = await kv.get(`subscription:${targetOrgId}:${targetUserId}`);
       if (!existing) {
         return c.json({ error: 'No subscription found for this user' }, 404);
       }
 
       const now = new Date().toISOString();
+      let stripeReactivated: any = null;
+      if (existing.storage_backend === 'stripe' && existing.stripe_subscription_id) {
+        try {
+          stripeReactivated = await stripe.subscriptions.update(existing.stripe_subscription_id, {
+            cancel_at_period_end: false,
+            metadata: {
+              organization_id: targetOrgId,
+              user_id: targetUserId,
+              plan_id: existing.plan_id,
+              billing_interval: existing.billing_interval,
+            },
+          });
+        } catch (error: any) {
+          return c.json({
+            error: 'Stripe subscription cannot be reactivated in place. Create a new subscription for this user.',
+            details: error?.message,
+          }, 400);
+        }
+      }
+
       const updated: Subscription = {
         ...existing,
-        status: 'active',
+        status: stripeReactivated ? stripeReactivated.status : 'active',
         cancel_at_period_end: false,
-        canceled_at: undefined,
+        canceled_at: stripeReactivated?.canceled_at
+          ? new Date(stripeReactivated.canceled_at * 1000).toISOString()
+          : undefined,
+        current_period_start: stripeReactivated?.current_period_start
+          ? new Date(stripeReactivated.current_period_start * 1000).toISOString()
+          : existing.current_period_start,
+        current_period_end: stripeReactivated?.current_period_end
+          ? new Date(stripeReactivated.current_period_end * 1000).toISOString()
+          : existing.current_period_end,
+        trial_end: stripeReactivated?.trial_end
+          ? new Date(stripeReactivated.trial_end * 1000).toISOString()
+          : existing.trial_end,
         updated_at: now,
       };
 
@@ -1079,29 +1111,31 @@ export function subscriptions(app: Hono) {
         }
         updated.current_period_end = end.toISOString();
 
-        // Simulate renewal payment
+        // Simulate renewal payment (KV only; Stripe renewals come via webhooks)
         const plan = PLANS[existing.plan_id];
-        const { supportEmail } = getScopedEmailConfig();
-        const paymentId = crypto.randomUUID();
-        const paymentEvent: BillingEvent = {
-          id: paymentId,
-          organization_id: auth.orgId,
-          type: 'payment',
-          amount: existing.amount,
-          currency: plan.currency,
-          status: 'succeeded',
-          description: `Renewal payment for ${plan.name} plan`,
-          plan_id: existing.plan_id,
-          invoice_number: generateInvoiceNumber(),
-          support_email: supportEmail,
-          created_at: now,
-        };
-        await kv.set(`billing_event:${auth.orgId}:${paymentId}`, paymentEvent);
+        if (existing.storage_backend !== 'stripe') {
+          const { supportEmail } = getScopedEmailConfig();
+          const paymentId = crypto.randomUUID();
+          const paymentEvent: BillingEvent = {
+            id: paymentId,
+            organization_id: targetOrgId,
+            type: 'payment',
+            amount: existing.amount,
+            currency: plan.currency,
+            status: 'succeeded',
+            description: `Renewal payment for ${plan.name} plan`,
+            plan_id: existing.plan_id,
+            invoice_number: generateInvoiceNumber(),
+            support_email: supportEmail,
+            created_at: now,
+          };
+          await kv.set(`billing_event:${targetOrgId}:${paymentId}`, paymentEvent);
+        }
       }
 
-      await kv.set(`subscription:${auth.orgId}:${targetUserId}`, updated);
+      await kv.set(`subscription:${targetOrgId}:${targetUserId}`, updated);
 
-      console.log(`[subscriptions] Subscription reactivated for user ${targetUserId} in org ${auth.orgId}`);
+      console.log(`[subscriptions] Subscription reactivated for user ${targetUserId} in org ${targetOrgId}`);
       return c.json({ subscription: updated });
     } catch (error: any) {
       console.error('[subscriptions] Error reactivating subscription:', error);
@@ -1189,7 +1223,19 @@ export function subscriptions(app: Hono) {
 
       const body = await c.req.json();
       const now = new Date().toISOString();
-      const pmId = crypto.randomUUID();
+      const providedPmId = typeof body.payment_method_id === 'string' ? body.payment_method_id.trim() : '';
+      const pmId = providedPmId || crypto.randomUUID();
+
+      // Update the user's subscription first so we can attach Stripe PM when applicable.
+      const sub: Subscription | null = await kv.get(`subscription:${auth.orgId}:${auth.userId}`);
+      if (sub?.storage_backend === 'stripe' && sub.stripe_customer_id) {
+        if (!providedPmId) {
+          return c.json({
+            error: 'Stripe-backed subscriptions require payment_method_id (pm_*)',
+          }, 400);
+        }
+        await stripe.paymentMethods.attach(providedPmId, { customer: sub.stripe_customer_id });
+      }
 
       const pm: PaymentMethod = {
         id: pmId,
@@ -1206,7 +1252,6 @@ export function subscriptions(app: Hono) {
       await kv.set(`payment_method:${auth.orgId}`, pm);
 
       // Update the user's subscription with new payment method
-      const sub: Subscription | null = await kv.get(`subscription:${auth.orgId}:${auth.userId}`);
       if (sub) {
         sub.payment_method_id = pmId;
         sub.updated_at = now;
