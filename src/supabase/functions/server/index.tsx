@@ -407,14 +407,50 @@ app.get(`${PREFIX}/profiles`, async (c) => {
   try {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
+
     let query = auth.supabase.from('profiles').select('*');
     if (auth.profile.role !== 'super_admin' && auth.profile.organization_id) {
       query = query.eq('organization_id', auth.profile.organization_id);
     }
+
     const { data, error } = await query;
     if (error) return c.json({ error: error.message }, 500);
-    // profiles returned
-    return c.json({ profiles: data || [], source: 'server' });
+
+    const profiles = data || [];
+
+    // Super admins should be able to see all auth users even if a profile row
+    // has not been created yet (for example, after partial signup flows).
+    if (auth.profile.role === 'super_admin') {
+      const { data: authUsersData, error: authUsersError } = await auth.supabase.auth.admin.listUsers({ perPage: 1000 });
+      if (!authUsersError) {
+        const profileIds = new Set(profiles.map((p: any) => p.id));
+        const profileEmails = new Set(profiles.map((p: any) => (p.email || '').toLowerCase()).filter(Boolean));
+
+        const authOnlyUsers = (authUsersData.users || [])
+          .filter((au: any) => {
+            const email = (au.email || '').toLowerCase();
+            if (profileIds.has(au.id)) return false;
+            if (email && profileEmails.has(email)) return false;
+            return true;
+          })
+          .map((au: any) => ({
+            id: au.id,
+            email: (au.email || '').toLowerCase(),
+            name: au.user_metadata?.name || au.email || 'Unknown User',
+            role: au.user_metadata?.role || 'standard_user',
+            organization_id: au.user_metadata?.organizationId || null,
+            status: 'active',
+            last_login: au.last_sign_in_at || null,
+            created_at: au.created_at || new Date().toISOString(),
+            updated_at: au.updated_at || au.created_at || new Date().toISOString(),
+            source: 'auth_only',
+          }));
+
+        return c.json({ profiles: [...profiles, ...authOnlyUsers], source: 'server+auth' });
+      }
+    }
+
+    return c.json({ profiles, source: 'server' });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
