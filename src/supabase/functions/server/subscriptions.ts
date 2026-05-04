@@ -1235,6 +1235,7 @@ export function subscriptions(app: Hono) {
           }, 400);
         }
         await stripe.paymentMethods.attach(providedPmId, { customer: sub.stripe_customer_id });
+        await stripe.customers.setDefaultPaymentMethod(sub.stripe_customer_id, providedPmId);
       }
 
       const pm: PaymentMethod = {

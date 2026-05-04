@@ -268,6 +268,22 @@ class StripeClient {
     };
   }
 
+  async customers_setDefaultPaymentMethod(
+    customerId: string,
+    paymentMethodId: string
+  ): Promise<void> {
+    await this.initialize();
+
+    if (this.useStripeApi && this.stripeSDK) {
+      await this.stripeSDK.customers.update(customerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      });
+      return;
+    }
+  }
+
   // ─ Subscription Operations ───────────────────────────────────────
 
   async subscriptions_create(params: {
@@ -561,6 +577,8 @@ export const stripe = {
   customers: {
     create: (params: any) => getStripeClient().customers_create(params),
     retrieve: (customerId: string) => getStripeClient().customers_retrieve(customerId),
+    setDefaultPaymentMethod: (customerId: string, paymentMethodId: string) =>
+      getStripeClient().customers_setDefaultPaymentMethod(customerId, paymentMethodId),
   },
   paymentMethods: {
     create: (params: any) => getStripeClient().paymentMethods_create(params),

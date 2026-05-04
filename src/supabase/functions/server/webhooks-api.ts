@@ -23,6 +23,7 @@
 import { Hono } from 'npm:hono';
 import { stripe } from './stripe-client.ts';
 import * as kv from './kv_store.tsx';
+import { authenticateRequest } from './auth-helper.ts';
 
 const PREFIX = '/make-server-8405be07';
 
@@ -61,7 +62,16 @@ type BillingEvent = {
   plan_id?: 'starter' | 'professional' | 'enterprise';
   invoice_number?: string;
   support_email?: string;
+  stripe_event_id?: string;
   created_at: string;
+};
+
+type ProcessedWebhookRecord = {
+  id: string;
+  type: string;
+  processed_at: string;
+  duplicate_count?: number;
+  last_duplicate_at?: string;
 };
 
 const DEFAULT_BILLING_SUPPORT_EMAIL = 'support@prospacescrm.ca';
@@ -118,6 +128,25 @@ async function markEventProcessed(eventId: string, eventType: string): Promise<v
   });
 }
 
+async function markDuplicateDelivery(eventId: string, eventType: string): Promise<void> {
+  const key = processedEventKey(eventId);
+  const existing = (await kv.get(key)) as ProcessedWebhookRecord | null;
+  await kv.set(key, {
+    id: eventId,
+    type: eventType,
+    processed_at: existing?.processed_at || new Date().toISOString(),
+    duplicate_count: (existing?.duplicate_count || 0) + 1,
+    last_duplicate_at: new Date().toISOString(),
+  });
+}
+
+async function listProcessedWebhookEvents(limit: number): Promise<ProcessedWebhookRecord[]> {
+  const rows = await kv.getByPrefix('stripe_webhook_event:');
+  const events = (Array.isArray(rows) ? rows : []) as ProcessedWebhookRecord[];
+  events.sort((a, b) => new Date(b.processed_at).getTime() - new Date(a.processed_at).getTime());
+  return events.slice(0, limit);
+}
+
 /**
  * Ping endpoint — verify webhook endpoint is reachable
  */
@@ -126,6 +155,34 @@ webhooksAPI.get(`${PREFIX}/webhooks/stripe`, (c) => {
     status: 'ok',
     message: 'Stripe webhook endpoint is active',
     timestamp: new Date().toISOString(),
+  });
+});
+
+// SuperAdmin diagnostics for webhook idempotency/replay behavior.
+webhooksAPI.get(`${PREFIX}/webhooks/stripe/diagnostics`, async (c) => {
+  const auth = await authenticateRequest(c);
+  if (auth.error) return c.json({ error: auth.error }, auth.status);
+  if (auth.profile?.role !== 'super_admin') {
+    return c.json({ error: 'SuperAdmin access required' }, 403);
+  }
+
+  const requested = Number(c.req.query('limit') || '50');
+  const limit = Number.isFinite(requested)
+    ? Math.max(1, Math.min(200, Math.floor(requested)))
+    : 50;
+
+  const processed = await listProcessedWebhookEvents(limit);
+  const replayed = processed.filter((e) => (e.duplicate_count || 0) > 0);
+  const replayCount = replayed.reduce((sum, e) => sum + (e.duplicate_count || 0), 0);
+
+  return c.json({
+    summary: {
+      total_processed_events: processed.length,
+      replayed_events: replayed.length,
+      total_duplicate_deliveries: replayCount,
+      generated_at: new Date().toISOString(),
+    },
+    events: processed,
   });
 });
 
@@ -155,6 +212,7 @@ webhooksAPI.post(`${PREFIX}/webhooks/stripe`, async (c) => {
 
     // Idempotency guard: Stripe may retry deliveries; skip already-processed events.
     if (await isEventProcessed(event.id)) {
+      await markDuplicateDelivery(event.id, event.type);
       return c.json({ received: true, duplicate: true, id: event.id, type: event.type }, 200);
     }
 
@@ -192,6 +250,7 @@ webhooksAPI.post(`${PREFIX}/webhooks/stripe`, async (c) => {
           description: `Stripe subscription updated (${subObj.id})`,
           plan_id: next.plan_id,
           support_email: supportEmail,
+          stripe_event_id: event.id,
           created_at: nowIso,
         });
         break;
@@ -221,6 +280,7 @@ webhooksAPI.post(`${PREFIX}/webhooks/stripe`, async (c) => {
           description: `Stripe subscription canceled (${subObj.id})`,
           plan_id: next.plan_id,
           support_email: supportEmail,
+          stripe_event_id: event.id,
           created_at: nowIso,
         });
         break;
@@ -260,6 +320,7 @@ webhooksAPI.post(`${PREFIX}/webhooks/stripe`, async (c) => {
           plan_id: local.plan_id,
           invoice_number: invoice.number || undefined,
           support_email: supportEmail,
+          stripe_event_id: event.id,
           created_at: asIso(invoice.created) || nowIso,
         });
         break;
@@ -289,6 +350,7 @@ webhooksAPI.post(`${PREFIX}/webhooks/stripe`, async (c) => {
           description: `Stripe payment intent ${event.type === 'payment_intent.succeeded' ? 'succeeded' : 'failed'} (${paymentIntent.id})`,
           plan_id: local.plan_id,
           support_email: supportEmail,
+          stripe_event_id: event.id,
           created_at: asIso(paymentIntent.created) || nowIso,
         });
         break;
@@ -312,6 +374,7 @@ webhooksAPI.post(`${PREFIX}/webhooks/stripe`, async (c) => {
           description: `Stripe charge refunded (${charge.id})`,
           plan_id: local.plan_id,
           support_email: supportEmail,
+          stripe_event_id: event.id,
           created_at: asIso(charge.created) || nowIso,
         });
         break;
