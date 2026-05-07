@@ -813,6 +813,7 @@ export function Inventory({ user, onNavigate }: InventoryProps) {
 
   const handleOpenInventoryImport = () => {
     sessionStorage.setItem('prospaces_import_export_focus', 'inventory-import');
+    sessionStorage.setItem('prospaces_import_export_scope', 'inventory-only');
 
     if (onNavigate) {
       onNavigate('import-export');

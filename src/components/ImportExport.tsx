@@ -116,7 +116,7 @@ const DATABASE_FIELDS = {
 
 export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [activeTab, setActiveTab] = useState('import');
-  const inventoryOnlyMode = true;
+  const [inventoryOnlyMode, setInventoryOnlyMode] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -126,7 +126,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   // Scheduling state
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [scheduleJobType, setScheduleJobType] = useState<'import' | 'export'>('import');
-  const [scheduleDataType, setScheduleDataType] = useState<'contacts' | 'inventory' | 'bids'>('inventory');
+  const [scheduleDataType, setScheduleDataType] = useState<'contacts' | 'inventory' | 'bids'>('contacts');
   const [scheduleDateTime, setScheduleDateTime] = useState('');
   const [scheduleFileName, setScheduleFileName] = useState('');
   const [scheduleFileData, setScheduleFileData] = useState<any[] | null>(null);
@@ -134,8 +134,14 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
   useEffect(() => {
     const focusTarget = sessionStorage.getItem('prospaces_import_export_focus');
+    const scope = sessionStorage.getItem('prospaces_import_export_scope');
+
+    if (scope === 'inventory-only') {
+      setInventoryOnlyMode(true);
+    }
 
     if (focusTarget !== 'inventory-import') {
+      sessionStorage.removeItem('prospaces_import_export_scope');
       return;
     }
 
@@ -147,6 +153,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     }, 60);
 
     sessionStorage.removeItem('prospaces_import_export_focus');
+    sessionStorage.removeItem('prospaces_import_export_scope');
     return () => window.clearTimeout(timeoutId);
   }, []);
 
@@ -1362,8 +1369,8 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           onOpenScheduledJobs={() => onNavigate ? onNavigate('scheduled-jobs') : window.location.hash = '#scheduled-jobs'}
           onOpenScheduleDialog={() => {
             setScheduleJobType('export');
-            setScheduleDataType('inventory');
-            setScheduleFileName(`inventory_export_${new Date().toISOString().split('T')[0]}.csv`);
+            setScheduleDataType('contacts');
+            setScheduleFileName(`contacts_export_${new Date().toISOString().split('T')[0]}.csv`);
             setScheduleFileData(null);
             setShowScheduleDialog(true);
           }}
@@ -1426,8 +1433,8 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="import">Import Inventory</TabsTrigger>
-          <TabsTrigger value="export">Export Inventory</TabsTrigger>
+          <TabsTrigger value="import">Import Data</TabsTrigger>
+          <TabsTrigger value="export">Export Data</TabsTrigger>
         </TabsList>
 
         <TabsContent value="import" className="space-y-4">
@@ -1436,7 +1443,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               <Alert>
                 <FileSpreadsheet className="h-4 w-4" />
                 <AlertDescription>
-                  Import inventory from CSV or Excel files (.csv, .xlsx, .xls). The first row must contain column headers. You can map your columns to inventory fields before importing.
+                  Import data from CSV or Excel files (.csv, .xlsx, .xls). The first row must contain column headers. You'll be able to map your columns to database fields.
                 </AlertDescription>
               </Alert>
 
@@ -1625,7 +1632,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           <Alert>
             <FileSpreadsheet className="h-4 w-4" />
             <AlertDescription>
-              Export inventory to CSV for backup, auditing, or migration.
+              Export your data to CSV files for backup or migration to other systems.
             </AlertDescription>
           </Alert>
 
