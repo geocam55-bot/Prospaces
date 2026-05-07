@@ -6,6 +6,8 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { AlertCircle, Ban, Eye, Pencil, RefreshCw, Save, Shield } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
+import { getServerHeaders } from '../utils/server-headers';
+import { projectId } from '../utils/supabase/info';
 import { toast } from 'sonner@2.0.3';
 import { PermissionsTableSetup } from './PermissionsTableSetup';
 import type { UserRole } from '../App';
@@ -246,6 +248,26 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
       if (insertError) throw insertError;
 
       await loadPermissions(selectedRole);
+
+      // Sync all roles' permissions to the KV store so initializePermissions picks them up
+      try {
+        const { data: allPerms } = await supabase.from('permissions').select('*');
+        if (allPerms && allPerms.length > 0) {
+          const orgId = localStorage.getItem('currentOrgId');
+          const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
+          const headers = await getServerHeaders();
+          if (orgId && headers['X-User-Token']) {
+            await fetch(`${SERVER_BASE}/permissions`, {
+              method: 'PUT',
+              headers: { ...headers, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ permissions: allPerms, organization_id: orgId }),
+            });
+          }
+        }
+      } catch {
+        // KV sync failure is non-fatal; permissions are saved in the DB
+      }
+
       toast.success(`Hierarchical access saved for ${ROLES.find((role) => role.value === selectedRole)?.label}!`);
     } catch {
       toast.error('Failed to save hierarchical access');
