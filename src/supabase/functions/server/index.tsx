@@ -129,8 +129,14 @@ app.put(`${PREFIX}/permissions`, async (c) => {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
     if (!['admin', 'super_admin'].includes(auth.profile.role)) return c.json({ error: 'Forbidden' }, 403);
-    const orgId = auth.profile.organization_id;
     const body = await c.req.json();
+    const orgId = body.organization_id || auth.profile.organization_id;
+    if (!orgId) return c.json({ error: 'Missing organization_id' }, 400);
+
+    if (auth.profile.role === 'admin' && auth.profile.organization_id !== orgId) {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+
     await kv.set(`permissions:${orgId}`, body.permissions);
     if (body.changedBy) {
       const auditKey = `audit_logs:${orgId}`;
@@ -140,7 +146,7 @@ app.put(`${PREFIX}/permissions`, async (c) => {
       if (logs.length > 100) logs = logs.slice(0, 100);
       await kv.set(auditKey, logs);
     }
-    return c.json({ success: true });
+    return c.json({ success: true, organization_id: orgId });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
