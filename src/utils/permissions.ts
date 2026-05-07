@@ -605,6 +605,8 @@ export async function initializePermissions(role: UserRole) {
       setTimeout(() => reject(new Error('Permissions fetch timeout')), 3000)
     );
 
+    let kvHadData = false;
+
     try {
       const res = await Promise.race([
         fetch(`${SERVER_BASE}/permissions?organization_id=${encodeURIComponent(orgId)}`, {
@@ -619,6 +621,7 @@ export async function initializePermissions(role: UserRole) {
           applyPermissionRecords(json.permissions);
           localStorage.setItem(`permissions_${orgId}`, JSON.stringify(normalizePermissionRecords(json.permissions)));
           notifyPermissionsChanged();
+          kvHadData = true;
         }
       } else if (res.status === 401) {
         try {
@@ -637,15 +640,44 @@ export async function initializePermissions(role: UserRole) {
                 applyPermissionRecords(retryJson.permissions);
                 localStorage.setItem(`permissions_${orgId}`, JSON.stringify(normalizePermissionRecords(retryJson.permissions)));
                 notifyPermissionsChanged();
+                kvHadData = true;
               }
             }
           }
         } catch {
-          // Ignore retry failures and continue using current cached permissions
+          // Ignore retry failures
         }
       }
     } catch {
-      // Ignore fetch failures and continue using defaults + local storage
+      // Ignore fetch failures
+    }
+
+    // KV store had no data — fall back to the Supabase permissions table directly
+    if (!kvHadData) {
+      try {
+        const { createClient: createSB } = await import('./supabase/client');
+        const sb = createSB();
+        const { data: dbPerms } = await sb.from('permissions').select('*');
+        if (dbPerms && dbPerms.length > 0) {
+          applyPermissionRecords(dbPerms as PermissionRecord[]);
+          localStorage.setItem(`permissions_${orgId}`, JSON.stringify(normalizePermissionRecords(dbPerms as PermissionRecord[])));
+          notifyPermissionsChanged();
+          // Also backfill the KV store so future loads are faster
+          try {
+            if (headers['X-User-Token']) {
+              await fetch(`${SERVER_BASE}/permissions`, {
+                method: 'PUT',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ permissions: dbPerms, organization_id: orgId }),
+              });
+            }
+          } catch {
+            // KV backfill failure is non-fatal
+          }
+        }
+      } catch {
+        // DB fallback failed — keep defaults
+      }
     }
   } catch {
     // Ignore initialization failures and leave default permissions in place
