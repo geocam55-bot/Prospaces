@@ -141,4 +141,18 @@ describe('space-based permissions', () => {
     expect(permissionToAccessLevel(getDefaultPermission('project-wizards', 'standard_user'))).toBe('full');
     expect(permissionToAccessLevel(getDefaultPermission('kitchen-planner', 'standard_user'))).toBe('full');
   });
+
+  it('deduplicates duplicate role+module records using the latest value', () => {
+    const normalized = normalizePermissionRecords([
+      { module: getSpacePermissionKey('inventory'), role: 'manager', visible: true, add: false, change: false, delete: false },
+      { module: getSpacePermissionKey('inventory'), role: 'manager', visible: true, add: true, change: true, delete: true },
+    ]);
+
+    const inventoryRows = normalized.filter(
+      (entry) => entry.module === getSpacePermissionKey('inventory') && entry.role === 'manager'
+    );
+
+    expect(inventoryRows).toHaveLength(1);
+    expect(permissionToAccessLevel(inventoryRows[0])).toBe('full');
+  });
 });

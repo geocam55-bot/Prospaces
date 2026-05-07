@@ -495,7 +495,14 @@ export function normalizePermissionRecords(records: PermissionRecord[] = []): Pe
     .map(normalizeRecord)
     .filter((record): record is PermissionRecord => !!record);
 
-  if (validRecords.length === 0) {
+  // Keep a single record per role+module. If duplicates exist, later entries win.
+  const dedupedRecordMap = new Map<string, PermissionRecord>();
+  validRecords.forEach((record) => {
+    dedupedRecordMap.set(`${record.module}:${record.role}`, record);
+  });
+  const dedupedRecords = Array.from(dedupedRecordMap.values());
+
+  if (dedupedRecords.length === 0) {
     return ALL_ROLES.flatMap((role) =>
       ALL_SPACES.map((space) => ({
         module: getSpacePermissionKey(space.id),
@@ -505,13 +512,13 @@ export function normalizePermissionRecords(records: PermissionRecord[] = []): Pe
     );
   }
 
-  const hasSpaceRecords = validRecords.some((record) => isSpacePermissionModule(record.module));
+  const hasSpaceRecords = dedupedRecords.some((record) => isSpacePermissionModule(record.module));
   if (!hasSpaceRecords) {
-    return migrateLegacyPermissions(validRecords);
+    return migrateLegacyPermissions(dedupedRecords);
   }
 
   const recordMap = new Map<string, PermissionRecord>();
-  validRecords.forEach((record) => {
+  dedupedRecords.forEach((record) => {
     recordMap.set(`${record.module}:${record.role}`, record);
   });
 
@@ -529,7 +536,7 @@ export function normalizePermissionRecords(records: PermissionRecord[] = []): Pe
     })
   );
 
-  const extraDirectRecords = validRecords
+  const extraDirectRecords = dedupedRecords
     .filter((record) => !isSpacePermissionModule(record.module))
     .map((record) => ({
       ...record,
