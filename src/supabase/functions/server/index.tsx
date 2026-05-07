@@ -2322,6 +2322,89 @@ app.post(`${PREFIX}/create-user`, async (c) => {
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
+app.patch(`${PREFIX}/users/:id`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (!['admin', 'super_admin'].includes(auth.profile.role)) {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+
+    const id = c.req.param('id');
+    if (!id) return c.json({ error: 'Missing user id' }, 400);
+
+    const body = await c.req.json();
+    const nextName = body.name;
+    const nextEmail = body.email?.toLowerCase();
+    const nextRole = body.role;
+    const nextOrgId = body.organization_id;
+    const nextStatus = body.status;
+
+    const { data: existingProfile, error: existingProfileError } = await auth.supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (existingProfileError) return c.json({ error: existingProfileError.message }, 500);
+    if (!existingProfile) return c.json({ error: 'User not found' }, 404);
+
+    if (auth.profile.role !== 'super_admin' && existingProfile.organization_id !== auth.profile.organization_id) {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+
+    if (auth.profile.role !== 'super_admin' && nextOrgId && nextOrgId !== auth.profile.organization_id) {
+      return c.json({ error: 'Admins can only assign users within their own organization' }, 403);
+    }
+
+    const finalName = nextName ?? existingProfile.name;
+    const finalEmail = nextEmail ?? existingProfile.email;
+    const finalRole = nextRole ?? existingProfile.role;
+    const finalOrgId = nextOrgId ?? existingProfile.organization_id;
+    const finalStatus = nextStatus ?? existingProfile.status;
+
+    const { data: authUsersData, error: listUsersError } = await auth.supabase.auth.admin.listUsers();
+    if (listUsersError) return c.json({ error: listUsersError.message }, 500);
+
+    const authUser = authUsersData.users?.find((user: any) => user.id === id);
+    if (!authUser) return c.json({ error: 'Auth user not found' }, 404);
+
+    const mergedUserMetadata = {
+      ...(authUser.user_metadata || {}),
+      name: finalName,
+      role: finalRole,
+      organizationId: finalOrgId,
+    };
+
+    const { error: authUpdateError } = await auth.supabase.auth.admin.updateUserById(id, {
+      email: finalEmail,
+      user_metadata: mergedUserMetadata,
+    });
+
+    if (authUpdateError) return c.json({ error: authUpdateError.message }, 500);
+
+    const { data: updatedProfile, error: profileUpdateError } = await auth.supabase
+      .from('profiles')
+      .update({
+        name: finalName,
+        email: finalEmail,
+        role: finalRole,
+        organization_id: finalOrgId,
+        status: finalStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (profileUpdateError) return c.json({ error: profileUpdateError.message }, 500);
+
+    return c.json({ success: true, user: updatedProfile });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ── CONFIRM EMAIL (auto-fix unconfirmed admin-created users) ────────────
 app.post(`${PREFIX}/confirm-email`, async (c) => {
   try {
