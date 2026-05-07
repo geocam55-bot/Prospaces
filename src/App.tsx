@@ -534,15 +534,22 @@ export function AppContent() {
   }
 
   const handleMemberLogin = async (user: User, token: string) => {
-    await initializePermissions(user.role);
     if (user.organizationId || user.organization_id) {
       const orgId = user.organizationId || user.organization_id;
+      if (orgId) {
+        localStorage.setItem('currentOrgId', orgId);
+      }
+
+      await initializePermissions(user.role);
+
       const { data: org } = await supabase
         .from('organizations')
         .select('*')
         .eq('id', orgId!)
         .single();
       if (org) setOrganization(org);
+    } else {
+      await initializePermissions(user.role);
     }
     
     setUser(user);

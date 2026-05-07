@@ -21,6 +21,7 @@ import { createClient, getSupabaseUrl } from '../../utils/supabase/client';
 import { publicAnonKey } from '../../utils/supabase/info';
 import { ChangePasswordDialog } from '../ChangePasswordDialog';
 import type { User, UserRole } from '../../App';
+import { canAccessSpace, initializePermissions } from '../../utils/permissions';
 
 type LoginDestination = 'inventory' | 'crm';
 
@@ -169,15 +170,15 @@ export function InventoryLogin({ onLogin }: InventoryLoginProps) {
         throw new Error('Could not load your user profile.');
       }
 
-      // Role check for Inventory Space
+      if (profile.organization_id) {
+        localStorage.setItem('currentOrgId', profile.organization_id);
+      }
+
+      await initializePermissions(profile.role as UserRole);
+
+      // Access check for Inventory Space
       if (destination === 'inventory') {
-        const allowedRoles: UserRole[] = [
-          'super_admin',
-          'admin',
-          'director',
-          'manager',
-        ];
-        if (!allowedRoles.includes(profile.role as UserRole)) {
+        if (!canAccessSpace('inventory', profile.role as UserRole, 'view')) {
           throw new Error('You do not have access to Inventory Space. Contact your administrator.');
         }
       }

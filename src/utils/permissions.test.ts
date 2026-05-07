@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   canAdd,
+  canAccessSpace,
   canChange,
   canView,
   getDefaultPermission,
@@ -167,6 +168,7 @@ describe('space-based permissions', () => {
 
     refreshPermissionsFromStorage();
 
+    expect(canAccessSpace('inventory', 'standard_user', 'view')).toBe(true);
     expect(canView('inventory', 'standard_user')).toBe(true);
     expect(canAdd('inventory', 'standard_user')).toBe(true);
     expect(canChange('inventory', 'standard_user')).toBe(true);
