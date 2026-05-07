@@ -723,8 +723,31 @@ export function getSpacePermission(spaceId: SpaceId, role: UserRole): Permission
 }
 
 export function canAccessSpace(spaceId: SpaceId, role: UserRole, requiredLevel: 'view' | 'full' = 'view'): boolean {
-  const accessLevel = permissionToAccessLevel(getSpacePermission(spaceId, role));
-  return requiredLevel === 'full' ? accessLevel === 'full' : accessLevel !== 'none';
+  const spacePermission = getSpacePermission(spaceId, role);
+  const accessLevel = permissionToAccessLevel(spacePermission);
+
+  if (requiredLevel === 'full') {
+    if (accessLevel === 'full') {
+      return true;
+    }
+  } else if (accessLevel !== 'none') {
+    return true;
+  }
+
+  // Fallback for legacy/module-only datasets where explicit space:* rows are missing.
+  const space = ALL_SPACES.find((entry) => entry.id === spaceId);
+  if (!space) {
+    return false;
+  }
+
+  if (requiredLevel === 'full') {
+    return space.modules.some((module) => {
+      const modulePermission = permissionsCache.get(permissionKey(module, role));
+      return !!modulePermission && (modulePermission.add || modulePermission.change || modulePermission.delete);
+    });
+  }
+
+  return space.modules.some((module) => !!permissionsCache.get(permissionKey(module, role))?.visible);
 }
 
 /**

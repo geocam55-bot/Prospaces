@@ -188,4 +188,18 @@ describe('space-based permissions', () => {
     expect(canView('security', 'standard_user')).toBe(true);
     expect(canView('users', 'standard_user')).toBe(true);
   });
+
+  it('allows inventory space access from module-only records when space records are absent', () => {
+    localStorage.setItem(
+      'permissions_org_001',
+      JSON.stringify([
+        { module: 'inventory', role: 'standard_user', visible: true, add: true, change: true, delete: true },
+      ])
+    );
+
+    refreshPermissionsFromStorage();
+
+    expect(canAccessSpace('inventory', 'standard_user', 'view')).toBe(true);
+    expect(canAccessSpace('inventory', 'standard_user', 'full')).toBe(true);
+  });
 });
