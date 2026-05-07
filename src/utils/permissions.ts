@@ -179,6 +179,19 @@ function unionPermissions(a: Permission, b: Permission): Permission {
   };
 }
 
+function capPermissionToRole(base: Permission, override?: Partial<Permission>): Permission {
+  if (!override) {
+    return { ...base };
+  }
+
+  return {
+    visible: base.visible && !!override.visible,
+    add: base.add && !!override.add,
+    change: base.change && !!override.change,
+    delete: base.delete && !!override.delete,
+  };
+}
+
 /**
  * Subscribe to permission changes
  */
@@ -388,7 +401,7 @@ function applySpaceAccessToModule(basePermission: Permission, spacePermission: P
 function resolveEffectivePermission(module: string, role: UserRole): Permission {
   const basePermission = getRoleCapabilityPermission(module, role);
   const directOverride = directPermissionsCache.get(permissionKey(module, role));
-  const effectiveModulePermission = clonePermission(directOverride || basePermission);
+  const effectiveModulePermission = capPermissionToRole(basePermission, directOverride);
   const spaces = MODULE_TO_SPACES[module] || [];
 
   if (spaces.length === 0) {
