@@ -400,26 +400,27 @@ export async function updateUserClient(id: string, updates: Partial<ClientUser>)
       throw new Error('Profiles table not set up. Please run the database migration first.');
     }
 
-    // Update in profiles table
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .update({
+    const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/users/${id}`;
+    const headers = await getServerHeaders();
+    const response = await fetch(serverUrl, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({
         name: updates.name,
         email: updates.email,
         role: updates.role,
         organization_id: updates.organization_id,
         status: updates.status,
-      })
-      .eq('id', id)
-      .select()
-      .single();
+      }),
+    });
 
-    if (error) {
-      // Error updating user
-      throw new Error('Failed to update user: ' + error.message);
+    const result = await response.json();
+
+    if (!response.ok || !result?.success) {
+      throw new Error(result?.error || 'Failed to update user');
     }
 
-    return { user: profile };
+    return { user: result.user };
   } catch (error: any) {
     // Error in updateUserClient
     throw error;
