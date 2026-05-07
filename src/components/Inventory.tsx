@@ -812,13 +812,16 @@ export function Inventory({ user, onNavigate }: InventoryProps) {
   };
 
   const handleOpenInventoryImport = () => {
-    if (!onNavigate) {
-      toast.error('Import module is not available in this view.');
+    sessionStorage.setItem('prospaces_import_export_focus', 'inventory-import');
+
+    if (onNavigate) {
+      onNavigate('import-export');
       return;
     }
 
-    sessionStorage.setItem('prospaces_import_export_focus', 'inventory-import');
-    onNavigate('import-export');
+    // Fallback for inventory-only shell: route to the main app and open Import/Export.
+    sessionStorage.setItem('prospaces_current_view', 'import-export');
+    window.location.href = '/';
   };
 
   const handleManualScan = async () => {
@@ -999,13 +1002,11 @@ export function Inventory({ user, onNavigate }: InventoryProps) {
             <span className="hidden sm:inline">Export CSV</span>
             <span className="sm:hidden ml-2">Export</span>
           </Button>
-          {onNavigate && (
-            <Button variant="outline" onClick={handleOpenInventoryImport} className="flex-1 sm:flex-none">
-              <Upload className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Import CSV</span>
-              <span className="sm:hidden ml-2">Import</span>
-            </Button>
-          )}
+          <Button variant="outline" onClick={handleOpenInventoryImport} className="flex-1 sm:flex-none">
+            <Upload className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Import CSV</span>
+            <span className="sm:hidden ml-2">Import</span>
+          </Button>
           {canAdd('inventory', user.role) && (
           <Button onClick={() => handleOpenDialog()} className="flex-1 sm:flex-none">
             <Plus className="h-4 w-4 sm:mr-2" />
