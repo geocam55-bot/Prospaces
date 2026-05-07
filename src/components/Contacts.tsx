@@ -20,6 +20,7 @@ import type { User } from '../App';
 import { PermissionGate, PermissionButton } from './PermissionGate';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { ContactDetail } from './ContactDetail';
+import { ImportExport } from './ImportExport';
 import { useDebounce } from '../utils/useDebounce';
 import { getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings';
 import { useAudienceSegments } from '../hooks/useAudienceSegments';
@@ -83,6 +84,7 @@ export function Contacts({ user }: ContactsProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [showContactDetail, setShowContactDetail] = useState(false);
+    const [showImportExportWindow, setShowImportExportWindow] = useState(false);
   
   // ⚡ Performance: Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -287,6 +289,12 @@ export function Contacts({ user }: ContactsProps) {
   const closeEditContact = () => {
     setEditingContact(null);
     setIsEditDialogOpen(false);
+  };
+
+  const openCustomerImportExport = (focus: 'contacts-import' | 'contacts-export') => {
+    sessionStorage.setItem('prospaces_import_export_focus', focus);
+    sessionStorage.setItem('prospaces_import_export_scope', 'contacts-only');
+    setShowImportExportWindow(true);
   };
 
   // Diagnose and fix contact ownership via server endpoint (bypasses RLS)
@@ -1631,7 +1639,48 @@ export function Contacts({ user }: ContactsProps) {
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <Button
+                    variant="outline"
+                    className="h-11"
+                    onClick={() => openCustomerImportExport('contacts-export')}
+                  >
+                    Export CSV
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="h-11"
+                    onClick={() => openCustomerImportExport('contacts-import')}
+                  >
+                    Import CSV
+                  </Button>
+
                   <Select value={selectedTagFilter} onValueChange={setSelectedTagFilter}>
+
+                          <Dialog open={showImportExportWindow} onOpenChange={setShowImportExportWindow}>
+                            <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 !m-0 !rounded-none sm:border-l shadow-2xl p-0 flex flex-col overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
+                              <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 border-b bg-background sticky top-0 z-10">
+                                <div className="flex items-center justify-between gap-3">
+                                  <DialogTitle>Import and Export</DialogTitle>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowImportExportWindow(false)}
+                                    className="flex items-center gap-2"
+                                  >
+                                    <ArrowLeft className="h-4 w-4" />
+                                    Back
+                                  </Button>
+                                </div>
+                                <DialogDescription className="sr-only">
+                                  Import and export customers without leaving the Customer module.
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="flex-1 overflow-y-auto">
+                                <ImportExport user={user} />
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                     <SelectTrigger className="h-11 w-full border-slate-200 bg-white sm:w-[190px]">
                       <SelectValue placeholder="Filter..." />
                     </SelectTrigger>

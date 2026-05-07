@@ -117,7 +117,7 @@ const DATABASE_FIELDS = {
 
 export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [activeTab, setActiveTab] = useState('import');
-  const [inventoryOnlyMode, setInventoryOnlyMode] = useState(false);
+  const [scopedModule, setScopedModule] = useState<'inventory' | 'contacts' | null>(null);
   const [currentPlanId, setCurrentPlanId] = useState<PlanId | 'free'>('free');
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -153,25 +153,43 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     const scope = sessionStorage.getItem('prospaces_import_export_scope');
 
     if (scope === 'inventory-only') {
-      setInventoryOnlyMode(true);
+      setScopedModule('inventory');
+    } else if (scope === 'contacts-only') {
+      setScopedModule('contacts');
     }
 
-    if (focusTarget !== 'inventory-import') {
+    if (!focusTarget) {
       sessionStorage.removeItem('prospaces_import_export_scope');
       return;
     }
 
-    setActiveTab('import');
+    if (focusTarget === 'inventory-import' || focusTarget === 'contacts-import') {
+      setActiveTab('import');
+    }
+    if (focusTarget === 'inventory-export' || focusTarget === 'contacts-export') {
+      setActiveTab('export');
+    }
 
     const timeoutId = window.setTimeout(() => {
-      const inventoryImportCard = document.getElementById('import-inventory-card');
-      inventoryImportCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const targetIdByFocus: Record<string, string> = {
+        'inventory-import': 'import-inventory-card',
+        'contacts-import': 'import-contacts-card',
+        'inventory-export': 'export-inventory-card',
+        'contacts-export': 'export-contacts-card',
+      };
+      const targetId = targetIdByFocus[focusTarget];
+      if (!targetId) return;
+      const targetCard = document.getElementById(targetId);
+      targetCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 60);
 
     sessionStorage.removeItem('prospaces_import_export_focus');
     sessionStorage.removeItem('prospaces_import_export_scope');
     return () => window.clearTimeout(timeoutId);
   }, []);
+
+  const inventoryOnlyMode = scopedModule === 'inventory';
+  const contactsOnlyMode = scopedModule === 'contacts';
 
   useEffect(() => {
     let cancelled = false;
@@ -1420,9 +1438,9 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     <PermissionGate user={user} module="import-export" action="view">
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex items-center justify-end gap-3">
-        {inventoryOnlyMode && (
+        {scopedModule && (
           <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-            Inventory Mode
+            {scopedModule === 'inventory' ? 'Inventory Mode' : 'Customer Mode'}
           </span>
         )}
         <ImportExportModuleHelp
@@ -1564,7 +1582,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
               {/* Import Contacts */}
               {!inventoryOnlyMode && (
-              <Card>
+              <Card id="import-contacts-card">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
@@ -1623,6 +1641,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               )}
 
               {/* Import Inventory */}
+              {!contactsOnlyMode && (
               <Card id="import-inventory-card">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1679,9 +1698,10 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   </p>
                 </CardContent>
               </Card>
+              )}
 
               {/* Import Deals */}
-              {!inventoryOnlyMode && (
+              {!inventoryOnlyMode && !contactsOnlyMode && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1753,7 +1773,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
           {/* Export Contacts */}
           {!inventoryOnlyMode && (
-          <Card>
+          <Card id="export-contacts-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -1790,7 +1810,8 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           )}
 
           {/* Export Inventory */}
-          <Card>
+          {!contactsOnlyMode && (
+          <Card id="export-inventory-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5" />
@@ -1824,9 +1845,10 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               </Button>
             </CardContent>
           </Card>
+          )}
 
           {/* Export Deals */}
-          {!inventoryOnlyMode && (
+          {!inventoryOnlyMode && !contactsOnlyMode && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
