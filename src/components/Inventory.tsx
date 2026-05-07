@@ -52,6 +52,7 @@ import { loadInventoryPage } from '../utils/inventory-loader';
 import { showOptimizationInstructions } from '../utils/show-optimization-instructions';
 import { getPriceTierLabel, isTierActive, getActiveTierNumbers } from '../lib/global-settings';
 import { InventoryDiagnostic } from './InventoryDiagnostic';
+import { ImportExport } from './ImportExport';
 
 // Module-level singleton — avoids re-creation per render
 const supabase = createClient();
@@ -105,6 +106,7 @@ export function Inventory({ user, onNavigate }: InventoryProps) {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [activeTab, setActiveTab] = useState('items');
+  const [showImportExportWindow, setShowImportExportWindow] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [scanResult, setScanResult] = useState<{ title: string; message: string; type: 'info' | 'success' | 'error'; action?: () => void } | null>(null);
   const [tableExists, setTableExists] = useState(true);
@@ -814,15 +816,7 @@ export function Inventory({ user, onNavigate }: InventoryProps) {
   const handleOpenInventoryImport = () => {
     sessionStorage.setItem('prospaces_import_export_focus', 'inventory-import');
     sessionStorage.setItem('prospaces_import_export_scope', 'inventory-only');
-
-    if (onNavigate) {
-      onNavigate('import-export');
-      return;
-    }
-
-    // Fallback for inventory-only shell: route to the main app and open Import/Export.
-    sessionStorage.setItem('prospaces_current_view', 'import-export');
-    window.location.href = '/';
+    setShowImportExportWindow(true);
   };
 
   const handleManualScan = async () => {
@@ -1073,6 +1067,20 @@ export function Inventory({ user, onNavigate }: InventoryProps) {
                 Proceed
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showImportExportWindow} onOpenChange={setShowImportExportWindow}>
+        <DialogContent className="w-[98vw] max-w-7xl h-[92vh] p-0 flex flex-col">
+          <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 border-b">
+            <DialogTitle>Import and Export</DialogTitle>
+            <DialogDescription className="sr-only">
+              Import and export inventory without leaving the Inventory module.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            <ImportExport user={user} onNavigate={onNavigate} />
           </div>
         </DialogContent>
       </Dialog>
