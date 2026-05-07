@@ -34,6 +34,7 @@ import {
 
 import { getPriceTierLabel } from '../lib/global-settings';
 import { ImportExportModuleHelp } from './ImportExportModuleHelp';
+import { getCurrentSubscription, type PlanId } from '../utils/subscription-client';
 
 interface ImportExportProps {
   user: User;
@@ -117,6 +118,7 @@ const DATABASE_FIELDS = {
 export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [activeTab, setActiveTab] = useState('import');
   const [inventoryOnlyMode, setInventoryOnlyMode] = useState(false);
+  const [currentPlanId, setCurrentPlanId] = useState<PlanId | 'free'>('free');
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -131,6 +133,20 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [scheduleFileName, setScheduleFileName] = useState('');
   const [scheduleFileData, setScheduleFileData] = useState<any[] | null>(null);
   const [isScheduling, setIsScheduling] = useState(false);
+
+  const isFreeUser = currentPlanId === 'free';
+  const isFreeOrStandardUser = isFreeUser || currentPlanId === 'starter';
+  const canUseProBackgroundTools = !isFreeOrStandardUser;
+
+  const showProOnlyMessage = () => {
+    toast.info('This options is for Professional or Higher Users');
+  };
+
+  const applyFreeImportLimit = (rows: any[]) => {
+    if (!isFreeUser || rows.length <= 100) return rows;
+    toast.info('Free users can import up to 100 records. Only the first 100 records were loaded.');
+    return rows.slice(0, 100);
+  };
 
   useEffect(() => {
     const focusTarget = sessionStorage.getItem('prospaces_import_export_focus');
@@ -155,6 +171,29 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     sessionStorage.removeItem('prospaces_import_export_focus');
     sessionStorage.removeItem('prospaces_import_export_scope');
     return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSubscriptionPlan = async () => {
+      try {
+        const sub = await getCurrentSubscription();
+        if (!cancelled) {
+          setCurrentPlanId(sub?.plan_id || 'free');
+        }
+      } catch {
+        if (!cancelled) {
+          setCurrentPlanId('free');
+        }
+      }
+    };
+
+    loadSubscriptionPlan();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Create scheduled job
@@ -217,6 +256,11 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
   // Open schedule dialog for export
   const openScheduleExportDialog = (dataType: 'contacts' | 'inventory' | 'bids') => {
+    if (!canUseProBackgroundTools) {
+      showProOnlyMessage();
+      return;
+    }
+
     setScheduleJobType('export');
     setScheduleDataType(dataType);
     setScheduleFileName(`${dataType}_export_${new Date().toISOString().split('T')[0]}.csv`);
@@ -226,6 +270,11 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
   // Open schedule dialog for import (with file data)
   const openScheduleImportDialog = (dataType: 'contacts' | 'inventory' | 'bids', fileName: string, fileData: any[]) => {
+    if (!canUseProBackgroundTools) {
+      showProOnlyMessage();
+      return;
+    }
+
     setScheduleJobType('import');
     setScheduleDataType(dataType);
     setScheduleFileName(fileName);
@@ -235,6 +284,11 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
   // Create background import job (runs immediately in background)
   const createBackgroundImportJob = async () => {
+    if (!canUseProBackgroundTools) {
+      showProOnlyMessage();
+      return;
+    }
+
     if (!mappingState) return;
 
     const { type, data, mapping } = mappingState;
@@ -593,7 +647,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     setImportResult(null);
 
     try {
-      const data = await parseFile(file);
+      const data = applyFreeImportLimit(await parseFile(file));
       
       if (data.length === 0) {
         toast.error('No data found in file');
@@ -656,7 +710,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       }
 
       // Parse as CSV
-      const data = parseCSV(text);
+      const data = applyFreeImportLimit(parseCSV(text));
       
       if (data.length === 0) {
         toast.error('No valid data found in clipboard');
@@ -733,6 +787,13 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         const hasData = Object.values(row).some(v => v !== undefined && v !== null && String(v).trim() !== '');
         return hasData;
       });
+
+      if (isFreeUser && mappedData.length > 100) {
+        toast.error('Free users can import up to 100 records per import.');
+        setIsImporting(false);
+        setImportProgress(null);
+        return;
+      }
 
       if (mappedDataRaw.length !== mappedData.length) {
         // Filtered out empty rows after mapping
@@ -1304,7 +1365,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   mappingState.data
                 );
               }}
-              disabled={isImporting}
+              disabled={isImporting || !canUseProBackgroundTools}
               className="flex items-center gap-2"
             >
               <Clock className="h-4 w-4" />
@@ -1313,7 +1374,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
             <Button
               variant="secondary"
               onClick={createBackgroundImportJob}
-              disabled={isImporting}
+              disabled={isImporting || !canUseProBackgroundTools}
               className="flex items-center gap-2"
             >
               <Upload className="h-4 w-4" />
@@ -1370,9 +1431,25 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           isExporting={isExporting}
           onOpenImportTab={() => setActiveTab('import')}
           onOpenExportTab={() => setActiveTab('export')}
-          onOpenBackgroundImports={() => onNavigate ? onNavigate('background-imports') : window.location.hash = '#background-imports'}
-          onOpenScheduledJobs={() => onNavigate ? onNavigate('scheduled-jobs') : window.location.hash = '#scheduled-jobs'}
+          onOpenBackgroundImports={() => {
+            if (!canUseProBackgroundTools) {
+              showProOnlyMessage();
+              return;
+            }
+            onNavigate ? onNavigate('background-imports') : window.location.hash = '#background-imports';
+          }}
+          onOpenScheduledJobs={() => {
+            if (!canUseProBackgroundTools) {
+              showProOnlyMessage();
+              return;
+            }
+            onNavigate ? onNavigate('scheduled-jobs') : window.location.hash = '#scheduled-jobs';
+          }}
           onOpenScheduleDialog={() => {
+            if (!canUseProBackgroundTools) {
+              showProOnlyMessage();
+              return;
+            }
             setScheduleJobType('export');
             setScheduleDataType('contacts');
             setScheduleFileName(`contacts_export_${new Date().toISOString().split('T')[0]}.csv`);
@@ -1382,7 +1459,14 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         />
         <Button
           variant="outline"
-          onClick={() => onNavigate ? onNavigate('background-imports') : window.location.hash = '#background-imports'}
+          onClick={() => {
+            if (!canUseProBackgroundTools) {
+              showProOnlyMessage();
+              return;
+            }
+            onNavigate ? onNavigate('background-imports') : window.location.hash = '#background-imports';
+          }}
+          disabled={!canUseProBackgroundTools}
           className="flex items-center gap-2"
         >
           <Upload className="h-4 w-4" />
@@ -1390,13 +1474,38 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         </Button>
         <Button
           variant="outline"
-          onClick={() => onNavigate ? onNavigate('scheduled-jobs') : window.location.hash = '#scheduled-jobs'}
+          onClick={() => {
+            if (!canUseProBackgroundTools) {
+              showProOnlyMessage();
+              return;
+            }
+            onNavigate ? onNavigate('scheduled-jobs') : window.location.hash = '#scheduled-jobs';
+          }}
+          disabled={!canUseProBackgroundTools}
           className="flex items-center gap-2"
         >
           <History className="h-4 w-4" />
           View Scheduled Jobs
         </Button>
       </div>
+
+      {isFreeUser && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Free users can import up to 100 records per import.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isFreeOrStandardUser && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            This options is for Professional or Higher Users.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {importResult && (
         <Alert className={importResult.failed === 0 ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}>
@@ -1669,7 +1778,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               <Button
                 variant="outline"
                 onClick={() => openScheduleExportDialog('contacts')}
-                disabled={isExporting}
+                disabled={isExporting || !canUseProBackgroundTools}
                 className="flex items-center gap-2 ml-3"
               >
                 <Clock className="h-4 w-4" />
@@ -1706,7 +1815,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               <Button
                 variant="outline"
                 onClick={() => openScheduleExportDialog('inventory')}
-                disabled={isExporting}
+                disabled={isExporting || !canUseProBackgroundTools}
                 className="flex items-center gap-2 ml-3"
               >
                 <Clock className="h-4 w-4" />
@@ -1743,7 +1852,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               <Button
                 variant="outline"
                 onClick={() => openScheduleExportDialog('bids')}
-                disabled={isExporting}
+                disabled={isExporting || !canUseProBackgroundTools}
                 className="flex items-center gap-2 ml-3"
               >
                 <Clock className="h-4 w-4" />
