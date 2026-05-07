@@ -86,17 +86,17 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Home', icon: LayoutDashboard, color: 'text-slate-600', bgColor: 'bg-slate-100' },
   { id: 'contacts',       label: 'Contacts',             icon: UsersIcon,  color: 'text-sky-600',     bgColor: 'bg-sky-50',     module: 'contacts' },
-  { id: 'users',          label: 'Users',                icon: UserCog,    color: 'text-violet-600',  bgColor: 'bg-violet-50' },
-  { id: 'tenants',        label: 'Organizations',        icon: Building2,  color: 'text-indigo-600',  bgColor: 'bg-indigo-50',  superAdminOnly: true },
-  { id: 'security',       label: 'Security',             icon: Shield,     color: 'text-purple-600',  bgColor: 'bg-purple-50' },
-  { id: 'audit-log',      label: 'Audit Log',            icon: History,    color: 'text-fuchsia-600', bgColor: 'bg-fuchsia-50' },
-  { id: 'settings',       label: 'Settings',             icon: Settings,   color: 'text-slate-600',   bgColor: 'bg-slate-100' },
-  { id: 'import-export',  label: 'Import / Export',      icon: Upload,     color: 'text-cyan-600',    bgColor: 'bg-cyan-50' },
-  { id: 'scheduled-jobs', label: 'Scheduled Jobs',       icon: Clock,      color: 'text-amber-600',   bgColor: 'bg-amber-50' },
-  { id: 'billing',        label: 'Billing',              icon: CreditCard, color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
-  { id: 'agreement',      label: 'Subscription',         icon: FileText,   color: 'text-blue-600',    bgColor: 'bg-blue-50',    superAdminOnly: true },
-  { id: 'portal-admin',   label: 'Message Space',        icon: MessageSquare, color: 'text-rose-600', bgColor: 'bg-rose-50' },
-  { id: 'fix-users',      label: 'Fix Users',            icon: Wrench,     color: 'text-orange-600',  bgColor: 'bg-orange-50',  superAdminOnly: true },
+  { id: 'users',          label: 'Users',                icon: UserCog,    color: 'text-violet-600',  bgColor: 'bg-violet-50',  module: 'users' },
+  { id: 'tenants',        label: 'Organizations',        icon: Building2,  color: 'text-indigo-600',  bgColor: 'bg-indigo-50',  superAdminOnly: true, module: 'tenants' },
+  { id: 'security',       label: 'Security',             icon: Shield,     color: 'text-purple-600',  bgColor: 'bg-purple-50',  module: 'security' },
+  { id: 'audit-log',      label: 'Audit Log',            icon: History,    color: 'text-fuchsia-600', bgColor: 'bg-fuchsia-50', module: 'security' },
+  { id: 'settings',       label: 'Settings',             icon: Settings,   color: 'text-slate-600',   bgColor: 'bg-slate-100',  module: 'settings' },
+  { id: 'import-export',  label: 'Import / Export',      icon: Upload,     color: 'text-cyan-600',    bgColor: 'bg-cyan-50',    module: 'import-export' },
+  { id: 'scheduled-jobs', label: 'Scheduled Jobs',       icon: Clock,      color: 'text-amber-600',   bgColor: 'bg-amber-50',   module: 'admin' },
+  { id: 'billing',        label: 'Billing',              icon: CreditCard, color: 'text-emerald-600', bgColor: 'bg-emerald-50', module: 'admin' },
+  { id: 'agreement',      label: 'Subscription',         icon: FileText,   color: 'text-blue-600',    bgColor: 'bg-blue-50',    superAdminOnly: true, module: 'admin' },
+  { id: 'portal-admin',   label: 'Message Space',        icon: MessageSquare, color: 'text-rose-600', bgColor: 'bg-rose-50', module: 'messages' },
+  { id: 'fix-users',      label: 'Fix Users',            icon: Wrench,     color: 'text-orange-600',  bgColor: 'bg-orange-50',  superAdminOnly: true, module: 'admin' },
 ];
 
 function ModuleLoading() {
@@ -127,9 +127,27 @@ export function ITShell({ user, accessToken, onLogout }: ITShellProps) {
   useEffect(() => onPermissionsChanged(() => setPermissionVersion((version) => version + 1)), []);
 
   const isSuperAdmin = currentUser.role === 'super_admin';
+  const hasNavAccess = useCallback((item: NavItem) => {
+    if (item.superAdminOnly && !isSuperAdmin) return false;
+    if (item.module && !canView(item.module, currentUser.role)) return false;
+    return true;
+  }, [isSuperAdmin, currentUser.role]);
+
   const visibleNavItems = NAV_ITEMS.filter(
-    (item) => (!item.superAdminOnly || isSuperAdmin) && (!item.module || canView(item.module, currentUser.role))
+    (item) => hasNavAccess(item)
   );
+
+  useEffect(() => {
+    if (currentView === 'home') return;
+    const currentNav = NAV_ITEMS.find((item) => item.id === currentView);
+    if (!currentNav) {
+      setCurrentView('home');
+      return;
+    }
+    if (!hasNavAccess(currentNav)) {
+      setCurrentView('home');
+    }
+  }, [currentView, hasNavAccess]);
 
   // Load organization on mount
   useEffect(() => {
