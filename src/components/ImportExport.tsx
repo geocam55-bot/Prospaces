@@ -1358,6 +1358,11 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     <PermissionGate user={user} module="import-export" action="view">
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div className="flex items-center justify-end gap-3">
+        {inventoryOnlyMode && (
+          <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+            Inventory Mode
+          </span>
+        )}
         <ImportExportModuleHelp
           userId={user.id}
           activeTab={activeTab}
