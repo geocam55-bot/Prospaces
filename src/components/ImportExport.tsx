@@ -116,7 +116,7 @@ const DATABASE_FIELDS = {
 
 export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [activeTab, setActiveTab] = useState('import');
-  const [inventoryOnlyMode, setInventoryOnlyMode] = useState(false);
+  const inventoryOnlyMode = true;
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -134,14 +134,8 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
   useEffect(() => {
     const focusTarget = sessionStorage.getItem('prospaces_import_export_focus');
-    const scope = sessionStorage.getItem('prospaces_import_export_scope');
-
-    if (scope === 'inventory-only') {
-      setInventoryOnlyMode(true);
-    }
 
     if (focusTarget !== 'inventory-import') {
-      sessionStorage.removeItem('prospaces_import_export_scope');
       return;
     }
 
@@ -153,7 +147,6 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     }, 60);
 
     sessionStorage.removeItem('prospaces_import_export_focus');
-    sessionStorage.removeItem('prospaces_import_export_scope');
     return () => window.clearTimeout(timeoutId);
   }, []);
 
