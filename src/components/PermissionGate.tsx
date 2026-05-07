@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertCircle, Lock } from 'lucide-react';
 import type { User } from '../App';
-import { canView, canAdd, canChange, canDelete } from '../utils/permissions';
+import { ALL_SPACES, canAccessSpace, canView, canAdd, canChange, canDelete } from '../utils/permissions';
 
 interface PermissionGateProps {
   user: User;
@@ -32,10 +32,12 @@ export function PermissionGate({ user, module, action = 'view', children, fallba
   }
 
   let hasPermission = false;
+  const moduleSpaces = ALL_SPACES.filter((space) => space.modules.includes(module));
+  const hasViewViaSpace = moduleSpaces.some((space) => canAccessSpace(space.id, user.role, 'view'));
 
   switch (action) {
     case 'view':
-      hasPermission = canView(module, user.role);
+      hasPermission = canView(module, user.role) || hasViewViaSpace;
       break;
     case 'add':
       hasPermission = canAdd(module, user.role);
