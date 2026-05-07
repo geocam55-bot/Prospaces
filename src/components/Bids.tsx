@@ -40,6 +40,11 @@ interface BidsProps {
   user: User;
 }
 
+interface EditQuoteFormData extends Partial<Quote> {
+  useManualSubtotal?: boolean;
+  manualSubtotal?: number;
+}
+
 // Legacy Bid interface (from bids table)
 interface Bid {
   id: string;
@@ -70,7 +75,7 @@ export function Bids({ user }: BidsProps) {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editFormData, setEditFormData] = useState<Partial<Quote>>({});
+  const [editFormData, setEditFormData] = useState<EditQuoteFormData>({});
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewQuote, setPreviewQuote] = useState<Quote | null>(null);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
@@ -143,6 +148,7 @@ export function Bids({ user }: BidsProps) {
           return normalized;
         });
         
+        const hasLineItems = normalizedItems.length > 0;
         setEditFormData({
           title: selectedQuote.title || '',
           contactId: selectedQuote.contactId || '',
@@ -155,6 +161,8 @@ export function Bids({ user }: BidsProps) {
           discountPercent: selectedQuote.discountPercent || 0,
           taxPercent: selectedQuote.taxPercent || orgSettings?.tax_rate || 0,
           taxPercent2: selectedQuote.taxPercent2 || orgSettings?.tax_rate_2 || 0,
+          useManualSubtotal: !hasLineItems,
+          manualSubtotal: Number(selectedQuote.subtotal || 0),
         });
       } else {
         setEditFormData({
@@ -169,6 +177,8 @@ export function Bids({ user }: BidsProps) {
           discountPercent: 0,
           taxPercent: orgSettings?.tax_rate || 0,
           taxPercent2: orgSettings?.tax_rate_2 || 0,
+          useManualSubtotal: true,
+          manualSubtotal: 0,
         });
       }
     }
@@ -358,8 +368,15 @@ export function Bids({ user }: BidsProps) {
     setIsDialogOpen(true);
   };
 
-  const calculateBidTotals = (items: LineItem[], discountPercent: number, taxPercent: number, taxPercent2: number = 0) => {
-    const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
+  const calculateBidTotals = (
+    items: LineItem[],
+    discountPercent: number,
+    taxPercent: number,
+    taxPercent2: number = 0,
+    manualSubtotal: number | null = null,
+  ) => {
+    const computedSubtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
+    const subtotal = manualSubtotal !== null ? manualSubtotal : computedSubtotal;
     const discountAmount = subtotal * (discountPercent / 100);
     const afterDiscount = subtotal - discountAmount;
     const taxAmount = afterDiscount * (taxPercent / 100);
@@ -475,11 +492,21 @@ export function Bids({ user }: BidsProps) {
   const handleSave = async () => {
     try {
       const items = editFormData.lineItems || [];
+      const parsedManualSubtotal = Number(editFormData.manualSubtotal || 0);
+      const isManualSubtotalMode = Boolean(editFormData.useManualSubtotal);
+      const hasValidManualSubtotal = Number.isFinite(parsedManualSubtotal) && parsedManualSubtotal >= 0;
+
+      if (isManualSubtotalMode && !hasValidManualSubtotal) {
+        toast.error('Please enter a valid subtotal amount.');
+        return;
+      }
+
       const totals = calculateBidTotals(
-        items,
+        isManualSubtotalMode ? [] : items,
         editFormData.discountPercent || 0,
         editFormData.taxPercent || 0,
-        editFormData.taxPercent2 || 0
+        editFormData.taxPercent2 || 0,
+        isManualSubtotalMode ? parsedManualSubtotal : null,
       );
 
       const dataToSave = {
@@ -490,7 +517,7 @@ export function Bids({ user }: BidsProps) {
         notes: editFormData.notes,
         terms: editFormData.terms,
         price_tier: editFormData.priceTier,
-        line_items: JSON.stringify(items),
+        line_items: JSON.stringify(isManualSubtotalMode ? [] : items),
         subtotal: totals.subtotal,
         discount_percent: editFormData.discountPercent || 0,
         discount_amount: totals.discountAmount,
@@ -984,6 +1011,45 @@ export function Bids({ user }: BidsProps) {
             
             {/* Line Items Section */}
             <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center gap-2 py-1">
+                <input
+                  type="checkbox"
+                  id="manualSubtotalMode"
+                  checked={Boolean(editFormData.useManualSubtotal)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    const currentItems = editFormData.lineItems || [];
+                    const computedSubtotal = currentItems.reduce((sum, item) => sum + (item.total || 0), 0);
+
+                    setEditFormData(prev => ({
+                      ...prev,
+                      useManualSubtotal: checked,
+                      manualSubtotal: checked ? Number(prev.manualSubtotal ?? computedSubtotal) : prev.manualSubtotal,
+                    }));
+                  }}
+                  className="w-4 h-4 rounded border-border"
+                />
+                <Label htmlFor="manualSubtotalMode" className="text-sm font-normal cursor-pointer">
+                  Enter subtotal manually (without line items)
+                </Label>
+              </div>
+
+              {editFormData.useManualSubtotal && (
+                <div className="max-w-sm">
+                  <Label htmlFor="manualSubtotal" className="text-sm mb-1.5 block">Subtotal Amount *</Label>
+                  <Input
+                    id="manualSubtotal"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editFormData.manualSubtotal ?? 0}
+                    onChange={(e) => setEditFormData({ ...editFormData, manualSubtotal: Number(e.target.value) })}
+                    placeholder="4000.00"
+                  />
+                </div>
+              )}
+
+              {!editFormData.useManualSubtotal && (
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-foreground">Line Items</h3>
                 <div className="flex gap-2">
@@ -1008,13 +1074,14 @@ export function Bids({ user }: BidsProps) {
                   </Button>
                 </div>
               </div>
+              )}
 
-              {!(editFormData.lineItems && editFormData.lineItems.length > 0) ? (
+              {!editFormData.useManualSubtotal && !(editFormData.lineItems && editFormData.lineItems.length > 0) ? (
                 <div className="text-center py-8 bg-muted rounded-lg">
                   <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-gray-300" />
                   <p className="text-sm text-muted-foreground">No items added yet</p>
                 </div>
-              ) : (
+              ) : !editFormData.useManualSubtotal ? (
                 <div className="border rounded-lg overflow-hidden">
                   <table className="w-full">
                     <thead className="bg-muted">
@@ -1114,11 +1181,11 @@ export function Bids({ user }: BidsProps) {
                     </tbody>
                   </table>
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Pricing */}
-            {editFormData.lineItems && editFormData.lineItems.length > 0 && (
+            {(editFormData.useManualSubtotal || (editFormData.lineItems && editFormData.lineItems.length > 0)) && (
               <div className="space-y-4 pt-4 border-t">
                 <h3 className="text-sm font-medium text-foreground">Pricing</h3>
                 <div className="grid md:grid-cols-3 gap-4">
@@ -1153,11 +1220,13 @@ export function Bids({ user }: BidsProps) {
 
                 {/* Bid Summary */}
                 {(() => {
+                  const manualSubtotal = Number(editFormData.manualSubtotal || 0);
                   const editTotals = calculateBidTotals(
-                    editFormData.lineItems || [], 
+                    editFormData.useManualSubtotal ? [] : (editFormData.lineItems || []),
                     editFormData.discountPercent || 0, 
                     editFormData.taxPercent || 0, 
-                    editFormData.taxPercent2 || 0
+                    editFormData.taxPercent2 || 0,
+                    editFormData.useManualSubtotal ? manualSubtotal : null,
                   );
                   return (
                     <div className="bg-muted rounded-lg p-4">
