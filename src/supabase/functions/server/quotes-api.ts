@@ -2,6 +2,62 @@ import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { extractUserToken } from './auth-helper.ts';
 
+const QUOTE_ALLOWED_COLUMNS = new Set([
+  'quote_number', 'title', 'contact_id', 'contact_name', 'contact_email',
+  'opportunity_id', 'price_tier', 'status', 'valid_until', 'line_items',
+  'subtotal', 'discount_percent', 'discount_amount', 'tax_percent',
+  'tax_percent_2', 'tax_amount', 'tax_amount_2', 'total', 'notes', 'terms',
+  'tracking_status', 'organization_id', 'created_by', 'created_at', 'updated_at',
+]);
+
+function toSnakeCase(value: string) {
+  return value.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+function sanitizeQuotePayload(data: Record<string, any>) {
+  const sanitized: Record<string, any> = {};
+  const fieldMappings: Record<string, string> = {
+    quoteNumber: 'quote_number',
+    contactId: 'contact_id',
+    contactName: 'contact_name',
+    contactEmail: 'contact_email',
+    opportunityId: 'opportunity_id',
+    priceTier: 'price_tier',
+    validUntil: 'valid_until',
+    lineItems: 'line_items',
+    discountPercent: 'discount_percent',
+    discountAmount: 'discount_amount',
+    taxPercent: 'tax_percent',
+    taxPercent2: 'tax_percent_2',
+    taxAmount: 'tax_amount',
+    taxAmount2: 'tax_amount_2',
+    trackingStatus: 'tracking_status',
+  };
+
+  for (const [key, value] of Object.entries(data || {})) {
+    if (key === 'owner_id' || key === 'ownerId') {
+      continue;
+    }
+
+    let targetKey = key;
+    if (!QUOTE_ALLOWED_COLUMNS.has(targetKey) && fieldMappings[key]) {
+      targetKey = fieldMappings[key];
+    } else if (!QUOTE_ALLOWED_COLUMNS.has(targetKey)) {
+      targetKey = toSnakeCase(key);
+    }
+
+    if (!QUOTE_ALLOWED_COLUMNS.has(targetKey)) {
+      continue;
+    }
+
+    sanitized[targetKey] = targetKey === 'line_items' && Array.isArray(value)
+      ? JSON.stringify(value)
+      : value;
+  }
+
+  return sanitized;
+}
+
 /**
  * Server-side Quotes API — bypasses RLS using the service role key.
  * Applies role-based filtering in code (same pattern as contacts-api.ts).
@@ -212,7 +268,7 @@ export function quotesAPI(app: Hono) {
       const body = await c.req.json();
 
       const quoteData = {
-        ...body,
+        ...sanitizeQuotePayload(body),
         organization_id: organizationId,
         created_by: user.id,
         created_at: new Date().toISOString(),

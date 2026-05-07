@@ -41,6 +41,8 @@ export function ProjectQuoteGenerator({
   const [quoteTitle, setQuoteTitle] = useState('');
   const [quoteNotes, setQuoteNotes] = useState('');
   const [customerPriceLevel, setCustomerPriceLevel] = useState<string>(getPriceTierLabel(1));
+  const [useManualAmount, setUseManualAmount] = useState(false);
+  const [manualAmount, setManualAmount] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [createAsDeal, setCreateAsDeal] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -98,15 +100,18 @@ export function ProjectQuoteGenerator({
     setTimeout(() => setAlert(null), 5000);
   };
 
-  // totalCost now represents T1 pricing from inventory
-  const quotePrice = totalCost;
+  const manualSubtotal = Number.parseFloat(manualAmount);
+  const hasValidManualAmount = Number.isFinite(manualSubtotal) && manualSubtotal >= 0;
+  const subtotalAmount = useManualAmount
+    ? (hasValidManualAmount ? manualSubtotal : 0)
+    : totalCost;
 
   // Get tax rates for display
   const taxRate = orgTaxRate || getGlobalTaxRate();
   const taxRate2 = orgTaxRate2 || getGlobalTaxRate2();
-  const taxAmount = (totalCost * taxRate) / 100;
-  const taxAmount2 = (totalCost * taxRate2) / 100;
-  const quoteTotalWithTax = totalCost + taxAmount + taxAmount2;
+  const taxAmount = (subtotalAmount * taxRate) / 100;
+  const taxAmount2 = (subtotalAmount * taxRate2) / 100;
+  const quoteTotalWithTax = subtotalAmount + taxAmount + taxAmount2;
 
   const handleGenerateQuote = async () => {
     if (!selectedCustomer?.id) {
@@ -119,39 +124,51 @@ export function ProjectQuoteGenerator({
       return;
     }
 
-    // ✅ VALIDATION: Check if materials are enriched (have SKUs and pricing)
-    const unenrichedMaterials = materials.filter(m => !m.sku || !m.itemId || m.unitPrice === 0 || m.cost === 0);
-    if (unenrichedMaterials.length > 0) {
-      // Materials not enriched - cannot create quote
-      showAlert('error', 'Please wait for pricing to load before creating a quote. If pricing does not appear, check that Project Wizard Defaults are configured in Admin Settings.');
+    if (useManualAmount && !hasValidManualAmount) {
+      showAlert('error', 'Please enter a valid manual quote amount.');
       return;
+    }
+
+    // ✅ VALIDATION: Check if materials are enriched (have SKUs and pricing)
+    if (!useManualAmount) {
+      const unenrichedMaterials = materials.filter(m => !m.sku || !m.itemId || m.unitPrice === 0 || m.cost === 0);
+      if (unenrichedMaterials.length > 0) {
+        // Materials not enriched - cannot create quote
+        showAlert('error', 'Please wait for pricing to load before creating a quote. If pricing does not appear, check that Project Wizard Defaults are configured in Admin Settings.');
+        return;
+      }
     }
 
     try {
       setIsSaving(true);
 
-      // Use T1 pricing from inventory (totalCost is already T1 price)
-      const quoteAmount = quotePrice;
+      // Use either planner material total or a manually entered flat amount
+      const quoteAmount = subtotalAmount;
 
-      // Build line items from materials
-      const lineItems = materials.map((material, index) => ({
-        id: `item_${index}`,
-        itemId: material.itemId || '', // Inventory item ID - may be empty if not enriched
-        itemName: material.name || material.description || material.item || 'Material', // Prioritize inventory name over deck planner description
-        sku: material.sku || '', // Use actual SKU from inventory, leave empty if not found
-        description: material.description || material.name || material.item || 'Material',
-        quantity: material.quantity,
-        unit: material.unit || 'ea',
-        unitPrice: material.unitPrice || material.costPerUnit || material.price || material.cost || 0,
-        cost: material.cost || 0,
-        total: material.totalCost || (material.quantity * (material.unitPrice || material.costPerUnit || material.price || material.cost || 0)),
-      }));
+      // Build line items from materials when using inventory pricing.
+      const lineItems = useManualAmount
+        ? []
+        : materials.map((material, index) => ({
+            id: `item_${index}`,
+            itemId: material.itemId || '', // Inventory item ID - may be empty if not enriched
+            itemName: material.name || material.description || material.item || 'Material', // Prioritize inventory name over deck planner description
+            sku: material.sku || '', // Use actual SKU from inventory, leave empty if not found
+            description: material.description || material.name || material.item || 'Material',
+            quantity: material.quantity,
+            unit: material.unit || 'ea',
+            unitPrice: material.unitPrice || material.costPerUnit || material.price || material.cost || 0,
+            cost: material.cost || 0,
+            total: material.totalCost || (material.quantity * (material.unitPrice || material.costPerUnit || material.price || material.cost || 0)),
+          }));
 
       // Line items created with SKUs
 
       // Build enhanced notes with project and pricing information
       const enhancedNotes = [
         `Project Type: ${projectType.charAt(0).toUpperCase() + projectType.slice(1)}`,
+        useManualAmount
+          ? `Pricing Mode: Manual Quote Amount ($${quoteAmount.toFixed(2)})`
+          : 'Pricing Mode: Inventory Line Items',
         quoteNotes ? `\\nAdditional Notes:\\n${quoteNotes}` : ''
       ].filter(Boolean).join('\\n');
 
@@ -200,6 +217,8 @@ export function ProjectQuoteGenerator({
         setQuoteTitle('');
         setQuoteNotes('');
         setSelectedCustomer(null);
+        setUseManualAmount(false);
+        setManualAmount('');
       }, 2000);
 
     } catch (error: any) {
@@ -302,19 +321,50 @@ export function ProjectQuoteGenerator({
           />
         </div>
 
-        {/* Materials Summary */}
-        <div>
-          <Label className="text-sm mb-1.5 block">Materials ({materials.length} items)</Label>
-          <div className="h-9 flex items-center text-xs text-muted-foreground bg-muted rounded-md px-3 border">
-            {materials.length > 0 ? (
-              <span className="truncate">
-                {materials.slice(0, 2).map(m => m.description || m.name || m.item || 'Material').join(', ')}
-                {materials.length > 2 && ` +${materials.length - 2} more`}
-              </span>
-            ) : (
-              <span className="text-muted-foreground">No materials</span>
-            )}
+        {/* Pricing Source */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 py-1">
+            <input
+              type="checkbox"
+              id="manualAmountMode"
+              checked={useManualAmount}
+              onChange={(e) => setUseManualAmount(e.target.checked)}
+              className="w-4 h-4 rounded border-border"
+            />
+            <Label htmlFor="manualAmountMode" className="text-sm font-normal cursor-pointer">
+              Enter manual quote amount (not based on inventory items)
+            </Label>
           </div>
+
+          {useManualAmount ? (
+            <div>
+              <Label htmlFor="manualAmount" className="text-sm mb-1.5 block">Manual Subtotal Amount *</Label>
+              <Input
+                id="manualAmount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={manualAmount}
+                onChange={(e) => setManualAmount(e.target.value)}
+                placeholder="4000.00"
+                className="h-9"
+              />
+            </div>
+          ) : (
+            <div>
+              <Label className="text-sm mb-1.5 block">Materials ({materials.length} items)</Label>
+              <div className="h-9 flex items-center text-xs text-muted-foreground bg-muted rounded-md px-3 border">
+                {materials.length > 0 ? (
+                  <span className="truncate">
+                    {materials.slice(0, 2).map(m => m.description || m.name || m.item || 'Material').join(', ')}
+                    {materials.length > 2 && ` +${materials.length - 2} more`}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">No materials</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Price Summary */}
@@ -322,7 +372,7 @@ export function ProjectQuoteGenerator({
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1.5">
             <div className="flex items-center justify-between text-sm">
               <span className="text-foreground">Subtotal:</span>
-              <span className="text-foreground">${totalCost.toFixed(2)}</span>
+              <span className="text-foreground">${subtotalAmount.toFixed(2)}</span>
             </div>
             {taxRate > 0 && (
               <div className="flex items-center justify-between text-xs">
@@ -340,9 +390,14 @@ export function ProjectQuoteGenerator({
               <span className="text-foreground font-medium">Total (incl. tax):</span>
               <span className="text-blue-900 font-semibold">${quoteTotalWithTax.toFixed(2)}</span>
             </div>
-            {totalCost === 0 && (
+            {!useManualAmount && totalCost === 0 && (
               <div className="text-xs text-amber-600 pt-1 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                ⚠️ No pricing set. Configure Item Defaults in Organization Settings.
+                ⚠️ No pricing set. Configure Item Defaults in Organization Settings or use manual amount mode.
+              </div>
+            )}
+            {useManualAmount && !hasValidManualAmount && (
+              <div className="text-xs text-amber-700 pt-1 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                Enter a valid manual subtotal amount to continue.
               </div>
             )}
           </div>
@@ -378,7 +433,7 @@ export function ProjectQuoteGenerator({
         <div className="flex gap-2 pt-2">
           <Button 
             onClick={handleGenerateQuote}
-            disabled={isSaving || !selectedCustomer || !quoteTitle.trim()}
+            disabled={isSaving || !selectedCustomer || !quoteTitle.trim() || (useManualAmount && !hasValidManualAmount)}
             className="flex-1 h-9"
             size="sm"
           >
