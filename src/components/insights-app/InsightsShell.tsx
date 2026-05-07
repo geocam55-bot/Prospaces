@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 import {
   BarChart3,
   FileText,
