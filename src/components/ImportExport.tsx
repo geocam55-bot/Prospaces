@@ -116,6 +116,7 @@ const DATABASE_FIELDS = {
 
 export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [activeTab, setActiveTab] = useState('import');
+  const [inventoryOnlyMode, setInventoryOnlyMode] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -133,7 +134,16 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
   useEffect(() => {
     const focusTarget = sessionStorage.getItem('prospaces_import_export_focus');
-    if (focusTarget !== 'inventory-import') return;
+    const scope = sessionStorage.getItem('prospaces_import_export_scope');
+
+    if (scope === 'inventory-only') {
+      setInventoryOnlyMode(true);
+    }
+
+    if (focusTarget !== 'inventory-import') {
+      sessionStorage.removeItem('prospaces_import_export_scope');
+      return;
+    }
 
     setActiveTab('import');
 
@@ -143,6 +153,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     }, 60);
 
     sessionStorage.removeItem('prospaces_import_export_focus');
+    sessionStorage.removeItem('prospaces_import_export_scope');
     return () => window.clearTimeout(timeoutId);
   }, []);
 
@@ -1437,7 +1448,8 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               </Alert>
 
               {/* Import Contacts */}
-              <Card id="import-inventory-card">
+              {!inventoryOnlyMode && (
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
@@ -1493,9 +1505,10 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   </p>
                 </CardContent>
               </Card>
+              )}
 
               {/* Import Inventory */}
-              <Card>
+              <Card id="import-inventory-card">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
@@ -1553,6 +1566,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               </Card>
 
               {/* Import Deals */}
+              {!inventoryOnlyMode && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1609,6 +1623,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   </p>
                 </CardContent>
               </Card>
+              )}
             </>
           )}
         </TabsContent>
@@ -1622,6 +1637,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           </Alert>
 
           {/* Export Contacts */}
+          {!inventoryOnlyMode && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1656,6 +1672,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               </Button>
             </CardContent>
           </Card>
+          )}
 
           {/* Export Inventory */}
           <Card>
@@ -1694,6 +1711,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           </Card>
 
           {/* Export Deals */}
+          {!inventoryOnlyMode && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1728,6 +1746,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               </Button>
             </CardContent>
           </Card>
+          )}
         </TabsContent>
       </Tabs>
 
