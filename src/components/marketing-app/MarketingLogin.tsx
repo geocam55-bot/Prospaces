@@ -20,6 +20,7 @@ import {
 import { createClient, getSupabaseUrl } from '../../utils/supabase/client';
 import { publicAnonKey } from '../../utils/supabase/info';
 import { ChangePasswordDialog } from '../ChangePasswordDialog';
+import { canAccessSpace, initializePermissions } from '../../utils/permissions';
 import type { User, UserRole } from '../../App';
 
 type LoginDestination = 'marketing' | 'crm';
@@ -170,17 +171,10 @@ export function MarketingLogin({ onLogin }: MarketingLoginProps) {
       }
 
       // Role check for Marketing Space
-      if (destination === 'marketing') {
-        const allowedRoles: UserRole[] = [
-          'super_admin',
-          'admin',
-          'director',
-          'manager',
-          'marketing',
-        ];
-        if (!allowedRoles.includes(profile.role as UserRole)) {
-          throw new Error('You do not have access to Marketing Space. Contact your administrator.');
-        }
+      if (profile.organization_id) localStorage.setItem('currentOrgId', profile.organization_id);
+      await initializePermissions(profile.role as UserRole);
+      if (destination === 'marketing' && !canAccessSpace('marketing', profile.role as UserRole, 'view')) {
+        throw new Error('You do not have access to Marketing Space. Contact your administrator.');
       }
 
       // Force password change

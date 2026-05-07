@@ -21,6 +21,7 @@ import {
 import { createClient, getSupabaseUrl } from '../../utils/supabase/client';
 import { publicAnonKey } from '../../utils/supabase/info';
 import { ChangePasswordDialog } from '../ChangePasswordDialog';
+import { canAccessSpace, initializePermissions } from '../../utils/permissions';
 import type { User, UserRole } from '../../App';
 
 type LoginDestination = 'project-wizards' | 'crm';
@@ -182,19 +183,12 @@ export function ProjectWizardsLogin({ onLogin }: ProjectWizardsLoginProps) {
       }
 
       // If headed for Project Wizards, enforce role access
-      if (destination === 'project-wizards') {
-        const allowedRoles: UserRole[] = [
-          'super_admin',
-          'admin',
-          'director',
-          'manager',
-          'designer',
-        ];
-        if (!allowedRoles.includes(profile.role as UserRole)) {
-          throw new Error(
-            'You do not have access to Project Wizards. Contact your administrator.'
-          );
-        }
+      if (profile.organization_id) localStorage.setItem('currentOrgId', profile.organization_id);
+      await initializePermissions(profile.role as UserRole);
+      if (destination === 'project-wizards' && !canAccessSpace('project-wizards', profile.role as UserRole, 'view')) {
+        throw new Error(
+          'You do not have access to Project Wizards. Contact your administrator.'
+        );
       }
 
       // Force password change if needed

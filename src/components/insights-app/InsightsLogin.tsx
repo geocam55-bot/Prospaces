@@ -19,6 +19,7 @@ import {
 import { createClient, getSupabaseUrl } from '../../utils/supabase/client';
 import { publicAnonKey } from '../../utils/supabase/info';
 import { ChangePasswordDialog } from '../ChangePasswordDialog';
+import { canAccessSpace, initializePermissions } from '../../utils/permissions';
 import type { User, UserRole } from '../../App';
 
 type LoginDestination = 'insights' | 'crm';
@@ -169,17 +170,10 @@ export function InsightsLogin({ onLogin }: InsightsLoginProps) {
       }
 
       // Role check for Insights Space
-      if (destination === 'insights') {
-        const allowedRoles: UserRole[] = [
-          'super_admin',
-          'admin',
-          'director',
-          'manager',
-          'marketing',
-        ];
-        if (!allowedRoles.includes(profile.role as UserRole)) {
-          throw new Error('You do not have access to Insights Space. Contact your administrator.');
-        }
+      if (profile.organization_id) localStorage.setItem('currentOrgId', profile.organization_id);
+      await initializePermissions(profile.role as UserRole);
+      if (destination === 'insights' && !canAccessSpace('insights', profile.role as UserRole, 'view')) {
+        throw new Error('You do not have access to Insights Space. Contact your administrator.');
       }
 
       // Force password change
