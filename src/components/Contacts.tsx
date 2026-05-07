@@ -1152,6 +1152,226 @@ export function Contacts({ user }: ContactsProps) {
     );
   };
 
+  const renderAddContactDialogContent = () => (
+    <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-background !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
+      <DialogHeader>
+        <DialogTitle>Add New Contact</DialogTitle>
+        <DialogDescription>
+          Create a new contact with their information and assigned price level.
+        </DialogDescription>
+      </DialogHeader>
+      <form onSubmit={handleAddContact} className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Name</Label>
+          <Input
+            id="name"
+            value={newContact.name}
+            onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            value={newContact.email}
+            onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="phone">Phone</Label>
+          <Input
+            id="phone"
+            value={newContact.phone}
+            onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="company">Company</Label>
+          <Input
+            id="company"
+            value={newContact.company}
+            onChange={(e) => setNewContact({ ...newContact, company: e.target.value })}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="trade">Trade</Label>
+          <Input
+            id="trade"
+            value={newContact.trade}
+            onChange={(e) => setNewContact({ ...newContact, trade: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="priceLevel">Price Level</Label>
+          <select
+            id="priceLevel"
+            value={newContact.priceLevel}
+            onChange={(e) => setNewContact({ ...newContact, priceLevel: e.target.value })}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {[1,2,3,4,5].map(t => {
+              const label = getPriceTierLabel(t);
+              if (!label || label.trim() === '' || label.trim() === '0') return null;
+              return <option key={t} value={label}>T{t} — {label}</option>;
+            })}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="legacyNumber">Legacy #</Label>
+          <Input
+            id="legacyNumber"
+            value={newContact.legacyNumber}
+            onChange={(e) => setNewContact({ ...newContact, legacyNumber: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="accountOwnerNumber">Account Owner #</Label>
+          <Input
+            id="accountOwnerNumber"
+            value={newContact.accountOwnerNumber}
+            onChange={(e) => setNewContact({ ...newContact, accountOwnerNumber: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="address">Address</Label>
+          <Input
+            id="address"
+            value={newContact.address}
+            onChange={(e) => setNewContact({ ...newContact, address: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="city">City</Label>
+          <Input
+            id="city"
+            value={newContact.city}
+            onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="province">Province / State</Label>
+          <Input
+            id="province"
+            value={newContact.province}
+            onChange={(e) => setNewContact({ ...newContact, province: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="postalCode">Postal / Zip Code</Label>
+          <Input
+            id="postalCode"
+            value={newContact.postalCode}
+            onChange={(e) => setNewContact({ ...newContact, postalCode: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="notes">Notes</Label>
+          <Textarea
+            id="notes"
+            value={newContact.notes}
+            onChange={(e) => setNewContact({ ...newContact, notes: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <TagSelector
+            label="Tags (for segmentation)"
+            tags={newContact.tags}
+            availableTags={audienceSegments}
+            onTagsChange={(tags) => setNewContact({ ...newContact, tags })}
+            htmlFor="tags"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ptdSales">PTD Sales</Label>
+          <Input
+            id="ptdSales"
+            type="number"
+            step="0.01"
+            value={newContact.ptdSales}
+            onChange={(e) => setNewContact({ ...newContact, ptdSales: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ptdGpPercent">PTD GP%</Label>
+          <Input
+            id="ptdGpPercent"
+            type="number"
+            step="0.01"
+            value={newContact.ptdGpPercent}
+            onChange={(e) => setNewContact({ ...newContact, ptdGpPercent: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ytdSales">YTD Sales</Label>
+          <Input
+            id="ytdSales"
+            type="number"
+            step="0.01"
+            value={newContact.ytdSales}
+            onChange={(e) => setNewContact({ ...newContact, ytdSales: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ytdGpPercent">YTD GP%</Label>
+          <Input
+            id="ytdGpPercent"
+            type="number"
+            step="0.01"
+            value={newContact.ytdGpPercent}
+            onChange={(e) => setNewContact({ ...newContact, ytdGpPercent: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="lyrSales">LYR Sales</Label>
+          <Input
+            id="lyrSales"
+            type="number"
+            step="0.01"
+            value={newContact.lyrSales}
+            onChange={(e) => setNewContact({ ...newContact, lyrSales: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="lyrGpPercent">LYR GP%</Label>
+          <Input
+            id="lyrGpPercent"
+            type="number"
+            step="0.01"
+            value={newContact.lyrGpPercent}
+            onChange={(e) => setNewContact({ ...newContact, lyrGpPercent: e.target.value })}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="flex gap-2 pt-4 md:col-span-2">
+          <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1" disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button type="submit" className="flex-1" disabled={isSaving}>
+            {isSaving ? 'Adding...' : 'Add Contact'}
+          </Button>
+        </div>
+      </form>
+    </DialogContent>
+  );
+
   // Show empty-state with ownership fix when user has 0 contacts
   if (contacts.length === 0 && !selectedContact) {
     return (
@@ -1211,6 +1431,7 @@ export function Contacts({ user }: ContactsProps) {
                       Add Contact
                     </Button>
                   </DialogTrigger>
+                  {renderAddContactDialogContent()}
                 </Dialog>
               )}
             </div>
@@ -1442,223 +1663,7 @@ export function Contacts({ user }: ContactsProps) {
                           Add Contact
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-background !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
-                        <DialogHeader>
-                          <DialogTitle>Add New Contact</DialogTitle>
-                          <DialogDescription>
-                            Create a new contact with their information and assigned price level.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <form onSubmit={handleAddContact} className="grid md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="name">Name</Label>
-                            <Input
-                              id="name"
-                              value={newContact.name}
-                              onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
-                              required
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                              id="email"
-                              type="email"
-                              value={newContact.email}
-                              onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
-                              required
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="phone">Phone</Label>
-                            <Input
-                              id="phone"
-                              value={newContact.phone}
-                              onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
-                              required
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="company">Company</Label>
-                            <Input
-                              id="company"
-                              value={newContact.company}
-                              onChange={(e) => setNewContact({ ...newContact, company: e.target.value })}
-                              required
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="trade">Trade</Label>
-                            <Input
-                              id="trade"
-                              value={newContact.trade}
-                              onChange={(e) => setNewContact({ ...newContact, trade: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="priceLevel">Price Level</Label>
-                            <select
-                              id="priceLevel"
-                              value={newContact.priceLevel}
-                              onChange={(e) => setNewContact({ ...newContact, priceLevel: e.target.value })}
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              {[1,2,3,4,5].map(t => {
-                                const label = getPriceTierLabel(t);
-                                if (!label || label.trim() === '' || label.trim() === '0') return null;
-                                return <option key={t} value={label}>T{t} — {label}</option>;
-                              })}
-                            </select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="legacyNumber">Legacy #</Label>
-                            <Input
-                              id="legacyNumber"
-                              value={newContact.legacyNumber}
-                              onChange={(e) => setNewContact({ ...newContact, legacyNumber: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="accountOwnerNumber">Account Owner #</Label>
-                            <Input
-                              id="accountOwnerNumber"
-                              value={newContact.accountOwnerNumber}
-                              onChange={(e) => setNewContact({ ...newContact, accountOwnerNumber: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="address">Address</Label>
-                            <Input
-                              id="address"
-                              value={newContact.address}
-                              onChange={(e) => setNewContact({ ...newContact, address: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="city">City</Label>
-                            <Input
-                              id="city"
-                              value={newContact.city}
-                              onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="province">Province / State</Label>
-                            <Input
-                              id="province"
-                              value={newContact.province}
-                              onChange={(e) => setNewContact({ ...newContact, province: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="postalCode">Postal / Zip Code</Label>
-                            <Input
-                              id="postalCode"
-                              value={newContact.postalCode}
-                              onChange={(e) => setNewContact({ ...newContact, postalCode: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="space-y-2 md:col-span-2">
-                            <Label htmlFor="notes">Notes</Label>
-                            <Textarea
-                              id="notes"
-                              value={newContact.notes}
-                              onChange={(e) => setNewContact({ ...newContact, notes: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <TagSelector
-                              label="Tags (for segmentation)"
-                              tags={newContact.tags}
-                              availableTags={audienceSegments}
-                              onTagsChange={(tags) => setNewContact({ ...newContact, tags })}
-                              htmlFor="tags"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="ptdSales">PTD Sales</Label>
-                            <Input
-                              id="ptdSales"
-                              type="number"
-                              step="0.01"
-                              value={newContact.ptdSales}
-                              onChange={(e) => setNewContact({ ...newContact, ptdSales: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="ptdGpPercent">PTD GP%</Label>
-                            <Input
-                              id="ptdGpPercent"
-                              type="number"
-                              step="0.01"
-                              value={newContact.ptdGpPercent}
-                              onChange={(e) => setNewContact({ ...newContact, ptdGpPercent: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="ytdSales">YTD Sales</Label>
-                            <Input
-                              id="ytdSales"
-                              type="number"
-                              step="0.01"
-                              value={newContact.ytdSales}
-                              onChange={(e) => setNewContact({ ...newContact, ytdSales: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="ytdGpPercent">YTD GP%</Label>
-                            <Input
-                              id="ytdGpPercent"
-                              type="number"
-                              step="0.01"
-                              value={newContact.ytdGpPercent}
-                              onChange={(e) => setNewContact({ ...newContact, ytdGpPercent: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="lyrSales">LYR Sales</Label>
-                            <Input
-                              id="lyrSales"
-                              type="number"
-                              step="0.01"
-                              value={newContact.lyrSales}
-                              onChange={(e) => setNewContact({ ...newContact, lyrSales: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="lyrGpPercent">LYR GP%</Label>
-                            <Input
-                              id="lyrGpPercent"
-                              type="number"
-                              step="0.01"
-                              value={newContact.lyrGpPercent}
-                              onChange={(e) => setNewContact({ ...newContact, lyrGpPercent: e.target.value })}
-                              placeholder="Optional"
-                            />
-                          </div>
-                          <div className="flex gap-2 pt-4 md:col-span-2">
-                            <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1" disabled={isSaving}>
-                              Cancel
-                            </Button>
-                            <Button type="submit" className="flex-1" disabled={isSaving}>
-                              {isSaving ? 'Adding...' : 'Add Contact'}
-                            </Button>
-                          </div>
-                        </form>
-                      </DialogContent>
+                      {renderAddContactDialogContent()}
                     </Dialog>
                   )}
                 </div>
