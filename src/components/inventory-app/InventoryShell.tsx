@@ -25,7 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { createClient } from '../../utils/supabase/client';
-import { canView, onPermissionsChanged } from '../../utils/permissions';
+import { canAccessSpace, canView, onPermissionsChanged } from '../../utils/permissions';
 import type { User } from '../../App';
 
 // ── Lazy-load inventory sub-component ──
@@ -89,10 +89,13 @@ export function InventoryShell({ user, accessToken, onLogout }: InventoryShellPr
 
   useEffect(() => onPermissionsChanged(() => setPermissionVersion((version) => version + 1)), []);
 
+  const canOpenCatalog = canAccessSpace('inventory', currentUser.role, 'view') || canView('inventory', currentUser.role);
+
   const hasNavAccess = useCallback((item: NavItem) => {
+    if (item.id === 'catalog') return canOpenCatalog;
     if (item.module && !canView(item.module, currentUser.role)) return false;
     return true;
-  }, [currentUser.role]);
+  }, [canOpenCatalog, currentUser.role]);
 
   const visibleNavItems = NAV_ITEMS.filter((item) => hasNavAccess(item));
 
@@ -268,11 +271,11 @@ export function InventoryShell({ user, accessToken, onLogout }: InventoryShellPr
       {/* ── Main content ── */}
       <main className="flex-1 overflow-auto">
         {currentView === 'home' && (
-          <HomeView user={currentUser} onNavigate={handleNavigate} />
+          <HomeView user={currentUser} onNavigate={handleNavigate} canOpenCatalog={canOpenCatalog} />
         )}
 
         <Suspense fallback={<ModuleLoading />}>
-          {currentView === 'catalog' && canView('inventory', currentUser.role) && <Inventory user={currentUser} />}
+          {currentView === 'catalog' && canOpenCatalog && <Inventory user={currentUser} />}
           {currentView === 'messages' && canView('messages', currentUser.role) && <MessagingHub user={currentUser} />}
           {currentView === 'profile' && (
             <SettingsComponent
@@ -291,9 +294,11 @@ export function InventoryShell({ user, accessToken, onLogout }: InventoryShellPr
 function HomeView({
   user,
   onNavigate,
+  canOpenCatalog,
 }: {
   user: User;
   onNavigate: (view: InventoryView) => void;
+  canOpenCatalog: boolean;
 }) {
   const cards: {
     id: InventoryView;
@@ -325,7 +330,7 @@ function HomeView({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {cards.map((card) => {
+        {cards.filter((card) => card.id !== 'catalog' || canOpenCatalog).map((card) => {
           const Icon = card.icon;
           return (
             <button
