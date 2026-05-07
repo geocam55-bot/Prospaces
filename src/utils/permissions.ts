@@ -291,6 +291,9 @@ function getRoleCapabilityPermission(module: string, role: UserRole): Permission
   }
 
   if (role === 'manager') {
+    if (module === 'project-wizards' || module === 'kitchen-planner') {
+      return { visible: false, add: false, change: false, delete: false };
+    }
     if (module === 'tenants' || module === 'security' || module === 'users' || module === 'import-export') {
       return { visible: false, add: false, change: false, delete: false };
     }
@@ -306,6 +309,9 @@ function getRoleCapabilityPermission(module: string, role: UserRole): Permission
   }
 
   if (role === 'marketing') {
+    if (module === 'project-wizards' || module === 'kitchen-planner') {
+      return { visible: false, add: false, change: false, delete: false };
+    }
     if (module === 'tenants' || module === 'security' || module === 'users' || module === 'import-export') {
       return { visible: false, add: false, change: false, delete: false };
     }
@@ -338,6 +344,8 @@ function getRoleCapabilityPermission(module: string, role: UserRole): Permission
 
   const standardUserPermissions: Partial<Record<string, Permission>> = {
     dashboard: { visible: true, add: false, change: false, delete: false },
+    'project-wizards': { visible: true, add: true, change: true, delete: true },
+    'kitchen-planner': { visible: true, add: true, change: true, delete: true },
     contacts: { visible: true, add: true, change: true, delete: false },
     tasks: { visible: true, add: true, change: true, delete: false },
     appointments: { visible: true, add: true, change: true, delete: false },
@@ -465,12 +473,20 @@ function migrateLegacyPermissions(records: PermissionRecord[]): PermissionRecord
       normalizedSpaceRecords.push({
         module: getSpacePermissionKey(space.id),
         role,
-        ...accessLevelToPermission(!hasVisible ? 'none' : hasMutatingAccess ? 'full' : 'view'),
+        ...capPermissionToRole(
+          getDefaultSpacePermission(space.id, role),
+          accessLevelToPermission(!hasVisible ? 'none' : hasMutatingAccess ? 'full' : 'view')
+        ),
       });
     });
   });
 
-  const directModuleRecords = records.filter((record) => !isSpacePermissionModule(record.module));
+  const directModuleRecords = records
+    .filter((record) => !isSpacePermissionModule(record.module))
+    .map((record) => ({
+      ...record,
+      ...capPermissionToRole(getRoleCapabilityPermission(record.module, record.role), record),
+    }));
   return [...normalizedSpaceRecords, ...directModuleRecords];
 }
 
@@ -502,7 +518,10 @@ export function normalizePermissionRecords(records: PermissionRecord[] = []): Pe
   const normalizedSpaceRecords = ALL_ROLES.flatMap((role) =>
     ALL_SPACES.map((space) => {
       const existing = recordMap.get(`${getSpacePermissionKey(space.id)}:${role}`);
-      return existing || {
+      return existing ? {
+        ...existing,
+        ...capPermissionToRole(getDefaultSpacePermission(space.id, role), existing),
+      } : {
         module: getSpacePermissionKey(space.id),
         role,
         ...getDefaultSpacePermission(space.id, role),
@@ -510,7 +529,12 @@ export function normalizePermissionRecords(records: PermissionRecord[] = []): Pe
     })
   );
 
-  const extraDirectRecords = validRecords.filter((record) => !isSpacePermissionModule(record.module));
+  const extraDirectRecords = validRecords
+    .filter((record) => !isSpacePermissionModule(record.module))
+    .map((record) => ({
+      ...record,
+      ...capPermissionToRole(getRoleCapabilityPermission(record.module, record.role), record),
+    }));
   return [...normalizedSpaceRecords, ...extraDirectRecords];
 }
 

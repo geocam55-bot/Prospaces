@@ -5,8 +5,11 @@ import {
   canAdd,
   canChange,
   canView,
+  getDefaultPermission,
+  getDefaultSpacePermission,
   getSpacePermissionKey,
   normalizePermissionRecords,
+  permissionToAccessLevel,
   refreshPermissionsFromStorage,
 } from './permissions';
 
@@ -102,5 +105,40 @@ describe('space-based permissions', () => {
     expect(canView('tasks', 'manager')).toBe(true);
     expect(canAdd('tasks', 'manager')).toBe(false);
     expect(canChange('tasks', 'manager')).toBe(false);
+  });
+
+  it('enforces the Design Space access matrix by role', () => {
+    const expected = {
+      super_admin: 'full',
+      admin: 'full',
+      director: 'full',
+      manager: 'none',
+      marketing: 'none',
+      designer: 'full',
+      standard_user: 'full',
+    } as const;
+
+    (Object.entries(expected) as Array<[keyof typeof expected, (typeof expected)[keyof typeof expected]]>)
+      .forEach(([role, level]) => {
+        expect(permissionToAccessLevel(getDefaultSpacePermission('design', role))).toBe(level);
+      });
+  });
+
+  it('caps elevated module and space overrides to role capability during normalization', () => {
+    const normalized = normalizePermissionRecords([
+      { module: 'project-wizards', role: 'manager', visible: true, add: true, change: true, delete: true },
+      { module: getSpacePermissionKey('design'), role: 'marketing', visible: true, add: true, change: true, delete: true },
+    ]);
+
+    const managerProjectWizards = normalized.find((entry) => entry.module === 'project-wizards' && entry.role === 'manager');
+    const marketingDesignSpace = normalized.find((entry) => entry.module === getSpacePermissionKey('design') && entry.role === 'marketing');
+
+    expect(permissionToAccessLevel(managerProjectWizards)).toBe('none');
+    expect(permissionToAccessLevel(marketingDesignSpace)).toBe('none');
+  });
+
+  it('keeps standard user full capability for Design Space modules', () => {
+    expect(permissionToAccessLevel(getDefaultPermission('project-wizards', 'standard_user'))).toBe('full');
+    expect(permissionToAccessLevel(getDefaultPermission('kitchen-planner', 'standard_user'))).toBe('full');
   });
 });
