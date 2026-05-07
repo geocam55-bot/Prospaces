@@ -13,6 +13,7 @@ import {
   Package,
   Plus,
   Search,
+  ArrowLeft,
   Edit,
   Trash2,
   AlertTriangle,
@@ -1074,7 +1075,18 @@ export function Inventory({ user, onNavigate }: InventoryProps) {
       <Dialog open={showImportExportWindow} onOpenChange={setShowImportExportWindow}>
         <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 !m-0 !rounded-none sm:border-l shadow-2xl p-0 flex flex-col overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
           <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 border-b bg-background sticky top-0 z-10">
-            <DialogTitle>Import and Export</DialogTitle>
+            <div className="flex items-center justify-between gap-3">
+              <DialogTitle>Import and Export</DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowImportExportWindow(false)}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            </div>
             <DialogDescription className="sr-only">
               Import and export inventory without leaving the Inventory module.
             </DialogDescription>
