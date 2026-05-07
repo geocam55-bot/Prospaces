@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { createClient } from '../../utils/supabase/client';
+import { canView, onPermissionsChanged } from '../../utils/permissions';
 import type { User } from '../../App';
 
 // ── Lazy-load inventory sub-component ──
@@ -54,12 +55,13 @@ interface NavItem {
   icon: React.ComponentType<any>;
   color: string;
   bgColor: string;
+  module?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Home', icon: LayoutDashboard, color: 'text-slate-600', bgColor: 'bg-slate-100' },
-  { id: 'catalog', label: 'Inventory Catalog', icon: Package, color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
-  { id: 'messages', label: 'Message Space', icon: MessageSquare, color: 'text-violet-600', bgColor: 'bg-violet-50' },
+  { id: 'catalog', label: 'Inventory Catalog', icon: Package, color: 'text-emerald-600', bgColor: 'bg-emerald-50', module: 'inventory' },
+  { id: 'messages', label: 'Message Space', icon: MessageSquare, color: 'text-violet-600', bgColor: 'bg-violet-50', module: 'messages' },
 ];
 
 function ModuleLoading() {
@@ -83,6 +85,28 @@ export function InventoryShell({ user, accessToken, onLogout }: InventoryShellPr
   const [currentView, setCurrentView] = useState<InventoryView>('home');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [currentUser, setCurrentUser] = useState<User>(user);
+  const [, setPermissionVersion] = useState(0);
+
+  useEffect(() => onPermissionsChanged(() => setPermissionVersion((version) => version + 1)), []);
+
+  const hasNavAccess = useCallback((item: NavItem) => {
+    if (item.module && !canView(item.module, currentUser.role)) return false;
+    return true;
+  }, [currentUser.role]);
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => hasNavAccess(item));
+
+  useEffect(() => {
+    if (currentView === 'home') return;
+    const currentNav = NAV_ITEMS.find((item) => item.id === currentView);
+    if (!currentNav) {
+      setCurrentView('home');
+      return;
+    }
+    if (!hasNavAccess(currentNav)) {
+      setCurrentView('home');
+    }
+  }, [currentView, hasNavAccess]);
 
   const handleNavigate = useCallback((view: InventoryView) => {
     setCurrentView(view);
@@ -143,7 +167,7 @@ export function InventoryShell({ user, accessToken, onLogout }: InventoryShellPr
 
         {/* Nav items */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
             return (
@@ -248,8 +272,8 @@ export function InventoryShell({ user, accessToken, onLogout }: InventoryShellPr
         )}
 
         <Suspense fallback={<ModuleLoading />}>
-          {currentView === 'catalog' && <Inventory user={currentUser} />}
-          {currentView === 'messages' && <MessagingHub user={currentUser} />}
+          {currentView === 'catalog' && canView('inventory', currentUser.role) && <Inventory user={currentUser} />}
+          {currentView === 'messages' && canView('messages', currentUser.role) && <MessagingHub user={currentUser} />}
           {currentView === 'profile' && (
             <SettingsComponent
               user={currentUser}

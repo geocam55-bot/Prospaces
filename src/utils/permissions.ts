@@ -88,6 +88,15 @@ const SPACE_MODULES: Record<SpaceId, string[]> = {
   it: ['admin', 'users', 'security', 'tenants', 'import-export', 'messages'],
 };
 
+const SPACE_ACCESS_ANCHOR_MODULE: Record<SpaceId, string> = {
+  sales: 'contacts',
+  marketing: 'marketing',
+  design: 'project-wizards',
+  insights: 'reports',
+  inventory: 'inventory',
+  it: 'admin',
+};
+
 export const ALL_SPACES: SpaceDefinition[] = [
   {
     id: 'sales',
@@ -345,24 +354,14 @@ function getRoleCapabilityPermission(module: string, role: UserRole): Permission
 }
 
 export function getDefaultSpacePermission(spaceId: SpaceId, role: UserRole): Permission {
-  const modules = SPACE_MODULES[spaceId] || [];
-  let hasVisible = false;
-  let hasMutatingAccess = false;
+  const anchorModule = SPACE_ACCESS_ANCHOR_MODULE[spaceId];
+  const anchorPermission = getRoleCapabilityPermission(anchorModule, role);
 
-  modules.forEach((module) => {
-    const permission = getRoleCapabilityPermission(module, role);
-    if (permission.visible) {
-      hasVisible = true;
-    }
-    if (permission.add || permission.change || permission.delete) {
-      hasMutatingAccess = true;
-    }
-  });
-
-  if (!hasVisible) {
+  if (!anchorPermission.visible) {
     return accessLevelToPermission('none');
   }
 
+  const hasMutatingAccess = anchorPermission.add || anchorPermission.change || anchorPermission.delete;
   return accessLevelToPermission(hasMutatingAccess ? 'full' : 'view');
 }
 

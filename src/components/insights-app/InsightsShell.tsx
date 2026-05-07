@@ -25,6 +25,7 @@ import {
 import { Switch } from '../ui/switch';
 import { Label } from '../ui/label';
 import { createClient } from '../../utils/supabase/client';
+import { canView, onPermissionsChanged } from '../../utils/permissions';
 import type { User } from '../../App';
 
 // ── Lazy-load reports sub-components ──
@@ -58,13 +59,14 @@ interface NavItem {
   icon: React.ComponentType<any>;
   color: string;
   bgColor: string;
+  module?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Home', icon: LayoutDashboard, color: 'text-slate-600', bgColor: 'bg-slate-100' },
-  { id: 'summary', label: 'Summary', icon: BarChart3, color: 'text-indigo-600', bgColor: 'bg-indigo-50' },
-  { id: 'deals', label: 'Deals', icon: FileText, color: 'text-amber-600', bgColor: 'bg-amber-50' },
-  { id: 'messages', label: 'Message Space', icon: MessageSquare, color: 'text-violet-600', bgColor: 'bg-violet-50' },
+  { id: 'summary', label: 'Summary', icon: BarChart3, color: 'text-indigo-600', bgColor: 'bg-indigo-50', module: 'reports' },
+  { id: 'deals', label: 'Deals', icon: FileText, color: 'text-amber-600', bgColor: 'bg-amber-50', module: 'reports' },
+  { id: 'messages', label: 'Message Space', icon: MessageSquare, color: 'text-violet-600', bgColor: 'bg-violet-50', module: 'messages' },
 ];
 
 function ModuleLoading() {
@@ -89,6 +91,28 @@ export function InsightsShell({ user, accessToken, onLogout }: InsightsShellProp
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showCost, setShowCost] = useState(false);
   const [currentUser, setCurrentUser] = useState<User>(user);
+  const [, setPermissionVersion] = useState(0);
+
+  useEffect(() => onPermissionsChanged(() => setPermissionVersion((version) => version + 1)), []);
+
+  const hasNavAccess = useCallback((item: NavItem) => {
+    if (item.module && !canView(item.module, currentUser.role)) return false;
+    return true;
+  }, [currentUser.role]);
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => hasNavAccess(item));
+
+  useEffect(() => {
+    if (currentView === 'home') return;
+    const currentNav = NAV_ITEMS.find((item) => item.id === currentView);
+    if (!currentNav) {
+      setCurrentView('home');
+      return;
+    }
+    if (!hasNavAccess(currentNav)) {
+      setCurrentView('home');
+    }
+  }, [currentView, hasNavAccess]);
 
   const handleNavigate = useCallback((view: InsightsView) => {
     setCurrentView(view);
@@ -149,7 +173,7 @@ export function InsightsShell({ user, accessToken, onLogout }: InsightsShellProp
 
         {/* Nav items */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
             return (
@@ -272,9 +296,9 @@ export function InsightsShell({ user, accessToken, onLogout }: InsightsShellProp
         )}
 
         <Suspense fallback={<ModuleLoading />}>
-          {currentView === 'summary' && <ManagerSummaryReports user={currentUser} showCost={showCost} />}
-          {currentView === 'deals' && <BidProposalReports user={currentUser} showCost={showCost} />}
-          {currentView === 'messages' && <MessagingHub user={currentUser} />}
+          {currentView === 'summary' && canView('reports', currentUser.role) && <ManagerSummaryReports user={currentUser} showCost={showCost} />}
+          {currentView === 'deals' && canView('reports', currentUser.role) && <BidProposalReports user={currentUser} showCost={showCost} />}
+          {currentView === 'messages' && canView('messages', currentUser.role) && <MessagingHub user={currentUser} />}
           {currentView === 'profile' && (
             <SettingsComponent
               user={currentUser}
@@ -303,6 +327,7 @@ function HomeView({
     icon: React.ComponentType<any>;
     gradient: string;
     shadow: string;
+    module?: string;
   }[] = [
     {
       id: 'summary',
@@ -311,6 +336,7 @@ function HomeView({
       icon: BarChart3,
       gradient: 'from-indigo-500 to-violet-600',
       shadow: 'shadow-indigo-500/20',
+      module: 'reports',
     },
     {
       id: 'deals',
@@ -319,8 +345,11 @@ function HomeView({
       icon: FileText,
       gradient: 'from-amber-500 to-orange-600',
       shadow: 'shadow-amber-500/20',
+      module: 'reports',
     },
   ];
+
+  const visibleCards = cards.filter((card) => !card.module || canView(card.module, user.role));
 
   return (
     <div className="p-8 lg:p-12 max-w-7xl mx-auto">
@@ -334,7 +363,7 @@ function HomeView({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {cards.map((card) => {
+        {visibleCards.map((card) => {
           const Icon = card.icon;
           return (
             <button

@@ -103,16 +103,16 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'home', label: 'Home', icon: LayoutDashboard, color: 'text-slate-600', bgColor: 'bg-slate-100' },
-  { id: 'dashboard', label: 'Dashboard', icon: BarChart3, color: 'text-rose-600', bgColor: 'bg-rose-50' },
+  { id: 'dashboard', label: 'Dashboard', icon: BarChart3, color: 'text-rose-600', bgColor: 'bg-rose-50', module: 'dashboard' },
   { id: 'contacts', label: 'Contacts', icon: Users, color: 'text-sky-600', bgColor: 'bg-sky-50', module: 'contacts' },
   { id: 'messages', label: 'Message Space', icon: MessageSquare, color: 'text-violet-600', bgColor: 'bg-violet-50', module: 'messages' },
-  { id: 'campaigns', label: 'Campaigns', icon: Mail, color: 'text-blue-600', bgColor: 'bg-blue-50' },
-  { id: 'leads', label: 'Lead Scoring', icon: Target, color: 'text-amber-600', bgColor: 'bg-amber-50' },
-  { id: 'journeys', label: 'Journeys', icon: Zap, color: 'text-cyan-600', bgColor: 'bg-cyan-50' },
-  { id: 'pages', label: 'Landing Pages', icon: Globe, color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
-  { id: 'email-design', label: 'Email Design', icon: PenTool, color: 'text-rose-600', bgColor: 'bg-rose-50' },
-  { id: 'referrals', label: 'Referrals', icon: Users, color: 'text-violet-600', bgColor: 'bg-violet-50' },
-  { id: 'analytics', label: 'Analytics', icon: TrendingUp, color: 'text-orange-600', bgColor: 'bg-orange-50' },
+  { id: 'campaigns', label: 'Campaigns', icon: Mail, color: 'text-blue-600', bgColor: 'bg-blue-50', module: 'marketing' },
+  { id: 'leads', label: 'Lead Scoring', icon: Target, color: 'text-amber-600', bgColor: 'bg-amber-50', module: 'marketing' },
+  { id: 'journeys', label: 'Journeys', icon: Zap, color: 'text-cyan-600', bgColor: 'bg-cyan-50', module: 'marketing' },
+  { id: 'pages', label: 'Landing Pages', icon: Globe, color: 'text-emerald-600', bgColor: 'bg-emerald-50', module: 'marketing' },
+  { id: 'email-design', label: 'Email Design', icon: PenTool, color: 'text-rose-600', bgColor: 'bg-rose-50', module: 'marketing' },
+  { id: 'referrals', label: 'Referrals', icon: Users, color: 'text-violet-600', bgColor: 'bg-violet-50', module: 'marketing' },
+  { id: 'analytics', label: 'Analytics', icon: TrendingUp, color: 'text-orange-600', bgColor: 'bg-orange-50', module: 'reports' },
 ];
 
 function ModuleLoading() {
@@ -140,7 +140,24 @@ export function MarketingShell({ user, accessToken, onLogout }: MarketingShellPr
 
   useEffect(() => onPermissionsChanged(() => setPermissionVersion((version) => version + 1)), []);
 
-  const visibleNavItems = NAV_ITEMS.filter((item) => !item.module || canView(item.module, currentUser.role));
+  const hasNavAccess = useCallback((item: NavItem) => {
+    if (item.module && !canView(item.module, currentUser.role)) return false;
+    return true;
+  }, [currentUser.role]);
+
+  const visibleNavItems = NAV_ITEMS.filter((item) => hasNavAccess(item));
+
+  useEffect(() => {
+    if (currentView === 'home') return;
+    const currentNav = NAV_ITEMS.find((item) => item.id === currentView);
+    if (!currentNav) {
+      setCurrentView('home');
+      return;
+    }
+    if (!hasNavAccess(currentNav)) {
+      setCurrentView('home');
+    }
+  }, [currentView, hasNavAccess]);
 
   const handleNavigate = useCallback((view: MarketingView) => {
     setCurrentView(view);
@@ -306,16 +323,16 @@ export function MarketingShell({ user, accessToken, onLogout }: MarketingShellPr
         )}
 
         <Suspense fallback={<ModuleLoading />}>
-          {currentView === 'dashboard' && <MarketingDashboard user={currentUser} />}
-          {currentView === 'contacts' && <Contacts user={currentUser} />}
-          {currentView === 'messages' && <MessagingHub user={currentUser} />}
-          {currentView === 'campaigns' && <CampaignManager user={currentUser} />}
-          {currentView === 'leads' && <LeadScoring user={currentUser} />}
-          {currentView === 'journeys' && <JourneyBuilder user={currentUser} />}
-          {currentView === 'pages' && <LandingPageBuilder user={currentUser} accessToken={accessToken} />}
-          {currentView === 'email-design' && <EmailDesignStudio user={currentUser} />}
-          {currentView === 'referrals' && <ReferralsTab user={currentUser} />}
-          {currentView === 'analytics' && <MarketingAnalytics user={currentUser} />}
+          {currentView === 'dashboard' && canView('dashboard', currentUser.role) && <MarketingDashboard user={currentUser} />}
+          {currentView === 'contacts' && canView('contacts', currentUser.role) && <Contacts user={currentUser} />}
+          {currentView === 'messages' && canView('messages', currentUser.role) && <MessagingHub user={currentUser} />}
+          {currentView === 'campaigns' && canView('marketing', currentUser.role) && <CampaignManager user={currentUser} />}
+          {currentView === 'leads' && canView('marketing', currentUser.role) && <LeadScoring user={currentUser} />}
+          {currentView === 'journeys' && canView('marketing', currentUser.role) && <JourneyBuilder user={currentUser} />}
+          {currentView === 'pages' && canView('marketing', currentUser.role) && <LandingPageBuilder user={currentUser} accessToken={accessToken} />}
+          {currentView === 'email-design' && canView('marketing', currentUser.role) && <EmailDesignStudio user={currentUser} />}
+          {currentView === 'referrals' && canView('marketing', currentUser.role) && <ReferralsTab user={currentUser} />}
+          {currentView === 'analytics' && canView('reports', currentUser.role) && <MarketingAnalytics user={currentUser} />}
           {currentView === 'profile' && (
             <SettingsComponent
               user={currentUser}
@@ -353,6 +370,7 @@ function HomeView({
       icon: BarChart3,
       gradient: 'from-rose-500 to-pink-600',
       shadow: 'shadow-rose-500/20',
+      module: 'dashboard',
     },
     {
       id: 'contacts',
@@ -370,6 +388,7 @@ function HomeView({
       icon: Mail,
       gradient: 'from-blue-500 to-indigo-600',
       shadow: 'shadow-blue-500/20',
+      module: 'marketing',
     },
     {
       id: 'leads',
@@ -378,6 +397,7 @@ function HomeView({
       icon: Target,
       gradient: 'from-amber-500 to-orange-600',
       shadow: 'shadow-amber-500/20',
+      module: 'marketing',
     },
     {
       id: 'journeys',
@@ -386,6 +406,7 @@ function HomeView({
       icon: Zap,
       gradient: 'from-cyan-500 to-blue-600',
       shadow: 'shadow-cyan-500/20',
+      module: 'marketing',
     },
     {
       id: 'pages',
@@ -394,6 +415,7 @@ function HomeView({
       icon: Globe,
       gradient: 'from-emerald-500 to-teal-600',
       shadow: 'shadow-emerald-500/20',
+      module: 'marketing',
     },
     {
       id: 'email-design',
@@ -402,6 +424,7 @@ function HomeView({
       icon: PenTool,
       gradient: 'from-rose-500 to-orange-600',
       shadow: 'shadow-rose-500/20',
+      module: 'marketing',
     },
     {
       id: 'referrals',
@@ -410,6 +433,7 @@ function HomeView({
       icon: Users,
       gradient: 'from-violet-500 to-purple-600',
       shadow: 'shadow-violet-500/20',
+      module: 'marketing',
     },
     {
       id: 'analytics',
@@ -418,6 +442,7 @@ function HomeView({
       icon: TrendingUp,
       gradient: 'from-orange-500 to-red-600',
       shadow: 'shadow-orange-500/20',
+      module: 'reports',
     },
   ];
 
