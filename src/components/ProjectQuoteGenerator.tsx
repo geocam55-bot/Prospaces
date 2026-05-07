@@ -36,12 +36,14 @@ export function ProjectQuoteGenerator({
   totalCost,
   projectData 
 }: ProjectQuoteGeneratorProps) {
+  const getDefaultManualMode = () => materials.length === 0 || totalCost <= 0;
+
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Contact | null>(null);
   const [quoteTitle, setQuoteTitle] = useState('');
   const [quoteNotes, setQuoteNotes] = useState('');
   const [customerPriceLevel, setCustomerPriceLevel] = useState<string>(getPriceTierLabel(1));
-  const [useManualAmount, setUseManualAmount] = useState(false);
+  const [useManualAmount, setUseManualAmount] = useState(getDefaultManualMode);
   const [manualAmount, setManualAmount] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [createAsDeal, setCreateAsDeal] = useState(false);
@@ -217,7 +219,7 @@ export function ProjectQuoteGenerator({
         setQuoteTitle('');
         setQuoteNotes('');
         setSelectedCustomer(null);
-        setUseManualAmount(false);
+        setUseManualAmount(getDefaultManualMode());
         setManualAmount('');
       }, 2000);
 
@@ -233,7 +235,11 @@ export function ProjectQuoteGenerator({
     return (
       <div className="print:hidden flex gap-2 flex-wrap">
         <Button 
-          onClick={() => setIsOpen(true)}
+          onClick={() => {
+            setUseManualAmount(getDefaultManualMode());
+            setManualAmount('');
+            setIsOpen(true);
+          }}
           className="flex items-center gap-2"
           variant="outline"
         >
@@ -332,13 +338,13 @@ export function ProjectQuoteGenerator({
               className="w-4 h-4 rounded border-border"
             />
             <Label htmlFor="manualAmountMode" className="text-sm font-normal cursor-pointer">
-              Enter manual quote amount (not based on inventory items)
+              Enter subtotal manually (without inventory line items)
             </Label>
           </div>
 
           {useManualAmount ? (
             <div>
-              <Label htmlFor="manualAmount" className="text-sm mb-1.5 block">Manual Subtotal Amount *</Label>
+              <Label htmlFor="manualAmount" className="text-sm mb-1.5 block">Subtotal Amount *</Label>
               <Input
                 id="manualAmount"
                 type="number"

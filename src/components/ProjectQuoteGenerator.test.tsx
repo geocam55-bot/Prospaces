@@ -110,8 +110,8 @@ describe('ProjectQuoteGenerator', () => {
 
     fireEvent.change(screen.getByLabelText('Quote Title *'), { target: { value: 'Manual Amount Quote' } });
 
-    fireEvent.click(screen.getByLabelText('Enter manual quote amount (not based on inventory items)'));
-    fireEvent.change(screen.getByLabelText('Manual Subtotal Amount *'), { target: { value: '4000.00' } });
+    expect(screen.getByLabelText('Enter subtotal manually (without inventory line items)')).toBeChecked();
+    fireEvent.change(screen.getByLabelText('Subtotal Amount *'), { target: { value: '4000.00' } });
 
     fireEvent.click(screen.getByRole('button', { name: /create quote/i }));
 
