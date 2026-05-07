@@ -1352,10 +1352,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           </Alert>
 
           {/* Import Button */}
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={clearMapping}>
-              Cancel
-            </Button>
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <Button 
               variant="outline"
               onClick={() => {
@@ -1393,6 +1390,9 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   Import {mappingState.data.length} Records Now
                 </>
               )}
+            </Button>
+            <Button variant="outline" onClick={clearMapping}>
+              Cancel
             </Button>
           </div>
 
