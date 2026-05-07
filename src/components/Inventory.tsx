@@ -94,6 +94,7 @@ interface InventoryItem {
 }
 
 export function Inventory({ user }: InventoryProps) {
+  const isAdminOrSuperAdmin = user.role === 'admin' || user.role === 'super_admin';
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1067,7 +1068,7 @@ export function Inventory({ user }: InventoryProps) {
               )}
             </TabsTrigger>
 
-            {(user.role === 'admin' || user.role === 'super_admin') && (
+            {isAdminOrSuperAdmin && (
               <TabsTrigger value="diagnostic" className="whitespace-nowrap">
                 Diagnostic
               </TabsTrigger>
@@ -1077,7 +1078,7 @@ export function Inventory({ user }: InventoryProps) {
 
         <TabsContent value="items" className="space-y-4 mt-6">
           {/* Lost Inventory Recovery Banner - Highest Priority */}
-          {lostInventory && lostInventory.found && lostInventory.total > 0 && (
+          {isAdminOrSuperAdmin && lostInventory && lostInventory.found && lostInventory.total > 0 && (
             <Alert className="border-orange-300 bg-orange-50">
               <AlertTriangle className="h-5 w-5 text-orange-600" />
               <AlertDescription className="ml-2">
@@ -1145,7 +1146,7 @@ export function Inventory({ user }: InventoryProps) {
           <Card>
             <CardContent className="pt-6">
               {/* Lost Inventory Recovery Banner */}
-              {lostInventory && lostInventory.found && (
+              {isAdminOrSuperAdmin && lostInventory && lostInventory.found && (
                 <Alert className="mb-6 border-orange-200 bg-orange-50">
                   <AlertTriangle className="h-5 w-5 text-orange-600" />
                   <AlertDescription>
