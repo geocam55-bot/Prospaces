@@ -59,6 +59,7 @@ const supabase = createClient();
 
 interface InventoryProps {
   user: User;
+  onNavigate?: (view: string) => void;
 }
 
 interface InventoryItem {
@@ -93,7 +94,7 @@ interface InventoryItem {
   updatedAt: string;
 }
 
-export function Inventory({ user }: InventoryProps) {
+export function Inventory({ user, onNavigate }: InventoryProps) {
   const isAdminOrSuperAdmin = user.role === 'admin' || user.role === 'super_admin';
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -810,6 +811,16 @@ export function Inventory({ user }: InventoryProps) {
     }
   };
 
+  const handleOpenInventoryImport = () => {
+    if (!onNavigate) {
+      toast.error('Import module is not available in this view.');
+      return;
+    }
+
+    sessionStorage.setItem('prospaces_import_export_focus', 'inventory-import');
+    onNavigate('import-export');
+  };
+
   const handleManualScan = async () => {
     setIsRecovering(true);
     try {
@@ -988,6 +999,13 @@ export function Inventory({ user }: InventoryProps) {
             <span className="hidden sm:inline">Export CSV</span>
             <span className="sm:hidden ml-2">Export</span>
           </Button>
+          {onNavigate && (
+            <Button variant="outline" onClick={handleOpenInventoryImport} className="flex-1 sm:flex-none">
+              <Upload className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Import CSV</span>
+              <span className="sm:hidden ml-2">Import</span>
+            </Button>
+          )}
           {canAdd('inventory', user.role) && (
           <Button onClick={() => handleOpenDialog()} className="flex-1 sm:flex-none">
             <Plus className="h-4 w-4 sm:mr-2" />

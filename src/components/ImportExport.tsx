@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { contactsAPI, inventoryAPI, bidsAPI } from '../utils/api';
@@ -130,6 +130,21 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [scheduleFileName, setScheduleFileName] = useState('');
   const [scheduleFileData, setScheduleFileData] = useState<any[] | null>(null);
   const [isScheduling, setIsScheduling] = useState(false);
+
+  useEffect(() => {
+    const focusTarget = sessionStorage.getItem('prospaces_import_export_focus');
+    if (focusTarget !== 'inventory-import') return;
+
+    setActiveTab('import');
+
+    const timeoutId = window.setTimeout(() => {
+      const inventoryImportCard = document.getElementById('import-inventory-card');
+      inventoryImportCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 60);
+
+    sessionStorage.removeItem('prospaces_import_export_focus');
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   // Create scheduled job
   const createScheduledJob = async () => {
@@ -1422,7 +1437,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               </Alert>
 
               {/* Import Contacts */}
-              <Card>
+              <Card id="import-inventory-card">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
