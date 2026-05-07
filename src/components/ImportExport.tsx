@@ -180,7 +180,8 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       try {
         const sub = await getCurrentSubscription();
         if (!cancelled) {
-          setCurrentPlanId(sub?.plan_id || 'free');
+          const hasActiveAccess = !!sub && (sub.status === 'active' || sub.status === 'trialing');
+          setCurrentPlanId(hasActiveAccess ? sub.plan_id : 'free');
         }
       } catch {
         if (!cancelled) {
