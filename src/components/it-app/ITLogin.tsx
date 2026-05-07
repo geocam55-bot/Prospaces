@@ -20,6 +20,7 @@ import {
 import { createClient, getSupabaseUrl } from '../../utils/supabase/client';
 import { publicAnonKey } from '../../utils/supabase/info';
 import { ChangePasswordDialog } from '../ChangePasswordDialog';
+import { canAccessSpace, initializePermissions } from '../../utils/permissions';
 import type { User, UserRole } from '../../App';
 
 type LoginDestination = 'it' | 'crm';
@@ -169,15 +170,14 @@ export function ITLogin({ onLogin }: ITLoginProps) {
         throw new Error('Could not load your user profile.');
       }
 
-      // Role check for IT Space — admin only
-      if (destination === 'it') {
-        const allowedRoles: UserRole[] = [
-          'super_admin',
-          'admin',
-        ];
-        if (!allowedRoles.includes(profile.role as UserRole)) {
-          throw new Error('You do not have access to IT Space. Contact your administrator.');
-        }
+      if (profile.organization_id) {
+        localStorage.setItem('currentOrgId', profile.organization_id);
+      }
+
+      await initializePermissions(profile.role as UserRole);
+
+      if (destination === 'it' && !canAccessSpace('it', profile.role as UserRole, 'view')) {
+        throw new Error('You do not have access to IT Space. Contact your administrator.');
       }
 
       // Force password change

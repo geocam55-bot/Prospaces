@@ -173,4 +173,19 @@ describe('space-based permissions', () => {
     expect(canAdd('inventory', 'standard_user')).toBe(true);
     expect(canChange('inventory', 'standard_user')).toBe(true);
   });
+
+  it('applies an explicit IT space grant for standard users after save and reload', () => {
+    localStorage.setItem(
+      'permissions_org_001',
+      JSON.stringify([
+        { module: getSpacePermissionKey('it'), role: 'standard_user', visible: true, add: true, change: true, delete: true },
+      ])
+    );
+
+    refreshPermissionsFromStorage();
+
+    expect(canAccessSpace('it', 'standard_user', 'view')).toBe(true);
+    expect(canView('security', 'standard_user')).toBe(true);
+    expect(canView('users', 'standard_user')).toBe(true);
+  });
 });

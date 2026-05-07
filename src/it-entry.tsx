@@ -104,11 +104,11 @@ function ITApp() {
   };
 
   const handleLogin = async (loggedInUser: User, token: string) => {
-    await initializePermissions(loggedInUser.role);
     if (loggedInUser.organizationId || loggedInUser.organization_id) {
       const orgId = loggedInUser.organizationId || loggedInUser.organization_id;
       if (orgId) localStorage.setItem('currentOrgId', orgId);
     }
+    await initializePermissions(loggedInUser.role);
     setUser(loggedInUser);
     setAccessToken(token);
   };
