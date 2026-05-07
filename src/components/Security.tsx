@@ -63,6 +63,7 @@ const MODULE_ACCESS_OPTIONS: Array<{ value: ModuleAccessChoice; label: string; i
 ];
 
 export function Security({ user }: SecurityProps) {
+  const isSuperAdmin = user.role === 'super_admin';
   const [activeTab, setActiveTab] = useState('permissions');
   const [permissions, setPermissions] = useState<PermissionRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,6 +73,7 @@ export function Security({ user }: SecurityProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const canAccessSecurity = canView('security', user.role);
@@ -340,24 +342,28 @@ export function Security({ user }: SecurityProps) {
           <div>
             <h2 className="text-2xl font-semibold text-foreground">Hierarchical Space Security</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Security now follows a two-level hierarchy: <strong>1) Space Access by Role</strong>, then <strong>2) Option Access inside that Space</strong>. This lets you grant a role entry to a space without exposing every option inside it.
+              {isSuperAdmin
+                ? 'Manage role access in one place. Start with role-by-space access, then enable advanced option-level controls only when needed.'
+                : <>Security now follows a two-level hierarchy: <strong>1) Space Access by Role</strong>, then <strong>2) Option Access inside that Space</strong>. This lets you grant a role entry to a space without exposing every option inside it.</>}
             </p>
           </div>
           <div className="flex items-center justify-end gap-2">
-            <SecurityModuleHelp
-              userId={user.id}
-              selectedSpace={selectedSpace}
-              hasChanges={hasChanges}
-              canEditSecurity={canEditSecurity}
-              onOpenPermissionsTab={() => setActiveTab('permissions')}
-              onOpenBulkTab={() => setActiveTab('bulk')}
-              onOpenAuditTab={() => setActiveTab('audit')}
-              onShowAllSpaces={() => setSelectedSpace('all')}
-              onClearSearch={() => setSearchQuery('')}
-              onReset={handleReset}
-              onSave={handleSave}
-              onCopyRoleAccess={copyAccessBetweenRoles}
-            />
+            {!isSuperAdmin && (
+              <SecurityModuleHelp
+                userId={user.id}
+                selectedSpace={selectedSpace}
+                hasChanges={hasChanges}
+                canEditSecurity={canEditSecurity}
+                onOpenPermissionsTab={() => setActiveTab('permissions')}
+                onOpenBulkTab={() => setActiveTab('bulk')}
+                onOpenAuditTab={() => setActiveTab('audit')}
+                onShowAllSpaces={() => setSelectedSpace('all')}
+                onClearSearch={() => setSearchQuery('')}
+                onReset={handleReset}
+                onSave={handleSave}
+                onCopyRoleAccess={copyAccessBetweenRoles}
+              />
+            )}
             {hasChanges && (
               <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
                 Unsaved Changes
@@ -371,16 +377,26 @@ export function Security({ user }: SecurityProps) {
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
+            {isSuperAdmin && (
+              <Button
+                variant="outline"
+                onClick={() => setShowAdvancedOptions((prev) => !prev)}
+              >
+                {showAdvancedOptions ? 'Hide Option-Level Access' : 'Show Option-Level Access'}
+              </Button>
+            )}
           </div>
         </div>
 
-        <Alert>
-          <Shield className="h-4 w-4" />
-          <AlertDescription>
-            Start with the <strong>Space Access</strong> level, then fine-tune <strong>Options in that Space</strong> only where needed. <strong>View Only</strong> at the space level keeps all nested options read-only.
-            {!canEditSecurity && ' You currently have view-only access to Security, so settings here are read-only.'}
-          </AlertDescription>
-        </Alert>
+        {!isSuperAdmin && (
+          <Alert>
+            <Shield className="h-4 w-4" />
+            <AlertDescription>
+              Start with the <strong>Space Access</strong> level, then fine-tune <strong>Options in that Space</strong> only where needed. <strong>View Only</strong> at the space level keeps all nested options read-only.
+              {!canEditSecurity && ' You currently have view-only access to Security, so settings here are read-only.'}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {saveMessage && (
           <Alert variant={saveMessage.type === 'success' ? 'default' : 'destructive'}>
@@ -393,8 +409,8 @@ export function Security({ user }: SecurityProps) {
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
             <TabsList className="inline-flex w-auto min-w-full">
               <TabsTrigger value="permissions" className="whitespace-nowrap">Hierarchy Matrix</TabsTrigger>
-              <TabsTrigger value="bulk" className="whitespace-nowrap">Bulk Operations</TabsTrigger>
-              <TabsTrigger value="audit" className="whitespace-nowrap">Audit Logs</TabsTrigger>
+              {!isSuperAdmin && <TabsTrigger value="bulk" className="whitespace-nowrap">Bulk Operations</TabsTrigger>}
+              {!isSuperAdmin && <TabsTrigger value="audit" className="whitespace-nowrap">Audit Logs</TabsTrigger>}
             </TabsList>
           </div>
 
@@ -509,6 +525,7 @@ export function Security({ user }: SecurityProps) {
                         </div>
                       </div>
 
+                      {(!isSuperAdmin || showAdvancedOptions) && (
                       <div className="rounded-xl border border-border bg-muted/20 p-4 sm:p-5">
                         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div>
@@ -604,6 +621,7 @@ export function Security({ user }: SecurityProps) {
                           })}
                         </div>
                       </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -611,7 +629,7 @@ export function Security({ user }: SecurityProps) {
             )}
           </TabsContent>
 
-          <TabsContent value="bulk" className="space-y-6 mt-6">
+          {!isSuperAdmin && <TabsContent value="bulk" className="space-y-6 mt-6">
             <Card>
               <CardHeader>
                 <CardTitle>Bulk Space Updates</CardTitle>
@@ -683,11 +701,11 @@ export function Security({ user }: SecurityProps) {
                 </Card>
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent>}
 
-          <TabsContent value="audit" className="space-y-6 mt-6">
+          {!isSuperAdmin && <TabsContent value="audit" className="space-y-6 mt-6">
             <AuditLogViewer user={user} embedded={true} />
-          </TabsContent>
+          </TabsContent>}
         </Tabs>
       </div>
     </PermissionGate>

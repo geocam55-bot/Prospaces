@@ -72,6 +72,7 @@ interface ContactsProps {
 }
 
 export function Contacts({ user }: ContactsProps) {
+  const canCreateContacts = canAdd('contacts', user.role) || user.role === 'standard_user';
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -1202,7 +1203,7 @@ export function Contacts({ user }: ContactsProps) {
                 Reload Contacts
               </Button>
 
-              {canAdd('contacts', user.role) && (
+              {canCreateContacts && (
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" className="flex items-center gap-2">
@@ -1433,7 +1434,7 @@ export function Contacts({ user }: ContactsProps) {
                     </SelectContent>
                   </Select>
 
-                  {canAdd('contacts', user.role) && (
+                  {canCreateContacts && (
                     <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                       <DialogTrigger asChild>
                         <Button className="group h-11 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 px-4 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:from-cyan-700 hover:to-cyan-800 hover:shadow-md">
