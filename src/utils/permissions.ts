@@ -405,6 +405,10 @@ function applySpaceAccessToModule(basePermission: Permission, spacePermission: P
   return { ...basePermission };
 }
 
+function permissionsMatch(a: Permission, b: Permission): boolean {
+  return a.visible === b.visible && a.add === b.add && a.change === b.change && a.delete === b.delete;
+}
+
 function resolveEffectivePermission(module: string, role: UserRole): Permission {
   const basePermission = getRoleCapabilityPermission(module, role);
   const directOverride = directPermissionsCache.get(permissionKey(module, role));
@@ -416,8 +420,24 @@ function resolveEffectivePermission(module: string, role: UserRole): Permission 
   }
 
   return spaces.reduce<Permission>((effective, spaceId) => {
-    const spacePermission = spacePermissionsCache.get(spaceCacheKey(spaceId, role)) || getDefaultSpacePermission(spaceId, role);
-    return unionPermissions(effective, applySpaceAccessToModule(effectiveModulePermission, spacePermission));
+    const defaultSpacePermission = getDefaultSpacePermission(spaceId, role);
+    const spacePermission = spacePermissionsCache.get(spaceCacheKey(spaceId, role)) || defaultSpacePermission;
+    const hasExplicitSpaceOverride = !permissionsMatch(spacePermission, defaultSpacePermission);
+
+    if (!hasExplicitSpaceOverride) {
+      return unionPermissions(effective, applySpaceAccessToModule(effectiveModulePermission, spacePermission));
+    }
+
+    const explicitSpaceLevel = permissionToAccessLevel(spacePermission);
+    if (explicitSpaceLevel === 'none') {
+      return unionPermissions(effective, { ...EMPTY_PERMISSION });
+    }
+
+    if (explicitSpaceLevel === 'view') {
+      return unionPermissions(effective, accessLevelToPermission('view'));
+    }
+
+    return unionPermissions(effective, directOverride ? { ...directOverride } : accessLevelToPermission('full'));
   }, { ...EMPTY_PERMISSION });
 }
 
@@ -473,10 +493,7 @@ function migrateLegacyPermissions(records: PermissionRecord[]): PermissionRecord
       normalizedSpaceRecords.push({
         module: getSpacePermissionKey(space.id),
         role,
-        ...capPermissionToRole(
-          getDefaultSpacePermission(space.id, role),
-          accessLevelToPermission(!hasVisible ? 'none' : hasMutatingAccess ? 'full' : 'view')
-        ),
+        ...accessLevelToPermission(!hasVisible ? 'none' : hasMutatingAccess ? 'full' : 'view'),
       });
     });
   });
@@ -527,7 +544,6 @@ export function normalizePermissionRecords(records: PermissionRecord[] = []): Pe
       const existing = recordMap.get(`${getSpacePermissionKey(space.id)}:${role}`);
       return existing ? {
         ...existing,
-        ...capPermissionToRole(getDefaultSpacePermission(space.id, role), existing),
       } : {
         module: getSpacePermissionKey(space.id),
         role,

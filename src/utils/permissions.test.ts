@@ -50,7 +50,7 @@ describe('space-based permissions', () => {
     expect(canChange('contacts', 'manager')).toBe(false);
   });
 
-  it('keeps shared modules editable when a full-access space grants them', () => {
+  it('applies explicit space grants to modules in that space', () => {
     localStorage.setItem(
       'permissions_org_001',
       JSON.stringify([
@@ -63,7 +63,8 @@ describe('space-based permissions', () => {
 
     expect(canView('contacts', 'marketing')).toBe(true);
     expect(canAdd('contacts', 'marketing')).toBe(true);
-    expect(canView('bids', 'marketing')).toBe(false);
+    expect(canView('bids', 'marketing')).toBe(true);
+    expect(canAdd('bids', 'marketing')).toBe(false);
   });
 
   it('keeps core Sales modules visible for standard users', () => {
@@ -124,7 +125,7 @@ describe('space-based permissions', () => {
       });
   });
 
-  it('caps elevated module and space overrides to role capability during normalization', () => {
+  it('keeps direct module overrides constrained when there is no space-level grant', () => {
     const normalized = normalizePermissionRecords([
       { module: 'project-wizards', role: 'manager', visible: true, add: true, change: true, delete: true },
       { module: getSpacePermissionKey('design'), role: 'marketing', visible: true, add: true, change: true, delete: true },
@@ -134,7 +135,7 @@ describe('space-based permissions', () => {
     const marketingDesignSpace = normalized.find((entry) => entry.module === getSpacePermissionKey('design') && entry.role === 'marketing');
 
     expect(permissionToAccessLevel(managerProjectWizards)).toBe('none');
-    expect(permissionToAccessLevel(marketingDesignSpace)).toBe('none');
+    expect(permissionToAccessLevel(marketingDesignSpace)).toBe('full');
   });
 
   it('keeps standard user full capability for Design Space modules', () => {
@@ -154,5 +155,20 @@ describe('space-based permissions', () => {
 
     expect(inventoryRows).toHaveLength(1);
     expect(permissionToAccessLevel(inventoryRows[0])).toBe('full');
+  });
+
+  it('applies an explicit inventory space grant for standard users after save and reload', () => {
+    localStorage.setItem(
+      'permissions_org_001',
+      JSON.stringify([
+        { module: getSpacePermissionKey('inventory'), role: 'standard_user', visible: true, add: true, change: true, delete: true },
+      ])
+    );
+
+    refreshPermissionsFromStorage();
+
+    expect(canView('inventory', 'standard_user')).toBe(true);
+    expect(canAdd('inventory', 'standard_user')).toBe(true);
+    expect(canChange('inventory', 'standard_user')).toBe(true);
   });
 });
