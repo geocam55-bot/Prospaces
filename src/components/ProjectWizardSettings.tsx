@@ -210,7 +210,10 @@ const aluminumGlassPanelEntries = (): string[] => [
   'Tempered Glass Panel (66")',
 ];
 
-const aluminumDeckCategories = {
+const aluminumRailByLength = (prefix: string): string[] =>
+  ["6'", "8'", "10'", "12'"].map((len) => `${prefix} (${len})`);
+
+const aluminumFramingAndDecking = {
   'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
   'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
   'Framing - Joists by Length': lumberLengthEntries('Joists'),
@@ -219,10 +222,34 @@ const aluminumDeckCategories = {
   'Framing - Posts by Length': lumberLengthEntries('Posts'),
   'Decking': ['Decking Boards', 'Stair Treads'],
   'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
-  'Railing': ['Aluminum Top & Bottom Rail', 'Picket Packages', 'Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'Aluminum Posts', 'Aluminum Stair Posts'],
-  'Railing - Tempered Glass Panels by Size': aluminumGlassPanelEntries(),
-  'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws', 'Post Base Plate Cover', 'Decorative Post Cap', 'Universal Angle Bracket (UAB)', 'Vinyl Insert for Glass (GVI)', 'Rubber Blocks for Glass (GRB-10)', 'Rail Support Legs (SRSL)', 'Lag Bolts (post mounting)', 'Self Drilling Screws'],
 };
+
+const aluminumHardware = ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws', 'Post Base Plate Cover', 'Decorative Post Cap', 'Universal Angle Bracket (UAB)', 'Vinyl Insert for Glass (GVI)', 'Rubber Blocks for Glass (GRB-10)', 'Rail Support Legs (SRSL)', 'Lag Bolts (post mounting)', 'Self Drilling Screws'];
+
+const aluminumWhiteDeckCategories = {
+  ...aluminumFramingAndDecking,
+  'Railing - White Top Rails': aluminumRailByLength('White Top Rail'),
+  'Railing - White Bottom Rails': aluminumRailByLength('White Bottom Rail'),
+  'Railing - White Pickets': aluminumRailByLength('White Picket'),
+  'Railing - White Posts': ['White End Post', 'White Corner Post', 'White Inline Post', 'White Inline Post 45 Deg.', 'White Post 1', 'White Post 2'],
+  'Railing - White Accessories': ['Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'White Stair Posts', 'Post Skirt', 'Post Collar', 'Rail Connector', 'Stair Gate Hinge Kit', 'Stair Gate Latch Kit'],
+  'Railing - Tempered Glass Panels by Size': aluminumGlassPanelEntries(),
+  'Hardware': aluminumHardware,
+};
+
+const aluminumBlackDeckCategories = {
+  ...aluminumFramingAndDecking,
+  'Railing - Black Top Rails': aluminumRailByLength('Black Top Rail'),
+  'Railing - Black Bottom Rails': aluminumRailByLength('Black Bottom Rail'),
+  'Railing - Black Pickets': aluminumRailByLength('Black Picket'),
+  'Railing - Black Posts': ['Black End Post', 'Black Corner Post', 'Black Inline Post', 'Black Inline Post 45 Deg.', 'Black Post 1', 'Black Post 2'],
+  'Railing - Black Accessories': ['Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'Black Stair Posts', 'Post Skirt', 'Post Collar', 'Rail Connector', 'Stair Gate Hinge Kit', 'Stair Gate Latch Kit'],
+  'Railing - Tempered Glass Panels by Size': aluminumGlassPanelEntries(),
+  'Hardware': aluminumHardware,
+};
+
+// Generic aluminum (no explicit color) — defaults to White structure
+const aluminumDeckCategories = aluminumWhiteDeckCategories;
 
 const ALUMINUM_ONLY_HARDWARE_CATEGORIES = new Set([
   'Post Base Plate Cover',
@@ -304,8 +331,8 @@ const PLANNER_CATEGORIES = {
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
     aluminum: aluminumDeckCategories,
-    'aluminum-white': aluminumDeckCategories,
-    'aluminum-black': aluminumDeckCategories,
+    'aluminum-white': aluminumWhiteDeckCategories,
+    'aluminum-black': aluminumBlackDeckCategories,
   },
   garage: {
     default: {
