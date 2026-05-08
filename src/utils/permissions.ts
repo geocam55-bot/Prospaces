@@ -500,9 +500,10 @@ function migrateLegacyPermissions(records: PermissionRecord[]): PermissionRecord
 
   ALL_ROLES.forEach((role) => {
     ALL_SPACES.forEach((space) => {
-      const relatedRecords = records.filter((record) => record.role === role && space.modules.includes(record.module));
+      const anchorModule = SPACE_ACCESS_ANCHOR_MODULE[space.id];
+      const anchorRecord = records.find((record) => record.role === role && record.module === anchorModule);
 
-      if (relatedRecords.length === 0) {
+      if (!anchorRecord) {
         normalizedSpaceRecords.push({
           module: getSpacePermissionKey(space.id),
           role,
@@ -511,13 +512,12 @@ function migrateLegacyPermissions(records: PermissionRecord[]): PermissionRecord
         return;
       }
 
-      const hasVisible = relatedRecords.some((record) => record.visible);
-      const hasMutatingAccess = relatedRecords.some((record) => record.add || record.change || record.delete);
-
       normalizedSpaceRecords.push({
         module: getSpacePermissionKey(space.id),
         role,
-        ...accessLevelToPermission(!hasVisible ? 'none' : hasMutatingAccess ? 'full' : 'view'),
+        ...accessLevelToPermission(
+          !anchorRecord.visible ? 'none' : (anchorRecord.add || anchorRecord.change || anchorRecord.delete) ? 'full' : 'view'
+        ),
       });
     });
   });
@@ -767,19 +767,21 @@ export function canAccessSpace(spaceId: SpaceId, role: UserRole, requiredLevel: 
     return false;
   }
 
-  const space = ALL_SPACES.find((entry) => entry.id === spaceId);
-  if (!space) {
+  const anchorModule = SPACE_ACCESS_ANCHOR_MODULE[spaceId];
+  if (!anchorModule) {
+    return false;
+  }
+
+  const anchorPermission = permissionsCache.get(permissionKey(anchorModule, role));
+  if (!anchorPermission?.visible) {
     return false;
   }
 
   if (requiredLevel === 'full') {
-    return space.modules.some((module) => {
-      const modulePermission = permissionsCache.get(permissionKey(module, role));
-      return !!modulePermission && (modulePermission.add || modulePermission.change || modulePermission.delete);
-    });
+    return !!(anchorPermission.add || anchorPermission.change || anchorPermission.delete);
   }
 
-  return space.modules.some((module) => !!permissionsCache.get(permissionKey(module, role))?.visible);
+  return true;
 }
 
 /**

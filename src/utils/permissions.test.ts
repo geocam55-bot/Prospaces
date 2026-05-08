@@ -230,4 +230,20 @@ describe('space-based permissions', () => {
     expect(canAccessSpace('inventory', 'standard_user', 'view')).toBe(true);
     expect(canAccessSpace('inventory', 'standard_user', 'full')).toBe(true);
   });
+
+  it('does not infer Marketing Space from shared legacy modules', () => {
+    localStorage.setItem(
+      'permissions_org_001',
+      JSON.stringify([
+        { module: 'contacts', role: 'standard_user', visible: true, add: true, change: true, delete: false },
+        { module: 'messages', role: 'standard_user', visible: true, add: true, change: true, delete: false },
+        { module: 'email', role: 'standard_user', visible: true, add: true, change: true, delete: false },
+      ])
+    );
+
+    refreshPermissionsFromStorage();
+
+    expect(canAccessSpace('marketing', 'standard_user', 'view')).toBe(false);
+    expect(canView('marketing', 'standard_user')).toBe(false);
+  });
 });
