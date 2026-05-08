@@ -78,6 +78,17 @@ describe('space-based permissions', () => {
     expect(canView('notes', 'standard_user')).toBe(true);
   });
 
+  it('does not grant unrelated spaces from shared module visibility', () => {
+    refreshPermissionsFromStorage();
+
+    expect(canAccessSpace('sales', 'standard_user', 'view')).toBe(true);
+    expect(canAccessSpace('design', 'standard_user', 'view')).toBe(true);
+    expect(canAccessSpace('marketing', 'standard_user', 'view')).toBe(false);
+    expect(canAccessSpace('insights', 'standard_user', 'view')).toBe(false);
+    expect(canAccessSpace('inventory', 'standard_user', 'view')).toBe(false);
+    expect(canAccessSpace('it', 'standard_user', 'view')).toBe(false);
+  });
+
   it('requires space access before a module override can grant access', () => {
     localStorage.setItem(
       'permissions_org_001',

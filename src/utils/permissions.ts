@@ -158,6 +158,8 @@ let permissionsCache: Map<string, Permission> = new Map();
 let spacePermissionsCache: Map<string, Permission> = new Map();
 // Saved second-level option/module overrides used inside each space
 let directPermissionsCache: Map<string, Permission> = new Map();
+// Only enable module-based space inference for legacy datasets that truly lack space:* rows.
+let legacyModuleOnlyDatasetLoaded = false;
 
 // Listeners for permission updates
 let permissionListeners: Array<() => void> = [];
@@ -564,6 +566,8 @@ export function normalizePermissionRecords(records: PermissionRecord[] = []): Pe
 function applyPermissionRecords(records: PermissionRecord[] = []) {
   directPermissionsCache.clear();
   seedDefaultSpacePermissions();
+  legacyModuleOnlyDatasetLoaded = records.some((record) => !isSpacePermissionModule(record.module))
+    && !records.some((record) => isSpacePermissionModule(record.module));
 
   normalizePermissionRecords(records).forEach((record) => {
     const normalizedPermission = clonePermission(record);
@@ -588,6 +592,7 @@ function applyPermissionRecords(records: PermissionRecord[] = []) {
 export async function initializePermissions(role: UserRole) {
   permissionsCache.clear();
   directPermissionsCache.clear();
+  legacyModuleOnlyDatasetLoaded = false;
   seedDefaultSpacePermissions();
   rebuildPermissionsCache();
 
@@ -713,6 +718,7 @@ function loadFromLocalStorage() {
  */
 export function refreshPermissionsFromStorage() {
   directPermissionsCache.clear();
+  legacyModuleOnlyDatasetLoaded = false;
   seedDefaultSpacePermissions();
   rebuildPermissionsCache();
   loadFromLocalStorage();
@@ -735,6 +741,10 @@ export function canAccessSpace(spaceId: SpaceId, role: UserRole, requiredLevel: 
   }
 
   // Fallback for legacy/module-only datasets where explicit space:* rows are missing.
+  if (!legacyModuleOnlyDatasetLoaded) {
+    return false;
+  }
+
   const space = ALL_SPACES.find((entry) => entry.id === spaceId);
   if (!space) {
     return false;
