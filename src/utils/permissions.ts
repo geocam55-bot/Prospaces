@@ -411,6 +411,28 @@ function permissionsMatch(a: Permission, b: Permission): boolean {
   return a.visible === b.visible && a.add === b.add && a.change === b.change && a.delete === b.delete;
 }
 
+function getGuardedPermission(module: string, role: UserRole): Permission {
+  const permission = permissionsCache.get(permissionKey(module, role)) ?? { ...EMPTY_PERMISSION };
+  const spaces = MODULE_TO_SPACES[module] || [];
+
+  if (spaces.length === 0 || !permission.visible) {
+    return permission;
+  }
+
+  const hasViewAccess = spaces.some((spaceId) => canAccessSpace(spaceId, role, 'view'));
+  if (!hasViewAccess) {
+    return { ...EMPTY_PERMISSION };
+  }
+
+  const hasFullAccess = spaces.some((spaceId) => canAccessSpace(spaceId, role, 'full'));
+  return {
+    visible: true,
+    add: permission.add && hasFullAccess,
+    change: permission.change && hasFullAccess,
+    delete: permission.delete && hasFullAccess,
+  };
+}
+
 function resolveEffectivePermission(module: string, role: UserRole): Permission {
   const basePermission = getRoleCapabilityPermission(module, role);
   const directOverride = directPermissionsCache.get(permissionKey(module, role));
@@ -764,39 +786,35 @@ export function canAccessSpace(spaceId: SpaceId, role: UserRole, requiredLevel: 
  * Check if user can view a module
  */
 export function canView(module: string, role: UserRole): boolean {
-  const perm = permissionsCache.get(permissionKey(module, role));
-  return perm?.visible ?? false;
+  return getGuardedPermission(module, role).visible;
 }
 
 /**
  * Check if user can add to a module
  */
 export function canAdd(module: string, role: UserRole): boolean {
-  const perm = permissionsCache.get(permissionKey(module, role));
-  return perm?.add ?? false;
+  return getGuardedPermission(module, role).add;
 }
 
 /**
  * Check if user can change/edit in a module
  */
 export function canChange(module: string, role: UserRole): boolean {
-  const perm = permissionsCache.get(permissionKey(module, role));
-  return perm?.change ?? false;
+  return getGuardedPermission(module, role).change;
 }
 
 /**
  * Check if user can delete in a module
  */
 export function canDelete(module: string, role: UserRole): boolean {
-  const perm = permissionsCache.get(permissionKey(module, role));
-  return perm?.delete ?? false;
+  return getGuardedPermission(module, role).delete;
 }
 
 /**
  * Get all permissions for a module and role
  */
 export function getPermissions(module: string, role: UserRole): Permission {
-  return permissionsCache.get(permissionKey(module, role)) ?? { ...EMPTY_PERMISSION };
+  return getGuardedPermission(module, role);
 }
 
 /**

@@ -104,6 +104,23 @@ describe('space-based permissions', () => {
     expect(canView('email', 'standard_user')).toBe(false);
   });
 
+  it('does not allow direct marketing module access when Marketing Space is denied', () => {
+    localStorage.setItem(
+      'permissions_org_001',
+      JSON.stringify([
+        { module: getSpacePermissionKey('marketing'), role: 'standard_user', visible: false, add: false, change: false, delete: false },
+        { module: 'marketing', role: 'standard_user', visible: true, add: true, change: true, delete: true },
+      ])
+    );
+
+    refreshPermissionsFromStorage();
+
+    expect(canAccessSpace('marketing', 'standard_user', 'view')).toBe(false);
+    expect(canView('marketing', 'standard_user')).toBe(false);
+    expect(canAdd('marketing', 'standard_user')).toBe(false);
+    expect(canChange('marketing', 'standard_user')).toBe(false);
+  });
+
   it('keeps option overrides read-only when the parent space is view only', () => {
     localStorage.setItem(
       'permissions_org_001',
