@@ -1035,36 +1035,6 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                   <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
-                <Button
-                  onClick={handleWipeAllPlannerData}
-                  variant="destructive"
-                  size="sm"
-                  disabled={saving || loading}
-                  className="h-8 whitespace-nowrap px-2"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Wipe All Defaults + CFs (Recommended)</span>
-                </Button>
-                <Button
-                  onClick={handleWipeAllPlannerDefaults}
-                  variant="destructive"
-                  size="sm"
-                  disabled={saving || loading}
-                  className="h-8 whitespace-nowrap px-2"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Wipe All Planner Defaults</span>
-                </Button>
-                <Button
-                  onClick={handleWipeAllConversionFactors}
-                  variant="destructive"
-                  size="sm"
-                  disabled={saving || loading}
-                  className="h-8 whitespace-nowrap px-2"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Wipe All Conversion Factors</span>
-                </Button>
                 <Button onClick={handleSave} disabled={saving || loading} size="sm" className="h-8 whitespace-nowrap px-2">
                   {saving ? (
                     <>
@@ -1081,9 +1051,6 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                   )}
                 </Button>
               </div>
-              <p className="max-w-[620px] text-right text-[11px] text-muted-foreground">
-                Wipe actions permanently remove organization-level data. The combined wipe requires typing WIPE and clears all planner defaults plus conversion factors for every planner.
-              </p>
             </div>
           </div>
 
