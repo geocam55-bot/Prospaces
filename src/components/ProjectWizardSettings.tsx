@@ -210,7 +210,10 @@ const aluminumGlassPanelEntries = (): string[] => [
   'Tempered Glass Panel (66")',
 ];
 
-const aluminumDeckCategories = {
+const aluminumRailByLength = (prefix: string): string[] =>
+  ["6'", "8'", "10'", "12'"].map((len) => `${prefix} (${len})`);
+
+const aluminumFramingAndDecking = {
   'Framing': ['Ledger Board', 'Joists', 'Rim Joists', 'Beams', 'Posts', 'Stair Stringers'],
   'Framing - Ledger Board by Length': lumberLengthEntries('Ledger Board'),
   'Framing - Joists by Length': lumberLengthEntries('Joists'),
@@ -219,20 +222,44 @@ const aluminumDeckCategories = {
   'Framing - Posts by Length': lumberLengthEntries('Posts'),
   'Decking': ['Decking Boards', 'Stair Treads'],
   'Decking Boards by Length': lumberLengthEntries('Decking Boards'),
-  'Railing': ['Aluminum Top & Bottom Rail', 'Picket Packages', 'Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'Aluminum Posts', 'Aluminum Stair Posts'],
-  'Railing - Tempered Glass Panels by Size': aluminumGlassPanelEntries(),
-  'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws', 'Post Base Plate Cover', 'Decorative Post Cap', 'Universal Angle Bracket (UAB)', 'Vinyl Insert for Glass (GVI)', 'Rubber Blocks for Glass (GRB-10)', 'Rail Support Legs (SRSL)', 'Lag Bolts (post mounting)', 'Self Drilling Screws'],
 };
 
-const ALUMINUM_ONLY_HARDWARE_CATEGORIES = new Set([
-  'Post Base Plate Cover',
-  'Decorative Post Cap',
-  'Universal Angle Bracket (UAB)',
-  'Vinyl Insert for Glass (GVI)',
-  'Rubber Blocks for Glass (GRB-10)',
-  'Rail Support Legs (SRSL)',
-  'Lag Bolts (post mounting)',
-  'Self Drilling Screws',
+const aluminumHardware = ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'];
+
+const aluminumWhiteDeckCategories = {
+  ...aluminumFramingAndDecking,
+  'Railing - White Top Rails': aluminumRailByLength('White Top Rail'),
+  'Railing - White Bottom Rails': aluminumRailByLength('White Bottom Rail'),
+  'Railing - White Pickets': aluminumRailByLength('White Picket'),
+  'Railing - White Posts': ['White End Post', 'White Corner Post', 'White Inline Post', 'White Inline Post 45 Deg.', 'White Stair Post', 'White Post 1', 'White Post 2'],
+  'Railing - White Accessories': ['Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'Post Skirt', 'Post Collar', 'Rail Connector', 'Stair Gate Hinge Kit', 'Stair Gate Latch Kit', 'Post Base Plate Cover', 'Decorative Post Cap', 'Universal Angle Bracket (UAB)', 'Vinyl Insert for Glass (GVI)', 'Rubber Blocks for Glass (GRB-10)', 'Rail Support Legs (SRSL)', 'Lag Bolts (post mounting)', 'Self Drilling Screws'],
+  'Railing - Tempered Glass Panels by Size': aluminumGlassPanelEntries(),
+  'Hardware': aluminumHardware,
+};
+
+const aluminumBlackDeckCategories = {
+  ...aluminumFramingAndDecking,
+  'Railing - Black Top Rails': aluminumRailByLength('Black Top Rail'),
+  'Railing - Black Bottom Rails': aluminumRailByLength('Black Bottom Rail'),
+  'Railing - Black Pickets': aluminumRailByLength('Black Picket'),
+  'Railing - Black Posts': ['Black End Post', 'Black Corner Post', 'Black Inline Post', 'Black Inline Post 45 Deg.', 'Black Stair Post', 'Black Post 1', 'Black Post 2'],
+  'Railing - Black Accessories': ['Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'Post Skirt', 'Post Collar', 'Rail Connector', 'Stair Gate Hinge Kit', 'Stair Gate Latch Kit', 'Post Base Plate Cover', 'Decorative Post Cap', 'Universal Angle Bracket (UAB)', 'Vinyl Insert for Glass (GVI)', 'Rubber Blocks for Glass (GRB-10)', 'Rail Support Legs (SRSL)', 'Lag Bolts (post mounting)', 'Self Drilling Screws'],
+  'Railing - Tempered Glass Panels by Size': aluminumGlassPanelEntries(),
+  'Hardware': aluminumHardware,
+};
+
+// Generic aluminum (no explicit color) — defaults to White structure
+const aluminumDeckCategories = aluminumWhiteDeckCategories;
+
+const ALUMINUM_ONLY_HARDWARE_CATEGORIES = new Set<string>();
+
+const SHARED_DECK_BASE_MATERIAL_TYPE = 'treated';
+
+const DECKING_ASSOCIATED_HARDWARE_CATEGORIES = new Set([
+  'Deck Screws',
+  'Deck Clips',
+  'Composite Screws',
+  'Composite Plugs',
 ]);
 
 /** Industry-standard suggested conversion factors for vinyl siding accessories. */
@@ -304,8 +331,8 @@ const PLANNER_CATEGORIES = {
       'Hardware': ['Lag Screws', 'Ledger Flashing', 'Joist Hangers', 'Railing Brackets', 'Post Anchors', 'Concrete Mix', 'Structural Screws', 'Deck Screws'],
     },
     aluminum: aluminumDeckCategories,
-    'aluminum-white': aluminumDeckCategories,
-    'aluminum-black': aluminumDeckCategories,
+    'aluminum-white': aluminumWhiteDeckCategories,
+    'aluminum-black': aluminumBlackDeckCategories,
   },
   garage: {
     default: {
@@ -665,8 +692,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
 
   const isAluminumColorSensitiveCategory = (sectionName: string, category: string): boolean => {
     return selectedDeckRailingType === 'aluminum' && (
-      sectionName === 'Railing'
-      || sectionName === 'Railing - Tempered Glass Panels by Size'
+      sectionName.startsWith('Railing')
       || (sectionName === 'Hardware' && ALUMINUM_ONLY_HARDWARE_CATEGORIES.has(category))
     );
   };
@@ -675,27 +701,62 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     if (isAluminumColorSensitiveCategory(sectionName, category)) {
       return `aluminum-${selectedAluminumColorProfile}`;
     }
-    return selectedDeckType;
+
+    const isDeckingSection = sectionName === 'Decking' || sectionName === 'Decking Boards by Length';
+    const isDeckingAssociatedHardware = sectionName === 'Hardware' && DECKING_ASSOCIATED_HARDWARE_CATEGORIES.has(category);
+
+    if (isDeckingSection || isDeckingAssociatedHardware) {
+      return selectedDeckType;
+    }
+
+    return SHARED_DECK_BASE_MATERIAL_TYPE;
   };
 
   const getDeckDisplayCategories = (): Record<string, string[]> => {
-    const baseCategories = PLANNER_CATEGORIES.deck[selectedDeckType] || {};
+    const sharedBaseCategories = PLANNER_CATEGORIES.deck[SHARED_DECK_BASE_MATERIAL_TYPE] || {};
+    const selectedDeckCategories = PLANNER_CATEGORIES.deck[selectedDeckType] || sharedBaseCategories;
+
+    const merged = { ...sharedBaseCategories };
+
+    // Only decking-related category options should follow the selected deck material.
+    merged['Decking'] = selectedDeckCategories['Decking'] || sharedBaseCategories['Decking'] || [];
+    merged['Decking Boards by Length'] = selectedDeckCategories['Decking Boards by Length'] || sharedBaseCategories['Decking Boards by Length'] || [];
+
+    // Keep structural hardware shared, but allow decking-specific hardware to change with deck material.
+    const sharedHardware = sharedBaseCategories['Hardware'] || [];
+    const selectedHardware = selectedDeckCategories['Hardware'] || [];
+    const sharedHardwareWithoutDeckingSpecific = sharedHardware.filter((item) => !DECKING_ASSOCIATED_HARDWARE_CATEGORIES.has(item));
+    const selectedDeckingHardware = selectedHardware.filter((item) => DECKING_ASSOCIATED_HARDWARE_CATEGORIES.has(item));
+    merged['Hardware'] = [
+      ...sharedHardwareWithoutDeckingSpecific,
+      ...selectedDeckingHardware.filter((item) => !sharedHardwareWithoutDeckingSpecific.includes(item)),
+    ];
+
     if (selectedDeckRailingType !== 'aluminum') {
-      return baseCategories;
+      return merged;
     }
 
-    const merged = { ...baseCategories };
-    merged['Railing'] = aluminumDeckCategories['Railing'];
-    merged['Railing - Tempered Glass Panels by Size'] = aluminumDeckCategories['Railing - Tempered Glass Panels by Size'];
+    const colorCategories = selectedAluminumColorProfile === 'black' ? aluminumBlackDeckCategories : aluminumWhiteDeckCategories;
+    const withAluminumRailing = { ...merged };
 
-    const baseHardware = baseCategories['Hardware'] || [];
+    // Remove old generic Railing key if it came from base (non-aluminum deck type)
+    delete withAluminumRailing['Railing'];
+
+    // Inject all Railing sections from the color-specific aluminum categories
+    Object.entries(colorCategories).forEach(([key, value]) => {
+      if (key.startsWith('Railing')) {
+        withAluminumRailing[key] = value;
+      }
+    });
+
+    const baseHardware = withAluminumRailing['Hardware'] || [];
     const mergedHardware = [
       ...baseHardware.filter((item) => item !== 'Railing Brackets'),
-      ...aluminumDeckCategories['Hardware'].filter((item) => !baseHardware.includes(item)),
+      ...colorCategories['Hardware'].filter((item) => !baseHardware.includes(item)),
     ];
-    merged['Hardware'] = mergedHardware;
+    withAluminumRailing['Hardware'] = mergedHardware;
 
-    return merged;
+    return withAluminumRailing;
   };
 
   const handleSave = async () => {
@@ -1035,36 +1096,6 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                   <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
-                <Button
-                  onClick={handleWipeAllPlannerData}
-                  variant="destructive"
-                  size="sm"
-                  disabled={saving || loading}
-                  className="h-8 whitespace-nowrap px-2"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Wipe All Defaults + CFs (Recommended)</span>
-                </Button>
-                <Button
-                  onClick={handleWipeAllPlannerDefaults}
-                  variant="destructive"
-                  size="sm"
-                  disabled={saving || loading}
-                  className="h-8 whitespace-nowrap px-2"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Wipe All Planner Defaults</span>
-                </Button>
-                <Button
-                  onClick={handleWipeAllConversionFactors}
-                  variant="destructive"
-                  size="sm"
-                  disabled={saving || loading}
-                  className="h-8 whitespace-nowrap px-2"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Wipe All Conversion Factors</span>
-                </Button>
                 <Button onClick={handleSave} disabled={saving || loading} size="sm" className="h-8 whitespace-nowrap px-2">
                   {saving ? (
                     <>
@@ -1081,9 +1112,6 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                   )}
                 </Button>
               </div>
-              <p className="max-w-[620px] text-right text-[11px] text-muted-foreground">
-                Wipe actions permanently remove organization-level data. The combined wipe requires typing WIPE and clears all planner defaults plus conversion factors for every planner.
-              </p>
             </div>
           </div>
 
