@@ -253,6 +253,15 @@ const aluminumDeckCategories = aluminumWhiteDeckCategories;
 
 const ALUMINUM_ONLY_HARDWARE_CATEGORIES = new Set<string>();
 
+const SHARED_DECK_BASE_MATERIAL_TYPE = 'treated';
+
+const DECKING_ASSOCIATED_HARDWARE_CATEGORIES = new Set([
+  'Deck Screws',
+  'Deck Clips',
+  'Composite Screws',
+  'Composite Plugs',
+]);
+
 /** Industry-standard suggested conversion factors for vinyl siding accessories. */
 const SYSTEM_CF_SUGGESTIONS: Record<string, number> = {
   'Starter Strip': 1 / 12.5,
@@ -692,36 +701,62 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     if (isAluminumColorSensitiveCategory(sectionName, category)) {
       return `aluminum-${selectedAluminumColorProfile}`;
     }
-    return selectedDeckType;
+
+    const isDeckingSection = sectionName === 'Decking' || sectionName === 'Decking Boards by Length';
+    const isDeckingAssociatedHardware = sectionName === 'Hardware' && DECKING_ASSOCIATED_HARDWARE_CATEGORIES.has(category);
+
+    if (isDeckingSection || isDeckingAssociatedHardware) {
+      return selectedDeckType;
+    }
+
+    return SHARED_DECK_BASE_MATERIAL_TYPE;
   };
 
   const getDeckDisplayCategories = (): Record<string, string[]> => {
-    const baseCategories = PLANNER_CATEGORIES.deck[selectedDeckType] || {};
+    const sharedBaseCategories = PLANNER_CATEGORIES.deck[SHARED_DECK_BASE_MATERIAL_TYPE] || {};
+    const selectedDeckCategories = PLANNER_CATEGORIES.deck[selectedDeckType] || sharedBaseCategories;
+
+    const merged = { ...sharedBaseCategories };
+
+    // Only decking-related category options should follow the selected deck material.
+    merged['Decking'] = selectedDeckCategories['Decking'] || sharedBaseCategories['Decking'] || [];
+    merged['Decking Boards by Length'] = selectedDeckCategories['Decking Boards by Length'] || sharedBaseCategories['Decking Boards by Length'] || [];
+
+    // Keep structural hardware shared, but allow decking-specific hardware to change with deck material.
+    const sharedHardware = sharedBaseCategories['Hardware'] || [];
+    const selectedHardware = selectedDeckCategories['Hardware'] || [];
+    const sharedHardwareWithoutDeckingSpecific = sharedHardware.filter((item) => !DECKING_ASSOCIATED_HARDWARE_CATEGORIES.has(item));
+    const selectedDeckingHardware = selectedHardware.filter((item) => DECKING_ASSOCIATED_HARDWARE_CATEGORIES.has(item));
+    merged['Hardware'] = [
+      ...sharedHardwareWithoutDeckingSpecific,
+      ...selectedDeckingHardware.filter((item) => !sharedHardwareWithoutDeckingSpecific.includes(item)),
+    ];
+
     if (selectedDeckRailingType !== 'aluminum') {
-      return baseCategories;
+      return merged;
     }
 
     const colorCategories = selectedAluminumColorProfile === 'black' ? aluminumBlackDeckCategories : aluminumWhiteDeckCategories;
-    const merged = { ...baseCategories };
+    const withAluminumRailing = { ...merged };
 
     // Remove old generic Railing key if it came from base (non-aluminum deck type)
-    delete merged['Railing'];
+    delete withAluminumRailing['Railing'];
 
     // Inject all Railing sections from the color-specific aluminum categories
     Object.entries(colorCategories).forEach(([key, value]) => {
       if (key.startsWith('Railing')) {
-        merged[key] = value;
+        withAluminumRailing[key] = value;
       }
     });
 
-    const baseHardware = baseCategories['Hardware'] || [];
+    const baseHardware = withAluminumRailing['Hardware'] || [];
     const mergedHardware = [
       ...baseHardware.filter((item) => item !== 'Railing Brackets'),
       ...colorCategories['Hardware'].filter((item) => !baseHardware.includes(item)),
     ];
-    merged['Hardware'] = mergedHardware;
+    withAluminumRailing['Hardware'] = mergedHardware;
 
-    return merged;
+    return withAluminumRailing;
   };
 
   const handleSave = async () => {
