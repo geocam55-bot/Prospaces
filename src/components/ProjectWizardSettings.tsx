@@ -231,8 +231,8 @@ const aluminumWhiteDeckCategories = {
   'Railing - White Top Rails': aluminumRailByLength('White Top Rail'),
   'Railing - White Bottom Rails': aluminumRailByLength('White Bottom Rail'),
   'Railing - White Pickets': aluminumRailByLength('White Picket'),
-  'Railing - White Posts': ['White End Post', 'White Corner Post', 'White Inline Post', 'White Inline Post 45 Deg.', 'White Post 1', 'White Post 2'],
-  'Railing - White Accessories': ['Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'White Stair Posts', 'Post Skirt', 'Post Collar', 'Rail Connector', 'Stair Gate Hinge Kit', 'Stair Gate Latch Kit', 'Post Base Plate Cover', 'Decorative Post Cap', 'Universal Angle Bracket (UAB)', 'Vinyl Insert for Glass (GVI)', 'Rubber Blocks for Glass (GRB-10)', 'Rail Support Legs (SRSL)', 'Lag Bolts (post mounting)', 'Self Drilling Screws'],
+  'Railing - White Posts': ['White End Post', 'White Corner Post', 'White Inline Post', 'White Inline Post 45 Deg.', 'White Stair Post', 'White Post 1', 'White Post 2'],
+  'Railing - White Accessories': ['Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'Post Skirt', 'Post Collar', 'Rail Connector', 'Stair Gate Hinge Kit', 'Stair Gate Latch Kit', 'Post Base Plate Cover', 'Decorative Post Cap', 'Universal Angle Bracket (UAB)', 'Vinyl Insert for Glass (GVI)', 'Rubber Blocks for Glass (GRB-10)', 'Rail Support Legs (SRSL)', 'Lag Bolts (post mounting)', 'Self Drilling Screws'],
   'Railing - Tempered Glass Panels by Size': aluminumGlassPanelEntries(),
   'Hardware': aluminumHardware,
 };
@@ -242,8 +242,8 @@ const aluminumBlackDeckCategories = {
   'Railing - Black Top Rails': aluminumRailByLength('Black Top Rail'),
   'Railing - Black Bottom Rails': aluminumRailByLength('Black Bottom Rail'),
   'Railing - Black Pickets': aluminumRailByLength('Black Picket'),
-  'Railing - Black Posts': ['Black End Post', 'Black Corner Post', 'Black Inline Post', 'Black Inline Post 45 Deg.', 'Black Post 1', 'Black Post 2'],
-  'Railing - Black Accessories': ['Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'Black Stair Posts', 'Post Skirt', 'Post Collar', 'Rail Connector', 'Stair Gate Hinge Kit', 'Stair Gate Latch Kit', 'Post Base Plate Cover', 'Decorative Post Cap', 'Universal Angle Bracket (UAB)', 'Vinyl Insert for Glass (GVI)', 'Rubber Blocks for Glass (GRB-10)', 'Rail Support Legs (SRSL)', 'Lag Bolts (post mounting)', 'Self Drilling Screws'],
+  'Railing - Black Posts': ['Black End Post', 'Black Corner Post', 'Black Inline Post', 'Black Inline Post 45 Deg.', 'Black Stair Post', 'Black Post 1', 'Black Post 2'],
+  'Railing - Black Accessories': ['Clear Glass Pickets (CDG-6)', 'Angled Stair Glass Pickets (CAG-6)', 'Post Skirt', 'Post Collar', 'Rail Connector', 'Stair Gate Hinge Kit', 'Stair Gate Latch Kit', 'Post Base Plate Cover', 'Decorative Post Cap', 'Universal Angle Bracket (UAB)', 'Vinyl Insert for Glass (GVI)', 'Rubber Blocks for Glass (GRB-10)', 'Rail Support Legs (SRSL)', 'Lag Bolts (post mounting)', 'Self Drilling Screws'],
   'Railing - Tempered Glass Panels by Size': aluminumGlassPanelEntries(),
   'Hardware': aluminumHardware,
 };
