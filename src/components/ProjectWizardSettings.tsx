@@ -692,8 +692,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
 
   const isAluminumColorSensitiveCategory = (sectionName: string, category: string): boolean => {
     return selectedDeckRailingType === 'aluminum' && (
-      sectionName === 'Railing'
-      || sectionName === 'Railing - Tempered Glass Panels by Size'
+      sectionName.startsWith('Railing')
       || (sectionName === 'Hardware' && ALUMINUM_ONLY_HARDWARE_CATEGORIES.has(category))
     );
   };
@@ -711,14 +710,23 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
       return baseCategories;
     }
 
+    const colorCategories = selectedAluminumColorProfile === 'black' ? aluminumBlackDeckCategories : aluminumWhiteDeckCategories;
     const merged = { ...baseCategories };
-    merged['Railing'] = aluminumDeckCategories['Railing'];
-    merged['Railing - Tempered Glass Panels by Size'] = aluminumDeckCategories['Railing - Tempered Glass Panels by Size'];
+
+    // Remove old generic Railing key if it came from base (non-aluminum deck type)
+    delete merged['Railing'];
+
+    // Inject all Railing sections from the color-specific aluminum categories
+    Object.entries(colorCategories).forEach(([key, value]) => {
+      if (key.startsWith('Railing')) {
+        merged[key] = value;
+      }
+    });
 
     const baseHardware = baseCategories['Hardware'] || [];
     const mergedHardware = [
       ...baseHardware.filter((item) => item !== 'Railing Brackets'),
-      ...aluminumDeckCategories['Hardware'].filter((item) => !baseHardware.includes(item)),
+      ...colorCategories['Hardware'].filter((item) => !baseHardware.includes(item)),
     ];
     merged['Hardware'] = mergedHardware;
 
