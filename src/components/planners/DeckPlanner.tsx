@@ -26,13 +26,23 @@ interface DeckPlannerProps {
 }
 
 export function DeckPlanner({ user }: DeckPlannerProps) {
+  const SHARED_DECK_MATERIAL_TYPE = 'treated';
+
   const deck3DRendererRef = useRef<Deck3DRendererRef>(null);
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const [pricingContext, setPricingContext] = useState<{
-    cfMap: Record<string, number>;
+    cfMaps: {
+      shared: Record<string, number>;
+      decking: Record<string, number>;
+      railing: Record<string, number>;
+    };
     mergedUserDefaults: Record<string, string>;
   }>({
-    cfMap: {},
+    cfMaps: {
+      shared: {},
+      decking: {},
+      railing: {},
+    },
     mergedUserDefaults: {},
   });
   const draftDefaultsStorageKey = `planner_defaults_draft_${user.organizationId}_${user.id}_deck`;
@@ -78,9 +88,11 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     customerCompany?: string;
   }>({});
 
-  const pricingMaterialType = config.railingStyle === 'Aluminum'
+  const deckingPricingMaterialType = config.deckingType.toLowerCase();
+  const railingPricingMaterialType = config.railingStyle === 'Aluminum'
     ? `aluminum-${(config.aluminumRailingColor || 'White').toLowerCase()}`
-    : config.deckingType.toLowerCase();
+    : SHARED_DECK_MATERIAL_TYPE;
+  const pricingMaterialType = railingPricingMaterialType;
   const defaultsUiMaterialType = config.deckingType.toLowerCase();
 
   const materials = calculateMaterials(config);
@@ -93,6 +105,34 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     ...materials.hardware,
   ];
 
+  const isDeckingSpecificMaterial = (item: any): boolean => {
+    const category = (item?.category || '').toLowerCase();
+    const description = (item?.description || '').toLowerCase();
+    if (category === 'decking') return true;
+    if (category === 'stairs' && description.includes('stair tread')) return true;
+    if (category !== 'hardware') return false;
+    return description.includes('deck screws')
+      || description.includes('composite deck clips')
+      || description.includes('composite deck screws')
+      || description.includes('composite deck plugs');
+  };
+
+  const isRailingSpecificMaterial = (item: any): boolean => {
+    const category = (item?.category || '').toLowerCase();
+    const description = (item?.description || '').toLowerCase();
+    if (category === 'railing') return true;
+    if (category !== 'hardware') return false;
+    return description.includes('railing bracket')
+      || description.includes('post base plate cover')
+      || description.includes('decorative post cap')
+      || description.includes('universal angle bracket')
+      || description.includes('vinyl insert for glass')
+      || description.includes('rubber blocks for glass')
+      || description.includes('lag bolts (post mounting)')
+      || description.includes('self drilling screws')
+      || description.includes('rail support legs');
+  };
+
   // Load defaults and conversion factors when defaults/material type context changes,
   // not on every dimension tweak.
   useEffect(() => {
@@ -101,11 +141,22 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     const loadPricingContext = async () => {
       const draftUserDefs = getDraftDefaults();
       let mergedUserDefs: Record<string, string> = draftUserDefs;
-      let cfMap: Record<string, number> = {};
+      let cfMaps = {
+        shared: {} as Record<string, number>,
+        decking: {} as Record<string, number>,
+        railing: {} as Record<string, number>,
+      };
 
       try {
         const orgCFs = await getOrgConversionFactors(user.organizationId);
-        cfMap = extractOrgConversionFactors(orgCFs, 'deck', pricingMaterialType);
+        const orgShared = extractOrgConversionFactors(orgCFs, 'deck', SHARED_DECK_MATERIAL_TYPE);
+        const orgDecking = extractOrgConversionFactors(orgCFs, 'deck', deckingPricingMaterialType);
+        const orgRailing = extractOrgConversionFactors(orgCFs, 'deck', railingPricingMaterialType);
+        cfMaps = {
+          shared: orgShared,
+          decking: orgDecking,
+          railing: orgRailing,
+        };
       } catch {
         // Best-effort: continue with user-level/default CFs.
       }
@@ -117,12 +168,19 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
         // Best-effort: use draft/local values.
       }
 
-      const userCFMap = extractConversionFactors(mergedUserDefs, 'deck', pricingMaterialType);
-      cfMap = { ...cfMap, ...userCFMap };
+      const userShared = extractConversionFactors(mergedUserDefs, 'deck', SHARED_DECK_MATERIAL_TYPE);
+      const userDecking = extractConversionFactors(mergedUserDefs, 'deck', deckingPricingMaterialType);
+      const userRailing = extractConversionFactors(mergedUserDefs, 'deck', railingPricingMaterialType);
+
+      cfMaps = {
+        shared: { ...cfMaps.shared, ...userShared },
+        decking: { ...cfMaps.decking, ...userDecking },
+        railing: { ...cfMaps.railing, ...userRailing },
+      };
 
       if (!cancelled) {
         setPricingContext({
-          cfMap,
+          cfMaps,
           mergedUserDefaults: mergedUserDefs,
         });
       }
@@ -136,7 +194,8 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     user.organizationId,
     user.id,
     config.deckingType,
-    pricingMaterialType,
+    deckingPricingMaterialType,
+    railingPricingMaterialType,
     defaultsVersion,
   ]);
 
@@ -144,17 +203,69 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
   useEffect(() => {
     const enrichMaterials = async () => {
       if (user.organizationId && flatMaterials.length > 0) {
-        const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(
-          flatMaterials,
-          user.organizationId,
-          'deck',
-          pricingMaterialType,
-          pricingContext.cfMap,
-          user.id,
-          pricingContext.mergedUserDefaults
-        );
-        setEnrichedMaterials(enriched);
-        setTotalT1Price(total);
+        const sharedGroup: Array<{ index: number; item: any }> = [];
+        const deckingGroup: Array<{ index: number; item: any }> = [];
+        const railingGroup: Array<{ index: number; item: any }> = [];
+
+        flatMaterials.forEach((item, index) => {
+          if (isRailingSpecificMaterial(item)) {
+            railingGroup.push({ index, item });
+          } else if (isDeckingSpecificMaterial(item)) {
+            deckingGroup.push({ index, item });
+          } else {
+            sharedGroup.push({ index, item });
+          }
+        });
+
+        const [sharedResult, deckingResult, railingResult] = await Promise.all([
+          sharedGroup.length > 0
+            ? enrichMaterialsWithT1Pricing(
+              sharedGroup.map((entry) => entry.item),
+              user.organizationId,
+              'deck',
+              SHARED_DECK_MATERIAL_TYPE,
+              pricingContext.cfMaps.shared,
+              user.id,
+              pricingContext.mergedUserDefaults
+            )
+            : Promise.resolve({ materials: [], totalT1Price: 0 }),
+          deckingGroup.length > 0
+            ? enrichMaterialsWithT1Pricing(
+              deckingGroup.map((entry) => entry.item),
+              user.organizationId,
+              'deck',
+              deckingPricingMaterialType,
+              pricingContext.cfMaps.decking,
+              user.id,
+              pricingContext.mergedUserDefaults
+            )
+            : Promise.resolve({ materials: [], totalT1Price: 0 }),
+          railingGroup.length > 0
+            ? enrichMaterialsWithT1Pricing(
+              railingGroup.map((entry) => entry.item),
+              user.organizationId,
+              'deck',
+              railingPricingMaterialType,
+              pricingContext.cfMaps.railing,
+              user.id,
+              pricingContext.mergedUserDefaults
+            )
+            : Promise.resolve({ materials: [], totalT1Price: 0 }),
+        ]);
+
+        const enrichedByIndex = new Map<number, any>();
+        sharedGroup.forEach((entry, idx) => {
+          enrichedByIndex.set(entry.index, sharedResult.materials[idx]);
+        });
+        deckingGroup.forEach((entry, idx) => {
+          enrichedByIndex.set(entry.index, deckingResult.materials[idx]);
+        });
+        railingGroup.forEach((entry, idx) => {
+          enrichedByIndex.set(entry.index, railingResult.materials[idx]);
+        });
+
+        setEnrichedMaterials(flatMaterials.map((item, index) => enrichedByIndex.get(index) || item));
+        setTotalT1Price(sharedResult.totalT1Price + deckingResult.totalT1Price + railingResult.totalT1Price);
       }
     };
     enrichMaterials();
@@ -176,12 +287,13 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     config.aluminumRailingColor,
     config.joistSpacing,
     config.deckingType,
-    pricingMaterialType,
+    deckingPricingMaterialType,
+    railingPricingMaterialType,
     config.deckingPattern,
     user.organizationId,
     user.id,
     flatMaterials.length,
-    pricingContext.cfMap,
+    pricingContext.cfMaps,
     pricingContext.mergedUserDefaults,
     defaultsVersion,
   ]);
