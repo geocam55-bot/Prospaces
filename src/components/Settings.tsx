@@ -43,6 +43,7 @@ import {
 import type { User } from '../App';
 import { tenantsAPI, settingsAPI } from '../utils/api';
 import { DEFAULT_PRICE_TIER_LABELS, type PriceTierLabels, getPriceTierLabel, getActivePriceLevels, AVAILABLE_MODULES } from '../lib/global-settings';
+import { buildCustomText, type CustomExportField, type CustomExportTemplate } from '../utils/export-engine';
 
 // Utility: wrap a promise with a timeout to prevent infinite hangs
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
@@ -224,6 +225,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
     audienceSegments: ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'], // Marketing segments
     priceTierLabels: { ...DEFAULT_PRICE_TIER_LABELS } as PriceTierLabels,
     userInviteMethod: 'email', // 'manual' or 'email'
+    exportTemplates: [] as CustomExportTemplate[],
   });
 
   // Organization user mode (single/multi)
@@ -235,6 +237,29 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
 
   // New segment input
   const [newSegment, setNewSegment] = useState('');
+  const [newExportTemplate, setNewExportTemplate] = useState<CustomExportTemplate>({
+    id: '',
+    name: '',
+    description: '',
+    module: 'quotes',
+    enabled: true,
+    file_extension: 'txt',
+    layout_mode: 'fixed',
+    delimiter: '|',
+    header_lines: [],
+    detail_fields: [
+      {
+        key: 'quote_number',
+        label: 'Quote Number',
+        start: 1,
+        length: 20,
+        align: 'left',
+        pad_char: ' ',
+      },
+    ],
+    include_column_headers: true,
+  });
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
 
   // Load settings from Supabase on mount
   useEffect(() => {
@@ -326,6 +351,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           audienceSegments: orgSettings.audience_segments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'],
           priceTierLabels: orgSettings.price_tier_labels || storedPriceTierLabels || { ...DEFAULT_PRICE_TIER_LABELS },
           userInviteMethod: orgSettings.user_invite_method || 'email',
+          exportTemplates: orgSettings.export_templates || [],
         });
         
         // Load organization name
@@ -347,6 +373,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               audienceSegments: parsedSettings.audienceSegments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'],
               priceTierLabels: parsedSettings.priceTierLabels || { ...DEFAULT_PRICE_TIER_LABELS },
               userInviteMethod: parsedSettings.userInviteMethod || 'email',
+              exportTemplates: parsedSettings.exportTemplates || [],
             });
           } catch (_) { /* ignore parse errors */ }
         }
@@ -401,6 +428,8 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           quoteTerms: parsedSettings.quoteTerms || 'Payment due within 30 days. All prices in USD.',
           audienceSegments: parsedSettings.audienceSegments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'],
           priceTierLabels: parsedSettings.priceTierLabels || { ...DEFAULT_PRICE_TIER_LABELS },
+          userInviteMethod: parsedSettings.userInviteMethod || 'email',
+          exportTemplates: parsedSettings.exportTemplates || [],
         });
       }
     } catch (err) {
@@ -414,6 +443,171 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
       }
     } catch (err) {
     }
+  };
+
+  const resetNewExportTemplate = () => {
+    setEditingTemplateId(null);
+    setNewExportTemplate({
+      id: '',
+      name: '',
+      description: '',
+      module: 'quotes',
+      enabled: true,
+      file_extension: 'txt',
+      layout_mode: 'fixed',
+      delimiter: '|',
+      header_lines: [],
+      detail_fields: [
+        {
+          key: 'quote_number',
+          label: 'Quote Number',
+          start: 1,
+          length: 20,
+          align: 'left',
+          pad_char: ' ',
+        },
+      ],
+      include_column_headers: true,
+    });
+  };
+
+  const addDetailFieldRow = () => {
+    setNewExportTemplate((prev) => ({
+      ...prev,
+      detail_fields: [
+        ...(prev.detail_fields || []),
+        {
+          key: '',
+          label: '',
+          start: 1,
+          length: 10,
+          align: 'left',
+          pad_char: ' ',
+        },
+      ],
+    }));
+  };
+
+  const updateDetailFieldRow = (index: number, patch: Partial<CustomExportField>) => {
+    setNewExportTemplate((prev) => ({
+      ...prev,
+      detail_fields: (prev.detail_fields || []).map((field, fieldIndex) =>
+        fieldIndex === index ? { ...field, ...patch } : field
+      ),
+    }));
+  };
+
+  const removeDetailFieldRow = (index: number) => {
+    setNewExportTemplate((prev) => ({
+      ...prev,
+      detail_fields: (prev.detail_fields || []).filter((_, fieldIndex) => fieldIndex !== index),
+    }));
+  };
+
+  const addExportTemplate = () => {
+    const templateName = newExportTemplate.name.trim();
+    if (!templateName) {
+      toast.error('Template name is required');
+      return;
+    }
+
+    const detailFields = (newExportTemplate.detail_fields || []).filter((field) => field.key?.trim());
+    if (detailFields.length === 0) {
+      toast.error('Add at least one detail field with a field key');
+      return;
+    }
+
+    if (newExportTemplate.layout_mode === 'fixed') {
+      const invalidFixed = detailFields.some((field) => !field.start || !field.length);
+      if (invalidFixed) {
+        toast.error('Fixed-width templates require start and length for every detail field');
+        return;
+      }
+    }
+
+    const templateId =
+      newExportTemplate.id ||
+      (typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `tpl_${Date.now()}`);
+
+    const template: CustomExportTemplate = {
+      ...newExportTemplate,
+      id: editingTemplateId || templateId,
+      name: templateName,
+      description: (newExportTemplate.description || '').trim(),
+      detail_fields: detailFields.map((field) => ({
+        ...field,
+        key: field.key.trim(),
+        label: (field.label || '').trim() || field.key.trim(),
+      })),
+      header_lines: (newExportTemplate.header_lines || []).filter((line) => line.trim()),
+    };
+
+    setGlobalSettings((prev) => ({
+      ...prev,
+      exportTemplates: editingTemplateId
+        ? (prev.exportTemplates || []).map((existing) =>
+            existing.id === editingTemplateId ? template : existing
+          )
+        : [...(prev.exportTemplates || []), template],
+    }));
+    resetNewExportTemplate();
+    toast.success(
+      editingTemplateId
+        ? 'Export template updated. Save Module Defaults to persist.'
+        : 'Export template added. Save Module Defaults to persist.'
+    );
+  };
+
+  const editExportTemplate = (templateId: string) => {
+    const template = (globalSettings.exportTemplates || []).find((item) => item.id === templateId);
+    if (!template) return;
+
+    setEditingTemplateId(templateId);
+    setNewExportTemplate({
+      ...template,
+      header_lines: [...(template.header_lines || [])],
+      detail_fields: (template.detail_fields || []).map((field) => ({ ...field })),
+    });
+  };
+
+  const getTemplatePreview = () => {
+    const sampleRows = [
+      {
+        quote_number: 'Q-1001',
+        title: 'Sample Project',
+        contact_name: 'Jane Smith',
+        total: '12500.00',
+        status: 'approved',
+        design_name: 'Sample Design',
+        project_type: 'deck',
+        material_name: 'Composite Board',
+        quantity: 24,
+      },
+    ];
+
+    if (newExportTemplate.layout_mode === 'fixed' || newExportTemplate.layout_mode === 'delimited') {
+      return buildCustomText(sampleRows, newExportTemplate);
+    }
+
+    return '';
+  };
+
+  const removeExportTemplate = (templateId: string) => {
+    setGlobalSettings((prev) => ({
+      ...prev,
+      exportTemplates: (prev.exportTemplates || []).filter((template) => template.id !== templateId),
+    }));
+  };
+
+  const toggleExportTemplateEnabled = (templateId: string) => {
+    setGlobalSettings((prev) => ({
+      ...prev,
+      exportTemplates: (prev.exportTemplates || []).map((template) =>
+        template.id === templateId ? { ...template, enabled: template.enabled === false ? true : false } : template
+      ),
+    }));
   };
 
   // Get user initials for avatar fallback
@@ -653,7 +847,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
     setIsSavingGlobal(true);
     try {
       // Save to Supabase
-      const result = await settingsAPI.upsertOrganizationSettings({
+      const payload: any = {
         organization_id: user.organizationId,
         tax_rate: globalSettings.taxRate,
         tax_rate_2: globalSettings.taxRate2,
@@ -663,7 +857,13 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         audience_segments: globalSettings.audienceSegments, // Marketing segments
         price_tier_labels: globalSettings.priceTierLabels,
         user_invite_method: globalSettings.userInviteMethod,
-      });
+      };
+
+      if (isSuperAdmin) {
+        payload.export_templates = globalSettings.exportTemplates;
+      }
+
+      const result = await settingsAPI.upsertOrganizationSettings(payload);
       
       // Keep localStorage as backup (always save regardless of Supabase status)
       const orgId = localStorage.getItem('currentOrgId') || user.organizationId;
@@ -1233,6 +1433,280 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                           <p className="text-xs text-muted-foreground">
                             These terms will be used as default when creating new quotes and bids
                           </p>
+                        </div>
+
+                        <div className="space-y-4 pt-2 border-t">
+                          <div>
+                            <Label className="text-base font-semibold">Custom Export Templates</Label>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Define organization export formats for Quotes and Planners. Only Super Admin can modify templates.
+                            </p>
+                          </div>
+
+                          {!isSuperAdmin && (
+                            <Alert>
+                              <AlertDescription>
+                                You can view export templates, but only Super Admin can create or edit them.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+
+                          {isSuperAdmin && (
+                            <Card>
+                              <CardHeader>
+                                <CardTitle className="text-base">
+                                  {editingTemplateId ? 'Edit Export Template' : 'Add Export Template'}
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="space-y-3">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <div className="space-y-2">
+                                    <Label>Template Name</Label>
+                                    <Input
+                                      value={newExportTemplate.name}
+                                      onChange={(e) => setNewExportTemplate((prev) => ({ ...prev, name: e.target.value }))}
+                                      placeholder="Eagle Export"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Description</Label>
+                                    <Input
+                                      value={newExportTemplate.description || ''}
+                                      onChange={(e) => setNewExportTemplate((prev) => ({ ...prev, description: e.target.value }))}
+                                      placeholder="Partner system text feed"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                  <div className="space-y-2">
+                                    <Label>Module</Label>
+                                    <Select
+                                      value={newExportTemplate.module || 'quotes'}
+                                      onValueChange={(value: 'quotes' | 'planners' | 'all') =>
+                                        setNewExportTemplate((prev) => ({ ...prev, module: value }))
+                                      }
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="quotes">Quotes</SelectItem>
+                                        <SelectItem value="planners">Planners</SelectItem>
+                                        <SelectItem value="all">All Modules</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Layout</Label>
+                                    <Select
+                                      value={newExportTemplate.layout_mode}
+                                      onValueChange={(value: 'fixed' | 'delimited') =>
+                                        setNewExportTemplate((prev) => ({ ...prev, layout_mode: value }))
+                                      }
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="fixed">Fixed Width</SelectItem>
+                                        <SelectItem value="delimited">Delimited</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>File Extension</Label>
+                                    <Input
+                                      value={newExportTemplate.file_extension || 'txt'}
+                                      onChange={(e) =>
+                                        setNewExportTemplate((prev) => ({
+                                          ...prev,
+                                          file_extension: e.target.value.replace(/^\./, ''),
+                                        }))
+                                      }
+                                      placeholder="txt"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Delimiter</Label>
+                                    <Input
+                                      value={newExportTemplate.delimiter || '|'}
+                                      onChange={(e) => setNewExportTemplate((prev) => ({ ...prev, delimiter: e.target.value || '|' }))}
+                                      disabled={newExportTemplate.layout_mode !== 'delimited'}
+                                      placeholder="|"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>Header Lines (one per line)</Label>
+                                  <Textarea
+                                    value={(newExportTemplate.header_lines || []).join('\n')}
+                                    onChange={(e) =>
+                                      setNewExportTemplate((prev) => ({
+                                        ...prev,
+                                        header_lines: e.target.value
+                                          .split('\n')
+                                          .map((line) => line.trim())
+                                          .filter(Boolean),
+                                      }))
+                                    }
+                                    rows={3}
+                                    placeholder="H|COMPANY|ProSpaces"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label>Detail Fields</Label>
+                                    <Button type="button" variant="outline" size="sm" onClick={addDetailFieldRow}>
+                                      Add Field
+                                    </Button>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {(newExportTemplate.detail_fields || []).map((field, index) => (
+                                      <div key={`${field.key}-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end p-2 border rounded-md">
+                                        <div className="md:col-span-3 space-y-1">
+                                          <Label className="text-xs">Field Key</Label>
+                                          <Input
+                                            value={field.key || ''}
+                                            onChange={(e) => updateDetailFieldRow(index, { key: e.target.value })}
+                                            placeholder="quote_number"
+                                          />
+                                        </div>
+                                        <div className="md:col-span-2 space-y-1">
+                                          <Label className="text-xs">Label</Label>
+                                          <Input
+                                            value={field.label || ''}
+                                            onChange={(e) => updateDetailFieldRow(index, { label: e.target.value })}
+                                            placeholder="Quote #"
+                                          />
+                                        </div>
+                                        <div className="md:col-span-2 space-y-1">
+                                          <Label className="text-xs">Start</Label>
+                                          <Input
+                                            type="number"
+                                            value={field.start || 1}
+                                            onChange={(e) => updateDetailFieldRow(index, { start: parseInt(e.target.value, 10) || 1 })}
+                                            disabled={newExportTemplate.layout_mode !== 'fixed'}
+                                          />
+                                        </div>
+                                        <div className="md:col-span-2 space-y-1">
+                                          <Label className="text-xs">Length</Label>
+                                          <Input
+                                            type="number"
+                                            value={field.length || 10}
+                                            onChange={(e) => updateDetailFieldRow(index, { length: parseInt(e.target.value, 10) || 1 })}
+                                            disabled={newExportTemplate.layout_mode !== 'fixed'}
+                                          />
+                                        </div>
+                                        <div className="md:col-span-2 space-y-1">
+                                          <Label className="text-xs">Align</Label>
+                                          <Select
+                                            value={field.align || 'left'}
+                                            onValueChange={(value: 'left' | 'right') => updateDetailFieldRow(index, { align: value })}
+                                          >
+                                            <SelectTrigger>
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="left">Left</SelectItem>
+                                              <SelectItem value="right">Right</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                        <div className="md:col-span-1 flex justify-end">
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => removeDetailFieldRow(index)}
+                                          >
+                                            <Trash2 className="h-4 w-4 text-red-600" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label>Template Preview</Label>
+                                  <Textarea
+                                    value={getTemplatePreview()}
+                                    readOnly
+                                    rows={5}
+                                    className="font-mono text-xs"
+                                  />
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <Button type="button" onClick={addExportTemplate}>
+                                    {editingTemplateId ? 'Update Template' : 'Add Template'}
+                                  </Button>
+                                  {editingTemplateId && (
+                                    <Button type="button" variant="outline" onClick={resetNewExportTemplate}>
+                                      Cancel Edit
+                                    </Button>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+
+                          <div className="space-y-2">
+                            {(globalSettings.exportTemplates || []).length === 0 ? (
+                              <p className="text-sm text-muted-foreground">No custom templates configured yet.</p>
+                            ) : (
+                              (globalSettings.exportTemplates || []).map((template) => (
+                                <div key={template.id} className="border rounded-md p-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="font-medium">{template.name}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {template.module || 'quotes'} • {template.layout_mode} • .{template.file_extension || 'txt'}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => editExportTemplate(template.id)}
+                                        disabled={!isSuperAdmin}
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => toggleExportTemplateEnabled(template.id)}
+                                        disabled={!isSuperAdmin}
+                                      >
+                                        {template.enabled === false ? 'Enable' : 'Disable'}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => removeExportTemplate(template.id)}
+                                        disabled={!isSuperAdmin}
+                                      >
+                                        <Trash2 className="h-4 w-4 text-red-600" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  {template.description && (
+                                    <p className="text-sm text-muted-foreground">{template.description}</p>
+                                  )}
+                                </div>
+                              ))
+                            )}
+                          </div>
                         </div>
                       </CardContent>
                     </Card>

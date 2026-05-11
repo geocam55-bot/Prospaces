@@ -1,6 +1,7 @@
 import { createClient } from './supabase/client';
 import { projectId, publicAnonKey } from './supabase/info';
 import { getServerHeaders } from './server-headers';
+import type { CustomExportTemplate } from './export-engine';
 
 const supabase = createClient();
 
@@ -29,6 +30,7 @@ export interface OrganizationSettings {
   audience_segments?: string[]; // Marketing audience segments
   price_tier_labels?: Record<string, string>; // May not exist as a DB column yet
   user_invite_method?: string; // May not exist as a DB column yet
+  export_templates?: CustomExportTemplate[]; // May not exist as a DB column yet
   created_at?: string;
   updated_at?: string;
 }
@@ -36,7 +38,7 @@ export interface OrganizationSettings {
 // Fields that may not exist as columns in the organization_settings table.
 // These are stripped before upsert to avoid PGRST204 errors,
 // and are handled via localStorage fallback instead.
-const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels', 'audience_segments', 'user_invite_method'];
+const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels', 'audience_segments', 'user_invite_method', 'export_templates'];
 
 // ─── GET user preferences ──────────────────────────────────────────────────
 

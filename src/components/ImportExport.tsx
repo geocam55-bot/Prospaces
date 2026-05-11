@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
-import { contactsAPI, inventoryAPI, bidsAPI } from '../utils/api';
+import { contactsAPI, inventoryAPI, bidsAPI, quotesAPI, settingsAPI } from '../utils/api';
 import { clearOwnerProfileCache } from '../utils/contacts-client';
 import { toast } from 'sonner@2.0.3';
 import * as XLSX from 'xlsx';
@@ -35,6 +35,15 @@ import {
 import { getPriceTierLabel } from '../lib/global-settings';
 import { ImportExportModuleHelp } from './ImportExportModuleHelp';
 import { getCurrentSubscription, type PlanId } from '../utils/subscription-client';
+import {
+  buildCsv,
+  buildCustomText,
+  buildXml,
+  downloadTextFile,
+  filterTemplatesByModule,
+  sanitizeFilename,
+  type CustomExportTemplate,
+} from '../utils/export-engine';
 
 interface ImportExportProps {
   user: User;
@@ -58,6 +67,12 @@ interface MappingState {
   data: any[];
   fileColumns: string[];
   mapping: ColumnMapping;
+}
+
+interface ScheduleExportOptions {
+  entity?: 'quotes' | 'bids';
+  format?: 'csv' | 'xml' | 'custom';
+  templateId?: string;
 }
 
 // Database field definitions
@@ -132,7 +147,11 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [scheduleDateTime, setScheduleDateTime] = useState('');
   const [scheduleFileName, setScheduleFileName] = useState('');
   const [scheduleFileData, setScheduleFileData] = useState<any[] | null>(null);
+  const [scheduleExportOptions, setScheduleExportOptions] = useState<ScheduleExportOptions | null>(null);
   const [isScheduling, setIsScheduling] = useState(false);
+  const [quoteExportFormat, setQuoteExportFormat] = useState<'csv' | 'xml' | 'custom'>('csv');
+  const [quoteCustomTemplateId, setQuoteCustomTemplateId] = useState('');
+  const [quoteExportTemplates, setQuoteExportTemplates] = useState<CustomExportTemplate[]>([]);
 
   const isFreeUser = currentPlanId === 'free';
   const isFreeOrStandardUser = isFreeUser || currentPlanId === 'starter';
@@ -215,6 +234,37 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadExportTemplates = async () => {
+      try {
+        const settings = await settingsAPI.getOrganizationSettings(user.organizationId);
+        const allTemplates = (settings?.export_templates || []) as CustomExportTemplate[];
+        const quotesTemplates = filterTemplatesByModule(allTemplates, 'quotes');
+
+        if (!cancelled) {
+          setQuoteExportTemplates(quotesTemplates);
+          if (quotesTemplates.length > 0) {
+            setQuoteCustomTemplateId((current) => current || quotesTemplates[0].id);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setQuoteExportTemplates([]);
+        }
+      }
+    };
+
+    if (user.organizationId) {
+      loadExportTemplates();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user.organizationId]);
+
   // Create scheduled job
   const createScheduledJob = async () => {
     if (!scheduleDateTime) {
@@ -241,6 +291,10 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         throw new Error('You must be logged in to schedule jobs');
       }
 
+      const isExportJob = scheduleJobType === 'export';
+      const exportFormat = scheduleExportOptions?.format || 'csv';
+      const defaultExtension = exportFormat === 'xml' ? 'xml' : 'csv';
+
       const jobData = {
         organization_id: user.organizationId,
         created_by: authUser.id, // Use authenticated user ID
@@ -249,8 +303,21 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         scheduled_time: scheduledTime.toISOString(),
         status: 'pending' as const,
         creator_name: user.full_name || user.email || 'User',
-        file_name: scheduleFileName || `${scheduleJobType}_${scheduleDataType}_${scheduledTime.toISOString().split('T')[0]}.csv`,
-        file_data: scheduleFileData ? { records: scheduleFileData } : null,
+        file_name:
+          scheduleFileName ||
+          `${scheduleJobType}_${scheduleDataType}_${scheduledTime.toISOString().split('T')[0]}.${defaultExtension}`,
+        file_data: isExportJob
+          ? {
+              export_options:
+                scheduleExportOptions ||
+                {
+                  entity: scheduleDataType === 'bids' ? 'bids' : undefined,
+                  format: 'csv',
+                },
+            }
+          : scheduleFileData
+            ? { records: scheduleFileData }
+            : null,
       };
 
       const { error } = await supabase
@@ -266,6 +333,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       setScheduleDateTime('');
       setScheduleFileName('');
       setScheduleFileData(null);
+      setScheduleExportOptions(null);
     } catch (error: any) {
       toast.error('Failed to schedule job: ' + error.message);
     } finally {
@@ -274,7 +342,10 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   };
 
   // Open schedule dialog for export
-  const openScheduleExportDialog = (dataType: 'contacts' | 'inventory' | 'bids') => {
+  const openScheduleExportDialog = (
+    dataType: 'contacts' | 'inventory' | 'bids',
+    options?: ScheduleExportOptions
+  ) => {
     if (!canUseProBackgroundTools) {
       showProOnlyMessage();
       return;
@@ -282,8 +353,12 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
     setScheduleJobType('export');
     setScheduleDataType(dataType);
-    setScheduleFileName(`${dataType}_export_${new Date().toISOString().split('T')[0]}.csv`);
+    const format = options?.format || 'csv';
+    const extension = format === 'xml' ? 'xml' : 'csv';
+    const baseName = options?.entity === 'quotes' ? 'quotes' : dataType;
+    setScheduleFileName(`${baseName}_export_${new Date().toISOString().split('T')[0]}.${extension}`);
     setScheduleFileData(null);
+    setScheduleExportOptions(options || { entity: 'bids', format: 'csv' });
     setShowScheduleDialog(true);
   };
 
@@ -298,6 +373,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     setScheduleDataType(dataType);
     setScheduleFileName(fileName);
     setScheduleFileData(fileData);
+    setScheduleExportOptions(null);
     setShowScheduleDialog(true);
   };
 
@@ -1217,24 +1293,73 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     }
   };
 
-  // Export Bids
-  const handleExportBids = async () => {
+  // Export Quotes
+  const handleExportQuotes = async () => {
     setIsExporting(true);
     try {
-      const response = await bidsAPI.getAll();
-      const bids = response.bids || [];
+      const response = await quotesAPI.getAll('team');
+      const quotes = response.quotes || [];
 
-      const csvContent = [
-        'clientName,projectName,description,subtotal,tax,total,status,validUntil,notes,terms',
-        ...bids.map((b: any) => 
-          `"${b.clientName}","${b.projectName}","${b.description || ''}","${b.subtotal}","${b.tax}","${b.total}","${b.status}","${b.validUntil}","${b.notes || ''}","${b.terms || ''}"`
-        )
-      ].join('\n');
+      const rows = quotes.map((q: any) => {
+        const lineItemsRaw = q.line_items || q.lineItems;
+        const lineItems = Array.isArray(lineItemsRaw)
+          ? lineItemsRaw
+          : (() => {
+              if (typeof lineItemsRaw !== 'string' || !lineItemsRaw.trim()) return [];
+              try {
+                const parsed = JSON.parse(lineItemsRaw);
+                return Array.isArray(parsed) ? parsed : [];
+              } catch {
+                return [];
+              }
+            })();
 
-      downloadCSV(csvContent, 'bids_export.csv');
-      toast.success('Deals exported successfully');
+        return {
+          quote_number: q.quote_number || q.quoteNumber || '',
+          title: q.title || q.projectName || '',
+          contact_name: q.contact_name || q.contactName || '',
+          contact_email: q.contact_email || q.contactEmail || '',
+          status: q.status || '',
+          price_tier: q.price_tier || q.priceTier || '',
+          valid_until: q.valid_until || q.validUntil || '',
+          subtotal: q.subtotal ?? '',
+          tax_amount: q.tax_amount ?? q.tax ?? '',
+          total: q.total ?? '',
+          line_items_count: lineItems.length,
+          notes: q.notes || '',
+          terms: q.terms || '',
+        };
+      });
+
+      const datePart = new Date().toISOString().split('T')[0];
+
+      if (quoteExportFormat === 'xml') {
+        const xmlContent = buildXml(rows, 'quotes', 'quote');
+        downloadTextFile(xmlContent, `quotes_export_${datePart}.xml`, 'application/xml;charset=utf-8;');
+        toast.success('Quotes exported as XML');
+      } else if (quoteExportFormat === 'custom') {
+        const template = quoteExportTemplates.find((item) => item.id === quoteCustomTemplateId);
+        if (!template) {
+          toast.error('Select a custom export template first');
+          return;
+        }
+
+        const customContent = buildCustomText(rows, template);
+        const extension = (template.file_extension || 'txt').replace(/^\./, '');
+        const safeTemplateName = sanitizeFilename(template.name || 'custom');
+        downloadTextFile(
+          customContent,
+          `quotes_export_${safeTemplateName}_${datePart}.${extension}`,
+          'text/plain;charset=utf-8;'
+        );
+        toast.success(`Quotes exported using ${template.name}`);
+      } else {
+        const csvContent = buildCsv(rows);
+        downloadTextFile(csvContent, `quotes_export_${datePart}.csv`, 'text/csv;charset=utf-8;');
+        toast.success('Quotes exported as CSV');
+      }
     } catch (error: any) {
-      toast.error('Failed to export bids: ' + error.message);
+      toast.error('Failed to export quotes: ' + error.message);
     } finally {
       setIsExporting(false);
     }
@@ -1473,6 +1598,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
             setScheduleDataType('contacts');
             setScheduleFileName(`contacts_export_${new Date().toISOString().split('T')[0]}.csv`);
             setScheduleFileData(null);
+            setScheduleExportOptions(null);
             setShowScheduleDialog(true);
           }}
         />
@@ -1847,22 +1973,56 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           </Card>
           )}
 
-          {/* Export Deals */}
+          {/* Export Quotes */}
           {!inventoryOnlyMode && !contactsOnlyMode && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Export Deals (Sales & Quotes)
+                Export Quotes
               </CardTitle>
               <CardDescription>
-                Download all sales deals and quotes as CSV
+                Export quotes as CSV, XML, or a custom organization format
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Export Format</Label>
+                  <Select value={quoteExportFormat} onValueChange={(value: 'csv' | 'xml' | 'custom') => setQuoteExportFormat(value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="csv">CSV</SelectItem>
+                      <SelectItem value="xml">XML</SelectItem>
+                      <SelectItem value="custom">Custom Template</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {quoteExportFormat === 'custom' && (
+                  <div className="space-y-2">
+                    <Label>Custom Template</Label>
+                    <Select value={quoteCustomTemplateId} onValueChange={setQuoteCustomTemplateId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select custom template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {quoteExportTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
               <Button
-                onClick={handleExportBids}
-                disabled={isExporting}
+                onClick={handleExportQuotes}
+                disabled={isExporting || (quoteExportFormat === 'custom' && !quoteCustomTemplateId)}
                 className="flex items-center gap-2"
               >
                 {isExporting ? (
@@ -1870,13 +2030,23 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
-                {isExporting ? 'Exporting...' : 'Export Deals'}
+                {isExporting ? 'Exporting...' : 'Export Quotes'}
               </Button>
               <Button
                 variant="outline"
-                onClick={() => openScheduleExportDialog('bids')}
-                disabled={isExporting || !canUseProBackgroundTools}
-                className="flex items-center gap-2 ml-3"
+                onClick={() =>
+                  openScheduleExportDialog('bids', {
+                    entity: 'quotes',
+                    format: quoteExportFormat,
+                    templateId: quoteExportFormat === 'custom' ? quoteCustomTemplateId : undefined,
+                  })
+                }
+                disabled={
+                  isExporting ||
+                  !canUseProBackgroundTools ||
+                  (quoteExportFormat === 'custom' && !quoteCustomTemplateId)
+                }
+                className="flex items-center gap-2"
               >
                 <Clock className="h-4 w-4" />
                 Schedule for Later
@@ -1920,6 +2090,12 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   <span className="text-muted-foreground">Data Type:</span>
                   <span className="font-medium capitalize">{scheduleDataType}</span>
                 </div>
+                {scheduleJobType === 'export' && scheduleExportOptions?.format && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Format:</span>
+                    <span className="font-medium uppercase">{scheduleExportOptions.format}</span>
+                  </div>
+                )}
                 {scheduleFileName && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">File Name:</span>

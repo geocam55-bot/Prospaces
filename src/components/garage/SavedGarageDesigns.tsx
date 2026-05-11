@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { listDesigns, saveDesign as saveDesignApi, deleteDesign as deleteDesignApi } from '../../utils/designs-client';
+import { settingsAPI } from '../../utils/api';
 import { GarageConfig, SavedGarageDesign } from '../../types/garage';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
 import { OpportunitySelector } from '../project-wizard/OpportunitySelector';
@@ -9,9 +10,12 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { FileText, Trash2, Download, Save, User } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
 import type { User as AppUser } from '../../App';
+import { filterTemplatesByModule, type CustomExportTemplate } from '../../utils/export-engine';
+import { exportPlannerDesign } from '../../utils/planner-export';
 
 interface SavedGarageDesignsProps {
   user: AppUser;
@@ -65,6 +69,9 @@ export function SavedGarageDesigns({
   const [saveMessage, setSaveMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xml' | 'custom'>('csv');
+  const [customTemplateId, setCustomTemplateId] = useState('');
+  const [exportTemplates, setExportTemplates] = useState<CustomExportTemplate[]>([]);
 
   useEffect(() => {
     // Only load if we have a valid organization ID
@@ -73,6 +80,38 @@ export function SavedGarageDesigns({
     } else {
       // Skipping load - organizationId is undefined
     }
+  }, [user.organizationId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadExportTemplates = async () => {
+      try {
+        const settings = await settingsAPI.getOrganizationSettings(user.organizationId);
+        const templates = filterTemplatesByModule(
+          (settings?.export_templates || []) as CustomExportTemplate[],
+          'planners'
+        );
+        if (!cancelled) {
+          setExportTemplates(templates);
+          if (templates.length > 0) {
+            setCustomTemplateId((current) => current || templates[0].id);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setExportTemplates([]);
+        }
+      }
+    };
+
+    if (user.organizationId) {
+      loadExportTemplates();
+    }
+
+    return () => {
+      cancelled = true;
+    };
   }, [user.organizationId]);
 
   const loadDesigns = async () => {
@@ -149,23 +188,10 @@ export function SavedGarageDesigns({
   };
 
   const exportDesign = (design: SavedDesign) => {
-    const exportData = {
-      name: design.name,
-      description: design.description,
-      config: design.config,
-      materials: design.materials,
-      total_cost: design.total_cost,
-      exported_at: new Date().toISOString(),
-    };
-
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `garage-design-${design.name.replace(/\s+/g, '-')}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const result = exportPlannerDesign(design, 'garage', exportFormat, exportTemplates, customTemplateId);
+    if (!result.ok && result.error) {
+      setSaveMessage(result.error);
+    }
   };
 
   return (
@@ -246,6 +272,39 @@ export function SavedGarageDesigns({
             <FileText className="w-4 h-4" />
             Saved Designs ({designs.length})
           </CardTitle>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+            <div className="space-y-2">
+              <Label>Export Format</Label>
+              <Select value={exportFormat} onValueChange={(value: 'csv' | 'xml' | 'custom') => setExportFormat(value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select export format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csv">CSV</SelectItem>
+                  <SelectItem value="xml">XML</SelectItem>
+                  <SelectItem value="custom">Custom Template</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {exportFormat === 'custom' && (
+              <div className="space-y-2">
+                <Label>Template</Label>
+                <Select value={customTemplateId} onValueChange={setCustomTemplateId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select custom template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {exportTemplates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -312,6 +371,7 @@ export function SavedGarageDesigns({
                       size="sm"
                       variant="outline"
                       onClick={() => exportDesign(design)}
+                      disabled={exportFormat === 'custom' && !customTemplateId}
                     >
                       <Download className="w-4 h-4" />
                     </Button>

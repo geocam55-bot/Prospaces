@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { RoofConfig, MaterialItem } from '../../types/roof';
 import { createClient } from '../../utils/supabase/client';
+import { settingsAPI } from '../../utils/api';
 import { listDesigns, saveDesign as saveDesignApi, deleteDesign as deleteDesignApi } from '../../utils/designs-client';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
 import { OpportunitySelector } from '../project-wizard/OpportunitySelector';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Save, Trash2, Download, FileText, AlertCircle, User } from 'lucide-react';
 import type { User as AppUser } from '../../App';
+import { filterTemplatesByModule, type CustomExportTemplate } from '../../utils/export-engine';
+import { exportPlannerDesign } from '../../utils/planner-export';
 
 interface SavedRoofDesignsProps {
   user: AppUser;
@@ -34,9 +38,44 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState('');
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xml' | 'custom'>('csv');
+  const [customTemplateId, setCustomTemplateId] = useState('');
+  const [exportTemplates, setExportTemplates] = useState<CustomExportTemplate[]>([]);
 
   useEffect(() => {
     loadSavedDesigns();
+  }, [user.organizationId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadExportTemplates = async () => {
+      try {
+        const settings = await settingsAPI.getOrganizationSettings(user.organizationId);
+        const templates = filterTemplatesByModule(
+          (settings?.export_templates || []) as CustomExportTemplate[],
+          'planners'
+        );
+        if (!cancelled) {
+          setExportTemplates(templates);
+          if (templates.length > 0) {
+            setCustomTemplateId((current) => current || templates[0].id);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setExportTemplates([]);
+        }
+      }
+    };
+
+    if (user.organizationId) {
+      loadExportTemplates();
+    }
+
+    return () => {
+      cancelled = true;
+    };
   }, [user.organizationId]);
 
   const loadSavedDesigns = async () => {
@@ -104,6 +143,13 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
       customerName: design.customer_name,
       customerCompany: design.customer_company,
     });
+  };
+
+  const handleExportDesign = (design: any) => {
+    const result = exportPlannerDesign(design, 'roof', exportFormat, exportTemplates, customTemplateId);
+    if (!result.ok && result.error) {
+      setSaveError(result.error);
+    }
   };
 
   return (
@@ -206,6 +252,40 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
       <div className="bg-background rounded-lg shadow-sm border border-border p-6">
         <h2 className="text-foreground mb-4">Saved Designs</h2>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+          <div className="space-y-2">
+            <label className="block text-foreground text-sm">Export Format</label>
+            <Select value={exportFormat} onValueChange={(value: 'csv' | 'xml' | 'custom') => setExportFormat(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select export format" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="csv">CSV</SelectItem>
+                <SelectItem value="xml">XML</SelectItem>
+                <SelectItem value="custom">Custom Template</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {exportFormat === 'custom' && (
+            <div className="space-y-2">
+              <label className="block text-foreground text-sm">Template</label>
+              <Select value={customTemplateId} onValueChange={setCustomTemplateId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select custom template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {exportTemplates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
         {isLoading ? (
           <div className="text-center py-8 text-muted-foreground">
             Loading saved designs...
@@ -265,6 +345,14 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
                   >
                     <Download className="w-4 h-4" />
                     Load
+                  </button>
+                  <button
+                    onClick={() => handleExportDesign(design)}
+                    disabled={exportFormat === 'custom' && !customTemplateId}
+                    className="flex items-center justify-center gap-2 px-3 py-2 border border-emerald-300 text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors text-sm disabled:opacity-50"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Export
                   </button>
                   <button
                     onClick={() => handleDeleteDesign(design.id)}

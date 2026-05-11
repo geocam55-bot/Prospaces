@@ -99,6 +99,10 @@ export function settingsAPI(app: Hono) {
       const body = await c.req.json();
       const orgId = body.organization_id || profile!.organization_id;
 
+      if (body.export_templates !== undefined && profile!.role !== 'super_admin') {
+        return c.json({ error: 'Only super_admin can manage export templates' }, 403);
+      }
+
       // Prevent cross-org updates (except super_admin)
       if (profile!.role !== 'super_admin' && orgId !== profile!.organization_id) {
         return c.json({ error: 'Cannot update settings for a different organization' }, 403);
@@ -107,7 +111,7 @@ export function settingsAPI(app: Hono) {
       console.log(`[settings-api] PUT org settings for org=${orgId} by user=${user!.email}, role=${profile!.role}`);
 
       // Strip fields that may not exist as DB columns and save to KV instead
-      const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels', 'audience_segments'];
+      const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels', 'audience_segments', 'user_invite_method', 'export_templates'];
       const dbSettings: any = { ...body, organization_id: orgId, updated_at: new Date().toISOString() };
       
       const kvSettings: any = {};

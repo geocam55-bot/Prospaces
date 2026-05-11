@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
+import { settingsAPI } from '../utils/api';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -7,7 +8,17 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { FileText, Trash2, Download, Save, User } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import type { User as AppUser } from '../App';
+import {
+  buildCsv,
+  buildCustomText,
+  buildXml,
+  downloadTextFile,
+  filterTemplatesByModule,
+  sanitizeFilename,
+  type CustomExportTemplate,
+} from '../utils/export-engine';
 
 interface SavedProjectDesignsProps {
   user: AppUser;
@@ -48,12 +59,48 @@ export function SavedProjectDesigns({
   const [saveMessage, setSaveMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xml' | 'custom'>('csv');
+  const [customTemplateId, setCustomTemplateId] = useState('');
+  const [exportTemplates, setExportTemplates] = useState<CustomExportTemplate[]>([]);
 
   useEffect(() => {
     if (user.organizationId) {
       loadDesigns();
     }
   }, [user.organizationId, projectType]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadExportTemplates = async () => {
+      try {
+        const settings = await settingsAPI.getOrganizationSettings(user.organizationId);
+        const templates = filterTemplatesByModule(
+          (settings?.export_templates || []) as CustomExportTemplate[],
+          'planners'
+        );
+
+        if (!cancelled) {
+          setExportTemplates(templates);
+          if (templates.length > 0) {
+            setCustomTemplateId((current) => current || templates[0].id);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setExportTemplates([]);
+        }
+      }
+    };
+
+    if (user.organizationId) {
+      loadExportTemplates();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user.organizationId]);
 
   const loadDesigns = async () => {
     if (!user.organizationId) return;
@@ -166,6 +213,74 @@ export function SavedProjectDesigns({
     }
   };
 
+  const buildExportRows = (design: SavedDesign): Record<string, unknown>[] => {
+    const designMeta = {
+      project_type: projectType,
+      design_name: design.name,
+      description: design.description || '',
+      total_cost: design.total_cost ?? 0,
+      saved_at: design.created_at || '',
+      material_count: Array.isArray(design.materials) ? design.materials.length : 0,
+    };
+
+    if (!Array.isArray(design.materials) || design.materials.length === 0) {
+      return [{
+        ...designMeta,
+        material_name: '',
+        sku: '',
+        category: '',
+        quantity: '',
+        unit_price: '',
+        line_total: '',
+      }];
+    }
+
+    return design.materials.map((item: any) => {
+      const quantity = item.quantity ?? item.qty ?? '';
+      const unitPrice = item.unit_price ?? item.unitPrice ?? item.price ?? '';
+      const lineTotal = item.total ?? item.line_total ?? (Number(quantity || 0) * Number(unitPrice || 0));
+
+      return {
+        ...designMeta,
+        material_name: item.name || item.material || item.description || '',
+        sku: item.sku || '',
+        category: item.category || '',
+        quantity,
+        unit_price: unitPrice,
+        line_total: Number.isFinite(lineTotal) ? lineTotal : '',
+      };
+    });
+  };
+
+  const handleExportDesign = (design: SavedDesign) => {
+    const rows = buildExportRows(design);
+    const safeName = sanitizeFilename(design.name || `${projectType}-design`);
+    const datePart = new Date().toISOString().split('T')[0];
+
+    if (exportFormat === 'xml') {
+      const xmlContent = buildXml(rows, `${projectType}_designs`, 'design_row');
+      downloadTextFile(xmlContent, `${safeName}_${datePart}.xml`, 'application/xml;charset=utf-8;');
+      return;
+    }
+
+    if (exportFormat === 'custom') {
+      const template = exportTemplates.find((item) => item.id === customTemplateId);
+      if (!template) {
+        setSaveMessage('Choose a custom export template before exporting.');
+        return;
+      }
+
+      const content = buildCustomText(rows, template);
+      const extension = (template.file_extension || 'txt').replace(/^\./, '');
+      const templateName = sanitizeFilename(template.name || 'custom');
+      downloadTextFile(content, `${safeName}_${templateName}_${datePart}.${extension}`, 'text/plain;charset=utf-8;');
+      return;
+    }
+
+    const csvContent = buildCsv(rows);
+    downloadTextFile(csvContent, `${safeName}_${datePart}.csv`, 'text/csv;charset=utf-8;');
+  };
+
   return (
     <div className="space-y-6 print:hidden">
       <Card>
@@ -220,6 +335,37 @@ export function SavedProjectDesigns({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Saved Drafts</CardTitle>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+              <div className="space-y-2">
+                <Label>Export Format</Label>
+                <Select value={exportFormat} onValueChange={(value: 'csv' | 'xml' | 'custom') => setExportFormat(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select export format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="csv">CSV</SelectItem>
+                    <SelectItem value="xml">XML</SelectItem>
+                    <SelectItem value="custom">Custom Template</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {exportFormat === 'custom' && (
+                <div className="space-y-2">
+                  <Label>Template</Label>
+                  <Select value={customTemplateId} onValueChange={setCustomTemplateId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select custom template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {exportTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -247,6 +393,16 @@ export function SavedProjectDesigns({
                           className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                         >
                           <Download className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleExportDesign(design)}
+                          title="Export Design"
+                          disabled={exportFormat === 'custom' && !customTemplateId}
+                          className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                        >
+                          <FileText className="w-4 h-4" />
                         </Button>
                         <Button 
                           variant="ghost" 

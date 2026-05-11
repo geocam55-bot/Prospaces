@@ -130,6 +130,9 @@ app.put(`${PREFIX}/permissions`, async (c) => {
     if (auth.error) return c.json({ error: auth.error }, auth.status);
     if (!['admin', 'super_admin'].includes(auth.profile.role)) return c.json({ error: 'Forbidden' }, 403);
     const body = await c.req.json();
+    if (body.export_templates !== undefined && auth.profile.role !== 'super_admin') {
+      return c.json({ error: 'Only super_admin can manage export templates' }, 403);
+    }
     const orgId = body.organization_id || auth.profile.organization_id;
     if (!orgId) return c.json({ error: 'Missing organization_id' }, 400);
 
@@ -714,11 +717,13 @@ app.put(`${PREFIX}/settings/organization`, async (c) => {
       price_tier_labels: body.price_tier_labels,
       audience_segments: body.audience_segments,
       user_invite_method: body.user_invite_method,
+      export_templates: body.export_templates,
     };
     
     delete dbSettings.price_tier_labels;
     delete dbSettings.audience_segments;
     delete dbSettings.user_invite_method;
+    delete dbSettings.export_templates;
     
     await kv.set(`org_settings_extra:${orgId}`, kvSettings);
 

@@ -19,12 +19,21 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { toast } from 'sonner@2.0.3';
 import { createClient } from '../utils/supabase/client';
-import { contactsAPI, inventoryAPI, bidsAPI } from '../utils/api';
+import { contactsAPI, inventoryAPI, bidsAPI, quotesAPI, settingsAPI } from '../utils/api';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { getPriceTierLabel } from '../lib/global-settings';
 import { ScheduledJobsModuleHelp } from './ScheduledJobsModuleHelp';
 import { BackgroundProcessingModuleHelp } from './BackgroundProcessingModuleHelp';
+import {
+  buildCsv,
+  buildCustomText,
+  buildXml,
+  downloadTextFile,
+  filterTemplatesByModule,
+  sanitizeFilename,
+  type CustomExportTemplate,
+} from '../utils/export-engine';
 
 interface ScheduledJobsProps {
   user: User;
@@ -46,7 +55,12 @@ interface ScheduledJob {
   file_name?: string;
   creator_name?: string;
   file_data?: {
-    records: any[];
+    records?: any[];
+    export_options?: {
+      entity?: 'quotes' | 'bids';
+      format?: 'csv' | 'xml' | 'custom';
+      templateId?: string;
+    };
   };
 }
 
@@ -117,7 +131,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
 
       if (job.job_type === 'export') {
         // Handle export
-        recordCount = await executeExport(job.data_type);
+        recordCount = await executeExport(job);
       } else if (job.job_type === 'import') {
         // Handle import
         recordCount = await executeImport(job);
@@ -149,49 +163,134 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
     }
   };
 
-  const executeExport = async (dataType: 'contacts' | 'inventory' | 'bids'): Promise<number> => {
+  const normalizeQuoteRows = (quotes: any[]) => {
+    return quotes.map((q: any) => {
+      const lineItemsRaw = q.line_items || q.lineItems;
+      const lineItems = Array.isArray(lineItemsRaw)
+        ? lineItemsRaw
+        : (() => {
+            if (typeof lineItemsRaw !== 'string' || !lineItemsRaw.trim()) return [];
+            try {
+              const parsed = JSON.parse(lineItemsRaw);
+              return Array.isArray(parsed) ? parsed : [];
+            } catch {
+              return [];
+            }
+          })();
+
+      return {
+        quote_number: q.quote_number || q.quoteNumber || '',
+        title: q.title || q.projectName || '',
+        contact_name: q.contact_name || q.contactName || '',
+        contact_email: q.contact_email || q.contactEmail || '',
+        status: q.status || '',
+        price_tier: q.price_tier || q.priceTier || '',
+        valid_until: q.valid_until || q.validUntil || '',
+        subtotal: q.subtotal ?? '',
+        tax_amount: q.tax_amount ?? q.tax ?? '',
+        total: q.total ?? '',
+        line_items_count: lineItems.length,
+        notes: q.notes || '',
+        terms: q.terms || '',
+      };
+    });
+  };
+
+  const executeExport = async (job: ScheduledJob): Promise<number> => {
+    const dataType = job.data_type;
+    const exportOptions = job.file_data?.export_options;
     let data: any[] = [];
-    let csvContent = '';
 
     if (dataType === 'contacts') {
       const response = await contactsAPI.getAll('team');
       data = response.contacts || [];
-      csvContent = [
+      const csvContent = [
         'name,email,phone,company,trade,address,status,priceLevel,notes,legacyNumber,accountOwnerNumber,ptdSales,ptdGpPercent,ytdSales,ytdGpPercent,lyrSales,lyrGpPercent',
         ...data.map((c: any) => 
           `"${c.name}","${c.email}","${c.phone || ''}","${c.company || ''}","${c.trade || ''}","${c.address || ''}","${c.status || ''}","${c.priceLevel || ''}","${c.notes || ''}","${c.legacyNumber || ''}","${c.accountOwnerNumber || ''}","${c.ptdSales || ''}","${c.ptdGpPercent || ''}","${c.ytdSales || ''}","${c.ytdGpPercent || ''}","${c.lyrSales || ''}","${c.lyrGpPercent || ''}"`
         )
       ].join('\n');
+      downloadTextFile(
+        csvContent,
+        job.file_name || `${dataType}_export_${new Date().toISOString().split('T')[0]}.csv`,
+        'text/csv;charset=utf-8;'
+      );
     } else if (dataType === 'inventory') {
       const response = await inventoryAPI.getAll();
       data = response.items || [];
-      csvContent = [
+      const csvContent = [
         'name,sku,description,category,quantity,quantity_on_order,unit_price,cost',
         ...data.map((i: any) => 
           `\"${i.name}\",\"${i.sku}\",\"${i.description || ''}\",\"${i.category}\",\"${i.quantity}\",\"${i.quantity_on_order}\",\"${i.unit_price}\",\"${i.cost || ''}\"`
         )
       ].join('\n');
+      downloadTextFile(
+        csvContent,
+        job.file_name || `${dataType}_export_${new Date().toISOString().split('T')[0]}.csv`,
+        'text/csv;charset=utf-8;'
+      );
     } else if (dataType === 'bids') {
+      if (exportOptions?.entity === 'quotes') {
+        const response = await quotesAPI.getAll('team');
+        data = response.quotes || [];
+        const rows = normalizeQuoteRows(data);
+        const format = exportOptions.format || 'csv';
+
+        if (format === 'xml') {
+          const xmlContent = buildXml(rows, 'quotes', 'quote');
+          downloadTextFile(
+            xmlContent,
+            job.file_name || `quotes_export_${new Date().toISOString().split('T')[0]}.xml`,
+            'application/xml;charset=utf-8;'
+          );
+          return data.length;
+        }
+
+        if (format === 'custom') {
+          const settings = await settingsAPI.getOrganizationSettings(job.organization_id);
+          const templates = filterTemplatesByModule(
+            (settings?.export_templates || []) as CustomExportTemplate[],
+            'quotes'
+          );
+          const template = templates.find((item) => item.id === exportOptions.templateId);
+          if (!template) {
+            throw new Error('Scheduled quote export template was not found or is disabled');
+          }
+
+          const content = buildCustomText(rows, template);
+          const extension = (template.file_extension || 'txt').replace(/^\./, '');
+          const templateName = sanitizeFilename(template.name || 'custom');
+          downloadTextFile(
+            content,
+            job.file_name || `quotes_export_${templateName}_${new Date().toISOString().split('T')[0]}.${extension}`,
+            'text/plain;charset=utf-8;'
+          );
+          return data.length;
+        }
+
+        const csvContent = buildCsv(rows);
+        downloadTextFile(
+          csvContent,
+          job.file_name || `quotes_export_${new Date().toISOString().split('T')[0]}.csv`,
+          'text/csv;charset=utf-8;'
+        );
+        return data.length;
+      }
+
       const response = await bidsAPI.getAll('team');
       data = response.bids || [];
-      csvContent = [
+      const csvContent = [
         'clientName,projectName,description,subtotal,tax,total,status,validUntil,notes,terms',
         ...data.map((b: any) => 
           `"${b.clientName}","${b.projectName}","${b.description || ''}","${b.subtotal}","${b.tax}","${b.total}","${b.status}","${b.validUntil}","${b.notes || ''}","${b.terms || ''}"`
         )
       ].join('\n');
+      downloadTextFile(
+        csvContent,
+        job.file_name || `${dataType}_export_${new Date().toISOString().split('T')[0]}.csv`,
+        'text/csv;charset=utf-8;'
+      );
     }
-
-    // Download the CSV
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${dataType}_export_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
 
     return data.length;
   };
