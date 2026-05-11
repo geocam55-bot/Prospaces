@@ -341,6 +341,15 @@ function getRoleCapabilityPermission(module: string, role: UserRole): Permission
     if (module === 'settings') {
       return { visible: true, add: false, change: true, delete: false };
     }
+    // Sales module access — mirrors standard_user capabilities
+    if (module === 'contacts' || module === 'tasks' || module === 'appointments' ||
+        module === 'messages' || module === 'notes' || module === 'bids' ||
+        module === 'opportunities' || module === 'email') {
+      return { visible: true, add: true, change: true, delete: false };
+    }
+    if (module === 'documents') {
+      return { visible: true, add: true, change: false, delete: false };
+    }
     return { visible: false, add: false, change: false, delete: false };
   }
 

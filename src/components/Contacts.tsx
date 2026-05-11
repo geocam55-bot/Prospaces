@@ -73,7 +73,7 @@ interface ContactsProps {
 }
 
 export function Contacts({ user }: ContactsProps) {
-  const canCreateContacts = canAdd('contacts', user.role) || user.role === 'standard_user';
+  const canCreateContacts = canAdd('contacts', user.role) || user.role === 'standard_user' || user.role === 'designer';
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
