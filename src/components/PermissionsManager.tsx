@@ -21,10 +21,12 @@ import {
   getSpacePermissionKey,
   normalizePermissionRecords,
   permissionToAccessLevel,
+  refreshPermissionsFromStorage,
   type SpaceAccessLevel,
 } from '../utils/permissions';
 
 const supabase = createClient();
+const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
 interface SpacePermission {
   role: UserRole;
@@ -105,7 +107,64 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
     setIsLoading(true);
     setTableNotFound(false);
 
+    const buildPermissionsByRole = (records: any[] | null | undefined, targetRole: UserRole) => {
+      const normalized = normalizePermissionRecords((records || []) as any[]);
+      const nextPermissions: Record<string, SpacePermission> = {};
+
+      ALL_SPACES.forEach((space) => {
+        const spaceKey = getSpacePermissionKey(space.id);
+        const defaultPermission = getDefaultSpacePermission(space.id, targetRole);
+        const storedPermission = normalized.find(
+          (permission) => permission.role === targetRole && permission.module === spaceKey
+        );
+
+        nextPermissions[spaceKey] = {
+          role: targetRole,
+          module: spaceKey,
+          ...(storedPermission || defaultPermission),
+        };
+
+        space.modules.forEach((module) => {
+          const storedModulePermission = normalized.find(
+            (permission) => permission.role === targetRole && permission.module === module
+          );
+
+          if (storedModulePermission) {
+            nextPermissions[module] = {
+              role: targetRole,
+              module,
+              ...storedModulePermission,
+            };
+          }
+        });
+      });
+
+      return nextPermissions;
+    };
+
     try {
+      // First try KV (same source used at runtime by initializePermissions)
+      const orgId = localStorage.getItem('currentOrgId');
+      const headers = await getServerHeaders();
+      if (orgId && headers['X-User-Token']) {
+        const response = await fetch(`${SERVER_BASE}/permissions?organization_id=${encodeURIComponent(orgId)}`, {
+          headers,
+        });
+
+        if (response.ok) {
+          const json = await response.json();
+          if (Array.isArray(json.permissions) && json.permissions.length > 0) {
+            const nextPermissions = buildPermissionsByRole(json.permissions, role);
+            setPermissions(nextPermissions);
+            setOriginalPermissions(JSON.parse(JSON.stringify(nextPermissions)));
+            setTableNotFound(false);
+            setIsLoading(false);
+            return;
+          }
+        }
+      }
+
+      // Fall back to table data if KV has not been initialized yet.
       const { data, error } = await supabase
         .from('permissions')
         .select('*')
@@ -120,36 +179,7 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
         throw error;
       }
 
-      const normalized = normalizePermissionRecords((data || []) as any[]);
-      const nextPermissions: Record<string, SpacePermission> = {};
-
-      ALL_SPACES.forEach((space) => {
-        const spaceKey = getSpacePermissionKey(space.id);
-        const defaultPermission = getDefaultSpacePermission(space.id, role);
-        const storedPermission = normalized.find(
-          (permission) => permission.role === role && permission.module === spaceKey
-        );
-
-        nextPermissions[spaceKey] = {
-          role,
-          module: spaceKey,
-          ...(storedPermission || defaultPermission),
-        };
-
-        space.modules.forEach((module) => {
-          const storedModulePermission = normalized.find(
-            (permission) => permission.role === role && permission.module === module
-          );
-
-          if (storedModulePermission) {
-            nextPermissions[module] = {
-              role,
-              module,
-              ...storedModulePermission,
-            };
-          }
-        });
-      });
+      const nextPermissions = buildPermissionsByRole(data, role);
 
       setPermissions(nextPermissions);
       setOriginalPermissions(JSON.parse(JSON.stringify(nextPermissions)));
@@ -247,28 +277,40 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
 
       if (insertError) throw insertError;
 
-      await loadPermissions(selectedRole);
-
-      // Sync all roles' permissions to the KV store so initializePermissions picks them up
+      // Sync all roles' permissions to the KV store so initializePermissions picks them up.
+      // If this fails, users may still see stale access checks, so surface it clearly.
+      let kvSynced = false;
       try {
         const { data: allPerms } = await supabase.from('permissions').select('*');
         if (allPerms && allPerms.length > 0) {
           const orgId = localStorage.getItem('currentOrgId');
-          const SERVER_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
           const headers = await getServerHeaders();
           if (orgId && headers['X-User-Token']) {
-            await fetch(`${SERVER_BASE}/permissions`, {
+            const response = await fetch(`${SERVER_BASE}/permissions`, {
               method: 'PUT',
               headers: { ...headers, 'Content-Type': 'application/json' },
               body: JSON.stringify({ permissions: allPerms, organization_id: orgId }),
             });
+            kvSynced = response.ok;
+
+            if (response.ok) {
+              const normalizedForOrg = normalizePermissionRecords(allPerms as any[]);
+              localStorage.setItem(`permissions_${orgId}`, JSON.stringify(normalizedForOrg));
+              refreshPermissionsFromStorage();
+            }
           }
         }
       } catch {
-        // KV sync failure is non-fatal; permissions are saved in the DB
+        kvSynced = false;
       }
 
-      toast.success(`Hierarchical access saved for ${ROLES.find((role) => role.value === selectedRole)?.label}!`);
+      await loadPermissions(selectedRole);
+
+      if (kvSynced) {
+        toast.success(`Hierarchical access saved for ${ROLES.find((role) => role.value === selectedRole)?.label}!`);
+      } else {
+        toast.error('Permissions were saved in the table, but server sync failed. Users may still see outdated access until sync succeeds.');
+      }
     } catch {
       toast.error('Failed to save hierarchical access');
     } finally {
