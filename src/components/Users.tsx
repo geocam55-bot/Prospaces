@@ -679,14 +679,16 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
         throw new Error(result.error || 'Failed to reset password');
       }
 
-      // Check if profile was updated
-      if (!result.profileUpdated && result.warning) {
-        toast.warning('Password reset successful! Note: Run the database migration to enable password change prompts.', {
-          duration: 8000,
-        });
-      } else if (result.profileUpdated) {
+      // Always ensure needs_password_change is set so the user is prompted on next login.
+      try {
+        await supabase
+          .from('profiles')
+          .update({ needs_password_change: true, temp_password: tempPassword, temp_password_created_at: new Date().toISOString() })
+          .eq('email', orgUser.email.toLowerCase());
+      } catch {
+        // Non-fatal — server may have already set it
       }
-      
+
       // Try to send password reset email (optional - not critical)
       try {
         await supabase.auth.resetPasswordForEmail(orgUser.email, {
