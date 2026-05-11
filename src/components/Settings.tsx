@@ -1349,7 +1349,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               <div className="space-y-4">
                 <Tabs defaultValue="deals" className="w-full">
                   <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 mb-2">
-                    <TabsList className="inline-flex sm:grid sm:w-full sm:grid-cols-5 min-w-max">
+                    <TabsList className="inline-flex sm:grid sm:w-full sm:grid-cols-6 min-w-max">
                       <TabsTrigger value="general" className="whitespace-nowrap px-4">General CRM</TabsTrigger>
                       <TabsTrigger value="deals" className="whitespace-nowrap px-4">Deals & Quotes</TabsTrigger>
                       <TabsTrigger value="contacts" className="whitespace-nowrap px-4">Contacts</TabsTrigger>
