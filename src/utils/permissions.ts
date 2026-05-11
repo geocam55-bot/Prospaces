@@ -679,32 +679,35 @@ export async function initializePermissions(role: UserRole) {
       // Ignore fetch failures
     }
 
-    // KV store had no data — fall back to the Supabase permissions table directly
-    if (!kvHadData) {
-      try {
-        const { createClient: createSB } = await import('./supabase/client');
-        const sb = createSB();
-        const { data: dbPerms } = await sb.from('permissions').select('*');
-        if (dbPerms && dbPerms.length > 0) {
-          applyPermissionRecords(dbPerms as PermissionRecord[]);
-          localStorage.setItem(`permissions_${orgId}`, JSON.stringify(normalizePermissionRecords(dbPerms as PermissionRecord[])));
-          notifyPermissionsChanged();
-          // Also backfill the KV store so future loads are faster
-          try {
-            if (headers['X-User-Token']) {
-              await fetch(`${SERVER_BASE}/permissions`, {
-                method: 'PUT',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ permissions: dbPerms, organization_id: orgId }),
-              });
-            }
-          } catch {
-            // KV backfill failure is non-fatal
+    // Reconcile with the Supabase permissions table even if KV had data.
+    // This prevents stale KV snapshots from denying access after newer role edits were saved.
+    try {
+      const { createClient: createSB } = await import('./supabase/client');
+      const sb = createSB();
+      const { data: dbPerms } = await sb.from('permissions').select('*');
+      if (dbPerms && dbPerms.length > 0) {
+        const normalizedDbPerms = normalizePermissionRecords(dbPerms as PermissionRecord[]);
+        applyPermissionRecords(dbPerms as PermissionRecord[]);
+        localStorage.setItem(`permissions_${orgId}`, JSON.stringify(normalizedDbPerms));
+        notifyPermissionsChanged();
+
+        // Keep KV in sync with DB as the source-of-truth for subsequent sessions.
+        try {
+          if (headers['X-User-Token']) {
+            await fetch(`${SERVER_BASE}/permissions`, {
+              method: 'PUT',
+              headers: { ...headers, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ permissions: dbPerms, organization_id: orgId }),
+            });
           }
+        } catch {
+          // KV backfill failure is non-fatal
         }
-      } catch {
-        // DB fallback failed — keep defaults
+      } else if (!kvHadData) {
+        // No DB permissions and no KV permissions: keep defaults.
       }
+    } catch {
+      // DB reconciliation failed — keep KV/defaults that are already loaded.
     }
   } catch {
     // Ignore initialization failures and leave default permissions in place
