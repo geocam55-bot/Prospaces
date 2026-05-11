@@ -4,7 +4,7 @@ import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Loader2, Save, RefreshCw, Hammer, Home, Warehouse, Building2, Info, Brush, Trash2 } from 'lucide-react';
+import { Loader2, Save, RefreshCw, Hammer, Home, Warehouse, Building2, Info, Brush } from 'lucide-react';
 import {
   getProjectWizardDefaults,
   getProjectWizardDefaultsRaw,
@@ -13,7 +13,6 @@ import {
   getInventoryItemsForDropdown,
   getOrgConversionFactors,
   saveOrgConversionFactors,
-  purgePlannerDefaultsForOrganization,
   ProjectWizardDefault,
   InventoryItem,
 } from '../utils/project-wizard-defaults-client';
@@ -825,128 +824,6 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
     }
   };
 
-  const handleWipeAllPlannerDefaults = async () => {
-    if (loading || saving) return;
-
-    const confirmed = window.confirm(
-      'This will permanently remove ALL organization Project Wizard defaults across every planner. Continue?'
-    );
-    if (!confirmed) return;
-
-    setSaving(true);
-        try {
-      const currentRows = await getProjectWizardDefaultsRaw(organizationId);
-      const rowsToDelete = currentRows.filter((row) => !!row.id);
-
-      if (rowsToDelete.length === 0) {
-        setDefaults({});
-        setLoadedDefaults([]);
-        toast.success('All planner defaults are already empty.');
-        onSave('success', 'All planner defaults are already empty.');
-        return;
-      }
-
-      const deleteResults = await Promise.all(rowsToDelete.map((row) => deleteProjectWizardDefault(row.id!)));
-      const failedDeletes = deleteResults.filter((ok) => !ok).length;
-
-      if (failedDeletes > 0) {
-        const message = `Wipe incomplete. Failed to delete ${failedDeletes} default row(s).`;
-        toast.error(message);
-        onSave('error', message);
-        await loadData();
-        return;
-      }
-
-      setDefaults({});
-      setLoadedDefaults([]);
-      toast.success('All organization planner defaults were wiped successfully.');
-      onSave('success', 'All organization planner defaults were wiped successfully.');
-      await loadData();
-    } catch {
-      toast.error('Failed to wipe organization planner defaults.');
-      onSave('error', 'Failed to wipe organization planner defaults.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleWipeAllConversionFactors = async () => {
-    if (loading || saving) return;
-
-    const confirmed = window.confirm(
-      'This will permanently remove ALL organization conversion factors across every planner. Continue?'
-    );
-    if (!confirmed) return;
-
-    setSaving(true);
-    try {
-      const success = await saveOrgConversionFactors(organizationId, {});
-
-      if (!success) {
-        const message = 'Failed to wipe organization conversion factors.';
-        toast.error(message);
-        onSave('error', message);
-        await loadData();
-        return;
-      }
-
-      setOrgCFs({});
-      setCfEditValues({});
-      toast.success('All organization conversion factors were wiped successfully.');
-      onSave('success', 'All organization conversion factors were wiped successfully.');
-      await loadData();
-    } catch {
-      toast.error('Failed to wipe organization conversion factors.');
-      onSave('error', 'Failed to wipe organization conversion factors.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleWipeAllPlannerData = async () => {
-    if (loading || saving) return;
-
-    const confirmed = window.confirm(
-      'This will permanently remove ALL organization planner defaults and conversion factors across every planner. Continue?'
-    );
-    if (!confirmed) return;
-
-    const typedConfirmation = window.prompt('Type WIPE to confirm this destructive action.');
-    if (typedConfirmation !== 'WIPE') {
-      toast.error('Wipe cancelled. Confirmation text did not match.');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const result = await purgePlannerDefaultsForOrganization(organizationId);
-
-      if (!result.success) {
-        const message = 'Wipe failed. Could not purge organization planner defaults data.';
-        toast.error(message);
-        onSave('error', message);
-        await loadData();
-        return;
-      }
-
-      setDefaults({});
-      setLoadedDefaults([]);
-      setOrgCFs({});
-      setCfEditValues({});
-      const deletedRows = result.deletedTableRows || 0;
-      const deletedUserKeys = result.deletedUserDefaultKeys || 0;
-      const message = `Wiped planner defaults data. Deleted ${deletedRows} org defaults row(s) and ${deletedUserKeys} user default key(s).`;
-      toast.success(message);
-      onSave('success', message);
-      await loadData();
-    } catch {
-      toast.error('Failed to wipe organization planner defaults and conversion factors.');
-      onSave('error', 'Failed to wipe organization planner defaults and conversion factors.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const getDefaultValue = (plannerType: string, materialType: string | null, category: string): string => {
     const key = makeDefaultsKey(plannerType, materialType || 'default', category);
     const aluminumFallbackKey = materialType?.startsWith('aluminum-')
@@ -1035,36 +912,6 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                   <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
-                <Button
-                  onClick={handleWipeAllPlannerData}
-                  variant="destructive"
-                  size="sm"
-                  disabled={saving || loading}
-                  className="h-8 whitespace-nowrap px-2"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Wipe All Defaults + CFs (Recommended)</span>
-                </Button>
-                <Button
-                  onClick={handleWipeAllPlannerDefaults}
-                  variant="destructive"
-                  size="sm"
-                  disabled={saving || loading}
-                  className="h-8 whitespace-nowrap px-2"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Wipe All Planner Defaults</span>
-                </Button>
-                <Button
-                  onClick={handleWipeAllConversionFactors}
-                  variant="destructive"
-                  size="sm"
-                  disabled={saving || loading}
-                  className="h-8 whitespace-nowrap px-2"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Wipe All Conversion Factors</span>
-                </Button>
                 <Button onClick={handleSave} disabled={saving || loading} size="sm" className="h-8 whitespace-nowrap px-2">
                   {saving ? (
                     <>
@@ -1081,9 +928,6 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                   )}
                 </Button>
               </div>
-              <p className="max-w-[620px] text-right text-[11px] text-muted-foreground">
-                Wipe actions permanently remove organization-level data. The combined wipe requires typing WIPE and clears all planner defaults plus conversion factors for every planner.
-              </p>
             </div>
           </div>
 
