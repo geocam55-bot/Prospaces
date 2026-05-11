@@ -632,6 +632,20 @@ export function AppContent() {
           onSelectMessagingSpace={() => { setCurrentView('messages'); }}
           onBack={() => setCurrentView('main-panels')}
         />
+
+        {/* Enforce temp-password change before users enter any space */}
+        {showChangePassword && user && (
+          <ChangePasswordDialog
+            open={showChangePassword}
+            onClose={() => {
+              setShowChangePassword(false);
+              if (session?.user) {
+                loadUserData(session.user, false);
+              }
+            }}
+            userId={user.id}
+          />
+        )}
       </ErrorBoundary>
     );
   }
