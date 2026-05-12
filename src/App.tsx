@@ -29,6 +29,7 @@ import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnos
 import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDiagnosticTest';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
+import { GettingStarted } from './components/GettingStarted';
 import { createClient } from './utils/supabase/client';
 import { canAccessSpace, initializePermissions } from './utils/permissions';
 import { getTheme } from './utils/themes';
@@ -727,6 +728,15 @@ export function AppContent() {
                 }
               }}
               userId={user.id}
+            />
+          )}
+
+          {/* Getting Started checklist — shown to new users */}
+          {user && (
+            <GettingStarted
+              userId={user.id}
+              userRole={user.role}
+              onNavigate={setCurrentView}
             />
           )}
         </div>

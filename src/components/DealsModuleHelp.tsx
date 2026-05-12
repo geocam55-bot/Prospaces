@@ -36,14 +36,20 @@ export function DealsModuleHelp({
         {
           title: 'Discovery and Scope Lock',
           body: 'Use search and status filters to isolate the right opportunity before changing quote scope.',
+          targetSelector: '[data-tour="bids-search"]',
+          placement: 'bottom',
         },
         {
           title: 'Estimate and Validate',
           body: 'Maintain quote totals, line items, and status progression so forecasting and pricing remain trustworthy.',
+          targetSelector: '[data-tour="bids-list"]',
+          placement: 'top',
         },
         {
           title: 'Approval and Handoff',
           body: 'Move quotes to accepted and communicate final terms for clean downstream execution.',
+          targetSelector: '[data-tour="bids-new"]',
+          placement: 'bottom',
         },
       ]}
       badges={[

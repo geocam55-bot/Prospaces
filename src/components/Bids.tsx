@@ -653,7 +653,7 @@ export function Bids({ user }: BidsProps) {
                 setIsDialogOpen(true);
               }}
             />
-            <Button onClick={() => { setSelectedQuote(null); setIsDialogOpen(true); }}>
+            <Button onClick={() => { setSelectedQuote(null); setIsDialogOpen(true); }} data-tour="bids-new">
               <Plus className="h-4 w-4 mr-2" />
               New Quote
             </Button>
@@ -661,7 +661,7 @@ export function Bids({ user }: BidsProps) {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex-1 relative">
+          <div className="flex-1 relative" data-tour="bids-search">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search quotes..."
@@ -701,7 +701,7 @@ export function Bids({ user }: BidsProps) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden" data-tour="bids-list">
         {view === 'kanban' ? (
           <div className="h-full overflow-auto p-6">
             {filteredQuotes.length === 0 ? (

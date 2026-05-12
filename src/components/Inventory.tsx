@@ -1004,7 +1004,7 @@ export function Inventory({ user, onNavigate }: InventoryProps) {
             <span className="sm:hidden ml-2">Import</span>
           </Button>
           {canAdd('inventory', user.role) && (
-          <Button onClick={() => handleOpenDialog()} className="flex-1 sm:flex-none">
+          <Button onClick={() => handleOpenDialog()} className="flex-1 sm:flex-none" data-tour="inventory-add">
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Add Item</span>
             <span className="sm:hidden ml-2">Add</span>
@@ -1294,7 +1294,7 @@ export function Inventory({ user, onNavigate }: InventoryProps) {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                  <div className="flex-1 relative min-w-0">
+                  <div className="flex-1 relative min-w-0" data-tour="inventory-search">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder={useAdvancedSearch 
@@ -1393,7 +1393,7 @@ export function Inventory({ user, onNavigate }: InventoryProps) {
           )}
 
           {/* Items List */}
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-4" data-tour="inventory-list">
             {isLoading ? (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
@@ -1401,7 +1401,7 @@ export function Inventory({ user, onNavigate }: InventoryProps) {
                 </CardContent>
               </Card>
             ) : filteredItems.length === 0 ? (
-              <Card>
+              <Card data-tour="inventory-list">
                 <CardContent className="py-12 text-center">
                   <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                   <p className="text-muted-foreground">

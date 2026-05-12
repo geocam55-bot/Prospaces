@@ -36,14 +36,20 @@ export function InventoryModuleHelp({
         {
           title: 'Discovery and Scope Lock',
           body: 'Use search and filters to identify the right item set before stock or pricing updates are made.',
+          targetSelector: '[data-tour="inventory-search"]',
+          placement: 'bottom',
         },
         {
           title: 'Estimate and Validate',
           body: 'Monitor out-of-stock risk and validate quantity/cost assumptions so purchasing and estimating stay aligned.',
+          targetSelector: '[data-tour="inventory-list"]',
+          placement: 'top',
         },
         {
           title: 'Approval and Handoff',
           body: 'Save validated updates and hand off reliable inventory data to quoting, procurement, and operations.',
+          targetSelector: '[data-tour="inventory-add"]',
+          placement: 'bottom',
         },
       ]}
       badges={[

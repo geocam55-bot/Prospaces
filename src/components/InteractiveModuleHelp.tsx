@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { BookOpen, CheckCircle2, Copy, Minimize2, Square, X } from 'lucide-react';
+import { BookOpen, CheckCircle2, Copy, Minimize2, PlayCircle, Square, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+import { GuidedTour } from './GuidedTour';
+import { useTour } from '../hooks/useTour';
 
-interface HelpStep {
+export interface HelpStep {
   title: string;
   body: string;
+  /** CSS selector of the UI element this step should spotlight. */
+  targetSelector?: string;
+  /** Which side to place the tooltip (default: 'bottom'). */
+  placement?: 'top' | 'bottom' | 'left' | 'right';
 }
 
 interface HelpAction {
@@ -61,6 +67,9 @@ export function InteractiveModuleHelp({
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
 
+  // Overlay guided tour
+  const tour = useTour({ moduleKey: `${moduleKey}-overlay`, userId, steps });
+
   const shouldMaximizeOnOpen = () =>
     typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches;
 
@@ -112,17 +121,45 @@ export function InteractiveModuleHelp({
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={openHelp}
-        title={triggerLabel}
-        className="flex shrink-0 items-center gap-2 px-2 sm:px-3"
-      >
-        <BookOpen className="h-4 w-4" />
-        <span className="hidden sm:inline">{triggerLabel}</span>
-        <span className="sm:hidden">Help</span>
-      </Button>
+      <div className="flex shrink-0 items-center gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={openHelp}
+          title={triggerLabel}
+          className="flex items-center gap-2 px-2 sm:px-3"
+        >
+          <BookOpen className="h-4 w-4" />
+          <span className="hidden sm:inline">{triggerLabel}</span>
+          <span className="sm:hidden">Help</span>
+        </Button>
+        {steps.some((s) => s.targetSelector) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setIsOpen(false); tour.start(0); }}
+            title="Start guided tour"
+            className="flex items-center gap-1.5 px-2 sm:px-3 text-blue-600 border-blue-200 hover:bg-blue-50"
+          >
+            <PlayCircle className="h-4 w-4" />
+            <span className="hidden sm:inline">Tour</span>
+          </Button>
+        )}
+      </div>
+
+      {/* Overlay guided tour */}
+      <GuidedTour
+        isOpen={tour.isOpen}
+        steps={steps}
+        currentStep={tour.currentStep}
+        isFirst={tour.isFirst}
+        isLast={tour.isLast}
+        progress={tour.progress}
+        onNext={tour.next}
+        onPrev={tour.prev}
+        onClose={tour.close}
+        onFinish={tour.close}
+      />
 
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent

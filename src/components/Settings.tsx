@@ -105,6 +105,7 @@ import { WorkflowSettingsDialog } from './settings/WorkflowSettingsDialog';
 import { useTheme, type ThemeMode } from './ThemeProvider';
 import { CustomFieldsDialog } from './settings/CustomFieldsDialog';
 import { SettingsModuleHelp } from './SettingsModuleHelp';
+import { resetGettingStarted } from './GettingStarted';
 
 function ThemeModeCard() {
   const { themeMode, setThemeMode, theme } = useTheme();
@@ -972,8 +973,19 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
 
       keysToRemove.forEach((key) => localStorage.removeItem(key));
 
-      if (keysToRemove.length > 0) {
-        toast.success(`Reset ${keysToRemove.length} module help tour setting(s).`);
+      // Also reset the Getting Started checklist and guided tour progress
+      resetGettingStarted(user.id);
+      const tourKeysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('prospaces.') && key.includes('.tour.')) {
+          tourKeysToRemove.push(key);
+        }
+      }
+      tourKeysToRemove.forEach((key) => localStorage.removeItem(key));
+
+      if (keysToRemove.length > 0 || tourKeysToRemove.length > 0) {
+        toast.success(`Reset ${keysToRemove.length + tourKeysToRemove.length} module help/tour setting(s).`);
       } else {
         toast.info('No module help tour settings were found for your account.');
       }
