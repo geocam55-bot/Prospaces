@@ -3307,6 +3307,93 @@ app.delete(`${PREFIX}/project-wizard-defaults/:id`, async (c) => {
   }
 });
 
+// GET inventory items for Project Wizards defaults selectors (service-role backed)
+app.get(`${PREFIX}/project-wizard-inventory/:organizationId`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+
+    const orgId = c.req.param('organizationId');
+    if (!orgId) return c.json({ error: 'Missing organizationId' }, 400);
+
+    if (auth.profile.role !== 'super_admin' && orgId !== auth.profile.organization_id) {
+      return c.json({ error: 'Cannot access inventory for a different organization' }, 403);
+    }
+
+    const supabase = getSupabase();
+    const idsParam = (c.req.query('ids') || '').trim();
+
+    if (idsParam) {
+      const ids = Array.from(new Set(
+        idsParam
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean)
+      )).slice(0, 500);
+
+      if (ids.length === 0) {
+        return c.json({ items: [] });
+      }
+
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('id, name, sku, category, description')
+        .eq('organization_id', orgId)
+        .in('id', ids);
+
+      if (error) {
+        if (error.code === 'PGRST205' || error.code === '42P01') {
+          return c.json({ items: [] });
+        }
+        return c.json({ error: error.message, code: error.code }, 500);
+      }
+
+      return c.json({ items: data || [] });
+    }
+
+    const pageSize = 1000;
+    let page = 0;
+    let hasMore = true;
+    const allItems: any[] = [];
+
+    while (hasMore) {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('id, name, sku, category, description')
+        .eq('organization_id', orgId)
+        .order('name', { ascending: true })
+        .range(from, to);
+
+      if (error) {
+        if (error.code === 'PGRST205' || error.code === '42P01') {
+          return c.json({ items: [] });
+        }
+        return c.json({ error: error.message, code: error.code }, 500);
+      }
+
+      if (!data || data.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      allItems.push(...data);
+
+      if (data.length < pageSize) {
+        hasMore = false;
+      } else {
+        page += 1;
+      }
+    }
+
+    return c.json({ items: allItems });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ── ORG CONVERSION FACTORS (KV-backed) ──────────────────────────────────
 // GET org-level conversion factors
 app.get(`${PREFIX}/org-conversion-factors/:organizationId`, async (c) => {

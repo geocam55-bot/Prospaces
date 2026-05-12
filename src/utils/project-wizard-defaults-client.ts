@@ -515,6 +515,33 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
   // Fetching inventory items for organization
   
   try {
+    // Preferred path: server endpoint (service-role backed) so non-admin roles
+    // can resolve defaults inventory items even when direct table reads are restricted.
+    try {
+      const idsParam = itemIds && itemIds.length > 0
+        ? `?ids=${encodeURIComponent(Array.from(new Set(itemIds.filter(Boolean))).join(','))}`
+        : '';
+
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/project-wizard-inventory/${encodeURIComponent(organizationId)}${idsParam}`,
+        {
+          method: 'GET',
+          headers: await getServerHeaders(),
+        }
+      );
+
+      if (response.ok) {
+        const payload = await response.json();
+        const serverItems = Array.isArray(payload?.items) ? payload.items : [];
+        if (serverItems.length > 0 || (itemIds && itemIds.length > 0)) {
+          return serverItems;
+        }
+        // If requesting full list and server returns empty, continue to fallback path.
+      }
+    } catch {
+      // Fall back to direct client query.
+    }
+
     const supabase = createClient();
     
     // Try to get user, with fallback to session
