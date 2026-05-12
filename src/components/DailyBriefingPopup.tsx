@@ -92,6 +92,7 @@ interface DailyBriefingPopupProps {
 export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBriefingPopupProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [isDocked, setIsDocked] = useState(false);
   const { suggestions, metrics, isLoading } = useAISuggestions(user);
   const [streakData, setStreakData] = useState<StreakData>({
     currentStreak: 0,
@@ -116,6 +117,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
       const timer = setTimeout(() => {
         if (!isLoading) {
           setIsVisible(true);
+          setIsDocked(false);
           sessionStorage.setItem(sessionShownKey, 'true');
         }
       }, 1500); // Brief delay so dashboard loads first
@@ -123,10 +125,11 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
     }
   }, [isLoading, aiEnabled, user.id]);
 
-  // If onboarding launches a guided tour, immediately close this popup overlay.
+  // If onboarding launches a guided tour, dock this popup in the bottom-right.
   useEffect(() => {
     const handleTourStarting = () => {
-      setIsVisible(false);
+      setIsVisible(true);
+      setIsDocked(true);
       setIsClosing(false);
     };
     window.addEventListener('prospaces:tour-starting', handleTourStarting as EventListener);
@@ -246,11 +249,13 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
     setIsClosing(true);
     setTimeout(() => {
       setIsVisible(false);
+      setIsDocked(false);
       setIsClosing(false);
     }, 300);
   };
 
   const handleGoToSuggestions = () => {
+    setIsDocked(false);
     handleClose();
     onNavigate?.('ai-suggestions');
   };
@@ -290,24 +295,26 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
     <AnimatePresence>
       {isVisible && (
         <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
-            onClick={handleClose}
-          />
+          {!isDocked && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
+                onClick={handleClose}
+              />
 
-          {/* Popup Panel */}
-          <motion.div
-            initial={{ opacity: 0, x: 80, scale: 0.95 }}
-            animate={{ opacity: isClosing ? 0 : 1, x: isClosing ? 80 : 0, scale: isClosing ? 0.95 : 1 }}
-            exit={{ opacity: 0, x: 80, scale: 0.95 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed top-[84px] right-4 bottom-4 w-full max-w-[380px] z-50 flex flex-col"
-          >
+              {/* Popup Panel */}
+              <motion.div
+                initial={{ opacity: 0, x: 80, scale: 0.95 }}
+                animate={{ opacity: isClosing ? 0 : 1, x: isClosing ? 80 : 0, scale: isClosing ? 0.95 : 1 }}
+                exit={{ opacity: 0, x: 80, scale: 0.95 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="fixed top-[84px] right-4 bottom-4 w-full max-w-[380px] z-50 flex flex-col"
+              >
             <div className="flex flex-col h-full bg-background rounded-2xl shadow-2xl overflow-hidden border border-border">
               {/* Header */}
               <div className="relative bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-600 px-6 py-5 text-white">
@@ -531,7 +538,30 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
                 <p className="text-[10px] text-muted-foreground text-center mt-2">This briefing appears once daily</p>
               </div>
             </div>
-          </motion.div>
+              </motion.div>
+            </>
+          )}
+
+          {isDocked && (
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.96 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 280 }}
+              className="fixed bottom-4 right-4 z-50"
+            >
+              <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-white/95 px-3 py-2 shadow-xl backdrop-blur">
+                <Sparkles className="h-4 w-4 text-blue-600" />
+                <span className="text-xs font-medium text-slate-700">AI briefing docked during tour</span>
+                <Button size="sm" className="h-7 px-2 text-xs" onClick={() => setIsDocked(false)}>
+                  Open
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleClose}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </motion.div>
+          )}
         </>
       )}
     </AnimatePresence>
