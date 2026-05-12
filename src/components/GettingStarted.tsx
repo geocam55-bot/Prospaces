@@ -109,7 +109,7 @@ export function GettingStarted({ userId, userRole, onNavigate }: GettingStartedP
   });
 
   const [dismissed, setDismissed] = useState(() => {
-    return localStorage.getItem(dismissKey(userId)) === 'true';
+    return sessionStorage.getItem(dismissKey(userId)) === 'true';
   });
 
   const [collapsed, setCollapsed] = useState(false);
@@ -136,14 +136,14 @@ export function GettingStarted({ userId, userRole, onNavigate }: GettingStartedP
 
   const handleDismiss = () => {
     setDismissed(true);
-    localStorage.setItem(dismissKey(userId), 'true');
+    sessionStorage.setItem(dismissKey(userId), 'true');
   };
 
   const handleReset = () => {
     setChecked({});
     setDismissed(false);
     localStorage.removeItem(storageKey(userId));
-    localStorage.removeItem(dismissKey(userId));
+    sessionStorage.removeItem(dismissKey(userId));
   };
 
   if (dismissed) return null;
@@ -248,5 +248,5 @@ export function GettingStarted({ userId, userRole, onNavigate }: GettingStartedP
 /** Exported so Settings can reset the checklist for the current user. */
 export function resetGettingStarted(userId: string) {
   localStorage.removeItem(storageKey(userId));
-  localStorage.removeItem(dismissKey(userId));
+  sessionStorage.removeItem(dismissKey(userId));
 }

@@ -109,7 +109,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization, currentView
   // Check if briefing should show today
   useEffect(() => {
     if (!aiEnabled) return;
-    if (currentView !== 'dashboard') return;
+    if (currentView !== 'dashboard' && currentView !== 'main-panels') return;
 
     const sessionShownKey = `prospaces_briefing_session_shown_${user.id}`;
     const shownThisSession = sessionStorage.getItem(sessionShownKey) === 'true';
