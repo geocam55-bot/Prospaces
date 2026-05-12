@@ -21,6 +21,9 @@ export interface InventoryItem {
   description: string;
 }
 
+const isUuid = (value: string | null | undefined): boolean =>
+  !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
 const normalizeKeyPart = (value: string | null | undefined): string =>
   (value || '').trim().toLowerCase();
 
@@ -515,11 +518,15 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
   // Fetching inventory items for organization
   
   try {
+    const filteredItemIds = itemIds
+      ? Array.from(new Set(itemIds.filter((id) => isUuid(id))))
+      : undefined;
+
     // Preferred path: server endpoint (service-role backed) so non-admin roles
     // can resolve defaults inventory items even when direct table reads are restricted.
     try {
-      const idsParam = itemIds && itemIds.length > 0
-        ? `?ids=${encodeURIComponent(Array.from(new Set(itemIds.filter(Boolean))).join(','))}`
+      const idsParam = filteredItemIds && filteredItemIds.length > 0
+        ? `?ids=${encodeURIComponent(filteredItemIds.join(','))}`
         : '';
 
       const response = await fetch(
@@ -533,7 +540,7 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
       if (response.ok) {
         const payload = await response.json();
         const serverItems = Array.isArray(payload?.items) ? payload.items : [];
-        if (serverItems.length > 0 || (itemIds && itemIds.length > 0)) {
+        if (serverItems.length > 0 || (filteredItemIds && filteredItemIds.length > 0)) {
           return serverItems;
         }
         // If requesting full list and server returns empty, continue to fallback path.
@@ -568,12 +575,12 @@ export async function getInventoryItemsForDropdown(organizationId: string, itemI
     }
 
     // If specific item IDs are provided, fetch only those items
-    if (itemIds && itemIds.length > 0) {
+    if (filteredItemIds && filteredItemIds.length > 0) {
       // Fetching specific items
 
       // Large id lists can exceed URL/query limits in PostgREST.
       // Query in chunks and merge results.
-      const uniqueIds = Array.from(new Set(itemIds.filter(Boolean)));
+      const uniqueIds = filteredItemIds;
       const idChunks = chunkArray(uniqueIds, 50);
       let allMatchedItems: InventoryItem[] = [];
 

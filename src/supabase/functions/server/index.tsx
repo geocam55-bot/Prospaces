@@ -3324,11 +3324,14 @@ app.get(`${PREFIX}/project-wizard-inventory/:organizationId`, async (c) => {
     const idsParam = (c.req.query('ids') || '').trim();
 
     if (idsParam) {
+      const isUuid = (value: string): boolean =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
       const ids = Array.from(new Set(
         idsParam
           .split(',')
           .map((id) => id.trim())
-          .filter(Boolean)
+          .filter((id) => isUuid(id))
       )).slice(0, 500);
 
       if (ids.length === 0) {

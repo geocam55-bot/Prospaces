@@ -50,6 +50,9 @@ const normalizeDefaultsKey = (key: string): string => {
   return makeDefaultsKey(planner, materialType, rest.join('-'));
 };
 
+const isUuid = (value: string | null | undefined): boolean =>
+  !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
 // Category groups that contain lumber items (no conversion factor needed)
 const LUMBER_CATEGORY_GROUPS = new Set([
   'Framing',
@@ -439,7 +442,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
       // Organization defaults loaded
       orgDefaultsData.forEach((def) => {
         const key = makeDefaultsKey(def.planner_type, def.material_type, def.material_category);
-        if (def.inventory_item_id) {
+        if (isUuid(def.inventory_item_id)) {
           orgDefaultsMap[key] = def.inventory_item_id;
           itemIdsToFetch.push(def.inventory_item_id);
         }
@@ -475,7 +478,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
 
       // Add user default item IDs to fetch list
       Object.values({ ...userDefaultsMap, ...draftDefaultsMap }).forEach((itemId) => {
-        if (itemId && !itemIdsToFetch.includes(itemId)) {
+        if (isUuid(itemId) && !itemIdsToFetch.includes(itemId)) {
           itemIdsToFetch.push(itemId);
         }
       });
@@ -492,7 +495,9 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
       setTimeout(async () => {
         const allItems = await getInventoryItemsForDropdown(organizationId);
         // Background: loaded all inventory items
-        setInventoryItems(allItems);
+        if (allItems.length > 0) {
+          setInventoryItems(allItems);
+        }
       }, 100);
 
       // Load org-level conversion factors from KV
