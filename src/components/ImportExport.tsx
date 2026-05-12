@@ -157,13 +157,14 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const isPlanLoaded = currentPlanId !== null;
   const isFreeOrStandardUser = isFreeUser || currentPlanId === 'starter';
   const canUseProBackgroundTools = !isFreeOrStandardUser;
+  const isAdminUser = user.role === 'admin' || user.role === 'super_admin';
 
   const showProOnlyMessage = () => {
     toast.info('This options is for Professional or Higher Users');
   };
 
   const applyFreeImportLimit = (rows: any[]) => {
-    if (!isPlanLoaded || !isFreeUser || rows.length <= 100) return rows;
+    if (isAdminUser || !isPlanLoaded || !isFreeUser || rows.length <= 100) return rows;
     toast.info('Free users can import up to 100 records. Only the first 100 records were loaded.');
     return rows.slice(0, 100);
   };
@@ -885,7 +886,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         return hasData;
       });
 
-      if (isPlanLoaded && isFreeUser && mappedData.length > 100) {
+      if (!isAdminUser && isPlanLoaded && isFreeUser && mappedData.length > 100) {
         toast.error('Free users can import up to 100 records per import.');
         setIsImporting(false);
         setImportProgress(null);
