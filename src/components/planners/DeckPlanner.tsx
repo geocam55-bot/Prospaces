@@ -28,6 +28,7 @@ interface DeckPlannerProps {
 
 export function DeckPlanner({ user }: DeckPlannerProps) {
   const deck3DRendererRef = useRef<Deck3DRendererRef>(null);
+  const orgId = user.organizationId || user.organization_id || '';
   const [snapshotUrl, setSnapshotUrl] = useState<string | null>(null);
   const [pricingContext, setPricingContext] = useState<{
     cfMap: Record<string, number>;
@@ -36,7 +37,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     cfMap: {},
     mergedUserDefaults: {},
   });
-  const draftDefaultsStorageKey = `planner_defaults_draft_${user.organizationId}_${user.id}_deck`;
+  const draftDefaultsStorageKey = `planner_defaults_draft_${orgId}_${user.id}_deck`;
 
   const getDraftDefaults = (): Record<string, string> => {
     try {
@@ -105,14 +106,14 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
       let cfMap: Record<string, number> = {};
 
       try {
-        const orgCFs = await getOrgConversionFactors(user.organizationId);
+        const orgCFs = await getOrgConversionFactors(orgId);
         cfMap = extractOrgConversionFactors(orgCFs, 'deck', pricingMaterialType);
       } catch {
         // Best-effort: continue with user-level/default CFs.
       }
 
       try {
-        const persistedUserDefs = await getUserDefaults(user.id, user.organizationId);
+        const persistedUserDefs = await getUserDefaults(user.id, orgId);
         mergedUserDefs = { ...persistedUserDefs, ...draftUserDefs };
       } catch {
         // Best-effort: use draft/local values.
@@ -134,7 +135,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
       cancelled = true;
     };
   }, [
-    user.organizationId,
+    orgId,
     user.id,
     config.deckingType,
     pricingMaterialType,
@@ -144,10 +145,10 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
   // Enrich materials with T1 pricing whenever config changes
   useEffect(() => {
     const enrichMaterials = async () => {
-      if (user.organizationId && flatMaterials.length > 0) {
+      if (orgId && flatMaterials.length > 0) {
         const { materials: enriched, totalT1Price: total } = await enrichMaterialsWithT1Pricing(
           flatMaterials,
-          user.organizationId,
+          orgId,
           'deck',
           pricingMaterialType,
           pricingContext.cfMap,
@@ -179,7 +180,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
     config.deckingType,
     pricingMaterialType,
     config.deckingPattern,
-    user.organizationId,
+    orgId,
     user.id,
     flatMaterials.length,
     pricingContext.cfMap,

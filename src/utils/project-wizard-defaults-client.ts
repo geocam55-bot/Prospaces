@@ -68,6 +68,27 @@ function getPlannerDefaultsStorageKey(organizationId: string, userId: string): s
   return `planner_defaults_${organizationId}_${userId}`;
 }
 
+async function resolveEffectiveUserId(fallbackUserId: string): Promise<string> {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.id || fallbackUserId;
+  } catch {
+    return fallbackUserId;
+  }
+}
+
+function readPlannerDefaultsFromLocalStorageWithFallback(
+  organizationId: string,
+  preferredUserId: string,
+  fallbackUserId: string
+): Record<string, string> {
+  const preferred = readPlannerDefaultsFromLocalStorage(organizationId, preferredUserId);
+  if (Object.keys(preferred).length > 0) return preferred;
+  if (preferredUserId === fallbackUserId) return preferred;
+  return readPlannerDefaultsFromLocalStorage(organizationId, fallbackUserId);
+}
+
 function readPlannerDefaultsFromLocalStorage(organizationId: string, userId: string): Record<string, string> {
   try {
     const key = getPlannerDefaultsStorageKey(organizationId, userId);
@@ -157,15 +178,16 @@ export async function getUserDefaults(userId: string, organizationId: string): P
   // Fetching user defaults
   
   try {
+    const effectiveUserId = await resolveEffectiveUserId(userId);
     const token = await getUserAccessToken();
 
     if (!token) {
       // No session, fall back to local cache
-      return readPlannerDefaultsFromLocalStorage(organizationId, userId);
+      return readPlannerDefaultsFromLocalStorageWithFallback(organizationId, effectiveUserId, userId);
     }
 
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${effectiveUserId}`,
       {
         method: 'GET',
         headers: await getServerHeaders(),
@@ -175,16 +197,19 @@ export async function getUserDefaults(userId: string, organizationId: string): P
     if (!response.ok) {
       if (response.status === 404 || response.status === 500) {
         // Server has no defaults (or not reachable); use local cache fallback
-        return readPlannerDefaultsFromLocalStorage(organizationId, userId);
+        return readPlannerDefaultsFromLocalStorageWithFallback(organizationId, effectiveUserId, userId);
       }
       // Error fetching user defaults
-      return readPlannerDefaultsFromLocalStorage(organizationId, userId);
+      return readPlannerDefaultsFromLocalStorageWithFallback(organizationId, effectiveUserId, userId);
     }
 
     const data = await response.json();
     // User defaults fetched successfully
     const defaults = data.defaults || {};
-    writePlannerDefaultsToLocalStorage(organizationId, userId, defaults);
+    writePlannerDefaultsToLocalStorage(organizationId, effectiveUserId, defaults);
+    if (effectiveUserId !== userId) {
+      writePlannerDefaultsToLocalStorage(organizationId, userId, defaults);
+    }
     return defaults;
   } catch (error) {
     // Unexpected error loading user defaults
@@ -197,11 +222,16 @@ export async function getUserDefaults(userId: string, organizationId: string): P
  */
 export async function saveUserDefaults(userId: string, organizationId: string, defaults: Record<string, string>): Promise<boolean> {
   // Saving user defaults
-
-  // Keep a local cache so planner pricing can still resolve defaults if API read fails.
-  writePlannerDefaultsToLocalStorage(organizationId, userId, defaults);
   
   try {
+    const effectiveUserId = await resolveEffectiveUserId(userId);
+
+    // Keep a local cache so planner pricing can still resolve defaults if API read fails.
+    writePlannerDefaultsToLocalStorage(organizationId, effectiveUserId, defaults);
+    if (effectiveUserId !== userId) {
+      writePlannerDefaultsToLocalStorage(organizationId, userId, defaults);
+    }
+
     const token = await getUserAccessToken();
 
     if (!token) {
@@ -210,7 +240,7 @@ export async function saveUserDefaults(userId: string, organizationId: string, d
     }
 
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${effectiveUserId}`,
       {
         method: 'POST',
         headers: await getServerHeaders(),
@@ -239,6 +269,7 @@ export async function deleteUserDefaults(userId: string, organizationId: string)
   // Deleting user defaults
   
   try {
+    const effectiveUserId = await resolveEffectiveUserId(userId);
     const token = await getUserAccessToken();
 
     if (!token) {
@@ -247,7 +278,7 @@ export async function deleteUserDefaults(userId: string, organizationId: string)
     }
 
     const response = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${userId}`,
+      `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${effectiveUserId}`,
       {
         method: 'DELETE',
         headers: await getServerHeaders(),
@@ -262,7 +293,10 @@ export async function deleteUserDefaults(userId: string, organizationId: string)
 
     // User defaults deleted successfully
     try {
-      localStorage.removeItem(getPlannerDefaultsStorageKey(organizationId, userId));
+      localStorage.removeItem(getPlannerDefaultsStorageKey(organizationId, effectiveUserId));
+      if (effectiveUserId !== userId) {
+        localStorage.removeItem(getPlannerDefaultsStorageKey(organizationId, userId));
+      }
     } catch {
       // ignore cache cleanup errors
     }
@@ -320,9 +354,11 @@ export async function migrateUserDefaultsFromLocalStorage(userId: string, organi
   // Starting migration from localStorage to database
   
   try {
+    const effectiveUserId = await resolveEffectiveUserId(userId);
     // Check if there's data in localStorage
-    const key = `planner_defaults_${organizationId}_${userId}`;
-    const stored = localStorage.getItem(key);
+    const preferredKey = `planner_defaults_${organizationId}_${effectiveUserId}`;
+    const fallbackKey = `planner_defaults_${organizationId}_${userId}`;
+    const stored = localStorage.getItem(preferredKey) || localStorage.getItem(fallbackKey);
     
     if (!stored) {
       // No localStorage data to migrate
@@ -335,28 +371,31 @@ export async function migrateUserDefaultsFromLocalStorage(userId: string, organi
     if (itemCount === 0) {
       // localStorage data is empty, nothing to migrate
       // Clean up empty localStorage entry
-      localStorage.removeItem(key);
+      localStorage.removeItem(preferredKey);
+      localStorage.removeItem(fallbackKey);
       return true;
     }
     
     // Found items in localStorage to migrate
     
     // Check if database already has data
-    const existingDefaults = await getUserDefaults(userId, organizationId);
+    const existingDefaults = await getUserDefaults(effectiveUserId, organizationId);
     
     if (Object.keys(existingDefaults).length > 0) {
       // Database already has user defaults, skipping migration
       // Optionally clean up localStorage since data is already in DB
-      localStorage.removeItem(key);
+      localStorage.removeItem(preferredKey);
+      localStorage.removeItem(fallbackKey);
       return true;
     }
     
     // Migrate the data
-    const success = await saveUserDefaults(userId, organizationId, localDefaults);
+    const success = await saveUserDefaults(effectiveUserId, organizationId, localDefaults);
     
     if (success) {
       // Migration successful, cleaning up localStorage
-      localStorage.removeItem(key);
+      localStorage.removeItem(preferredKey);
+      localStorage.removeItem(fallbackKey);
       return true;
     } else {
       // Migration failed, keeping localStorage data
