@@ -15,6 +15,8 @@ interface UseTourOptions {
   steps: TourStep[];
   /** If true, auto-open the tour the first time this user visits. */
   autoStart?: boolean;
+  /** If this string matches the `prospaces.pending-tour` sessionStorage key, open immediately on mount. */
+  pendingTourSessionKey?: string;
 }
 
 const SEEN_VERSION = 'v1';
@@ -23,11 +25,20 @@ function storageKey(moduleKey: string, userId: string, suffix: string) {
   return `prospaces.${moduleKey}.tour.${suffix}.${userId}`;
 }
 
-export function useTour({ moduleKey, userId, steps, autoStart = false }: UseTourOptions) {
+export function useTour({ moduleKey, userId, steps, autoStart = false, pendingTourSessionKey }: UseTourOptions) {
   const seenKey = storageKey(moduleKey, userId, `seen.${SEEN_VERSION}`);
   const stepKey = storageKey(moduleKey, userId, 'step');
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(() => {
+    if (pendingTourSessionKey) {
+      const flag = sessionStorage.getItem('prospaces.pending-tour');
+      if (flag === pendingTourSessionKey) {
+        sessionStorage.removeItem('prospaces.pending-tour');
+        return true;
+      }
+    }
+    return false;
+  });
   const [currentStep, setCurrentStep] = useState(() => {
     const saved = localStorage.getItem(stepKey);
     if (saved !== null) {
