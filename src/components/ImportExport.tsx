@@ -133,7 +133,7 @@ const DATABASE_FIELDS = {
 export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [activeTab, setActiveTab] = useState('import');
   const [scopedModule, setScopedModule] = useState<'inventory' | 'contacts' | null>(null);
-  const [currentPlanId, setCurrentPlanId] = useState<PlanId | 'free'>('free');
+  const [currentPlanId, setCurrentPlanId] = useState<PlanId | 'free' | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -154,6 +154,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [quoteExportTemplates, setQuoteExportTemplates] = useState<CustomExportTemplate[]>([]);
 
   const isFreeUser = currentPlanId === 'free';
+  const isPlanLoaded = currentPlanId !== null;
   const isFreeOrStandardUser = isFreeUser || currentPlanId === 'starter';
   const canUseProBackgroundTools = !isFreeOrStandardUser;
 
@@ -162,7 +163,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   };
 
   const applyFreeImportLimit = (rows: any[]) => {
-    if (!isFreeUser || rows.length <= 100) return rows;
+    if (!isPlanLoaded || !isFreeUser || rows.length <= 100) return rows;
     toast.info('Free users can import up to 100 records. Only the first 100 records were loaded.');
     return rows.slice(0, 100);
   };
@@ -883,7 +884,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         return hasData;
       });
 
-      if (isFreeUser && mappedData.length > 100) {
+      if (isPlanLoaded && isFreeUser && mappedData.length > 100) {
         toast.error('Free users can import up to 100 records per import.');
         setIsImporting(false);
         setImportProgress(null);
