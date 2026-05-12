@@ -53,6 +53,14 @@ const normalizeDefaultsKey = (key: string): string => {
 const isUuid = (value: string | null | undefined): boolean =>
   !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
+const mergeInventoryItemsById = (existing: InventoryItem[], incoming: InventoryItem[]): InventoryItem[] => {
+  if (incoming.length === 0) return existing;
+  const merged = new Map<string, InventoryItem>();
+  existing.forEach((item) => merged.set(item.id, item));
+  incoming.forEach((item) => merged.set(item.id, item));
+  return Array.from(merged.values());
+};
+
 // Category groups that contain lumber items (no conversion factor needed)
 const LUMBER_CATEGORY_GROUPS = new Set([
   'Framing',
@@ -496,7 +504,7 @@ export function PlannerDefaults({ organizationId, userId, plannerType, materialT
         const allItems = await getInventoryItemsForDropdown(organizationId);
         // Background: loaded all inventory items
         if (allItems.length > 0) {
-          setInventoryItems(allItems);
+          setInventoryItems((prev) => mergeInventoryItemsById(prev, allItems));
         }
       }, 100);
 
