@@ -245,6 +245,7 @@ export function AppContent() {
     return saved === 'true';
   });
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [tourIntent, setTourIntent] = useState<{ key: string; nonce: number } | null>(null);
 
   // Landing + Enter ProSpaces should always use default light visual tokens,
   // independent of each user's selected theme.
@@ -280,6 +281,7 @@ export function AppContent() {
   }, []);
 
   const handleGettingStartedNavigate = useCallback((view: string) => {
+    setTourIntent({ key: view, nonce: Date.now() });
     if (currentView === view) {
       sessionStorage.setItem('prospaces.pending-tour', view);
       window.dispatchEvent(new CustomEvent('prospaces:start-tour', { detail: { key: view } }));
@@ -711,7 +713,13 @@ export function AppContent() {
               {currentView === 'main-panels' && <MainPanels user={user} organization={organization} onNavigate={setCurrentView} />}
               {currentView === 'dashboard' && <Dashboard user={user} organization={organization} onNavigate={setCurrentView} />}
               {currentView === 'ai-suggestions' && <AITaskSuggestions user={user} onNavigate={setCurrentView} />}
-              {currentView === 'contacts' && <Contacts user={user} />}
+              {currentView === 'contacts' && (
+                <Contacts
+                  user={user}
+                  tourIntentKey={tourIntent?.key}
+                  tourIntentNonce={tourIntent?.nonce}
+                />
+              )}
               {currentView === 'tasks' && <Tasks user={user} />}
               {currentView === 'bids' && <Bids user={user} />}
               {currentView === 'messages' && <PortalMessagesAdmin user={user} />}

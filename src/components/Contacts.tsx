@@ -72,9 +72,11 @@ interface ProjectManager {
 
 interface ContactsProps {
   user: User;
+  tourIntentKey?: string;
+  tourIntentNonce?: number;
 }
 
-export function Contacts({ user }: ContactsProps) {
+export function Contacts({ user, tourIntentKey, tourIntentNonce }: ContactsProps) {
   const contactsTourSteps = useMemo(
     () => [
       {
@@ -188,6 +190,21 @@ export function Contacts({ user }: ContactsProps) {
     window.addEventListener('prospaces:start-tour', onStartTour as EventListener);
     return () => window.removeEventListener('prospaces:start-tour', onStartTour as EventListener);
   }, [contactsTour.start]);
+
+  useEffect(() => {
+    if (!tourIntentNonce) return;
+    if (tourIntentKey !== 'contacts') return;
+
+    const run = () => contactsTour.start(0);
+    const t1 = setTimeout(run, 120);
+    const t2 = setTimeout(run, 450);
+    const t3 = setTimeout(run, 900);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [tourIntentKey, tourIntentNonce, contactsTour.start]);
 
   useEffect(() => {
     if (pendingTourConsumed) return;
