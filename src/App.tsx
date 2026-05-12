@@ -278,6 +278,15 @@ export function AppContent() {
     setIsSidebarCollapsed(prev => !prev);
   }, []);
 
+  const handleGettingStartedNavigate = useCallback((view: string) => {
+    if (currentView === view) {
+      sessionStorage.setItem('prospaces.pending-tour', view);
+      window.dispatchEvent(new CustomEvent('prospaces:start-tour', { detail: { key: view } }));
+      return;
+    }
+    setCurrentView(view);
+  }, [currentView]);
+
   // Persist currentView to sessionStorage whenever it changes
   useEffect(() => {
     if (currentView && currentView !== 'landing' && currentView !== 'login' && currentView !== 'member-login') {
@@ -757,7 +766,7 @@ export function AppContent() {
             <GettingStarted
               userId={user.id}
               userRole={user.role}
-              onNavigate={setCurrentView}
+              onNavigate={handleGettingStartedNavigate}
             />
           )}
         </div>

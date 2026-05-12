@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from './ui/select';
-import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, MapPin, Eye, X, Tag, AlertTriangle, Wrench, Users, UserCheck, UserPlus, Target } from 'lucide-react';
+import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, MapPin, Eye, X, Tag, AlertTriangle, Wrench, Users, UserCheck, UserPlus, Target, PlayCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1697,6 +1697,16 @@ export function Contacts({ user }: ContactsProps) {
                   }}
                   onOpenAddContact={() => setIsAddDialogOpen(true)}
                 />
+                {(user.role === 'admin' || user.role === 'super_admin') && (
+                  <Button
+                    variant="outline"
+                    className="h-10 border-blue-200 text-blue-700 hover:bg-blue-50"
+                    onClick={() => contactsTour.start(0)}
+                  >
+                    <PlayCircle className="mr-2 h-4 w-4" />
+                    Start Tour Now
+                  </Button>
+                )}
 
               </div>
             </div>
