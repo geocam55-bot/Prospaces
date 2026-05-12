@@ -193,7 +193,7 @@ export async function getUserDefaults(userId: string, organizationId: string): P
       `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${effectiveUserId}`,
       {
         method: 'GET',
-        headers: await getServerHeaders(),
+        headers: await getServerHeaders({ 'X-User-Token': token }),
       }
     );
 
@@ -246,7 +246,7 @@ export async function saveUserDefaults(userId: string, organizationId: string, d
       `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${effectiveUserId}`,
       {
         method: 'POST',
-        headers: await getServerHeaders(),
+        headers: await getServerHeaders({ 'X-User-Token': token }),
         body: JSON.stringify({ defaults }),
       }
     );
@@ -284,7 +284,7 @@ export async function deleteUserDefaults(userId: string, organizationId: string)
       `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/user-planner-defaults/${organizationId}/${effectiveUserId}`,
       {
         method: 'DELETE',
-        headers: await getServerHeaders(),
+        headers: await getServerHeaders({ 'X-User-Token': token }),
       }
     );
 
