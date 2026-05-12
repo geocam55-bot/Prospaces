@@ -108,6 +108,10 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
   useEffect(() => {
     if (!aiEnabled) return;
 
+    // Do not show briefing while onboarding is routing into a guided tour.
+    const pendingTour = sessionStorage.getItem('prospaces.pending-tour');
+    if (pendingTour) return;
+
     const storageKeyShown = `${STORAGE_KEY_SHOWN}_${user.id}`;
     const lastShown = localStorage.getItem(storageKeyShown);
     const today = new Date().toDateString();
@@ -116,6 +120,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
       // Wait for suggestions to load, then show
       const timer = setTimeout(() => {
         if (!isLoading) {
+          if (sessionStorage.getItem('prospaces.pending-tour')) return;
           setIsVisible(true);
           localStorage.setItem(storageKeyShown, today);
         }
@@ -123,6 +128,16 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
       return () => clearTimeout(timer);
     }
   }, [isLoading, aiEnabled, user.id]);
+
+  // If onboarding launches a guided tour, immediately close this popup overlay.
+  useEffect(() => {
+    const handleTourStarting = () => {
+      setIsVisible(false);
+      setIsClosing(false);
+    };
+    window.addEventListener('prospaces:tour-starting', handleTourStarting as EventListener);
+    return () => window.removeEventListener('prospaces:tour-starting', handleTourStarting as EventListener);
+  }, []);
 
   // Load streak data and fetch dismissed
   const [remoteDismissedIds, setRemoteDismissedIds] = useState<string[] | null>(null);

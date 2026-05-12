@@ -126,6 +126,7 @@ export function GettingStarted({ userId, userRole, onNavigate }: GettingStartedP
     setChecked((prev) => ({ ...prev, [item.id]: true }));
     // Signal that the target module should auto-start its guided tour
     sessionStorage.setItem('prospaces.pending-tour', item.navigateTo);
+    window.dispatchEvent(new CustomEvent('prospaces:tour-starting'));
     onNavigate(item.navigateTo);
   };
 
