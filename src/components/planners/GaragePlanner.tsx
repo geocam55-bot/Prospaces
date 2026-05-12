@@ -398,7 +398,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
                 
                 <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                   <PlannerExportDialog
-                    organizationId={user.organizationId}
+                    organizationId={user.organizationId || user.organization_id || ''}
                     projectType="garage"
                     materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
                     totalCost={totalT1Price}
@@ -445,7 +445,7 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
 
         {activeTab === 'defaults' && (
           <PlannerDefaults 
-            organizationId={user.organizationId}
+            organizationId={user.organizationId || user.organization_id || ''}
             userId={user.id}
             plannerType="garage"
             materialTypes={['vinyl', 'wood', 'fiber-cement', 'aluminum']}

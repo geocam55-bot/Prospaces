@@ -30,6 +30,30 @@ function normalizeTemplate(template: any): CustomExportTemplate | null {
   } as CustomExportTemplate;
 }
 
+function coerceTemplateArray(value: unknown): CustomExportTemplate[] {
+  if (Array.isArray(value)) return value as CustomExportTemplate[];
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed as CustomExportTemplate[];
+      if (parsed && typeof parsed === 'object' && Array.isArray((parsed as any).exportTemplates)) {
+        return (parsed as any).exportTemplates as CustomExportTemplate[];
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  if (value && typeof value === 'object') {
+    const maybeObject = value as any;
+    if (Array.isArray(maybeObject.exportTemplates)) return maybeObject.exportTemplates as CustomExportTemplate[];
+    if (Array.isArray(maybeObject.export_templates)) return maybeObject.export_templates as CustomExportTemplate[];
+  }
+
+  return [];
+}
+
 function getLocalExportTemplates(organizationId: string): CustomExportTemplate[] {
   const collected = new Map<string, CustomExportTemplate>();
 
@@ -38,7 +62,7 @@ function getLocalExportTemplates(organizationId: string): CustomExportTemplate[]
 
     try {
       const parsed = JSON.parse(stored);
-      const templates = Array.isArray(parsed.exportTemplates) ? parsed.exportTemplates : [];
+      const templates = coerceTemplateArray(parsed.exportTemplates ?? parsed.export_templates ?? parsed);
 
       for (const template of templates) {
         if (template?.id) {
@@ -107,9 +131,7 @@ export async function loadPlannerExportTemplates(organizationId: string): Promis
 
   try {
     const settings = await settingsAPI.getOrganizationSettings(normalizedOrganizationId);
-    const serverTemplates = Array.isArray(settings?.export_templates)
-      ? (settings.export_templates as CustomExportTemplate[])
-      : [];
+    const serverTemplates = coerceTemplateArray(settings?.export_templates);
 
     return normalizePlannerTemplates(mergeTemplates(serverTemplates, localTemplates));
   } catch {

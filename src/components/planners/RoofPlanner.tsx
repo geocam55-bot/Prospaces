@@ -326,7 +326,7 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
                 
                 <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                   <PlannerExportDialog
-                    organizationId={user.organizationId}
+                    organizationId={user.organizationId || user.organization_id || ''}
                     projectType="roof"
                     materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
                     totalCost={totalT1Price}
@@ -360,7 +360,7 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
             </div>
             
             <DiagnosticPanel 
-              organizationId={user.organizationId}
+              organizationId={user.organizationId || user.organization_id || ''}
               plannerType="roof"
               materialType={config.shingleType}
             />
@@ -385,7 +385,7 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
 
         {activeTab === 'defaults' && (
           <PlannerDefaults 
-            organizationId={user.organizationId}
+            organizationId={user.organizationId || user.organization_id || ''}
             userId={user.id}
             plannerType="roof"
             onDefaultsSaved={() => setDefaultsVersion(v => v + 1)}

@@ -1466,7 +1466,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                     
                     <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                       <PlannerExportDialog
-                        organizationId={user.organizationId}
+                        organizationId={user.organizationId || user.organization_id || ''}
                         projectType="interior"
                         materials={materials}
                         totalCost={totalCost}
@@ -1537,7 +1537,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
 
           {activeTab === 'defaults' && (
             <PlannerDefaults 
-              organizationId={user.organizationId}
+              organizationId={user.organizationId || user.organization_id || ''}
               userId={user.id}
               plannerType="finishing"
               materialTypes={['mdf', 'finger_joint', 'pine']}

@@ -358,7 +358,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
                 
                 <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                   <PlannerExportDialog
-                    organizationId={user.organizationId}
+                    organizationId={user.organizationId || user.organization_id || ''}
                     projectType="shed"
                     materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
                     totalCost={totalT1Price}
@@ -405,7 +405,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
 
         {activeTab === 'defaults' && (
           <PlannerDefaults 
-            organizationId={user.organizationId}
+            organizationId={user.organizationId || user.organization_id || ''}
             userId={user.id}
             plannerType="shed"
             onDefaultsSaved={() => setDefaultsVersion(v => v + 1)}

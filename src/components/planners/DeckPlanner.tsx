@@ -426,7 +426,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
                 
                 <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                   <PlannerExportDialog
-                    organizationId={user.organizationId}
+                    organizationId={user.organizationId || user.organization_id || ''}
                     projectType="deck"
                     materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
                     totalCost={totalT1Price}
@@ -460,7 +460,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
             </div>
             
             <DiagnosticPanel 
-              organizationId={user.organizationId}
+              organizationId={user.organizationId || user.organization_id || ''}
               plannerType="deck"
               materialType={pricingMaterialType}
             />
@@ -485,7 +485,7 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
 
         {activeTab === 'defaults' && (
           <PlannerDefaults 
-            organizationId={user.organizationId}
+            organizationId={user.organizationId || user.organization_id || ''}
             userId={user.id}
             plannerType="deck"
             materialTypes={[config.deckingType.toLowerCase()]}
