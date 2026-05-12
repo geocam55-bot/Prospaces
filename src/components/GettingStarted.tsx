@@ -50,7 +50,6 @@ const ALL_ITEMS: ChecklistItem[] = [
     description: 'Contacts are the foundation of quotes, deals, and campaigns.',
     icon: Users,
     navigateTo: 'contacts',
-    roles: ['standard_user', 'manager', 'director', 'admin', 'super_admin'],
   },
   {
     id: 'create-first-quote',
@@ -58,7 +57,6 @@ const ALL_ITEMS: ChecklistItem[] = [
     description: 'Build a professional quote and send it to a customer.',
     icon: FileText,
     navigateTo: 'bids',
-    roles: ['standard_user', 'manager', 'director', 'admin', 'super_admin'],
   },
   {
     id: 'add-inventory-item',
@@ -66,7 +64,6 @@ const ALL_ITEMS: ChecklistItem[] = [
     description: 'Your inventory catalog powers quotes and planners.',
     icon: Package,
     navigateTo: 'inventory',
-    roles: ['standard_user', 'manager', 'director', 'admin', 'super_admin'],
   },
   {
     id: 'try-a-planner',
@@ -232,7 +229,7 @@ export function GettingStarted({ userId, userRole, onNavigate }: GettingStartedP
 
           {/* Footer */}
           <div className="border-t border-border px-4 py-2 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Click any item to go there</span>
+            <span className="text-xs text-muted-foreground">Click any item to go there &amp; start a tour</span>
             <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={handleDismiss}>
               Dismiss
             </Button>
