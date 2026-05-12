@@ -182,10 +182,21 @@ export function ProjectWizardsLogin({ onLogin }: ProjectWizardsLoginProps) {
         );
       }
 
+      const metadata = (activeSignIn.user.user_metadata || {}) as any;
+      const resolvedOrgId =
+        profile.organization_id
+        || metadata.organizationId
+        || metadata.organization_id
+        || localStorage.getItem('currentOrgId')
+        || '';
+      const resolvedRole = (profile.role || metadata.role || 'standard_user') as UserRole;
+      const resolvedName = profile.name || metadata.name || 'User';
+      const resolvedAvatar = profile.avatar_url || metadata.avatar_url;
+
       // If headed for Project Wizards, enforce role access
-      if (profile.organization_id) localStorage.setItem('currentOrgId', profile.organization_id);
-      await initializePermissions(profile.role as UserRole);
-      if (destination === 'project-wizards' && !canAccessSpace('project-wizards', profile.role as UserRole, 'view')) {
+      if (resolvedOrgId) localStorage.setItem('currentOrgId', resolvedOrgId);
+      await initializePermissions(resolvedRole);
+      if (destination === 'project-wizards' && !canAccessSpace('project-wizards', resolvedRole, 'view')) {
         throw new Error(
           'You do not have access to Project Wizards. Contact your administrator.'
         );
@@ -196,10 +207,10 @@ export function ProjectWizardsLogin({ onLogin }: ProjectWizardsLoginProps) {
         const user: User = {
           id: activeSignIn.user.id,
           email: activeSignIn.user.email || email,
-          role: profile.role as UserRole,
-          full_name: profile.name || 'User',
-          organization_id: profile.organization_id,
-          organizationId: profile.organization_id,
+          role: resolvedRole,
+          full_name: resolvedName,
+          organization_id: resolvedOrgId,
+          organizationId: resolvedOrgId,
         };
         setPendingUser({ user, token: activeSignIn.session.access_token });
         setShowChangePassword(true);
@@ -210,11 +221,11 @@ export function ProjectWizardsLogin({ onLogin }: ProjectWizardsLoginProps) {
       const user: User = {
         id: activeSignIn.user.id,
         email: activeSignIn.user.email || email,
-        role: profile.role as UserRole,
-        full_name: profile.name || 'User',
-        avatar_url: profile.avatar_url,
-        organization_id: profile.organization_id,
-        organizationId: profile.organization_id,
+        role: resolvedRole,
+        full_name: resolvedName,
+        avatar_url: resolvedAvatar,
+        organization_id: resolvedOrgId,
+        organizationId: resolvedOrgId,
       };
 
       // Update last_login

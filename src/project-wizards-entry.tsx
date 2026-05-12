@@ -72,34 +72,41 @@ function ProjectWizardsApp() {
         .from('profiles')
         .select('id, email, role, organization_id, name, avatar_url')
         .eq('id', session.user.id)
-        .single() as { data: any };
+        .maybeSingle() as { data: any };
 
-      if (profile) {
-        if (profile.organization_id) {
-          localStorage.setItem('currentOrgId', profile.organization_id);
-        }
+      const metadata = (session.user.user_metadata || {}) as any;
+      const resolvedOrgId =
+        profile?.organization_id
+        || metadata.organizationId
+        || metadata.organization_id
+        || localStorage.getItem('currentOrgId')
+        || '';
+      const resolvedRole = (profile?.role || metadata.role || 'standard_user') as UserRole;
 
-        await initializePermissions(profile.role);
-
-        if (!canAccessSpace('design', profile.role as UserRole, 'view')) {
-          setUser(null);
-          setAccessDeniedMessage('You are signed in, but your account does not currently have access to Design Space. Please choose another space or contact your administrator if you need access.');
-          setLoading(false);
-          return;
-        }
-
-        setAccessDeniedMessage(null);
-
-        setUser({
-          id: profile.id,
-          email: profile.email,
-          role: profile.role as UserRole,
-          full_name: profile.name,
-          avatar_url: profile.avatar_url,
-          organization_id: profile.organization_id,
-          organizationId: profile.organization_id,
-        });
+      if (resolvedOrgId) {
+        localStorage.setItem('currentOrgId', resolvedOrgId);
       }
+
+      await initializePermissions(resolvedRole);
+
+      if (!canAccessSpace('design', resolvedRole, 'view')) {
+        setUser(null);
+        setAccessDeniedMessage('You are signed in, but your account does not currently have access to Design Space. Please choose another space or contact your administrator if you need access.');
+        setLoading(false);
+        return;
+      }
+
+      setAccessDeniedMessage(null);
+
+      setUser({
+        id: profile?.id || session.user.id,
+        email: profile?.email || session.user.email || '',
+        role: resolvedRole,
+        full_name: profile?.name || metadata.name,
+        avatar_url: profile?.avatar_url || metadata.avatar_url,
+        organization_id: resolvedOrgId,
+        organizationId: resolvedOrgId,
+      });
     } catch {
       // Profile load failed
     } finally {
