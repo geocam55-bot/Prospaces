@@ -114,6 +114,26 @@ export function InteractiveModuleHelp({
   };
 
   useEffect(() => {
+    if (!pendingTourKey || !steps.some((s) => s.targetSelector)) return;
+
+    const startIfMatch = (key?: string | null) => {
+      if (key !== pendingTourKey) return;
+      sessionStorage.removeItem('prospaces.pending-tour');
+      tour.start(0);
+    };
+
+    startIfMatch(sessionStorage.getItem('prospaces.pending-tour'));
+
+    const onStartTour = (event: Event) => {
+      const detail = (event as CustomEvent<{ key?: string }>).detail;
+      startIfMatch(detail?.key);
+    };
+
+    window.addEventListener('prospaces:start-tour', onStartTour as EventListener);
+    return () => window.removeEventListener('prospaces:start-tour', onStartTour as EventListener);
+  }, [pendingTourKey, steps, tour.start]);
+
+  useEffect(() => {
     const savedStep = localStorage.getItem(stepStorageKey);
     if (savedStep !== null) {
       const parsed = Number(savedStep);

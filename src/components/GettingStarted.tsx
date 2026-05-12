@@ -128,6 +128,10 @@ export function GettingStarted({ userId, userRole, onNavigate }: GettingStartedP
     sessionStorage.setItem('prospaces.pending-tour', item.navigateTo);
     window.dispatchEvent(new CustomEvent('prospaces:tour-starting'));
     onNavigate(item.navigateTo);
+    // Fire after navigation so mounted module help can explicitly start from step 1.
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('prospaces:start-tour', { detail: { key: item.navigateTo } }));
+    }, 0);
   };
 
   const handleDismiss = () => {
