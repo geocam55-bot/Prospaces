@@ -40,7 +40,6 @@ import { onPermissionsChanged } from '../utils/permissions';
 import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
-import { DailyBriefingPopup } from './DailyBriefingPopup';
 import { useTheme } from './ThemeProvider';
 import { MetricCard } from './MetricCard';
 import { DashboardModuleHelp } from './DashboardModuleHelp';
@@ -323,9 +322,6 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
     <PermissionGate user={user} module="dashboard" action="view">
     <div className="p-4 sm:p-6 space-y-6 min-h-screen bg-background text-foreground">
       
-      {/* Daily AI Briefing Popup - Deferred render to prevent blocking main thread during initial load */}
-      {mounted && <DailyBriefingPopup user={user} onNavigate={onNavigate} organization={organization} />}
-
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>

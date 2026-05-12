@@ -87,9 +87,10 @@ interface DailyBriefingPopupProps {
   user: User;
   onNavigate?: (view: string) => void;
   organization?: any;
+  currentView?: string;
 }
 
-export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBriefingPopupProps) {
+export function DailyBriefingPopup({ user, onNavigate, organization, currentView }: DailyBriefingPopupProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isDocked, setIsDocked] = useState(false);
@@ -108,6 +109,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
   // Check if briefing should show today
   useEffect(() => {
     if (!aiEnabled) return;
+    if (currentView !== 'dashboard') return;
 
     const sessionShownKey = `prospaces_briefing_session_shown_${user.id}`;
     const shownThisSession = sessionStorage.getItem(sessionShownKey) === 'true';
@@ -123,7 +125,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
       }, 1500); // Brief delay so dashboard loads first
       return () => clearTimeout(timer);
     }
-  }, [isLoading, aiEnabled, user.id]);
+  }, [isLoading, aiEnabled, user.id, currentView]);
 
   // If onboarding launches a guided tour, dock this popup in the bottom-right.
   useEffect(() => {

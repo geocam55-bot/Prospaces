@@ -27,6 +27,7 @@ import { FaviconGenerator } from './components/FaviconGenerator';
 import { LandingPageDebug } from './components/LandingPageDebug';
 import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnostic';
 import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDiagnosticTest';
+import { DailyBriefingPopup } from './components/DailyBriefingPopup';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { GettingStarted } from './components/GettingStarted';
@@ -767,6 +768,15 @@ export function AppContent() {
               userId={user.id}
               userRole={user.role}
               onNavigate={handleGettingStartedNavigate}
+            />
+          )}
+
+          {user && (
+            <DailyBriefingPopup
+              user={user}
+              onNavigate={setCurrentView}
+              organization={organization}
+              currentView={currentView}
             />
           )}
         </div>
