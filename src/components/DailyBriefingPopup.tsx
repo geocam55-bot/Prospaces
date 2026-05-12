@@ -108,16 +108,15 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
   useEffect(() => {
     if (!aiEnabled) return;
 
-    const storageKeyShown = `${STORAGE_KEY_SHOWN}_${user.id}`;
-    const lastShown = localStorage.getItem(storageKeyShown);
-    const today = new Date().toDateString();
+    const sessionShownKey = `prospaces_briefing_session_shown_${user.id}`;
+    const shownThisSession = sessionStorage.getItem(sessionShownKey) === 'true';
 
-    if (lastShown !== today) {
+    if (!shownThisSession) {
       // Wait for suggestions to load, then show
       const timer = setTimeout(() => {
         if (!isLoading) {
           setIsVisible(true);
-          localStorage.setItem(storageKeyShown, today);
+          sessionStorage.setItem(sessionShownKey, 'true');
         }
       }, 1500); // Brief delay so dashboard loads first
       return () => clearTimeout(timer);

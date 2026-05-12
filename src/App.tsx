@@ -800,17 +800,11 @@ export default function App() {
     appleLink.href = logoAsset;
     document.head.appendChild(appleLink);
 
-    if (import.meta.env.DEV) {
-      // Prevent stale service worker caching during local development.
-      unregisterServiceWorker().catch(() => {
-        // Ignore failures in development.
-      });
-    } else {
-      // Register service worker to enable PWA features in production.
-      registerServiceWorker().catch(() => {
-        // Intentionally swallow errors as per zero-console rules
-      });
-    }
+    // Temporary safety: keep service workers unregistered so deployed clients
+    // always load fresh JS while we stabilize guided tour onboarding behavior.
+    unregisterServiceWorker().catch(() => {
+      // Ignore failures; app works without SW.
+    });
   }, []);
 
   return <RouterProvider router={router} />;
