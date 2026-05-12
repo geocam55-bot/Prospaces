@@ -218,12 +218,13 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       try {
         const sub = await getCurrentSubscription();
         if (!cancelled) {
-          const hasActiveAccess = !!sub && (sub.status === 'active' || sub.status === 'trialing');
+          const hasActiveAccess = !!sub && (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due');
           setCurrentPlanId(hasActiveAccess ? sub.plan_id : 'free');
         }
       } catch {
         if (!cancelled) {
-          setCurrentPlanId('free');
+          // On error, don't assume free — allow unrestricted access
+          setCurrentPlanId('professional');
         }
       }
     };
