@@ -130,8 +130,8 @@ app.put(`${PREFIX}/permissions`, async (c) => {
     if (auth.error) return c.json({ error: auth.error }, auth.status);
     if (!['admin', 'super_admin'].includes(auth.profile.role)) return c.json({ error: 'Forbidden' }, 403);
     const body = await c.req.json();
-    if (body.export_templates !== undefined && auth.profile.role !== 'super_admin') {
-      return c.json({ error: 'Only super_admin can manage export templates' }, 403);
+    if (body.export_templates !== undefined && !['admin', 'super_admin'].includes(auth.profile.role)) {
+      return c.json({ error: 'Only admin or super_admin can manage export templates' }, 403);
     }
     const orgId = body.organization_id || auth.profile.organization_id;
     if (!orgId) return c.json({ error: 'Missing organization_id' }, 400);
@@ -689,9 +689,11 @@ app.get(`${PREFIX}/settings/organization`, async (c) => {
     
     // Fallback/extra data from KV store
     const kvData = await kv.get(`org_settings_extra:${orgId}`) || {};
+  console.log(`[GET /settings/organization] KV data: export_templates=${kvData.export_templates ? kvData.export_templates.length + ' templates' : 'none'}`);
 
     if (error) {
       if (error.code === 'PGRST116' || error.code === 'PGRST205' || error.code === '42P01') {
+          console.log(`[GET /settings/organization] DB error (${error.code}), using KV fallback`);
         return c.json({ settings: kvData, source: 'server-table-missing-or-not-found' });
       }
       return c.json({ error: error.message }, 500);
@@ -699,6 +701,7 @@ app.get(`${PREFIX}/settings/organization`, async (c) => {
     
     // Merge DB data with KV data
     const merged = { ...data, ...kvData };
+      console.log(`[GET /settings/organization] Returning merged: export_templates=${merged.export_templates ? merged.export_templates.length + ' templates' : 'none'}`);
     return c.json({ settings: merged, source: 'server' });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
@@ -712,13 +715,18 @@ app.put(`${PREFIX}/settings/organization`, async (c) => {
     const orgId = body.organization_id || auth.profile.organization_id;
     const dbSettings: any = { ...body, organization_id: orgId, updated_at: new Date().toISOString() };
     
+    // Get existing KV data to preserve fields not being updated
+    const existingKvData = await kv.get(`org_settings_extra:${orgId}`) || {};
+      console.log(`[PUT /settings/organization] Existing KV: export_templates=${existingKvData.export_templates ? existingKvData.export_templates.length + ' templates' : 'none'}`);
+    
     // Save these fields in KV since they might not be in the Postgres table schema
     const kvSettings = {
-      price_tier_labels: body.price_tier_labels,
-      audience_segments: body.audience_segments,
-      user_invite_method: body.user_invite_method,
-      export_templates: body.export_templates,
+      price_tier_labels: body.price_tier_labels !== undefined ? body.price_tier_labels : existingKvData.price_tier_labels,
+      audience_segments: body.audience_segments !== undefined ? body.audience_segments : existingKvData.audience_segments,
+      user_invite_method: body.user_invite_method !== undefined ? body.user_invite_method : existingKvData.user_invite_method,
+      export_templates: body.export_templates !== undefined ? body.export_templates : existingKvData.export_templates,
     };
+    console.log(`[PUT /settings/organization] Saving to KV: export_templates=${kvSettings.export_templates ? kvSettings.export_templates.length + ' templates' : 'none'}`);
     
     delete dbSettings.price_tier_labels;
     delete dbSettings.audience_segments;
@@ -735,6 +743,7 @@ app.put(`${PREFIX}/settings/organization`, async (c) => {
     }
     
     const merged = { ...data, ...kvSettings };
+      console.log(`[PUT /settings/organization] Returning: export_templates=${merged.export_templates ? merged.export_templates.length + ' templates' : 'none'}`);
     return c.json({ settings: merged, source: 'server' });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });

@@ -14,6 +14,7 @@ import { searchInventoryClient } from '../../utils/inventory-client';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
 import { createClient } from '../../utils/supabase/client';
 import { PlannerDefaults } from '../PlannerDefaults';
+import { PlannerExportDialog } from './PlannerExportDialog';
 import { Monitor, Smartphone } from 'lucide-react';
 
 interface InteriorFinishingPlannerProps {
@@ -1463,13 +1464,22 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                       </div>
                     </div>
                     
-                    <ProjectQuoteGenerator 
-                      user={user}
-                      projectType="interior"
-                      materials={materials}
-                      totalCost={totalCost}
-                      projectData={currentConfig}
-                    />
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                      <PlannerExportDialog
+                        organizationId={user.organizationId}
+                        projectType="interior"
+                        materials={materials}
+                        totalCost={totalCost}
+                        defaultDesignName="interior-finishing-design"
+                      />
+                      <ProjectQuoteGenerator 
+                        user={user}
+                        projectType="interior"
+                        materials={materials}
+                        totalCost={totalCost}
+                        projectData={currentConfig}
+                      />
+                    </div>
                   </div>
 
                   <div className="mt-8 border-t pt-8">

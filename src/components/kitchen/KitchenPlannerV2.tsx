@@ -41,6 +41,7 @@ import type { User } from '../../App';
 import { toast } from 'sonner@2.0.3';
 import { ChefHat } from 'lucide-react';
 import { PlannerWorkflowHelp } from '../planners/PlannerWorkflowHelp';
+import { PlannerExportDialog } from '../planners/PlannerExportDialog';
 import { 
   BaseCabinetIcon, 
   WallCabinetIcon, 
@@ -785,15 +786,24 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
         {activeTab === 'materials' && (
           <div className="flex-1 overflow-auto p-6 bg-muted">
             <div className="max-w-6xl mx-auto">
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center mb-6">
                 <h2 className="text-2xl font-semibold">Materials & Cost Breakdown</h2>
-                <ProjectQuoteGenerator 
-                  user={user}
-                  projectType="kitchen"
-                  materials={flatMaterials}
-                  totalCost={totalPrice}
-                  projectData={config}
-                />
+                <div className="flex flex-wrap items-center gap-3">
+                  <PlannerExportDialog
+                    organizationId={user.organizationId}
+                    projectType="kitchen"
+                    materials={flatMaterials}
+                    totalCost={totalPrice}
+                    defaultDesignName="kitchen-design"
+                  />
+                  <ProjectQuoteGenerator 
+                    user={user}
+                    projectType="kitchen"
+                    materials={flatMaterials}
+                    totalCost={totalPrice}
+                    projectData={config}
+                  />
+                </div>
               </div>
 
               <div className="mb-6">

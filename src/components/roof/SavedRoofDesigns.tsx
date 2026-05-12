@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { RoofConfig, MaterialItem } from '../../types/roof';
 import { createClient } from '../../utils/supabase/client';
-import { settingsAPI } from '../../utils/api';
 import { listDesigns, saveDesign as saveDesignApi, deleteDesign as deleteDesignApi } from '../../utils/designs-client';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
 import { OpportunitySelector } from '../project-wizard/OpportunitySelector';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Save, Trash2, Download, FileText, AlertCircle, User } from 'lucide-react';
 import type { User as AppUser } from '../../App';
-import { filterTemplatesByModule, type CustomExportTemplate } from '../../utils/export-engine';
+import type { CustomExportTemplate } from '../../utils/export-engine';
 import { exportPlannerDesign } from '../../utils/planner-export';
+import { loadPlannerExportTemplates } from '../../utils/planner-export-templates';
 
 interface SavedRoofDesignsProps {
   user: AppUser;
@@ -51,11 +51,7 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
 
     const loadExportTemplates = async () => {
       try {
-        const settings = await settingsAPI.getOrganizationSettings(user.organizationId);
-        const templates = filterTemplatesByModule(
-          (settings?.export_templates || []) as CustomExportTemplate[],
-          'planners'
-        );
+        const templates = await loadPlannerExportTemplates(user.organizationId);
         if (!cancelled) {
           setExportTemplates(templates);
           if (templates.length > 0) {

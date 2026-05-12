@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { listDesigns, saveDesign, deleteDesign as deleteDesignApi, createDeal as createDealAPI } from '../../utils/designs-client';
-import { settingsAPI } from '../../utils/api';
 import { DeckConfig } from '../../types/deck';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -13,8 +12,9 @@ import { FileText, Trash2, Download, Save, User, FileCheck, Handshake, DollarSig
 import { Alert, AlertDescription } from '../ui/alert';
 import { Checkbox } from '../ui/checkbox';
 import type { User as AppUser } from '../../App';
-import { filterTemplatesByModule, type CustomExportTemplate } from '../../utils/export-engine';
+import type { CustomExportTemplate } from '../../utils/export-engine';
 import { exportPlannerDesign } from '../../utils/planner-export';
+import { loadPlannerExportTemplates } from '../../utils/planner-export-templates';
 
 interface SavedDeckDesignsProps {
   user: AppUser;
@@ -105,11 +105,7 @@ export function SavedDeckDesigns({
 
     const loadExportTemplates = async () => {
       try {
-        const settings = await settingsAPI.getOrganizationSettings(user.organizationId);
-        const templates = filterTemplatesByModule(
-          (settings?.export_templates || []) as CustomExportTemplate[],
-          'planners'
-        );
+        const templates = await loadPlannerExportTemplates(user.organizationId);
         if (!cancelled) {
           setExportTemplates(templates);
           if (templates.length > 0) {

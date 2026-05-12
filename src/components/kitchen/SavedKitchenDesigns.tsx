@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
-import { settingsAPI } from '../../utils/api';
 import { KitchenConfig } from '../../types/kitchen';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
 import { OpportunitySelector } from '../project-wizard/OpportunitySelector';
@@ -13,8 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { FileText, Trash2, Download, Save, User } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
 import type { User as AppUser } from '../../App';
-import { filterTemplatesByModule, type CustomExportTemplate } from '../../utils/export-engine';
+import type { CustomExportTemplate } from '../../utils/export-engine';
 import { exportPlannerDesign } from '../../utils/planner-export';
+import { loadPlannerExportTemplates } from '../../utils/planner-export-templates';
 
 interface SavedKitchenDesignsProps {
   user: AppUser;
@@ -86,11 +86,7 @@ export function SavedKitchenDesigns({
 
     const loadExportTemplates = async () => {
       try {
-        const settings = await settingsAPI.getOrganizationSettings(user.organizationId);
-        const templates = filterTemplatesByModule(
-          (settings?.export_templates || []) as CustomExportTemplate[],
-          'planners'
-        );
+        const templates = await loadPlannerExportTemplates(user.organizationId);
         if (!cancelled) {
           setExportTemplates(templates);
           if (templates.length > 0) {

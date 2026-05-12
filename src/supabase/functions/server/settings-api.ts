@@ -99,8 +99,8 @@ export function settingsAPI(app: Hono) {
       const body = await c.req.json();
       const orgId = body.organization_id || profile!.organization_id;
 
-      if (body.export_templates !== undefined && profile!.role !== 'super_admin') {
-        return c.json({ error: 'Only super_admin can manage export templates' }, 403);
+      if (body.export_templates !== undefined && !['admin', 'super_admin'].includes(profile!.role)) {
+        return c.json({ error: 'Only admin or super_admin can manage export templates' }, 403);
       }
 
       // Prevent cross-org updates (except super_admin)
@@ -114,7 +114,9 @@ export function settingsAPI(app: Hono) {
       const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels', 'audience_segments', 'user_invite_method', 'export_templates'];
       const dbSettings: any = { ...body, organization_id: orgId, updated_at: new Date().toISOString() };
       
-      const kvSettings: any = {};
+      // Get existing KV data to preserve fields not being updated
+      const existingKvData = await kv.get(`org_settings_extra:${orgId}`) || {};
+      const kvSettings: any = { ...existingKvData };
       
       OPTIONAL_NON_DB_FIELDS.forEach(field => {
         if (field in dbSettings) {

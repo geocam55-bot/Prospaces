@@ -2,7 +2,9 @@ export type ExportFormat = 'csv' | 'xml' | 'custom';
 export type ExportModule = 'quotes' | 'planners' | 'all';
 
 export interface CustomExportField {
+  source?: 'field' | 'text';
   key: string;
+  text?: string;
   label?: string;
   start?: number;
   length?: number;
@@ -74,6 +76,19 @@ export function buildCustomText(rows: Record<string, unknown>[], template: Custo
   const headerLines = template.header_lines || [];
   const detailFields = [...(template.detail_fields || [])];
 
+  const getFieldValue = (row: Record<string, unknown>, field: CustomExportField): string => {
+    if ((field.source || 'field') === 'text') {
+      return String(field.text ?? '');
+    }
+    return String(row[field.key] ?? '');
+  };
+
+  const getFieldHeader = (field: CustomExportField): string => {
+    if (field.label) return field.label;
+    if ((field.source || 'field') === 'text') return field.text || 'text';
+    return field.key;
+  };
+
   if (!detailFields.length) {
     return [...headerLines, ...rows.map(() => '')].join('\n');
   }
@@ -84,11 +99,11 @@ export function buildCustomText(rows: Record<string, unknown>[], template: Custo
     const output: string[] = [...headerLines];
 
     if (includeHeaders) {
-      output.push(detailFields.map((field) => field.label || field.key).join(delimiter));
+      output.push(detailFields.map((field) => getFieldHeader(field)).join(delimiter));
     }
 
     for (const row of rows) {
-      output.push(detailFields.map((field) => String(row[field.key] ?? '')).join(delimiter));
+      output.push(detailFields.map((field) => getFieldValue(row, field)).join(delimiter));
     }
 
     return output.join('\n');
@@ -104,7 +119,7 @@ export function buildCustomText(rows: Record<string, unknown>[], template: Custo
       const length = Math.max(1, field.length || 1);
       const align = field.align || 'left';
       const padChar = (field.pad_char || ' ').charAt(0);
-      const value = String(row[field.key] ?? '');
+      const value = getFieldValue(row, field);
       const formatted = padFixedValue(value, length, align, padChar);
 
       if (line.length < start - 1) {
@@ -150,6 +165,9 @@ export function filterTemplatesByModule(
   return (templates || []).filter((template) => {
     if (template.enabled === false) return false;
     if (!template.module || template.module === 'all') return true;
+    // Backward compatibility: older templates defaulted to "quotes" in Settings,
+    // but users also expect to use them in planners.
+    if (module === 'planners' && template.module === 'quotes') return true;
     return template.module === module;
   });
 }

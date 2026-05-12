@@ -20,6 +20,7 @@ import { toast } from 'sonner@2.0.3';
 import type { User } from '../../App';
 import { PermissionGate } from '../PermissionGate';
 import { PlannerWorkflowHelp } from './PlannerWorkflowHelp';
+import { PlannerExportDialog } from './PlannerExportDialog';
 
 interface RoofPlannerProps {
   user: User;
@@ -323,13 +324,22 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
                   </div>
                 ) : <div className="flex-1"></div>}
                 
-                <ProjectQuoteGenerator 
-                  user={user}
-                  projectType="roof"
-                  materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
-                  totalCost={totalT1Price}
-                  projectData={config}
-                />
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                  <PlannerExportDialog
+                    organizationId={user.organizationId}
+                    projectType="roof"
+                    materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+                    totalCost={totalT1Price}
+                    defaultDesignName="roof-design"
+                  />
+                  <ProjectQuoteGenerator 
+                    user={user}
+                    projectType="roof"
+                    materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+                    totalCost={totalT1Price}
+                    projectData={config}
+                  />
+                </div>
               </div>
 
               <div className="mt-8 border-t pt-8">

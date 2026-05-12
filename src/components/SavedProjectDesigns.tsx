@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '../utils/supabase/client';
-import { settingsAPI } from '../utils/api';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -15,10 +14,10 @@ import {
   buildCustomText,
   buildXml,
   downloadTextFile,
-  filterTemplatesByModule,
   sanitizeFilename,
   type CustomExportTemplate,
 } from '../utils/export-engine';
+import { loadPlannerExportTemplates } from '../utils/planner-export-templates';
 
 interface SavedProjectDesignsProps {
   user: AppUser;
@@ -74,11 +73,7 @@ export function SavedProjectDesigns({
 
     const loadExportTemplates = async () => {
       try {
-        const settings = await settingsAPI.getOrganizationSettings(user.organizationId);
-        const templates = filterTemplatesByModule(
-          (settings?.export_templates || []) as CustomExportTemplate[],
-          'planners'
-        );
+        const templates = await loadPlannerExportTemplates(user.organizationId);
 
         if (!cancelled) {
           setExportTemplates(templates);

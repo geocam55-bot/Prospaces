@@ -1,8 +1,8 @@
 // ProSpaces CRM Service Worker
 // Provides offline functionality and caching for PWA
 
-const CACHE_NAME = 'prospaces-crm-v5';
-const RUNTIME_CACHE = 'prospaces-runtime-v5';
+const CACHE_NAME = 'prospaces-crm-v6';
+const RUNTIME_CACHE = 'prospaces-runtime-v6';
 
 // Assets to cache immediately on install
 const PRECACHE_ASSETS = [
@@ -83,11 +83,34 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first strategy for static assets (images, CSS, JS)
+  // Network-first strategy for JS/CSS so new deployments are picked up immediately.
   if (
     request.url.includes('/assets/') ||
+    request.url.match(/\.(js|css)$/)
+  ) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (!response || response.status !== 200 || response.type === 'error') {
+            return response;
+          }
+
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseClone);
+          });
+
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Cache-first strategy for static media assets.
+  if (
     request.url.includes('/icons/') ||
-    request.url.match(/\.(js|css|png|jpg|jpeg|svg|gif|webp|woff|woff2)$/)
+    request.url.match(/\.(png|jpg|jpeg|svg|gif|webp|woff|woff2)$/)
   ) {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {

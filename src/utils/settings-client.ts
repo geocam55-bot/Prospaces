@@ -166,6 +166,54 @@ export async function upsertUserPreferencesClient(preferences: Partial<UserPrefe
 export async function getOrganizationSettingsClient(organizationId: string): Promise<OrganizationSettings | null> {
   // Fetching organization settings
 
+  const getLocalSettingsFallback = (): Partial<OrganizationSettings> | null => {
+    try {
+      const orgId = localStorage.getItem('currentOrgId') || organizationId;
+      const stored = localStorage.getItem(`global_settings_${orgId}`);
+      if (!stored) return null;
+
+      const parsed = JSON.parse(stored);
+      return {
+        organization_id: orgId,
+        tax_rate: parsed.taxRate,
+        tax_rate_2: parsed.taxRate2,
+        default_price_level: parsed.defaultPriceLevel,
+        quote_terms: parsed.quoteTerms,
+        audience_segments: parsed.audienceSegments,
+        price_tier_labels: parsed.priceTierLabels,
+        user_invite_method: parsed.userInviteMethod,
+        export_templates: parsed.exportTemplates,
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const mergeWithLocalFallback = (settings: OrganizationSettings | null): OrganizationSettings | null => {
+    const localFallback = getLocalSettingsFallback();
+    if (!settings && !localFallback) return null;
+    const shouldUseLocalExportTemplates =
+      Array.isArray(localFallback?.export_templates) &&
+      localFallback.export_templates.length > 0 &&
+      (!Array.isArray(settings?.export_templates) || settings.export_templates.length === 0);
+
+    return {
+      ...(settings || {}),
+      ...(localFallback?.price_tier_labels !== undefined && settings?.price_tier_labels === undefined
+        ? { price_tier_labels: localFallback.price_tier_labels }
+        : {}),
+      ...(localFallback?.audience_segments !== undefined && settings?.audience_segments === undefined
+        ? { audience_segments: localFallback.audience_segments }
+        : {}),
+      ...(localFallback?.user_invite_method !== undefined && settings?.user_invite_method === undefined
+        ? { user_invite_method: localFallback.user_invite_method }
+        : {}),
+      ...(shouldUseLocalExportTemplates
+        ? { export_templates: localFallback.export_templates }
+        : {}),
+    } as OrganizationSettings;
+  };
+
   // Try server endpoint first (bypasses RLS)
   try {
     const headers = await getServerHeaders();
@@ -181,7 +229,7 @@ export async function getOrganizationSettingsClient(organizationId: string): Pro
     if (res.ok) {
       const json = await res.json();
       // Organization settings fetched via server
-      return json.settings || null;
+      return mergeWithLocalFallback(json.settings || null);
     }
     // Server returned non-ok status, falling back to direct Supabase
   } catch (err) {
@@ -199,21 +247,21 @@ export async function getOrganizationSettingsClient(organizationId: string): Pro
     if (error) {
       if (error.code === 'PGRST116') {
         // No settings found for organization
-        return null;
+        return mergeWithLocalFallback(null);
       }
       if (error.code === 'PGRST205' || error.code === '42P01') {
         // organization_settings table does not exist yet
-        return null;
+        return mergeWithLocalFallback(null);
       }
       // Error fetching organization settings
-      return null;
+      return mergeWithLocalFallback(null);
     }
 
     // Organization settings fetched via direct Supabase
-    return data;
+    return mergeWithLocalFallback(data);
   } catch (error) {
     // Unexpected error fetching organization settings
-    return null;
+    return mergeWithLocalFallback(null);
   }
 }
 

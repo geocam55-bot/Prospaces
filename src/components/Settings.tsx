@@ -63,6 +63,30 @@ const SETTINGS_LOAD_TIMEOUT = 15000;
 // Per-call timeout for each API call
 const API_CALL_TIMEOUT = 8000;
 
+const EXPORT_FIELD_KEY_OPTIONS = [
+  { value: 'quote_number', label: 'Quote Number' },
+  { value: 'title', label: 'Title' },
+  { value: 'contact_name', label: 'Contact Name' },
+  { value: 'contact_email', label: 'Contact Email' },
+  { value: 'total', label: 'Total' },
+  { value: 'status', label: 'Status' },
+  { value: 'created_at', label: 'Created At' },
+  { value: 'updated_at', label: 'Updated At' },
+  { value: 'design_name', label: 'Design Name' },
+  { value: 'project_type', label: 'Project Type' },
+  { value: 'material_name', label: 'Material Name' },
+  { value: 'quantity', label: 'Quantity' },
+  { value: 'sku', label: 'SKU (Inventory)' },
+  { value: 'itemName', label: 'Item Name (Quote Line Item)' },
+  { value: 'itemId', label: 'Item ID (Inventory)' },
+  { value: 'unitPrice', label: 'Unit Price (Quote Line Item)' },
+  { value: 'lineTotal', label: 'Line Total (Quote Line Item)' },
+  { value: 'price_tier', label: 'Price Tier' },
+  { value: 'valid_until', label: 'Valid Until' },
+  { value: 'notes', label: 'Notes' },
+  { value: 'terms', label: 'Terms' },
+] as const;
+
 interface SettingsProps {
   user: User;
   organization: any | null;
@@ -241,7 +265,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
     id: '',
     name: '',
     description: '',
-    module: 'quotes',
+    module: 'all',
     enabled: true,
     file_extension: 'txt',
     layout_mode: 'fixed',
@@ -335,11 +359,13 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         // Merge from localStorage so custom labels aren't lost.
         const orgId = localStorage.getItem('currentOrgId') || user.organizationId;
         let storedPriceTierLabels: PriceTierLabels | null = null;
+        let storedExportTemplates: CustomExportTemplate[] | null = null;
         try {
           const stored = localStorage.getItem(`global_settings_${orgId}`);
           if (stored) {
             const parsed = JSON.parse(stored);
             if (parsed.priceTierLabels) storedPriceTierLabels = parsed.priceTierLabels;
+            if (Array.isArray(parsed.exportTemplates)) storedExportTemplates = parsed.exportTemplates;
           }
         } catch (_) { /* ignore parse errors */ }
 
@@ -351,7 +377,10 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           audienceSegments: orgSettings.audience_segments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'],
           priceTierLabels: orgSettings.price_tier_labels || storedPriceTierLabels || { ...DEFAULT_PRICE_TIER_LABELS },
           userInviteMethod: orgSettings.user_invite_method || 'email',
-          exportTemplates: orgSettings.export_templates || [],
+          exportTemplates:
+            Array.isArray(orgSettings.export_templates) && orgSettings.export_templates.length > 0
+              ? orgSettings.export_templates
+              : (storedExportTemplates || orgSettings.export_templates || []),
         });
         
         // Load organization name
@@ -451,7 +480,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
       id: '',
       name: '',
       description: '',
-      module: 'quotes',
+      module: 'all',
       enabled: true,
       file_extension: 'txt',
       layout_mode: 'fixed',
@@ -584,6 +613,11 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         project_type: 'deck',
         material_name: 'Composite Board',
         quantity: 24,
+        sku: 'SKU-001',
+        itemName: 'Composite Deck Board',
+        itemId: 'inv-001',
+        unitPrice: '35.50',
+        lineTotal: '852.00',
       },
     ];
 
@@ -595,10 +629,19 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   };
 
   const removeExportTemplate = (templateId: string) => {
+    const confirmed = window.confirm('Delete this custom export template?');
+    if (!confirmed) return;
+
     setGlobalSettings((prev) => ({
       ...prev,
       exportTemplates: (prev.exportTemplates || []).filter((template) => template.id !== templateId),
     }));
+
+    if (editingTemplateId === templateId) {
+      resetNewExportTemplate();
+    }
+
+    toast.success('Export template removed. Save Module Defaults to persist.');
   };
 
   const toggleExportTemplateEnabled = (templateId: string) => {
@@ -859,7 +902,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         user_invite_method: globalSettings.userInviteMethod,
       };
 
-      if (isSuperAdmin) {
+      if (canManageSettings) {
         payload.export_templates = globalSettings.exportTemplates;
       }
 
@@ -879,6 +922,12 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
       
       // Check if it's an RLS permission error
       if (error?.message?.includes('Permission denied') || error?.message?.includes('RLS')) {
+        try {
+          const orgId = localStorage.getItem('currentOrgId') || user.organizationId;
+          localStorage.setItem(`global_settings_${orgId}`, JSON.stringify(globalSettings));
+        } catch (_) {
+          // ignore localStorage errors here; we still surface the backend error
+        }
         showAlert('error', `Database permission error: ${error.message}\n\nYour settings have been saved locally. Please run the SQL script: SUPABASE_FIX_ORG_SETTINGS_RLS_SIMPLE.sql in your Supabase dashboard.`);
       } else {
         // Still try to save to localStorage as fallback
@@ -1548,10 +1597,9 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                                     onChange={(e) =>
                                       setNewExportTemplate((prev) => ({
                                         ...prev,
-                                        header_lines: e.target.value
-                                          .split('\n')
-                                          .map((line) => line.trim())
-                                          .filter(Boolean),
+                                        // Preserve raw lines while editing so pressing Enter creates a new row.
+                                        // We sanitize on save in addExportTemplate().
+                                        header_lines: e.target.value.split('\n'),
                                       }))
                                     }
                                     rows={3}
@@ -1571,11 +1619,40 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                                       <div key={`${field.key}-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end p-2 border rounded-md">
                                         <div className="md:col-span-3 space-y-1">
                                           <Label className="text-xs">Field Key</Label>
-                                          <Input
-                                            value={field.key || ''}
-                                            onChange={(e) => updateDetailFieldRow(index, { key: e.target.value })}
-                                            placeholder="quote_number"
-                                          />
+                                          <Select
+                                            value={
+                                              (field.key || '') && EXPORT_FIELD_KEY_OPTIONS.some((opt) => opt.value === field.key)
+                                                ? field.key
+                                                : '__custom__'
+                                            }
+                                            onValueChange={(value) => {
+                                              if (value === '__custom__') {
+                                                updateDetailFieldRow(index, { key: field.key || '' });
+                                              } else {
+                                                updateDetailFieldRow(index, { key: value });
+                                              }
+                                            }}
+                                          >
+                                            <SelectTrigger>
+                                              <SelectValue placeholder="Select field key" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {EXPORT_FIELD_KEY_OPTIONS.map((opt) => (
+                                                <SelectItem key={opt.value} value={opt.value}>
+                                                  {opt.label}
+                                                </SelectItem>
+                                              ))}
+                                              <SelectItem value="__custom__">Custom Field Key</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                          {(!field.key || !EXPORT_FIELD_KEY_OPTIONS.some((opt) => opt.value === field.key)) && (
+                                            <Input
+                                              className="mt-2"
+                                              value={field.key || ''}
+                                              onChange={(e) => updateDetailFieldRow(index, { key: e.target.value })}
+                                              placeholder="custom_field_name"
+                                            />
+                                          )}
                                         </div>
                                         <div className="md:col-span-2 space-y-1">
                                           <Label className="text-xs">Label</Label>
@@ -1676,7 +1753,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                                         variant="outline"
                                         size="sm"
                                         onClick={() => editExportTemplate(template.id)}
-                                        disabled={!isSuperAdmin}
+                                        disabled={!canManageSettings}
                                       >
                                         Edit
                                       </Button>
@@ -1685,7 +1762,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                                         variant="outline"
                                         size="sm"
                                         onClick={() => toggleExportTemplateEnabled(template.id)}
-                                        disabled={!isSuperAdmin}
+                                        disabled={!canManageSettings}
                                       >
                                         {template.enabled === false ? 'Enable' : 'Disable'}
                                       </Button>
@@ -1694,7 +1771,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => removeExportTemplate(template.id)}
-                                        disabled={!isSuperAdmin}
+                                        disabled={!canManageSettings}
                                       >
                                         <Trash2 className="h-4 w-4 text-red-600" />
                                       </Button>

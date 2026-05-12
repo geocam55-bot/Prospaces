@@ -1314,6 +1314,59 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
               }
             })();
 
+        const skuValues = lineItems
+          .map((item: any) => item?.sku || item?.item_sku || item?.inventory_sku || '')
+          .map((value: string) => String(value).trim())
+          .filter(Boolean);
+
+        const uniqueSkus = Array.from(new Set(skuValues));
+        const skuDescriptions = lineItems
+          .map((item: any) => item?.description || item?.desc || item?.itemName || item?.item_name || item?.name || item?.title || '')
+          .map((value: unknown) => String(value ?? '').trim())
+          .filter(Boolean);
+        const uniqueSkuDescriptions = Array.from(new Set(skuDescriptions));
+
+        const skuUnits = lineItems
+          .map((item: any) => item?.unit_of_measure || item?.unitOfMeasure || item?.uom || item?.unit || '')
+          .map((value: unknown) => String(value ?? '').trim())
+          .filter(Boolean);
+        const uniqueSkuUnits = Array.from(new Set(skuUnits));
+
+        const skuQuantityPairs = lineItems
+          .map((item: any) => {
+            const sku = String(item?.sku || item?.item_sku || item?.inventory_sku || '').trim();
+            if (!sku) return '';
+            const qty = Number(item?.quantity ?? item?.qty ?? 0);
+            return `${sku}:${Number.isFinite(qty) ? qty : 0}`;
+          })
+          .filter(Boolean);
+
+        const skuUnitPricePairs = lineItems
+          .map((item: any) => {
+            const sku = String(item?.sku || item?.item_sku || item?.inventory_sku || '').trim();
+            if (!sku) return '';
+            const unitPrice = Number(item?.unitPrice ?? item?.unit_price ?? item?.price ?? 0);
+            return `${sku}:${Number.isFinite(unitPrice) ? unitPrice : 0}`;
+          })
+          .filter(Boolean);
+
+        const skuLineTotalPairs = lineItems
+          .map((item: any) => {
+            const sku = String(item?.sku || item?.item_sku || item?.inventory_sku || '').trim();
+            if (!sku) return '';
+            const qty = Number(item?.quantity ?? item?.qty ?? 0);
+            const unitPrice = Number(item?.unitPrice ?? item?.unit_price ?? item?.price ?? 0);
+            const explicitTotal = Number(item?.total ?? item?.line_total ?? item?.subtotal);
+            const lineTotal = Number.isFinite(explicitTotal) ? explicitTotal : qty * unitPrice;
+            return `${sku}:${Number.isFinite(lineTotal) ? lineTotal : 0}`;
+          })
+          .filter(Boolean);
+
+        const skuTotalQuantity = lineItems.reduce((sum: number, item: any) => {
+          const qty = Number(item?.quantity ?? item?.qty ?? 0);
+          return sum + (Number.isFinite(qty) ? qty : 0);
+        }, 0);
+
         return {
           quote_number: q.quote_number || q.quoteNumber || '',
           title: q.title || q.projectName || '',
@@ -1325,6 +1378,16 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           subtotal: q.subtotal ?? '',
           tax_amount: q.tax_amount ?? q.tax ?? '',
           total: q.total ?? '',
+          sku: uniqueSkus[0] || '',
+          skus: uniqueSkus.join('|'),
+          sku_description: uniqueSkuDescriptions[0] || '',
+          sku_descriptions: uniqueSkuDescriptions.join('|'),
+          sku_unit: uniqueSkuUnits[0] || '',
+          sku_units: uniqueSkuUnits.join('|'),
+          sku_total_quantity: skuTotalQuantity,
+          sku_quantities: skuQuantityPairs.join('|'),
+          sku_unit_prices: skuUnitPricePairs.join('|'),
+          sku_line_totals: skuLineTotalPairs.join('|'),
           line_items_count: lineItems.length,
           notes: q.notes || '',
           terms: q.terms || '',

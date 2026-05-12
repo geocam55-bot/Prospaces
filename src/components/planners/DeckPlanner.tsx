@@ -20,6 +20,7 @@ import { toast } from 'sonner@2.0.3';
 import type { User } from '../../App';
 import { PermissionGate } from '../PermissionGate';
 import { PlannerWorkflowHelp } from './PlannerWorkflowHelp';
+import { PlannerExportDialog } from './PlannerExportDialog';
 
 interface DeckPlannerProps {
   user: User;
@@ -423,13 +424,22 @@ export function DeckPlanner({ user }: DeckPlannerProps) {
                   </div>
                 ) : <div className="flex-1"></div>}
                 
-                <ProjectQuoteGenerator 
-                  user={user}
-                  projectType="deck"
-                  materials={enrichedMaterials}
-                  totalCost={totalT1Price}
-                  projectData={config}
-                />
+                <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                  <PlannerExportDialog
+                    organizationId={user.organizationId}
+                    projectType="deck"
+                    materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+                    totalCost={totalT1Price}
+                    defaultDesignName="deck-design"
+                  />
+                  <ProjectQuoteGenerator 
+                    user={user}
+                    projectType="deck"
+                    materials={enrichedMaterials}
+                    totalCost={totalT1Price}
+                    projectData={config}
+                  />
+                </div>
               </div>
 
               <div className="mt-8 border-t pt-8">
