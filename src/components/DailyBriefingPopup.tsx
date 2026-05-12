@@ -108,10 +108,6 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
   useEffect(() => {
     if (!aiEnabled) return;
 
-    // Do not show briefing while onboarding is routing into a guided tour.
-    const pendingTour = sessionStorage.getItem('prospaces.pending-tour');
-    if (pendingTour) return;
-
     const storageKeyShown = `${STORAGE_KEY_SHOWN}_${user.id}`;
     const lastShown = localStorage.getItem(storageKeyShown);
     const today = new Date().toDateString();
@@ -120,7 +116,6 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
       // Wait for suggestions to load, then show
       const timer = setTimeout(() => {
         if (!isLoading) {
-          if (sessionStorage.getItem('prospaces.pending-tour')) return;
           setIsVisible(true);
           localStorage.setItem(storageKeyShown, today);
         }
