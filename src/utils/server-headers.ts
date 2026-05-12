@@ -60,6 +60,19 @@ export async function getUserAccessToken(): Promise<string | null> {
     // Wait for the auth layer to have delivered at least one session event.
     await _authReadyPromise;
 
+    // First fallback: read current session directly if cache is empty.
+    if (!_cachedToken) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          _cachedToken = session.access_token;
+          _cachedTokenExpiresAtMs = session.expires_at ? session.expires_at * 1000 : null;
+        }
+      } catch {
+        // Ignore and continue with refresh/cached fallback.
+      }
+    }
+
     const now = Date.now();
     const isExpiredOrStale = _cachedTokenExpiresAtMs !== null
       && _cachedTokenExpiresAtMs <= now + 5 * 60_000;
