@@ -49,6 +49,8 @@ interface InteractiveModuleHelpProps {
   howToGuides?: HelpHowToGuide[];
   /** If this matches the value of the `prospaces.pending-tour` sessionStorage key, auto-start the overlay tour on mount. */
   pendingTourKey?: string;
+  /** When this value changes, force-start the overlay tour at step 1. */
+  forceStartToken?: number;
 }
 
 export function InteractiveModuleHelp({
@@ -63,6 +65,7 @@ export function InteractiveModuleHelp({
   badges = [],
   howToGuides = [],
   pendingTourKey,
+  forceStartToken,
 }: InteractiveModuleHelpProps) {
   const helpOnboardingVersion = 'v1';
   const [isOpen, setIsOpen] = useState(false);
@@ -132,6 +135,12 @@ export function InteractiveModuleHelp({
     window.addEventListener('prospaces:start-tour', onStartTour as EventListener);
     return () => window.removeEventListener('prospaces:start-tour', onStartTour as EventListener);
   }, [pendingTourKey, steps, tour.start]);
+
+  useEffect(() => {
+    if (!forceStartToken) return;
+    if (!steps.some((s) => s.targetSelector)) return;
+    tour.start(0);
+  }, [forceStartToken, steps, tour.start]);
 
   useEffect(() => {
     const savedStep = localStorage.getItem(stepStorageKey);
