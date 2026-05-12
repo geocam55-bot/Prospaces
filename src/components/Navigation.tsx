@@ -197,10 +197,15 @@ export function Navigation({
     return submenuItems;
   };
 
+  const adminSubmenu = buildAdminSubmenu();
+
   // Combine and filter based on permissions
   const navItems = [
     ...baseNavItems,
     ...managerNavItems,
+    ...(adminSubmenu.length > 0
+      ? [{ id: 'admin', label: 'Admin', icon: Shield, hasSubmenu: true, submenu: adminSubmenu }]
+      : []),
   ].filter(item => {
     // Admin parent menu: show if it has submenu items (already filtered above)
     if (item.id === 'admin') return true;
@@ -211,9 +216,13 @@ export function Navigation({
     return canView(item.id, user.role);
   });
 
+  const safeNavItems = navItems.length > 0
+    ? navItems
+    : [{ id: 'main-panels', label: 'Home', icon: LayoutDashboard }];
+
   // Auto-expand parent menu when child is active
   useEffect(() => {
-    navItems.forEach((item) => {
+    safeNavItems.forEach((item) => {
       if (item.submenu) {
         const hasActiveChild = item.submenu.some((sub: any) => sub.id === currentView);
         if (hasActiveChild && !expandedMenus[item.id]) {
@@ -224,7 +233,7 @@ export function Navigation({
         }
       }
     });
-  }, [currentView]);
+  }, [currentView, safeNavItems, expandedMenus]);
 
   const handleNavClick = (view: string) => {
     if (view === 'bids') {
@@ -387,11 +396,11 @@ export function Navigation({
   // Get page title based on current view
   const getPageTitle = (view: string) => {
     // Check main items
-    const item = navItems.find(item => item.id === view);
+    const item = safeNavItems.find(item => item.id === view);
     if (item) return item.label;
     
     // Check submenu items
-    for (const navItem of navItems) {
+    for (const navItem of safeNavItems) {
       if (navItem.submenu) {
         const subItem = navItem.submenu.find((sub: any) => sub.id === view);
         if (subItem) return subItem.label;
@@ -404,11 +413,11 @@ export function Navigation({
   // Get page icon based on current view
   const getPageIcon = (view: string) => {
     // Check main items
-    const item = navItems.find(item => item.id === view);
+    const item = safeNavItems.find(item => item.id === view);
     if (item) return item.icon;
     
     // Check submenu items
-    for (const navItem of navItems) {
+    for (const navItem of safeNavItems) {
       if (navItem.submenu) {
         const subItem = navItem.submenu.find((sub: any) => sub.id === view);
         if (subItem) return subItem.icon;
@@ -624,7 +633,7 @@ export function Navigation({
         </div>
 
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-          {navItems.map((item) => renderNavItem(item))}
+          {safeNavItems.map((item) => renderNavItem(item))}
         </nav>
 
         <div className="p-3 space-y-2 shrink-0" style={{ borderTop: `1px solid ${theme.colors.border}` }}>
