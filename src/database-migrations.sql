@@ -44,3 +44,11 @@ COMMENT ON COLUMN campaigns.avg_time_spent IS 'Average time spent on landing pag
 COMMENT ON COLUMN campaigns.subject_line IS 'Email subject line for email campaigns';
 COMMENT ON COLUMN campaigns.preview_text IS 'Preview text that appears after subject line in inbox';
 COMMENT ON COLUMN organization_settings.audience_segments IS 'Predefined audience segments for marketing campaigns and customer tagging';
+
+-- Add export_templates column to organization_settings table (JSONB array)
+-- This moves export templates from ephemeral KV store to persistent DB so all
+-- roles (not just super_admin/admin) can read them when fetching org settings.
+ALTER TABLE organization_settings
+ADD COLUMN IF NOT EXISTS export_templates JSONB DEFAULT '[]'::jsonb;
+
+COMMENT ON COLUMN organization_settings.export_templates IS 'Custom export templates for Quotes and Planners, created by super_admin';

@@ -38,7 +38,8 @@ export interface OrganizationSettings {
 // Fields that may not exist as columns in the organization_settings table.
 // These are stripped before upsert to avoid PGRST204 errors,
 // and are handled via localStorage fallback instead.
-const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels', 'audience_segments', 'user_invite_method', 'export_templates'];
+// export_templates is now stored in the DB column; only these legacy fields stay in KV / need stripping
+const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels', 'audience_segments', 'user_invite_method'];
 
 // ─── GET user preferences ──────────────────────────────────────────────────
 

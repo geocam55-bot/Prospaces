@@ -111,7 +111,8 @@ export function settingsAPI(app: Hono) {
       console.log(`[settings-api] PUT org settings for org=${orgId} by user=${user!.email}, role=${profile!.role}`);
 
       // Strip fields that may not exist as DB columns and save to KV instead
-      const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels', 'audience_segments', 'user_invite_method', 'export_templates'];
+      // export_templates is now stored in the DB column; only these legacy fields stay in KV
+      const OPTIONAL_NON_DB_FIELDS = ['price_tier_labels', 'audience_segments', 'user_invite_method'];
       const dbSettings: any = { ...body, organization_id: orgId, updated_at: new Date().toISOString() };
       
       // Get existing KV data to preserve fields not being updated
