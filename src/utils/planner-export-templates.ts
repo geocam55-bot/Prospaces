@@ -1,6 +1,35 @@
 import { settingsAPI } from './api';
 import { filterTemplatesByModule, type CustomExportTemplate } from './export-engine';
 
+function normalizeOrganizationId(organizationId: string): string {
+  const raw = (organizationId || '').trim();
+  if (!raw || raw === 'undefined' || raw === 'null') {
+    return localStorage.getItem('currentOrgId') || '';
+  }
+  return raw;
+}
+
+function normalizeTemplate(template: any): CustomExportTemplate | null {
+  if (!template || !template.id) return null;
+
+  const detailFields = Array.isArray(template.detail_fields)
+    ? template.detail_fields
+    : (Array.isArray(template.detailFields) ? template.detailFields : []);
+
+  const headerLines = Array.isArray(template.header_lines)
+    ? template.header_lines
+    : (Array.isArray(template.headerLines) ? template.headerLines : []);
+
+  return {
+    ...template,
+    file_extension: template.file_extension ?? template.fileExtension,
+    layout_mode: template.layout_mode ?? template.layoutMode ?? 'delimited',
+    header_lines: headerLines,
+    detail_fields: detailFields,
+    include_column_headers: template.include_column_headers ?? template.includeColumnHeaders,
+  } as CustomExportTemplate;
+}
+
 function getLocalExportTemplates(organizationId: string): CustomExportTemplate[] {
   const collected = new Map<string, CustomExportTemplate>();
 
@@ -58,17 +87,26 @@ function mergeTemplates(
 }
 
 export async function loadPlannerExportTemplates(organizationId: string): Promise<CustomExportTemplate[]> {
-  const localTemplates = getLocalExportTemplates(organizationId);
+  const normalizedOrganizationId = normalizeOrganizationId(organizationId);
+  const localTemplates = getLocalExportTemplates(normalizedOrganizationId);
 
   const normalizePlannerTemplates = (templates: CustomExportTemplate[]): CustomExportTemplate[] => {
-    const plannerTemplates = filterTemplatesByModule(templates, 'planners');
+    const normalizedTemplates = templates
+      .map((template) => normalizeTemplate(template))
+      .filter((template): template is CustomExportTemplate => Boolean(template));
+
+    const plannerTemplates = filterTemplatesByModule(normalizedTemplates, 'planners');
     if (plannerTemplates.length > 0) return plannerTemplates;
 
-    return templates.filter((template) => template?.enabled !== false);
+    return normalizedTemplates.filter((template) => template?.enabled !== false);
   };
 
+  if (!normalizedOrganizationId) {
+    return normalizePlannerTemplates(localTemplates);
+  }
+
   try {
-    const settings = await settingsAPI.getOrganizationSettings(organizationId);
+    const settings = await settingsAPI.getOrganizationSettings(normalizedOrganizationId);
     const serverTemplates = Array.isArray(settings?.export_templates)
       ? (settings.export_templates as CustomExportTemplate[])
       : [];

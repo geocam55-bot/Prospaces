@@ -73,8 +73,25 @@ function padFixedValue(value: string, length: number, align: 'left' | 'right', p
 }
 
 export function buildCustomText(rows: Record<string, unknown>[], template: CustomExportTemplate): string {
-  const headerLines = template.header_lines || [];
-  const detailFields = [...(template.detail_fields || [])];
+  const templateWithLegacyFields = template as CustomExportTemplate & {
+    headerLines?: string[];
+    detailFields?: CustomExportField[];
+    layoutMode?: 'fixed' | 'delimited';
+    includeColumnHeaders?: boolean;
+  };
+
+  const headerLines = template.header_lines
+    || templateWithLegacyFields.headerLines
+    || [];
+  const detailFields = [
+    ...(
+      template.detail_fields
+      || templateWithLegacyFields.detailFields
+      || []
+    ),
+  ];
+  const layoutMode = template.layout_mode || templateWithLegacyFields.layoutMode || 'delimited';
+  const includeColumnHeaders = template.include_column_headers ?? templateWithLegacyFields.includeColumnHeaders;
 
   const getFieldValue = (row: Record<string, unknown>, field: CustomExportField): string => {
     if ((field.source || 'field') === 'text') {
@@ -93,9 +110,9 @@ export function buildCustomText(rows: Record<string, unknown>[], template: Custo
     return [...headerLines, ...rows.map(() => '')].join('\n');
   }
 
-  if (template.layout_mode === 'delimited') {
+  if (layoutMode === 'delimited') {
     const delimiter = template.delimiter || '|';
-    const includeHeaders = template.include_column_headers !== false;
+    const includeHeaders = includeColumnHeaders !== false;
     const output: string[] = [...headerLines];
 
     if (includeHeaders) {
