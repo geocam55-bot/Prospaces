@@ -28,26 +28,27 @@ export function DealsModuleHelp({
     <InteractiveModuleHelp
       moduleKey="deals-help"
       userId={userId}
+      pendingTourKey="bids"
       title="Deals Module Interactive Help"
       description="Learn how to move quotes from draft to close and run quick actions from this guide."
       moduleIcon={FileText}
       triggerLabel="Deals Help"
       steps={[
         {
-          title: 'Discovery and Scope Lock',
-          body: 'Use search and status filters to isolate the right opportunity before changing quote scope.',
+          title: 'Search and filter your quotes',
+          body: 'Type a customer name or company into the search box above to instantly find any quote. Use the status filter beside it to show only Draft, Sent, or Accepted quotes.',
           targetSelector: '[data-tour="bids-search"]',
           placement: 'bottom',
         },
         {
-          title: 'Estimate and Validate',
-          body: 'Maintain quote totals, line items, and status progression so forecasting and pricing remain trustworthy.',
+          title: 'Your quotes list',
+          body: 'Each row here is a quote. Click any row to open and edit it, or use the row menu (⋮) to mark it Accepted, duplicate it, or delete it.',
           targetSelector: '[data-tour="bids-list"]',
           placement: 'top',
         },
         {
-          title: 'Approval and Handoff',
-          body: 'Move quotes to accepted and communicate final terms for clean downstream execution.',
+          title: 'Create a new quote',
+          body: 'Click the **New Quote** button above to start building a quote — you will choose a customer, add line items with pricing, and then send or save as draft.',
           targetSelector: '[data-tour="bids-new"]',
           placement: 'bottom',
         },

@@ -24,22 +24,29 @@ export function CustomerModuleHelp({
     <InteractiveModuleHelp
       moduleKey="customer-help"
       userId={userId}
+      pendingTourKey="contacts"
       title="Customer Module Interactive Help"
       description="Learn the workflow and run quick actions directly from this guide."
       moduleIcon={Users}
       triggerLabel="Customer Help"
       steps={[
         {
-          title: 'Discovery and Scope Lock',
-          body: 'Use search and status filters to confirm the right customer record before planning and pricing work begins.',
+          title: 'Search your contacts',
+          body: 'Type a name, email, company, or phone number into the search box above to filter your contact list in real time. Use the status dropdown to the right to show only Active, Inactive, or Prospect contacts.',
+          targetSelector: '[data-tour="contacts-search"]',
+          placement: 'bottom',
         },
         {
-          title: 'Estimate and Validate',
-          body: 'Maintain complete customer context (owner, price level, tags, notes) so estimate assumptions stay accurate.',
+          title: 'Your contacts list',
+          body: 'Each row is a contact. Click any row to open their full profile and deal history, or use the row menu (\u22ee) on the left to edit, delete, or view their details.',
+          targetSelector: '[data-tour="contacts-list"]',
+          placement: 'top',
         },
         {
-          title: 'Approval and Handoff',
-          body: 'Open customer details to finalize updates, align stakeholders, and support downstream project handoff.',
+          title: 'Add a new contact',
+          body: 'Click **Add Contact** above to create a new contact. Fill in their name, email, phone, and company, then set a status (Active, Prospect, or Inactive) and save.',
+          targetSelector: '[data-tour="contacts-add"]',
+          placement: 'bottom',
         },
       ]}
       badges={[

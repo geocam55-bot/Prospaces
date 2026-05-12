@@ -28,26 +28,27 @@ export function InventoryModuleHelp({
     <InteractiveModuleHelp
       moduleKey="inventory-help"
       userId={userId}
+      pendingTourKey="inventory"
       title="Inventory Module Interactive Help"
       description="Manage stock faster with guided steps and one-click inventory actions."
       moduleIcon={Package}
       triggerLabel="Inventory Help"
       steps={[
         {
-          title: 'Discovery and Scope Lock',
-          body: 'Use search and filters to identify the right item set before stock or pricing updates are made.',
+          title: 'Search your inventory',
+          body: 'Type a product name, SKU, or category into the search box above to filter your catalog instantly. Use the status filter to show only Active, Inactive, or Discontinued items.',
           targetSelector: '[data-tour="inventory-search"]',
           placement: 'bottom',
         },
         {
-          title: 'Estimate and Validate',
-          body: 'Monitor out-of-stock risk and validate quantity/cost assumptions so purchasing and estimating stay aligned.',
+          title: 'Your inventory items',
+          body: 'Each card here is an inventory item. Click a card to view or edit its details — including price, quantity on hand, and description.',
           targetSelector: '[data-tour="inventory-list"]',
           placement: 'top',
         },
         {
-          title: 'Approval and Handoff',
-          body: 'Save validated updates and hand off reliable inventory data to quoting, procurement, and operations.',
+          title: 'Add a new item',
+          body: 'Click **Add Item** above to create a new inventory entry. You will enter a name, SKU, unit price, and category, then save it so it becomes available in quotes and planners.',
           targetSelector: '[data-tour="inventory-add"]',
           placement: 'bottom',
         },

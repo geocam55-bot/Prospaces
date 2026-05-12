@@ -1628,7 +1628,7 @@ export function Contacts({ user }: ContactsProps) {
           <div className="border-b border-slate-200 px-4 py-3 sm:px-6">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center">
-                <div className="relative min-w-0 flex-1 lg:max-w-md">
+                <div data-tour="contacts-search" className="relative min-w-0 flex-1 lg:max-w-md">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
                     placeholder="Search contacts by name, email, company, phone, or status..."
@@ -1707,7 +1707,7 @@ export function Contacts({ user }: ContactsProps) {
                   {canCreateContacts && (
                     <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                       <DialogTrigger asChild>
-                        <Button className="group h-11 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 px-4 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:from-cyan-700 hover:to-cyan-800 hover:shadow-md">
+                        <Button data-tour="contacts-add" className="group h-11 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-700 px-4 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:from-cyan-700 hover:to-cyan-800 hover:shadow-md">
                           <Plus className="mr-2 h-4 w-4 transition-transform group-hover:rotate-90" />
                           Add Contact
                         </Button>
@@ -1735,7 +1735,7 @@ export function Contacts({ user }: ContactsProps) {
             )}
           </div>
 
-          <div className="border-l-4 border-emerald-600 bg-white">
+          <div data-tour="contacts-list" className="border-l-4 border-emerald-600 bg-white">
             <div
               className="overflow-x-auto [scrollbar-width:thin] [&::-webkit-scrollbar]:h-3 [&::-webkit-scrollbar]:w-3 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 hover:[&::-webkit-scrollbar-thumb]:bg-slate-400"
               style={{ scrollbarGutter: 'stable' }}

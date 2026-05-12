@@ -47,6 +47,8 @@ interface InteractiveModuleHelpProps {
   actions: HelpAction[];
   badges?: HelpBadge[];
   howToGuides?: HelpHowToGuide[];
+  /** If this matches the value of the `prospaces.pending-tour` sessionStorage key, auto-start the overlay tour on mount. */
+  pendingTourKey?: string;
 }
 
 export function InteractiveModuleHelp({
@@ -60,6 +62,7 @@ export function InteractiveModuleHelp({
   actions,
   badges = [],
   howToGuides = [],
+  pendingTourKey,
 }: InteractiveModuleHelpProps) {
   const helpOnboardingVersion = 'v1';
   const [isOpen, setIsOpen] = useState(false);
@@ -69,6 +72,19 @@ export function InteractiveModuleHelp({
 
   // Overlay guided tour
   const tour = useTour({ moduleKey: `${moduleKey}-overlay`, userId, steps });
+
+  // Auto-start the overlay tour if Getting Started navigated here
+  useEffect(() => {
+    if (!pendingTourKey) return;
+    const flag = sessionStorage.getItem('prospaces.pending-tour');
+    if (flag === pendingTourKey && steps.some((s) => s.targetSelector)) {
+      sessionStorage.removeItem('prospaces.pending-tour');
+      // Defer so the module's DOM is ready
+      const t = setTimeout(() => tour.start(0), 400);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingTourKey]);
 
   const shouldMaximizeOnOpen = () =>
     typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches;
