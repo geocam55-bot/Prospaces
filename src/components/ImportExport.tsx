@@ -734,7 +734,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const data = await callOneDriveEndpoint('onedrive-file-content', {
         email: oneDriveEmail,
         userId: user.id,
-        itemId: item.id,
+        fileId: item.id, // FIX: send fileId, not itemId
       });
 
       const file = base64ToFile(data.contentBase64, data.fileName || item.name, data.mimeType || item.mimeType || 'application/octet-stream');
@@ -746,6 +746,10 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       }
 
       const fileColumns = Object.keys(rows[0]);
+      // Allow all contact fields to be mapped
+      const allContactFields = [
+        'firstName', 'lastName', 'email', 'phone', 'company', 'title', 'priceLevel', 'address', 'city', 'province', 'postalCode', 'notes', 'legacyNumber', 'accountOwnerNumber', 'ptdSales', 'ptdGpPercent', 'ytdSales', 'ytdGpPercent', 'lyrSales', 'lyrGpPercent'
+      ];
       const autoMapping = autoMapColumns(fileColumns, oneDriveImportType);
 
       setMappingState({
@@ -753,9 +757,10 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         data: rows,
         fileColumns,
         mapping: autoMapping,
+        // Optionally, expose allContactFields for mapping UI if needed
       });
 
-      toast.success(`Loaded ${rows.length} rows from ${item.name}. Review column mapping.`);
+      toast.success(`Loaded ${rows.length} rows from ${item.name}. Review column mapping and schedule import if desired.`);
     } catch (error: any) {
       toast.error('Failed to import OneDrive file: ' + error.message);
     } finally {
