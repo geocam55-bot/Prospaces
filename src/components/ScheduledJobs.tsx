@@ -1,4 +1,14 @@
 import { useState, useEffect } from 'react';
+import { Dialog } from './ui/dialog';
+  // State for editing a job
+  const [editJob, setEditJob] = useState(null);
+  const [editScheduleDateTime, setEditScheduleDateTime] = useState('');
+  const [editRepeatType, setEditRepeatType] = useState('none');
+  const [editRepeatInterval, setEditRepeatInterval] = useState(1);
+  const [editRepeatCustomUnit, setEditRepeatCustomUnit] = useState('days');
+  const [editRepeatEndDate, setEditRepeatEndDate] = useState('');
+  const [editRepeatDaysOfWeek, setEditRepeatDaysOfWeek] = useState([]);
+  const [editRepeatDaysOfMonth, setEditRepeatDaysOfMonth] = useState([]);
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
@@ -745,18 +755,147 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
                     Created by {job.creator_name || 'Unknown'} on {formatDateTime(job.created_at)}
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => cancelJob(job.id)}
-                  disabled={isProcessing}
-                  className="text-red-600 hover:bg-red-50"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  Cancel
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditJob(job);
+                      setEditScheduleDateTime(job.scheduled_time.slice(0, 16));
+                      setEditRepeatType(job.repeat_type || 'none');
+                      setEditRepeatInterval(job.repeat_interval || 1);
+                      setEditRepeatCustomUnit(job.repeat_custom_unit || 'days');
+                      setEditRepeatEndDate(job.repeat_end_date ? job.repeat_end_date.slice(0, 10) : '');
+                      setEditRepeatDaysOfWeek(job.repeat_days_of_week || []);
+                      setEditRepeatDaysOfMonth(job.repeat_days_of_month || []);
+                    }}
+                  >Edit</Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cancelJob(job.id)}
+                    disabled={isProcessing}
+                    className="text-red-600 hover:bg-red-50"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                </div>
               </div>
             ))}
+                {/* Edit Schedule Dialog */}
+                {editJob && (
+                  <Dialog open={!!editJob} onOpenChange={open => { if (!open) setEditJob(null); }}>
+                    <div className="p-6 bg-white rounded shadow max-w-md mx-auto">
+                      <h3 className="text-lg font-bold mb-2">Edit Schedule</h3>
+                      <Label>Date & Time</Label>
+                      <Input
+                        type="datetime-local"
+                        value={editScheduleDateTime}
+                        onChange={e => setEditScheduleDateTime(e.target.value)}
+                        className="mb-2"
+                      />
+                      <Label>Repeat</Label>
+                      <select
+                        className="w-full border rounded p-2 mb-2"
+                        value={editRepeatType}
+                        onChange={e => setEditRepeatType(e.target.value)}
+                      >
+                        <option value="none">None</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="custom">Custom...</option>
+                      </select>
+                      {editRepeatType === 'weekly' && (
+                        <div className="flex gap-2 mb-2">
+                          {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((day, idx) => (
+                            <label key={day} className="flex items-center gap-1 text-xs">
+                              <input
+                                type="checkbox"
+                                checked={editRepeatDaysOfWeek.includes(idx)}
+                                onChange={e => {
+                                  if (e.target.checked) setEditRepeatDaysOfWeek([...editRepeatDaysOfWeek, idx]);
+                                  else setEditRepeatDaysOfWeek(editRepeatDaysOfWeek.filter(d => d !== idx));
+                                }}
+                              />
+                              {day}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      {editRepeatType === 'monthly' && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {[...Array(31)].map((_, i) => (
+                            <label key={i+1} className="flex items-center gap-1 text-xs">
+                              <input
+                                type="checkbox"
+                                checked={editRepeatDaysOfMonth.includes(i+1)}
+                                onChange={e => {
+                                  if (e.target.checked) setEditRepeatDaysOfMonth([...editRepeatDaysOfMonth, i+1]);
+                                  else setEditRepeatDaysOfMonth(editRepeatDaysOfMonth.filter(d => d !== i+1));
+                                }}
+                              />
+                              {i+1}
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      {editRepeatType === 'custom' && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-xs">Every</span>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={editRepeatInterval}
+                            onChange={e => setEditRepeatInterval(Number(e.target.value))}
+                            className="w-16"
+                          />
+                          <select
+                            value={editRepeatCustomUnit}
+                            onChange={e => setEditRepeatCustomUnit(e.target.value)}
+                            className="border rounded p-1"
+                          >
+                            <option value="days">days</option>
+                            <option value="weeks">weeks</option>
+                            <option value="months">months</option>
+                          </select>
+                        </div>
+                      )}
+                      {editRepeatType !== 'none' && (
+                        <div className="mb-2">
+                          <Label>End Date (optional)</Label>
+                          <Input
+                            type="date"
+                            value={editRepeatEndDate}
+                            onChange={e => setEditRepeatEndDate(e.target.value)}
+                          />
+                        </div>
+                      )}
+                      <div className="flex gap-2 justify-end mt-4">
+                        <Button variant="outline" onClick={() => setEditJob(null)}>Cancel</Button>
+                        <Button
+                          onClick={async () => {
+                            if (!editJob) return;
+                            const supabase = createClient();
+                            await supabase.from('scheduled_jobs').update({
+                              scheduled_time: new Date(editScheduleDateTime).toISOString(),
+                              repeat_type: editRepeatType,
+                              repeat_interval: editRepeatType === 'custom' ? editRepeatInterval : null,
+                              repeat_custom_unit: editRepeatType === 'custom' ? editRepeatCustomUnit : null,
+                              repeat_end_date: editRepeatEndDate ? new Date(editRepeatEndDate).toISOString() : null,
+                              repeat_days_of_week: editRepeatType === 'weekly' ? editRepeatDaysOfWeek : null,
+                              repeat_days_of_month: editRepeatType === 'monthly' ? editRepeatDaysOfMonth : null,
+                            }).eq('id', editJob.id);
+                            setEditJob(null);
+                            loadJobs();
+                            toast.success('Schedule updated');
+                          }}
+                        >Save</Button>
+                      </div>
+                    </div>
+                  </Dialog>
+                )}
           </CardContent>
         </Card>
       )}
