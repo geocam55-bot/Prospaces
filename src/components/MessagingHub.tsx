@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
+import { playNotificationSound } from '../utils/notifications';
 import {
   addPortalInternalNote,
   createInternalChat,
@@ -221,6 +222,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
 
       // ── Notification Logic ──
       // Check for new customer messages
+      let shouldPlaySound = false;
       const newMessages = nextMessages.filter(
         (msg: any) => !prevMessagesRef.current.find((p: any) => p.id === msg.id)
       );
@@ -234,6 +236,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
           toast.info(`${notificationText}: "${subject}"`, {
             duration: 5000,
           });
+          shouldPlaySound = true;
           showBrowserNotification(notificationText, {
             body: subject,
             tag: `message-${msg.id}`,
@@ -252,6 +255,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
             const notificationText = `💬 ${newReplyCount} new ${newReplyCount === 1 ? 'reply' : 'replies'} from ${contactName}`;
             
             toast.info(notificationText, { duration: 4000 });
+            shouldPlaySound = true;
             showBrowserNotification('New Message Reply', {
               body: notificationText,
               tag: `reply-${msg.id}`,
@@ -271,6 +275,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
           const notificationText = `💭 New chat: ${chat.title}`;
           
           toast.info(notificationText, { duration: 4000 });
+          shouldPlaySound = true;
           showBrowserNotification('New Chat', {
             body: chat.title,
             tag: `chat-${chat.id}`,
@@ -290,6 +295,7 @@ export function MessagingHub({ user }: MessagingHubProps) {
             const notificationText = `💬 ${newMsgCount} new ${newMsgCount === 1 ? 'message' : 'messages'} in ${chat.title}`;
             
             toast.info(`${notificationText} from ${senderName}`, { duration: 4000 });
+            shouldPlaySound = true;
             showBrowserNotification(chat.title, {
               body: `${senderName}: ${lastMessage?.body?.substring(0, 50) || '(no message)'}`,
               tag: `msg-${chat.id}`,
@@ -298,6 +304,10 @@ export function MessagingHub({ user }: MessagingHubProps) {
           }
         }
       });
+
+      if (shouldPlaySound) {
+        void playNotificationSound();
+      }
 
       // Update refs for next cycle
       prevMessagesRef.current = nextMessages;
