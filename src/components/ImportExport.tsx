@@ -684,6 +684,13 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     }
   };
 
+  const disconnectOneDrive = () => {
+    setOneDriveEmail('');
+    setOneDriveItems([]);
+    setOneDriveFolderStack([]);
+    toast.success('OneDrive disconnected. You can now connect with a different account.');
+  };
+
   const openOneDriveFolder = async (folder: OneDriveItem) => {
     setOneDriveFolderStack((current) => [...current, { id: folder.id, name: folder.name }]);
     await loadOneDriveFiles(folder.id);
@@ -2009,7 +2016,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   <div className="flex flex-wrap gap-2">
                     <Button
                       onClick={connectOneDrive}
-                      disabled={oneDriveConnecting || oneDriveLoading}
+                      disabled={oneDriveConnecting || oneDriveLoading || !!oneDriveEmail}
                       className="flex items-center gap-2"
                     >
                       {oneDriveConnecting ? (
@@ -2024,6 +2031,18 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                         </>
                       )}
                     </Button>
+
+                    {oneDriveEmail && (
+                      <Button
+                        variant="destructive"
+                        onClick={disconnectOneDrive}
+                        disabled={oneDriveLoading || oneDriveConnecting}
+                        className="flex items-center gap-2"
+                      >
+                        <X className="h-4 w-4" />
+                        Disconnect
+                      </Button>
+                    )}
 
                     <Button
                       variant="outline"
