@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { contactsAPI, inventoryAPI, bidsAPI, quotesAPI, settingsAPI } from '../utils/api';
@@ -19,6 +19,8 @@ import {
   Package, 
   FileText, 
   FileSpreadsheet, 
+  Cloud,
+  Folder,
   Upload, 
   Download, 
   Loader2, 
@@ -73,6 +75,17 @@ interface ScheduleExportOptions {
   entity?: 'quotes' | 'bids';
   format?: 'csv' | 'xml' | 'custom';
   templateId?: string;
+}
+
+interface OneDriveItem {
+  id: string;
+  name: string;
+  size?: number;
+  webUrl?: string;
+  lastModifiedDateTime?: string;
+  isFolder: boolean;
+  folderChildCount?: number;
+  mimeType?: string | null;
 }
 
 // Database field definitions
@@ -130,6 +143,15 @@ const DATABASE_FIELDS = {
   ],
 };
 
+const ONE_DRIVE_SCOPES = [
+  'openid',
+  'profile',
+  'email',
+  'offline_access',
+  'https://graph.microsoft.com/User.Read',
+  'https://graph.microsoft.com/Files.Read',
+];
+
 export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [activeTab, setActiveTab] = useState('import');
   const [scopedModule, setScopedModule] = useState<'inventory' | 'contacts' | null>(null);
@@ -152,6 +174,12 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [quoteExportFormat, setQuoteExportFormat] = useState<'csv' | 'xml' | 'custom'>('csv');
   const [quoteCustomTemplateId, setQuoteCustomTemplateId] = useState('');
   const [quoteExportTemplates, setQuoteExportTemplates] = useState<CustomExportTemplate[]>([]);
+  const [oneDriveConnecting, setOneDriveConnecting] = useState(false);
+  const [oneDriveLoading, setOneDriveLoading] = useState(false);
+  const [oneDriveEmail, setOneDriveEmail] = useState('');
+  const [oneDriveItems, setOneDriveItems] = useState<OneDriveItem[]>([]);
+  const [oneDriveFolderStack, setOneDriveFolderStack] = useState<Array<{ id: string; name: string }>>([]);
+  const [oneDriveImportType, setOneDriveImportType] = useState<'contacts' | 'inventory' | 'bids'>('contacts');
 
   const isFreeUser = currentPlanId === 'free';
   const isPlanLoaded = currentPlanId !== null;
@@ -396,8 +424,9 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const mappedDataRaw = data.map(row => {
         const mappedRow: any = {};
         Object.entries(mapping).forEach(([fileCol, dbField]) => {
+          const mappedField = String(dbField || '');
           if (dbField && row[fileCol] !== undefined) {
-            mappedRow[dbField] = row[fileCol];
+            mappedRow[mappedField] = row[fileCol];
           }
         });
         return mappedRow;
@@ -529,6 +558,199 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     const now = new Date();
     now.setMinutes(now.getMinutes() + 5);
     return now.toISOString().slice(0, 16);
+  };
+
+  const getAccessToken = async () => {
+    const supabase = createClient();
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    if (error || !session?.access_token) {
+      throw new Error('You must be logged in to use OneDrive import');
+    }
+
+    return session.access_token;
+  };
+
+  const callOneDriveEndpoint = async (endpoint: string, payload: Record<string, any>) => {
+    const token = await getAccessToken();
+    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data: any = await response.json();
+    if (!response.ok || data?.error) {
+      throw new Error(data?.error || `Failed request: ${endpoint}`);
+    }
+    return data;
+  };
+
+  const loadOneDriveFiles = async (folderId?: string, emailOverride?: string) => {
+    const lookupEmail = (emailOverride || oneDriveEmail).trim();
+    if (!lookupEmail) {
+      throw new Error('Connect a OneDrive account first');
+    }
+
+    setOneDriveLoading(true);
+    try {
+      const data = await callOneDriveEndpoint('onedrive-files', {
+        email: lookupEmail,
+        userId: user.id,
+        folderId,
+      });
+      setOneDriveItems(Array.isArray(data?.items) ? data.items : []);
+    } finally {
+      setOneDriveLoading(false);
+    }
+  };
+
+  const connectOneDrive = async () => {
+    setOneDriveConnecting(true);
+    try {
+      const supabase = createClient();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session?.access_token) {
+        throw new Error('You must be logged in to connect OneDrive');
+      }
+
+      const { data, error } = await supabase.functions.invoke('make-server-8405be07/microsoft-oauth-init', {
+        method: 'POST',
+        body: {
+          userId: user.id,
+          includeFiles: true,
+          scopes: ONE_DRIVE_SCOPES,
+        },
+        headers: {
+          'X-User-Token': session.access_token,
+        },
+      });
+
+      if (error || !data?.success || !data?.authUrl) {
+        throw new Error(data?.error || error?.message || 'Failed to initialize OneDrive OAuth');
+      }
+
+      const popup = window.open(
+        data.authUrl,
+        'OneDrive OAuth',
+        'width=650,height=800,toolbar=no,location=yes,status=yes,menubar=no,scrollbars=yes,resizable=yes'
+      );
+
+      if (!popup) {
+        throw new Error('Popup was blocked. Please allow popups for this site.');
+      }
+
+      const cleanup = () => {
+        window.removeEventListener('message', onMessage);
+        window.clearInterval(popupCheck);
+      };
+
+      const onMessage = async (event: MessageEvent) => {
+        if (event.data?.type === 'outlook-oauth-success') {
+          cleanup();
+          const email = event.data?.account?.email;
+          if (!email) {
+            toast.error('Connected account email was not returned');
+            setOneDriveConnecting(false);
+            return;
+          }
+
+          setOneDriveEmail(email);
+          setOneDriveFolderStack([]);
+          await loadOneDriveFiles(undefined, email);
+          toast.success(`Connected OneDrive account: ${email}`);
+          setOneDriveConnecting(false);
+        } else if (event.data?.type === 'oauth-error' || event.data?.type === 'outlook-oauth-error') {
+          cleanup();
+          setOneDriveConnecting(false);
+          toast.error(event.data?.error || 'OneDrive OAuth failed');
+        }
+      };
+
+      window.addEventListener('message', onMessage);
+
+      const popupCheck = window.setInterval(() => {
+        if (popup.closed) {
+          cleanup();
+          setOneDriveConnecting(false);
+        }
+      }, 500);
+    } catch (error: any) {
+      setOneDriveConnecting(false);
+      toast.error(error.message || 'Failed to connect OneDrive');
+    }
+  };
+
+  const openOneDriveFolder = async (folder: OneDriveItem) => {
+    setOneDriveFolderStack((current) => [...current, { id: folder.id, name: folder.name }]);
+    await loadOneDriveFiles(folder.id);
+  };
+
+  const goToOneDriveRoot = async () => {
+    setOneDriveFolderStack([]);
+    await loadOneDriveFiles();
+  };
+
+  const goOneDriveBack = async () => {
+    if (oneDriveFolderStack.length === 0) return;
+    const nextStack = oneDriveFolderStack.slice(0, -1);
+    setOneDriveFolderStack(nextStack);
+    const parent = nextStack[nextStack.length - 1];
+    await loadOneDriveFiles(parent?.id);
+  };
+
+  const base64ToFile = (base64: string, fileName: string, mimeType: string) => {
+    const binary = atob(base64);
+    const length = binary.length;
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new File([bytes], fileName, { type: mimeType || 'application/octet-stream' });
+  };
+
+  const importFromOneDriveFile = async (item: OneDriveItem) => {
+    const name = item.name.toLowerCase();
+    if (!(name.endsWith('.csv') || name.endsWith('.xlsx') || name.endsWith('.xls'))) {
+      toast.error('Only CSV, XLSX, and XLS files can be imported');
+      return;
+    }
+
+    try {
+      setOneDriveLoading(true);
+      const data = await callOneDriveEndpoint('onedrive-file-content', {
+        email: oneDriveEmail,
+        userId: user.id,
+        itemId: item.id,
+      });
+
+      const file = base64ToFile(data.contentBase64, data.fileName || item.name, data.mimeType || item.mimeType || 'application/octet-stream');
+      const rows = applyFreeImportLimit(await parseFile(file));
+
+      if (rows.length === 0) {
+        toast.error('No data found in selected OneDrive file');
+        return;
+      }
+
+      const fileColumns = Object.keys(rows[0]);
+      const autoMapping = autoMapColumns(fileColumns, oneDriveImportType);
+
+      setMappingState({
+        type: oneDriveImportType,
+        data: rows,
+        fileColumns,
+        mapping: autoMapping,
+      });
+
+      toast.success(`Loaded ${rows.length} rows from ${item.name}. Review column mapping.`);
+    } catch (error: any) {
+      toast.error('Failed to import OneDrive file: ' + error.message);
+    } finally {
+      setOneDriveLoading(false);
+    }
   };
 
   // Parse file (CSV or Excel)
@@ -736,7 +958,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
   // Handle file selection and show mapping UI
   const handleFileSelect = async (
-    event: React.ChangeEvent<HTMLInputElement>,
+    event: ChangeEvent<HTMLInputElement>,
     type: 'contacts' | 'inventory' | 'bids'
   ) => {
     const file = event.target.files?.[0];
@@ -873,8 +1095,9 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const mappedDataRaw = data.map(row => {
         const mappedRow: any = {};
         Object.entries(mapping).forEach(([fileCol, dbField]) => {
+          const mappedField = String(dbField || '');
           if (dbField && row[fileCol] !== undefined) {
-            mappedRow[dbField] = row[fileCol];
+            mappedRow[mappedField] = row[fileCol];
           }
         });
         return mappedRow;
@@ -1771,6 +1994,122 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   Import data from CSV or Excel files (.csv, .xlsx, .xls). The first row must contain column headers. You'll be able to map your columns to database fields.
                 </AlertDescription>
               </Alert>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Cloud className="h-5 w-5" />
+                    Import from OneDrive
+                  </CardTitle>
+                  <CardDescription>
+                    Connect Microsoft OneDrive, browse files, and import CSV or Excel directly.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={connectOneDrive}
+                      disabled={oneDriveConnecting || oneDriveLoading}
+                      className="flex items-center gap-2"
+                    >
+                      {oneDriveConnecting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Cloud className="h-4 w-4" />
+                          Connect OneDrive
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={() => loadOneDriveFiles()}
+                      disabled={!oneDriveEmail || oneDriveLoading || oneDriveConnecting}
+                    >
+                      Refresh Files
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={goOneDriveBack}
+                      disabled={oneDriveFolderStack.length === 0 || oneDriveLoading}
+                    >
+                      Back
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={goToOneDriveRoot}
+                      disabled={!oneDriveEmail || oneDriveLoading || oneDriveFolderStack.length === 0}
+                    >
+                      Root
+                    </Button>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-[220px_1fr] sm:items-center">
+                    <Label>Import as</Label>
+                    <Select
+                      value={oneDriveImportType}
+                      onValueChange={(value: 'contacts' | 'inventory' | 'bids') => setOneDriveImportType(value)}
+                    >
+                      <SelectTrigger className="w-full sm:w-[220px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="contacts">Contacts</SelectItem>
+                        <SelectItem value="inventory">Inventory</SelectItem>
+                        <SelectItem value="bids">Bids</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    {oneDriveEmail ? `Connected as ${oneDriveEmail}` : 'Not connected yet.'}
+                    {oneDriveFolderStack.length > 0 ? ` Current folder: ${oneDriveFolderStack.map((f) => f.name).join(' / ')}` : ''}
+                  </p>
+
+                  <div className="border rounded-md divide-y">
+                    {oneDriveLoading && (
+                      <div className="p-4 text-sm text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading OneDrive files...
+                      </div>
+                    )}
+
+                    {!oneDriveLoading && oneDriveItems.length === 0 && (
+                      <div className="p-4 text-sm text-muted-foreground">
+                        {oneDriveEmail ? 'No files found in this folder.' : 'Connect OneDrive to load files.'}
+                      </div>
+                    )}
+
+                    {!oneDriveLoading && oneDriveItems.map((item) => (
+                      <div key={item.id} className="p-3 flex flex-wrap items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.isFolder ? `Folder${item.folderChildCount ? ` (${item.folderChildCount} items)` : ''}` : item.mimeType || 'File'}
+                          </p>
+                        </div>
+                        {item.isFolder ? (
+                          <Button size="sm" variant="outline" onClick={() => openOneDriveFolder(item)}>
+                            <Folder className="h-4 w-4 mr-2" />
+                            Open
+                          </Button>
+                        ) : (
+                          <Button size="sm" onClick={() => importFromOneDriveFile(item)}>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Import
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Import Contacts */}
               {!inventoryOnlyMode && (
