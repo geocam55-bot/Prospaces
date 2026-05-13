@@ -239,6 +239,22 @@ export function AppContent() {
     const saved = sessionStorage.getItem('prospaces_current_view');
     return saved || 'landing';
   });
+
+  // Listen for hash changes to support navigation fallback (e.g., from ImportExport)
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash === '#scheduled-jobs') {
+        setCurrentView('scheduled-jobs');
+      }
+      // Add more hash-based navigation if needed
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    // Check on mount in case hash is already set
+    handleHashChange();
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, []);
   const [loading, setLoading] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('prospaces_sidebar_collapsed');
