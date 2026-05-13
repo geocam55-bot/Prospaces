@@ -7,6 +7,8 @@ export interface NotificationOptions {
   data?: any;
 }
 
+const NOTIFICATION_SOUND_URL = '/sounds/new-message.wav';
+
 /**
  * Requests notification permission from the user if not already granted.
  * @returns A promise that resolves to the current permission state.
@@ -88,4 +90,24 @@ export async function sendSystemNotification(
   }
 
   return false;
+}
+
+/**
+ * Plays the bundled notification chime for message alerts.
+ * This is best-effort and silently fails when the browser blocks playback.
+ */
+export async function playNotificationSound(src: string = NOTIFICATION_SOUND_URL): Promise<boolean> {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  try {
+    const audio = new Audio(src);
+    audio.volume = 0.35;
+    audio.preload = 'auto';
+    await audio.play();
+    return true;
+  } catch {
+    return false;
+  }
 }

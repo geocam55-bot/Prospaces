@@ -2,6 +2,7 @@ import { Hono } from 'npm:hono';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import { extractUserToken } from './auth-helper.ts';
+import { logAudit } from './audit-api.ts';
 
 /**
  * Customer Portal API
@@ -1400,6 +1401,24 @@ export function customerPortalAPI(app: Hono) {
       msg.updatedAt = new Date().toISOString();
 
       await kv.set(key, msg);
+
+      await logAudit({
+        userId: user.id,
+        userEmail: profile.email,
+        userName: profile.name,
+        action: 'update',
+        resourceType: 'portal_message',
+        resourceId: messageId,
+        organizationId: orgId,
+        details: {
+          description: `Sent portal reply to ${contactId}`,
+          contact_id: contactId,
+          contact_name: msg.contactName || null,
+          subject: msg.subject || null,
+          message_type: 'portal_reply',
+          customer_unread: true,
+        },
+      });
 
       console.log(`[portal] Reply sent to message ${messageId} by ${profile.email}`);
 
