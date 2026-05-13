@@ -161,7 +161,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [mappingState, setMappingState] = useState<MappingState | null>(null);
   const [importProgress, setImportProgress] = useState<{ current: number, total: number } | null>(null);
-  
+
   // Scheduling state
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [scheduleJobType, setScheduleJobType] = useState<'import' | 'export'>('import');
@@ -180,6 +180,14 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [oneDriveItems, setOneDriveItems] = useState<OneDriveItem[]>([]);
   const [oneDriveFolderStack, setOneDriveFolderStack] = useState<Array<{ id: string; name: string }>>([]);
   const [oneDriveImportType, setOneDriveImportType] = useState<'contacts' | 'inventory' | 'bids'>('contacts');
+
+  // Repeat scheduling state
+  const [repeatType, setRepeatType] = useState('none');
+  const [repeatInterval, setRepeatInterval] = useState(1); // for custom
+  const [repeatCustomUnit, setRepeatCustomUnit] = useState('days');
+  const [repeatEndDate, setRepeatEndDate] = useState('');
+  const [repeatDaysOfWeek, setRepeatDaysOfWeek] = useState<number[]>([]); // 0=Mon, 6=Sun
+  const [repeatDaysOfMonth, setRepeatDaysOfMonth] = useState<number[]>([]);
 
   const isFreeUser = currentPlanId === 'free';
   const isPlanLoaded = currentPlanId !== null;
@@ -349,6 +357,12 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
           : scheduleFileData
             ? { records: scheduleFileData }
             : null,
+        // Repeat scheduling fields
+        repeat_type: repeatType,
+        repeat_interval: repeatType === 'custom' ? repeatInterval : null,
+        repeat_end_date: repeatEndDate ? new Date(repeatEndDate).toISOString() : null,
+        repeat_days_of_week: repeatType === 'weekly' ? repeatDaysOfWeek : null,
+        repeat_days_of_month: repeatType === 'monthly' ? repeatDaysOfMonth : null,
       };
 
       const { error } = await supabase
@@ -1924,13 +1938,13 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         <Button
           variant="outline"
           onClick={() => {
-            if (!canUseProBackgroundTools) {
-              showProOnlyMessage();
+            if (!isAdminUser) {
+              toast.info('Only Admin and SuperAdmin can view scheduled jobs.');
               return;
             }
             onNavigate ? onNavigate('scheduled-jobs') : window.location.hash = '#scheduled-jobs';
           }}
-          disabled={!canUseProBackgroundTools}
+          disabled={!isAdminUser}
           className="flex items-center gap-2"
         >
           <History className="h-4 w-4" />
@@ -2536,7 +2550,8 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                 )}
               </div>
 
-              {/* Date/Time Picker */}
+
+              {/* Date/Time Picker & Repeat Options */}
               <div className="space-y-2">
                 <Label htmlFor="schedule-datetime" className="flex items-center gap-2">
                   <CalendarIcon className="h-4 w-4" />
@@ -2553,6 +2568,99 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                 <p className="text-xs text-muted-foreground">
                   Minimum: {new Date(getMinDateTime()).toLocaleString()}
                 </p>
+
+                {/* Repeat Dropdown */}
+                <Label htmlFor="repeat-type" className="flex items-center gap-2 mt-2">
+                  <Clock className="h-4 w-4" />
+                  Repeat
+                </Label>
+                <select
+                  id="repeat-type"
+                  className="w-full border rounded p-2"
+                  value={repeatType}
+                  onChange={e => setRepeatType(e.target.value)}
+                >
+                  <option value="none">None</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="custom">Custom...</option>
+                </select>
+
+                {/* Weekly: Day checkboxes */}
+                {repeatType === 'weekly' && (
+                  <div className="flex gap-2 mt-2">
+                    {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((day, idx) => (
+                      <label key={day} className="flex items-center gap-1 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={repeatDaysOfWeek.includes(idx)}
+                          onChange={e => {
+                            if (e.target.checked) setRepeatDaysOfWeek([...repeatDaysOfWeek, idx]);
+                            else setRepeatDaysOfWeek(repeatDaysOfWeek.filter(d => d !== idx));
+                          }}
+                        />
+                        {day}
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {/* Monthly: Day of month picker */}
+                {repeatType === 'monthly' && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {[...Array(31)].map((_, i) => (
+                      <label key={i+1} className="flex items-center gap-1 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={repeatDaysOfMonth.includes(i+1)}
+                          onChange={e => {
+                            if (e.target.checked) setRepeatDaysOfMonth([...repeatDaysOfMonth, i+1]);
+                            else setRepeatDaysOfMonth(repeatDaysOfMonth.filter(d => d !== i+1));
+                          }}
+                        />
+                        {i+1}
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {/* Custom: Interval input */}
+                {repeatType === 'custom' && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs">Every</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={repeatInterval}
+                      onChange={e => setRepeatInterval(Number(e.target.value))}
+                      className="w-16"
+                    />
+                    <select
+                      value={repeatCustomUnit}
+                      onChange={e => setRepeatCustomUnit(e.target.value)}
+                      className="border rounded p-1"
+                    >
+                      <option value="days">days</option>
+                      <option value="weeks">weeks</option>
+                      <option value="months">months</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* End Date Picker (if repeating) */}
+                {repeatType !== 'none' && (
+                  <div className="mt-2">
+                    <Label htmlFor="repeat-end-date" className="text-xs">End Date (optional)</Label>
+                    <Input
+                      id="repeat-end-date"
+                      type="date"
+                      value={repeatEndDate}
+                      onChange={e => setRepeatEndDate(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Info Alert */}

@@ -20,6 +20,12 @@ CREATE TABLE IF NOT EXISTS scheduled_jobs (
   file_name TEXT,
   file_data JSONB, -- Stores the actual data for import jobs
   creator_name TEXT,
+  -- Repeat scheduling fields
+  repeat_type TEXT CHECK (repeat_type IN ('none', 'daily', 'weekly', 'monthly', 'custom')) DEFAULT 'none',
+  repeat_interval INTEGER, -- For custom intervals (e.g., every X days/weeks/months)
+  repeat_end_date TIMESTAMP WITH TIME ZONE, -- When to stop repeating
+  repeat_days_of_week TEXT[], -- For weekly (e.g., ['mon','wed'])
+  repeat_days_of_month INTEGER[], -- For monthly (e.g., [1,15,30])
   CONSTRAINT valid_scheduled_time CHECK (scheduled_time > created_at)
 );
 

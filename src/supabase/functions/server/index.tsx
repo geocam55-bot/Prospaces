@@ -1564,10 +1564,17 @@ app.post(`${PREFIX}/onedrive-file-content`, async (c) => {
     );
     if (!dlRes.ok) return c.json({ error: `Failed to download file: ${dlRes.status}` }, dlRes.status);
     const buffer = await dlRes.arrayBuffer();
+    // Robust base64 encoding for arbitrary binary data
+    function uint8ToBase64(bytes) {
+      let binary = '';
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i += 0x8000) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      }
+      return btoa(binary);
+    }
     const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-    const base64 = btoa(binary);
+    const base64 = uint8ToBase64(bytes);
     return c.json({ base64, name: meta.name, mimeType: meta.file?.mimeType || 'application/octet-stream' });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });

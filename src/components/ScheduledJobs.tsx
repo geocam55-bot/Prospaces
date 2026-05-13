@@ -119,7 +119,6 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
 
   const processJob = async (job: any) => {
     const supabase = createClient();
-    
     try {
       // Mark as processing
       await supabase
@@ -128,12 +127,9 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
         .eq('id', job.id);
 
       let recordCount = 0;
-
       if (job.job_type === 'export') {
-        // Handle export
         recordCount = await executeExport(job);
       } else if (job.job_type === 'import') {
-        // Handle import
         recordCount = await executeImport(job);
       }
 
@@ -147,9 +143,65 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
         })
         .eq('id', job.id);
 
+      // --- Repeat scheduling logic ---
+      if (job.repeat_type && job.repeat_type !== 'none') {
+        let nextTime: Date | null = null;
+        const current = new Date(job.scheduled_time);
+        if (job.repeat_type === 'daily') {
+          nextTime = new Date(current.getTime() + 24 * 60 * 60 * 1000);
+        } else if (job.repeat_type === 'weekly' && Array.isArray(job.repeat_days_of_week)) {
+          // Find next selected weekday
+          const days = job.repeat_days_of_week.sort();
+          const currentDay = current.getDay(); // 0=Sun, 1=Mon, ...
+          let minDiff = 8, nextDay = null;
+          for (const d of days) {
+            let diff = (d + 1 - currentDay + 7) % 7;
+            if (diff === 0) diff = 7;
+            if (diff < minDiff) { minDiff = diff; nextDay = d; }
+          }
+          nextTime = new Date(current.getTime() + minDiff * 24 * 60 * 60 * 1000);
+        } else if (job.repeat_type === 'monthly' && Array.isArray(job.repeat_days_of_month)) {
+          // Find next selected day of month
+          const days = job.repeat_days_of_month.sort((a,b)=>a-b);
+          const currentDay = current.getDate();
+          let nextDay = days.find(d => d > currentDay);
+          let nextMonth = current.getMonth();
+          let year = current.getFullYear();
+          if (!nextDay) {
+            nextDay = days[0];
+            nextMonth += 1;
+            if (nextMonth > 11) { nextMonth = 0; year += 1; }
+          }
+          nextTime = new Date(year, nextMonth, nextDay, current.getHours(), current.getMinutes());
+        } else if (job.repeat_type === 'custom' && job.repeat_interval && job.repeat_custom_unit) {
+          let ms = 0;
+          if (job.repeat_custom_unit === 'days') ms = job.repeat_interval * 24 * 60 * 60 * 1000;
+          if (job.repeat_custom_unit === 'weeks') ms = job.repeat_interval * 7 * 24 * 60 * 60 * 1000;
+          if (job.repeat_custom_unit === 'months') {
+            const nextMonth = new Date(current);
+            nextMonth.setMonth(nextMonth.getMonth() + job.repeat_interval);
+            nextTime = nextMonth;
+          } else {
+            nextTime = new Date(current.getTime() + ms);
+          }
+        }
+        // Check end date
+        if (nextTime && (!job.repeat_end_date || nextTime <= new Date(job.repeat_end_date))) {
+          // Insert next job occurrence
+          const { id, status, completed_at, error_message, record_count, ...rest } = job;
+          await supabase.from('scheduled_jobs').insert({
+            ...rest,
+            scheduled_time: nextTime.toISOString(),
+            status: 'pending',
+            completed_at: null,
+            error_message: null,
+            record_count: null,
+          });
+        }
+      }
+
       toast.success(`${job.job_type === 'import' ? 'Import' : 'Export'} completed: ${recordCount} records`);
     } catch (error: any) {
-      // Mark as failed
       await supabase
         .from('scheduled_jobs')
         .update({ 
@@ -158,7 +210,6 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
           error_message: error.message
         })
         .eq('id', job.id);
-
       toast.error(`Job failed: ${error.message}`);
     }
   };
