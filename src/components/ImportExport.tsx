@@ -737,7 +737,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         fileId: item.id, // FIX: send fileId, not itemId
       });
 
-      const file = base64ToFile(data.contentBase64, data.fileName || item.name, data.mimeType || item.mimeType || 'application/octet-stream');
+      const file = base64ToFile(data.base64, data.name || item.name, data.mimeType || item.mimeType || 'application/octet-stream');
       const rows = applyFreeImportLimit(await parseFile(file));
 
       if (rows.length === 0) {
