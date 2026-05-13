@@ -8,7 +8,7 @@ const microsoftRoutes = new Hono();
 const AZURE_CLIENT_ID = Deno.env.get('AZURE_CLIENT_ID');
 const AZURE_CLIENT_SECRET = Deno.env.get('AZURE_CLIENT_SECRET');
 const AZURE_TENANT_ID = Deno.env.get('AZURE_TENANT_ID') || 'common';
-const AZURE_REDIRECT_URI = Deno.env.get('AZURE_REDIRECT_URI') || Deno.env.get('APP_URL') + '/oauth-callback';
+const AZURE_REDIRECT_URI = Deno.env.get('AZURE_REDIRECT_URI');
 
 // Microsoft Graph API Scopes
 const MAIL_SCOPES = [
@@ -25,6 +25,10 @@ const CALENDAR_SCOPES = [
   'https://graph.microsoft.com/Calendars.ReadWrite',
 ];
 
+const FILE_SCOPES = [
+  'https://graph.microsoft.com/Files.Read',
+];
+
 // Health check endpoint
 microsoftRoutes.get('/make-server-8405be07/microsoft-health', (c) => {
   const hasCredentials = !!(AZURE_CLIENT_ID && AZURE_CLIENT_SECRET);
@@ -39,7 +43,7 @@ microsoftRoutes.get('/make-server-8405be07/microsoft-health', (c) => {
 // Initialize OAuth flow
 microsoftRoutes.post('/make-server-8405be07/microsoft-oauth-init', async (c) => {
   try {
-    const { scopes, includeCalendar, userId } = await c.req.json();
+    const { scopes, includeCalendar, includeFiles, userId } = await c.req.json();
 
     if (!AZURE_CLIENT_ID || !AZURE_CLIENT_SECRET) {
       console.error('Missing Azure OAuth credentials');
@@ -48,10 +52,20 @@ microsoftRoutes.post('/make-server-8405be07/microsoft-oauth-init', async (c) => 
       }, 500);
     }
 
+    if (!AZURE_REDIRECT_URI) {
+      console.error('Missing AZURE_REDIRECT_URI configuration');
+      return c.json({ 
+        error: 'Server configuration error: AZURE_REDIRECT_URI is not configured. Please set the redirect URI to your application URL (e.g., https://yourapp.com/oauth-callback).' 
+      }, 500);
+    }
+
     // Combine Mail and Calendar scopes if requested
     let requestedScopes = scopes || MAIL_SCOPES;
     if (includeCalendar) {
       requestedScopes = [...new Set([...requestedScopes, ...CALENDAR_SCOPES])];
+    }
+    if (includeFiles) {
+      requestedScopes = [...new Set([...requestedScopes, ...FILE_SCOPES])];
     }
 
     // Create state parameter with user context
@@ -59,7 +73,8 @@ microsoftRoutes.post('/make-server-8405be07/microsoft-oauth-init', async (c) => 
       provider: 'microsoft',
       userId: userId,
       timestamp: Date.now(),
-      includeCalendar: includeCalendar || false
+      includeCalendar: includeCalendar || false,
+      includeFiles: includeFiles || false
     });
 
     // Encode state for URL
@@ -88,6 +103,116 @@ microsoftRoutes.post('/make-server-8405be07/microsoft-oauth-init', async (c) => 
     return c.json({ 
       error: error.message || 'Failed to initialize Microsoft OAuth' 
     }, 500);
+  }
+});
+
+// List OneDrive items for the authenticated Microsoft account
+microsoftRoutes.post('/make-server-8405be07/onedrive-files', async (c) => {
+  try {
+    const { email, userId, folderId } = await c.req.json();
+
+    if (!email) {
+      return c.json({ error: 'Missing email for OneDrive account lookup' }, 400);
+    }
+
+    const accessToken = await getMicrosoftAccessToken(email, userId);
+    const endpoint = folderId
+      ? `https://graph.microsoft.com/v1.0/me/drive/items/${encodeURIComponent(folderId)}/children?$top=200`
+      : 'https://graph.microsoft.com/v1.0/me/drive/root/children?$top=200';
+
+    const graphRes = await fetch(endpoint, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!graphRes.ok) {
+      const details = await graphRes.text();
+      console.error('[OneDrive] Failed to list files:', details);
+      return c.json({ error: 'Failed to list OneDrive files', details }, 400);
+    }
+
+    const payload = await graphRes.json();
+    const items = Array.isArray(payload?.value) ? payload.value : [];
+
+    return c.json({
+      success: true,
+      items: items.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        size: item.size,
+        webUrl: item.webUrl,
+        lastModifiedDateTime: item.lastModifiedDateTime,
+        isFolder: !!item.folder,
+        folderChildCount: item.folder?.childCount || 0,
+        mimeType: item.file?.mimeType || null,
+      })),
+    });
+  } catch (error: any) {
+    console.error('[OneDrive Files] Error:', error);
+    return c.json({ error: error.message || 'Failed to list OneDrive files' }, 500);
+  }
+});
+
+// Retrieve OneDrive file bytes as base64 for frontend parsing (CSV/XLS/XLSX)
+microsoftRoutes.post('/make-server-8405be07/onedrive-file-content', async (c) => {
+  try {
+    const { email, userId, itemId } = await c.req.json();
+
+    if (!email || !itemId) {
+      return c.json({ error: 'Missing required fields: email, itemId' }, 400);
+    }
+
+    const accessToken = await getMicrosoftAccessToken(email, userId);
+
+    const metadataRes = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${encodeURIComponent(itemId)}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!metadataRes.ok) {
+      const details = await metadataRes.text();
+      console.error('[OneDrive File Content] Metadata fetch failed:', details);
+      return c.json({ error: 'Failed to fetch OneDrive file metadata', details }, 400);
+    }
+
+    const metadata = await metadataRes.json();
+
+    if (metadata?.folder) {
+      return c.json({ error: 'Selected item is a folder. Please select a file.' }, 400);
+    }
+
+    const contentRes = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${encodeURIComponent(itemId)}/content`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!contentRes.ok) {
+      const details = await contentRes.text();
+      console.error('[OneDrive File Content] Content fetch failed:', details);
+      return c.json({ error: 'Failed to download OneDrive file content', details }, 400);
+    }
+
+    const buffer = await contentRes.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    const contentBase64 = btoa(binary);
+
+    return c.json({
+      success: true,
+      fileName: metadata?.name || 'onedrive-file',
+      mimeType: metadata?.file?.mimeType || 'application/octet-stream',
+      contentBase64,
+    });
+  } catch (error: any) {
+    console.error('[OneDrive File Content] Error:', error);
+    return c.json({ error: error.message || 'Failed to retrieve OneDrive file content' }, 500);
   }
 });
 
