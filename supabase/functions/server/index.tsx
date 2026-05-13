@@ -1315,13 +1315,16 @@ app.post(`${PREFIX}/microsoft-oauth-init`, async (c) => {
 
     const state = crypto.randomUUID();
     const purpose = body.purpose || 'email'; // 'email' | 'calendar' | 'both'
-    await kv.set(`oauth_state:${state}`, { userId: user.id, provider: 'microsoft', redirectUri, purpose, ts: new Date().toISOString() });
+    const includeFiles = !!body.includeFiles;
+    await kv.set(`oauth_state:${state}`, { userId: user.id, provider: 'microsoft', redirectUri, purpose, includeFiles, ts: new Date().toISOString() });
     const url = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
     url.searchParams.set('client_id', CID);
     url.searchParams.set('response_type', 'code');
     url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('response_mode', 'query');
-    url.searchParams.set('scope', 'offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read Calendars.Read Calendars.ReadWrite');
+    const baseScope = 'offline_access Mail.Read Mail.ReadWrite Mail.Send User.Read Calendars.Read Calendars.ReadWrite';
+    const filesScope = includeFiles ? ' Files.Read Files.ReadWrite' : '';
+    url.searchParams.set('scope', baseScope + filesScope);
     url.searchParams.set('state', state);
     url.searchParams.set('prompt', 'consent');
     return c.json({ success: true, authUrl: url.toString(), pollId: state, registeredRedirectUri: redirectUri });
@@ -1486,6 +1489,88 @@ app.get(`${PREFIX}/oauth-poll/:pollId`, async (c) => {
 });
 
 app.get(`${PREFIX}/azure-health`, (c) => c.json({ status: 'ok', configured: !!(Deno.env.get('AZURE_CLIENT_ID') && Deno.env.get('AZURE_CLIENT_SECRET')) }));
+
+// ── ONEDRIVE FILE BROWSER ────────────────────────────────────────────────
+async function getMicrosoftTokenForEmail(userId: string, email: string): Promise<string | null> {
+  const kvKey = `outlook_${email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+  const account = await kv.get(`email_account:${userId}:${kvKey}`);
+  if (!account) return null;
+  const expiresAt = account.token_expires_at ? new Date(account.token_expires_at) : null;
+  const needsRefresh = !expiresAt || expiresAt.getTime() - Date.now() < 5 * 60 * 1000;
+  if (needsRefresh && account.refresh_token) {
+    try {
+      const td = await refreshAzureTokenFn(account.refresh_token);
+      account.access_token = td.access_token;
+      if (td.refresh_token) account.refresh_token = td.refresh_token;
+      account.token_expires_at = new Date(Date.now() + td.expires_in * 1000).toISOString();
+      await kv.set(`email_account:${userId}:${kvKey}`, account);
+    } catch { /* use existing token */ }
+  }
+  return account.access_token || null;
+}
+
+app.post(`${PREFIX}/onedrive-files`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const { email, folderId } = await c.req.json();
+    if (!email) return c.json({ error: 'Missing email' }, 400);
+    const accessToken = await getMicrosoftTokenForEmail(auth.user.id, email);
+    if (!accessToken) return c.json({ error: 'OneDrive account not connected. Please reconnect.' }, 401);
+    const base = 'https://graph.microsoft.com/v1.0/me/drive';
+    const path = folderId ? `${base}/items/${folderId}/children` : `${base}/root/children`;
+    const res = await fetch(
+      `${path}?$top=200&$orderby=name asc&$select=id,name,folder,file,size,lastModifiedDateTime`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return c.json({ error: err?.error?.message || `Graph API error ${res.status}` }, res.status);
+    }
+    const data = await res.json();
+    const items = (data.value || []).map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      isFolder: !!item.folder,
+      folderChildCount: item.folder?.childCount,
+      size: item.size,
+      mimeType: item.file?.mimeType,
+      lastModified: item.lastModifiedDateTime,
+    }));
+    return c.json({ items });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+app.post(`${PREFIX}/onedrive-file-content`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const { email, fileId } = await c.req.json();
+    if (!email || !fileId) return c.json({ error: 'Missing email or fileId' }, 400);
+    const accessToken = await getMicrosoftTokenForEmail(auth.user.id, email);
+    if (!accessToken) return c.json({ error: 'OneDrive account not connected. Please reconnect.' }, 401);
+    const metaRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}?$select=id,name,file`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!metaRes.ok) {
+      const err = await metaRes.json().catch(() => ({}));
+      return c.json({ error: err?.error?.message || 'Failed to get file info' }, metaRes.status);
+    }
+    const meta = await metaRes.json();
+    const dlRes = await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/content`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (!dlRes.ok) return c.json({ error: `Failed to download file: ${dlRes.status}` }, dlRes.status);
+    const buffer = await dlRes.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    const base64 = btoa(binary);
+    return c.json({ base64, name: meta.name, mimeType: meta.file?.mimeType || 'application/octet-stream' });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
 
 // ── GOOGLE OAUTH ────────────────────────────────────────────────────────
 app.post(`${PREFIX}/google-oauth-init`, async (c) => {

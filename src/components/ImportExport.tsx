@@ -603,6 +603,9 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         folderId,
       });
       setOneDriveItems(Array.isArray(data?.items) ? data.items : []);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to load OneDrive files');
+      setOneDriveItems([]);
     } finally {
       setOneDriveLoading(false);
     }
