@@ -395,7 +395,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
   // Open schedule dialog for import (with file data)
   const openScheduleImportDialog = (dataType: 'contacts' | 'inventory' | 'bids', fileName: string, fileData: any[]) => {
-    if (!canUseProBackgroundTools) {
+    if (!(canUseProBackgroundTools || isAdminUser)) {
       showProOnlyMessage();
       return;
     }
