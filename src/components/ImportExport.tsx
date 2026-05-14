@@ -122,13 +122,6 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   </PermissionGate>
 }
 
-    const data: any = await response.json();
-    if (!response.ok || data?.error) {
-      throw new Error(data?.error || `Failed request: ${endpoint}`);
-    }
-    return data;
-  };
-
   const loadOneDriveFiles = async (folderId?: string, emailOverride?: string) => {
     const lookupEmail = (emailOverride || oneDriveEmail).trim();
     if (!lookupEmail) {
