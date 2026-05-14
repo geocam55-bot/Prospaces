@@ -660,9 +660,56 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
   const pendingJobs = jobs.filter(j => j.status === 'pending');
   const completedJobs = jobs.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status));
 
+  // DEBUG: Show all jobs regardless of status
+  const showDebugAllJobs = true; // Set to false to hide debug section
+
   return (
     <PermissionGate user={user} module="import-export" action="view">
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+
+      {/* DEBUG: Show all jobs fetched from DB */}
+      {showDebugAllJobs && (
+        <Card className="border-red-300">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-600">
+              Debug: All Jobs ({jobs.length})
+            </CardTitle>
+            <CardDescription className="text-xs text-red-500">This section lists all jobs fetched from the database, regardless of status. Use for troubleshooting visibility issues.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {jobs.length === 0 ? (
+              <div className="text-center text-xs text-muted-foreground">No jobs found.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs border">
+                  <thead>
+                    <tr className="bg-red-50">
+                      <th className="border px-2 py-1">ID</th>
+                      <th className="border px-2 py-1">Type</th>
+                      <th className="border px-2 py-1">Data</th>
+                      <th className="border px-2 py-1">Status</th>
+                      <th className="border px-2 py-1">Scheduled</th>
+                      <th className="border px-2 py-1">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {jobs.map(job => (
+                      <tr key={job.id} className="border-b">
+                        <td className="border px-2 py-1 font-mono">{job.id.slice(0, 8)}</td>
+                        <td className="border px-2 py-1">{job.job_type}</td>
+                        <td className="border px-2 py-1">{job.data_type}</td>
+                        <td className="border px-2 py-1">{job.status}</td>
+                        <td className="border px-2 py-1">{formatDateTime(job.scheduled_time)}</td>
+                        <td className="border px-2 py-1">{formatDateTime(job.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {onNavigate && (
