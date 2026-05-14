@@ -11,6 +11,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Scheduler, SchedulerValues } from './Scheduler';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Alert, AlertDescription } from './ui/alert';
@@ -181,13 +182,25 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const [oneDriveFolderStack, setOneDriveFolderStack] = useState<Array<{ id: string; name: string }>>([]);
   const [oneDriveImportType, setOneDriveImportType] = useState<'contacts' | 'inventory' | 'bids'>('contacts');
 
-  // Repeat scheduling state
-  const [repeatType, setRepeatType] = useState('none');
-  const [repeatInterval, setRepeatInterval] = useState(1); // for custom
-  const [repeatCustomUnit, setRepeatCustomUnit] = useState('days');
-  const [repeatEndDate, setRepeatEndDate] = useState('');
-  const [repeatDaysOfWeek, setRepeatDaysOfWeek] = useState<number[]>([]); // 0=Mon, 6=Sun
-  const [repeatDaysOfMonth, setRepeatDaysOfMonth] = useState<number[]>([]);
+  // Advanced scheduler state
+  const [schedulerValues, setSchedulerValues] = useState<SchedulerValues>({
+    scheduleType: 'daily',
+    startDate: '',
+    startTime: '',
+    recurEvery: 1,
+    synchronizeTimeZones: false,
+    delayEnabled: false,
+    delayDuration: '',
+    repeatEnabled: false,
+    repeatInterval: '',
+    repeatDuration: '',
+    stopIfLongEnabled: false,
+    stopIfLongDuration: '',
+    expireEnabled: false,
+    expireDate: '',
+    expireTime: '',
+    enabled: true,
+  });
 
   const isFreeUser = currentPlanId === 'free';
   const isPlanLoaded = currentPlanId !== null;
@@ -235,206 +248,94 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         'contacts-export': 'export-contacts-card',
       };
       const targetId = targetIdByFocus[focusTarget];
-      if (!targetId) return;
-      const targetCard = document.getElementById(targetId);
-      targetCard?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 60);
+      {/* Schedule Dialog */}
+      {showScheduleDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Schedule {scheduleJobType === 'import' ? 'Import' : 'Export'}
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowScheduleDialog(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <CardDescription>
+                Schedule this {scheduleJobType} to run automatically at a specific date and time
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Job Details */}
+              <div className="bg-muted p-3 rounded-lg space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Job Type:</span>
+                  <span className="font-medium capitalize">{scheduleJobType}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Data Type:</span>
+                  <span className="font-medium capitalize">{scheduleDataType}</span>
+                </div>
+                {scheduleJobType === 'export' && scheduleExportOptions?.format && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Format:</span>
+                    <span className="font-medium uppercase">{scheduleExportOptions.format}</span>
+                  </div>
+                )}
+                {scheduleFileName && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">File Name:</span>
+                    <span className="font-medium text-xs">{scheduleFileName}</span>
+                  </div>
+                )}
+              </div>
 
-    sessionStorage.removeItem('prospaces_import_export_focus');
-    sessionStorage.removeItem('prospaces_import_export_scope');
-    return () => window.clearTimeout(timeoutId);
-  }, []);
+              {/* Scheduler UI */}
+              <Scheduler value={schedulerValues} onChange={setSchedulerValues} />
 
-  const inventoryOnlyMode = scopedModule === 'inventory';
-  const contactsOnlyMode = scopedModule === 'contacts';
+              {/* Info Alert */}
+              <Alert className="border-blue-200 bg-blue-50">
+                <History className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-sm text-blue-900">
+                  This job will be automatically processed at the scheduled time. You can view and manage scheduled jobs in the Import & Export module.
+                </AlertDescription>
+              </Alert>
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadSubscriptionPlan = async () => {
-      try {
-        const sub = await getCurrentSubscription();
-        if (!cancelled) {
-          const hasActiveAccess = !!sub && (sub.status === 'active' || sub.status === 'trialing' || sub.status === 'past_due');
-          setCurrentPlanId(hasActiveAccess ? sub.plan_id : 'free');
-        }
-      } catch {
-        if (!cancelled) {
-          // On error, don't assume free — allow unrestricted access
-          setCurrentPlanId('professional');
-        }
-      }
-    };
-
-    loadSubscriptionPlan();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadExportTemplates = async () => {
-      try {
-        const settings = await settingsAPI.getOrganizationSettings(user.organizationId);
-        const allTemplates = (settings?.export_templates || []) as CustomExportTemplate[];
-        const quotesTemplates = filterTemplatesByModule(allTemplates, 'quotes');
-
-        if (!cancelled) {
-          setQuoteExportTemplates(quotesTemplates);
-          if (quotesTemplates.length > 0) {
-            setQuoteCustomTemplateId((current) => current || quotesTemplates[0].id);
-          }
-        }
-      } catch {
-        if (!cancelled) {
-          setQuoteExportTemplates([]);
-        }
-      }
-    };
-
-    if (user.organizationId) {
-      loadExportTemplates();
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user.organizationId]);
-
-  // Create scheduled job
-  const createScheduledJob = async () => {
-    if (!scheduleDateTime) {
-      toast.error('Please select a date and time');
-      return;
-    }
-
-    const scheduledTime = new Date(scheduleDateTime);
-    const now = new Date();
-    
-    if (scheduledTime <= now) {
-      toast.error('Scheduled time must be in the future');
-      return;
-    }
-
-    try {
-      setIsScheduling(true);
-      const supabase = createClient();
-
-      // Get the authenticated user
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !authUser) {
-        throw new Error('You must be logged in to schedule jobs');
-      }
-
-      const isExportJob = scheduleJobType === 'export';
-      const exportFormat = scheduleExportOptions?.format || 'csv';
-      const defaultExtension = exportFormat === 'xml' ? 'xml' : 'csv';
-
-      const jobData = {
-        organization_id: user.organizationId,
-        created_by: authUser.id, // Use authenticated user ID
-        job_type: scheduleJobType,
-        data_type: scheduleDataType,
-        scheduled_time: scheduledTime.toISOString(),
-        status: 'pending' as const,
-        creator_name: user.full_name || user.email || 'User',
-        file_name:
-          scheduleFileName ||
-          `${scheduleJobType}_${scheduleDataType}_${scheduledTime.toISOString().split('T')[0]}.${defaultExtension}`,
-        file_data: isExportJob
-          ? {
-              export_options:
-                scheduleExportOptions ||
-                {
-                  entity: scheduleDataType === 'bids' ? 'bids' : undefined,
-                  format: 'csv',
-                },
-            }
-          : scheduleFileData
-            ? { records: scheduleFileData }
-            : null,
-        // Repeat scheduling fields
-        repeat_type: repeatType,
-        repeat_interval: repeatType === 'custom' ? repeatInterval : null,
-        repeat_end_date: repeatEndDate ? new Date(repeatEndDate).toISOString() : null,
-        repeat_days_of_week: repeatType === 'weekly' ? repeatDaysOfWeek : null,
-        repeat_days_of_month: repeatType === 'monthly' ? repeatDaysOfMonth : null,
-      };
-
-      const { error } = await supabase
-        .from('scheduled_jobs')
-        .insert(jobData);
-
-      if (error) throw error;
-
-      toast.success(`${scheduleJobType === 'import' ? 'Import' : 'Export'} scheduled for ${scheduledTime.toLocaleString()}`);
-      
-      // Reset scheduling dialog
-      setShowScheduleDialog(false);
-      setScheduleDateTime('');
-      setScheduleFileName('');
-      setScheduleFileData(null);
-      setScheduleExportOptions(null);
-    } catch (error: any) {
-      toast.error('Failed to schedule job: ' + error.message);
-    } finally {
-      setIsScheduling(false);
-    }
-  };
-
-  // Open schedule dialog for export
-  const openScheduleExportDialog = (
-    dataType: 'contacts' | 'inventory' | 'bids',
-    options?: ScheduleExportOptions
-  ) => {
-    if (!canUseProBackgroundTools) {
-      showProOnlyMessage();
-      return;
-    }
-
-    setScheduleJobType('export');
-    setScheduleDataType(dataType);
-    const format = options?.format || 'csv';
-    const extension = format === 'xml' ? 'xml' : 'csv';
-    const baseName = options?.entity === 'quotes' ? 'quotes' : dataType;
-    setScheduleFileName(`${baseName}_export_${new Date().toISOString().split('T')[0]}.${extension}`);
-    setScheduleFileData(null);
-    setScheduleExportOptions(options || { entity: 'bids', format: 'csv' });
-    setShowScheduleDialog(true);
-  };
-
-  // Open schedule dialog for import (with file data)
-  const openScheduleImportDialog = (dataType: 'contacts' | 'inventory' | 'bids', fileName: string, fileData: any[]) => {
-    if (!(canUseProBackgroundTools || isAdminUser)) {
-      showProOnlyMessage();
-      return;
-    }
-
-    setScheduleJobType('import');
-    setScheduleDataType(dataType);
-    setScheduleFileName(fileName);
-    setScheduleFileData(fileData);
-    setScheduleExportOptions(null);
-    setShowScheduleDialog(true);
-  };
-
-  // Create background import job (runs immediately in background)
-  const createBackgroundImportJob = async () => {
-    if (!canUseProBackgroundTools) {
-      showProOnlyMessage();
-      return;
-    }
-
-    if (!mappingState) return;
-
-    const { type, data, mapping } = mappingState;
-
-    try {
-      // Map the data using the column mapping
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowScheduleDialog(false)}
+                  disabled={isScheduling}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={createScheduledJob}
+                  disabled={isScheduling || !schedulerValues.startDate || !schedulerValues.startTime}
+                >
+                  {isScheduling ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Scheduling...
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="h-4 w-4 mr-2" />
+                      Schedule Job
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       const mappedDataRaw = data.map(row => {
         const mappedRow: any = {};
         Object.entries(mapping).forEach(([fileCol, dbField]) => {
@@ -469,86 +370,146 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
       // Chunk large datasets to stay under DB/edge-function payload limits
       const CHUNK_SIZE = 2000;
-      const chunks: any[][] = [];
-      for (let i = 0; i < mappedData.length; i += CHUNK_SIZE) {
-        chunks.push(mappedData.slice(i, i + CHUNK_SIZE));
-      }
-
-      // Splitting records into chunked jobs
-
-      // Get session once before the loop
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('No access token found');
-      }
-
-      const url = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/background-jobs/create`;
-      let totalCreated = 0;
-
-      for (let idx = 0; idx < chunks.length; idx++) {
-        const chunk = chunks[idx];
-        const chunkLabel = chunks.length > 1 ? ` (part ${idx + 1}/${chunks.length})` : '';
-        const fileName = `background_import_${type}_${new Date().toISOString().split('T')[0]}${chunks.length > 1 ? `_part${idx + 1}` : ''}.csv`;
-
-        const jobRow = {
-          organization_id: user.organizationId,
-          created_by: authUser.id,
-          job_type: 'import',
-          data_type: type,
-          scheduled_time: new Date().toISOString(),
-          status: 'pending',
-          creator_name: user.full_name || user.email || 'User',
-          file_name: fileName,
-          file_data: { records: chunk, mapping: mapping },
-          // Note: created_at is NOT sent — the DB defaults it to NOW()
-          // and the server ensures scheduled_time > created_at
-        };
-
-        // Creating job for chunk
-        
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify(jobRow),
-        });
-
-        if (!response.ok) {
-          const errBody = await response.text();
-          // Job creation failed
-          let errMsg = `Server error ${response.status}`;
-          try { errMsg = JSON.parse(errBody).error || errMsg; } catch {}
-          throw new Error(`Failed to create job${chunkLabel}: ${errMsg}`);
+      const createScheduledJob = async () => {
+        // Validate scheduler values
+        if (!schedulerValues.startDate || !schedulerValues.startTime) {
+          toast.error('Please select a start date and time');
+          return;
         }
 
-        const result = await response.json();
-        // Job response received
-        
-        if (result.error) {
-          throw new Error(result.error);
+        // Combine date and time into a single ISO string
+        const scheduledTime = new Date(`${schedulerValues.startDate}T${schedulerValues.startTime}`);
+        const now = new Date();
+        if (scheduledTime <= now) {
+          toast.error('Scheduled time must be in the future');
+          return;
         }
-        
-        if (!result.success || !result.job) {
-          // Invalid response
-          throw new Error(`Invalid server response${chunkLabel}`);
+
+        try {
+          setIsScheduling(true);
+          const supabase = createClient();
+
+          // Get the authenticated user
+          const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+          if (authError || !authUser) {
+            throw new Error('You must be logged in to schedule jobs');
+          }
+
+          const isExportJob = scheduleJobType === 'export';
+          const exportFormat = scheduleExportOptions?.format || 'csv';
+          const defaultExtension = exportFormat === 'xml' ? 'xml' : 'csv';
+
+          // Job name (user can edit or default)
+          let jobName = '';
+          if (scheduleFileName) {
+            jobName = scheduleFileName.replace(/\.[^/.]+$/, '');
+          } else {
+            jobName = `${scheduleJobType}_${scheduleDataType}_${scheduledTime.toISOString().split('T')[0]}`;
+          }
+
+          // Detect OneDrive import (if oneDriveEmail and a selected file are set)
+          let isOneDriveImport = false;
+          let selectedOneDriveFile = null;
+          if (oneDriveEmail && oneDriveItems && oneDriveItems.length > 0) {
+            // Find selected file (simulate selection logic, adjust as needed)
+            selectedOneDriveFile = oneDriveItems.find(f => f.selected);
+            if (selectedOneDriveFile) isOneDriveImport = true;
+          }
+
+          // Build file_data for import jobs
+          let fileData = null;
+          if (isExportJob) {
+            fileData = {
+              export_options:
+                scheduleExportOptions ||
+                {
+                  entity: scheduleDataType === 'bids' ? 'bids' : undefined,
+                  format: 'csv',
+                },
+            };
+          } else if (isOneDriveImport && selectedOneDriveFile) {
+            fileData = {
+              oneDrive: {
+                fileId: selectedOneDriveFile.id,
+                fileName: selectedOneDriveFile.name,
+                email: oneDriveEmail,
+                webUrl: selectedOneDriveFile.webUrl || '',
+              },
+              mapping: mappingState?.mapping || {},
+              // Add any other import options needed
+            };
+          } else if (scheduleFileData) {
+            fileData = { records: scheduleFileData };
+          }
+
+          // Advanced scheduler fields
+          const jobData: any = {
+            organization_id: user.organizationId,
+            created_by: authUser.id, // Use authenticated user ID
+            job_type: scheduleJobType,
+            data_type: scheduleDataType,
+            scheduled_time: scheduledTime.toISOString(),
+            status: 'pending' as const,
+            creator_name: user.full_name || user.email || 'User',
+            file_name:
+              scheduleFileName ||
+              `${scheduleJobType}_${scheduleDataType}_${scheduledTime.toISOString().split('T')[0]}.${defaultExtension}`,
+            job_name: jobName,
+            file_data: fileData,
+            // Advanced scheduler fields
+            scheduler_type: schedulerValues.scheduleType,
+            scheduler_recur_every: schedulerValues.recurEvery,
+            scheduler_sync_timezones: schedulerValues.synchronizeTimeZones,
+            scheduler_delay_enabled: schedulerValues.delayEnabled,
+            scheduler_delay_duration: schedulerValues.delayDuration,
+            scheduler_repeat_enabled: schedulerValues.repeatEnabled,
+            scheduler_repeat_interval: schedulerValues.repeatInterval,
+            scheduler_repeat_duration: schedulerValues.repeatDuration,
+            scheduler_stop_if_long_enabled: schedulerValues.stopIfLongEnabled,
+            scheduler_stop_if_long_duration: schedulerValues.stopIfLongDuration,
+            scheduler_expire_enabled: schedulerValues.expireEnabled,
+            scheduler_expire_datetime: schedulerValues.expireEnabled && schedulerValues.expireDate && schedulerValues.expireTime
+              ? new Date(`${schedulerValues.expireDate}T${schedulerValues.expireTime}`).toISOString()
+              : null,
+            scheduler_enabled: schedulerValues.enabled,
+          };
+
+          const { error } = await supabase
+            .from('scheduled_jobs')
+            .insert(jobData);
+
+          if (error) throw error;
+
+          toast.success(`${scheduleJobType === 'import' ? 'Import' : 'Export'} scheduled for ${scheduledTime.toLocaleString()}`);
+          // Reset scheduling dialog and state
+          setShowScheduleDialog(false);
+          setSchedulerValues({
+            scheduleType: 'daily',
+            startDate: '',
+            startTime: '',
+            recurEvery: 1,
+            synchronizeTimeZones: false,
+            delayEnabled: false,
+            delayDuration: '',
+            repeatEnabled: false,
+            repeatInterval: '',
+            repeatDuration: '',
+            stopIfLongEnabled: false,
+            stopIfLongDuration: '',
+            expireEnabled: false,
+            expireDate: '',
+            expireTime: '',
+            enabled: true,
+          });
+          setScheduleFileName('');
+          setScheduleFileData(null);
+          setScheduleExportOptions(null);
+        } catch (error: any) {
+          toast.error('Failed to schedule job: ' + error.message);
+        } finally {
+          setIsScheduling(false);
         }
-        
-        // Job created successfully
-
-        totalCreated += chunk.length;
-
-        // Show progress for multi-chunk imports
-        if (chunks.length > 1) {
-          toast.info(`Created job ${idx + 1} of ${chunks.length} (${totalCreated}/${mappedData.length} records)`);
-        }
-      }
-
-      toast.success(
-        `Background import started for ${mappedData.length} records!`,
-        {
-          description: chunks.length > 1
+      };
             ? `Split into ${chunks.length} jobs. Go to Background Imports to monitor progress.`
             : 'You can close this page. We\'ll notify you when it\'s complete.',
           duration: 10000,

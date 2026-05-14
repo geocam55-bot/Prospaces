@@ -265,7 +265,57 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
       }
 
       if (dueJobs && dueJobs.length > 0) {
-        for (const job of dueJobs as JobRow[]) {
+        for (const job of dueJobs as any[]) {
+          // --- Advanced scheduler logic ---
+          // 1. Skip if not enabled
+          if (job.scheduler_enabled === false) continue;
+
+          // 2. Skip if expired
+          if (job.scheduler_expire_enabled && job.scheduler_expire_datetime) {
+            const expire = new Date(job.scheduler_expire_datetime);
+            if (expire < new Date()) continue;
+          }
+
+          // 3. Random delay logic
+          if (job.scheduler_delay_enabled && job.scheduler_delay_duration) {
+            // If no delayed_until set, calculate and set it
+            if (!job.scheduler_delayed_until) {
+              // Parse duration (e.g., '1 hour', '30 min', '90s')
+              const parseDuration = (str: string): number => {
+                const lower = str.trim().toLowerCase();
+                if (lower.includes('hour')) {
+                  const n = parseFloat(lower);
+                  return isNaN(n) ? 3600 : n * 3600;
+                } else if (lower.includes('min')) {
+                  const n = parseFloat(lower);
+                  return isNaN(n) ? 60 : n * 60;
+                } else if (lower.includes('sec') || lower.includes('s')) {
+                  const n = parseFloat(lower);
+                  return isNaN(n) ? 1 : n;
+                }
+                // fallback: try as seconds
+                const n = parseFloat(lower);
+                return isNaN(n) ? 0 : n;
+              };
+              const maxSeconds = parseDuration(job.scheduler_delay_duration);
+              const randomSeconds = Math.floor(Math.random() * maxSeconds);
+              const delayedUntil = new Date(Date.now() + randomSeconds * 1000);
+              // Save to DB
+              await supabase
+                .from('scheduled_jobs')
+                .update({ scheduler_delayed_until: delayedUntil.toISOString() })
+                .eq('id', job.id);
+              // Skip this run; will be picked up next poll
+              continue;
+            } else {
+              // Only process if now >= delayed_until
+              const delayedUntil = new Date(job.scheduler_delayed_until);
+              if (delayedUntil > new Date()) continue;
+            }
+          }
+
+          // 4. (Optional) Implement stop if long, etc.
+
           if (job.job_type === 'import') {
             await processImportJob(job);
           }

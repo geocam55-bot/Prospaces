@@ -374,24 +374,25 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
           const settings = await settingsAPI.getOrganizationSettings(job.organization_id);
           const templates = filterTemplatesByModule(
             (settings?.export_templates || []) as CustomExportTemplate[],
-            'quotes'
-          );
-          const template = templates.find((item) => item.id === exportOptions.templateId);
-          if (!template) {
-            throw new Error('Scheduled quote export template was not found or is disabled');
-          }
-
-          const content = buildCustomText(rows, template);
-          const extension = (template.file_extension || 'txt').replace(/^\./, '');
-          const templateName = sanitizeFilename(template.name || 'custom');
-          downloadTextFile(
-            content,
-            job.file_name || `quotes_export_${templateName}_${new Date().toISOString().split('T')[0]}.${extension}`,
-            'text/plain;charset=utf-8;'
-          );
-          return data.length;
-        }
-
+                        <Button
+                          onClick={async () => {
+                            if (!editJob) return;
+                            const supabase = createClient();
+                            await supabase.from('scheduled_jobs').update({
+                              job_name: editJob.job_name,
+                              scheduled_time: new Date(editScheduleDateTime).toISOString(),
+                              repeat_type: editRepeatType,
+                              repeat_interval: editRepeatType === 'custom' ? editRepeatInterval : null,
+                              repeat_custom_unit: editRepeatType === 'custom' ? editRepeatCustomUnit : null,
+                              repeat_end_date: editRepeatEndDate ? new Date(editRepeatEndDate).toISOString() : null,
+                              repeat_days_of_week: editRepeatType === 'weekly' ? editRepeatDaysOfWeek : null,
+                              repeat_days_of_month: editRepeatType === 'monthly' ? editRepeatDaysOfMonth : null,
+                            }).eq('id', editJob.id);
+                            setEditJob(null);
+                            loadJobs();
+                            toast.success('Schedule updated');
+                          }}
+                        >Save</Button>
         const csvContent = buildCsv(rows);
         downloadTextFile(
           csvContent,
@@ -792,6 +793,11 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
                       <CalendarIcon className="h-3 w-3" />
                       Scheduled: {formatDateTime(job.scheduled_time)}
                     </span>
+                    {job.job_name && (
+                      <span className="text-xs bg-blue-50 text-blue-800 px-2 py-1 rounded font-semibold">
+                        {job.job_name}
+                      </span>
+                    )}
                     {job.file_name && (
                       <span className="text-xs bg-muted px-2 py-1 rounded">
                         {job.file_name}
@@ -835,6 +841,20 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
                   <Dialog open={!!editJob} onOpenChange={open => { if (!open) setEditJob(null); }}>
                     <div className="p-6 bg-white rounded shadow max-w-md mx-auto">
                       <h3 className="text-lg font-bold mb-2">Edit Schedule</h3>
+                      <Label>Job Name</Label>
+                      <Input
+                        type="text"
+                        value={editJob.job_name || ''}
+                        onChange={e => setEditJob({ ...editJob, job_name: e.target.value })}
+                        className="mb-2"
+                      />
+                      <Label>File Name</Label>
+                      <Input
+                        type="text"
+                        value={editJob.file_name || ''}
+                        onChange={e => setEditJob({ ...editJob, file_name: e.target.value })}
+                        className="mb-2"
+                      />
                       <Label>Date & Time</Label>
                       <Input
                         type="datetime-local"
@@ -842,26 +862,109 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
                         onChange={e => setEditScheduleDateTime(e.target.value)}
                         className="mb-2"
                       />
+                                            {/* Export options (format, template) if present */}
+                                            {editJob.file_data?.export_options && (
+                                              <div className="mb-2">
+                                                <Label>Export Format</Label>
+                                                <select
+                                                  className="w-full border rounded p-2 mb-2"
+                                                  value={editJob.file_data.export_options.format || ''}
+                                                  onChange={e => setEditJob({
+                                                    ...editJob,
+                                                    file_data: {
+                                                      ...editJob.file_data,
+                                                      export_options: {
+                                                        ...editJob.file_data.export_options,
+                                                        format: e.target.value
+                                                      }
+                                                    }
+                                                  })}
+                                                >
+                                                  <option value="csv">CSV</option>
+                                                  <option value="xml">XML</option>
+                                                  <option value="custom">Custom</option>
+                                                </select>
+                                                {editJob.file_data.export_options.format === 'custom' && (
+                                                  <>
+                                                    <Label>Template ID</Label>
+                                                    <Input
+                                                      type="text"
+                                                      value={editJob.file_data.export_options.templateId || ''}
+                                                      onChange={e => setEditJob({
+                                                        ...editJob,
+                                                        file_data: {
+                                                          ...editJob.file_data,
+                                                          export_options: {
+                                                            ...editJob.file_data.export_options,
+                                                            templateId: e.target.value
+                                                          }
+                                                        }
+                                                      })}
+                                                      className="mb-2"
+                                                    />
+                                                  </>
+                                                )}
+                                              </div>
+                                            )}
+                                            {/* OneDrive info if present */}
+                                            {editJob.file_data?.oneDriveFile && (
+                                              <div className="mb-2">
+                                                <Label>OneDrive File</Label>
+                                                <Input
+                                                  type="text"
+                                                  value={editJob.file_data.oneDriveFile.name || ''}
+                                                  onChange={e => setEditJob({
+                                                    ...editJob,
+                                                    file_data: {
+                                                      ...editJob.file_data,
+                                                      oneDriveFile: {
+                                                        ...editJob.file_data.oneDriveFile,
+                                                        name: e.target.value
+                                                      }
+                                                    }
+                                                  })}
+                                                  className="mb-2"
+                                                />
+                                                <Label>OneDrive Email</Label>
+                                                <Input
+                                                  type="text"
+                                                  value={editJob.file_data.oneDriveFile.email || ''}
+                                                  onChange={e => setEditJob({
+                                                    ...editJob,
+                                                    file_data: {
+                                                      ...editJob.file_data,
+                                                      oneDriveFile: {
+                                                        ...editJob.file_data.oneDriveFile,
+                                                        email: e.target.value
+                                                      }
+                                                    }
+                                                  })}
+                                                  className="mb-2"
+                                                />
+                                              </div>
+                                            )}
                       <Label>Repeat</Label>
-                      <select
-                        className="w-full border rounded p-2 mb-2"
-                        value={editRepeatType}
-                        onChange={e => setEditRepeatType(e.target.value)}
-                      >
-                        <option value="none">None</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="custom">Custom...</option>
-                      </select>
-                      {editRepeatType === 'weekly' && (
-                        <div className="flex gap-2 mb-2">
-                          {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((day, idx) => (
-                            <label key={day} className="flex items-center gap-1 text-xs">
-                              <input
-                                type="checkbox"
-                                checked={editRepeatDaysOfWeek.includes(idx)}
-                                onChange={e => {
+                        <Button
+                          onClick={async () => {
+                            if (!editJob) return;
+                            const supabase = createClient();
+                            await supabase.from('scheduled_jobs').update({
+                              job_name: editJob.job_name,
+                              file_name: editJob.file_name,
+                              file_data: editJob.file_data,
+                              scheduled_time: new Date(editScheduleDateTime).toISOString(),
+                              repeat_type: editRepeatType,
+                              repeat_interval: editRepeatType === 'custom' ? editRepeatInterval : null,
+                              repeat_custom_unit: editRepeatType === 'custom' ? editRepeatCustomUnit : null,
+                              repeat_end_date: editRepeatEndDate ? new Date(editRepeatEndDate).toISOString() : null,
+                              repeat_days_of_week: editRepeatType === 'weekly' ? editRepeatDaysOfWeek : null,
+                              repeat_days_of_month: editRepeatType === 'monthly' ? editRepeatDaysOfMonth : null,
+                            }).eq('id', editJob.id);
+                            setEditJob(null);
+                            loadJobs();
+                            toast.success('Schedule updated');
+                          }}
+                        >Save</Button>
                                   if (e.target.checked) setEditRepeatDaysOfWeek([...editRepeatDaysOfWeek, idx]);
                                   else setEditRepeatDaysOfWeek(editRepeatDaysOfWeek.filter(d => d !== idx));
                                 }}
