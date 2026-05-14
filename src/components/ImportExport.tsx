@@ -121,19 +121,6 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       )}
   </PermissionGate>
 }
-
-  const loadOneDriveFiles = async (folderId?: string, emailOverride?: string) => {
-    const lookupEmail = (emailOverride || oneDriveEmail).trim();
-    if (!lookupEmail) {
-      throw new Error('Connect a OneDrive account first');
-    }
-
-    setOneDriveLoading(true);
-    try {
-      const data = await callOneDriveEndpoint('onedrive-files', {
-        email: lookupEmail,
-        userId: user.id,
-        folderId,
       });
       setOneDriveItems(Array.isArray(data?.items) ? data.items : []);
     } catch (error: any) {
