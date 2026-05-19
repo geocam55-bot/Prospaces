@@ -20,7 +20,7 @@ import type { User } from '../App';
 import { PermissionGate, PermissionButton } from './PermissionGate';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { ContactDetail } from './ContactDetail';
-import { ImportExport } from './ImportExport';
+// import ImportExport from './ImportExport';
 import { useDebounce } from '../utils/useDebounce';
 import { getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings';
 import { useAudienceSegments } from '../hooks/useAudienceSegments';
@@ -1783,7 +1783,12 @@ export function Contacts({ user, tourIntentKey, tourIntentNonce }: ContactsProps
                                 </DialogDescription>
                               </DialogHeader>
                               <div className="flex-1 overflow-y-auto">
-                                <ImportExport user={user} />
+                                <button
+                                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg mt-4"
+                                  onClick={() => window.open('/?view=project-wizards&module=import-export', '_blank')}
+                                >
+                                  Open Import/Export Module
+                                </button>
                               </div>
                             </DialogContent>
                           </Dialog>
