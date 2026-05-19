@@ -1,14 +1,6 @@
-import { useState, useEffect } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Dialog } from './ui/dialog';
-  // State for editing a job
-  const [editJob, setEditJob] = useState(null);
-  const [editScheduleDateTime, setEditScheduleDateTime] = useState('');
-  const [editRepeatType, setEditRepeatType] = useState('none');
-  const [editRepeatInterval, setEditRepeatInterval] = useState(1);
-  const [editRepeatCustomUnit, setEditRepeatCustomUnit] = useState('days');
-  const [editRepeatEndDate, setEditRepeatEndDate] = useState('');
-  const [editRepeatDaysOfWeek, setEditRepeatDaysOfWeek] = useState([]);
-  const [editRepeatDaysOfMonth, setEditRepeatDaysOfMonth] = useState([]);
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
@@ -44,92 +36,19 @@ import {
   sanitizeFilename
 } from '../utils/export-engine';
 
-// --- Moved misplaced import logic into executeImport ---
-const executeImport = async (job: any): Promise<number> => {
-  if (!job.file_data || !job.file_data.records) {
-    throw new Error('No import data found');
-  }
+function ScheduledJobs(props) {
+  // State for editing a job
+  const [jobs, setJobs] = useState([]);
+  const [editJob, setEditJob] = useState(null);
+  const [editScheduleDateTime, setEditScheduleDateTime] = useState('');
+  const [editRepeatType, setEditRepeatType] = useState('none');
+  const [editRepeatInterval, setEditRepeatInterval] = useState(1);
+  const [editRepeatCustomUnit, setEditRepeatCustomUnit] = useState('days');
+  const [editRepeatEndDate, setEditRepeatEndDate] = useState('');
+  const [editRepeatDaysOfWeek, setEditRepeatDaysOfWeek] = useState([]);
+  const [editRepeatDaysOfMonth, setEditRepeatDaysOfMonth] = useState([]);
 
-  const data = job.file_data.records;
-  let successCount = 0;
-  const errors: string[] = [];
-
-  if (job.data_type === 'contacts') {
-    // Pre-load auth to avoid triggering Auth API connection resets during large batches
-    const supabase = createClient();
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    let preloadedAuth: any = undefined;
-      if (authUser) {
-        const { ensureUserProfile } = await import('../utils/ensure-profile');
-        const profile = await ensureUserProfile(authUser.id);
-        preloadedAuth = { userId: authUser.id, profile };
-      }
-
-      for (const record of data) {
-        try {
-          // Clean the contact data
-          const cleanContact: any = {
-            name: record.name ? String(record.name).trim() : '',
-          };
-
-          const stringFields = [
-            'email', 'phone', 'company', 'trade', 'status', 'priceLevel', 'address', 'city', 
-            'province', 'postalCode', 'notes', 'legacyNumber', 'accountOwnerNumber'
-          ];
-          
-          const numericFields = [
-            'ptdSales', 'ptdGpPercent', 'ytdSales', 'ytdGpPercent', 'lyrSales', 'lyrGpPercent'
-          ];
-
-          stringFields.forEach(field => {
-            if (record[field] !== undefined) {
-              cleanContact[field] = record[field] != null ? String(record[field]).trim() : '';
-            }
-          });
-
-          numericFields.forEach(field => {
-            if (record[field] !== undefined) {
-              if (record[field] === null || record[field] === '') {
-                cleanContact[field] = null;
-              } else {
-                const val = parseFloat(record[field]);
-                cleanContact[field] = !isNaN(val) ? val : null;
-              }
-            }
-          });
-
-          // Use the modern upsert API (handles legacy number matching, custom column detection, and auth context)
-          await contactsAPI.upsertByLegacyNumber(cleanContact, preloadedAuth);
-
-          successCount++;
-        } catch (error: any) {
-          errors.push(error.message);
-        }
-      }
-    } else if (job.data_type === 'inventory') {
-      // Validate and clean inventory data before bulk upsert
-      const cleanedInventory = [];
-      
-      for (const record of data) {
-        try {
-          // Validate required fields
-          if (!record.name || !record.sku) {
-            errors.push(`Skipping record - Missing required fields (name: ${record.name}, sku: ${record.sku})`);
-            continue;
-          }
-
-          // Clean the inventory data
-          const cleanItem: any = {
-            name: record.name,
-            sku: record.sku,
-          };
-          // ...rest of inventory cleaning logic...
-        } catch (error: any) {
-          errors.push(error.message);
-        }
-      }
-    // Removed invalid outer catch block
-  };
+  // ...existing code...
 
   const processJob = async (job: any) => {
     const supabase = createClient();
@@ -1057,3 +976,5 @@ const executeImport = async (job: any): Promise<number> => {
   );
 }
 }
+}
+export default ScheduledJobs;

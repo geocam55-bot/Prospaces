@@ -30,6 +30,7 @@ import {
 import { Button } from '../ui/button';
 import { ChangePasswordDialog } from '../ChangePasswordDialog';
 import { ProjectWizardsModuleHelp } from './ProjectWizardsModuleHelp';
+import { ImportScreen } from '../../modules/import-export/components/ImportScreen';
 import { createClient } from '../../utils/supabase/client';
 import { canView, onPermissionsChanged } from '../../utils/permissions';
 import type { User } from '../../App';
@@ -407,6 +408,7 @@ export function ProjectWizardsShell({ user, onLogout }: ProjectWizardsShellProps
               <InteriorFinishingPlanner user={currentUser} />
             </PlannerErrorBoundary>
           )}
+          {currentView === 'import-export' && <ImportScreen />}
         </Suspense>
       </main>
     </div>
@@ -424,7 +426,7 @@ function HomeView({
   isAdmin: boolean;
 }) {
   const plannerCards: {
-    id: PlannerView;
+    id: PlannerView | 'import-export';
     label: string;
     description: string;
     icon: React.ComponentType<any>;
@@ -432,7 +434,9 @@ function HomeView({
     shadow: string;
     adminOnly?: boolean;
     module?: string;
+    itOnly?: boolean;
   }[] = [
+    // ...existing cards...
     {
       id: 'contacts',
       label: 'Contacts',
@@ -491,10 +495,27 @@ function HomeView({
       shadow: 'shadow-purple-500/20',
       adminOnly: true,
     },
+    // Import/Export card (admin or IT Space)
+    {
+      id: 'import-export',
+      label: 'Import / Export',
+      description: 'Bulk import contacts, deals, and inventory. Export data in CSV and other formats.',
+      icon: ArrowLeft, // Use a relevant icon
+      gradient: 'from-cyan-400 to-emerald-500',
+      shadow: 'shadow-cyan-400/20',
+      module: 'import-export',
+      adminOnly: false,
+      itOnly: true,
+    },
   ];
 
+  // Show Import/Export if admin or in IT Space
+  const isIT = user.role === 'super_admin' || user.role === 'admin' || (user.space && user.space === 'it');
   const visibleCards = plannerCards.filter(
-    (card) => (!card.adminOnly || isAdmin) && (!card.module || canView(card.module, user.role))
+    (card) =>
+      (!card.adminOnly || isAdmin) &&
+      (!card.module || canView(card.module, user.role)) &&
+      (!card.itOnly || isIT)
   );
 
   const visiblePlannerCount = visibleCards.filter((card) =>

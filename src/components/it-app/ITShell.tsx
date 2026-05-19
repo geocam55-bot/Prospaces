@@ -1,3 +1,4 @@
+import { ImportScreen } from '../../modules/import-export/components/ImportScreen';
 import React, { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 import {
   Monitor,
@@ -50,7 +51,7 @@ const Tenants = lazyNamed(() => import('../Tenants'), 'Tenants');
 const SettingsComponent = lazyNamed(() => import('../Settings'), 'Settings');
 const Security = lazyNamed(() => import('../Security'), 'Security');
 const AuditLog = lazyNamed(() => import('../AuditLog'), 'AuditLog');
-const ImportExport = lazyNamed(() => import('../ImportExport'), 'ImportExport');
+// const ImportExport = lazyNamed(() => import('../ImportExport'), 'ImportExport');
 const ScheduledJobs = lazyNamed(() => import('../ScheduledJobs'), 'ScheduledJobs');
 const SubscriptionBilling = lazyNamed(() => import('../subscription/SubscriptionBilling'), 'SubscriptionBilling');
 const SubscriptionAgreement = lazyNamed(() => import('../SubscriptionAgreement'), 'SubscriptionAgreement');
@@ -375,7 +376,7 @@ export function ITShell({ user, accessToken, onLogout }: ITShellProps) {
           {currentView === 'security' && <Security user={currentUser} />}
           {currentView === 'audit-log' && <AuditLog user={currentUser} />}
           {currentView === 'settings' && <SettingsComponent user={currentUser} organization={organization} onUserUpdate={setCurrentUser} onOrganizationUpdate={setOrganization} />}
-          {currentView === 'import-export' && <ImportExport user={currentUser} />}
+          {currentView === 'import-export' && <ImportScreen />}
           {currentView === 'scheduled-jobs' && <ScheduledJobs user={currentUser} />}
           {currentView === 'billing' && <SubscriptionBilling user={currentUser} />}
           {currentView === 'agreement' && <SubscriptionAgreement organization={organization} onBack={() => handleNavigate('home')} />}
