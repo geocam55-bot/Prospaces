@@ -38,6 +38,7 @@ import {
 
 function ScheduledJobs(props) {
   // State for editing a job
+  const [jobs, setJobs] = useState([]);
   const [editJob, setEditJob] = useState(null);
   const [editScheduleDateTime, setEditScheduleDateTime] = useState('');
   const [editRepeatType, setEditRepeatType] = useState('none');
@@ -974,5 +975,6 @@ function ScheduledJobs(props) {
     </PermissionGate>
   );
 }
-
+}
+}
 export default ScheduledJobs;
